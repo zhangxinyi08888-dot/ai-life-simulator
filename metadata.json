@@ -1,0 +1,6 @@
+{
+  "name": "AI Life Simulator",
+  "description": "一款适配手机端网页的AI人生模拟器。输入出生点与现状，AI提问收集更多信息，通过沉浸式互动生成人生轨迹并洞察用户性格，提供温暖深刻的人生建议。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
