@@ -8,7 +8,7 @@ import { callDeepSeekJson, DeepSeekClientConfig } from "./src/utils/deepseek";
 import { formatAnswerTurns } from "./src/utils/answerFormatting";
 import { formatGeminiErrorForClient, selectMostActionableGeminiError } from "./src/utils/geminiErrors";
 import { buildQuestionPrompt } from "./src/utils/questionPrompt";
-import { normalizeSimulationNode } from "./src/utils/simulationResponse";
+import { generateCompleteSimulationNode } from "./src/utils/simulationNodeRetry";
 
 dotenv.config();
 
@@ -80,6 +80,40 @@ async function generateContentWithRetry(ai: AiClient, options: { model?: string;
 function sendGeminiError(res: express.Response, error: unknown) {
   const clientError = formatGeminiErrorForClient(error);
   return res.status(clientError.status).json(clientError.payload);
+}
+
+function parseAiJsonResponse(response: { text?: string }) {
+  return JSON.parse(response.text || "{}");
+}
+
+function buildNodePromptWithRetryNotice(prompt: string, previousIssues: string[]) {
+  if (previousIssues.length === 0) return prompt;
+
+  const issueLabels: Record<string, string> = {
+    description: "description 剧情正文",
+    attributes: "attributes 五维数值",
+    choices: "choices 选项"
+  };
+  const missingFields = previousIssues.map((issue) => issueLabels[issue] || issue).join("、");
+
+  return `${prompt}
+
+【上一次返回不完整，必须重新生成】
+缺失字段：${missingFields}
+请重新返回完整 JSON，不要解释，不要省略字段。必须包含：
+- description：150-250 字、具体写实的剧情正文；
+- attributes：happiness、intelligence、wealth、relation、health 五个数字；
+- choices：非结局节点必须正好 3 个选项，结局节点必须 1 个选项。`;
+}
+
+function hasCompleteLifeAttributes(attributes: any) {
+  return [
+    attributes?.happiness,
+    attributes?.intelligence,
+    attributes?.wealth,
+    attributes?.relation,
+    attributes?.health
+  ].every((value) => typeof value === "number" && Number.isFinite(value));
 }
 
 // 1. Endpoint: Generate personalized initial questions with dynamic custom options
@@ -203,71 +237,78 @@ ${formatAnswerTurns(answers, { question: "问题", answer: "答案" }) || "暂�
 
 请严格以 JSON Schema 形式返回（用中文）。`;
 
-    const response = await generateContentWithRetry(ai, {
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            initialAttributes: {
-              type: Type.OBJECT,
-              properties: {
-                happiness: { type: Type.INTEGER },
-                intelligence: { type: Type.INTEGER },
-                wealth: { type: Type.INTEGER },
-                relation: { type: Type.INTEGER },
-                health: { type: Type.INTEGER }
+    let latestData: any = {};
+    const startNode = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
+      const response = await generateContentWithRetry(ai, {
+        model: "gemini-3.5-flash",
+        contents: buildNodePromptWithRetryNotice(prompt, previousIssues),
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              initialAttributes: {
+                type: Type.OBJECT,
+                properties: {
+                  happiness: { type: Type.INTEGER },
+                  intelligence: { type: Type.INTEGER },
+                  wealth: { type: Type.INTEGER },
+                  relation: { type: Type.INTEGER },
+                  health: { type: Type.INTEGER }
+                },
+                required: ["happiness", "intelligence", "wealth", "relation", "health"]
               },
-              required: ["happiness", "intelligence", "wealth", "relation", "health"]
-            },
-            startNode: {
-              type: Type.OBJECT,
-              properties: {
-                age: { type: Type.INTEGER },
-                stage: { type: Type.STRING },
-                title: { type: Type.STRING },
-                description: { type: Type.STRING },
-                choices: {
-                  type: Type.ARRAY,
-                  items: {
+              startNode: {
+                type: Type.OBJECT,
+                properties: {
+                  age: { type: Type.INTEGER },
+                  stage: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  choices: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        id: { type: Type.STRING, description: "A, B, or C" },
+                        text: { type: Type.STRING },
+                        impactSummary: { type: Type.STRING }
+                      },
+                      required: ["id", "text", "impactSummary"]
+                    }
+                  },
+                  attributes: {
                     type: Type.OBJECT,
                     properties: {
-                      id: { type: Type.STRING, description: "A, B, or C" },
-                      text: { type: Type.STRING },
-                      impactSummary: { type: Type.STRING }
+                      happiness: { type: Type.INTEGER },
+                      intelligence: { type: Type.INTEGER },
+                      wealth: { type: Type.INTEGER },
+                      relation: { type: Type.INTEGER },
+                      health: { type: Type.INTEGER }
                     },
-                    required: ["id", "text", "impactSummary"]
-                  }
-                },
-                attributes: {
-                  type: Type.OBJECT,
-                  properties: {
-                    happiness: { type: Type.INTEGER },
-                    intelligence: { type: Type.INTEGER },
-                    wealth: { type: Type.INTEGER },
-                    relation: { type: Type.INTEGER },
-                    health: { type: Type.INTEGER }
+                    required: ["happiness", "intelligence", "wealth", "relation", "health"]
                   },
-                  required: ["happiness", "intelligence", "wealth", "relation", "health"]
+                  isEndingNode: { type: Type.BOOLEAN }
                 },
-                isEndingNode: { type: Type.BOOLEAN }
-              },
-              required: ["age", "stage", "title", "description", "choices", "attributes", "isEndingNode"]
-            }
-          },
-          required: ["initialAttributes", "startNode"]
+                required: ["age", "stage", "title", "description", "choices", "attributes", "isEndingNode"]
+              }
+            },
+            required: ["initialAttributes", "startNode"]
+          }
         }
-      }
-    });
+      });
 
-    const responseText = response.text || "{}";
-    const data = JSON.parse(responseText);
-    if (data.startNode) {
-      data.startNode = normalizeSimulationNode(data.startNode, { fallbackAge: regressionAge || 20 });
-    }
-    return res.json(data);
+      latestData = parseAiJsonResponse(response);
+      return latestData.startNode || latestData.node || latestData;
+    }, { fallbackAge: regressionAge || 20 });
+
+    return res.json({
+      ...latestData,
+      initialAttributes: hasCompleteLifeAttributes(latestData.initialAttributes)
+        ? latestData.initialAttributes
+        : startNode.attributes,
+      startNode
+    });
 
   } catch (error: any) {
     console.error("启动人生模拟星轨失败:", error);
@@ -362,56 +403,57 @@ ${eventSeedPrompt}
 
 请严格依照 JSON schema 格式返回。`;
 
-    const response = await generateContentWithRetry(ai, {
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            age: { type: Type.INTEGER },
-            stage: { type: Type.STRING },
-            title: { type: Type.STRING },
-            description: { type: Type.STRING },
-            choices: {
-              type: Type.ARRAY,
-              items: {
+    const maxAgeStep = typeof nodeIndex === "number" && nodeIndex < 3 ? 2 : 4;
+    const node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
+      const response = await generateContentWithRetry(ai, {
+        model: "gemini-3.5-flash",
+        contents: buildNodePromptWithRetryNotice(prompt, previousIssues),
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              age: { type: Type.INTEGER },
+              stage: { type: Type.STRING },
+              title: { type: Type.STRING },
+              description: { type: Type.STRING },
+              choices: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.STRING, description: "A, B, or C" },
+                    text: { type: Type.STRING },
+                    impactSummary: { type: Type.STRING }
+                  },
+                  required: ["id", "text", "impactSummary"]
+                }
+              },
+              attributes: {
                 type: Type.OBJECT,
                 properties: {
-                  id: { type: Type.STRING, description: "A, B, or C" },
-                  text: { type: Type.STRING },
-                  impactSummary: { type: Type.STRING }
+                  happiness: { type: Type.INTEGER },
+                  intelligence: { type: Type.INTEGER },
+                  wealth: { type: Type.INTEGER },
+                  relation: { type: Type.INTEGER },
+                  health: { type: Type.INTEGER }
                 },
-                required: ["id", "text", "impactSummary"]
-              }
-            },
-            attributes: {
-              type: Type.OBJECT,
-              properties: {
-                happiness: { type: Type.INTEGER },
-                intelligence: { type: Type.INTEGER },
-                wealth: { type: Type.INTEGER },
-                relation: { type: Type.INTEGER },
-                health: { type: Type.INTEGER }
+                required: ["happiness", "intelligence", "wealth", "relation", "health"]
               },
-              required: ["happiness", "intelligence", "wealth", "relation", "health"]
+              isEndingNode: { type: Type.BOOLEAN }
             },
-            isEndingNode: { type: Type.BOOLEAN }
-          },
-          required: ["age", "stage", "title", "description", "choices", "attributes", "isEndingNode"]
+            required: ["age", "stage", "title", "description", "choices", "attributes", "isEndingNode"]
+          }
         }
-      }
-    });
+      });
 
-    const responseText = response.text || "{}";
-    const data = JSON.parse(responseText);
-    const maxAgeStep = typeof nodeIndex === "number" && nodeIndex < 3 ? 2 : 4;
-    return res.json(normalizeSimulationNode(data, {
+      return parseAiJsonResponse(response);
+    }, {
       fallbackAge: lastAge + 1,
       minAge: lastAge + 1,
       maxAge: lastAge + maxAgeStep
-    }));
+    });
+    return res.json(node);
 
   } catch (error: any) {
     console.error("推演后续命运节点失败:", error);
@@ -583,51 +625,54 @@ ${historyStr || "这是时光重生的原点（更早无历史记忆）"}
 
 请严格依照 JSON schema 格式返回。`;
 
-    const response = await generateContentWithRetry(ai, {
-      model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            age: { type: Type.INTEGER },
-            stage: { type: Type.STRING },
-            title: { type: Type.STRING },
-            description: { type: Type.STRING },
-            choices: {
-              type: Type.ARRAY,
-              items: {
+    const node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
+      const response = await generateContentWithRetry(ai, {
+        model: "gemini-3.5-flash",
+        contents: buildNodePromptWithRetryNotice(prompt, previousIssues),
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              age: { type: Type.INTEGER },
+              stage: { type: Type.STRING },
+              title: { type: Type.STRING },
+              description: { type: Type.STRING },
+              choices: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.STRING, description: "A, B, or C" },
+                    text: { type: Type.STRING },
+                    impactSummary: { type: Type.STRING }
+                  },
+                  required: ["id", "text", "impactSummary"]
+                }
+              },
+              attributes: {
                 type: Type.OBJECT,
                 properties: {
-                  id: { type: Type.STRING, description: "A, B, or C" },
-                  text: { type: Type.STRING },
-                  impactSummary: { type: Type.STRING }
+                  happiness: { type: Type.INTEGER },
+                  intelligence: { type: Type.INTEGER },
+                  wealth: { type: Type.INTEGER },
+                  relation: { type: Type.INTEGER },
+                  health: { type: Type.INTEGER }
                 },
-                required: ["id", "text", "impactSummary"]
-              }
-            },
-            attributes: {
-              type: Type.OBJECT,
-              properties: {
-                happiness: { type: Type.INTEGER },
-                intelligence: { type: Type.INTEGER },
-                wealth: { type: Type.INTEGER },
-                relation: { type: Type.INTEGER },
-                health: { type: Type.INTEGER }
+                required: ["happiness", "intelligence", "wealth", "relation", "health"]
               },
-              required: ["happiness", "intelligence", "wealth", "relation", "health"]
+              isEndingNode: { type: Type.BOOLEAN }
             },
-            isEndingNode: { type: Type.BOOLEAN }
-          },
-          required: ["age", "stage", "title", "description", "choices", "attributes", "isEndingNode"]
+            required: ["age", "stage", "title", "description", "choices", "attributes", "isEndingNode"]
+          }
         }
-      }
-    });
+      });
 
-    const responseText = response.text || "{}";
-    const data = JSON.parse(responseText);
-    return res.json(normalizeSimulationNode(data.newPath || data.node || data, { fallbackAge: targetAge, minAge: targetAge, maxAge: targetAge }));
+      const data = parseAiJsonResponse(response);
+      return data.newPath || data.node || data;
+    }, { fallbackAge: targetAge, minAge: targetAge, maxAge: targetAge });
+
+    return res.json(node);
 
   } catch (error: any) {
     console.error("时光穿梭推演失败:", error);

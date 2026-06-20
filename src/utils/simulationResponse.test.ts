@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { normalizeSimulationNode } from "./simulationResponse";
+import { getSimulationNodeValidationIssues, normalizeSimulationNode } from "./simulationResponse";
 
 const node = normalizeSimulationNode({
   stage: "选择前夜",
@@ -46,3 +46,29 @@ const crossroadsNode = normalizeSimulationNode({
 });
 assert.equal(crossroadsNode.description, "现实拉扯");
 assert.equal(crossroadsNode.choices[0].text, "继续设计");
+
+assert.deepEqual(getSimulationNodeValidationIssues({
+  age: 42,
+  stage: "中年博弈",
+  title: "荒原博弈",
+  choices: [
+    { id: "A", text: "续约一年，为财务自由做最后冲刺", impactSummary: "孤注一掷" },
+    { id: "B", text: "立刻离开，回到低成本生活", impactSummary: "及时止损" },
+    { id: "C", text: "谈判降负荷，保留部分收入", impactSummary: "折中自救" }
+  ],
+  isEndingNode: false
+}), ["description", "attributes"]);
+
+assert.deepEqual(getSimulationNodeValidationIssues({
+  age: 42,
+  stage: "中年博弈",
+  title: "荒原博弈",
+  description: "合同续签的邮件停在屏幕上，老板承诺一年后的分红，现实却是连续三个月失眠和家人催你回到稳定岗位。",
+  choices: [
+    { id: "A", text: "续约一年，为财务自由做最后冲刺", impactSummary: "孤注一掷" },
+    { id: "B", text: "立刻离开，回到低成本生活", impactSummary: "及时止损" },
+    { id: "C", text: "谈判降负荷，保留部分收入", impactSummary: "折中自救" }
+  ],
+  attributes: { happiness: 43, intelligence: 62, wealth: 58, relation: 46, health: 38 },
+  isEndingNode: false
+}), []);

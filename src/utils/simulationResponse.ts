@@ -33,6 +33,24 @@ function normalizeAttributes(attributes: any): SimulationNode["attributes"] {
 type WithNormalizedChoices<T> = Omit<T, "choices"> & { choices: SimulationNode["choices"] };
 type WithNormalizedNode<T> = Omit<T, keyof SimulationNode> & SimulationNode;
 
+function readNodeDescription(node: any): string {
+  return readString(node?.description)
+    || readString(node?.narrative)
+    || readString(node?.newCrossroads?.narrative)
+    || readString(node?.scene)
+    || readString(node?.story);
+}
+
+function hasCompleteAttributes(attributes: any): boolean {
+  return [
+    attributes?.happiness,
+    attributes?.intelligence ?? attributes?.wisdom ?? attributes?.talent,
+    attributes?.wealth,
+    attributes?.relation ?? attributes?.social ?? attributes?.relationships,
+    attributes?.health
+  ].every((value) => typeof value === "number" && Number.isFinite(value));
+}
+
 export function normalizeSimulationNodeChoices<T extends Record<string, any>>(node: T): WithNormalizedChoices<T> {
   const rawChoices = Array.isArray(node.choices)
     ? node.choices
@@ -55,6 +73,18 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
   };
 }
 
+export function getSimulationNodeValidationIssues(node: Record<string, any>): string[] {
+  const issues: string[] = [];
+  const choices = normalizeSimulationNodeChoices(node).choices;
+  const requiredChoiceCount = node?.isEndingNode ? 1 : 3;
+
+  if (!readNodeDescription(node)) issues.push("description");
+  if (!hasCompleteAttributes(node?.attributes)) issues.push("attributes");
+  if (choices.length < requiredChoiceCount) issues.push("choices");
+
+  return issues;
+}
+
 export function normalizeSimulationNode<T extends Record<string, any>>(node: T, options: NormalizeOptions = {}): WithNormalizedNode<T> {
   const normalized = normalizeSimulationNodeChoices(node);
   const fallbackAge = options.fallbackAge ?? 20;
@@ -64,7 +94,7 @@ export function normalizeSimulationNode<T extends Record<string, any>>(node: T, 
     age: clampNumber(readNumber(normalized.age ?? normalized.currentAge, fallbackAge), options.minAge, options.maxAge),
     stage: readString(normalized.stage) || "现实转折",
     title: readString(normalized.title) || "新的选择",
-    description: readString(normalized.description) || readString(normalized.narrative) || readString(normalized.newCrossroads?.narrative) || readString(normalized.scene) || readString(normalized.story) || "新的现实局面正在展开。",
+    description: readNodeDescription(normalized) || "新的现实局面正在展开。",
     attributes: normalizeAttributes(normalized.attributes),
     isEndingNode: Boolean(normalized.isEndingNode)
   } as WithNormalizedNode<T>;
