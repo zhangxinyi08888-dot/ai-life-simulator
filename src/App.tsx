@@ -332,6 +332,7 @@ export default function App() {
                   nodeCount={nodeCount}
                   onSelectChoice={handleChoiceSelect}
                   isLoadingNext={isLoadingNext}
+                  isLoadingReport={isLoading}
                   onTimeTravel={handleTimeTravel}
                 />
               </motion.div>

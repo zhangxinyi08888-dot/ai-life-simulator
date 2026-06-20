@@ -12,6 +12,7 @@ interface SimulationEngineProps {
   nodeCount: number;
   onSelectChoice: (choiceText: string) => void;
   isLoadingNext: boolean;
+  isLoadingReport: boolean;
   onTimeTravel: (targetAge: number) => void;
 }
 
@@ -21,6 +22,7 @@ export default function SimulationEngine({
   nodeCount,
   onSelectChoice,
   isLoadingNext,
+  isLoadingReport,
   onTimeTravel
 }: SimulationEngineProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -144,14 +146,16 @@ export default function SimulationEngine({
 
       {/* Interactive Command Control Panel (Choices or custom input) */}
       <div className="p-4 border-t border-slate-900 bg-slate-950/95 backdrop-blur-md space-y-3" id="interaction-dock">
-        {isLoadingNext ? (
+        {isLoadingNext || isLoadingReport ? (
           <div className="py-8 flex flex-col items-center justify-center gap-3 text-slate-400" id="loading-next-spinner">
             <div className="w-8 h-8 border-3 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
             <div className="text-[11px] font-mono tracking-widest uppercase text-indigo-400 animate-pulse">
-              时空线收束整理中...
+              {isLoadingReport ? "一生报告生成中..." : "时空线收束整理中..."}
             </div>
             <p className="text-[10px] text-slate-500 max-w-xs text-center leading-normal">
-              AI正在根据你先前的选择、出生时间和宿命因果，推演下一个人生年份的故事。
+              {isLoadingReport
+                ? "AI正在整理你的完整人生轨迹、关键选择和终局属性，生成最终洞察报告。"
+                : "AI正在根据你先前的选择、出生时间和宿命因果，推演下一个人生年份的故事。"}
             </p>
           </div>
         ) : (

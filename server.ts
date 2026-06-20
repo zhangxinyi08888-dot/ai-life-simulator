@@ -8,6 +8,7 @@ import { callDeepSeekJson, DeepSeekClientConfig } from "./src/utils/deepseek";
 import { formatAnswerTurns } from "./src/utils/answerFormatting";
 import { formatGeminiErrorForClient, selectMostActionableGeminiError } from "./src/utils/geminiErrors";
 import { buildQuestionPrompt } from "./src/utils/questionPrompt";
+import { normalizePersonalityInsight } from "./src/utils/insightResponse";
 import { generateCompleteSimulationNode } from "./src/utils/simulationNodeRetry";
 
 dotenv.config();
@@ -560,7 +561,7 @@ ${historyStr}
 
     const responseText = response.text || "{}";
     const data = JSON.parse(responseText);
-    return res.json(data);
+    return res.json(normalizePersonalityInsight(data));
 
   } catch (error: any) {
     console.error("生成性格分析失败:", error);
