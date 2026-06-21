@@ -3,12 +3,13 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
-import { queryDynamicLifeEvent } from "./src/data/lifeEvents";
+import { buildEventMeta, queryDynamicLifeEvent } from "./src/data/lifeEvents";
 import { callDeepSeekJson, DeepSeekClientConfig } from "./src/utils/deepseek";
 import { formatAnswerTurns } from "./src/utils/answerFormatting";
 import { formatGeminiErrorForClient, selectMostActionableGeminiError } from "./src/utils/geminiErrors";
 import { buildQuestionPrompt } from "./src/utils/questionPrompt";
 import { normalizePersonalityInsight } from "./src/utils/insightResponse";
+import { buildEventSeedPrompt } from "./src/utils/eventPrompt";
 import { generateCompleteSimulationNode } from "./src/utils/simulationNodeRetry";
 
 dotenv.config();
@@ -337,10 +338,10 @@ app.post("/api/simulator/next-node", async (req, res) => {
 
     // Query helper for matching life seeds based on current characteristics
     const fallbackAgeCheck = lastAge + 3;
-    const seedEvent = queryDynamicLifeEvent(currentAttributes, userData, fallbackAgeCheck);
+    const seedEvent = queryDynamicLifeEvent(currentAttributes, userData, fallbackAgeCheck, history);
     const eventSeedPrompt = seedEvent
-      ? `\n\n【现实人生事件触发：${seedEvent.title}】\n结合当前角色属性或主线，你在前方流年岁月中触发了一个高概率现实事件：${seedEvent.conceptPrompt}\n请把这个事件设计成当前节点的关键现实局面，并尽量将“是否接受、如何合作、如何取舍、如何承担后果”等重大分叉交给用户通过 A, B, C 选择决定，不要在正文里提前替用户做完选择。`
-      : "";
+      ? buildEventSeedPrompt(seedEvent)
+      : "\n\n【本轮无强事件种子】\n不要为了戏剧性强行制造事故、裁员、背叛或重大危机。请根据用户上一阶段选择、当前五维属性和既往历史，自然推进一段平稳但仍有真实取舍的生活节点。";
 
     const historyStr = history.map((item: any, idx: number) => {
       return `【阶段 ${idx + 1} - ${item.age}岁 - ${item.title}】
@@ -454,7 +455,7 @@ ${eventSeedPrompt}
       minAge: lastAge + 1,
       maxAge: lastAge + maxAgeStep
     });
-    return res.json(node);
+    return res.json(seedEvent ? { ...node, eventMeta: buildEventMeta(seedEvent) } : node);
 
   } catch (error: any) {
     console.error("推演后续命运节点失败:", error);

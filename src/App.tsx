@@ -118,7 +118,8 @@ export default function App() {
         stage: currentNode.stage,
         description: currentNode.description,
         selectedChoice: choiceText,
-        attributes: { ...attributes }
+        attributes: { ...attributes },
+        eventMeta: currentNode.eventMeta
       };
       const updatedHistory = [...history, finalHistoryItem];
 
@@ -160,7 +161,8 @@ export default function App() {
       stage: currentNode.stage,
       description: currentNode.description,
       selectedChoice: choiceText,
-      attributes: { ...attributes }
+      attributes: { ...attributes },
+      eventMeta: currentNode.eventMeta
     };
     const updatedHistory = [...history, newHistoryItem];
     setHistory(updatedHistory);

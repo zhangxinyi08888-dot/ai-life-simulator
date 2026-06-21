@@ -1,13 +1,32 @@
+import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory } from "../types";
+
+export interface PromptSeed {
+  core: string;
+  contextGuidance: string[];
+  forbidden: string[];
+  optionDirections: string[];
+}
+
+export interface EventFingerprint {
+  category: LifeEventCategory;
+  tags: string[];
+  intensity?: "minor" | "major";
+}
+
 export interface LifeEventSeed {
   id: string;
-  category: "career" | "relationship" | "health" | "opportunity";
+  category: LifeEventCategory;
   title: string;
   minAge: number;
   maxAge: number;
   conditionDescription: string;
   // Trigger logic in JSON-friendly schema or simple checking attributes
-  check: (attribs: { happiness: number; intelligence: number; wealth: number; relation: number; health: number }, userData: { birthday?: string; gender?: string; currentSituation?: string }, age: number) => boolean;
-  conceptPrompt: string; // Used to direct AI story generation
+  check: (attribs: LifeAttributes, userData: { birthday?: string; gender?: string; currentSituation?: string }, age: number) => boolean;
+  cooldown?: number;
+  tags?: string[];
+  fingerprint?: EventFingerprint;
+  promptSeed?: PromptSeed;
+  conceptPrompt?: string; // Used to direct AI story generation
 }
 
 export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
@@ -99,12 +118,37 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "health_life_accident_lesson",
     category: "health",
-    title: "意外受伤与生活停顿",
+    title: "身体宕机与生活暂停",
     minAge: 18,
     maxAge: 70,
     conditionDescription: "健康 < 40 或 幸福度 < 35",
     check: (attribs) => attribs.health < 40 || attribs.happiness < 35,
-    conceptPrompt: "因为极度缺觉，你在下雨天骑共享单车或赶地铁是不慎滑倒造成了骨折，或者遇到了一起中等交通事故。你需要被迫在医院/出租屋躺平一到两个月。在这段生活按下了暂停键的真空期，没有社交，没有工作，每一顿饭都需要看外卖员面色。选项必须聚焦于人性的深刻启示：【强作镇定在轮椅上坚持线上协同，不放过任何一封工作邮件】、【顺势接受这次停顿，在痛苦中反思自己过去几年为了无意义的虚荣拼命，真的值吗？】、【在社群上写下这段真实生动的骨折记录贴，吐槽当代人的疲于奔命】。"
+    cooldown: 8,
+    tags: ["health", "major_crisis", "forced_pause", "burnout"],
+    fingerprint: {
+      category: "health",
+      tags: ["health", "major_crisis", "forced_pause", "burnout"],
+      intensity: "major"
+    },
+    promptSeed: {
+      core: "长期透支导致一次现实的身体宕机，被迫暂停原有生活节奏。",
+      contextGuidance: [
+        "结合上一阶段的职业选择、财务状况、居住状态和家庭支持度来决定具体表现。",
+        "如果上一阶段是高压职场，可写体检异常、眩晕、慢病复发或急性炎症。",
+        "如果上一阶段是副业奔波或体力消耗，可写现实意外或劳损加重。",
+        "如果上一阶段是长期孤独和情绪压抑，可写失眠、焦虑躯体化或精神崩溃边缘。"
+      ],
+      forbidden: [
+        "不要固定写雨夜骨折。",
+        "不要连续重复轮椅办公、社群发帖。",
+        "不要把健康危机写成无差别惩罚。"
+      ],
+      optionDirections: [
+        "继续硬撑原计划，但承受身体和效率代价。",
+        "接受停顿，重排生活节奏和工作方式。",
+        "向家人、朋友、公司或医疗系统寻求现实支持。"
+      ]
+    }
   },
 
   // ==================== UNEXPECTED OPPORTUNITIES (实际人生机遇与两难) ====================
@@ -137,14 +181,111 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     conditionDescription: "智力 >= 60 且 财富 < 60",
     check: (attribs) => attribs.intelligence >= 60 && attribs.wealth < 60,
     conceptPrompt: "你在下班后低调做起的独立技术外包、或细分垂直自媒体账号悄然积攒了第一波忠实高客单价客户。副业收入甚至在某几个月跟你的主业基本持平，但因为在主营业务范畴发生了某种细小的利益重叠，如果被公司人力部门发现，你将面临被无补偿开除甚至竞业起诉的巨大可能。选项包括：【在好转的兆头下果断当天提辞职，将业余爱好全面商业化，自己为生】、【立即收缩或出让副业所有权给朋友打掩护，继续把主业的铁饭碗抱死，杜绝一切职业合规风险】、【在钢丝绳上继续疯狂跳舞，白天应付差事磨洋工，晚上红着眼做副业，能捞一笔是一笔】。"
+  },
+  {
+    id: "life_normal_transition",
+    category: "opportunity",
+    title: "平稳生活与长期积累",
+    minAge: 18,
+    maxAge: 80,
+    conditionDescription: "无强事件或近期发生过重大事件时的平稳过渡",
+    check: () => true,
+    cooldown: 2,
+    tags: ["normal_life", "transition", "breathing_room"],
+    fingerprint: {
+      category: "opportunity",
+      tags: ["normal_life", "transition", "breathing_room"],
+      intensity: "minor"
+    },
+    promptSeed: {
+      core: "没有突发大事，生活进入一段平稳但仍有细小取舍的长期积累阶段。",
+      contextGuidance: [
+        "结合上一阶段选择，描述日常节奏、微小压力和普通人的长期取舍。",
+        "不要强行制造事故、裁员、背叛或重大危机。",
+        "让选项围绕继续积累、微调方向、修复关系或照顾身体。"
+      ],
+      forbidden: [
+        "不要为了戏剧性强行引入灾难。",
+        "不要重复最近发生过的重大事件。"
+      ],
+      optionDirections: [
+        "维持当前节奏继续积累。",
+        "做一次温和调整，降低未来风险。",
+        "把注意力转向关系、健康或兴趣的修复。"
+      ]
+    }
   }
 ];
 
+const DEFAULT_COOLDOWN = 4;
+const NORMAL_EVENT_ID = "life_normal_transition";
+
+function eventTags(event: LifeEventSeed): string[] {
+  return event.fingerprint?.tags || event.tags || [];
+}
+
+function hasSharedTag(left: string[], right: string[]): boolean {
+  return left.some((tag) => right.includes(tag));
+}
+
+function eventMeta(item: HistoryItem): EventMeta | undefined {
+  return item.eventMeta;
+}
+
+function isEventInCooldown(event: LifeEventSeed, history: HistoryItem[]): boolean {
+  const cooldown = event.cooldown ?? DEFAULT_COOLDOWN;
+  const recent = history.slice(-cooldown);
+  const tags = eventTags(event);
+
+  return recent.some((item) => {
+    const meta = eventMeta(item);
+    if (!meta) return false;
+    if (meta.eventId && meta.eventId === event.id) return true;
+
+    const metaTags = meta.eventTags || [];
+    const isMajorHealthEvent = tags.includes("health") && tags.includes("major_crisis");
+    const isSameMajorHealthFingerprint = isMajorHealthEvent
+      && metaTags.includes("health")
+      && metaTags.includes("major_crisis")
+      && hasSharedTag(tags, metaTags);
+
+    return isSameMajorHealthFingerprint;
+  });
+}
+
+function isCategoryLimited(event: LifeEventSeed, history: HistoryItem[]): boolean {
+  const recent = history.slice(-2);
+  if (recent.length < 2) return false;
+
+  const categories = recent.map((item) => item.eventMeta?.eventCategory).filter(Boolean);
+  if (categories.length < 2 || categories[0] !== categories[1]) return false;
+
+  if (categories[0] === event.category) return true;
+
+  const tags = eventTags(event);
+  const isMajorHealthEvent = tags.includes("health") && tags.includes("major_crisis");
+  const recentHadMajorHealth = recent.some((item) => {
+    const recentTags = item.eventMeta?.eventTags || [];
+    return recentTags.includes("health") && recentTags.includes("major_crisis");
+  });
+
+  return isMajorHealthEvent && recentHadMajorHealth;
+}
+
+function hasRecentMajorEvent(history: HistoryItem[]): boolean {
+  return history.slice(-2).some((item) => item.eventMeta?.eventTags?.includes("major_crisis"));
+}
+
+function hasStableBreathingRoom(attribs: LifeAttributes): boolean {
+  return attribs.health >= 50 && attribs.wealth >= 50 && attribs.happiness >= 50;
+}
+
 // Helper to select the single best matching life event seed dynamically
 export function queryDynamicLifeEvent(
-  attribs: { happiness: number; intelligence: number; wealth: number; relation: number; health: number },
+  attribs: LifeAttributes,
   userData: { birthday?: string; gender?: string; currentSituation?: string },
-  age: number
+  age: number,
+  history: HistoryItem[] = []
 ): LifeEventSeed | null {
   // Filter events within age range and that pass our condition check
   const candidates = LIFE_EVENTS_DATABASE.filter(event => {
@@ -153,8 +294,32 @@ export function queryDynamicLifeEvent(
 
   if (candidates.length === 0) return null;
 
-  // Choose a random matching event or pick of appropriate priority
-  const index = Math.floor(Math.random() * candidates.length);
-  return candidates[index];
+  const nonCooledCandidates = candidates.filter((event) => !isEventInCooldown(event, history));
+  if (nonCooledCandidates.length === 0) return null;
+
+  const categoryAllowedCandidates = nonCooledCandidates.filter((event) => !isCategoryLimited(event, history));
+  const finalCandidates = categoryAllowedCandidates.length > 0 ? categoryAllowedCandidates : nonCooledCandidates;
+  const normalTransition = finalCandidates.find((event) => event.id === NORMAL_EVENT_ID);
+
+  if (normalTransition && hasRecentMajorEvent(history) && hasStableBreathingRoom(attribs)) {
+    return normalTransition;
+  }
+
+  if (normalTransition && finalCandidates.length === 1) return normalTransition;
+
+  const dramaticCandidates = finalCandidates.filter((event) => event.id !== NORMAL_EVENT_ID);
+  if (dramaticCandidates.length > 0) {
+    const index = Math.floor(Math.random() * dramaticCandidates.length);
+    return dramaticCandidates[index];
+  }
+
+  return normalTransition || null;
 }
 
+export function buildEventMeta(event: LifeEventSeed): EventMeta {
+  return {
+    eventId: event.id,
+    eventCategory: event.category,
+    eventTags: eventTags(event)
+  };
+}

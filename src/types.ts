@@ -50,6 +50,14 @@ export interface SimulationChoice {
   impactSummary: string;    // 选项潜在线索提示或意味
 }
 
+export type LifeEventCategory = "career" | "relationship" | "health" | "opportunity";
+
+export interface EventMeta {
+  eventId?: string;
+  eventCategory?: LifeEventCategory;
+  eventTags: string[];
+}
+
 export interface SimulationNode {
   age: number;              // 当前模拟的年龄
   stage: string;            // 人生阶段: "学步懵懂", "金石华年", "立身扬名", "不惑风雨", "桑榆暮景", "终章致敬" 等
@@ -58,6 +66,7 @@ export interface SimulationNode {
   choices: SimulationChoice[]; // 三个预设选项 + 支持自定义
   attributes: LifeAttributes;  // 更新后的五维属性值
   isEndingNode: boolean;       // 是否已到达人生终点
+  eventMeta?: EventMeta;        // 触发本节点的事件种子元数据，用于冷却与同类限制
 }
 
 export interface HistoryItem {
@@ -67,6 +76,7 @@ export interface HistoryItem {
   description: string;
   selectedChoice: string;
   attributes: LifeAttributes;   // 存储该历史节点当时的属性状态，支持高保真时光回溯
+  eventMeta?: EventMeta;
 }
 
 export interface PersonalityInsight {
