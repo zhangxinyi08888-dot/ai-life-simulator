@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -43,10 +43,30 @@ jobs:
         env:
           BASE_PATH: /ai-life-simulator/
 
+      - name: Prepare static site
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
+          rm -f dist/server.cjs dist/server.cjs.map
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: dist
+
+      - name: Publish gh-pages branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p ../pages-site
+          cp -R dist/. ../pages-site/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --orphan gh-pages
+          git rm -rf . || true
+          cp -R ../pages-site/. .
+          git add .
+          git commit -m "Deploy main build to GitHub Pages" || exit 0
+          git push --force origin gh-pages
 
   deploy:
     needs: build
