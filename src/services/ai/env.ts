@@ -36,6 +36,9 @@ export function getBrowserAiEnvFromRecord(env: BrowserAiEnvRecord): BrowserAiEnv
 }
 
 export function getBrowserAiEnv(): BrowserAiEnv {
-  const meta = import.meta as ImportMeta & { env?: BrowserAiEnvRecord };
-  return getBrowserAiEnvFromRecord(meta.env || {});
+  return getBrowserAiEnvFromRecord({
+    VITE_DEEPSEEK_API_KEY: import.meta.env.VITE_DEEPSEEK_API_KEY,
+    VITE_DEEPSEEK_BASE_URL: import.meta.env.VITE_DEEPSEEK_BASE_URL,
+    VITE_DEEPSEEK_MODEL: import.meta.env.VITE_DEEPSEEK_MODEL
+  });
 }
