@@ -206,6 +206,68 @@ GitHub Pages 的生产构建应该只构建前端。
 
 当 `pnpm build` 不再生成 `dist/server.cjs` 后，可以移除 workflow 里针对 server bundle 的清理逻辑。
 
+`dist` 目录继续保留在 `.gitignore` 中，不需要提交到仓库。GitHub Actions 会在每次 CI 运行时重新安装依赖、执行构建、临时生成 `dist`，然后把该目录作为 GitHub Pages artifact 上传并发布。
+
+CI 触发策略：
+
+- 当代码合并或推送到 `main` 分支时，自动触发 GitHub Pages 部署。
+- 允许手动触发 workflow，便于临时重新部署。
+- 每次部署都从当前 `main` 的源码重新构建，不依赖本地提交的构建产物。
+- GitHub Pages 发布源应设置为 GitHub Actions，而不是某个分支目录。
+
+推荐 workflow 结构：
+
+```yaml
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      BASE_PATH: /ai-life-simulator/
+      VITE_DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      VITE_DEEPSEEK_MODEL: deepseek-v4-flash
+      VITE_DEEPSEEK_BASE_URL: https://api.deepseek.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: cp dist/index.html dist/404.html
+      - run: touch dist/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+```
+
 配置示例：
 
 本地 `.env.local`：
@@ -299,7 +361,7 @@ UI 映射：
 6. 更新 `App.tsx`，移除对 `/api/simulator/*` 的请求。
 7. 增加缺少 `VITE_DEEPSEEK_API_KEY` 时的清晰错误提示。
 8. 修改 `package.json` scripts，让 Pages 只执行 `vite build`。
-9. 简化 `.github/workflows/deploy-pages.yml`，只保留静态产物部署逻辑。
+9. 简化 `.github/workflows/deploy-pages.yml`，只保留静态产物部署逻辑，并设置 `main` 分支 push 后自动构建部署。
 10. 使用 `BASE_PATH=/ai-life-simulator/ pnpm build` 验证本地静态构建。
 11. 检查构建产物和浏览器网络请求，确认线上不再访问 `/api/simulator/*`。
 
@@ -310,6 +372,8 @@ UI 映射：
 - 配置有效 DeepSeek Key 后，线上版本可以生成追问、开始模拟、生成下一节点、进行时空穿越并生成最终洞察报告。
 - 未配置 Key 时，线上版本展示环境配置错误提示，而不是通用网络失败弹窗。
 - 本地开发不需要运行 Express。
+- 合并或推送到 `main` 后，GitHub Actions 自动构建当前源码并更新 GitHub Pages。
+- `dist` 不需要提交到 Git 仓库，部署使用 CI 运行时生成的 `dist` artifact。
 - `pnpm lint` 通过。
 - 现有工具测试和新增浏览器端 AI service 测试通过。
 - Pages 产物只包含静态前端文件、`.nojekyll` 和 `404.html`。
