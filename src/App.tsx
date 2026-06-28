@@ -7,6 +7,36 @@ import InitialSetup from "./components/InitialSetup";
 import SoulQuestioning from "./components/SoulQuestioning";
 import SimulationEngine from "./components/SimulationEngine";
 import DestinyReport from "./components/DestinyReport";
+import { isAiClientError } from "./services/ai/errors";
+import {
+  analyzePersonality,
+  generateNextNode,
+  generateQuestions,
+  startSimulation,
+  timeTravel as runTimeTravel
+} from "./services/simulation/simulationService";
+
+function getSimulationErrorMessage(error: unknown, fallback: string): string {
+  if (!isAiClientError(error)) return fallback;
+
+  if (error.code === "API_KEY_MISSING") {
+    return "未检测到 VITE_DEEPSEEK_API_KEY，请在本地或构建环境中配置 DeepSeek API Key。";
+  }
+  if (error.code === "AI_AUTH_FAILED") {
+    return "DeepSeek API Key 校验失败，请检查 VITE_DEEPSEEK_API_KEY 是否正确。";
+  }
+  if (error.code === "AI_RATE_LIMITED") {
+    return "DeepSeek 请求过于频繁，请稍后再试。";
+  }
+  if (error.code === "AI_RESPONSE_INVALID") {
+    return "AI 返回内容格式异常，请重新生成。";
+  }
+  if (error.code === "AI_NETWORK_FAILED") {
+    return "网络异常：无法连接至命理计算中枢，请检查网络配置或稍后再试。";
+  }
+
+  return error.message || fallback;
+}
 
 export default function App() {
   const [step, setStep] = useState<"initial" | "questioning" | "simulating" | "insight">("initial");
@@ -41,28 +71,13 @@ export default function App() {
     setName(userName);
 
     try {
-      const response = await fetch("/api/simulator/generate-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userData: data })
-      });
-
-      const body = await response.json();
-      if (!response.ok || body.error) {
-        if (body.error === "AI_API_KEY_NOT_CONFIGURED" || body.message?.includes("API 密钥")) {
-          setErrorMsg(body.message || "您尚未配置 AI API 密钥，请在本地 .env 中配置 DEEPSEEK_API_KEY。");
-        } else {
-          setErrorMsg(body.error || "生成背景补全问题失败，请检测网络环境。");
-        }
-        return;
-      }
-
+      const body = await generateQuestions(data);
       setQuestions(body.questions || []);
       setStep("questioning");
 
     } catch (err: any) {
       console.error(err);
-      setErrorMsg("网络异常：无法连接至命理计算中枢，请检查网络配置或稍后再试。");
+      setErrorMsg(getSimulationErrorMessage(err, "生成背景补全问题失败，请检测网络环境。"));
     } finally {
       setIsLoading(false);
     }
@@ -76,18 +91,7 @@ export default function App() {
     setAnswers(submittedAnswers);
 
     try {
-      const response = await fetch("/api/simulator/start", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userData, answers: submittedAnswers })
-      });
-
-      const body = await response.json();
-      if (!response.ok || body.error) {
-        setErrorMsg(body.error || "初始星位注入失败，请重新建立契约。");
-        return;
-      }
-
+      const body = await startSimulation(userData, submittedAnswers);
       setAttributes(body.initialAttributes);
       setCurrentNode(body.startNode);
       setHistory([]);
@@ -96,7 +100,7 @@ export default function App() {
 
     } catch (err: any) {
       console.error(err);
-      setErrorMsg("降生时空传输通道异常，请复查您的契约答案。");
+      setErrorMsg(getSimulationErrorMessage(err, "降生时空传输通道异常，请复查您的契约答案。"));
     } finally {
       setIsLoading(false);
     }
@@ -124,28 +128,17 @@ export default function App() {
       const updatedHistory = [...history, finalHistoryItem];
 
       try {
-        const response = await fetch("/api/simulator/analyze-personality", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userData,
-            history: updatedHistory,
-            currentAttributes: attributes
-          })
+        const body = await analyzePersonality({
+          userData,
+          history: updatedHistory,
+          currentAttributes: attributes
         });
-
-        const body = await response.json();
-        if (!response.ok || body.error) {
-          setErrorMsg(body.error || "真我心理透视盘点失败。请重试按钮。");
-          return;
-        }
-
         setInsight(body);
         setStep("insight");
 
       } catch (err: any) {
         console.error(err);
-        setErrorMsg("宿命总结遭遇神识乱流，请重新请求结契。");
+        setErrorMsg(getSimulationErrorMessage(err, "宿命总结遭遇神识乱流，请重新请求结契。"));
       } finally {
         setIsLoading(false);
       }
@@ -168,26 +161,14 @@ export default function App() {
     setHistory(updatedHistory);
 
     try {
-      const response = await fetch("/api/simulator/next-node", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userData,
-          answers,
-          history: updatedHistory,
-          currentAttributes: attributes,
-          selectedDecision: choiceText,
-          nodeIndex: history.length
-        })
+      const body = await generateNextNode({
+        userData,
+        answers,
+        history: updatedHistory,
+        currentAttributes: attributes,
+        selectedDecision: choiceText,
+        nodeIndex: history.length
       });
-
-      const body = await response.json();
-      if (!response.ok || body.error) {
-        setErrorMsg(body.error || "下一个命运年份节点推演失利。");
-        // Rollback history change to allow retry
-        setHistory(history);
-        return;
-      }
 
       setAttributes(body.attributes);
       setCurrentNode(body);
@@ -195,7 +176,7 @@ export default function App() {
 
     } catch (err: any) {
       console.error(err);
-      setErrorMsg("时空穿梭有些颠簸，没能顺利着陆，请重试该选项。");
+      setErrorMsg(getSimulationErrorMessage(err, "时空穿梭有些颠簸，没能顺利着陆，请重试该选项。"));
       setHistory(history);
     } finally {
       setIsLoadingNext(false);
@@ -222,26 +203,16 @@ export default function App() {
     const truncatedHistory = history.slice(0, targetIdx);
 
     try {
-      const response = await fetch("/api/simulator/time-travel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userData,
-          answers,
-          history: truncatedHistory,
-          currentAttributes: restoredAttributes,
-          targetAge,
-          targetTitle: targetItem.title,
-          targetStage: targetItem.stage,
-          targetDescription: targetItem.description
-        })
+      const body = await runTimeTravel({
+        userData,
+        answers,
+        history: truncatedHistory,
+        currentAttributes: restoredAttributes,
+        targetAge,
+        targetTitle: targetItem.title,
+        targetStage: targetItem.stage,
+        targetDescription: targetItem.description
       });
-
-      const body = await response.json();
-      if (!response.ok || body.error) {
-        setErrorMsg(body.error || "时光逆转传输通道遭遇了未知摩擦力。");
-        return;
-      }
 
       setAttributes(restoredAttributes);
       setCurrentNode(body);
@@ -251,7 +222,7 @@ export default function App() {
 
     } catch (err: any) {
       console.error(err);
-      setErrorMsg("逆转星轨失败，未能顺利重装这段尘封记忆。");
+      setErrorMsg(getSimulationErrorMessage(err, "逆转星轨失败，未能顺利重装这段尘封记忆。"));
     } finally {
       setIsLoadingNext(false);
     }

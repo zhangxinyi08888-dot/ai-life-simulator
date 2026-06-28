@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -17,6 +17,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      BASE_PATH: /ai-life-simulator/
+      VITE_DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      VITE_DEEPSEEK_MODEL: deepseek-v4-flash
+      VITE_DEEPSEEK_BASE_URL: https://api.deepseek.com
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,33 +45,16 @@ jobs:
 
       - name: Build
         run: pnpm build
-        env:
-          BASE_PATH: /ai-life-simulator/
 
       - name: Prepare static site
         run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
-          rm -f dist/server.cjs dist/server.cjs.map
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dist
-
-      - name: Publish gh-pages branch
-        if: github.ref == 'refs/heads/main'
-        run: |
-          mkdir -p ../pages-site
-          cp -R dist/. ../pages-site/
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch --orphan gh-pages
-          git rm -rf . || true
-          cp -R ../pages-site/. .
-          git add .
-          git commit -m "Deploy main build to GitHub Pages" || exit 0
-          git push --force origin gh-pages
 
   deploy:
     needs: build
