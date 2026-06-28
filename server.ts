@@ -11,6 +11,7 @@ import { buildQuestionPrompt } from "./src/utils/questionPrompt";
 import { normalizePersonalityInsight } from "./src/utils/insightResponse";
 import { buildEventIntentPrompt, buildNullEventPrompt } from "./src/utils/eventPrompt";
 import { generateCompleteSimulationNode } from "./src/utils/simulationNodeRetry";
+import { buildStoryContextPack } from "./src/utils/storyContext";
 
 dotenv.config();
 
@@ -338,10 +339,11 @@ app.post("/api/simulator/next-node", async (req, res) => {
 
     // Query helper for matching life seeds based on current characteristics
     const fallbackAgeCheck = lastAge + 3;
-    const seedEvent = queryDynamicLifeEvent(currentAttributes, userData, fallbackAgeCheck, history);
+    const storyContext = buildStoryContextPack(userData, answers, history);
+    const seedEvent = queryDynamicLifeEvent(currentAttributes, userData, fallbackAgeCheck, history, answers);
     const eventSeedPrompt = seedEvent
-      ? buildEventIntentPrompt(seedEvent)
-      : buildNullEventPrompt();
+      ? buildEventIntentPrompt(seedEvent, storyContext)
+      : buildNullEventPrompt(storyContext);
 
     const historyStr = history.map((item: any, idx: number) => {
       return `【阶段 ${idx + 1} - ${item.age}岁 - ${item.title}】

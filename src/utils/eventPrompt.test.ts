@@ -1,5 +1,23 @@
 import assert from "node:assert/strict";
 import { buildEventIntentPrompt, buildNullEventPrompt } from "./eventPrompt";
+import { buildStoryContextPack } from "./storyContext";
+
+const storyContext = buildStoryContextPack(
+  {
+    regressionAge: 22,
+    regressionSituation: "刚毕业想辞职做设计，但父母希望我稳定。",
+    coreStoryFocus: "romance",
+    milestoneRelationship: "大学时有一段异地恋。"
+  },
+  [
+    {
+      id: 1,
+      question: "当时真实发生了什么？",
+      answer: "我爸妈希望我稳定，不支持我冒险辞职。"
+    }
+  ],
+  []
+);
 
 const intentPrompt = buildEventIntentPrompt({
   id: "health_system_warning",
@@ -19,15 +37,20 @@ const intentPrompt = buildEventIntentPrompt({
     allowedOutcomes: ["persist_high_pressure", "optimize_load", "exit_or_pause"],
     emotionalTone: "crisis"
   }
-});
+}, storyContext);
 
 assert.match(intentPrompt, /Event Intent/);
+assert.match(intentPrompt, /Story Context Pack/);
 assert.match(intentPrompt, /health_system_warning/);
+assert.match(intentPrompt, /我爸妈希望我稳定/);
+assert.match(intentPrompt, /至少显性使用 1 条追问答案/);
 assert.match(intentPrompt, /allowedOutcomes 是行动原语/);
 assert.doesNotMatch(intentPrompt, /现实人生事件触发/);
 assert.doesNotMatch(intentPrompt, /剧情指令/);
 
-const nullPrompt = buildNullEventPrompt();
+const nullPrompt = buildNullEventPrompt(storyContext);
 assert.match(nullPrompt, /本轮没有强事件结构/);
+assert.match(nullPrompt, /Story Context Pack/);
 assert.match(nullPrompt, /最近 5 个历史节点/);
+assert.match(nullPrompt, /轻量关系\/亲情\/生活副线/);
 assert.match(nullPrompt, /不要强行制造事故/);

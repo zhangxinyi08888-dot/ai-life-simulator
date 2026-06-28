@@ -1,6 +1,6 @@
-import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory } from "../types";
+import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory, UserInitialData } from "../types";
 
-type UserEventData = { birthday?: string; gender?: string; currentSituation?: string };
+type UserEventData = Partial<UserInitialData> & { birthday?: string; gender?: string; currentSituation?: string };
 
 export type EmotionalTone = "pressure" | "neutral" | "opportunity" | "crisis";
 export type ActionPrimitive = string;
@@ -335,6 +335,15 @@ const DEFAULT_COOLDOWN = 4;
 const TAG_SIMILARITY_THRESHOLD = 0.5;
 const NORMAL_EVENT_ID = "life_normal_transition";
 const NULL_EVENT_CHANCE = 0.2;
+const FOCUS_CATEGORY_BOOST: Record<string, Partial<Record<LifeEventCategory, number>>> = {
+  career: { career: 1.6, financial: 1.2, growth: 1.1 },
+  romance: { relationship: 1.7, growth: 1.1 },
+  wealth: { financial: 1.7, career: 1.2, opportunity: 1.1 },
+  selftruth: { growth: 1.5, career: 1.1, opportunity: 1.1 },
+  innerpeace: { growth: 1.5, health: 1.3, relationship: 1.1 }
+};
+
+const RELATIONSHIP_KEYWORDS = ["恋", "婚", "伴侣", "前任", "异地恋", "分手", "相亲", "暧昧", "对象", "父母", "家庭阻力"];
 
 function eventTags(event: LifeEventSeed): string[] {
   return event.fingerprint?.tags || event.tags;
@@ -391,13 +400,47 @@ function hasStableBreathingRoom(attribs: LifeAttributes): boolean {
   return attribs.health >= 50 && attribs.wealth >= 50 && attribs.happiness >= 50;
 }
 
-function pickWeighted(candidates: LifeEventSeed[]): LifeEventSeed | null {
-  const total = candidates.reduce((sum, event) => sum + (event.baseProbability ?? 0.5), 0);
+function stringifyUnknown(value: unknown): string {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(stringifyUnknown).join("\n");
+  if (typeof value === "object") return Object.values(value as Record<string, unknown>).map(stringifyUnknown).join("\n");
+  return String(value);
+}
+
+function hasRelationshipContext(userData: UserEventData, answers?: unknown): boolean {
+  if (userData.coreStoryFocus === "romance") return true;
+
+  const text = [
+    userData.regressionSituation,
+    userData.regressionChoices,
+    userData.milestoneRelationship,
+    userData.milestoneOther,
+    ...(Array.isArray(userData.milestones) ? userData.milestones.map((item) => `${item.title} ${item.content}`) : []),
+    stringifyUnknown(answers)
+  ].filter(Boolean).join("\n");
+
+  return RELATIONSHIP_KEYWORDS.some((keyword) => text.includes(keyword));
+}
+
+function isEligibleForCandidatePool(event: LifeEventSeed, attribs: LifeAttributes, userData: UserEventData, age: number, answers?: unknown): boolean {
+  if (event.trigger.eligibility(attribs, userData, age)) return true;
+  return event.category === "relationship" && hasRelationshipContext(userData, answers);
+}
+
+export function calculateEventSelectionWeight(event: LifeEventSeed, userData: UserEventData = {}): number {
+  const base = event.baseProbability ?? 0.5;
+  const focusBoost = FOCUS_CATEGORY_BOOST[userData.coreStoryFocus || ""]?.[event.category] ?? 1;
+  return base * focusBoost;
+}
+
+function pickWeighted(candidates: LifeEventSeed[], userData: UserEventData): LifeEventSeed | null {
+  const total = candidates.reduce((sum, event) => sum + calculateEventSelectionWeight(event, userData), 0);
   if (total <= 0) return null;
 
   let cursor = Math.random() * total;
   for (const event of candidates) {
-    cursor -= event.baseProbability ?? 0.5;
+    cursor -= calculateEventSelectionWeight(event, userData);
     if (cursor <= 0) return event;
   }
 
@@ -409,10 +452,11 @@ export function queryDynamicLifeEvent(
   attribs: LifeAttributes,
   userData: UserEventData,
   age: number,
-  history: HistoryItem[] = []
+  history: HistoryItem[] = [],
+  answers?: unknown
 ): LifeEventSeed | null {
   const candidates = LIFE_EVENTS_DATABASE.filter((event) => {
-    return age >= event.minAge && age <= event.maxAge && event.trigger.eligibility(attribs, userData, age);
+    return age >= event.minAge && age <= event.maxAge && isEligibleForCandidatePool(event, attribs, userData, age, answers);
   });
 
   if (candidates.length === 0) return null;
@@ -436,7 +480,7 @@ export function queryDynamicLifeEvent(
 
   if (Math.random() < NULL_EVENT_CHANCE) return null;
 
-  return pickWeighted(dramaticCandidates);
+  return pickWeighted(dramaticCandidates, userData);
 }
 
 export function buildEventMeta(event: LifeEventSeed): EventMeta {
