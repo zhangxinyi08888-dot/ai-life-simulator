@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes } from "../types";
-import { queryDynamicLifeEvent } from "./lifeEvents";
+import { LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
 
 const lowHealth: LifeAttributes = {
   happiness: 45,
@@ -50,6 +50,26 @@ assert.notEqual(
   ])?.id,
   "health_life_accident_lesson"
 );
+
+assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.intent));
+assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.trigger?.eligibility));
+assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("conceptPrompt" in event)));
+assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("promptSeed" in event)));
+assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("check" in event)));
+
+const selected = queryDynamicLifeEvent(lowHealth, {}, 55, []);
+assert.notEqual(selected?.id, "life_normal_transition");
+assert.ok(selected === null || selected.intent);
+
+const similarBlocked = queryDynamicLifeEvent(lowHealth, {}, 55, [
+  historyItem({
+    eventId: "health_system_warning",
+    eventCategory: "health",
+    eventTags: ["health", "burnout", "instability"]
+  })
+]);
+assert.notEqual(similarBlocked?.id, "health_system_warning");
+assert.notEqual(similarBlocked?.intent.type, "health_system_warning");
 
 const categoryLimitedEvent = queryDynamicLifeEvent(
   { happiness: 52, intelligence: 50, wealth: 42, relation: 65, health: 55 },

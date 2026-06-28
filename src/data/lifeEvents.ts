@@ -1,10 +1,22 @@
 import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory } from "../types";
 
-export interface PromptSeed {
-  core: string;
-  contextGuidance: string[];
-  forbidden: string[];
-  optionDirections: string[];
+type UserEventData = { birthday?: string; gender?: string; currentSituation?: string };
+
+export type EmotionalTone = "pressure" | "neutral" | "opportunity" | "crisis";
+export type ActionPrimitive = string;
+
+export interface EventTrigger {
+  // Eligibility only determines whether the event enters the candidate pool.
+  // It must not be treated as a deterministic trigger.
+  eligibility: (attribs: LifeAttributes, userData: UserEventData, age: number) => boolean;
+}
+
+export interface EventIntent {
+  type: string;
+  meaning: string;
+  tensionAxes: string[];
+  allowedOutcomes: ActionPrimitive[];
+  emotionalTone?: EmotionalTone;
 }
 
 export interface EventFingerprint {
@@ -20,212 +32,322 @@ export interface LifeEventSeed {
   minAge: number;
   maxAge: number;
   conditionDescription: string;
-  // Trigger logic in JSON-friendly schema or simple checking attributes
-  check: (attribs: LifeAttributes, userData: { birthday?: string; gender?: string; currentSituation?: string }, age: number) => boolean;
   cooldown?: number;
-  tags?: string[];
+  baseProbability?: number;
+  trigger: EventTrigger;
+  intent: EventIntent;
+  tags: string[];
   fingerprint?: EventFingerprint;
-  promptSeed?: PromptSeed;
-  conceptPrompt?: string; // Used to direct AI story generation
 }
 
 export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
-  // ==================== CAREER MILESTONES (职业生涯里程碑) ====================
   {
-    id: "career_startup_boom",
+    id: "career_venture_pressure",
     category: "career",
-    title: "创业合伙与现金流考验",
+    title: "事业机会与承压跃迁",
     minAge: 22,
     maxAge: 45,
-    conditionDescription: "智力 >= 65 且 财富 >= 60",
-    check: (attribs) => attribs.intelligence >= 65 && attribs.wealth >= 60,
-    conceptPrompt: "因为你在专业领域的积累和积累的一笔启动金，有一个真实的风口项目（如新型本地智能服务、垂类效率开发、或是实体连锁加盟）向你招手。你面临着是要追求快速融资、疯狂招人背水一战，还是保持轻资产运营、宁可错失风口也要保住底线，或者直接套现自己手中的微小话语权。选项和后果必须展现出合伙人内讧、资金链月度承压等具体商业常识，算清真实的房租、人员工资和获客成本，展示出好坏均存的落地成长。"
-  },
-  {
-    id: "career_corporate_politics",
-    category: "career",
-    title: "跨部门内耗与站队考验",
-    minAge: 23,
-    maxAge: 55,
-    conditionDescription: "人际比值较高且财富处于中游",
-    check: (attribs) => attribs.relation >= 60 && attribs.wealth >= 40 && attribs.wealth <= 75,
-    conceptPrompt: "你所在的公司遭遇架构调整。你直属老领导跟新来的高管发生了严重的权力拉锯，老领导试图让你在跨部门汇报中顶包某些财务亏空线索，而新高管则私下暗示如果主动提供把柄就提拔你。你面临一次具体的利弊选择。选项应当务实、带着中国职场常识，比如【替老领导顶雷企图维系人际但背负职业风险】、或是【向新管理层靠拢但背上过河拆桥的名声】、或者【寻找合规体面退路直接申请平调划清界限】。"
-  },
-  {
-    id: "career_structural_layoff",
-    category: "career",
-    title: "行业变迁与结构性裁员",
-    minAge: 22,
-    maxAge: 52,
-    conditionDescription: "财富 < 45",
-    check: (attribs) => attribs.wealth < 45,
-    conceptPrompt: "面对整体大环境的大幅紧缩，你所在的业务线因为入不敷出被总部整体“优化”。你瞬间失去了唯一的工资收入，而下个月的房租或房贷利息正等待支付。这一幕要写得极其朴素真实：没有神话奇遇，只有赔偿金谈判桌上的冷冰冰、招聘软件上石沉大海的简历、以及中年再婚或单身青年的焦虑。选项要包含【为了生存立刻降薪去中小型企业干脏活累活】、【回绝低质量岗位，申请微薄失业救济金闭门考考证自救】、【动用多年积累的人脉厚着脸皮寻找外包私活单子】。"
-  },
-  {
-    id: "career_intellectual_breakthrough",
-    category: "career",
-    title: "核心研制产出与成果受夺",
-    minAge: 20,
-    maxAge: 45,
-    conditionDescription: "智力评分高于 72",
-    check: (attribs) => attribs.intelligence >= 72,
-    conceptPrompt: "你在岗位上耗费无数个深夜独立产出的某套核心系统或重大商业提案大获成功。但在论功行赏时，你的总监暗示要将本部门的整体署名（其实主要是总监本人）排在第一位，并把分外利益分给大客户的关系户。选项必须要带着刺痛骨皮的职场真实：【默默吃哑巴亏以求安稳、但换取总监口头的晋升承诺】、【鱼死网破直接找公司监察部门或跨级申诉，但有可能在此行业被排挤】、【直接把方案核心带走，低调物色下家随时准备和平解约】。"
-  },
-
-  // ==================== RELATIONSHIP DEVELOPMENTS (情感与现实博弈) ====================
-  {
-    id: "relation_realistic_compromise",
-    category: "relationship",
-    title: "买房落户与两代人的长考",
-    minAge: 24,
-    maxAge: 38,
-    conditionDescription: "幸福度 >= 45",
-    check: (attribs) => attribs.happiness >= 45,
-    conceptPrompt: "感情走到了谈婚论嫁的边缘。但在现实面前，关于首付由谁出大头、房产证写谁名字、两家对彩礼或婚后是否跟老人合租等具体的物质利益冲突，毫无保留地被摆上了台面。你的伴侣也承受着两边家长的催促和算计，言语中多了防备和疲惫。选项要求围绕典型的现实利益冲突：【掏空自己和父母的微薄家底全款/贷款买房，背上三十年重债】、【坚持在租来的二手房结婚坚守自由，但要顶住女方/男方家长的强烈鄙视】、【在现实摩擦中看清彼此并不适合，体面宣告分手各走一方】。"
-  },
-  {
-    id: "relation_family_heavy_duty",
-    category: "relationship",
-    title: "家乡村落期待与微薄退路",
-    minAge: 22,
-    maxAge: 55,
-    conditionDescription: "人际 >= 50 且 幸福度 < 60",
-    check: (attribs) => attribs.relation >= 50 && attribs.happiness < 60,
-    conceptPrompt: "父母老迈或老家有兄弟姐妹遇到极其具体的读书/买房急用钱困境。老家亲友向你频繁求援，甚至强烈劝说你在大城市大厂或私企朝不保夕还不如考个县城编制回来。选项要有强烈中国乡情下的两难：【把手里积攒的转折备用金转给亲人，宁愿自己再在大城市多熬两年盒饭】、【明确拒绝老家的求援，背负无情无义的骂名，保护自己改写的物质基本盘】、【顺从家庭渴望，彻底放弃一线奋斗，打包行囊回偏远老家谋取稳定工作】。"
-  },
-  {
-    id: "relation_business_betrayal",
-    category: "relationship",
-    title: "利益交换之中的挚友裂纹",
-    minAge: 20,
-    maxAge: 50,
-    conditionDescription: "人际评分中等，且财富大于 50",
-    check: (attribs) => attribs.relation >= 40 && attribs.wealth >= 50,
-    conceptPrompt: "跟你交往多年、原本无话不谈甚至是共事上下游的挚友，因为一笔关键的供货单或者内部推荐机会，在利益面前做出了私下的手段，坑害了你。你意外发现了这个事实。选项需要深刻反思：【为了往日的情分装聋作哑，但从此在业务中建立铜墙铁壁的隔离防线】、【毫不留情当众揭穿，直接进行商业诉讼或者切割，相忘且相仇于江湖】、【直接找对方深夜对饮，揭开利益底牌，重构利益平衡点，各取所需】。"
-  },
-
-  // ==================== HEALTH CHALLENGES (健康与生命约束) ====================
-  {
-    id: "health_hustle_burnout",
-    category: "health",
-    title: "体检报告的亮红警报",
-    minAge: 22,
-    maxAge: 50,
-    conditionDescription: "健康 < 45",
-    check: (attribs) => attribs.health < 45,
-    conceptPrompt: "多年超负荷熬夜、高盐重辣外卖、以及常年业绩压榨，在一次普通的周六体检后换来了几项指标严重异常甚至需要入院微创手术的复查单。面对急需加班跟进的重大节点以及手头可能颗粒无收的季度提成，你发现身体是不可能被糊弄的。选项应极其真实：【咬牙吃几颗止痛药和护肝片继续在工位上熬，把高额提成和KPI拿下来再治】、【向公司递交确诊单请病假半薪停职疗养，但要准备好被边缘化和扣年终奖】、【主动辞去高收入的核心主力岗，降低支出转做轻松、没有KPI折磨的轻量过渡岗位】。"
-  },
-  {
-    id: "health_life_accident_lesson",
-    category: "health",
-    title: "身体宕机与生活暂停",
-    minAge: 18,
-    maxAge: 70,
-    conditionDescription: "健康 < 40 或 幸福度 < 35",
-    check: (attribs) => attribs.health < 40 || attribs.happiness < 35,
-    cooldown: 8,
-    tags: ["health", "major_crisis", "forced_pause", "burnout"],
-    fingerprint: {
-      category: "health",
-      tags: ["health", "major_crisis", "forced_pause", "burnout"],
-      intensity: "major"
+    conditionDescription: "才智与资源足以进入更高风险事业机会",
+    cooldown: 5,
+    baseProbability: 0.65,
+    tags: ["career", "opportunity", "instability", "ambition"],
+    trigger: {
+      eligibility: (attribs) => attribs.intelligence >= 65 && attribs.wealth >= 55
     },
-    promptSeed: {
-      core: "长期透支导致一次现实的身体宕机，被迫暂停原有生活节奏。",
-      contextGuidance: [
-        "结合上一阶段的职业选择、财务状况、居住状态和家庭支持度来决定具体表现。",
-        "如果上一阶段是高压职场，可写体检异常、眩晕、慢病复发或急性炎症。",
-        "如果上一阶段是副业奔波或体力消耗，可写现实意外或劳损加重。",
-        "如果上一阶段是长期孤独和情绪压抑，可写失眠、焦虑躯体化或精神崩溃边缘。"
-      ],
-      forbidden: [
-        "不要固定写雨夜骨折。",
-        "不要连续重复轮椅办公、社群发帖。",
-        "不要把健康危机写成无差别惩罚。"
-      ],
-      optionDirections: [
-        "继续硬撑原计划，但承受身体和效率代价。",
-        "接受停顿，重排生活节奏和工作方式。",
-        "向家人、朋友、公司或医疗系统寻求现实支持。"
-      ]
+    intent: {
+      type: "career_venture_pressure",
+      meaning: "事业上出现一次更高收益但更高不确定性的跃迁机会。",
+      tensionAxes: ["野心 vs 稳定", "机会窗口 vs 现金流风险", "自我证明 vs 可承受代价"],
+      allowedOutcomes: ["take_high_risk_leap", "stay_lean_and_cautious", "convert_position_to_cash"],
+      emotionalTone: "opportunity"
     }
   },
-
-  // ==================== UNEXPECTED OPPORTUNITIES (实际人生机遇与两难) ====================
   {
-    id: "opportunity_venture_partnership",
-    category: "opportunity",
-    title: "前上司抛来的加盟邀约",
-    minAge: 21,
-    maxAge: 48,
-    conditionDescription: "才智优秀且财富偏低 (智力 >= 60, 财富 < 45)",
-    check: (attribs) => attribs.intelligence >= 60 && attribs.wealth < 45,
-    conceptPrompt: "有一位非常看重你过往执行力的老上司拉出来成立了一家新公司（干垂直细分领域的落地业务，如智能化运营、高频物流等）。对方诚挚邀请你作为极其重要的核心干将加入，但只能拿到极低的基本生活赞助费，主要靠后续股权分成，这意味着你至少有一年毫无稳定入息。选项包括：【辞去现在虽然平庸但准时发薪的民企职位，自降薪水跟着老上司赌一把未来】、【礼貌拒绝，相比飘忽的大饼，你认为每个月实实在在能存下来的公积金和工资才最安稳】、【提出不全职加入，利用业余时间提供无休止的技术或业务顾问支持（牺牲全部娱乐和睡眠），拿外包费用】。"
+    id: "career_responsibility_shift",
+    category: "career",
+    title: "责任转移与利益不对等",
+    minAge: 23,
+    maxAge: 55,
+    conditionDescription: "人际较高且处在资源或组织关系中",
+    cooldown: 6,
+    baseProbability: 0.7,
+    tags: ["career", "responsibility_shift", "interest_conflict", "reputation_risk"],
+    trigger: {
+      eligibility: (attribs) => attribs.relation >= 58 && attribs.wealth >= 35 && attribs.wealth <= 78
+    },
+    intent: {
+      type: "career_responsibility_shift",
+      meaning: "你被卷入一次责任与利益不对等的局面，需要判断是否承担不属于自己的代价。",
+      tensionAxes: ["责任 vs 自保", "关系 vs 原则", "短期机会 vs 长期名声"],
+      allowedOutcomes: ["absorb_partial_responsibility", "publicly_draw_boundary", "seek_rule_based_mediation"],
+      emotionalTone: "pressure"
+    }
   },
   {
-    id: "opportunity_overseas_relocation",
-    category: "opportunity",
-    title: "高风险高回报的外派肥缺",
+    id: "career_structural_instability",
+    category: "career",
+    title: "结构变化与生计压力",
     minAge: 22,
-    maxAge: 45,
-    conditionDescription: "幸福度评分低于 40",
-    check: (attribs) => attribs.happiness < 40,
-    conceptPrompt: "由于你近来表现出对安稳岗位的疲态或主动寻找机会，公司抛来一个派驻中亚、非洲或南美洲的项目执行岗。工作极其艰苦、离家数万里，但给足了原本大本营足足三倍的综合津贴和退役后的核心总监绿卡。你面临这个能带给你财富破局、却需要付出巨大寂寞和环境风险的选择。选项要围绕：【为了家庭或稳定婉拒外派，继续在大城市死熬现在的低薪小坑】、【果断孤身登机，将青春和两年健康留在异国工地上，用铁血挣下第一套全款房】、【借此为跳板去竞争对手那里，用拿到外派要挟现有老总进行原地加薪谈判】。"
+    maxAge: 58,
+    conditionDescription: "财富/资源较低，抗风险能力不足",
+    cooldown: 5,
+    baseProbability: 0.75,
+    tags: ["career", "instability", "survival_pressure", "transition"],
+    trigger: {
+      eligibility: (attribs) => attribs.wealth < 45
+    },
+    intent: {
+      type: "career_structural_instability",
+      meaning: "外部结构变化让原本的收入或职业路径变得不稳定。",
+      tensionAxes: ["生存现金流 vs 职业尊严", "快速止损 vs 长期转型", "被动适应 vs 主动重组"],
+      allowedOutcomes: ["accept_lower_quality_stability", "invest_in_transition", "activate_network_resources"],
+      emotionalTone: "crisis"
+    }
   },
   {
-    id: "opportunity_side_hustle_conflict",
-    category: "opportunity",
-    title: "副业悄然起色与合规冲突",
+    id: "career_credit_ownership_conflict",
+    category: "career",
+    title: "成果归属与边界争夺",
     minAge: 20,
     maxAge: 50,
-    conditionDescription: "智力 >= 60 且 财富 < 60",
-    check: (attribs) => attribs.intelligence >= 60 && attribs.wealth < 60,
-    conceptPrompt: "你在下班后低调做起的独立技术外包、或细分垂直自媒体账号悄然积攒了第一波忠实高客单价客户。副业收入甚至在某几个月跟你的主业基本持平，但因为在主营业务范畴发生了某种细小的利益重叠，如果被公司人力部门发现，你将面临被无补偿开除甚至竞业起诉的巨大可能。选项包括：【在好转的兆头下果断当天提辞职，将业余爱好全面商业化，自己为生】、【立即收缩或出让副业所有权给朋友打掩护，继续把主业的铁饭碗抱死，杜绝一切职业合规风险】、【在钢丝绳上继续疯狂跳舞，白天应付差事磨洋工，晚上红着眼做副业，能捞一笔是一笔】。"
+    conditionDescription: "才智突出，容易产出关键价值",
+    cooldown: 6,
+    baseProbability: 0.62,
+    tags: ["career", "credit_ownership", "boundary", "reputation_risk"],
+    trigger: {
+      eligibility: (attribs) => attribs.intelligence >= 72
+    },
+    intent: {
+      type: "career_credit_ownership_conflict",
+      meaning: "你创造的关键价值面临被他人、组织或合作关系重新分配。",
+      tensionAxes: ["体面合作 vs 自我主张", "眼前安全 vs 长期权益", "规则内争取 vs 关系破裂风险"],
+      allowedOutcomes: ["quietly_trade_credit_for_security", "challenge_credit_capture", "preserve_core_value_and_exit"],
+      emotionalTone: "pressure"
+    }
+  },
+  {
+    id: "relationship_material_commitment_test",
+    category: "relationship",
+    title: "关系承诺与现实成本",
+    minAge: 24,
+    maxAge: 42,
+    conditionDescription: "幸福度尚可，关系进入现实承诺压力区",
+    cooldown: 5,
+    baseProbability: 0.65,
+    tags: ["relationship", "commitment", "financial_pressure", "family_expectation"],
+    trigger: {
+      eligibility: (attribs) => attribs.happiness >= 45
+    },
+    intent: {
+      type: "relationship_material_commitment_test",
+      meaning: "亲密关系进入现实承诺阶段，情感愿望需要面对资源、家庭和长期责任。",
+      tensionAxes: ["感情 vs 物质基础", "两人共识 vs 家庭期待", "自由感 vs 稳定承诺"],
+      allowedOutcomes: ["commit_with_heavy_cost", "delay_commitment_for_autonomy", "reassess_relationship_fit"],
+      emotionalTone: "pressure"
+    }
+  },
+  {
+    id: "relationship_family_obligation_pull",
+    category: "relationship",
+    title: "亲缘责任与自我边界",
+    minAge: 22,
+    maxAge: 60,
+    conditionDescription: "人际较强但幸福承压",
+    cooldown: 5,
+    baseProbability: 0.68,
+    tags: ["relationship", "family_obligation", "boundary", "sacrifice"],
+    trigger: {
+      eligibility: (attribs) => attribs.relation >= 50 && attribs.happiness < 62
+    },
+    intent: {
+      type: "relationship_family_obligation_pull",
+      meaning: "亲缘或熟人关系向你提出现实责任要求，你需要重新划定自我边界。",
+      tensionAxes: ["亲情责任 vs 自我保护", "道义评价 vs 现实承受力", "回馈家庭 vs 保留人生主动权"],
+      allowedOutcomes: ["sacrifice_resources_for_family", "set_firm_boundary", "renegotiate_support_terms"],
+      emotionalTone: "pressure"
+    }
+  },
+  {
+    id: "relationship_trust_interest_fracture",
+    category: "relationship",
+    title: "信任裂纹与利益考验",
+    minAge: 20,
+    maxAge: 55,
+    conditionDescription: "关系资源与财富资源交叠",
+    cooldown: 6,
+    baseProbability: 0.58,
+    tags: ["relationship", "betrayal", "interest_conflict", "trust"],
+    trigger: {
+      eligibility: (attribs) => attribs.relation >= 40 && attribs.wealth >= 50
+    },
+    intent: {
+      type: "relationship_trust_interest_fracture",
+      meaning: "一段重要关系在现实利益面前出现信任裂纹。",
+      tensionAxes: ["情分 vs 利益", "和解 vs 切割", "继续合作 vs 建立防线"],
+      allowedOutcomes: ["preserve_relationship_with_boundaries", "cut_and_confront", "renegotiate_mutual_interest"],
+      emotionalTone: "pressure"
+    }
+  },
+  {
+    id: "health_system_warning",
+    category: "health",
+    title: "健康系统预警",
+    minAge: 22,
+    maxAge: 60,
+    conditionDescription: "健康下降或长期幸福度不足",
+    cooldown: 6,
+    baseProbability: 0.75,
+    tags: ["health", "burnout", "instability", "system_warning"],
+    fingerprint: {
+      category: "health",
+      tags: ["health", "burnout", "instability", "system_warning"],
+      intensity: "major"
+    },
+    trigger: {
+      eligibility: (attribs) => attribs.health < 45 || attribs.happiness < 36
+    },
+    intent: {
+      type: "health_system_warning",
+      meaning: "长期高压生活引发身体或精神系统性的现实反馈。",
+      tensionAxes: ["收益 vs 健康", "短期稳定 vs 长期风险", "责任 vs 自我保护"],
+      allowedOutcomes: ["persist_high_pressure", "optimize_load", "exit_or_pause"],
+      emotionalTone: "crisis"
+    }
+  },
+  {
+    id: "health_forced_pause",
+    category: "health",
+    title: "身体停摆与节奏重排",
+    minAge: 18,
+    maxAge: 70,
+    conditionDescription: "健康很低或幸福度很低",
+    cooldown: 8,
+    baseProbability: 0.7,
+    tags: ["health", "forced_pause", "burnout", "major_crisis"],
+    fingerprint: {
+      category: "health",
+      tags: ["health", "forced_pause", "burnout", "major_crisis"],
+      intensity: "major"
+    },
+    trigger: {
+      eligibility: (attribs) => attribs.health < 40 || attribs.happiness < 35
+    },
+    intent: {
+      type: "health_forced_pause",
+      meaning: "身体或心理状态迫使原有生活节奏暂停，你必须重新安排责任、收入和自我照料。",
+      tensionAxes: ["继续硬撑 vs 接受停顿", "现实责任 vs 身体边界", "自我价值 vs 休息羞耻"],
+      allowedOutcomes: ["continue_hard_mode", "reduce_load", "pause_recovery"],
+      emotionalTone: "crisis"
+    }
+  },
+  {
+    id: "opportunity_unstable_alliance",
+    category: "opportunity",
+    title: "不稳定联盟与未来押注",
+    minAge: 21,
+    maxAge: 50,
+    conditionDescription: "才智较好但资源不足",
+    cooldown: 5,
+    baseProbability: 0.65,
+    tags: ["opportunity", "alliance", "uncertainty", "resource_gap"],
+    trigger: {
+      eligibility: (attribs) => attribs.intelligence >= 60 && attribs.wealth < 48
+    },
+    intent: {
+      type: "opportunity_unstable_alliance",
+      meaning: "一个外部合作机会打开了新的上升通道，但收益和风险都不稳定。",
+      tensionAxes: ["低保障机会 vs 稳定现金流", "跟随他人 vs 保持自主", "未来想象 vs 当前生活成本"],
+      allowedOutcomes: ["join_full_commitment", "decline_for_stability", "support_part_time"],
+      emotionalTone: "opportunity"
+    }
+  },
+  {
+    id: "opportunity_escape_route",
+    category: "opportunity",
+    title: "逃离路径与代价交换",
+    minAge: 22,
+    maxAge: 48,
+    conditionDescription: "幸福度低，存在逃离当前生活结构的动机",
+    cooldown: 6,
+    baseProbability: 0.6,
+    tags: ["opportunity", "escape_route", "isolation", "high_reward"],
+    trigger: {
+      eligibility: (attribs) => attribs.happiness < 40
+    },
+    intent: {
+      type: "opportunity_escape_route",
+      meaning: "一个能离开当前困局的机会出现，但它要求你付出孤独、风险或关系成本。",
+      tensionAxes: ["逃离困局 vs 承受孤独", "高收益 vs 高不确定", "个人突破 vs 关系断裂"],
+      allowedOutcomes: ["accept_escape_route", "stay_and_endure", "use_offer_as_leverage"],
+      emotionalTone: "opportunity"
+    }
+  },
+  {
+    id: "financial_side_path_conflict",
+    category: "financial",
+    title: "副线收入与合规边界",
+    minAge: 20,
+    maxAge: 55,
+    conditionDescription: "才智较好但财富尚不稳",
+    cooldown: 5,
+    baseProbability: 0.68,
+    tags: ["financial", "side_income", "compliance_risk", "opportunity"],
+    trigger: {
+      eligibility: (attribs) => attribs.intelligence >= 60 && attribs.wealth < 60
+    },
+    intent: {
+      type: "financial_side_path_conflict",
+      meaning: "一条新的收入路径开始出现，但它与现有身份、规则或稳定性产生冲突。",
+      tensionAxes: ["增收机会 vs 合规风险", "短期现金 vs 长期信用", "自由探索 vs 稳定身份"],
+      allowedOutcomes: ["go_independent_fast", "reduce_and_hide_exposure", "continue_dual_track_risk"],
+      emotionalTone: "opportunity"
+    }
   },
   {
     id: "life_normal_transition",
-    category: "opportunity",
+    category: "growth",
     title: "平稳生活与长期积累",
     minAge: 18,
     maxAge: 80,
     conditionDescription: "无强事件或近期发生过重大事件时的平稳过渡",
-    check: () => true,
     cooldown: 2,
-    tags: ["normal_life", "transition", "breathing_room"],
+    baseProbability: 0.35,
+    tags: ["normal_life", "transition", "breathing_room", "growth"],
     fingerprint: {
-      category: "opportunity",
-      tags: ["normal_life", "transition", "breathing_room"],
+      category: "growth",
+      tags: ["normal_life", "transition", "breathing_room", "growth"],
       intensity: "minor"
     },
-    promptSeed: {
-      core: "没有突发大事，生活进入一段平稳但仍有细小取舍的长期积累阶段。",
-      contextGuidance: [
-        "结合上一阶段选择，描述日常节奏、微小压力和普通人的长期取舍。",
-        "不要强行制造事故、裁员、背叛或重大危机。",
-        "让选项围绕继续积累、微调方向、修复关系或照顾身体。"
-      ],
-      forbidden: [
-        "不要为了戏剧性强行引入灾难。",
-        "不要重复最近发生过的重大事件。"
-      ],
-      optionDirections: [
-        "维持当前节奏继续积累。",
-        "做一次温和调整，降低未来风险。",
-        "把注意力转向关系、健康或兴趣的修复。"
-      ]
+    trigger: {
+      eligibility: () => true
+    },
+    intent: {
+      type: "life_normal_transition",
+      meaning: "没有强烈突发事件，生活进入一段平稳但仍有细小取舍的长期积累阶段。",
+      tensionAxes: ["维持节奏 vs 微调方向", "日常责任 vs 自我修复", "平淡积累 vs 新的可能"],
+      allowedOutcomes: ["maintain_current_rhythm", "make_small_adjustment", "repair_health_or_relationship"],
+      emotionalTone: "neutral"
     }
   }
 ];
 
 const DEFAULT_COOLDOWN = 4;
+const TAG_SIMILARITY_THRESHOLD = 0.5;
 const NORMAL_EVENT_ID = "life_normal_transition";
+const NULL_EVENT_CHANCE = 0.2;
 
 function eventTags(event: LifeEventSeed): string[] {
-  return event.fingerprint?.tags || event.tags || [];
+  return event.fingerprint?.tags || event.tags;
 }
 
-function hasSharedTag(left: string[], right: string[]): boolean {
-  return left.some((tag) => right.includes(tag));
+function sharedTagCount(left: string[], right: string[]): number {
+  return left.filter((tag) => right.includes(tag)).length;
+}
+
+function tagSimilarity(left: string[], right: string[]): number {
+  const denominator = Math.min(left.length, right.length);
+  if (denominator === 0) return 0;
+  return sharedTagCount(left, right) / denominator;
 }
 
 function eventMeta(item: HistoryItem): EventMeta | undefined {
@@ -235,21 +357,19 @@ function eventMeta(item: HistoryItem): EventMeta | undefined {
 function isEventInCooldown(event: LifeEventSeed, history: HistoryItem[]): boolean {
   const cooldown = event.cooldown ?? DEFAULT_COOLDOWN;
   const recent = history.slice(-cooldown);
-  const tags = eventTags(event);
 
   return recent.some((item) => {
     const meta = eventMeta(item);
-    if (!meta) return false;
-    if (meta.eventId && meta.eventId === event.id) return true;
+    return Boolean(meta?.eventId && meta.eventId === event.id);
+  });
+}
 
-    const metaTags = meta.eventTags || [];
-    const isMajorHealthEvent = tags.includes("health") && tags.includes("major_crisis");
-    const isSameMajorHealthFingerprint = isMajorHealthEvent
-      && metaTags.includes("health")
-      && metaTags.includes("major_crisis")
-      && hasSharedTag(tags, metaTags);
-
-    return isSameMajorHealthFingerprint;
+function isTagSimilarToRecent(event: LifeEventSeed, history: HistoryItem[]): boolean {
+  const tags = eventTags(event);
+  return history.slice(-3).some((item) => {
+    const recentTags = item.eventMeta?.eventTags || [];
+    const shared = sharedTagCount(tags, recentTags);
+    return shared >= 2 && tagSimilarity(tags, recentTags) >= TAG_SIMILARITY_THRESHOLD;
   });
 }
 
@@ -260,16 +380,7 @@ function isCategoryLimited(event: LifeEventSeed, history: HistoryItem[]): boolea
   const categories = recent.map((item) => item.eventMeta?.eventCategory).filter(Boolean);
   if (categories.length < 2 || categories[0] !== categories[1]) return false;
 
-  if (categories[0] === event.category) return true;
-
-  const tags = eventTags(event);
-  const isMajorHealthEvent = tags.includes("health") && tags.includes("major_crisis");
-  const recentHadMajorHealth = recent.some((item) => {
-    const recentTags = item.eventMeta?.eventTags || [];
-    return recentTags.includes("health") && recentTags.includes("major_crisis");
-  });
-
-  return isMajorHealthEvent && recentHadMajorHealth;
+  return categories[0] === event.category;
 }
 
 function hasRecentMajorEvent(history: HistoryItem[]): boolean {
@@ -280,16 +391,28 @@ function hasStableBreathingRoom(attribs: LifeAttributes): boolean {
   return attribs.health >= 50 && attribs.wealth >= 50 && attribs.happiness >= 50;
 }
 
-// Helper to select the single best matching life event seed dynamically
+function pickWeighted(candidates: LifeEventSeed[]): LifeEventSeed | null {
+  const total = candidates.reduce((sum, event) => sum + (event.baseProbability ?? 0.5), 0);
+  if (total <= 0) return null;
+
+  let cursor = Math.random() * total;
+  for (const event of candidates) {
+    cursor -= event.baseProbability ?? 0.5;
+    if (cursor <= 0) return event;
+  }
+
+  return candidates[candidates.length - 1] || null;
+}
+
+// Helper to select one V2 life event intent dynamically. null means normal life progression.
 export function queryDynamicLifeEvent(
   attribs: LifeAttributes,
-  userData: { birthday?: string; gender?: string; currentSituation?: string },
+  userData: UserEventData,
   age: number,
   history: HistoryItem[] = []
 ): LifeEventSeed | null {
-  // Filter events within age range and that pass our condition check
-  const candidates = LIFE_EVENTS_DATABASE.filter(event => {
-    return age >= event.minAge && age <= event.maxAge && event.check(attribs, userData, age);
+  const candidates = LIFE_EVENTS_DATABASE.filter((event) => {
+    return age >= event.minAge && age <= event.maxAge && event.trigger.eligibility(attribs, userData, age);
   });
 
   if (candidates.length === 0) return null;
@@ -297,23 +420,23 @@ export function queryDynamicLifeEvent(
   const nonCooledCandidates = candidates.filter((event) => !isEventInCooldown(event, history));
   if (nonCooledCandidates.length === 0) return null;
 
-  const categoryAllowedCandidates = nonCooledCandidates.filter((event) => !isCategoryLimited(event, history));
-  const finalCandidates = categoryAllowedCandidates.length > 0 ? categoryAllowedCandidates : nonCooledCandidates;
-  const normalTransition = finalCandidates.find((event) => event.id === NORMAL_EVENT_ID);
+  const tagAllowedCandidates = nonCooledCandidates.filter((event) => !isTagSimilarToRecent(event, history));
+  const similaritySafeCandidates = tagAllowedCandidates.length > 0 ? tagAllowedCandidates : nonCooledCandidates;
+
+  const categoryAllowedCandidates = similaritySafeCandidates.filter((event) => !isCategoryLimited(event, history));
+  const pressureSafeCandidates = categoryAllowedCandidates.length > 0 ? categoryAllowedCandidates : similaritySafeCandidates;
+  const normalTransition = pressureSafeCandidates.find((event) => event.id === NORMAL_EVENT_ID);
 
   if (normalTransition && hasRecentMajorEvent(history) && hasStableBreathingRoom(attribs)) {
     return normalTransition;
   }
 
-  if (normalTransition && finalCandidates.length === 1) return normalTransition;
+  const dramaticCandidates = pressureSafeCandidates.filter((event) => event.id !== NORMAL_EVENT_ID);
+  if (dramaticCandidates.length === 0) return normalTransition || null;
 
-  const dramaticCandidates = finalCandidates.filter((event) => event.id !== NORMAL_EVENT_ID);
-  if (dramaticCandidates.length > 0) {
-    const index = Math.floor(Math.random() * dramaticCandidates.length);
-    return dramaticCandidates[index];
-  }
+  if (Math.random() < NULL_EVENT_CHANCE) return null;
 
-  return normalTransition || null;
+  return pickWeighted(dramaticCandidates);
 }
 
 export function buildEventMeta(event: LifeEventSeed): EventMeta {
