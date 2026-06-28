@@ -1,82 +1,88 @@
-# GitHub Pages Browser AI Architecture Design
+# GitHub Pages 浏览器端 AI 架构改造方案
 
-## Context
+## 背景
 
-The current application runs correctly in local development because `server.ts` provides the `/api/simulator/*` endpoints. The GitHub Pages deployment only serves static frontend assets, so browser requests to `/api/simulator/generate-questions`, `/api/simulator/start`, `/api/simulator/next-node`, `/api/simulator/analyze-personality`, and `/api/simulator/time-travel` resolve against `zhangxinyi08888-dot.github.io` and fail because no API server exists there.
+当前项目在本地可以正常使用，是因为本地开发环境会启动 `server.ts`，由它提供 `/api/simulator/*` 这些接口。部署到 GitHub Pages 以后，GitHub Pages 只会托管静态前端文件，不会运行 Express 服务，所以浏览器请求 `/api/simulator/generate-questions`、`/api/simulator/start`、`/api/simulator/next-node`、`/api/simulator/analyze-personality` 和 `/api/simulator/time-travel` 时，会落到 `zhangxinyi08888-dot.github.io` 这个静态站点上，最终因为没有后端接口而失败。
 
-The requested direction is to fully adapt the project to GitHub Pages and ignore API key exposure concerns. Under that constraint, the app can become a pure static frontend that calls DeepSeek directly from the browser. This preserves realtime interaction while removing the need for Express hosting.
+本次改造目标是让项目完全适配 GitHub Pages。用户已明确表示不用考虑 API Key 暴露问题，因此可以把应用改造成纯静态前端，由浏览器直接调用 DeepSeek API。这样既能保留实时交互，也不再需要单独部署后端服务。
 
-## Goals
+## 目标
 
-- Make the GitHub Pages build functionally complete without a separately deployed backend.
-- Preserve the current user-facing simulation flow and AI-generated content behavior.
-- Move API orchestration out of Express endpoints and into browser-side services.
-- Keep local development simple with `pnpm dev` / Vite and no required Express server.
-- Support API key configuration through either a Vite build-time value or an in-app user-provided key stored in browser storage.
-- Keep existing prompt builders, response normalization, retry behavior, and validation logic reusable and testable.
+- GitHub Pages 部署后的版本功能完整，不依赖额外后端。
+- 保持现有用户流程、模拟体验和 AI 生成行为不变。
+- 将原本 Express 接口里的业务编排迁移到浏览器端 TypeScript 服务。
+- 本地开发回到简单的 Vite 模式，默认只需要 `pnpm dev`。
+- 支持两种 API Key 配置方式：页面内输入并保存在浏览器，或通过 Vite 构建环境变量注入。
+- 复用现有 prompt 构造、响应解析、重试和数据归一化逻辑，避免重写核心规则。
 
-## Non-Goals
+## 非目标
 
-- Protecting API keys from browser users. This is explicitly out of scope for this architecture.
-- Adding a separate hosted API service.
-- Replacing DeepSeek with a different provider as part of this refactor.
-- Changing the main product UX, visual design, or story-generation rules.
-- Rewriting the entire app state model.
+- 不保护浏览器端 API Key。这个风险在当前需求中明确接受。
+- 不新增独立托管的 API 服务。
+- 不在本次重构中替换 DeepSeek 供应商。
+- 不调整主要产品交互、视觉设计或故事生成规则。
+- 不重写整个应用状态模型。
 
-## Recommended Approach
+## 推荐方案
 
-Use a pure browser AI client backed by DeepSeek's chat completions API. The frontend owns the same domain operations currently exposed by Express endpoints. `server.ts` becomes optional legacy/local compatibility code and is removed from the GitHub Pages production path.
+采用“纯前端浏览器 AI 客户端”架构。React 前端直接调用 DeepSeek Chat Completions API，当前由 Express 暴露的五个模拟接口改为浏览器端 service 方法。`server.ts` 可以暂时保留为可选的本地兼容代码，但不再进入 GitHub Pages 生产链路。
 
-Alternative approaches considered:
+备选方案对比：
 
-1. Static frontend plus separate API backend.
-   - Pros: API keys stay private, backend controls rate limits and provider retries.
-   - Cons: Not a complete GitHub Pages-only app, requires another hosting platform.
+1. 静态前端加独立 API 后端
+   - 优点：API Key 不暴露，后端可以统一做限流、重试和供应商兜底。
+   - 缺点：不是纯 GitHub Pages 方案，需要额外服务器或 Serverless 平台。
 
-2. Browser direct to DeepSeek with user-entered key.
-   - Pros: Fully GitHub Pages-compatible, no backend hosting, no build-time secret dependency.
-   - Cons: User must provide a key; key is visible to the browser environment.
+2. 浏览器直接调用 DeepSeek，用户在页面输入 Key
+   - 优点：完全兼容 GitHub Pages，不需要后端，不依赖 GitHub Secrets。
+   - 缺点：用户必须自己提供 Key，Key 会存在浏览器环境中。
 
-3. Browser direct to DeepSeek with `VITE_DEEPSEEK_API_KEY` compiled at build time.
-   - Pros: Simplest user experience.
-   - Cons: Key is embedded in public JS assets and must be rotated by rebuilding.
+3. 浏览器直接调用 DeepSeek，构建时注入 `VITE_DEEPSEEK_API_KEY`
+   - 优点：用户体验最简单，打开页面即可使用。
+   - 缺点：Key 会被打进公开的 JS 文件里，换 Key 需要重新构建部署。
 
-The implementation should support both option 2 and option 3. Runtime user key takes precedence over build-time key.
+推荐同时支持方案 2 和方案 3。运行时用户输入的 Key 优先级高于构建时注入的 Key。
 
-## Target Architecture
+## 关于实时交互 API
+
+可以做实时交互。GitHub Pages 不能运行自己的后端接口，但浏览器本身可以主动发起 HTTPS 请求。只要 DeepSeek 的接口允许跨域请求，前端就可以通过 `fetch` 直接调用它。
+
+本项目需要封装的不是“服务器 API”，而是“浏览器端 AI 调用方法”。页面中的按钮、表单和模拟流程仍然可以保持实时交互：用户点击后，React 调用本地 service，service 构造 prompt，然后浏览器向 DeepSeek 发起请求，拿到结果后更新界面。
+
+## 目标架构
 
 ```text
 GitHub Pages
   index.html
   React UI
-  Browser simulation service
-  Browser DeepSeek client
-  Prompt builders and response normalizers
-  Browser key storage
+  浏览器端模拟服务
+  浏览器端 DeepSeek 客户端
+  Prompt 构造与响应归一化
+  浏览器 Key 存储
         |
         | HTTPS POST /chat/completions
         v
 DeepSeek API
 ```
 
-The app must not call `/api/simulator/*` in the GitHub Pages build. All simulation operations should call local TypeScript service functions in the browser.
+GitHub Pages 版本中不能再请求 `/api/simulator/*`。所有模拟能力都应调用浏览器端 TypeScript service 方法。
 
-## Module Design
+## 模块设计
 
 ### `src/services/ai/deepseekBrowserClient.ts`
 
-Purpose: browser-safe DeepSeek transport.
+用途：浏览器可用的 DeepSeek 请求客户端。
 
-Responsibilities:
+职责：
 
-- Build the `/chat/completions` request.
-- Read API key from explicit arguments, runtime key storage, or `import.meta.env.VITE_DEEPSEEK_API_KEY`.
-- Preserve the existing JSON-only system instruction.
-- Preserve `response_format: { type: "json_object" }`, `thinking: { type: "disabled" }`, `temperature`, `max_tokens`, and non-streaming behavior.
-- Return `{ text: string }` compatible with existing parsing code.
-- Convert transport errors, 401/403, provider errors, CORS failures, and malformed responses into typed frontend errors.
+- 构造 `/chat/completions` 请求。
+- 从显式参数、浏览器本地存储或 `import.meta.env.VITE_DEEPSEEK_API_KEY` 读取 API Key。
+- 保留现有“只返回 JSON”的系统提示约束。
+- 保留 `response_format: { type: "json_object" }`、`thinking: { type: "disabled" }`、`temperature`、`max_tokens` 和非流式请求行为。
+- 返回与现有解析逻辑兼容的 `{ text: string }`。
+- 将网络失败、401/403、供应商错误、CORS 失败和响应格式异常转换成前端可识别的类型化错误。
 
-Suggested API:
+建议 API：
 
 ```ts
 export interface BrowserDeepSeekConfig {
@@ -94,16 +100,16 @@ export async function callDeepSeekJsonFromBrowser(
 
 ### `src/services/ai/apiKeyStore.ts`
 
-Purpose: manage browser-side API key configuration.
+用途：管理浏览器端 API Key 配置。
 
-Responsibilities:
+职责：
 
-- Store, read, and clear a DeepSeek key in `localStorage`.
-- Expose whether a usable key is available.
-- Prefer explicit runtime key over build-time env key.
-- Never log the key.
+- 在 `localStorage` 中保存、读取和清除 DeepSeek Key。
+- 暴露当前是否存在可用 Key。
+- 用户运行时输入的 Key 优先于构建时环境变量。
+- 永远不要把 Key 打印到日志中。
 
-Suggested API:
+建议 API：
 
 ```ts
 export function getDeepSeekApiKey(): string;
@@ -114,63 +120,64 @@ export function hasDeepSeekApiKey(): boolean;
 
 ### `src/services/simulation/simulationService.ts`
 
-Purpose: replace the five Express endpoints with direct browser functions.
+用途：用浏览器端函数替代原来的五个 Express 接口。
 
-Responsibilities:
+职责：
 
-- `generateQuestions(userData)` replaces `POST /api/simulator/generate-questions`.
-- `startSimulation(userData, answers)` replaces `POST /api/simulator/start`.
-- `generateNextNode(input)` replaces `POST /api/simulator/next-node`.
-- `analyzePersonality(input)` replaces `POST /api/simulator/analyze-personality`.
-- `timeTravel(input)` replaces `POST /api/simulator/time-travel`.
-- Reuse existing prompt builders from `src/utils/questionPrompt.ts`, `src/utils/eventPrompt.ts`, `src/utils/answerFormatting.ts`, and normalization helpers from `src/utils/simulationResponse.ts`, `src/utils/insightResponse.ts`, and `src/utils/simulationNodeRetry.ts`.
-- Keep endpoint response shapes compatible with current `App.tsx` expectations.
+- `generateQuestions(userData)` 替代 `POST /api/simulator/generate-questions`。
+- `startSimulation(userData, answers)` 替代 `POST /api/simulator/start`。
+- `generateNextNode(input)` 替代 `POST /api/simulator/next-node`。
+- `analyzePersonality(input)` 替代 `POST /api/simulator/analyze-personality`。
+- `timeTravel(input)` 替代 `POST /api/simulator/time-travel`。
+- 复用 `src/utils/questionPrompt.ts`、`src/utils/eventPrompt.ts`、`src/utils/answerFormatting.ts` 里的 prompt 相关能力。
+- 复用 `src/utils/simulationResponse.ts`、`src/utils/insightResponse.ts` 和 `src/utils/simulationNodeRetry.ts` 里的响应归一化与重试逻辑。
+- 保持返回结构与当前 `App.tsx` 期望一致，尽量减少 UI 层改动。
 
-This service should be pure TypeScript and browser-compatible. It must not import Express, Node `path`, `dotenv`, or `@google/genai/node` APIs.
+这个 service 必须是纯浏览器兼容的 TypeScript，不能引入 Express、Node `path`、`dotenv` 或 `@google/genai/node` 之类的 Node 专用 API。
 
-### Prompt Extraction
+### Prompt 提取
 
-`server.ts` currently contains important prompt logic inline. During implementation, move endpoint-specific prompt construction into browser-safe modules under `src/services/simulation/prompts/` or `src/utils/`.
+`server.ts` 里目前包含一部分重要 prompt 逻辑。实现时需要把这些接口内联 prompt 提取到浏览器安全模块中，建议放在 `src/services/simulation/prompts/` 或 `src/utils/` 下。
 
-Suggested modules:
+建议模块：
 
 - `src/services/simulation/prompts/startSimulationPrompt.ts`
 - `src/services/simulation/prompts/nextNodePrompt.ts`
 - `src/services/simulation/prompts/personalityPrompt.ts`
 - `src/services/simulation/prompts/timeTravelPrompt.ts`
 
-The extracted functions should have small typed inputs and return strings. They should not call AI APIs directly.
+这些函数只接收类型化输入并返回字符串，不直接调用 AI API。
 
 ### `src/App.tsx`
 
-Purpose: consume simulation services instead of fetch endpoints.
+用途：从调用后端接口改为调用浏览器端模拟服务。
 
-Changes:
+改动：
 
-- Replace `fetch("/api/simulator/generate-questions")` with `simulationService.generateQuestions(...)`.
-- Replace all other `/api/simulator/*` fetch calls with service calls.
-- Keep state transitions and UI flow unchanged.
-- Add a clear API-key-required state if no key is configured.
-- Convert typed service errors into existing modal messages.
+- 将 `fetch("/api/simulator/generate-questions")` 替换为 `simulationService.generateQuestions(...)`。
+- 将其他所有 `/api/simulator/*` 请求替换为对应 service 方法。
+- 保持现有状态流转和页面流程不变。
+- 当没有配置 API Key 时，展示清晰的 Key 配置状态。
+- 将 service 抛出的类型化错误映射到现有弹窗提示。
 
-### API Key UI
+### API Key 配置界面
 
-Add a small configuration path for the browser key. The minimal version can live in the initial setup flow or an unobtrusive settings panel.
+需要增加一个轻量配置入口。最小版本可以放在初始设置流程中，也可以放在不打扰主流程的设置面板里。
 
-Behavior:
+行为要求：
 
-- If neither `localStorage` nor `VITE_DEEPSEEK_API_KEY` has a key, show an API key prompt before AI generation starts.
-- Allow users to save the key locally.
-- Allow clearing/replacing the key.
-- Do not block the static app shell from loading.
+- 如果 `localStorage` 和 `VITE_DEEPSEEK_API_KEY` 都没有 Key，在开始 AI 生成前提示用户配置 Key。
+- 允许用户把 Key 保存到本地浏览器。
+- 允许清除或替换 Key。
+- 即使没有 Key，也不阻止静态应用外壳加载。
 
-## Build and Deployment Changes
+## 构建与部署调整
 
 ### `package.json`
 
-The GitHub Pages production build should only build the frontend.
+GitHub Pages 的生产构建应该只构建前端。
 
-Recommended scripts:
+推荐 scripts：
 
 ```json
 {
@@ -185,19 +192,19 @@ Recommended scripts:
 }
 ```
 
-`server.ts` can remain for optional backend mode, but it should no longer be part of the Pages artifact.
+`server.ts` 可以继续作为可选后端模式存在，但不能再成为 GitHub Pages 构建产物的一部分。
 
 ### GitHub Pages Workflow
 
-The workflow should build the static frontend and upload `dist`. It should keep:
+工作流只需要构建静态前端并上传 `dist`。继续保留：
 
 - `BASE_PATH: /ai-life-simulator/`
 - `cp dist/index.html dist/404.html`
 - `touch dist/.nojekyll`
 
-It should remove the server bundle cleanup once `pnpm build` no longer produces `dist/server.cjs`.
+当 `pnpm build` 不再生成 `dist/server.cjs` 后，可以移除 workflow 里针对 server bundle 的清理逻辑。
 
-If using a build-time key, set:
+如果选择构建时注入 Key，可以配置：
 
 ```yaml
 env:
@@ -207,34 +214,34 @@ env:
   VITE_DEEPSEEK_BASE_URL: https://api.deepseek.com
 ```
 
-If using user-entered key only, do not configure `VITE_DEEPSEEK_API_KEY`.
+如果只使用用户页面输入 Key，不需要配置 `VITE_DEEPSEEK_API_KEY`。
 
-## Data Flow
+## 数据流
 
-### Generate Follow-Up Questions
+### 生成追问
 
-1. User submits initial setup.
-2. `App.tsx` calls `simulationService.generateQuestions(userData)`.
-3. Service builds prompt with `buildQuestionPrompt(userData)`.
-4. Browser DeepSeek client sends the chat completion request.
-5. Service parses JSON and returns `{ questions }`.
-6. UI moves to the questioning step.
+1. 用户提交初始信息。
+2. `App.tsx` 调用 `simulationService.generateQuestions(userData)`。
+3. service 使用 `buildQuestionPrompt(userData)` 构造 prompt。
+4. 浏览器端 DeepSeek 客户端发送 chat completion 请求。
+5. service 解析 JSON 并返回 `{ questions }`。
+6. UI 进入追问步骤。
 
-### Start Simulation
+### 开始模拟
 
-1. User submits answers.
-2. Service builds the start simulation prompt using extracted prompt logic.
-3. Browser client calls DeepSeek.
-4. Service uses existing retry and normalization helpers.
-5. UI receives `{ initialAttributes, startNode }` and moves to simulation.
+1. 用户提交追问答案。
+2. service 使用提取后的 prompt 逻辑构造开始模拟 prompt。
+3. 浏览器端客户端调用 DeepSeek。
+4. service 使用现有重试和归一化工具处理响应。
+5. UI 收到 `{ initialAttributes, startNode }` 并进入模拟流程。
 
-### Next Node, Final Insight, Time Travel
+### 下一节点、最终洞察和时空穿越
 
-These flows mirror the current server endpoints but execute inside `simulationService`. Service functions own prompt construction, AI calls, parse/normalize, and typed error conversion.
+这些流程与当前 server endpoint 行为保持一致，只是执行位置从 `server.ts` 移到 `simulationService`。service 负责 prompt 构造、AI 请求、解析、归一化和错误转换。
 
-## Error Handling
+## 错误处理
 
-Create a small error type or discriminated union for service failures:
+新增一个小型错误类型或可区分联合类型：
 
 ```ts
 export type AiClientErrorCode =
@@ -246,62 +253,62 @@ export type AiClientErrorCode =
   | "AI_REQUEST_FAILED";
 ```
 
-UI mapping:
+UI 映射：
 
-- `API_KEY_MISSING`: show key setup prompt.
-- `AI_AUTH_FAILED`: ask user to check key.
-- `AI_RATE_LIMITED`: ask user to retry later.
-- `AI_NETWORK_FAILED`: keep the current network wording.
-- `AI_RESPONSE_INVALID`: ask user to retry generation.
-- `AI_REQUEST_FAILED`: generic AI failure message with retry.
+- `API_KEY_MISSING`：展示 API Key 配置入口。
+- `AI_AUTH_FAILED`：提示用户检查 Key 是否正确。
+- `AI_RATE_LIMITED`：提示稍后重试。
+- `AI_NETWORK_FAILED`：沿用当前网络异常文案。
+- `AI_RESPONSE_INVALID`：提示重新生成。
+- `AI_REQUEST_FAILED`：展示通用 AI 失败提示并允许重试。
 
-The app should not rely on `response.ok` or endpoint-shaped `{ error }` responses after migration; service functions should throw typed errors or return typed success values.
+迁移后，App 不应继续依赖 `response.ok` 或接口返回的 `{ error }` 结构。service 应该抛出类型化错误，或返回类型化成功结果。
 
-## Testing Plan
+## 测试计划
 
-Add focused tests before implementation:
+实现前应先补充聚焦测试：
 
-- Browser DeepSeek client builds the correct endpoint and request body.
-- Browser DeepSeek client extracts JSON content and strips fenced JSON.
-- API key store prefers runtime key over build-time key.
-- `simulationService.generateQuestions` returns parsed questions from a fake fetch response.
-- `simulationService.startSimulation` retries incomplete nodes and returns normalized output.
-- `App.tsx` integration can be covered later if a UI test harness is introduced; it is not required for this refactor.
+- 浏览器端 DeepSeek 客户端能构造正确 endpoint 和请求体。
+- 浏览器端 DeepSeek 客户端能提取 JSON 内容，并兼容 fenced JSON。
+- API Key 存储逻辑中，运行时 Key 优先于构建时 Key。
+- `simulationService.generateQuestions` 能从假请求响应中返回解析后的问题列表。
+- `simulationService.startSimulation` 能对不完整节点执行重试并返回归一化结果。
+- `App.tsx` 集成测试可以等 UI 测试框架引入后再补，不作为本次重构的硬性前置。
 
-Use existing test style with `node:assert/strict` and `tsx`.
+测试风格沿用项目现有的 `node:assert/strict` 和 `tsx`。
 
-## Migration Steps
+## 迁移步骤
 
-1. Add browser DeepSeek client and API key store tests.
-2. Implement browser DeepSeek client and API key store.
-3. Extract prompt construction from `server.ts` into browser-safe modules.
-4. Add `simulationService` tests for each endpoint-equivalent operation.
-5. Implement `simulationService` using extracted prompts and existing normalizers.
-6. Update `App.tsx` to call `simulationService` instead of `/api/simulator/*`.
-7. Add API key configuration UI.
-8. Change `package.json` scripts so Pages builds only `vite build`.
-9. Simplify `.github/workflows/deploy-pages.yml` for static-only output.
-10. Verify local static build with `BASE_PATH=/ai-life-simulator/ pnpm build`.
-11. Verify deployed Pages no longer calls `/api/simulator/*` by inspecting built JS and browser network requests.
+1. 为浏览器端 DeepSeek 客户端和 API Key 存储添加测试。
+2. 实现浏览器端 DeepSeek 客户端和 API Key 存储。
+3. 从 `server.ts` 中提取 prompt 构造逻辑到浏览器安全模块。
+4. 为每个原 endpoint 对应的 `simulationService` 方法添加测试。
+5. 使用提取后的 prompt 和现有归一化工具实现 `simulationService`。
+6. 更新 `App.tsx`，移除对 `/api/simulator/*` 的请求。
+7. 增加 API Key 配置界面。
+8. 修改 `package.json` scripts，让 Pages 只执行 `vite build`。
+9. 简化 `.github/workflows/deploy-pages.yml`，只保留静态产物部署逻辑。
+10. 使用 `BASE_PATH=/ai-life-simulator/ pnpm build` 验证本地静态构建。
+11. 检查构建产物和浏览器网络请求，确认线上不再访问 `/api/simulator/*`。
 
-## Acceptance Criteria
+## 验收标准
 
-- GitHub Pages loads the app shell at `/ai-life-simulator/`.
-- Starting the simulation from GitHub Pages no longer requests `https://zhangxinyi08888-dot.github.io/api/simulator/*`.
-- With a valid DeepSeek key, the deployed Pages app can generate follow-up questions, start a simulation, generate next nodes, time travel, and produce the final insight report.
-- Without a key, the deployed Pages app shows a key configuration message instead of the generic network failure modal.
-- Local development works without running Express.
-- `pnpm lint` passes.
-- Existing utility tests pass, plus new browser AI service tests.
-- The Pages artifact contains only static frontend files, `.nojekyll`, and `404.html`.
+- GitHub Pages 能在 `/ai-life-simulator/` 正常加载应用外壳。
+- 从 GitHub Pages 开始模拟时，不再请求 `https://zhangxinyi08888-dot.github.io/api/simulator/*`。
+- 配置有效 DeepSeek Key 后，线上版本可以生成追问、开始模拟、生成下一节点、进行时空穿越并生成最终洞察报告。
+- 未配置 Key 时，线上版本展示 Key 配置提示，而不是通用网络失败弹窗。
+- 本地开发不需要运行 Express。
+- `pnpm lint` 通过。
+- 现有工具测试和新增浏览器端 AI service 测试通过。
+- Pages 产物只包含静态前端文件、`.nojekyll` 和 `404.html`。
 
-## Risks and Mitigations
+## 风险与应对
 
-- DeepSeek CORS behavior may change. Mitigation: keep the browser AI client isolated so a backend adapter can be reintroduced later without rewriting UI state.
-- Browser bundles will expose prompts and build-time keys. Mitigation: accepted by current requirements; prefer user-entered key when possible.
-- Prompt extraction may accidentally change simulation quality. Mitigation: move strings carefully, keep tests around prompt inputs where feasible, and compare generated request prompts during migration.
-- `server.ts` and browser service can drift if both remain active. Mitigation: mark `server.ts` as legacy optional mode after migration, or remove it in a later cleanup once Pages mode is verified.
+- DeepSeek 的 CORS 策略未来可能变化。应对：把浏览器端 AI 客户端隔离成单独模块，未来需要恢复后端适配时不必重写 UI 状态。
+- 浏览器包会暴露 prompt 和构建时 Key。应对：当前需求已接受该风险；默认优先推荐用户页面输入 Key。
+- Prompt 提取可能影响生成质量。应对：迁移时只移动逻辑，不改写语义；必要时对比迁移前后的 prompt 文本。
+- 如果 `server.ts` 和浏览器 service 长期并存，逻辑可能漂移。应对：迁移完成后将 `server.ts` 标记为 legacy 可选模式，线上验证稳定后再考虑删除。
 
-## Open Implementation Decision
+## 待确认实现选择
 
-Use user-entered DeepSeek key as the default runtime path, while still supporting optional `VITE_DEEPSEEK_API_KEY` for convenience. This keeps GitHub Pages fully static and avoids requiring GitHub Secrets for normal use.
+默认使用“用户在页面输入 DeepSeek Key”的运行时方案，同时保留可选的 `VITE_DEEPSEEK_API_KEY` 构建时方案。这样既能保持 GitHub Pages 完全静态，也不强制依赖 GitHub Secrets。
