@@ -12,7 +12,7 @@
 - 保持现有用户流程、模拟体验和 AI 生成行为不变。
 - 将原本 Express 接口里的业务编排迁移到浏览器端 TypeScript 服务。
 - 本地开发回到简单的 Vite 模式，默认只需要 `pnpm dev`。
-- 支持两种 API Key 配置方式：页面内输入并保存在浏览器，或通过 Vite 构建环境变量注入。
+- API Key 直接通过 Vite 环境变量在本地或构建环境中配置，不设计页面输入和浏览器保存流程。
 - 复用现有 prompt 构造、响应解析、重试和数据归一化逻辑，避免重写核心规则。
 
 ## 非目标
@@ -33,15 +33,15 @@
    - 优点：API Key 不暴露，后端可以统一做限流、重试和供应商兜底。
    - 缺点：不是纯 GitHub Pages 方案，需要额外服务器或 Serverless 平台。
 
-2. 浏览器直接调用 DeepSeek，用户在页面输入 Key
-   - 优点：完全兼容 GitHub Pages，不需要后端，不依赖 GitHub Secrets。
-   - 缺点：用户必须自己提供 Key，Key 会存在浏览器环境中。
+2. 浏览器直接调用 DeepSeek，并在页面内提供 Key 配置
+   - 优点：完全兼容 GitHub Pages，不需要后端，不依赖构建配置。
+   - 结论：不采用。它会增加额外配置界面和浏览器存储逻辑，对当前项目不是必要复杂度。
 
 3. 浏览器直接调用 DeepSeek，构建时注入 `VITE_DEEPSEEK_API_KEY`
    - 优点：用户体验最简单，打开页面即可使用。
-   - 缺点：Key 会被打进公开的 JS 文件里，换 Key 需要重新构建部署。
+   - 缺点：Key 会被打进公开的 JS 文件里，换 Key 需要重新构建部署。当前已接受该成本和暴露风险。
 
-推荐同时支持方案 2 和方案 3。运行时用户输入的 Key 优先级高于构建时注入的 Key。
+推荐采用方案 3。项目只需要从 Vite 环境变量读取 Key，不需要实现页面配置入口，也不需要实现浏览器端保存、清除或替换 Key 的功能。
 
 ## 关于实时交互 API
 
@@ -76,7 +76,7 @@ GitHub Pages 版本中不能再请求 `/api/simulator/*`。所有模拟能力都
 职责：
 
 - 构造 `/chat/completions` 请求。
-- 从显式参数、浏览器本地存储或 `import.meta.env.VITE_DEEPSEEK_API_KEY` 读取 API Key。
+- 从 `import.meta.env.VITE_DEEPSEEK_API_KEY` 读取 API Key。
 - 保留现有“只返回 JSON”的系统提示约束。
 - 保留 `response_format: { type: "json_object" }`、`thinking: { type: "disabled" }`、`temperature`、`max_tokens` 和非流式请求行为。
 - 返回与现有解析逻辑兼容的 `{ text: string }`。
@@ -98,24 +98,27 @@ export async function callDeepSeekJsonFromBrowser(
 ): Promise<{ text: string }>;
 ```
 
-### `src/services/ai/apiKeyStore.ts`
+### `src/services/ai/env.ts`
 
-用途：管理浏览器端 API Key 配置。
+用途：集中读取浏览器构建环境配置。
 
 职责：
 
-- 在 `localStorage` 中保存、读取和清除 DeepSeek Key。
-- 暴露当前是否存在可用 Key。
-- 用户运行时输入的 Key 优先于构建时环境变量。
+- 读取 `import.meta.env.VITE_DEEPSEEK_API_KEY`。
+- 读取可选的 `VITE_DEEPSEEK_BASE_URL` 和 `VITE_DEEPSEEK_MODEL`。
+- 在缺少 Key 时抛出类型化配置错误。
 - 永远不要把 Key 打印到日志中。
 
 建议 API：
 
 ```ts
-export function getDeepSeekApiKey(): string;
-export function setDeepSeekApiKey(value: string): void;
-export function clearDeepSeekApiKey(): void;
-export function hasDeepSeekApiKey(): boolean;
+export interface BrowserAiEnv {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
+export function getBrowserAiEnv(): BrowserAiEnv;
 ```
 
 ### `src/services/simulation/simulationService.ts`
@@ -157,19 +160,18 @@ export function hasDeepSeekApiKey(): boolean;
 - 将 `fetch("/api/simulator/generate-questions")` 替换为 `simulationService.generateQuestions(...)`。
 - 将其他所有 `/api/simulator/*` 请求替换为对应 service 方法。
 - 保持现有状态流转和页面流程不变。
-- 当没有配置 API Key 时，展示清晰的 Key 配置状态。
+- 当构建环境没有配置 API Key 时，展示清晰的配置错误。
 - 将 service 抛出的类型化错误映射到现有弹窗提示。
 
-### API Key 配置界面
+### API Key 配置方式
 
-需要增加一个轻量配置入口。最小版本可以放在初始设置流程中，也可以放在不打扰主流程的设置面板里。
+不新增页面配置入口。API Key 只通过项目本地或构建环境配置：
 
-行为要求：
-
-- 如果 `localStorage` 和 `VITE_DEEPSEEK_API_KEY` 都没有 Key，在开始 AI 生成前提示用户配置 Key。
-- 允许用户把 Key 保存到本地浏览器。
-- 允许清除或替换 Key。
-- 即使没有 Key，也不阻止静态应用外壳加载。
+- 本地开发：在 `.env.local` 中配置 `VITE_DEEPSEEK_API_KEY`。
+- 生产构建：在 `.env.production`、GitHub Actions env、或其他构建环境中配置 `VITE_DEEPSEEK_API_KEY`。
+- 如果当前阶段接受 Key 暴露风险，也可以把生产 Key 直接放入项目配置文件中。
+- 不实现浏览器端保存、清除、替换 Key 的交互。
+- 即使没有 Key，也不阻止静态应用外壳加载；只在触发 AI 请求时给出配置错误提示。
 
 ## 构建与部署调整
 
@@ -204,7 +206,17 @@ GitHub Pages 的生产构建应该只构建前端。
 
 当 `pnpm build` 不再生成 `dist/server.cjs` 后，可以移除 workflow 里针对 server bundle 的清理逻辑。
 
-如果选择构建时注入 Key，可以配置：
+配置示例：
+
+本地 `.env.local`：
+
+```dotenv
+VITE_DEEPSEEK_API_KEY=your_deepseek_api_key
+VITE_DEEPSEEK_MODEL=deepseek-v4-flash
+VITE_DEEPSEEK_BASE_URL=https://api.deepseek.com
+```
+
+GitHub Pages workflow：
 
 ```yaml
 env:
@@ -214,7 +226,7 @@ env:
   VITE_DEEPSEEK_BASE_URL: https://api.deepseek.com
 ```
 
-如果只使用用户页面输入 Key，不需要配置 `VITE_DEEPSEEK_API_KEY`。
+如果当前阶段不关心 Key 暴露，也可以直接在仓库配置文件或 workflow env 中写入明文 Key，降低部署复杂度。
 
 ## 数据流
 
@@ -255,7 +267,7 @@ export type AiClientErrorCode =
 
 UI 映射：
 
-- `API_KEY_MISSING`：展示 API Key 配置入口。
+- `API_KEY_MISSING`：提示检查本地或构建环境中的 `VITE_DEEPSEEK_API_KEY`。
 - `AI_AUTH_FAILED`：提示用户检查 Key 是否正确。
 - `AI_RATE_LIMITED`：提示稍后重试。
 - `AI_NETWORK_FAILED`：沿用当前网络异常文案。
@@ -270,7 +282,7 @@ UI 映射：
 
 - 浏览器端 DeepSeek 客户端能构造正确 endpoint 和请求体。
 - 浏览器端 DeepSeek 客户端能提取 JSON 内容，并兼容 fenced JSON。
-- API Key 存储逻辑中，运行时 Key 优先于构建时 Key。
+- 环境配置读取逻辑能正确读取 `VITE_DEEPSEEK_API_KEY`、base URL 和 model。
 - `simulationService.generateQuestions` 能从假请求响应中返回解析后的问题列表。
 - `simulationService.startSimulation` 能对不完整节点执行重试并返回归一化结果。
 - `App.tsx` 集成测试可以等 UI 测试框架引入后再补，不作为本次重构的硬性前置。
@@ -279,13 +291,13 @@ UI 映射：
 
 ## 迁移步骤
 
-1. 为浏览器端 DeepSeek 客户端和 API Key 存储添加测试。
-2. 实现浏览器端 DeepSeek 客户端和 API Key 存储。
+1. 为浏览器端 DeepSeek 客户端和环境配置读取逻辑添加测试。
+2. 实现浏览器端 DeepSeek 客户端和环境配置读取模块。
 3. 从 `server.ts` 中提取 prompt 构造逻辑到浏览器安全模块。
 4. 为每个原 endpoint 对应的 `simulationService` 方法添加测试。
 5. 使用提取后的 prompt 和现有归一化工具实现 `simulationService`。
 6. 更新 `App.tsx`，移除对 `/api/simulator/*` 的请求。
-7. 增加 API Key 配置界面。
+7. 增加缺少 `VITE_DEEPSEEK_API_KEY` 时的清晰错误提示。
 8. 修改 `package.json` scripts，让 Pages 只执行 `vite build`。
 9. 简化 `.github/workflows/deploy-pages.yml`，只保留静态产物部署逻辑。
 10. 使用 `BASE_PATH=/ai-life-simulator/ pnpm build` 验证本地静态构建。
@@ -296,7 +308,7 @@ UI 映射：
 - GitHub Pages 能在 `/ai-life-simulator/` 正常加载应用外壳。
 - 从 GitHub Pages 开始模拟时，不再请求 `https://zhangxinyi08888-dot.github.io/api/simulator/*`。
 - 配置有效 DeepSeek Key 后，线上版本可以生成追问、开始模拟、生成下一节点、进行时空穿越并生成最终洞察报告。
-- 未配置 Key 时，线上版本展示 Key 配置提示，而不是通用网络失败弹窗。
+- 未配置 Key 时，线上版本展示环境配置错误提示，而不是通用网络失败弹窗。
 - 本地开发不需要运行 Express。
 - `pnpm lint` 通过。
 - 现有工具测试和新增浏览器端 AI service 测试通过。
@@ -305,10 +317,10 @@ UI 映射：
 ## 风险与应对
 
 - DeepSeek 的 CORS 策略未来可能变化。应对：把浏览器端 AI 客户端隔离成单独模块，未来需要恢复后端适配时不必重写 UI 状态。
-- 浏览器包会暴露 prompt 和构建时 Key。应对：当前需求已接受该风险；默认优先推荐用户页面输入 Key。
+- 浏览器包会暴露 prompt 和构建时 Key。应对：当前需求已接受该风险；通过简单配置降低实现和部署复杂度。
 - Prompt 提取可能影响生成质量。应对：迁移时只移动逻辑，不改写语义；必要时对比迁移前后的 prompt 文本。
 - 如果 `server.ts` 和浏览器 service 长期并存，逻辑可能漂移。应对：迁移完成后将 `server.ts` 标记为 legacy 可选模式，线上验证稳定后再考虑删除。
 
-## 待确认实现选择
+## 已确认实现选择
 
-默认使用“用户在页面输入 DeepSeek Key”的运行时方案，同时保留可选的 `VITE_DEEPSEEK_API_KEY` 构建时方案。这样既能保持 GitHub Pages 完全静态，也不强制依赖 GitHub Secrets。
+默认使用 `VITE_DEEPSEEK_API_KEY` 构建时注入方案。项目不实现页面配置入口，也不保存运行时 Key。本地开发通过 `.env.local` 配置，生产构建通过 `.env.production`、workflow env 或其他构建环境配置。当前阶段不需要围绕 Key 泄漏做额外防护。
