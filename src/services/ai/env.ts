@@ -36,5 +36,6 @@ export function getBrowserAiEnvFromRecord(env: BrowserAiEnvRecord): BrowserAiEnv
 }
 
 export function getBrowserAiEnv(): BrowserAiEnv {
-  return getBrowserAiEnvFromRecord(import.meta.env as BrowserAiEnvRecord);
+  const meta = import.meta as ImportMeta & { env?: BrowserAiEnvRecord };
+  return getBrowserAiEnvFromRecord(meta.env || {});
 }
