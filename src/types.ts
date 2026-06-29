@@ -50,7 +50,7 @@ export interface SimulationChoice {
   impactSummary: string;    // 选项潜在线索提示或意味
 }
 
-export type LifeEventCategory = "career" | "relationship" | "health" | "opportunity";
+export type LifeEventCategory = "career" | "relationship" | "health" | "financial" | "growth" | "opportunity";
 
 export interface EventMeta {
   eventId?: string;

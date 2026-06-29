@@ -1,5 +1,7 @@
 import { formatAnswerTurns } from "../../utils/answerFormatting";
-import { buildEventSeedPrompt } from "../../utils/eventPrompt";
+import { LifeEventSeed } from "../../data/lifeEvents";
+import { buildEventIntentPrompt, buildNullEventPrompt } from "../../utils/eventPrompt";
+import { StoryContextPack } from "../../utils/storyContext";
 import { HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
 
 function focusLabel(value: string): string {
@@ -114,16 +116,17 @@ interface NextNodePromptInput {
   history: HistoryItem[];
   currentAttributes: LifeAttributes;
   selectedDecision: string;
-  eventSeed?: Parameters<typeof buildEventSeedPrompt>[0] | null;
+  eventSeed?: LifeEventSeed | null;
+  storyContext?: StoryContextPack;
 }
 
 export function buildNextNodePrompt(input: NextNodePromptInput): string {
-  const { userData, answers, history, currentAttributes, selectedDecision, eventSeed } = input;
+  const { userData, answers, history, currentAttributes, selectedDecision, eventSeed, storyContext } = input;
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
   const eventSeedPrompt = eventSeed
-    ? buildEventSeedPrompt(eventSeed)
-    : "\n\n【本轮无强事件种子】\n不要为了戏剧性强行制造事故、裁员、背叛或重大危机。请根据用户上一阶段选择、当前五维属性和既往历史，自然推进一段平稳但仍有真实取舍的生活节点。";
+    ? buildEventIntentPrompt(eventSeed, storyContext)
+    : buildNullEventPrompt(storyContext);
 
   return `你是一个才华横溢、精通大众心理学、社会规律与命运因果抉择的顶级推演大师。
 请写实模拟用户重新选择一次后，各条生命轨迹在现代中国社会下的真实进展。剧情要咬合用户回到这个节点的真实意图、困苦和核心主线。
