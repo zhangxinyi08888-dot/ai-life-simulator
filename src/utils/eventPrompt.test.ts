@@ -70,7 +70,9 @@ const interestContext = buildStoryContextPack(
       title: "社区服务创业",
       description: "你围绕本地社区服务搭建团队，主要压力来自现金流和获客。",
       selectedChoice: "继续做社区服务",
-      attributes: { happiness: 50, intelligence: 60, wealth: 45, relation: 55, health: 58 }
+      attributes: { happiness: 50, intelligence: 60, wealth: 45, relation: 55, health: 58 },
+      choices: [{ id: "A", text: "继续做社区服务", impactSummary: "聚焦现金" }],
+      isEndingNode: false
     }
   ]
 );

@@ -136,7 +136,9 @@ const history: HistoryItem[] = [
     title: "第一份工作的岔路",
     description: "她拿着录用通知，反复比较通勤、工资和成长空间。",
     selectedChoice: "转向内容行业实习",
-    attributes
+    attributes,
+    choices: [{ id: "A", text: "转向内容行业实习", impactSummary: "内容试水" }],
+    isEndingNode: false
   }
 ];
 let capturedNextPrompt = "";

@@ -40,7 +40,9 @@ function historyItem(age: number, title: string, description: string): HistoryIt
     stage: "测试阶段",
     description,
     selectedChoice: "继续推进",
-    attributes
+    attributes,
+    choices: [{ id: "A", text: "继续推进", impactSummary: "继续推进" }],
+    isEndingNode: false
   };
 }
 

@@ -13,7 +13,7 @@ interface SimulationEngineProps {
   onSelectChoice: (choiceText: string) => void;
   isLoadingNext: boolean;
   isLoadingReport: boolean;
-  onTimeTravel: (targetAge: number) => void;
+  onTimeTravel: (targetIndex: number) => void;
 }
 
 export default function SimulationEngine({
@@ -349,12 +349,12 @@ export default function SimulationEngine({
                               type="button"
                               onClick={() => {
                                 setIsHistoryOpen(false);
-                                onTimeTravel(item.age);
+                                onTimeTravel(idx);
                               }}
                               className="px-2.5 py-1 rounded bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-[9px] flex items-center gap-0.5 transition-all shadow-sm active:scale-95"
                             >
                               <History className="w-2.5 h-2.5" />
-                              时光逆流 回到此岁
+                              回到此处重选
                             </button>
                           </div>
                         </div>

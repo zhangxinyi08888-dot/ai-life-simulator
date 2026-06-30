@@ -19,13 +19,15 @@ const stableAttributes: LifeAttributes = {
 };
 
 function historyItem(eventMeta: HistoryItem["eventMeta"]): HistoryItem {
-  return {
-    age: 52,
-    title: "身体亮起红灯",
-    stage: "中年困顿期",
+	  return {
+	    age: 52,
+	    title: "身体亮起红灯",
+	    stage: "中年困顿期",
     description: "这一段历史的标题和正文都不是事件标题。",
     selectedChoice: "接受停顿",
     attributes: lowHealth,
+    choices: [{ id: "A", text: "接受停顿", impactSummary: "暂缓脚步" }],
+    isEndingNode: false,
     eventMeta
   };
 }
