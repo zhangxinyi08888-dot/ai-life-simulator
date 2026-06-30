@@ -74,3 +74,45 @@ assert.match(formatted, /追问补全事实/);
 assert.match(formatted, /我爸妈希望我稳定/);
 assert.match(formatted, /最近 5 个历史节点/);
 assert.match(formatted, /当前可延续副线/);
+
+const interestUserData: Partial<UserInitialData> = {
+  regressionAge: 18,
+  regressionSituation: "高考填报志愿时，我对植物感兴趣，也想过学生物相关专业。",
+  regressionChoices: "想看看如果按兴趣填志愿会怎样",
+  coreStoryFocus: "career",
+  milestoneCareer: "后来选择了互联网运营方向。"
+};
+
+const interestHistory = [
+  historyItem(22, "运营实习", "你进入本地生活平台做运营，开始接触商家增长。"),
+  historyItem(24, "平台转正", "你负责社区活动和用户增长，植物没有再成为主要选择。"),
+  historyItem(27, "小团队管理", "你带着两个人做城市项目，工作重点变成现金流和团队协作。"),
+  historyItem(30, "社区服务创业", "你决定围绕社区服务做创业，不再纠结当年的专业兴趣。"),
+  historyItem(31, "合伙磨合", "你和合伙人讨论本地服务的获客成本。")
+];
+
+const interestPack = buildStoryContextPack(interestUserData, [], interestHistory);
+const interestFormatted = formatStoryContextPack(interestPack);
+
+assert.ok(interestPack.interestSignals.some((fact) => fact.text.includes("植物")));
+assert.ok(interestPack.stageFacts.some((fact) => fact.text.includes("高考填报志愿")));
+const plantInterest = interestPack.interestSignals.find((fact) => fact.text.includes("植物"));
+assert.equal(plantInterest?.promotedToArc, false);
+assert.equal(plantInterest?.reinforcementCount, 0);
+assert.ok((plantInterest?.currentWeight ?? 1) < 0.45);
+assert.match(interestFormatted, /兴趣倾向/);
+assert.match(interestFormatted, /早期兴趣若最近历史没有强化/);
+assert.match(interestFormatted, /不得自动升级为职业、创业方向或终身主线/);
+
+const reinforcedPack = buildStoryContextPack(
+  interestUserData,
+  [],
+  [
+    historyItem(19, "植物社团", "你加入植物社团，开始系统学习植物养护。"),
+    historyItem(22, "农业科技实习", "你进入农业科技公司，继续围绕植物方向积累经验。"),
+    historyItem(25, "园艺项目", "你选择参与社区园艺项目，把植物兴趣变成真实工作。")
+  ]
+);
+const reinforcedPlantInterest = reinforcedPack.interestSignals.find((fact) => fact.text.includes("植物"));
+assert.equal(reinforcedPlantInterest?.promotedToArc, true);
+assert.ok((reinforcedPlantInterest?.currentWeight ?? 0) >= 0.75);
