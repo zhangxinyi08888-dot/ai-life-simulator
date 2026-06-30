@@ -12,9 +12,9 @@ import {
   analyzePersonality,
   generateNextNode,
   generateQuestions,
-  startSimulation,
-  timeTravel as runTimeTravel
+  startSimulation
 } from "./services/simulation/simulationService";
+import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 
 function getSimulationErrorMessage(error: unknown, fallback: string): string {
   if (!isAiClientError(error)) return fallback;
@@ -116,15 +116,7 @@ export default function App() {
     if (currentNode.isEndingNode || choiceText === "安详落幕，查看一生洞察") {
       setIsLoading(true);
       
-      const finalHistoryItem: HistoryItem = {
-        age: currentNode.age,
-        title: currentNode.title,
-        stage: currentNode.stage,
-        description: currentNode.description,
-        selectedChoice: choiceText,
-        attributes: { ...attributes },
-        eventMeta: currentNode.eventMeta
-      };
+      const finalHistoryItem = createHistoryItemFromNode(currentNode, choiceText);
       const updatedHistory = [...history, finalHistoryItem];
 
       try {
@@ -148,15 +140,7 @@ export default function App() {
     // Regular progression to next-node
     setIsLoadingNext(true);
 
-    const newHistoryItem: HistoryItem = {
-      age: currentNode.age,
-      title: currentNode.title,
-      stage: currentNode.stage,
-      description: currentNode.description,
-      selectedChoice: choiceText,
-      attributes: { ...attributes },
-      eventMeta: currentNode.eventMeta
-    };
+    const newHistoryItem = createHistoryItemFromNode(currentNode, choiceText);
     const updatedHistory = [...history, newHistoryItem];
     setHistory(updatedHistory);
 
@@ -183,48 +167,20 @@ export default function App() {
     }
   };
 
-  // 4. Time travel back to a specific target age
-  const handleTimeTravel = async (targetAge: number) => {
-    if (!userData) return;
-    const targetIdx = history.findIndex(h => h.age === targetAge);
-    if (targetIdx === -1) return;
-
+  // 4. Restore a specific historical node so the user can choose again
+  const handleTimeTravel = (targetIndex: number) => {
     setErrorMsg(null);
-    setIsLoadingNext(true);
-
-    const targetItem = history[targetIdx];
-    const restoredAttributes = targetItem.attributes || {
-      happiness: 50,
-      intelligence: 50,
-      wealth: 50,
-      relation: 50,
-      health: 50
-    };
-    const truncatedHistory = history.slice(0, targetIdx);
 
     try {
-      const body = await runTimeTravel({
-        userData,
-        answers,
-        history: truncatedHistory,
-        currentAttributes: restoredAttributes,
-        targetAge,
-        targetTitle: targetItem.title,
-        targetStage: targetItem.stage,
-        targetDescription: targetItem.description
-      });
-
-      setAttributes(restoredAttributes);
-      setCurrentNode(body);
-      setHistory(truncatedHistory);
-      setNodeCount(truncatedHistory.length + 1);
-      setStep("simulating"); // Make sure we return to simulated view to explore new path
-
+      const restored = restoreHistoryNodeAtIndex(history, targetIndex);
+      setAttributes(restored.attributes);
+      setCurrentNode(restored.node);
+      setHistory(restored.historyBefore);
+      setNodeCount(restored.nodeCount);
+      setStep("simulating");
     } catch (err: any) {
       console.error(err);
       setErrorMsg(getSimulationErrorMessage(err, "逆转星轨失败，未能顺利重装这段尘封记忆。"));
-    } finally {
-      setIsLoadingNext(false);
     }
   };
 

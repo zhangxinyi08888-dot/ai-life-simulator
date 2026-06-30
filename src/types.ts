@@ -76,6 +76,8 @@ export interface HistoryItem {
   description: string;
   selectedChoice: string;
   attributes: LifeAttributes;   // 存储该历史节点当时的属性状态，支持高保真时光回溯
+  choices: SimulationChoice[];   // 存储该节点当时的选项，支持回到历史节点重新选择
+  isEndingNode: boolean;         // 存储该节点是否为结局节点，支持完整恢复节点状态
   eventMeta?: EventMeta;
 }
 

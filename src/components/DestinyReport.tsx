@@ -13,7 +13,7 @@ interface DestinyReportProps {
   userName: string;
   history: HistoryItem[];
   onRestart: () => void;
-  onTimeTravel: (targetAge: number) => void;
+  onTimeTravel: (targetIndex: number) => void;
 }
 
 type AdviceTab = "growth" | "decision" | "wellness";
@@ -333,7 +333,7 @@ ${insight.realLifeAdvice}
           </h4>
           <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1 text-[11px]" id="timeline-mini-list">
             {history.map((node, i) => {
-              const canTravel = i < history.length - 1; // Time travel back to interactive historical moments
+              const canTravel = i < history.length - 1; // Restore earlier interactive moments
               return (
                 <div key={i} className="flex gap-2 border-b border-slate-950 pb-2.5 last:border-0 last:pb-0 items-start justify-between" id={`timeline-mini-item-${i}`}>
                   <div className="flex gap-2 flex-1 min-w-0">
@@ -348,12 +348,12 @@ ${insight.realLifeAdvice}
                     <button
                       id={`timeline-travel-from-end-btn-${i}`}
                       type="button"
-                      onClick={() => onTimeTravel(node.age)}
+                      onClick={() => onTimeTravel(i)}
                       className="flex-shrink-0 px-2 py-1 rounded bg-violet-600/80 hover:bg-violet-500 text-white font-bold text-[9px] flex items-center gap-0.5 transition-all shadow-sm active:scale-95 mt-1"
-                      title="时光逆流：回到此岁，改写平行支线和后续结局"
+                      title="回到此处重选，改写平行支线和后续结局"
                     >
                       <History className="w-2.5 h-2.5" />
-                      逆回此岁
+                      回到此处
                     </button>
                   )}
                 </div>
