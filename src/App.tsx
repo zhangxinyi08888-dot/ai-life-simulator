@@ -2,18 +2,18 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Compass, AlertCircle, X, Orbit } from "lucide-react";
 
-import { UserInitialData, QuestionTurn, SimulationNode, LifeAttributes, HistoryItem, PersonalityInsight, QuestionItem } from "./types";
+import { UserInitialData, QuestionTurn, SimulationNode, LifeAttributes, HistoryItem, FinalLifeOutcome, QuestionItem } from "./types";
 import InitialSetup from "./components/InitialSetup";
 import SoulQuestioning from "./components/SoulQuestioning";
 import SimulationEngine from "./components/SimulationEngine";
 import DestinyReport from "./components/DestinyReport";
 import { isAiClientError } from "./services/ai/errors";
 import {
-  analyzePersonality,
   generateNextNode,
   generateQuestions,
   startSimulation
 } from "./services/simulation/simulationService";
+import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeService";
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 
 function getSimulationErrorMessage(error: unknown, fallback: string): string {
@@ -57,7 +57,7 @@ export default function App() {
   const [currentNode, setCurrentNode] = useState<SimulationNode | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [nodeCount, setNodeCount] = useState(1);
-  const [insight, setInsight] = useState<PersonalityInsight | null>(null);
+  const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
@@ -120,12 +120,13 @@ export default function App() {
       const updatedHistory = [...history, finalHistoryItem];
 
       try {
-        const body = await analyzePersonality({
+        const body = await generateFinalOutcome({
           userData,
+          answers,
           history: updatedHistory,
           currentAttributes: attributes
         });
-        setInsight(body);
+        setOutcome(body);
         setStep("insight");
 
       } catch (err: any) {
@@ -193,7 +194,7 @@ export default function App() {
     setHistory([]);
     setNodeCount(1);
     setCurrentNode(null);
-    setInsight(null);
+    setOutcome(null);
     setErrorMsg(null);
   };
 
@@ -267,7 +268,7 @@ export default function App() {
               </motion.div>
             )}
 
-            {step === "insight" && insight && userData && (
+            {step === "insight" && outcome && userData && (
               <motion.div
                 key="insight-step"
                 initial={{ opacity: 0, y: 30 }}
@@ -276,7 +277,7 @@ export default function App() {
                 className="w-full h-full"
               >
                 <DestinyReport
-                  insight={insight}
+                  outcome={outcome}
                   userData={userData}
                   userName={name}
                   history={history}
