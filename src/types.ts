@@ -95,3 +95,91 @@ export interface PersonalityInsight {
   decisionAdvice: string;   // 针对重大决策的决策学建议 (Decision Making Wisdom)
   wellnessAdvice: string;   // 针对身心调适与幸福保障的健康建议 (Well-being & Mindful-care)
 }
+
+export type PosterTheme = "warm_realistic" | "quiet_dark" | "clean_magazine";
+
+export interface ShareTimelineItem {
+  ageLabel: string;
+  icon: string;
+  title: string;
+  choiceSummary: string;
+  keyMomentIndexes: number[];
+}
+
+export interface ShareEndingCard {
+  viralTitle: string;
+  covenantTitle: string;
+  oneLineSummary: string;
+  timeline: ShareTimelineItem[];
+  closingLine: string;
+  posterTheme: PosterTheme;
+  downloadFileName: string;
+  imageAlt: string;
+}
+
+export interface PatternSummary {
+  name: string;
+  shortDescription: string;
+  keyMomentIndexes: number[];
+}
+
+export interface LifePattern {
+  name: string;
+  title: string;
+  paragraphs: string[];
+  keyMomentIndexes: number[];
+  closingLine: string;
+}
+
+export interface PatternEffect {
+  patternName: string;
+  compoundReturn: string;
+  hiddenCost: string;
+  paragraphs: string[];
+  keyMomentIndexes: number[];
+  closingLine: string;
+}
+
+export interface FutureTrend {
+  title: string;
+  trend: string;
+  reason: string;
+  keyMomentIndexes: number[];
+}
+
+export interface PatternUpgradeItem {
+  title: string;
+  why: string;
+  paragraphs: string[];
+  keyMomentIndexes: number[];
+  closingLine: string;
+}
+
+export interface LifePatternReport {
+  executiveSummary: {
+    headline: string;
+    patterns: PatternSummary[];
+    closingLine: string;
+  };
+  repeatedPatterns: LifePattern[];
+  patternEffects: PatternEffect[];
+  futureTrends: FutureTrend[];
+  patternsToKeep: PatternUpgradeItem[];
+  patternsToAdjust: PatternUpgradeItem[];
+  finalLifeReading: {
+    title: string;
+    paragraphs: string[];
+    finalSentence: string;
+  };
+}
+
+export interface FinalLifeOutcome {
+  share: ShareEndingCard;
+  report: LifePatternReport;
+  meta: {
+    generatedAt: string;
+    modelProvider: "deepseek" | "openai" | "mock";
+    posterVersion: "web-v1";
+    reportVersion: "life-pattern-v2";
+  };
+}

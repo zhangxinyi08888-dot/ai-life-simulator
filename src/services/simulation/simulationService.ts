@@ -8,6 +8,7 @@ import { buildStoryContextPack } from "../../utils/storyContext";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
+import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
 import {
   buildNextNodePrompt,
   buildNodePromptWithRetryNotice,
@@ -33,6 +34,8 @@ export interface StartSimulationResult {
 
 function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
   if (deps.callAiJson) return deps.callAiJson;
+  const e2eCaller = getBrowserE2eAiJsonCaller();
+  if (e2eCaller) return e2eCaller;
 
   return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt);
 }
