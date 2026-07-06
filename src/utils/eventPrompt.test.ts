@@ -78,6 +78,8 @@ const interestContext = buildStoryContextPack(
 );
 
 const interestPrompt = buildNullEventPrompt(interestContext);
-assert.match(interestPrompt, /早期兴趣若最近历史没有强化/);
-assert.match(interestPrompt, /不得自动扩展为终身职业、创业方向或人生主题/);
-assert.match(interestPrompt, /最近 5 个历史节点和最近选择优先/);
+assert.match(interestPrompt, /方向线索使用边界/);
+assert.match(interestPrompt, /state=mentioned|state=background_detail/);
+assert.match(interestPrompt, /模型正文偶然提及不计入强化/);
+assert.match(interestPrompt, /只有 state=stage_main_arc 或 long_term_main_arc 的方向可以成为职业、创业、重大转型方向/);
+assert.match(interestPrompt, /state=background_detail 的方向不得进入选项主语/);

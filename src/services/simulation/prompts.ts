@@ -38,6 +38,15 @@ function formatHistoryForInsight(history: HistoryItem[]): string {
 用户做出的选择：${item.selectedChoice}`).join("\n\n");
 }
 
+function formatAttributeChangeRules(): string {
+  return `【属性变化规则】
+- attributes 必须由上一步选择和本轮现实后果共同决定，不要只因为选项名称或事件类别机械扣分。
+- 选择高薪项目可以提高财富，但健康是否下降要看工作强度、当前健康、是否有恢复策略。
+- 高薪不是必然伤健康；只有在高强度、长期、无恢复机制时，才应明显降低 health。
+- 如果高薪选择包含合理边界、休息安排、医疗/运动/睡眠等恢复策略，health 可以持平、小幅波动，甚至在压力改善后回升。
+- 属性变化幅度要写实克制，通常每项单轮变化控制在 -12 到 +12。`;
+}
+
 export function buildNodePromptWithRetryNotice(prompt: string, previousIssues: string[]): string {
   if (previousIssues.length === 0) return prompt;
 
@@ -157,6 +166,8 @@ ${eventSeedPrompt}
 - 如果不是结局，请写 150-250 字现实冲突，避免金手指和无理倒霉。
 - 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary。
 - 返回 age、stage、title、description、choices、attributes、isEndingNode。
+
+${formatAttributeChangeRules()}
 
 请严格返回 JSON。`;
 }

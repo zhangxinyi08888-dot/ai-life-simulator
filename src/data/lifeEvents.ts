@@ -208,8 +208,8 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     },
     intent: {
       type: "health_system_warning",
-      meaning: "长期高压生活引发身体或精神系统性的现实反馈。",
-      tensionAxes: ["收益 vs 健康", "短期稳定 vs 长期风险", "责任 vs 自我保护"],
+      meaning: "长期高压、缺少恢复机制的生活引发身体或精神系统性的现实反馈；高薪本身不是健康风险，风险来自强度、时长和恢复缺口。",
+      tensionAxes: ["收入机会 vs 工作强度", "短期稳定 vs 长期恢复", "责任 vs 自我保护"],
       allowedOutcomes: ["persist_high_pressure", "optimize_load", "exit_or_pause"],
       emotionalTone: "crisis"
     }
