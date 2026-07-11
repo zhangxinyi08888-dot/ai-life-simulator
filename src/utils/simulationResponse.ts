@@ -86,7 +86,10 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
     const duration = Array.isArray(choice?.temporalHint?.durationMonths) && choice.temporalHint.durationMonths.length >= 2
       ? [readNumber(choice.temporalHint.durationMonths[0], defaultDuration[lifeIntensity][0]), readNumber(choice.temporalHint.durationMonths[1], defaultDuration[lifeIntensity][1])] as [number, number]
       : defaultDuration[lifeIntensity];
-    const validDeltaTypes = new Set(["person_status", "person_role", "relationship_change", "career_state", "health_state", "location_change"]);
+    const validDeltaTypes = new Set([
+      "person_status", "person_role", "relationship_change", "process_started", "process_completed", "process_interrupted",
+      "career_state", "health_state", "location_change"
+    ]);
     const expectedWorldDeltaTypes = Array.isArray(choice?.expectedWorldDeltaTypes)
       ? choice.expectedWorldDeltaTypes.filter((value: unknown): value is WorldDelta["type"] => typeof value === "string" && validDeltaTypes.has(value))
       : [];
@@ -136,7 +139,9 @@ export function normalizeSimulationNode<T extends Record<string, any>>(node: T, 
   const lifeIntensity = options.lifeIntensity || (["critical", "high_tension", "normal", "stable"].includes(normalized.narrativeMeta?.lifeIntensity)
     ? normalized.narrativeMeta.lifeIntensity as LifeIntensity
     : "normal");
-  const worldDeltas = Array.isArray(normalized.narrativeMeta?.worldDeltas) ? normalized.narrativeMeta.worldDeltas : [];
+  const worldDeltas = Array.isArray(normalized.narrativeMeta?.worldDeltas)
+    ? normalized.narrativeMeta.worldDeltas.filter((value: unknown): value is WorldDelta => Boolean(value && typeof value === "object" && typeof (value as { type?: unknown }).type === "string"))
+    : [];
   const arcSignals = Array.isArray(normalized.narrativeMeta?.arcSignals) ? normalized.narrativeMeta.arcSignals : [];
   const episodeId = readString(normalized.narrativeMeta?.storyEpisode?.id) || `episode_${stableHash({ ageInMonths, title: normalized.title })}`;
   const title = readString(normalized.title) || "新的选择";

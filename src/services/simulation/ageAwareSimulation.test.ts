@@ -180,3 +180,106 @@ const age80Start = await startSimulation({ ...userData, regressionAge: 80 }, [],
 });
 assert.equal(age80Start.startNode.age, 80);
 assert.equal(age80Start.startNode.isEndingNode, false);
+
+const pregnancyHistory = historyAt(52);
+pregnancyHistory[0].ageInMonths = 52 * 12 + 9;
+pregnancyHistory[0].description = "妻子已怀孕六个月，希望你多陪伴。";
+pregnancyHistory[0].worldStateSnapshot!.people = [{
+  id: "family_partner",
+  relation: "partner",
+  explicitAge: 46,
+  lifeStatus: "active",
+  source: "history",
+  confidence: 0.9
+}];
+pregnancyHistory[0].worldStateSnapshot!.ongoingProcesses = [{
+  id: "pregnancy_partner_1",
+  type: "pregnancy",
+  subjectPersonIds: ["family_partner"],
+  status: "active",
+  startedAtAgeInMonths: 52 * 12 + 3,
+  expectedEndAgeInMonths: 53 * 12,
+  lastUpdatedAtAgeInMonths: 52 * 12 + 9,
+  source: "history",
+  confidence: 0.9
+}];
+let pregnancyAttempts = 0;
+let pregnancyPrompt = "";
+const pregnancyResolved = await generateNextNode({
+  userData,
+  answers: [],
+  history: pregnancyHistory,
+  currentAttributes: attributes,
+  selectedDecision: "继续创业",
+  nodeIndex: 22,
+  simulationSeed: "pregnancy-timeline"
+}, {
+  callAiJson: async (prompt) => {
+    pregnancyAttempts += 1;
+    pregnancyPrompt = prompt;
+    if (pregnancyAttempts === 1) return { text: JSON.stringify(rawNode("妻子仍怀孕六个月，你继续协调工作和家庭。")) };
+    const repaired = rawNode("孩子已经出生，妻子结束妊娠并进入产后恢复，你需要重新安排工作和照护。") as any;
+    repaired.narrativeMeta.worldDeltas = [
+      { type: "process_completed", processId: "pregnancy_partner_1", completedAtAgeInMonths: 53 * 12, summary: "孩子出生，妊娠结束。" },
+      { type: "relationship_change", personId: "family_partner", summary: "家庭进入产后照护阶段" }
+    ];
+    repaired.narrativeMeta.storyEpisode.internalTransitions = [{
+      atAgeInMonths: 53 * 12,
+      materiality: "transition",
+      summary: "孩子出生，家庭进入产后照护。",
+      worldDeltas: [{ type: "process_completed", processId: "pregnancy_partner_1", completedAtAgeInMonths: 53 * 12, summary: "孩子出生，妊娠结束。" }]
+    }];
+    return { text: JSON.stringify(repaired) };
+  }
+});
+assert.equal(pregnancyAttempts, 2);
+assert.match(pregnancyPrompt, /processId=pregnancy_partner_1/);
+assert.equal(pregnancyResolved.worldStateSnapshot?.ongoingProcesses?.[0].status, "completed");
+assert.equal(pregnancyResolved.description.includes("怀孕六个月"), false);
+
+const exceptionalHistory = historyAt(50);
+exceptionalHistory[0].worldStateSnapshot!.people = [{
+  id: "family_partner",
+  relation: "partner",
+  explicitAge: 52,
+  lifeStatus: "active",
+  source: "history",
+  confidence: 0.95
+}];
+let exceptionalAttempts = 0;
+const exceptionalPregnancy = await generateNextNode({
+  userData,
+  answers: [],
+  history: exceptionalHistory,
+  currentAttributes: attributes,
+  selectedDecision: "继续创业",
+  nodeIndex: 18,
+  simulationSeed: "exceptional-pregnancy"
+}, {
+  callAiJson: async () => {
+    exceptionalAttempts += 1;
+    const candidate = rawNode(exceptionalAttempts === 1
+      ? "妻子确认怀孕，家庭开始准备。"
+      : "妻子经过生殖医学团队长期治疗和医生评估后确认怀孕，家庭开始准备。") as any;
+    candidate.narrativeMeta.worldDeltas = [{
+      type: "process_started",
+      process: {
+        id: "pregnancy_exceptional",
+        type: "pregnancy",
+        subjectPersonIds: ["family_partner"],
+        status: "active",
+        startedAtAgeInMonths: 9999,
+        expectedEndAgeInMonths: 10008,
+        lastUpdatedAtAgeInMonths: 9999,
+        exceptionalBasis: exceptionalAttempts === 1 ? [] : ["生殖医学团队长期治疗和医生评估"],
+        source: "model_proposed",
+        confidence: 0.9
+      }
+    }];
+    return { text: JSON.stringify(candidate) };
+  }
+});
+assert.equal(exceptionalAttempts, 2);
+assert.equal(exceptionalPregnancy.narrativeMeta?.outcomePlausibility?.tier, "exceptional");
+assert.equal((exceptionalPregnancy.narrativeMeta?.outcomePlausibility?.supportingFacts.length || 0) > 0, true);
+assert.equal(exceptionalPregnancy.worldStateSnapshot?.ongoingProcesses?.some((process) => process.id === "pregnancy_exceptional"), true);

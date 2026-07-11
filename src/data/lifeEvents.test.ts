@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes } from "../types";
-import { calculateAgeAffinityMultiplier, calculateEventSelectionWeight, isEventAgeEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
+import { calculateAgeAffinityMultiplier, calculateEventSelectionWeight, isEventAgeEligible, isEventUserDirected, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
 
 const lowHealth: LifeAttributes = {
   happiness: 45,
@@ -84,6 +84,8 @@ const relationshipEvent = LIFE_EVENTS_DATABASE.find((event) => event.category ==
 const careerEvent = LIFE_EVENTS_DATABASE.find((event) => event.category === "career");
 assert.ok(relationshipEvent);
 assert.ok(careerEvent);
+assert.equal(isEventUserDirected(relationshipEvent, { coreStoryFocus: "career", regressionChoices: "我明确选择50岁以后再结婚" }, []), true);
+assert.equal(isEventUserDirected(relationshipEvent, { coreStoryFocus: "career", regressionChoices: "我只想继续创业" }, []), false);
 assert.ok(
   calculateEventSelectionWeight(relationshipEvent, { coreStoryFocus: "romance" })
     > calculateEventSelectionWeight(relationshipEvent, { coreStoryFocus: "career" })

@@ -1,5 +1,6 @@
 import { SimulationNode, StoryEpisode, WorldStateSnapshot } from "../types";
 import { AcceptedNodeOutcome, PressureArcTransitionDecision } from "./arcLifecycle";
+import { applyProcessWorldDeltas, ProcessAdvanceResult, unresolvedProcessRequirements } from "./ongoingProcess";
 
 export interface SimulationTransactionInput {
   transactionId: string;
@@ -8,6 +9,7 @@ export interface SimulationTransactionInput {
   acceptedOutcome: AcceptedNodeOutcome;
   pressureArcTransition: PressureArcTransitionDecision;
   currentWorldStateSnapshot: WorldStateSnapshot;
+  processAdvance?: ProcessAdvanceResult;
 }
 
 export interface CommittedSimulationState {
@@ -17,7 +19,7 @@ export interface CommittedSimulationState {
 }
 
 export function emptyWorldState(): WorldStateSnapshot {
-  return { people: [], directionArcs: [], pressureArcs: [], committedTransactionIds: [], version: 1 };
+  return { people: [], ongoingProcesses: [], directionArcs: [], pressureArcs: [], committedTransactionIds: [], version: 1 };
 }
 
 function applySummaries(snapshot: WorldStateSnapshot, outcome: AcceptedNodeOutcome): WorldStateSnapshot {
@@ -41,15 +43,33 @@ export function commitSimulationTransaction(input: SimulationTransactionInput): 
     };
   }
 
+  const unresolvedRequirements = unresolvedProcessRequirements(
+    input.processAdvance?.requiredTransitions || [],
+    input.acceptedOutcome.worldDeltas
+  );
+  if (unresolvedRequirements.length > 0) {
+    throw new Error(`PROCESS_TRANSITION_REQUIRED:${unresolvedRequirements.map((item) => item.processId).join(",")}`);
+  }
+
   let nextSnapshot: WorldStateSnapshot = {
     ...input.currentWorldStateSnapshot,
     people: input.currentWorldStateSnapshot.people.map((person) => ({ ...person })),
+    ongoingProcesses: (input.processAdvance?.nextProcesses || input.currentWorldStateSnapshot.ongoingProcesses || []).map((process) => ({
+      ...process,
+      subjectPersonIds: [...process.subjectPersonIds],
+      exceptionalBasis: process.exceptionalBasis ? [...process.exceptionalBasis] : undefined
+    })),
     directionArcs: input.currentWorldStateSnapshot.directionArcs.map((arc) => ({ ...arc })),
     pressureArcs: input.currentWorldStateSnapshot.pressureArcs.map((arc) => ({ ...arc })),
     committedTransactionIds: [...committedIds, input.transactionId],
     version: 1
   };
   nextSnapshot = applySummaries(nextSnapshot, input.acceptedOutcome);
+  nextSnapshot.ongoingProcesses = applyProcessWorldDeltas(
+    nextSnapshot.ongoingProcesses || [],
+    input.acceptedOutcome.worldDeltas,
+    input.node.ageInMonths ?? input.node.age * 12
+  );
 
   const nextArc = input.pressureArcTransition.nextArcState;
   if (nextArc) {

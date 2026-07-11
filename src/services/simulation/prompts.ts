@@ -2,10 +2,11 @@ import { formatAnswerTurns } from "../../utils/answerFormatting";
 import { LifeEventSeed } from "../../data/lifeEvents";
 import { buildEventIntentPrompt, buildNullEventPrompt } from "../../utils/eventPrompt";
 import { StoryContextPack } from "../../utils/storyContext";
-import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
+import { HistoryItem, LifeAttributes, OngoingProcess, PressureArcState, ProcessTransitionRequirement, QuestionTurn, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
 import { AgeContext, formatAgeContextForPrompt } from "../../utils/ageContext";
 import { formatPersonStateForPrompt } from "../../utils/personTimeline";
 import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance";
+import { formatOngoingProcessForPrompt } from "../../utils/ongoingProcess";
 
 function focusLabel(value: string): string {
   if (value === "career") return "事业发展与职场长征";
@@ -138,6 +139,9 @@ interface NextNodePromptInput {
   ageContext?: AgeContext;
   worldState?: WorldStateSnapshot;
   foregroundPressureArc?: PressureArcState;
+  ongoingProcesses?: OngoingProcess[];
+  requiredProcessTransitions?: ProcessTransitionRequirement[];
+  outcomePlausibilityGuidance?: string[];
 }
 
 export function buildNextNodePrompt(input: NextNodePromptInput): string {
@@ -156,6 +160,16 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
   const pressurePrompt = foregroundPressureArc
     ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}。模型不得修改 phase，只能返回 arcSignals。`
     : "当前没有前台 PressureArc；事件只能提出事实结果，不能自行创建或修改 Arc 状态。";
+  const ongoingProcesses = (input.ongoingProcesses || worldState?.ongoingProcesses || []).filter((process) => process.status === "active");
+  const processPrompt = ongoingProcesses.length
+    ? ongoingProcesses.map((process) => `- ${formatOngoingProcessForPrompt(process, targetAgeInMonths)}`).join("\n")
+    : "- 暂无 active 持续过程";
+  const requiredProcessPrompt = input.requiredProcessTransitions?.length
+    ? input.requiredProcessTransitions.map((transition) => `- processId=${transition.processId}：${transition.reason} 允许结果=${transition.allowedActions.join("/")}`).join("\n")
+    : "- 本轮没有代码强制的过程结束变化";
+  const plausibilityPrompt = input.outcomePlausibilityGuidance?.length
+    ? input.outcomePlausibilityGuidance.map((item) => `- ${item}`).join("\n")
+    : "- 少见不等于错误；只有具体时间或成立条件冲突才需要修复。";
 
   return `你是一个才华横溢、精通大众心理学、社会规律与命运因果抉择的顶级推演大师。
 请写实模拟用户重新选择一次后，各条生命轨迹在现代中国社会下的真实进展。剧情要咬合用户回到这个节点的真实意图、困苦和核心主线。
@@ -181,6 +195,15 @@ ${ageContextPrompt}
 【当前人物状态】
 ${peoplePrompt}
 
+【正在进行的持续过程】
+${processPrompt}
+
+【本轮代码派生的过程变化】
+${requiredProcessPrompt}
+
+【结果级现实概率指导】
+${plausibilityPrompt}
+
 【PressureArc 单写者边界】
 ${pressurePrompt}
 
@@ -198,6 +221,11 @@ ${eventSeedPrompt}
 - 只有真正改变未来的选择才能成为节点；复查、等待、恢复等无新分歧过程放入 storyEpisode.internalTransitions。
 - 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes。
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
+- 模型可以通过 worldDeltas 提出 process_started/process_completed/process_interrupted，但不得自由修改过程时钟。
+- 不得自由填写孕周、康复月份、学年或合同阶段；这些值必须服从上面的 OngoingProcess 已持续月份。
+- 本轮代码要求完成或中断的 process，必须返回对应 process_completed/process_interrupted delta，并在正文或 internalTransitions 中体现。
+- process_started 必须包含 type、subjectPersonIds 和事实依据；startedAtAgeInMonths 必须位于本轮 Episode 时间范围内。
+- 50岁结婚、晚婚、再婚等允许成立，不得因年龄否定；uncommon 结果需要自然背景，exceptional 结果需要明确 supportingFacts。
 - arcSignals 只能提出“发生了什么”及 evidence，禁止返回 nextPhaseId、nextPressureArcStatus、foregroundPressureArcId 或修改 checkpointCount。
 - 返回 age、ageInMonths、stage、title、description、choices、attributes、isEndingNode、narrativeMeta。
 

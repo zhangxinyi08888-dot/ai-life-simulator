@@ -85,10 +85,54 @@ export interface EventMeta {
   phasePolicyId?: string;
 }
 
+export type OngoingProcessType =
+  | "pregnancy"
+  | "recovery"
+  | "education"
+  | "contract_transition"
+  | "relocation"
+  | "caregiving";
+
+export type OngoingProcessStatus = "active" | "completed" | "interrupted";
+
+export interface OngoingProcess {
+  id: string;
+  type: OngoingProcessType;
+  subjectPersonIds: string[];
+  status: OngoingProcessStatus;
+  startedAtAgeInMonths: number;
+  expectedEndAgeInMonths?: number;
+  lastUpdatedAtAgeInMonths: number;
+  completionSummary?: string;
+  exceptionalBasis?: string[];
+  source: "user_fact" | "history" | "model_proposed";
+  confidence: number;
+}
+
+export interface ProcessTransitionRequirement {
+  processId: string;
+  processType: OngoingProcessType;
+  atAgeInMonths: number;
+  allowedActions: Array<"completed" | "interrupted">;
+  reason: string;
+}
+
+export type PlausibilityTier = "ordinary" | "uncommon" | "exceptional";
+
+export interface OutcomePlausibilityContext {
+  tier: PlausibilityTier;
+  reasons: string[];
+  supportingFacts: string[];
+  requiresExplicitBasis: boolean;
+}
+
 export type WorldDelta =
   | { type: "person_status"; personId: string; status: PersonLifeStatus; reason: string }
   | { type: "person_role"; personId: string; occupationStatus: PersonState["occupationStatus"] }
   | { type: "relationship_change"; personId: string; summary: string }
+  | { type: "process_started"; process: OngoingProcess }
+  | { type: "process_completed"; processId: string; completedAtAgeInMonths: number; summary: string }
+  | { type: "process_interrupted"; processId: string; interruptedAtAgeInMonths: number; reason: string }
   | { type: "career_state"; summary: string }
   | { type: "health_state"; summary: string }
   | { type: "location_change"; summary: string };
@@ -186,10 +230,12 @@ export interface NarrativeMeta {
     intensity: "low" | "moderate" | "high";
   };
   worldDeltas: WorldDelta[];
+  outcomePlausibility?: OutcomePlausibilityContext;
 }
 
 export interface WorldStateSnapshot {
   people: PersonState[];
+  ongoingProcesses?: OngoingProcess[];
   directionArcs: DirectionArc[];
   pressureArcs: PressureArcState[];
   foregroundPressureArcId?: string;

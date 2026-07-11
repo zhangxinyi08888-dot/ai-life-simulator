@@ -15,6 +15,15 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
+import {
+  advanceOngoingProcesses,
+  rebuildOngoingProcessesFromHistory,
+  validateProcessWorldDeltas
+} from "../../utils/ongoingProcess";
+import {
+  buildOutcomePlausibilityGuidance,
+  evaluateOutcomePlausibility
+} from "../../utils/outcomePlausibility";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
@@ -176,8 +185,10 @@ export async function startSimulation(
     lifeIntensity: "normal"
   });
   const startWorldState = emptyWorldState();
+  const startHistory: HistoryItem[] = [{ ...startNode, selectedChoice: "" }];
   startWorldState.directionArcs = ensureDirectionArcs(startWorldState, userData, startNode.ageInMonths ?? startNode.age * 12);
-  startWorldState.people = rebuildPersonStates(userData, [], startNode.ageInMonths ?? startNode.age * 12);
+  startWorldState.people = rebuildPersonStates(userData, startHistory, startNode.ageInMonths ?? startNode.age * 12);
+  startWorldState.ongoingProcesses = rebuildOngoingProcessesFromHistory(startHistory);
   const initializedStartNode = { ...startNode, worldStateSnapshot: startWorldState };
 
   return {
@@ -252,7 +263,14 @@ export async function generateNextNode(
   const simulationSeed = input.simulationSeed || stableHash({ user: input.userData.birthday, regressionAge: input.userData.regressionAge });
   const branchFingerprint = buildBranchFingerprint(input.history, input.selectedDecision, nodeIndex);
   const baseWorldState = latestWorldState(input.history);
-  const currentWorldState = { ...baseWorldState, directionArcs: ensureDirectionArcs(baseWorldState, input.userData, currentAgeInMonths) };
+  const currentProcesses = baseWorldState.ongoingProcesses?.length
+    ? baseWorldState.ongoingProcesses
+    : rebuildOngoingProcessesFromHistory(input.history);
+  const currentWorldState = {
+    ...baseWorldState,
+    ongoingProcesses: currentProcesses,
+    directionArcs: ensureDirectionArcs(baseWorldState, input.userData, currentAgeInMonths)
+  };
   const existingPressureArc = foregroundPressureArc(input.history);
   const seedEvent = existingPressureArc
     ? LIFE_EVENTS_DATABASE.find((event) => event.id === existingPressureArc.eventId) || null
@@ -284,8 +302,13 @@ export async function generateNextNode(
     branchFingerprint,
     hardMaximumAge: DEFAULT_ENDING_POLICY.hardMaximumAge
   });
+  const processAdvance = advanceOngoingProcesses({
+    ongoingProcesses: currentProcesses,
+    previousAgeInMonths: currentAgeInMonths,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths
+  });
   const people = rebuildPersonStates(input.userData, input.history, timelineAdvance.targetAgeInMonths);
-  const worldState = { ...currentWorldState, people };
+  const worldState = { ...currentWorldState, people, ongoingProcesses: processAdvance.nextProcesses };
   const ageContext = buildAgeContext({
     previousAgeInMonths: currentAgeInMonths,
     targetAgeInMonths: timelineAdvance.targetAgeInMonths,
@@ -296,14 +319,26 @@ export async function generateNextNode(
     directionArcs: worldState.directionArcs
   });
   const storyContext = buildStoryContextPack(input.userData, input.answers, input.history);
-  const prompt = buildNextNodePrompt({ ...input, eventSeed: seedEvent, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc: workingPressureArc });
+  const outcomePlausibilityGuidance = buildOutcomePlausibilityGuidance({
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    people,
+    history: input.history,
+    userData: input.userData
+  });
+  const prompt = buildNextNodePrompt({
+    ...input,
+    eventSeed: seedEvent,
+    storyContext,
+    timelineAdvance,
+    ageContext,
+    worldState,
+    foregroundPressureArc: workingPressureArc,
+    ongoingProcesses: processAdvance.nextProcesses,
+    requiredProcessTransitions: processAdvance.requiredTransitions,
+    outcomePlausibilityGuidance
+  });
 
-  let latestRawNode: any = {};
-  let node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
-    const response = await callAiJson(buildNodePromptWithRetryNotice(prompt, previousIssues));
-    latestRawNode = parseAiJsonResponse(response);
-    return latestRawNode;
-  }, {
+  const normalizationOptions = {
     fallbackAge: timelineAdvance.targetAge,
     minAge: timelineAdvance.targetAge,
     maxAge: timelineAdvance.targetAge,
@@ -312,38 +347,84 @@ export async function generateNextNode(
     elapsedMonths: timelineAdvance.elapsedMonths,
     lifeIntensity: timelineAdvance.lifeIntensity,
     pressureArcId: workingPressureArc?.id
-  });
-  node = {
-    ...node,
+  };
+  const decorateNode = (candidate: SimulationNode): SimulationNode => ({
+    ...candidate,
     isEndingNode: false,
     eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined,
-    choices: node.choices.map((choice) => ({
+    choices: candidate.choices.map((choice) => ({
       ...choice,
-      expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length ? choice.expectedWorldDeltaTypes : fallbackWorldDeltaTypes({ ...node, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined })
+      expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length
+        ? choice.expectedWorldDeltaTypes
+        : fallbackWorldDeltaTypes({ ...candidate, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined })
     }))
+  });
+  const evaluateCandidate = (candidate: SimulationNode) => {
+    const processValidation = validateProcessWorldDeltas({
+      worldDeltas: candidate.narrativeMeta?.worldDeltas || [],
+      currentProcesses: processAdvance.nextProcesses,
+      previousAgeInMonths: currentAgeInMonths,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths
+    });
+    const acceptedOutcome = validateNodeOutcomeProposal({
+      worldDeltas: processValidation.worldDeltas,
+      arcSignals: candidate.narrativeMeta?.arcSignals,
+      policy: DEFAULT_PHASE_POLICY,
+      narrativeText: candidate.description
+    });
+    const outcomePlausibility = evaluateOutcomePlausibility({
+      candidateNode: candidate,
+      worldDeltas: acceptedOutcome.worldDeltas,
+      userData: input.userData,
+      history: input.history,
+      people,
+      ongoingProcesses: processAdvance.nextProcesses,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths
+    });
+    const acceptedNode: SimulationNode = {
+      ...candidate,
+      narrativeMeta: candidate.narrativeMeta ? {
+        ...candidate.narrativeMeta,
+        worldDeltas: acceptedOutcome.worldDeltas,
+        arcSignals: acceptedOutcome.arcSignals,
+        outcomePlausibility
+      } : candidate.narrativeMeta
+    };
+    const consistencyIssues = validateStoryConsistency({
+      node: acceptedNode,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      people,
+      ongoingProcesses: processAdvance.nextProcesses,
+      requiredProcessTransitions: processAdvance.requiredTransitions,
+      processIssues: [...processAdvance.issues, ...processValidation.issues],
+      outcomePlausibility
+    });
+    return { node: acceptedNode, acceptedOutcome, consistencyIssues, outcomePlausibility };
   };
 
-  let consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
+  let latestRawNode: any = {};
+  let generatedNode = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
+    const response = await callAiJson(buildNodePromptWithRetryNotice(prompt, previousIssues));
+    latestRawNode = parseAiJsonResponse(response);
+    return latestRawNode;
+  }, normalizationOptions);
+  let evaluated = evaluateCandidate(decorateNode(generatedNode));
+  let node = evaluated.node;
+  let acceptedOutcome = evaluated.acceptedOutcome;
+  let consistencyIssues = evaluated.consistencyIssues;
   if (containsForbiddenArcWrite(latestRawNode) || consistencyIssues.some((issue) => issue.severity === "error")) {
     const issueText = [
       containsForbiddenArcWrite(latestRawNode) ? "模型尝试直接修改 PressureArc phase；只能返回 arcSignals" : "",
       ...consistencyIssues.map((issue) => issue.message)
     ].filter(Boolean).join("；");
-    const response = await callAiJson(`${prompt}\n\n【年龄与状态一致性修复】\n${issueText}\n请重新生成完整节点，不得修改 Arc 状态。`);
+    const response = await callAiJson(`${prompt}\n\n【时间过程与现实概率修复】\n${issueText}\n请重新生成完整节点：必须完成代码要求的 process transition；uncommon 结果补充自然背景；exceptional 结果补充可验证依据；不得修改 Arc 状态。`);
     latestRawNode = parseAiJsonResponse(response);
     if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回包含未授权的 Arc 状态修改，请重试。");
-    node = normalizeSimulationNode(latestRawNode, {
-      fallbackAge: timelineAdvance.targetAge,
-      minAge: timelineAdvance.targetAge,
-      maxAge: timelineAdvance.targetAge,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-      previousAgeInMonths: currentAgeInMonths,
-      elapsedMonths: timelineAdvance.elapsedMonths,
-      lifeIntensity: timelineAdvance.lifeIntensity,
-      pressureArcId: workingPressureArc?.id
-    });
-    node = { ...node, isEndingNode: false, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined };
-    consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
+    generatedNode = normalizeSimulationNode(latestRawNode, normalizationOptions);
+    evaluated = evaluateCandidate(decorateNode(generatedNode));
+    node = evaluated.node;
+    acceptedOutcome = evaluated.acceptedOutcome;
+    consistencyIssues = evaluated.consistencyIssues;
     if (consistencyIssues.some((issue) => issue.severity === "error")) throw new AiClientError("AI_RESPONSE_INVALID", consistencyIssues.map((issue) => issue.message).join("；"));
   }
 
@@ -376,14 +457,20 @@ export async function generateNextNode(
       attributes: node.attributes,
       isEndingNode: true,
       choices: [{ id: "ENDING", text: "安详落幕，查看一生洞察", impactSummary: "一生回望" }],
-      eventMeta: node.eventMeta
+      eventMeta: node.eventMeta,
+      narrativeMeta: normalizedEnding.narrativeMeta ? {
+        ...normalizedEnding.narrativeMeta,
+        outcomePlausibility: node.narrativeMeta?.outcomePlausibility
+      } : normalizedEnding.narrativeMeta
     };
+    const endingNonProcessDeltas = (endingNode.narrativeMeta?.worldDeltas || []).filter((delta) => !delta.type.startsWith("process_"));
     const endingOutcome = validateNodeOutcomeProposal({
-      worldDeltas: endingNode.narrativeMeta?.worldDeltas,
-      arcSignals: endingNode.narrativeMeta?.arcSignals,
+      worldDeltas: [...acceptedOutcome.worldDeltas, ...endingNonProcessDeltas],
+      arcSignals: [...acceptedOutcome.arcSignals, ...(endingNode.narrativeMeta?.arcSignals || [])],
       policy: DEFAULT_PHASE_POLICY,
       narrativeText: endingNode.description
     });
+    if (endingNode.narrativeMeta) endingNode.narrativeMeta.worldDeltas = endingOutcome.worldDeltas;
     const terminalTransition = workingPressureArc
       ? { action: "resolve" as const, previousPhaseId: workingPressureArc.phaseId, nextArcState: { ...workingPressureArc, status: "resolved" as const }, reasonCodes: ["life-ending"] }
       : { action: "stay" as const, reasonCodes: ["no-pressure-arc"] };
@@ -393,7 +480,8 @@ export async function generateNextNode(
       storyEpisode: endingNode.narrativeMeta!.storyEpisode,
       acceptedOutcome: endingOutcome,
       pressureArcTransition: terminalTransition,
-      currentWorldStateSnapshot: worldState
+      currentWorldStateSnapshot: worldState,
+      processAdvance
     }).node;
   }
 
@@ -403,29 +491,16 @@ export async function generateNextNode(
     const response = await callAiJson(repairPrompt);
     latestRawNode = parseAiJsonResponse(response);
     if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "DecisionGate 修复结果包含未授权的 Arc 状态修改。");
-    node = normalizeSimulationNode(latestRawNode, {
-      fallbackAge: timelineAdvance.targetAge,
-      minAge: timelineAdvance.targetAge,
-      maxAge: timelineAdvance.targetAge,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-      previousAgeInMonths: currentAgeInMonths,
-      elapsedMonths: timelineAdvance.elapsedMonths,
-      lifeIntensity: timelineAdvance.lifeIntensity,
-      pressureArcId: workingPressureArc?.id
-    });
-    node = { ...node, isEndingNode: false, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined };
-    consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
+    generatedNode = normalizeSimulationNode(latestRawNode, normalizationOptions);
+    evaluated = evaluateCandidate(decorateNode(generatedNode));
+    node = evaluated.node;
+    acceptedOutcome = evaluated.acceptedOutcome;
+    consistencyIssues = evaluated.consistencyIssues;
     if (consistencyIssues.some((issue) => issue.severity === "error")) throw new AiClientError("AI_RESPONSE_INVALID", consistencyIssues.map((issue) => issue.message).join("；"));
     decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history.slice(-5), targetAgeInMonths: timelineAdvance.targetAgeInMonths });
     if (!decisionGate.isDecisionCheckpoint) throw new AiClientError("AI_RESPONSE_INVALID", "生成结果没有形成真正不同的人生选择，请重试。");
   }
 
-  const acceptedOutcome = validateNodeOutcomeProposal({
-    worldDeltas: node.narrativeMeta?.worldDeltas,
-    arcSignals: node.narrativeMeta?.arcSignals,
-    policy: DEFAULT_PHASE_POLICY,
-    narrativeText: node.description
-  });
   const pressureArcTransition = reducePressureArc({
     currentArc: workingPressureArc,
     policy: DEFAULT_PHASE_POLICY,
@@ -441,7 +516,8 @@ export async function generateNextNode(
     storyEpisode: node.narrativeMeta!.storyEpisode,
     acceptedOutcome,
     pressureArcTransition,
-    currentWorldStateSnapshot: worldState
+    currentWorldStateSnapshot: worldState,
+    processAdvance
   });
   return committed.node;
 }

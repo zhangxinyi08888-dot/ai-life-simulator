@@ -482,7 +482,7 @@ export function isEventAgeEligible(event: LifeEventSeed, age: number): boolean {
   return satisfiesHardAgeConstraint(event, age);
 }
 
-function isUserDirected(event: LifeEventSeed, userData: UserEventData, history: HistoryItem[]): boolean {
+export function isEventUserDirected(event: LifeEventSeed, userData: UserEventData, history: HistoryItem[]): boolean {
   const focusMatch = FOCUS_CATEGORY_BOOST[userData.coreStoryFocus || ""]?.[event.category];
   if (focusMatch && focusMatch > 1.2) return true;
   const recentChoiceText = history.slice(-3).map((item) => item.selectedChoice).join("\n");
@@ -494,7 +494,14 @@ function isUserDirected(event: LifeEventSeed, userData: UserEventData, history: 
     growth: ["学习", "读书", "旅行", "创作", "成长"],
     opportunity: ["机会", "合作", "创业", "转型"]
   };
-  return categoryKeywords[event.category].some((keyword) => recentChoiceText.includes(keyword));
+  const explicitDirectionText = [
+    userData.regressionChoices,
+    userData.regressionSituation,
+    userData.milestoneRelationship,
+    userData.milestoneCareer,
+    userData.milestoneOther
+  ].filter(Boolean).join("\n");
+  return categoryKeywords[event.category].some((keyword) => recentChoiceText.includes(keyword) || explicitDirectionText.includes(keyword));
 }
 
 export function calculateEventSelectionWeight(event: LifeEventSeed, userData: UserEventData = {}, age?: number, userDirected = false): number {
@@ -505,12 +512,12 @@ export function calculateEventSelectionWeight(event: LifeEventSeed, userData: Us
 }
 
 function pickWeighted(candidates: LifeEventSeed[], userData: UserEventData, age: number, history: HistoryItem[]): LifeEventSeed | null {
-  const total = candidates.reduce((sum, event) => sum + calculateEventSelectionWeight(event, userData, age, isUserDirected(event, userData, history)), 0);
+  const total = candidates.reduce((sum, event) => sum + calculateEventSelectionWeight(event, userData, age, isEventUserDirected(event, userData, history)), 0);
   if (total <= 0) return null;
 
   let cursor = Math.random() * total;
   for (const event of candidates) {
-    cursor -= calculateEventSelectionWeight(event, userData, age, isUserDirected(event, userData, history));
+    cursor -= calculateEventSelectionWeight(event, userData, age, isEventUserDirected(event, userData, history));
     if (cursor <= 0) return event;
   }
 

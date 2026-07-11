@@ -41,5 +41,31 @@ assert.deepEqual(restored.node.choices, choices);
 assert.deepEqual(restored.historyBefore, [earlier, item]);
 assert.equal(restored.nodeCount, 3);
 
+const processNode: SimulationNode = {
+  ...node,
+  worldStateSnapshot: {
+    people: [],
+    ongoingProcesses: [{
+      id: "recovery_1",
+      type: "recovery",
+      subjectPersonIds: [],
+      status: "active",
+      startedAtAgeInMonths: 280,
+      expectedEndAgeInMonths: 286,
+      lastUpdatedAtAgeInMonths: 282,
+      source: "history",
+      confidence: 0.8
+    }],
+    directionArcs: [],
+    pressureArcs: [],
+    version: 1
+  }
+};
+const processItem = createHistoryItemFromNode(processNode, "继续恢复");
+const processRestored = restoreHistoryNodeAtIndex([processItem], 0);
+assert.equal(processRestored.node.worldStateSnapshot?.ongoingProcesses?.[0].status, "active");
+processRestored.node.worldStateSnapshot!.ongoingProcesses![0].status = "completed";
+assert.equal(processItem.worldStateSnapshot?.ongoingProcesses?.[0].status, "active");
+
 assert.throws(() => restoreHistoryNodeAtIndex([earlier], -1), /HISTORY_RESTORE_INDEX_OUT_OF_RANGE/);
 assert.throws(() => restoreHistoryNodeAtIndex([earlier], 1), /HISTORY_RESTORE_INDEX_OUT_OF_RANGE/);
