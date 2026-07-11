@@ -20,6 +20,7 @@ import {
   UserInitialData
 } from "../types";
 import { downloadPoster } from "../utils/posterDownload";
+import { formatAgeInMonths } from "../utils/timelineAdvance";
 
 interface DestinyReportProps {
   outcome: FinalLifeOutcome;
@@ -379,8 +380,8 @@ export default function DestinyReport({
             {history.map((item, index) => {
               const canTravel = index < history.length - 1;
               return (
-                <div key={`${item.age}-${item.title}-${index}`} className="flex gap-3 rounded-lg border border-slate-900 bg-slate-900/30 p-3">
-                  <div className="w-10 shrink-0 font-mono text-xs font-bold text-emerald-300">{item.age}岁</div>
+                <div key={`${item.ageInMonths ?? item.age * 12}-${item.title}-${index}`} className="flex gap-3 rounded-lg border border-slate-900 bg-slate-900/30 p-3">
+                  <div className="w-16 shrink-0 font-mono text-xs font-bold text-emerald-300">{formatAgeInMonths(item.ageInMonths ?? item.age * 12)}</div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-bold text-slate-100">{item.title}</div>
                     <div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-400">{item.description}</div>

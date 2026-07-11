@@ -5,6 +5,7 @@ import {
   Sparkles, History, Send, MessageSquarePlus, Milestone, Compass
 } from "lucide-react";
 import { SimulationNode, LifeAttributes, HistoryItem } from "../types";
+import { formatAgeInMonths } from "../utils/timelineAdvance";
 
 interface SimulationEngineProps {
   currentNode: SimulationNode;
@@ -118,13 +119,13 @@ export default function SimulationEngine({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          key={currentNode.age}
+          key={currentNode.ageInMonths ?? currentNode.age * 12}
           className="space-y-3"
           id="active-chapter-head"
         >
           <div className="flex items-center gap-2 text-indigo-400 text-xs font-mono font-bold">
             <Milestone className="w-4 h-4" />
-            <span>AGE {currentNode.age} • 第 {nodeCount} 个抉择关卡</span>
+            <span>AGE {formatAgeInMonths(currentNode.ageInMonths ?? currentNode.age * 12)} • 第 {nodeCount} 个抉择关卡</span>
           </div>
 
           <h2 className="text-xl font-serif font-semibold text-slate-100 border-l-4 border-indigo-500 pl-2.5 leading-none" id="chapter-node-title">
@@ -155,7 +156,7 @@ export default function SimulationEngine({
             <p className="text-[10px] text-slate-500 max-w-xs text-center leading-normal">
               {isLoadingReport
                 ? "AI正在整理你的完整人生轨迹、关键选择和终局属性，生成最终洞察报告。"
-                : "AI正在根据你先前的选择、出生时间和宿命因果，推演下一个人生年份的故事。"}
+                : "AI正在根据你先前的选择和现实状态，推演下一个真正需要决定的人生节点。"}
             </p>
           </div>
         ) : (
@@ -325,7 +326,7 @@ export default function SimulationEngine({
                         <div className="space-y-1" id={`timeline-content-${idx}`}>
                           <div className="flex items-center gap-1.5 text-[10px]">
                             <span className="font-mono text-indigo-400 font-bold" id={`timeline-age-${idx}`}>
-                              {item.age} 岁
+                              {formatAgeInMonths(item.ageInMonths ?? item.age * 12)}
                             </span>
                             <span className="text-slate-500" id={`timeline-stage-${idx}`}>
                               • {item.stage}

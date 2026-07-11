@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes } from "../types";
-import { calculateEventSelectionWeight, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
+import { calculateAgeAffinityMultiplier, calculateEventSelectionWeight, isEventAgeEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
 
 const lowHealth: LifeAttributes = {
   happiness: 45,
@@ -58,6 +58,13 @@ assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.trigger?.eligibility));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("conceptPrompt" in event)));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("promptSeed" in event)));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("check" in event)));
+
+const ventureEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "career_venture_pressure");
+assert.ok(ventureEvent);
+assert.equal(isEventAgeEligible(ventureEvent, 70), true);
+assert.equal(isEventAgeEligible(ventureEvent, 15), false);
+assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], minimumMultiplier: 0.4, outsideRangeAdaptations: [] }), 0.4);
+assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], minimumMultiplier: 0.4, outsideRangeAdaptations: [] }, true), 1);
 
 const selected = queryDynamicLifeEvent(lowHealth, {}, 55, []);
 assert.notEqual(selected?.id, "life_normal_transition");

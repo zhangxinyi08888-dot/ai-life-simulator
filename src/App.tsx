@@ -57,13 +57,14 @@ export default function App() {
   const [currentNode, setCurrentNode] = useState<SimulationNode | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [nodeCount, setNodeCount] = useState(1);
+  const [simulationSeed, setSimulationSeed] = useState(() => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
   const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // 1. Submit Initial Setup -> Generate follow-up questions
+  // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
     setIsLoading(true);
     setErrorMsg(null);
@@ -83,7 +84,6 @@ export default function App() {
     }
   };
 
-  // 2. Submit Soul QuestionsAnswers -> Launch Life Simulation Level 1
   const handleSoulAnswersSubmit = async (submittedAnswers: QuestionTurn[]) => {
     if (!userData) return;
     setIsLoading(true);
@@ -96,8 +96,8 @@ export default function App() {
       setCurrentNode(body.startNode);
       setHistory([]);
       setNodeCount(1);
+      setSimulationSeed(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
       setStep("simulating");
-
     } catch (err: any) {
       console.error(err);
       setErrorMsg(getSimulationErrorMessage(err, "降生时空传输通道异常，请复查您的契约答案。"));
@@ -106,7 +106,7 @@ export default function App() {
     }
   };
 
-  // 3. Make selected / custom choice -> Advance details
+  // Make selected / custom choice -> Advance details
   const handleChoiceSelect = async (choiceText: string) => {
     if (!currentNode || !userData) return;
 
@@ -152,7 +152,8 @@ export default function App() {
         history: updatedHistory,
         currentAttributes: attributes,
         selectedDecision: choiceText,
-        nodeIndex: history.length
+        nodeIndex: updatedHistory.length,
+        simulationSeed
       });
 
       setAttributes(body.attributes);
@@ -194,19 +195,20 @@ export default function App() {
     setHistory([]);
     setNodeCount(1);
     setCurrentNode(null);
+    setSimulationSeed(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
     setOutcome(null);
     setErrorMsg(null);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center relative overflow-hidden" id="app-viewport">
+    <div className="h-[100dvh] bg-[#050505] text-slate-100 flex items-center justify-center relative overflow-hidden" id="app-viewport">
       {/* Space atmosphere stars glow background */}
       <div className="absolute inset-x-0 top-0 h-96 bg-gradient-to-b from-indigo-950/25 via-transparent to-transparent pointer-events-none" />
       <div className="absolute -left-32 top-10 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -right-32 bottom-20 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main smartphone reader frame wrapper */}
-      <div className="w-full h-screen max-w-md bg-slate-950/95 shadow-2xl relative flex flex-col overflow-hidden border border-slate-900/40 md:rounded-3xl md:h-[840px] md:my-5" id="mobile-canvas-container">
+      <div className="mobile-prototype w-full h-[100dvh] max-w-[390px] bg-[#050505] shadow-2xl relative flex flex-col overflow-hidden border border-[#171717] md:rounded-3xl md:h-[844px] md:my-5" id="mobile-canvas-container">
         
         {/* Universal upper cosmetic notch simulation (only visible on large screen) */}
         <div className="hidden md:flex w-full justify-center absolute top-2 z-50" id="notch-cosmetic">
