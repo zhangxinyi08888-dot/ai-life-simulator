@@ -57,6 +57,7 @@ export default function App() {
   const [currentNode, setCurrentNode] = useState<SimulationNode | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [nodeCount, setNodeCount] = useState(1);
+  const [simulationSeed, setSimulationSeed] = useState(() => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
   const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +97,7 @@ export default function App() {
       setCurrentNode(body.startNode);
       setHistory([]);
       setNodeCount(1);
+      setSimulationSeed(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
       setStep("simulating");
 
     } catch (err: any) {
@@ -152,7 +154,8 @@ export default function App() {
         history: updatedHistory,
         currentAttributes: attributes,
         selectedDecision: choiceText,
-        nodeIndex: history.length
+        nodeIndex: updatedHistory.length,
+        simulationSeed
       });
 
       setAttributes(body.attributes);
@@ -194,6 +197,7 @@ export default function App() {
     setHistory([]);
     setNodeCount(1);
     setCurrentNode(null);
+    setSimulationSeed(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
     setOutcome(null);
     setErrorMsg(null);
   };

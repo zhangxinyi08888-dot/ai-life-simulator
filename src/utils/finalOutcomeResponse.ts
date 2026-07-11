@@ -11,6 +11,7 @@ import {
   ShareEndingCard,
   ShareTimelineItem
 } from "../types";
+import { formatAgeInMonths } from "./timelineAdvance";
 
 const THEMES: PosterTheme[] = ["warm_realistic", "quiet_dark", "clean_magazine"];
 
@@ -65,7 +66,7 @@ function readIndexes(record: any, historyLength: number): number[] {
 
 function fallbackTimeline(history: HistoryItem[]): ShareTimelineItem[] {
   return history.slice(0, 6).map((item, index) => ({
-    ageLabel: `${item.age}岁`,
+    ageLabel: formatAgeInMonths(item.ageInMonths ?? item.age * 12),
     icon: ["🎓", "💼", "🚀", "📱", "⚠️", "🌱"][index] || "✨",
     title: clampText(item.title || "关键选择", 12),
     choiceSummary: clampText(item.selectedChoice || "这次选择塑造了今天的你", 24),
@@ -76,7 +77,7 @@ function fallbackTimeline(history: HistoryItem[]): ShareTimelineItem[] {
 function normalizeTimelineItem(item: any, history: HistoryItem[], index: number): ShareTimelineItem {
   const historyItem = history[index] || history[0];
   return {
-    ageLabel: clampText(readString(item?.ageLabel, historyItem ? `${historyItem.age}岁` : "现在"), 8),
+    ageLabel: clampText(readString(item?.ageLabel, historyItem ? formatAgeInMonths(historyItem.ageInMonths ?? historyItem.age * 12) : "现在"), 8),
     icon: clampText(readString(item?.icon, ["🎓", "💼", "🚀", "📱", "⚠️", "🌱"][index] || "✨"), 4),
     title: clampText(readString(item?.title, historyItem?.title || "关键选择"), 14),
     choiceSummary: clampText(readString(item?.choiceSummary, historyItem?.selectedChoice || "这次选择塑造了今天的你"), 26),

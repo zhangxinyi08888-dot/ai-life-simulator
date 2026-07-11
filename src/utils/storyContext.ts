@@ -1,4 +1,5 @@
 import type { HistoryItem, QuestionTurn, UserInitialData } from "../types";
+import { formatAgeInMonths } from "./timelineAdvance";
 
 export type BackgroundThreadType =
   | "romance"
@@ -556,7 +557,7 @@ function formatStoryFactSection(title: string, facts: StoryFact[]): string {
 }
 
 export function formatStoryContextPack(pack: StoryContextPack): string {
-  const recentHistory = pack.recentHistory.map((item) => `${item.age}岁 ${item.title}：${item.description} / 选择：${item.selectedChoice}`);
+  const recentHistory = pack.recentHistory.map((item) => `${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} ${item.title}：${item.description} / 选择：${item.selectedChoice}`);
   const activeThreads = pack.activeThreads.map((thread) => `${thread.type}（${thread.source}，${thread.salience.toFixed(2)}）：${thread.summary}`);
 
   return `\n\n【Story Context Pack】\n【方向线索使用边界】\n- long_term_main_arc：可作为长期人生主线、终章和报告核心。\n- stage_main_arc：可作为当前阶段主线，例如职业、项目、学习方向。\n- side_thread：可延续为副线，但不得主导职业、创业、人生使命或重大转型。\n- background_detail：只能作为生活细节，不能出现在重大选择选项主语中。\n- mentioned：本轮不要主动展开，终章/报告最多作为曾经提过。\n- 模型正文偶然提及不计入强化；只有用户点击、自定义输入、用户选择导致的历史结果和现实成果才允许升级方向状态。\n- 连续未选择会降低使用范围，高权重背景不等于长期主线。\n\n${formatSection("用户真实事实", pack.userFacts)}\n\n${formatSection("追问补全事实", pack.answerFacts)}\n\n${formatStoryFactSection("长期事实", pack.longTermFacts)}\n\n${formatStoryFactSection("阶段事实", pack.stageFacts)}\n\n${formatStoryFactSection("兴趣倾向", pack.interestSignals)}\n\n${formatStoryFactSection("临时情绪", pack.temporaryEmotions)}\n\n${formatSection("最近 5 个历史节点", recentHistory)}\n\n${formatSection("当前可延续副线", activeThreads)}`;
