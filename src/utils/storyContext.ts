@@ -439,7 +439,7 @@ function detectThreads(userFacts: string[], answerFacts: string[], recentHistory
         lastTouchedNode: item.lastTouchedNode
       });
     }
-    if (includesAny(summary, ["恋", "婚", "伴侣", "前任", "异地恋", "分手", "相亲", "暧昧", "对象"])) {
+    if (includesAny(summary, ["恋", "婚", "伴侣", "女友", "男友", "恋人", "情侣", "前任", "异地恋", "分手", "相亲", "暧昧", "对象"])) {
       addThread(threads, {
         id: `romance_${threads.length + 1}`,
         type: "romance",

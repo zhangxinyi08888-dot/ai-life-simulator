@@ -83,4 +83,5 @@ assert.match(prompt, /不能自行创建或修改 Arc 状态|模型不得修改 
 assert.match(prompt, /正在进行的持续过程/);
 assert.match(prompt, /结果级现实概率指导/);
 assert.match(prompt, /process_started\/process_completed\/process_interrupted/);
+assert.match(prompt, /至少一个选项必须具体回应或缓解该代价/);
 assert.doesNotMatch(prompt, /达到 73 岁及以上/);

@@ -15,7 +15,7 @@ const advanced = rebuildPersonStates({}, [{
   ageInMonths: 480,
   stage: "测试",
   title: "测试",
-  description: "测试",
+  description: "工作繁忙让我连续失约，女友因此和我冷战。",
   selectedChoice: "继续",
   choices: [],
   attributes: { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 },
@@ -26,3 +26,4 @@ const advanced = rebuildPersonStates({}, [{
   }
 }], 45 * 12);
 assert.deepEqual(advanced[0].estimatedAgeRange, [70, 75]);
+assert.equal(advanced.find((person) => person.relation === "partner")?.relationshipSummary, "女友");
