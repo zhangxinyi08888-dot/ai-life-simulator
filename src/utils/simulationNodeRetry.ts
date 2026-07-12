@@ -1,4 +1,4 @@
-import { SimulationNode } from "../types";
+import { LifeIntensity, SimulationNode } from "../types";
 import { getSimulationNodeValidationIssues, normalizeSimulationNode } from "./simulationResponse";
 
 interface GenerateCompleteNodeOptions {
@@ -6,6 +6,11 @@ interface GenerateCompleteNodeOptions {
   minAge?: number;
   maxAge?: number;
   maxAttempts?: number;
+  targetAgeInMonths?: number;
+  previousAgeInMonths?: number;
+  elapsedMonths?: number;
+  lifeIntensity?: LifeIntensity;
+  pressureArcId?: string;
 }
 
 export async function generateCompleteSimulationNode(

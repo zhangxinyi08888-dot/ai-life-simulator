@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes } from "../types";
-import { calculateEventSelectionWeight, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
+import { calculateAgeAffinityMultiplier, calculateEventSelectionWeight, isEventAgeEligible, isEventUserDirected, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
 
 const lowHealth: LifeAttributes = {
   happiness: 45,
@@ -59,6 +59,13 @@ assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("conceptPrompt" in event)));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("promptSeed" in event)));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("check" in event)));
 
+const ventureEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "career_venture_pressure");
+assert.ok(ventureEvent);
+assert.equal(isEventAgeEligible(ventureEvent, 70), true);
+assert.equal(isEventAgeEligible(ventureEvent, 15), false);
+assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], minimumMultiplier: 0.4, outsideRangeAdaptations: [] }), 0.4);
+assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], minimumMultiplier: 0.4, outsideRangeAdaptations: [] }, true), 1);
+
 const selected = queryDynamicLifeEvent(lowHealth, {}, 55, []);
 assert.notEqual(selected?.id, "life_normal_transition");
 assert.ok(selected === null || selected.intent);
@@ -77,6 +84,8 @@ const relationshipEvent = LIFE_EVENTS_DATABASE.find((event) => event.category ==
 const careerEvent = LIFE_EVENTS_DATABASE.find((event) => event.category === "career");
 assert.ok(relationshipEvent);
 assert.ok(careerEvent);
+assert.equal(isEventUserDirected(relationshipEvent, { coreStoryFocus: "career", regressionChoices: "我明确选择50岁以后再结婚" }, []), true);
+assert.equal(isEventUserDirected(relationshipEvent, { coreStoryFocus: "career", regressionChoices: "我只想继续创业" }, []), false);
 assert.ok(
   calculateEventSelectionWeight(relationshipEvent, { coreStoryFocus: "romance" })
     > calculateEventSelectionWeight(relationshipEvent, { coreStoryFocus: "career" })

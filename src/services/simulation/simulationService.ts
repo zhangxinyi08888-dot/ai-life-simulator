@@ -1,16 +1,36 @@
-import { buildEventMeta, queryDynamicLifeEvent } from "../../data/lifeEvents";
-import { HistoryItem, LifeAttributes, PersonalityInsight, QuestionItem, QuestionTurn, SimulationNode, UserInitialData } from "../../types";
+import { buildEventMeta, getEventTemporalProfile, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "../../data/lifeEvents";
+import { ChoiceTemporalHint, HistoryItem, LifeAttributes, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
+import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
 import { buildQuestionPrompt } from "../../utils/questionPrompt";
 import { normalizePersonalityInsight } from "../../utils/insightResponse";
 import { generateCompleteSimulationNode } from "../../utils/simulationNodeRetry";
 import { normalizeSimulationNode } from "../../utils/simulationResponse";
 import { buildStoryContextPack } from "../../utils/storyContext";
+import { buildAgeContext } from "../../utils/ageContext";
+import { DEFAULT_PHASE_POLICY, reducePressureArc, resolvePhase, validateNodeOutcomeProposal } from "../../utils/arcLifecycle";
+import { evaluateDecisionGate } from "../../utils/decisionGate";
+import { evaluateEnding } from "../../utils/endingDecision";
+import { rebuildPersonStates } from "../../utils/personTimeline";
+import { commitSimulationTransaction, emptyWorldState } from "../../utils/simulationTransaction";
+import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
+import { stableHash } from "../../utils/stableRandom";
+import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
+import {
+  advanceOngoingProcesses,
+  rebuildOngoingProcessesFromHistory,
+  validateProcessWorldDeltas
+} from "../../utils/ongoingProcess";
+import {
+  buildOutcomePlausibilityGuidance,
+  evaluateOutcomePlausibility
+} from "../../utils/outcomePlausibility";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
-import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
+import { getBrowserE2eAiJsonCaller, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import {
   buildNextNodePrompt,
+  buildEndingNodePrompt,
   buildNodePromptWithRetryNotice,
   buildPersonalityPrompt,
   buildStartSimulationPrompt,
@@ -155,14 +175,28 @@ export async function startSimulation(
     const response = await callAiJson(buildNodePromptWithRetryNotice(prompt, previousIssues));
     latestData = parseAiJsonResponse(response);
     return latestData.startNode || latestData.node || latestData;
-  }, { fallbackAge: userData.regressionAge || 20 });
+  }, {
+    fallbackAge: userData.regressionAge || 20,
+    minAge: userData.regressionAge || 20,
+    maxAge: userData.regressionAge || 20,
+    targetAgeInMonths: (userData.regressionAge || 20) * 12,
+    previousAgeInMonths: (userData.regressionAge || 20) * 12,
+    elapsedMonths: 0,
+    lifeIntensity: "normal"
+  });
+  const startWorldState = emptyWorldState();
+  const startHistory: HistoryItem[] = [{ ...startNode, selectedChoice: "" }];
+  startWorldState.directionArcs = ensureDirectionArcs(startWorldState, userData, startNode.ageInMonths ?? startNode.age * 12);
+  startWorldState.people = rebuildPersonStates(userData, startHistory, startNode.ageInMonths ?? startNode.age * 12);
+  startWorldState.ongoingProcesses = rebuildOngoingProcessesFromHistory(startHistory);
+  const initializedStartNode = { ...startNode, worldStateSnapshot: startWorldState };
 
   return {
     ...latestData,
     initialAttributes: hasCompleteLifeAttributes(latestData.initialAttributes)
       ? latestData.initialAttributes
-      : startNode.attributes,
-    startNode
+      : initializedStartNode.attributes,
+    startNode: initializedStartNode
   };
 }
 
@@ -173,6 +207,48 @@ export interface GenerateNextNodeInput {
   currentAttributes: LifeAttributes;
   selectedDecision: string;
   nodeIndex?: number;
+  simulationSeed?: string;
+}
+
+function resolveChoiceTemporalHint(history: HistoryItem[], selectedDecision: string): ChoiceTemporalHint | undefined {
+  const latest = history[history.length - 1];
+  const preset = latest?.choices.find((choice) => choice.text === selectedDecision || selectedDecision.includes(choice.text));
+  if (preset?.temporalHint) return preset.temporalHint;
+  const text = selectedDecision;
+  if (/急|立即|重病|危机/.test(text)) return { lifeIntensity: "critical", durationMonths: [1, 6], requiresFollowUp: true, reason: "自定义选择包含即时危机" };
+  if (/创业|融资|辞职|转型|扩张|冲突/.test(text)) return { lifeIntensity: "high_tension", durationMonths: [6, 12], requiresFollowUp: true, reason: "自定义选择开启高张力行动" };
+  if (/稳定|维持|长期|退休/.test(text)) return { lifeIntensity: "stable", durationMonths: [36, 60], requiresFollowUp: false, reason: "自定义选择强调长期稳定" };
+  return undefined;
+}
+
+function latestWorldState(history: HistoryItem[]) {
+  return history[history.length - 1]?.worldStateSnapshot || emptyWorldState();
+}
+
+function ensureDirectionArcs(worldState: ReturnType<typeof emptyWorldState>, userData: UserInitialData, currentAgeInMonths: number) {
+  if (worldState.directionArcs.length > 0 || !userData.regressionChoices?.trim()) return worldState.directionArcs;
+  return [{
+    id: `direction_${stableHash({ focus: userData.coreStoryFocus, direction: userData.regressionChoices })}`,
+    directionType: userData.coreStoryFocus || "self_directed",
+    summary: userData.regressionChoices.trim(),
+    status: "active" as const,
+    startedAtAgeInMonths: currentAgeInMonths,
+    userReinforcementCount: 1,
+    establishedAssets: []
+  }];
+}
+
+function foregroundPressureArc(history: HistoryItem[]): PressureArcState | undefined {
+  const worldState = latestWorldState(history);
+  return worldState.pressureArcs.find((arc) => arc.id === worldState.foregroundPressureArcId && arc.status !== "resolved");
+}
+
+function fallbackWorldDeltaTypes(node: SimulationNode): WorldDelta["type"][] {
+  const category = node.eventMeta?.eventCategory;
+  if (category === "health") return ["health_state"];
+  if (category === "relationship") return ["relationship_change"];
+  if (category === "career" || category === "financial" || category === "opportunity") return ["career_state"];
+  return [];
 }
 
 export async function generateNextNode(
@@ -182,22 +258,268 @@ export async function generateNextNode(
   const callAiJson = getAiJsonCaller(deps);
   const lastNode = input.history[input.history.length - 1];
   const lastAge = lastNode ? lastNode.age : (input.userData.regressionAge || 20);
-  const fallbackAgeCheck = lastAge + 3;
-  const seedEvent = queryDynamicLifeEvent(input.currentAttributes, input.userData, fallbackAgeCheck, input.history, input.answers);
+  const currentAgeInMonths = lastNode?.ageInMonths ?? lastAge * 12;
+  const nodeIndex = input.nodeIndex ?? input.history.length;
+  const simulationSeed = input.simulationSeed || stableHash({ user: input.userData.birthday, regressionAge: input.userData.regressionAge });
+  const branchFingerprint = buildBranchFingerprint(input.history, input.selectedDecision, nodeIndex);
+  const baseWorldState = latestWorldState(input.history);
+  const currentProcesses = baseWorldState.ongoingProcesses?.length
+    ? baseWorldState.ongoingProcesses
+    : rebuildOngoingProcessesFromHistory(input.history);
+  const currentWorldState = {
+    ...baseWorldState,
+    ongoingProcesses: currentProcesses,
+    directionArcs: ensureDirectionArcs(baseWorldState, input.userData, currentAgeInMonths)
+  };
+  const existingPressureArc = foregroundPressureArc(input.history);
+  const seedEvent = existingPressureArc
+    ? LIFE_EVENTS_DATABASE.find((event) => event.id === existingPressureArc.eventId) || null
+    : queryDynamicLifeEvent(input.currentAttributes, input.userData, Math.floor(currentAgeInMonths / 12), input.history, input.answers);
+  const eventProfile = seedEvent ? getEventTemporalProfile(seedEvent) : undefined;
+  const startArcDecision = !existingPressureArc && seedEvent && eventProfile?.requiresFollowUp
+    ? reducePressureArc({
+        startProposal: { eventId: seedEvent.id, eventIntentType: seedEvent.intent.type, currentAgeInMonths, summary: seedEvent.intent.meaning },
+        policy: DEFAULT_PHASE_POLICY,
+        selectedDecision: input.selectedDecision,
+        attributes: input.currentAttributes,
+        timelineAdvance: { elapsedMonths: 0, targetAgeInMonths: currentAgeInMonths }
+      })
+    : undefined;
+  const workingPressureArc = existingPressureArc || startArcDecision?.nextArcState;
+  const pressurePhaseProfile = workingPressureArc ? resolvePhase(DEFAULT_PHASE_POLICY, workingPressureArc.phaseId) : undefined;
+  const stableNodeCount = input.history.slice(-2).filter((item) => item.narrativeMeta?.lifeIntensity === "stable").length;
+  const temporalProfile = deriveTemporalProfile({
+    pressurePhaseProfile,
+    choiceHint: resolveChoiceTemporalHint(input.history, input.selectedDecision),
+    eventProfile,
+    attributes: input.currentAttributes,
+    stableNodeCount
+  });
+  const timelineAdvance = calculateTimelineAdvance({
+    currentAgeInMonths,
+    temporalProfile,
+    simulationSeed,
+    branchFingerprint,
+    hardMaximumAge: DEFAULT_ENDING_POLICY.hardMaximumAge
+  });
+  const processAdvance = advanceOngoingProcesses({
+    ongoingProcesses: currentProcesses,
+    previousAgeInMonths: currentAgeInMonths,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths
+  });
+  const people = rebuildPersonStates(input.userData, input.history, timelineAdvance.targetAgeInMonths);
+  const worldState = { ...currentWorldState, people, ongoingProcesses: processAdvance.nextProcesses };
+  const ageContext = buildAgeContext({
+    previousAgeInMonths: currentAgeInMonths,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    attributes: input.currentAttributes,
+    userData: input.userData,
+    history: input.history,
+    people,
+    directionArcs: worldState.directionArcs
+  });
   const storyContext = buildStoryContextPack(input.userData, input.answers, input.history);
-  const prompt = buildNextNodePrompt({ ...input, eventSeed: seedEvent, storyContext });
-  const maxAgeStep = typeof input.nodeIndex === "number" && input.nodeIndex < 3 ? 2 : 4;
-
-  const node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
-    const response = await callAiJson(buildNodePromptWithRetryNotice(prompt, previousIssues));
-    return parseAiJsonResponse(response);
-  }, {
-    fallbackAge: lastAge + 1,
-    minAge: lastAge + 1,
-    maxAge: lastAge + maxAgeStep
+  const outcomePlausibilityGuidance = buildOutcomePlausibilityGuidance({
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    people,
+    history: input.history,
+    userData: input.userData
+  });
+  const prompt = buildNextNodePrompt({
+    ...input,
+    eventSeed: seedEvent,
+    storyContext,
+    timelineAdvance,
+    ageContext,
+    worldState,
+    foregroundPressureArc: workingPressureArc,
+    ongoingProcesses: processAdvance.nextProcesses,
+    requiredProcessTransitions: processAdvance.requiredTransitions,
+    outcomePlausibilityGuidance
   });
 
-  return seedEvent ? { ...node, eventMeta: buildEventMeta(seedEvent) } : node;
+  const normalizationOptions = {
+    fallbackAge: timelineAdvance.targetAge,
+    minAge: timelineAdvance.targetAge,
+    maxAge: timelineAdvance.targetAge,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    previousAgeInMonths: currentAgeInMonths,
+    elapsedMonths: timelineAdvance.elapsedMonths,
+    lifeIntensity: timelineAdvance.lifeIntensity,
+    pressureArcId: workingPressureArc?.id
+  };
+  const decorateNode = (candidate: SimulationNode): SimulationNode => ({
+    ...candidate,
+    isEndingNode: false,
+    eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined,
+    choices: candidate.choices.map((choice) => ({
+      ...choice,
+      expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length
+        ? choice.expectedWorldDeltaTypes
+        : fallbackWorldDeltaTypes({ ...candidate, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined })
+    }))
+  });
+  const evaluateCandidate = (candidate: SimulationNode) => {
+    const processValidation = validateProcessWorldDeltas({
+      worldDeltas: candidate.narrativeMeta?.worldDeltas || [],
+      currentProcesses: processAdvance.nextProcesses,
+      previousAgeInMonths: currentAgeInMonths,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths
+    });
+    const acceptedOutcome = validateNodeOutcomeProposal({
+      worldDeltas: processValidation.worldDeltas,
+      arcSignals: candidate.narrativeMeta?.arcSignals,
+      policy: DEFAULT_PHASE_POLICY,
+      narrativeText: candidate.description
+    });
+    const outcomePlausibility = evaluateOutcomePlausibility({
+      candidateNode: candidate,
+      worldDeltas: acceptedOutcome.worldDeltas,
+      userData: input.userData,
+      history: input.history,
+      people,
+      ongoingProcesses: processAdvance.nextProcesses,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths
+    });
+    const acceptedNode: SimulationNode = {
+      ...candidate,
+      narrativeMeta: candidate.narrativeMeta ? {
+        ...candidate.narrativeMeta,
+        worldDeltas: acceptedOutcome.worldDeltas,
+        arcSignals: acceptedOutcome.arcSignals,
+        outcomePlausibility
+      } : candidate.narrativeMeta
+    };
+    const consistencyIssues = validateStoryConsistency({
+      node: acceptedNode,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      people,
+      ongoingProcesses: processAdvance.nextProcesses,
+      requiredProcessTransitions: processAdvance.requiredTransitions,
+      processIssues: [...processAdvance.issues, ...processValidation.issues],
+      outcomePlausibility
+    });
+    return { node: acceptedNode, acceptedOutcome, consistencyIssues, outcomePlausibility };
+  };
+
+  let latestRawNode: any = {};
+  let generatedNode = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
+    const response = await callAiJson(buildNodePromptWithRetryNotice(prompt, previousIssues));
+    latestRawNode = parseAiJsonResponse(response);
+    return latestRawNode;
+  }, normalizationOptions);
+  let evaluated = evaluateCandidate(decorateNode(generatedNode));
+  let node = evaluated.node;
+  let acceptedOutcome = evaluated.acceptedOutcome;
+  let consistencyIssues = evaluated.consistencyIssues;
+  if (containsForbiddenArcWrite(latestRawNode) || consistencyIssues.some((issue) => issue.severity === "error")) {
+    const issueText = [
+      containsForbiddenArcWrite(latestRawNode) ? "模型尝试直接修改 PressureArc phase；只能返回 arcSignals" : "",
+      ...consistencyIssues.map((issue) => issue.message)
+    ].filter(Boolean).join("；");
+    const response = await callAiJson(`${prompt}\n\n【时间过程与现实概率修复】\n${issueText}\n请重新生成完整节点：必须完成代码要求的 process transition；uncommon 结果补充自然背景；exceptional 结果补充可验证依据；不得修改 Arc 状态。`);
+    latestRawNode = parseAiJsonResponse(response);
+    if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回包含未授权的 Arc 状态修改，请重试。");
+    generatedNode = normalizeSimulationNode(latestRawNode, normalizationOptions);
+    evaluated = evaluateCandidate(decorateNode(generatedNode));
+    node = evaluated.node;
+    acceptedOutcome = evaluated.acceptedOutcome;
+    consistencyIssues = evaluated.consistencyIssues;
+    if (consistencyIssues.some((issue) => issue.severity === "error")) throw new AiClientError("AI_RESPONSE_INVALID", consistencyIssues.map((issue) => issue.message).join("；"));
+  }
+
+  const endingDecision = evaluateEnding({
+    candidateNode: node,
+    history: input.history,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    elapsedMonths: timelineAdvance.elapsedMonths,
+    simulationSeed,
+    branchFingerprint,
+    nodeIndex,
+    policy: DEFAULT_ENDING_POLICY
+  });
+  if (endingDecision.shouldEnd || shouldForceBrowserE2eEnding(latestRawNode)) {
+    const endingPrompt = buildEndingNodePrompt({ userData: input.userData, history: input.history, candidateNode: node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, forcedByHardMaximum: endingDecision.forcedByHardMaximum });
+    const response = await callAiJson(endingPrompt);
+    const rawEnding = parseAiJsonResponse(response);
+    const normalizedEnding = normalizeSimulationNode(rawEnding, {
+      fallbackAge: timelineAdvance.targetAge,
+      minAge: timelineAdvance.targetAge,
+      maxAge: timelineAdvance.targetAge,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      previousAgeInMonths: currentAgeInMonths,
+      elapsedMonths: timelineAdvance.elapsedMonths,
+      lifeIntensity: timelineAdvance.lifeIntensity,
+      pressureArcId: workingPressureArc?.id
+    });
+    const endingNode: SimulationNode = {
+      ...normalizedEnding,
+      attributes: node.attributes,
+      isEndingNode: true,
+      choices: [{ id: "ENDING", text: "安详落幕，查看一生洞察", impactSummary: "一生回望" }],
+      eventMeta: node.eventMeta,
+      narrativeMeta: normalizedEnding.narrativeMeta ? {
+        ...normalizedEnding.narrativeMeta,
+        outcomePlausibility: node.narrativeMeta?.outcomePlausibility
+      } : normalizedEnding.narrativeMeta
+    };
+    const endingNonProcessDeltas = (endingNode.narrativeMeta?.worldDeltas || []).filter((delta) => !delta.type.startsWith("process_"));
+    const endingOutcome = validateNodeOutcomeProposal({
+      worldDeltas: [...acceptedOutcome.worldDeltas, ...endingNonProcessDeltas],
+      arcSignals: [...acceptedOutcome.arcSignals, ...(endingNode.narrativeMeta?.arcSignals || [])],
+      policy: DEFAULT_PHASE_POLICY,
+      narrativeText: endingNode.description
+    });
+    if (endingNode.narrativeMeta) endingNode.narrativeMeta.worldDeltas = endingOutcome.worldDeltas;
+    const terminalTransition = workingPressureArc
+      ? { action: "resolve" as const, previousPhaseId: workingPressureArc.phaseId, nextArcState: { ...workingPressureArc, status: "resolved" as const }, reasonCodes: ["life-ending"] }
+      : { action: "stay" as const, reasonCodes: ["no-pressure-arc"] };
+    return commitSimulationTransaction({
+      transactionId: stableHash({ namespace: "ending-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths }),
+      node: endingNode,
+      storyEpisode: endingNode.narrativeMeta!.storyEpisode,
+      acceptedOutcome: endingOutcome,
+      pressureArcTransition: terminalTransition,
+      currentWorldStateSnapshot: worldState,
+      processAdvance
+    }).node;
+  }
+
+  let decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history.slice(-5), targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+  if (!decisionGate.isDecisionCheckpoint) {
+    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过】\n问题：${decisionGate.reasonCodes.join("、")}。请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。`;
+    const response = await callAiJson(repairPrompt);
+    latestRawNode = parseAiJsonResponse(response);
+    if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "DecisionGate 修复结果包含未授权的 Arc 状态修改。");
+    generatedNode = normalizeSimulationNode(latestRawNode, normalizationOptions);
+    evaluated = evaluateCandidate(decorateNode(generatedNode));
+    node = evaluated.node;
+    acceptedOutcome = evaluated.acceptedOutcome;
+    consistencyIssues = evaluated.consistencyIssues;
+    if (consistencyIssues.some((issue) => issue.severity === "error")) throw new AiClientError("AI_RESPONSE_INVALID", consistencyIssues.map((issue) => issue.message).join("；"));
+    decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history.slice(-5), targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+    if (!decisionGate.isDecisionCheckpoint) throw new AiClientError("AI_RESPONSE_INVALID", "生成结果没有形成真正不同的人生选择，请重试。");
+  }
+
+  const pressureArcTransition = reducePressureArc({
+    currentArc: workingPressureArc,
+    policy: DEFAULT_PHASE_POLICY,
+    selectedDecision: input.selectedDecision,
+    acceptedOutcome,
+    attributes: node.attributes,
+    timelineAdvance
+  });
+  const transactionId = stableHash({ namespace: "simulation-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+  const committed = commitSimulationTransaction({
+    transactionId,
+    node,
+    storyEpisode: node.narrativeMeta!.storyEpisode,
+    acceptedOutcome,
+    pressureArcTransition,
+    currentWorldStateSnapshot: worldState,
+    processAdvance
+  });
+  return committed.node;
 }
 
 export interface AnalyzePersonalityInput {
@@ -241,6 +563,10 @@ export async function timeTravel(
   }, {
     fallbackAge: input.targetAge,
     minAge: input.targetAge,
-    maxAge: input.targetAge
+    maxAge: input.targetAge,
+    targetAgeInMonths: input.targetAge * 12,
+    previousAgeInMonths: input.targetAge * 12,
+    elapsedMonths: 0,
+    lifeIntensity: "normal"
   });
 }

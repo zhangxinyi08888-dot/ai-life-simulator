@@ -334,9 +334,23 @@ export function createE2eAiJsonCaller(slug: string): AiJsonCaller {
       return { text: JSON.stringify(fixture.outcome) };
     }
 
+    if (prompt.includes("你正在为一段写实人生生成自然终章")) {
+      return { text: JSON.stringify(fixture.nodes[fixture.nodes.length - 1]) };
+    }
+
     if (prompt.includes("【上一步做出的命运裁决】")) {
       const node = fixture.nodes[Math.min(nextNodeIndex, fixture.nodes.length - 1)];
       nextNodeIndex += 1;
+      if (node.isEndingNode) {
+        return {
+          text: JSON.stringify({
+            ...node,
+            isEndingNode: false,
+            choices: fixture.nodes[0].choices,
+            e2eForceEnding: true
+          })
+        };
+      }
       return { text: JSON.stringify(node) };
     }
 
@@ -361,4 +375,11 @@ export function getBrowserE2eAiJsonCaller(): AiJsonCaller | undefined {
   if (!slug) return undefined;
 
   return getCachedE2eAiJsonCaller(slug);
+}
+
+export function shouldForceBrowserE2eEnding(rawNode: unknown): boolean {
+  const env = (import.meta as unknown as { env?: { DEV?: boolean } }).env;
+  if (!env?.DEV || typeof window === "undefined") return false;
+  const slug = new URLSearchParams(window.location.search).get("e2eCase");
+  return Boolean(slug && casesBySlug.has(slug) && (rawNode as { e2eForceEnding?: boolean } | null)?.e2eForceEnding === true);
 }

@@ -48,6 +48,31 @@ export interface SimulationChoice {
   id: string;               // "A", "B", "C", "custom"
   text: string;             // 选项文本
   impactSummary: string;    // 选项潜在线索提示或意味
+  temporalHint?: ChoiceTemporalHint;
+  decisionIntent?: string;
+  expectedWorldDeltaTypes?: WorldDelta["type"][];
+}
+
+export type LifeIntensity = "critical" | "high_tension" | "normal" | "stable";
+export type LifeStage =
+  | "childhood"
+  | "adolescence"
+  | "emerging_adulthood"
+  | "early_adulthood"
+  | "midlife"
+  | "mature_adulthood"
+  | "later_life"
+  | "longevity";
+export type RecoveryState = "protected" | "neutral" | "depleted";
+
+export interface TemporalProfile {
+  lifeIntensity: LifeIntensity;
+  durationMonths: [number, number];
+  requiresFollowUp: boolean;
+}
+
+export interface ChoiceTemporalHint extends TemporalProfile {
+  reason: string;
 }
 
 export type LifeEventCategory = "career" | "relationship" | "health" | "financial" | "growth" | "opportunity";
@@ -56,10 +81,176 @@ export interface EventMeta {
   eventId?: string;
   eventCategory?: LifeEventCategory;
   eventTags: string[];
+  eventIntensity?: "minor" | "major";
+  phasePolicyId?: string;
+}
+
+export type OngoingProcessType =
+  | "pregnancy"
+  | "recovery"
+  | "education"
+  | "contract_transition"
+  | "relocation"
+  | "caregiving";
+
+export type OngoingProcessStatus = "active" | "completed" | "interrupted";
+
+export interface OngoingProcess {
+  id: string;
+  type: OngoingProcessType;
+  subjectPersonIds: string[];
+  status: OngoingProcessStatus;
+  startedAtAgeInMonths: number;
+  expectedEndAgeInMonths?: number;
+  lastUpdatedAtAgeInMonths: number;
+  completionSummary?: string;
+  exceptionalBasis?: string[];
+  source: "user_fact" | "history" | "model_proposed";
+  confidence: number;
+}
+
+export interface ProcessTransitionRequirement {
+  processId: string;
+  processType: OngoingProcessType;
+  atAgeInMonths: number;
+  allowedActions: Array<"completed" | "interrupted">;
+  reason: string;
+}
+
+export type PlausibilityTier = "ordinary" | "uncommon" | "exceptional";
+
+export interface OutcomePlausibilityContext {
+  tier: PlausibilityTier;
+  reasons: string[];
+  supportingFacts: string[];
+  requiresExplicitBasis: boolean;
+}
+
+export type WorldDelta =
+  | { type: "person_status"; personId: string; status: PersonLifeStatus; reason: string }
+  | { type: "person_role"; personId: string; occupationStatus: PersonState["occupationStatus"] }
+  | { type: "relationship_change"; personId: string; summary: string }
+  | { type: "process_started"; process: OngoingProcess }
+  | { type: "process_completed"; processId: string; completedAtAgeInMonths: number; summary: string }
+  | { type: "process_interrupted"; processId: string; interruptedAtAgeInMonths: number; reason: string }
+  | { type: "career_state"; summary: string }
+  | { type: "health_state"; summary: string }
+  | { type: "location_change"; summary: string };
+
+export interface ArcSignalProposal {
+  pressureArcId?: string;
+  type: string;
+  evidence: string;
+  confidence: number;
+}
+
+export type PersonRelation = "parent" | "grandparent" | "partner" | "child" | "sibling" | "friend" | "colleague" | "mentor" | "other";
+export type PersonLifeStatus = "active" | "retired" | "limited" | "distant" | "deceased" | "unknown";
+export type PersonPresenceMode = "active_scene" | "remote_contact" | "indirect_update" | "memory" | "legacy";
+
+export interface PersonState {
+  id: string;
+  displayName?: string;
+  relation: PersonRelation;
+  explicitAge?: number;
+  estimatedAgeRange?: [number, number];
+  ageInMonthsAtLastUpdate?: number;
+  protagonistAgeInMonthsAtLastUpdate?: number;
+  lifeStatus: PersonLifeStatus;
+  occupationStatus?: "student" | "working" | "retired" | "not_working" | "unknown";
+  healthStatus?: "stable" | "fragile" | "care_dependent" | "unknown";
+  lastSeenNodeIndex?: number;
+  relationshipSummary?: string;
+  source: "user_fact" | "answer" | "history" | "model_inferred";
+  confidence: number;
+}
+
+export interface DirectionArc {
+  id: string;
+  directionType: string;
+  summary: string;
+  status: "active" | "background" | "dormant" | "resolved";
+  startedAtAgeInMonths: number;
+  userReinforcementCount: number;
+  establishedAssets: string[];
+}
+
+export interface PressureArcState {
+  id: string;
+  eventId: string;
+  eventIntentType: string;
+  directionArcId?: string;
+  phasePolicyId: string;
+  phaseId: string;
+  status: "active" | "stabilizing" | "resolved";
+  startedAtAgeInMonths: number;
+  phaseStartedAtAgeInMonths: number;
+  phaseCheckpointCount: number;
+  totalCheckpointCount: number;
+  unresolvedSummary: string;
+}
+
+export interface TimelineTransition {
+  atAgeInMonths: number;
+  materiality: "transition" | "meaningful_update";
+  summary: string;
+  worldDeltas: WorldDelta[];
+}
+
+export interface StoryEpisode {
+  id: string;
+  directionArcId?: string;
+  pressureArcId?: string;
+  startAgeInMonths: number;
+  endAgeInMonths: number;
+  internalTransitions: TimelineTransition[];
+  decisionCheckpointId: string;
+  summary: string;
+}
+
+export interface NarrativeMeta {
+  elapsedMonths: number;
+  elapsedYears: number;
+  lifeIntensity: LifeIntensity;
+  nodeMateriality: "decision_checkpoint";
+  storyEpisode: StoryEpisode;
+  recoveryState: RecoveryState;
+  recoveryEvidence: string[];
+  arcSignals: ArcSignalProposal[];
+  activeCharacters: Array<{
+    personId?: string;
+    displayName?: string;
+    relation: PersonRelation;
+    estimatedAge?: number;
+    presenceMode: PersonPresenceMode;
+    currentRole?: string;
+  }>;
+  primaryActivity?: {
+    domain: "education" | "career" | "family" | "health" | "community" | "leisure" | "legacy";
+    intensity: "low" | "moderate" | "high";
+  };
+  worldDeltas: WorldDelta[];
+  outcomePlausibility?: OutcomePlausibilityContext;
+}
+
+export interface WorldStateSnapshot {
+  people: PersonState[];
+  ongoingProcesses?: OngoingProcess[];
+  directionArcs: DirectionArc[];
+  pressureArcs: PressureArcState[];
+  foregroundPressureArcId?: string;
+  careerSummary?: string;
+  relationshipSummary?: string;
+  healthSummary?: string;
+  locationSummary?: string;
+  committedTransactionIds?: string[];
+  version: 1;
 }
 
 export interface SimulationNode {
   age: number;              // 当前模拟的年龄
+  ageInMonths?: number;      // 精确时间真值；旧节点缺失时使用 age * 12
+  lifeStage?: LifeStage;
   stage: string;            // 人生阶段: "学步懵懂", "金石华年", "立身扬名", "不惑风雨", "桑榆暮景", "终章致敬" 等
   title: string;            // 本节标题
   description: string;      // 描述性互动小说正文
@@ -67,10 +258,19 @@ export interface SimulationNode {
   attributes: LifeAttributes;  // 更新后的五维属性值
   isEndingNode: boolean;       // 是否已到达人生终点
   eventMeta?: EventMeta;        // 触发本节点的事件种子元数据，用于冷却与同类限制
+  narrativeMeta?: NarrativeMeta;
+  worldStateSnapshot?: WorldStateSnapshot;
+  committedArcMeta?: {
+    pressureArcId?: string;
+    phaseId?: string;
+    transitionAction?: "start" | "stay" | "advance" | "fallback" | "suspend" | "resume" | "resolve";
+  };
 }
 
 export interface HistoryItem {
   age: number;
+  ageInMonths?: number;
+  lifeStage?: LifeStage;
   title: string;
   stage: string;
   description: string;
@@ -79,6 +279,9 @@ export interface HistoryItem {
   choices: SimulationChoice[];   // 存储该节点当时的选项，支持回到历史节点重新选择
   isEndingNode: boolean;         // 存储该节点是否为结局节点，支持完整恢复节点状态
   eventMeta?: EventMeta;
+  narrativeMeta?: NarrativeMeta;
+  worldStateSnapshot?: WorldStateSnapshot;
+  committedArcMeta?: SimulationNode["committedArcMeta"];
 }
 
 export interface PersonalityInsight {

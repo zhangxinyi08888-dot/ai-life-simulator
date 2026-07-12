@@ -77,6 +77,11 @@ assert.match(formatted, /我爸妈希望我稳定/);
 assert.match(formatted, /最近 5 个历史节点/);
 assert.match(formatted, /当前可延续副线/);
 
+const girlfriendPack = buildStoryContextPack({}, [], [
+  historyItem(23, "纪念日失约", "你连续加班错过纪念日，女友因此和你冷战。")
+]);
+assert.ok(girlfriendPack.activeThreads.some((thread) => thread.type === "romance" && thread.summary.includes("女友")));
+
 const interestUserData: Partial<UserInitialData> = {
   regressionAge: 18,
   regressionSituation: "高考填报志愿时，我对植物感兴趣，也想过学生物相关专业。",

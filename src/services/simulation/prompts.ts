@@ -2,7 +2,11 @@ import { formatAnswerTurns } from "../../utils/answerFormatting";
 import { LifeEventSeed } from "../../data/lifeEvents";
 import { buildEventIntentPrompt, buildNullEventPrompt } from "../../utils/eventPrompt";
 import { StoryContextPack } from "../../utils/storyContext";
-import { HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
+import { HistoryItem, LifeAttributes, OngoingProcess, PressureArcState, ProcessTransitionRequirement, QuestionTurn, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
+import { AgeContext, formatAgeContextForPrompt } from "../../utils/ageContext";
+import { formatPersonStateForPrompt } from "../../utils/personTimeline";
+import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance";
+import { formatOngoingProcessForPrompt } from "../../utils/ongoingProcess";
 
 function focusLabel(value: string): string {
   if (value === "career") return "事业发展与职场长征";
@@ -27,13 +31,15 @@ function formatMilestones(userData: UserInitialData): string {
 }
 
 function formatHistoryForSimulation(history: HistoryItem[]): string {
-  return history.map((item, index) => `【阶段 ${index + 1} - ${item.age}岁 - ${item.title}】
+  const recent = history.slice(-5);
+  const offset = Math.max(0, history.length - recent.length);
+  return recent.map((item, index) => `【阶段 ${offset + index + 1} - ${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} - ${item.title}】
 情节：${item.description}
 选择：${item.selectedChoice}`).join("\n\n");
 }
 
 function formatHistoryForInsight(history: HistoryItem[]): string {
-  return history.map((item) => `【${item.age}岁 - ${item.title} (${item.stage})】
+  return history.map((item) => `【${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} - ${item.title} (${item.stage})】
 情境描述：${item.description}
 用户做出的选择：${item.selectedChoice}`).join("\n\n");
 }
@@ -75,6 +81,7 @@ export function buildStartSimulationPrompt(userData: UserInitialData, answers: Q
 - 绝对不要写玄幻、科幻、神迹、神秘组织、海外遗产、特工契约或极小概率金手指。
 - 整个推演必须 100% 贴近中国现实社会的真实走向、行业现状和普通人的生活常识。
 - 每个选项和后果都必须好坏兼容，包含常人要付出的具体代价。
+- 年龄只约束行动的执行条件，不约束人生愿望；不得按年龄自动分配学习、工作、家庭、退休或回忆模板。
 
 以下是用户的初始配置：
 - 真实出生日期：${userData.birthday} (${userData.birthtime || "时间未知"})
@@ -96,6 +103,7 @@ startNode 要求：
 - description：150-250 字，具体、干练、写实，包含现实事务和社会压力。
 - stage 和 title：大白话、贴近真实处境。
 - choices：A、B、C 三个脚踏实地的路线选项，每个带 4 字 impactSummary。
+- 每个 choice 同时返回 temporalHint、decisionIntent、expectedWorldDeltaTypes；至少一个选项推进用户想尝试的方向。
 - isEndingNode 必须为 false。
 - attributes 必须与 initialAttributes 相等。
 - age 必须等于 ${regressionAge}。
@@ -127,15 +135,41 @@ interface NextNodePromptInput {
   selectedDecision: string;
   eventSeed?: LifeEventSeed | null;
   storyContext?: StoryContextPack;
+  timelineAdvance?: TimelineAdvance;
+  ageContext?: AgeContext;
+  worldState?: WorldStateSnapshot;
+  foregroundPressureArc?: PressureArcState;
+  ongoingProcesses?: OngoingProcess[];
+  requiredProcessTransitions?: ProcessTransitionRequirement[];
+  outcomePlausibilityGuidance?: string[];
 }
 
 export function buildNextNodePrompt(input: NextNodePromptInput): string {
-  const { userData, answers, history, currentAttributes, selectedDecision, eventSeed, storyContext } = input;
+  const { userData, answers, history, currentAttributes, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc } = input;
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
   const eventSeedPrompt = eventSeed
     ? buildEventIntentPrompt(eventSeed, storyContext)
     : buildNullEventPrompt(storyContext);
+  const targetAgeInMonths = timelineAdvance?.targetAgeInMonths ?? (lastAge + 1) * 12;
+  const elapsedMonths = timelineAdvance?.elapsedMonths ?? 12;
+  const ageContextPrompt = ageContext ? formatAgeContextForPrompt(ageContext) : `【当前年龄与世界状态】\n- 目标时间：${Math.floor(targetAgeInMonths / 12)}岁`;
+  const peoplePrompt = worldState?.people.length
+    ? worldState.people.map(formatPersonStateForPrompt).map((item) => `- ${item}`).join("\n")
+    : "- 暂无结构化人物状态";
+  const pressurePrompt = foregroundPressureArc
+    ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}。模型不得修改 phase，只能返回 arcSignals。`
+    : "当前没有前台 PressureArc；事件只能提出事实结果，不能自行创建或修改 Arc 状态。";
+  const ongoingProcesses = (input.ongoingProcesses || worldState?.ongoingProcesses || []).filter((process) => process.status === "active");
+  const processPrompt = ongoingProcesses.length
+    ? ongoingProcesses.map((process) => `- ${formatOngoingProcessForPrompt(process, targetAgeInMonths)}`).join("\n")
+    : "- 暂无 active 持续过程";
+  const requiredProcessPrompt = input.requiredProcessTransitions?.length
+    ? input.requiredProcessTransitions.map((transition) => `- processId=${transition.processId}：${transition.reason} 允许结果=${transition.allowedActions.join("/")}`).join("\n")
+    : "- 本轮没有代码强制的过程结束变化";
+  const plausibilityPrompt = input.outcomePlausibilityGuidance?.length
+    ? input.outcomePlausibilityGuidance.map((item) => `- ${item}`).join("\n")
+    : "- 少见不等于错误；只有具体时间或成立条件冲突才需要修复。";
 
   return `你是一个才华横溢、精通大众心理学、社会规律与命运因果抉择的顶级推演大师。
 请写实模拟用户重新选择一次后，各条生命轨迹在现代中国社会下的真实进展。剧情要咬合用户回到这个节点的真实意图、困苦和核心主线。
@@ -156,18 +190,80 @@ ${formatHistoryForSimulation(history) || "无更早经历"}
 【当前精神五维能量值】
 - 幸福：${currentAttributes.happiness} | 才智：${currentAttributes.intelligence} | 财富：${currentAttributes.wealth} | 人际：${currentAttributes.relation} | 健康：${currentAttributes.health}
 
+${ageContextPrompt}
+
+【当前人物状态】
+${peoplePrompt}
+
+【正在进行的持续过程】
+${processPrompt}
+
+【本轮代码派生的过程变化】
+${requiredProcessPrompt}
+
+【结果级现实概率指导】
+${plausibilityPrompt}
+
+【PressureArc 单写者边界】
+${pressurePrompt}
+
 【上一步做出的命运裁决】
 用户在刚才的十字路口选择了：【${selectedDecision}】
 ${eventSeedPrompt}
 
 【本次推演任务】
-- 上一节点年龄是 ${lastAge} 岁。根据真实生活节奏推进年龄，前期通常推进数月到 1-2 年，中后期可推进 2-4 年。
-- 如果新岁数达到 73 岁及以上，或 health 跌破 15，请触发人生谢幕，isEndingNode 为 true，choices 只包含“安详落幕，查看一生洞察”。
+- 目标时间由代码确定为 ageInMonths=${targetAgeInMonths}，本轮经过 ${elapsedMonths} 个月；不要自行跳年。
+- 本轮 LifeIntensity=${timelineAdvance?.lifeIntensity || "normal"}，由 PressureArc 当前 phase 或新事件首阶段决定。
+- 本轮只生成普通 decision checkpoint，isEndingNode 必须为 false；终章由代码的有界长寿规则另行决定。
 - 如果不是结局，请写 150-250 字现实冲突，避免金手指和无理倒霉。
-- 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary。
-- 返回 age、stage、title、description、choices、attributes、isEndingNode。
+- 年龄约束执行条件，不约束人生愿望。45岁读书、55岁创业、70岁写书、80岁旅行、90岁研究均可成立。
+- 每个非终章节点至少一个选项继续推进用户当前方向；禁止三个选项共同导向退休、照护、退出或回忆。
+- 只有真正改变未来的选择才能成为节点；复查、等待、恢复等无新分歧过程放入 storyEpisode.internalTransitions。
+- 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes。
+- narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
+- 模型可以通过 worldDeltas 提出 process_started/process_completed/process_interrupted，但不得自由修改过程时钟。
+- 不得自由填写孕周、康复月份、学年或合同阶段；这些值必须服从上面的 OngoingProcess 已持续月份。
+- 本轮代码要求完成或中断的 process，必须返回对应 process_completed/process_interrupted delta，并在正文或 internalTransitions 中体现。
+- process_started 必须包含 type、subjectPersonIds 和事实依据；startedAtAgeInMonths 必须位于本轮 Episode 时间范围内。
+- 50岁结婚、晚婚、再婚等允许成立，不得因年龄否定；uncommon 结果需要自然背景，exceptional 结果需要明确 supportingFacts。
+- arcSignals 只能提出“发生了什么”及 evidence，禁止返回 nextPhaseId、nextPressureArcStatus、foregroundPressureArcId 或修改 checkpointCount。
+- 返回 age、ageInMonths、stage、title、description、choices、attributes、isEndingNode、narrativeMeta。
 
 ${formatAttributeChangeRules()}
+
+请严格返回 JSON。`;
+}
+
+export function buildEndingNodePrompt(input: {
+  userData: UserInitialData;
+  history: HistoryItem[];
+  candidateNode: SimulationNode;
+  targetAgeInMonths: number;
+  forcedByHardMaximum: boolean;
+}): string {
+  return `你正在为一段写实人生生成自然终章。终章由代码判定，不需要解释概率，也不要描写猎奇或羞辱性的死亡过程。
+
+【目标时间】
+${Math.floor(input.targetAgeInMonths / 12)}岁，ageInMonths=${input.targetAgeInMonths}
+
+【用户长期方向】
+${input.userData.regressionChoices || input.userData.currentSituation || "未明确"}
+
+【最近人生】
+${formatHistoryForSimulation(input.history.slice(-5))}
+
+【本轮选择产生的现实后果】
+${input.candidateNode.description}
+
+要求：
+- 写 150-250 字自然收束，结合最近选择、关系、事业、健康和长期方向。
+- 不要把年龄本身写成失败，不要使用突然灾难或具体猎奇死因。
+- title、stage、description 要面向完整人生收束。
+- attributes 必须与候选后果一致。
+- isEndingNode=true。
+- choices 只返回 [{"id":"ENDING","text":"安详落幕，查看一生洞察","impactSummary":"一生回望"}]。
+- 不返回 Arc phase 修改。
+- ${input.forcedByHardMaximum ? "这是系统绝对年龄上限的终章。" : "这是有界长寿概率触发的自然终章。"}
 
 请严格返回 JSON。`;
 }
