@@ -1,4 +1,5 @@
 import { formatAnswerTurns } from "../../utils/answerFormatting";
+import { formatAgeInMonths } from "../../utils/timelineAdvance";
 import { HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
 
 function focusLabel(value: string): string {
@@ -24,7 +25,7 @@ function formatMilestones(userData: UserInitialData): string {
 }
 
 function formatHistory(history: HistoryItem[]): string {
-  return history.map((item, index) => `索引 ${index}：【${item.age}岁 - ${item.title}】
+  return history.map((item, index) => `索引 ${index}：【${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} - ${item.title}】
 情境：${item.description}
 用户选择：${item.selectedChoice}`).join("\n\n");
 }

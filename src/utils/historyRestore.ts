@@ -1,5 +1,9 @@
 import { HistoryItem, SimulationNode } from "../types";
 
+function cloneValue<T>(value: T): T {
+  return value == null ? value : structuredClone(value);
+}
+
 export interface RestoredHistoryNode {
   node: SimulationNode;
   historyBefore: HistoryItem[];
@@ -10,6 +14,8 @@ export interface RestoredHistoryNode {
 export function createHistoryItemFromNode(node: SimulationNode, selectedChoice: string): HistoryItem {
   return {
     age: node.age,
+    ageInMonths: node.ageInMonths,
+    lifeStage: node.lifeStage,
     title: node.title,
     stage: node.stage,
     description: node.description,
@@ -17,7 +23,10 @@ export function createHistoryItemFromNode(node: SimulationNode, selectedChoice: 
     attributes: { ...node.attributes },
     choices: node.choices.map((choice) => ({ ...choice })),
     isEndingNode: node.isEndingNode,
-    eventMeta: node.eventMeta
+    eventMeta: node.eventMeta,
+    narrativeMeta: cloneValue(node.narrativeMeta),
+    worldStateSnapshot: cloneValue(node.worldStateSnapshot),
+    committedArcMeta: cloneValue(node.committedArcMeta)
   };
 }
 
@@ -29,13 +38,18 @@ export function restoreHistoryNodeAtIndex(history: HistoryItem[], targetIndex: n
 
   const node: SimulationNode = {
     age: targetItem.age,
+    ageInMonths: targetItem.ageInMonths,
+    lifeStage: targetItem.lifeStage,
     stage: targetItem.stage,
     title: targetItem.title,
     description: targetItem.description,
     choices: targetItem.choices.map((choice) => ({ ...choice })),
     attributes: { ...targetItem.attributes },
     isEndingNode: targetItem.isEndingNode,
-    eventMeta: targetItem.eventMeta
+    eventMeta: targetItem.eventMeta,
+    narrativeMeta: cloneValue(targetItem.narrativeMeta),
+    worldStateSnapshot: cloneValue(targetItem.worldStateSnapshot),
+    committedArcMeta: cloneValue(targetItem.committedArcMeta)
   };
 
   return {

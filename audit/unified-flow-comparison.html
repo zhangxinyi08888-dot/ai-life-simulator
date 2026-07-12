@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Unified flow style comparison</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #111; color: #eee9df; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      main { width: 1600px; height: 1000px; padding: 24px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 20px; }
+      section { border: 1px solid #34312b; border-radius: 16px; background: #080808; padding: 16px; overflow: hidden; }
+      h1 { margin: 0 0 12px; color: #aaa49a; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+      .reference img { display: block; width: 100%; height: 900px; object-fit: contain; object-position: top center; }
+      .implementation { display: grid; grid-template-columns: repeat(3, 1fr); align-items: start; gap: 10px; }
+      figure { margin: 0; }
+      figure img { display: block; width: 100%; border: 1px solid #2e2c27; border-radius: 8px; }
+      figcaption { margin-top: 8px; color: #77736b; font-size: 10px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="reference">
+        <h1>Visual source · approved first three screens</h1>
+        <img src="../docs/design/premium-onboarding-reference.png" alt="Approved onboarding reference" />
+      </section>
+      <section>
+        <h1>Extended flow · same visual language · 390 × 844</h1>
+        <div class="implementation">
+          <figure><img src="screenshots/unified-question-390x844.png" alt="Question screen" /><figcaption>04 Deep question</figcaption></figure>
+          <figure><img src="screenshots/unified-simulation-390x844.png" alt="Simulation screen" /><figcaption>05 Life simulation</figcaption></figure>
+          <figure><img src="screenshots/unified-report-390x844.png" alt="Report screen" /><figcaption>06 Final report</figcaption></figure>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

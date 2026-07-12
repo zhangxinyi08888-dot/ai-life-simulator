@@ -1,4 +1,4 @@
-import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory, UserInitialData } from "../types";
+import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory, TemporalProfile, UserInitialData } from "../types";
 
 type UserEventData = Partial<UserInitialData> & { birthday?: string; gender?: string; currentSituation?: string };
 
@@ -17,6 +17,21 @@ export interface EventIntent {
   tensionAxes: string[];
   allowedOutcomes: ActionPrimitive[];
   emotionalTone?: EmotionalTone;
+  temporalProfile?: TemporalProfile;
+  phasePolicyId?: string;
+}
+
+export interface HardAgeConstraint {
+  minAge?: number;
+  maxAge?: number;
+  reason: string;
+  basis: "legal" | "biological" | "historical_fact";
+}
+
+export interface AgeAffinity {
+  preferredRange?: [number, number];
+  minimumMultiplier: number;
+  outsideRangeAdaptations: string[];
 }
 
 export interface EventFingerprint {
@@ -38,6 +53,8 @@ export interface LifeEventSeed {
   intent: EventIntent;
   tags: string[];
   fingerprint?: EventFingerprint;
+  hardAgeConstraint?: HardAgeConstraint;
+  ageAffinity?: AgeAffinity;
 }
 
 export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
@@ -428,19 +445,72 @@ function isEligibleForCandidatePool(event: LifeEventSeed, attribs: LifeAttribute
   return event.category === "relationship" && hasRelationshipContext(userData, answers);
 }
 
-export function calculateEventSelectionWeight(event: LifeEventSeed, userData: UserEventData = {}): number {
-  const base = event.baseProbability ?? 0.5;
-  const focusBoost = FOCUS_CATEGORY_BOOST[userData.coreStoryFocus || ""]?.[event.category] ?? 1;
-  return base * focusBoost;
+function defaultAgeAffinity(event: LifeEventSeed): AgeAffinity {
+  return event.ageAffinity || {
+    preferredRange: [event.minAge, event.maxAge],
+    minimumMultiplier: 0.4,
+    outsideRangeAdaptations: ["年龄只调整执行方式、风险和支持条件，不得删除该人生方向。"]
+  };
 }
 
-function pickWeighted(candidates: LifeEventSeed[], userData: UserEventData): LifeEventSeed | null {
-  const total = candidates.reduce((sum, event) => sum + calculateEventSelectionWeight(event, userData), 0);
+export function calculateAgeAffinityMultiplier(age: number, affinity: AgeAffinity | undefined, userDirected = false): number {
+  if (userDirected || !affinity?.preferredRange) return 1;
+  const [min, max] = affinity.preferredRange;
+  if (age >= min && age <= max) return 1;
+  const distance = age < min ? min - age : age - max;
+  const multiplier = distance <= 10 ? 0.8 : distance <= 20 ? 0.6 : 0.4;
+  return Math.max(multiplier, affinity.minimumMultiplier);
+}
+
+function defaultHardAgeConstraint(event: LifeEventSeed): HardAgeConstraint | undefined {
+  if (event.hardAgeConstraint) return event.hardAgeConstraint;
+  if (["career", "relationship", "financial", "opportunity"].includes(event.category)) {
+    return { minAge: 18, reason: "未成年人法律与独立责任边界", basis: "legal" };
+  }
+  return undefined;
+}
+
+function satisfiesHardAgeConstraint(event: LifeEventSeed, age: number): boolean {
+  const constraint = defaultHardAgeConstraint(event);
+  if (!constraint) return true;
+  if (typeof constraint.minAge === "number" && age < constraint.minAge) return false;
+  if (typeof constraint.maxAge === "number" && age > constraint.maxAge) return false;
+  return true;
+}
+
+export function isEventAgeEligible(event: LifeEventSeed, age: number): boolean {
+  return satisfiesHardAgeConstraint(event, age);
+}
+
+function isUserDirected(event: LifeEventSeed, userData: UserEventData, history: HistoryItem[]): boolean {
+  const focusMatch = FOCUS_CATEGORY_BOOST[userData.coreStoryFocus || ""]?.[event.category];
+  if (focusMatch && focusMatch > 1.2) return true;
+  const recentChoiceText = history.slice(-3).map((item) => item.selectedChoice).join("\n");
+  const categoryKeywords: Record<LifeEventCategory, string[]> = {
+    career: ["工作", "事业", "创业", "项目", "研究", "写书"],
+    relationship: ["关系", "恋", "婚", "家人", "伴侣"],
+    health: ["健康", "恢复", "治疗", "运动"],
+    financial: ["财富", "收入", "现金流", "投资"],
+    growth: ["学习", "读书", "旅行", "创作", "成长"],
+    opportunity: ["机会", "合作", "创业", "转型"]
+  };
+  return categoryKeywords[event.category].some((keyword) => recentChoiceText.includes(keyword));
+}
+
+export function calculateEventSelectionWeight(event: LifeEventSeed, userData: UserEventData = {}, age?: number, userDirected = false): number {
+  const base = event.baseProbability ?? 0.5;
+  const focusBoost = FOCUS_CATEGORY_BOOST[userData.coreStoryFocus || ""]?.[event.category] ?? 1;
+  const ageMultiplier = typeof age === "number" ? calculateAgeAffinityMultiplier(age, defaultAgeAffinity(event), userDirected) : 1;
+  return base * focusBoost * ageMultiplier;
+}
+
+function pickWeighted(candidates: LifeEventSeed[], userData: UserEventData, age: number, history: HistoryItem[]): LifeEventSeed | null {
+  const total = candidates.reduce((sum, event) => sum + calculateEventSelectionWeight(event, userData, age, isUserDirected(event, userData, history)), 0);
   if (total <= 0) return null;
 
   let cursor = Math.random() * total;
   for (const event of candidates) {
-    cursor -= calculateEventSelectionWeight(event, userData);
+    cursor -= calculateEventSelectionWeight(event, userData, age, isUserDirected(event, userData, history));
     if (cursor <= 0) return event;
   }
 
@@ -456,7 +526,7 @@ export function queryDynamicLifeEvent(
   answers?: unknown
 ): LifeEventSeed | null {
   const candidates = LIFE_EVENTS_DATABASE.filter((event) => {
-    return age >= event.minAge && age <= event.maxAge && isEligibleForCandidatePool(event, attribs, userData, age, answers);
+    return satisfiesHardAgeConstraint(event, age) && isEligibleForCandidatePool(event, attribs, userData, age, answers);
   });
 
   if (candidates.length === 0) return null;
@@ -480,13 +550,26 @@ export function queryDynamicLifeEvent(
 
   if (Math.random() < NULL_EVENT_CHANCE) return null;
 
-  return pickWeighted(dramaticCandidates, userData);
+  return pickWeighted(dramaticCandidates, userData, age, history);
 }
 
 export function buildEventMeta(event: LifeEventSeed): EventMeta {
   return {
     eventId: event.id,
     eventCategory: event.category,
-    eventTags: eventTags(event)
+    eventTags: eventTags(event),
+    eventIntensity: event.fingerprint?.intensity || (event.intent.emotionalTone === "crisis" ? "major" : "minor"),
+    phasePolicyId: event.intent.phasePolicyId || "generic_pressure_v1"
   };
+}
+
+export function getEventTemporalProfile(event: LifeEventSeed): TemporalProfile {
+  if (event.intent.temporalProfile) return event.intent.temporalProfile;
+  if (event.fingerprint?.intensity === "major" || event.intent.emotionalTone === "crisis") {
+    return { lifeIntensity: "high_tension", durationMonths: [6, 12], requiresFollowUp: true };
+  }
+  if (event.id === NORMAL_EVENT_ID || event.fingerprint?.intensity === "minor") {
+    return { lifeIntensity: "normal", durationMonths: [12, 24], requiresFollowUp: false };
+  }
+  return { lifeIntensity: "normal", durationMonths: [12, 36], requiresFollowUp: false };
 }
