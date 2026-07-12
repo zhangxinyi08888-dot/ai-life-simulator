@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Premium onboarding comparison</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #111; color: #eee9df; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      main { width: 1400px; min-height: 950px; padding: 28px; display: grid; grid-template-columns: 1.42fr 1fr; gap: 24px; }
+      section { border: 1px solid #34312b; border-radius: 16px; background: #080808; padding: 18px; }
+      h1 { margin: 0 0 14px; color: #aaa49a; font-size: 13px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+      .reference img { display: block; width: 100%; height: 850px; object-fit: contain; object-position: top center; }
+      .screens { display: grid; grid-template-columns: repeat(3, 1fr); align-items: start; gap: 10px; }
+      figure { margin: 0; }
+      figure img { display: block; width: 100%; border: 1px solid #2e2c27; border-radius: 8px; }
+      figcaption { margin-top: 8px; color: #77736b; font-size: 10px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="reference">
+        <h1>Reference · latest approved direction</h1>
+        <img src="../docs/design/premium-onboarding-reference.png" alt="Reference design" />
+      </section>
+      <section>
+        <h1>Implementation · 390 × 844</h1>
+        <div class="screens">
+          <figure><img src="screenshots/onboarding-home-390x844.png" alt="Home" /><figcaption>01 Home</figcaption></figure>
+          <figure><img src="screenshots/onboarding-story-390x844.png" alt="Story" /><figcaption>02 One event</figcaption></figure>
+          <figure><img src="screenshots/onboarding-anchor-390x844.png" alt="Anchor" /><figcaption>03 Confirm anchor</figcaption></figure>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

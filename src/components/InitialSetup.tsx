@@ -5,7 +5,6 @@ import {
   ArrowRight,
   BriefcaseBusiness,
   CalendarDays,
-  Check,
   CircleDollarSign,
   Clock3,
   Ellipsis,
@@ -27,6 +26,8 @@ type ThemeKey = "education" | "career" | "relationship" | "wealth" | "other";
 interface ThemeOption {
   key: ThemeKey;
   label: string;
+  returnTitle: string;
+  returnDescription: string;
   focus: string;
   age: number;
   example: string;
@@ -38,6 +39,8 @@ const THEMES: ThemeOption[] = [
   {
     key: "education",
     label: "升学与选择",
+    returnTitle: "重写高考志愿",
+    returnDescription: "回到志愿填报那天，选择真正想走的方向",
     focus: "selftruth",
     age: 18,
     example: "高考填志愿时，我因为害怕失败，放弃了真正想学的专业。",
@@ -47,6 +50,8 @@ const THEMES: ThemeOption[] = [
   {
     key: "career",
     label: "工作与转折",
+    returnTitle: "重选职业方向",
+    returnDescription: "回到那次工作转折，走向另一条职业道路",
     focus: "career",
     age: 24,
     example: "第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。",
@@ -56,6 +61,8 @@ const THEMES: ThemeOption[] = [
   {
     key: "relationship",
     label: "关系与遗憾",
+    returnTitle: "重做情感选择",
+    returnDescription: "回到关系的关键节点，重新回应或告别",
     focus: "romance",
     age: 26,
     example: "那次争吵后，我明明还在意，却因为骄傲没有说出真正想说的话。",
@@ -65,6 +72,8 @@ const THEMES: ThemeOption[] = [
   {
     key: "wealth",
     label: "财富与机会",
+    returnTitle: "重判财富机会",
+    returnDescription: "回到机会出现之前，重新判断风险与取舍",
     focus: "wealth",
     age: 30,
     example: "面对一次重要的合作机会，我因为担心失去稳定收入，最终没有迈出那一步。",
@@ -74,6 +83,8 @@ const THEMES: ThemeOption[] = [
   {
     key: "other",
     label: "其他经历",
+    returnTitle: "写下我的时刻",
+    returnDescription: "填写一件只属于你的回溯事件",
     focus: "innerpeace",
     age: 25,
     example: "在人生最需要做决定的时候，我习惯先满足别人的期待，后来才发现忽略了自己。",
@@ -135,9 +146,9 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
   const [birthday, setBirthday] = useState("1998-05-15");
   const [birthtime, setBirthtime] = useState("07:00");
   const [themeKey, setThemeKey] = useState<ThemeKey>("relationship");
-  const [eventText, setEventText] = useState("");
   const [anchorText, setAnchorText] = useState("");
   const [anchorAge, setAnchorAge] = useState(26);
+  const [branchChoices, setBranchChoices] = useState<[string, string, string]>(THEMES[2].branches);
   const [error, setError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -156,18 +167,16 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
     setStep(2);
   };
 
-  const createAnchor = () => {
-    if (!eventText.trim()) {
-      setError("请写下一件你最想改变的事，或使用示例体验。");
-      return;
-    }
-    setAnchorText(eventText.trim());
-    setAnchorAge(detectAge(eventText, theme.age));
+  const selectReturnPoint = (option: ThemeOption) => {
+    setThemeKey(option.key);
+    setAnchorText(option.key === "other" ? "" : option.example);
+    setAnchorAge(detectAge(option.example, option.age));
+    setBranchChoices(option.branches);
     setStep(3);
   };
 
   const start = () => {
-    const branches = theme.branches.map((branch, index) => `${String.fromCharCode(65 + index)}. ${branch}`).join("\n");
+    const branches = branchChoices.map((branch, index) => `${String.fromCharCode(65 + index)}. ${branch.trim()}`).join("\n");
     const situation = `【用户想重写的真实事件】\n${anchorText}\n\n【系统生成的回溯锚点】\n回到 ${anchorAge} 岁，在事件发生前重新做出选择。`;
 
     onSubmit({
@@ -236,8 +245,8 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
             <Brand step={step} />
 
             <div className="pt-8">
-              <p className="text-[10px] uppercase tracking-[0.22em] text-[#8c877e]">一次只改写一件事</p>
-              <h2 className="mt-3 font-serif text-[32px] leading-[1.25] tracking-[-0.03em]">最想重写的，<br />是哪一段？</h2>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[#8c877e]">选择一个回溯时刻</p>
+              <h2 className="mt-3 font-serif text-[32px] leading-[1.25] tracking-[-0.03em]">你最想回到，<br />哪一个时刻？</h2>
             </div>
 
             <div className="mt-5 rounded-[16px] border border-[#302e2a] bg-[#0a0a0a] px-4 py-3">
@@ -250,40 +259,25 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              {THEMES.map(({ key, label, Icon }, index) => {
-                const active = themeKey === key;
+            <div className="mt-5 overflow-hidden rounded-[14px] border border-[#292825] bg-[#0a0a0a]">
+              {THEMES.map((option, index) => {
+                const { key, returnTitle, returnDescription, age, Icon } = option;
                 return (
-                  <button key={key} type="button" onClick={() => setThemeKey(key)} className={`flex h-11 items-center gap-2 rounded-[12px] border px-3 text-left text-[12px] transition ${index === 4 ? "col-span-2" : ""} ${active ? "border-[#97875e] bg-[#19170f] text-[#ede7dc]" : "border-[#292825] bg-[#0a0a0a] text-[#8f8a82] hover:border-[#403d37]"}`}>
-                    <Icon className={`h-3.5 w-3.5 ${active ? "text-[#c9b77f]" : "text-[#68645e]"}`} />
-                    {label}
-                    {active && <Check className="ml-auto h-3.5 w-3.5 text-[#c9b77f]" />}
+                  <button key={key} type="button" onClick={() => selectReturnPoint(option)} className={`flex min-h-17 w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-[#15130e] ${index < THEMES.length - 1 ? "border-b border-[#292825]" : ""}`}>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#464139] bg-[#10100f]">
+                      <Icon className="h-4 w-4 text-[#b8a978]" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] text-[#ddd7cd]">{returnTitle}</span>
+                      <span className="mt-1 block truncate text-[10px] text-[#716d66]">{returnDescription}</span>
+                    </span>
+                    <span className="shrink-0 text-[9px] text-[#57534d]">{key === "other" ? "自定义" : `约 ${age} 岁`}</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-[#686259]" />
                   </button>
                 );
               })}
             </div>
-
-            <label className="mt-5 block">
-              <span className="text-[12px] text-[#b9b3aa]">只写下那一件事</span>
-              <textarea
-                aria-label="最想改变的事件"
-                value={eventText}
-                onChange={(e) => setEventText(e.target.value)}
-                maxLength={220}
-                placeholder="例如：那一次我明明想坚持，却因为害怕让别人失望而放弃了……"
-                className="mt-2 h-24 w-full resize-none rounded-[14px] border border-[#302e2a] bg-[#0a0a0a] px-3.5 py-3 text-[13px] leading-5 text-[#ece7de] outline-none placeholder:text-[#55524d] focus:border-[#756b52]"
-              />
-            </label>
-
-            <button type="button" onClick={() => { setEventText(theme.example); setError(""); }} className="mt-2 flex h-9 items-center justify-center gap-2 rounded-[11px] border border-[#33302a] text-[11px] text-[#aaa39a] transition hover:border-[#625a47] hover:text-[#d8d1c5]">
-              <Sparkles className="h-3.5 w-3.5 text-[#b9a975]" /> 使用示例体验
-            </button>
-            <p className="mt-2 text-center text-[9px] leading-4 text-[#57544f]">示例仅用于体验，不会保存成你的真实经历</p>
-
-            <div className="mt-auto pt-5">
-              {error && <p className="mb-3 text-center text-[11px] text-[#c99486]">{error}</p>}
-              <PrimaryButton onClick={createAnchor}>生成回溯点 <ArrowRight className="h-4 w-4" /></PrimaryButton>
-            </div>
+            <p className="mt-4 text-center text-[10px] leading-5 text-[#5f5b55]">这些是系统生成的候选回溯点<br />选中后会进入下一页，你可以继续修改</p>
           </motion.section>
         )}
 
@@ -312,17 +306,24 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
 
               <label className="mt-4 block">
                 <span className="text-[10px] tracking-[0.1em] text-[#77736c]">事件摘要 · 可修改</span>
-                <textarea aria-label="回溯事件摘要" value={anchorText} onChange={(e) => setAnchorText(e.target.value)} className="mt-2 h-20 w-full resize-none bg-transparent text-[13px] leading-5 text-[#d8d2c8] outline-none" />
+                <textarea aria-label="回溯事件摘要" value={anchorText} onChange={(e) => setAnchorText(e.target.value)} placeholder="写下你想回去重新选择的那件事……" className="mt-2 h-20 w-full resize-none bg-transparent text-[13px] leading-5 text-[#d8d2c8] outline-none placeholder:text-[#4f4c47]" />
               </label>
             </div>
 
             <div className="mt-5">
-              <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[#77736c]">命运将从三个方向展开</p>
+              <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[#77736c]">命运分支 · 可修改</p>
               <div className="overflow-hidden rounded-[15px] border border-[#302e2a] bg-[#090909]">
-                {theme.branches.map((branch, index) => (
-                  <div key={branch} className={`flex min-h-13 items-center gap-3 px-3.5 py-3 ${index < 2 ? "border-b border-[#292724]" : ""}`}>
+                {branchChoices.map((branch, index) => (
+                  <div key={index} className={`flex min-h-13 items-center gap-3 px-3.5 py-3 ${index < 2 ? "border-b border-[#292724]" : ""}`}>
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#514b3d] text-[10px] text-[#c2b487]">{String.fromCharCode(65 + index)}</span>
-                    <p className="text-[11px] leading-4 text-[#aaa49a]">{branch}</p>
+                    <textarea
+                      aria-label={`命运分支 ${String.fromCharCode(65 + index)}`}
+                      value={branch}
+                      onChange={(event) => setBranchChoices((current) => current.map((item, choiceIndex) => choiceIndex === index ? event.target.value : item) as [string, string, string])}
+                      maxLength={80}
+                      className="h-9 min-w-0 flex-1 resize-none bg-transparent text-[11px] leading-4 text-[#aaa49a] outline-none focus:text-[#e3ddd2]"
+                    />
+                    <PencilLine className="h-3 w-3 shrink-0 text-[#5f594d]" />
                   </div>
                 ))}
               </div>
@@ -331,7 +332,7 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
             <div className="mt-auto pt-5">
               <div className="flex gap-2.5">
                 <button type="button" onClick={() => setStep(2)} className="flex h-13 w-[112px] items-center justify-center gap-1.5 rounded-[14px] border border-[#37342f] text-[12px] text-[#9d978e] transition hover:border-[#575248] hover:text-[#d3ccc0]"><ArrowLeft className="h-3.5 w-3.5" /> 返回修改</button>
-                <div className="flex-1"><PrimaryButton disabled={isLoading || !anchorText.trim()} onClick={start}>{isLoading ? "正在开启…" : "确认，从这里开始"} {!isLoading && <ArrowRight className="h-4 w-4" />}</PrimaryButton></div>
+                <div className="flex-1"><PrimaryButton disabled={isLoading || !anchorText.trim() || branchChoices.some((choice) => !choice.trim())} onClick={start}>{isLoading ? "正在开启…" : "确认，从这里开始"} {!isLoading && <ArrowRight className="h-4 w-4" />}</PrimaryButton></div>
               </div>
               <p className="mt-3 text-center text-[9px] tracking-[0.08em] text-[#56534e]">确认后将用三次追问补全你的平行人生</p>
             </div>

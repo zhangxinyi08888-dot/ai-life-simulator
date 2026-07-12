@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Focused story screen comparison</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #111; color: #eee9df; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      main { width: 1120px; height: 950px; padding: 24px; display: grid; grid-template-columns: 560px 1fr; gap: 24px; }
+      section { overflow: hidden; border: 1px solid #34312b; border-radius: 16px; background: #080808; padding: 16px; }
+      h1 { height: 22px; margin: 0 0 12px; color: #aaa49a; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+      .crop { width: 526px; height: 850px; overflow: hidden; }
+      .crop img { display: block; width: 1510px; height: 850px; max-width: none; transform: translateX(-498px); }
+      .implementation img { display: block; width: 390px; height: 844px; margin: 0 auto; object-fit: contain; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section>
+        <h1>Reference · event screen detail</h1>
+        <div class="crop"><img src="../docs/design/premium-onboarding-reference.png" alt="Reference event screen" /></div>
+      </section>
+      <section class="implementation">
+        <h1>Implementation · event screen detail</h1>
+        <img src="screenshots/onboarding-story-390x844.png" alt="Implemented event screen" />
+      </section>
+    </main>
+  </body>
+</html>

@@ -201,20 +201,16 @@ export default function App() {
   };
 
   return (
-    <div className="h-[100dvh] bg-[#050505] text-slate-100 flex items-center justify-center relative overflow-hidden" id="app-viewport">
-      {/* Space atmosphere stars glow background */}
-      <div className="absolute inset-x-0 top-0 h-96 bg-gradient-to-b from-indigo-950/25 via-transparent to-transparent pointer-events-none" />
-      <div className="absolute -left-32 top-10 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -right-32 bottom-20 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl pointer-events-none" />
+    <div className="h-[100dvh] bg-[#050505] text-[#f2eee5] flex items-center justify-center relative overflow-hidden" id="app-viewport">
 
       {/* Main smartphone reader frame wrapper */}
       <div className="mobile-prototype w-full h-[100dvh] max-w-[390px] bg-[#050505] shadow-2xl relative flex flex-col overflow-hidden border border-[#171717] md:rounded-3xl md:h-[844px] md:my-5" id="mobile-canvas-container">
         
         {/* Universal upper cosmetic notch simulation (only visible on large screen) */}
         <div className="hidden md:flex w-full justify-center absolute top-2 z-50" id="notch-cosmetic">
-          <div className="w-28 h-4.5 bg-black rounded-full border border-slate-900 flex items-center justify-between px-3 text-[7px] text-slate-600 font-mono">
+          <div className="w-28 h-4.5 bg-black rounded-full border border-[#24221f] flex items-center justify-between px-3 text-[7px] text-[#69645d] font-mono">
             <span>ORACLE</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-slate-800 animate-pulse" />
+            <div className="w-1.5 h-1.5 rounded-full bg-[#aa9b70] animate-pulse" />
           </div>
         </div>
 
@@ -300,14 +296,14 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl relative"
+              className="bg-[#0a0a0a] border border-[#37332d] rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl relative"
               id="error-alert-box"
             >
               <button
                 id="dismiss-error-btn"
                 type="button"
                 onClick={() => setErrorMsg(null)}
-                className="absolute top-3.5 right-3.5 p-1 rounded-full hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-all"
+                className="absolute top-3.5 right-3.5 p-1 rounded-full hover:bg-[#161512] text-[#77716a] hover:text-[#d7d0c5] transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -317,8 +313,8 @@ export default function App() {
                   <AlertCircle className="w-5 h-5" />
                 </span>
                 <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-slate-100">时空命理演化警报</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed font-sans" id="error-toast-text">
+                  <h3 className="text-sm font-semibold text-[#e4ddd3]">时空命理演化警报</h3>
+                  <p className="text-xs text-[#8c857c] leading-relaxed font-sans" id="error-toast-text">
                     {errorMsg}
                   </p>
                 </div>
@@ -329,7 +325,7 @@ export default function App() {
                   id="error-resolve-btn"
                   type="button"
                   onClick={() => setErrorMsg(null)}
-                  className="flex-1 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 transition-all"
+                  className="flex-1 py-2 text-xs font-semibold rounded-xl border border-[#d8cba8]/60 bg-[#d2c08d] text-[#15130f] transition-all hover:bg-[#dac99a]"
                 >
                   我知道了
                 </button>
