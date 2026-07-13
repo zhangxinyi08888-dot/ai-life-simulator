@@ -1,10 +1,13 @@
 import { HistoryItem, LifeIntensity, PressureArcState, SimulationChoice, SimulationNode } from "../types";
+import { blockedDecisionIntents, normalizeDecisionIntent } from "./choicePreference";
 
 export interface DecisionGateResult {
   isDecisionCheckpoint: boolean;
   distinctActionCount: number;
   changesFutureState: boolean;
   repeatsPreviousDecision: boolean;
+  repeatsRecentlyPassedOption: boolean;
+  blockedDecisionIntents: string[];
   reasonCodes: string[];
 }
 
@@ -14,7 +17,7 @@ export const DEFAULT_NODE_DENSITY_POLICY = {
 } as const;
 
 function normalizedIntent(choice: SimulationChoice): string {
-  return (choice.decisionIntent || choice.text).trim().replace(/^[A-C][.、：:\s-]*/i, "");
+  return normalizeDecisionIntent(choice);
 }
 
 function hasDistinctWorldChanges(choices: SimulationChoice[]): boolean {
@@ -51,6 +54,13 @@ export function evaluateDecisionGate(input: {
   const distinctActionCount = new Set(choices.map(normalizedIntent).filter(Boolean)).size;
   const changesFutureState = hasDistinctWorldChanges(choices);
   const repeatsPreviousDecision = repeatedPreviousDecision(input.candidateNode, input.previousNode);
+  const cooledIntents = blockedDecisionIntents(input.recentHistory, input.recentHistory.length);
+  const repeatedPassedIntents = [...new Set(
+    choices
+      .map(normalizedIntent)
+      .filter((intent) => intent && cooledIntents.has(intent))
+  )];
+  const repeatsRecentlyPassedOption = repeatedPassedIntents.length > 0;
   const intensity: LifeIntensity = input.candidateNode.narrativeMeta?.lifeIntensity || "normal";
   const recentHigh = countRecentHighIntensityNodes(input.recentHistory, input.targetAgeInMonths);
   const pressureCriticalCount = input.pressureArc && intensity === "critical" ? input.pressureArc.phaseCheckpointCount : 0;
@@ -62,6 +72,7 @@ export function evaluateDecisionGate(input: {
   if (distinctActionCount < 2) reasonCodes.push("insufficient-distinct-actions");
   if (!changesFutureState) reasonCodes.push("no-distinct-world-change");
   if (repeatsPreviousDecision) reasonCodes.push("repeats-previous-decision");
+  if (repeatsRecentlyPassedOption) reasonCodes.push("repeats-recently-passed-option");
   if (densityExceeded) reasonCodes.push("node-density-exceeded");
 
   return {
@@ -69,6 +80,8 @@ export function evaluateDecisionGate(input: {
     distinctActionCount,
     changesFutureState,
     repeatsPreviousDecision,
+    repeatsRecentlyPassedOption,
+    blockedDecisionIntents: repeatedPassedIntents,
     reasonCodes
   };
 }

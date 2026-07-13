@@ -5,7 +5,7 @@ function formatList(items: string[]): string {
   return items.map((item, index) => `  ${index + 1}. ${item}`).join("\n");
 }
 
-const directionChoiceRule = "\n- 生成 A/B/C 选项时，只有 state=stage_main_arc 或 long_term_main_arc 的方向可以成为职业、创业、重大转型方向\n- state=background_detail 的方向不得进入选项主语；state=side_thread 只能作为附带考虑；state=mentioned 不得主动出现在选项中";
+const directionChoiceRule = "\n- 生成 A/B/C 选项时，只有 state=stage_main_arc 或 long_term_main_arc 的方向可以成为职业、创业、重大转型方向\n- state=background_detail 的方向不得进入选项主语；state=side_thread 只能作为附带考虑；state=mentioned 不得主动出现在选项中\n- state=cooldown 或 dormant 的 decisionIntent 不得再次进入 A/B/C，初始事实、追问答案和 background thread 都不能绕过冷却\n- 延续 background thread 是推进人物关系、压力或既有后果，不等于把用户未采纳的具体方案换一种文案再次提供";
 
 function formatEventSpecificRules(event: LifeEventSeed): string {
   if (event.intent.type !== "health_system_warning") return "";

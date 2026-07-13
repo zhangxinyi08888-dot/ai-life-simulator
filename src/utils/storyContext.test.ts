@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../types";
+import { HistoryItem, LifeAttributes, QuestionTurn, SimulationChoice, UserInitialData } from "../types";
 import { buildStoryContextPack, formatStoryContextPack } from "./storyContext";
 
 const attributes: LifeAttributes = {
@@ -33,7 +33,13 @@ const answers: QuestionTurn[] = [
   }
 ];
 
-function historyItem(age: number, title: string, description: string, selectedChoice = "继续推进"): HistoryItem {
+function historyItem(
+  age: number,
+  title: string,
+  description: string,
+  selectedChoice = "继续推进",
+  choices?: SimulationChoice[]
+): HistoryItem {
   return {
     age,
     title,
@@ -41,7 +47,7 @@ function historyItem(age: number, title: string, description: string, selectedCh
     description,
     selectedChoice,
     attributes,
-    choices: [{ id: "A", text: selectedChoice, impactSummary: "继续推进" }],
+    choices: choices || [{ id: "A", text: selectedChoice, impactSummary: "继续推进" }],
     isEndingNode: false
   };
 }
@@ -102,13 +108,13 @@ const plantInterest = interestPack.interestSignals.find((fact) => fact.text.incl
 assert.equal(plantInterest?.promotedToArc, false);
 assert.equal(plantInterest?.reinforcementCount, 0);
 assert.equal((plantInterest as any)?.userReinforcementCount, 0);
-assert.equal((plantInterest as any)?.directionState, "mentioned");
-assert.ok(((plantInterest as any)?.consecutiveUnselectedCount ?? 0) >= 5);
+assert.equal((plantInterest as any)?.directionState, "background_detail");
+assert.equal((plantInterest as any)?.consecutiveUnselectedCount, 0);
 assert.ok((plantInterest?.currentWeight ?? 1) < 0.45);
 assert.match(interestFormatted, /兴趣倾向/);
 assert.match(interestFormatted, /方向线索使用边界/);
 assert.match(interestFormatted, /模型正文偶然提及不计入强化/);
-assert.match(interestFormatted, /state=mentioned/);
+assert.match(interestFormatted, /state=background_detail/);
 
 const reinforcedPack = buildStoryContextPack(
   interestUserData,
@@ -165,8 +171,34 @@ const decayedAfterReinforcementPack = buildStoryContextPack(
 );
 const decayedPlant = decayedAfterReinforcementPack.interestSignals.find((fact) => fact.text.includes("植物"));
 assert.equal((decayedPlant as any)?.userReinforcementCount, 1);
-assert.equal((decayedPlant as any)?.directionState, "background_detail");
+assert.equal((decayedPlant as any)?.directionState, "side_thread");
 assert.equal(decayedPlant?.promotedToArc, false);
+
+const plantChoice: SimulationChoice = {
+  id: "A",
+  text: "系统学习植物学",
+  impactSummary: "植物深造",
+  decisionIntent: "education:study:plant_science"
+};
+const platformChoice: SimulationChoice = {
+  id: "B",
+  text: "继续做平台运营",
+  impactSummary: "平台积累",
+  decisionIntent: "career:continue:platform_operations"
+};
+const explicitlyPassedPlantPack = buildStoryContextPack(
+  interestUserData,
+  [],
+  [
+    historyItem(19, "植物学习", "你开始学习植物学。", plantChoice.text, [plantChoice, platformChoice]),
+    historyItem(22, "第一次取舍", "植物方向和平台工作同时摆在面前。", platformChoice.text, [plantChoice, platformChoice]),
+    historyItem(24, "第二次取舍", "两个方向再次需要取舍。", platformChoice.text, [plantChoice, platformChoice])
+  ]
+);
+const explicitlyPassedPlant = explicitlyPassedPlantPack.interestSignals.find((fact) => fact.text.includes("植物"));
+assert.equal((explicitlyPassedPlant as any)?.userReinforcementCount, 1);
+assert.equal((explicitlyPassedPlant as any)?.consecutiveUnselectedCount, 2);
+assert.equal((explicitlyPassedPlant as any)?.directionState, "background_detail");
 
 const genericDirectionCases = [
   { keyword: "写作", situation: "我喜欢写作，想试试内容行业。", choice: "继续做平台运营" },
@@ -195,3 +227,33 @@ for (const item of genericDirectionCases) {
   assert.equal(signal?.promotedToArc, false);
   assert.equal((signal as any)?.directionState, "background_detail");
 }
+
+const cityChoices: SimulationChoice[] = [
+  { id: "A", text: "继续留在深圳发展", impactSummary: "留深发展", decisionIntent: "location:stay_in:shenzhen" },
+  { id: "B", text: "接受武汉光谷 offer 并搬迁", impactSummary: "迁往武汉", decisionIntent: "location:relocate_to:wuhan_guanggu" },
+  { id: "C", text: "转为远程合作不搬家", impactSummary: "远程合作", decisionIntent: "career:work_remote:wuhan_company" }
+];
+const cityPreferencePack = buildStoryContextPack(
+  {
+    regressionAge: 35,
+    regressionSituation: "父母建议考虑武汉光谷的工作。",
+    regressionChoices: "继续在深圳发展",
+    coreStoryFocus: "career"
+  },
+  [],
+  [
+    historyItem(39, "城市机会", "父母第一次提起武汉机会。", cityChoices[0].text, cityChoices),
+    historyItem(40, "城市再选择", "父母再次提起武汉机会。", cityChoices[0].text, cityChoices)
+  ]
+);
+const cooledWuhan = cityPreferencePack.choicePreferenceSignals.find(
+  (signal) => signal.decisionIntent === "location:relocate_to:wuhan_guanggu"
+);
+const cityPreferencePrompt = formatStoryContextPack(cityPreferencePack);
+
+assert.equal(cooledWuhan?.state, "cooldown");
+assert.equal(cooledWuhan?.passedOfferCount, 2);
+assert.match(cityPreferencePrompt, /decisionIntent=location:relocate_to:wuhan_guanggu/);
+assert.match(cityPreferencePrompt, /state=cooldown/);
+assert.match(cityPreferencePrompt, /没有提供的方向保持中性/);
+assert.match(cityPreferencePrompt, /background thread 不能绕过此限制/);

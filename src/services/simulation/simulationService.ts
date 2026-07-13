@@ -397,9 +397,12 @@ export async function generateNextNode(
     }).node;
   }
 
-  let decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history.slice(-5), targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+  let decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
   if (!decisionGate.isDecisionCheckpoint) {
-    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过】\n问题：${decisionGate.reasonCodes.join("、")}。请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。`;
+    const blockedChoicePrompt = decisionGate.blockedDecisionIntents.length > 0
+      ? `\n以下 decisionIntent 近期已被用户重复未采纳，处于冷却中：${decisionGate.blockedDecisionIntents.join("、")}。保留相关真实事实或人物关系，但不得改写文案后再次提供同一行动。`
+      : "";
+    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。`;
     const response = await callAiJson(repairPrompt);
     latestRawNode = parseAiJsonResponse(response);
     if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "DecisionGate 修复结果包含未授权的 Arc 状态修改。");
@@ -416,7 +419,7 @@ export async function generateNextNode(
     node = { ...node, isEndingNode: false, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined };
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
     if (consistencyIssues.some((issue) => issue.severity === "error")) throw new AiClientError("AI_RESPONSE_INVALID", consistencyIssues.map((issue) => issue.message).join("；"));
-    decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history.slice(-5), targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+    decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
     if (!decisionGate.isDecisionCheckpoint) throw new AiClientError("AI_RESPONSE_INVALID", "生成结果没有形成真正不同的人生选择，请重试。");
   }
 

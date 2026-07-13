@@ -45,6 +45,8 @@ assert.match(intentPrompt, /health_system_warning/);
 assert.match(intentPrompt, /我爸妈希望我稳定/);
 assert.match(intentPrompt, /至少显性使用 1 条追问答案/);
 assert.match(intentPrompt, /allowedOutcomes 是行动原语/);
+assert.match(intentPrompt, /background thread.*不等于把用户未采纳的具体方案/);
+assert.match(intentPrompt, /state=cooldown 或 dormant/);
 assert.doesNotMatch(intentPrompt, /现实人生事件触发/);
 assert.doesNotMatch(intentPrompt, /剧情指令/);
 
@@ -54,6 +56,7 @@ assert.match(nullPrompt, /Story Context Pack/);
 assert.match(nullPrompt, /最近 5 个历史节点/);
 assert.match(nullPrompt, /轻量关系\/亲情\/生活副线/);
 assert.match(nullPrompt, /不要强行制造事故/);
+assert.match(nullPrompt, /初始事实、追问答案和 background thread 都不能绕过冷却/);
 
 const interestContext = buildStoryContextPack(
   {
