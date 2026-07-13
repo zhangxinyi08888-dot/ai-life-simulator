@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { SimulationNode } from "../types";
+import { HistoryItem, SimulationChoice, SimulationNode } from "../types";
 import { evaluateDecisionGate } from "./decisionGate";
 
 const base: SimulationNode = {
@@ -30,3 +30,45 @@ const repetitive: SimulationNode = {
 const rejected = evaluateDecisionGate({ candidateNode: repetitive, recentHistory: [], targetAgeInMonths: 420 });
 assert.equal(rejected.isDecisionCheckpoint, false);
 assert.ok(rejected.reasonCodes.includes("insufficient-distinct-actions"));
+
+const cityChoices: SimulationChoice[] = [
+  { id: "A", text: "继续留在深圳发展", impactSummary: "留深发展", decisionIntent: "location:stay_in:shenzhen", expectedWorldDeltaTypes: ["career_state"] },
+  { id: "B", text: "接受武汉光谷 offer 并搬迁", impactSummary: "迁往武汉", decisionIntent: "location:relocate_to:wuhan_guanggu", expectedWorldDeltaTypes: ["career_state", "location_change"] },
+  { id: "C", text: "与武汉公司远程合作", impactSummary: "远程合作", decisionIntent: "career:work_remote:wuhan_company", expectedWorldDeltaTypes: ["career_state"] }
+];
+
+function cityHistoryItem(age: number, selectedChoice: string): HistoryItem {
+  return {
+    age,
+    stage: "职业选择",
+    title: "城市与工作选择",
+    description: "家庭建议和职业发展出现分歧。",
+    selectedChoice,
+    attributes: base.attributes,
+    choices: cityChoices,
+    isEndingNode: false
+  };
+}
+
+const cooledCandidate: SimulationNode = {
+  ...base,
+  choices: [
+    cityChoices[1],
+    { id: "B", text: "接受内部架构师岗位", impactSummary: "内部晋升", decisionIntent: "career:accept_role:internal_architect", expectedWorldDeltaTypes: ["career_state"] },
+    { id: "C", text: "继续寻找深圳外部机会", impactSummary: "外部求职", decisionIntent: "career:seek_role:shenzhen_external", expectedWorldDeltaTypes: ["career_state", "relationship_change"] }
+  ]
+};
+
+const passedOnce = [cityHistoryItem(39, cityChoices[0].text)];
+assert.equal(evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: passedOnce, targetAgeInMonths: 480 }).isDecisionCheckpoint, true);
+
+const passedTwice = [...passedOnce, cityHistoryItem(40, cityChoices[0].text)];
+const cooledResult = evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: passedTwice, targetAgeInMonths: 492 });
+assert.equal(cooledResult.isDecisionCheckpoint, false);
+assert.equal(cooledResult.repeatsRecentlyPassedOption, true);
+assert.deepEqual(cooledResult.blockedDecisionIntents, ["location:relocate_to:wuhan_guanggu"]);
+assert.ok(cooledResult.reasonCodes.includes("repeats-recently-passed-option"));
+
+const selectedLater = [...passedTwice, cityHistoryItem(41, cityChoices[1].text)];
+const restoredResult = evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: selectedLater, targetAgeInMonths: 504 });
+assert.equal(restoredResult.repeatsRecentlyPassedOption, false);

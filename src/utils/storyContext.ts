@@ -1,4 +1,5 @@
 import type { HistoryItem, QuestionTurn, UserInitialData } from "../types";
+import { buildChoicePreferenceSignals, type ChoicePreferenceSignal } from "./choicePreference";
 import { formatAgeInMonths } from "./timelineAdvance";
 
 export type BackgroundThreadType =
@@ -60,6 +61,7 @@ export interface StoryContextPack {
   stageFacts: StoryFact[];
   interestSignals: StoryFact[];
   temporaryEmotions: StoryFact[];
+  choicePreferenceSignals: ChoicePreferenceSignal[];
   recentHistory: HistoryItem[];
   activeThreads: BackgroundThread[];
 }
@@ -311,14 +313,18 @@ function countUserChoiceOutcomes(text: string, recentHistory: HistoryItem[]): nu
   return recentHistory.filter((item) => selectedChoiceMatchesDirection(item, matchedKeywords) && hasDirectionOutcome(item)).length;
 }
 
-function countConsecutiveUnselected(text: string, recentHistory: HistoryItem[]): number {
+function countConsecutivePassedOffers(text: string, recentHistory: HistoryItem[]): number {
   const matchedKeywords = extractDirectionKeywords(text);
   if (matchedKeywords.length === 0) return 0;
 
   let count = 0;
   for (const item of [...recentHistory].reverse()) {
     if (selectedChoiceMatchesDirection(item, matchedKeywords)) break;
-    count += 1;
+    const wasOffered = item.choices.some((choice) => {
+      const choiceText = `${choice.text} ${choice.decisionIntent || ""}`;
+      return matchedKeywords.some((keyword) => choiceText.includes(keyword));
+    });
+    if (wasOffered) count += 1;
   }
   return count;
 }
@@ -346,8 +352,8 @@ function minDirectionState(state: DirectionSignalState, cap: DirectionSignalStat
 }
 
 function applyUnselectedDecayCap(state: DirectionSignalState, consecutiveUnselectedCount: number): DirectionSignalState {
-  if (consecutiveUnselectedCount >= 5) return "mentioned";
-  if (consecutiveUnselectedCount >= 1) return minDirectionState(state, "background_detail");
+  if (consecutiveUnselectedCount >= 3) return "mentioned";
+  if (consecutiveUnselectedCount >= 2) return minDirectionState(state, "background_detail");
   return state;
 }
 
@@ -377,7 +383,7 @@ function buildDirectionStateReason(
   if (directionState === "long_term_main_arc") return `用户选择强化 ${userReinforcementCount} 次且形成 ${outcomeCount} 次现实成果，可作为长期主线`;
   if (directionState === "stage_main_arc") return `用户选择强化 ${userReinforcementCount} 次，可作为阶段主线`;
   if (directionState === "side_thread") return "用户选择强化 1 次，可作为副线";
-  if (directionState === "mentioned") return `连续 ${consecutiveUnselectedCount} 个节点未选择，最多作为曾经提过`;
+  if (directionState === "mentioned") return `连续 ${consecutiveUnselectedCount} 次明确提供但未采纳，最多作为曾经提过`;
   if (modelMentionCount > 0) return `模型正文提及 ${modelMentionCount} 次但没有用户选择强化，只能作为生活细节`;
   return "早期提到，最近没有用户选择强化，只能作为生活细节";
 }
@@ -386,7 +392,7 @@ function resolveDirectionMetrics(text: string, recentHistory: HistoryItem[]) {
   const userReinforcementCount = countUserChoiceReinforcements(text, recentHistory);
   const outcomeCount = countUserChoiceOutcomes(text, recentHistory);
   const modelMentionCount = countModelMentions(text, recentHistory);
-  const consecutiveUnselectedCount = countConsecutiveUnselected(text, recentHistory);
+  const consecutiveUnselectedCount = countConsecutivePassedOffers(text, recentHistory);
   const directionState = resolveDirectionSignalState(userReinforcementCount, outcomeCount, consecutiveUnselectedCount);
 
   return {
@@ -488,6 +494,7 @@ export function buildStoryContextPack(
 
   const answerFacts = answerFactsFrom(answers);
   const activeThreads = detectThreads(userFacts, answerFacts, recentHistory);
+  const choicePreferenceSignals = buildChoicePreferenceSignals(history);
   const longTermFacts: StoryFact[] = [];
   const stageFacts: StoryFact[] = [];
   const interestSignals: StoryFact[] = [];
@@ -535,6 +542,7 @@ export function buildStoryContextPack(
     stageFacts,
     interestSignals,
     temporaryEmotions,
+    choicePreferenceSignals,
     recentHistory,
     activeThreads
   };
@@ -556,9 +564,26 @@ function formatStoryFactSection(title: string, facts: StoryFact[]): string {
   }).join("\n")}`;
 }
 
+function formatChoicePreferenceSection(signals: ChoicePreferenceSignal[]): string {
+  const blockedSignals = signals.filter((signal) => signal.state !== "available");
+  const recentAvailableSignals = signals
+    .filter((signal) => signal.state === "available")
+    .slice(0, 8);
+  const visibleSignals = [...blockedSignals, ...recentAvailableSignals];
+  if (visibleSignals.length === 0) return "近期选择偏好：\n- 暂无";
+
+  return `近期选择偏好：\n${visibleSignals.map((signal) => {
+    const examples = signal.recentOptionTexts.join(" / ");
+    const cooldown = typeof signal.cooldownUntilNodeIndex === "number"
+      ? `，cooldownUntilNode=${signal.cooldownUntilNodeIndex}`
+      : "";
+    return `- decisionIntent=${signal.decisionIntent}，selected=${signal.selectedCount}，passed=${signal.passedOfferCount}，consecutivePassed=${signal.consecutivePassedOfferCount}，state=${signal.state}${cooldown}，recentOptions=${examples}`;
+  }).join("\n")}`;
+}
+
 export function formatStoryContextPack(pack: StoryContextPack): string {
   const recentHistory = pack.recentHistory.map((item) => `${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} ${item.title}：${item.description} / 选择：${item.selectedChoice}`);
   const activeThreads = pack.activeThreads.map((thread) => `${thread.type}（${thread.source}，${thread.salience.toFixed(2)}）：${thread.summary}`);
 
-  return `\n\n【Story Context Pack】\n【方向线索使用边界】\n- long_term_main_arc：可作为长期人生主线、终章和报告核心。\n- stage_main_arc：可作为当前阶段主线，例如职业、项目、学习方向。\n- side_thread：可延续为副线，但不得主导职业、创业、人生使命或重大转型。\n- background_detail：只能作为生活细节，不能出现在重大选择选项主语中。\n- mentioned：本轮不要主动展开，终章/报告最多作为曾经提过。\n- 模型正文偶然提及不计入强化；只有用户点击、自定义输入、用户选择导致的历史结果和现实成果才允许升级方向状态。\n- 连续未选择会降低使用范围，高权重背景不等于长期主线。\n\n${formatSection("用户真实事实", pack.userFacts)}\n\n${formatSection("追问补全事实", pack.answerFacts)}\n\n${formatStoryFactSection("长期事实", pack.longTermFacts)}\n\n${formatStoryFactSection("阶段事实", pack.stageFacts)}\n\n${formatStoryFactSection("兴趣倾向", pack.interestSignals)}\n\n${formatStoryFactSection("临时情绪", pack.temporaryEmotions)}\n\n${formatSection("最近 5 个历史节点", recentHistory)}\n\n${formatSection("当前可延续副线", activeThreads)}`;
+  return `\n\n【Story Context Pack】\n【方向线索使用边界】\n- long_term_main_arc：可作为长期人生主线、终章和报告核心。\n- stage_main_arc：可作为当前阶段主线，例如职业、项目、学习方向。\n- side_thread：可延续为副线，但不得主导职业、创业、人生使命或重大转型。\n- background_detail：只能作为生活细节，不能出现在重大选择选项主语中。\n- mentioned：本轮不要主动展开，终章/报告最多作为曾经提过。\n- 模型正文偶然提及不计入强化；只有用户点击、自定义输入、用户选择导致的历史结果和现实成果才允许升级方向状态。\n- 只有明确提供但未被选择的方向才计入 passed；没有提供的方向保持中性。\n- state=cooldown 或 dormant 的 decisionIntent 不得再次进入 A/B/C；用户真实事实和 background thread 不能绕过此限制。\n\n${formatSection("用户真实事实", pack.userFacts)}\n\n${formatSection("追问补全事实", pack.answerFacts)}\n\n${formatStoryFactSection("长期事实", pack.longTermFacts)}\n\n${formatStoryFactSection("阶段事实", pack.stageFacts)}\n\n${formatStoryFactSection("兴趣倾向", pack.interestSignals)}\n\n${formatStoryFactSection("临时情绪", pack.temporaryEmotions)}\n\n${formatChoicePreferenceSection(pack.choicePreferenceSignals)}\n\n${formatSection("最近 5 个历史节点", recentHistory)}\n\n${formatSection("当前可延续副线", activeThreads)}`;
 }

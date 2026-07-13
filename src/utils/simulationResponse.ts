@@ -101,7 +101,7 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
         requiresFollowUp: Boolean(choice?.temporalHint?.requiresFollowUp ?? (lifeIntensity === "critical" || lifeIntensity === "high_tension")),
         reason: readString(choice?.temporalHint?.reason) || impactSummary
       },
-      decisionIntent: readString(choice?.decisionIntent) || `${id}:${impactSummary}`,
+      decisionIntent: readString(choice?.decisionIntent) || text,
       expectedWorldDeltaTypes
     } satisfies SimulationChoice;
   });

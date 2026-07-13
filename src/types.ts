@@ -49,7 +49,7 @@ export interface SimulationChoice {
   text: string;             // 选项文本
   impactSummary: string;    // 选项潜在线索提示或意味
   temporalHint?: ChoiceTemporalHint;
-  decisionIntent?: string;
+  decisionIntent?: string;   // 稳定的“领域:动作:对象”语义指纹；旧历史可缺失并回退到选项文本
   expectedWorldDeltaTypes?: WorldDelta["type"][];
 }
 
