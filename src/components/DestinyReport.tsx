@@ -297,9 +297,6 @@ export default function DestinyReport({
         <div className="space-y-2">
           <div className="text-[10px] font-semibold tracking-[0.2em] text-[#aa9a6f]">LIFE PATTERN ANALYSIS</div>
           <h2 className="font-serif text-[26px] font-semibold text-[#f0eae1]">AI 人生模式分析</h2>
-          <p className="text-xs leading-relaxed text-[#79736c]">
-            这不是人格分析，而是根据你的经历和选择整理出的人生运行机制。现实命题：{userData.currentSituation || "未填写"}。
-          </p>
           {userName && <p className="text-[11px] text-[#625e58]">体验者：{userName}</p>}
         </div>
 

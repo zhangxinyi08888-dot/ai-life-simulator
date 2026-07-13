@@ -47,11 +47,7 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
   return (
     <div className="relative flex h-full w-full flex-col bg-[#050505] text-[#f2eee5]" id="engine-panel">
       <header className="border-b border-[#22201d] bg-[#070707] px-4 pb-3 pt-5" id="attribute-header">
-        <div className="flex items-center justify-between px-1" id="top-stage-meta">
-          <div>
-            <p className="text-[9px] uppercase tracking-[0.2em] text-[#66625c]">当前生命阶段</p>
-            <p className="mt-1 font-serif text-[15px] text-[#ddd6ca]" id="current-stage-badge">{currentNode.stage}</p>
-          </div>
+        <div className="flex items-center justify-end px-1" id="top-stage-meta">
           <button type="button" onClick={() => setIsHistoryOpen(true)} className="flex items-center gap-1.5 rounded-full border border-[#37332c] px-3 py-1.5 text-[10px] text-[#a7a097] transition hover:border-[#746a50] hover:text-[#ded7ca]" id="toggle-history-btn">
             <History className="h-3 w-3 text-[#b6a778]" /> 生平纪事 {history.length}
           </button>

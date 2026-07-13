@@ -149,6 +149,8 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
   const [anchorText, setAnchorText] = useState("");
   const [anchorAge, setAnchorAge] = useState(26);
   const [branchChoices, setBranchChoices] = useState<[string, string, string]>(THEMES[2].branches);
+  const [anchorTextIsPreset, setAnchorTextIsPreset] = useState(false);
+  const [branchChoiceIsPreset, setBranchChoiceIsPreset] = useState<[boolean, boolean, boolean]>([true, true, true]);
   const [error, setError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -170,8 +172,10 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
   const selectReturnPoint = (option: ThemeOption) => {
     setThemeKey(option.key);
     setAnchorText(option.key === "other" ? "" : option.example);
+    setAnchorTextIsPreset(option.key !== "other");
     setAnchorAge(detectAge(option.example, option.age));
     setBranchChoices(option.branches);
+    setBranchChoiceIsPreset([true, true, true]);
     setStep(3);
   };
 
@@ -290,8 +294,8 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
               <h2 className="mt-3 font-serif text-[31px] leading-[1.25] tracking-[-0.03em]">这就是你要回去的<br />时刻吗？</h2>
             </div>
 
-            <div className="mt-6 rounded-[18px] border border-[#3b372f] bg-[#0b0b0a] p-4">
-              <div className="flex items-center gap-3 border-b border-[#2b2925] pb-4">
+            <div className="mt-6">
+              <div className="flex items-center gap-3 pb-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#6f654e] bg-[#17150f] font-serif text-[20px] text-[#d6c492]">{anchorAge}</div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] tracking-[0.1em] text-[#77736c]">系统推断年龄 · 可修改</p>
@@ -303,25 +307,57 @@ export default function InitialSetup({ onSubmit, isLoading }: InitialSetupProps)
                 </div>
                 <span className="rounded-full border border-[#3a362e] px-2.5 py-1 text-[9px] text-[#a59d8e]">{theme.label}</span>
               </div>
+              <div className="h-px bg-[#2b2925]" />
 
               <label className="mt-4 block">
-                <span className="text-[10px] tracking-[0.1em] text-[#77736c]">事件摘要 · 可修改</span>
-                <textarea aria-label="回溯事件摘要" value={anchorText} onChange={(e) => setAnchorText(e.target.value)} placeholder="写下你想回去重新选择的那件事……" className="mt-2 h-20 w-full resize-none bg-transparent text-[13px] leading-5 text-[#d8d2c8] outline-none placeholder:text-[#4f4c47]" />
+                <span className="flex items-center gap-2 text-[10px] tracking-[0.1em] text-[#77736c]">
+                  <span>事件摘要</span>
+                  <span className="text-[#5f5b55]">{anchorTextIsPreset ? "系统预置 · 可直接输入替换" : "你的输入"}</span>
+                </span>
+                <textarea
+                  aria-label="回溯事件摘要"
+                  value={anchorText}
+                  onFocus={() => {
+                    if (anchorTextIsPreset) {
+                      setAnchorText("");
+                      setAnchorTextIsPreset(false);
+                    }
+                  }}
+                  onChange={(event) => {
+                    setAnchorText(event.target.value);
+                    setAnchorTextIsPreset(false);
+                  }}
+                  placeholder="写下你想回去重新选择的那件事……"
+                  className={`mt-2 h-23 w-full resize-none rounded-[14px] border border-[#3b372f] bg-[#0b0b0a] px-4 py-3 text-[13px] leading-5 outline-none transition-colors placeholder:text-[#4f4c47] focus:border-[#5a5242] focus:text-[#e3ddd2] ${anchorTextIsPreset ? "text-[#77736c]" : "text-[#d8d2c8]"}`}
+                />
               </label>
             </div>
 
             <div className="mt-5">
-              <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[#77736c]">命运分支 · 可修改</p>
-              <div className="overflow-hidden rounded-[15px] border border-[#302e2a] bg-[#090909]">
+              <p className="mb-2 flex items-center gap-2 text-[10px] tracking-[0.12em] text-[#77736c]">
+                <span className="uppercase tracking-[0.16em]">命运分支</span>
+                <span className="text-[#5f5b55]">系统预置 · 可直接输入替换</span>
+              </p>
+              <div className="space-y-2">
                 {branchChoices.map((branch, index) => (
-                  <div key={index} className={`flex min-h-13 items-center gap-3 px-3.5 py-3 ${index < 2 ? "border-b border-[#292724]" : ""}`}>
+                  <div key={index} className="flex min-h-13 items-center gap-3 rounded-[13px] border border-[#302e2a] bg-[#090909] px-3.5 py-3">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#514b3d] text-[10px] text-[#c2b487]">{String.fromCharCode(65 + index)}</span>
                     <textarea
                       aria-label={`命运分支 ${String.fromCharCode(65 + index)}`}
                       value={branch}
-                      onChange={(event) => setBranchChoices((current) => current.map((item, choiceIndex) => choiceIndex === index ? event.target.value : item) as [string, string, string])}
+                      onFocus={() => {
+                        if (branchChoiceIsPreset[index]) {
+                          setBranchChoices((current) => current.map((item, choiceIndex) => choiceIndex === index ? "" : item) as [string, string, string]);
+                          setBranchChoiceIsPreset((current) => current.map((isPreset, choiceIndex) => choiceIndex === index ? false : isPreset) as [boolean, boolean, boolean]);
+                        }
+                      }}
+                      onChange={(event) => {
+                        setBranchChoices((current) => current.map((item, choiceIndex) => choiceIndex === index ? event.target.value : item) as [string, string, string]);
+                        setBranchChoiceIsPreset((current) => current.map((isPreset, choiceIndex) => choiceIndex === index ? false : isPreset) as [boolean, boolean, boolean]);
+                      }}
                       maxLength={80}
-                      className="h-9 min-w-0 flex-1 resize-none bg-transparent text-[11px] leading-4 text-[#aaa49a] outline-none focus:text-[#e3ddd2]"
+                      placeholder="写下你的选择……"
+                      className={`h-9 min-w-0 flex-1 resize-none bg-transparent text-[11px] leading-4 outline-none transition-colors placeholder:text-[#4f4c47] focus:text-[#e3ddd2] ${branchChoiceIsPreset[index] ? "text-[#77736c]" : "text-[#d8d2c8]"}`}
                     />
                     <PencilLine className="h-3 w-3 shrink-0 text-[#5f594d]" />
                   </div>
