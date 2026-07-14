@@ -83,4 +83,6 @@ assert.match(prompt, /decisionIntent 是代码识别行动方向的稳定指纹/
 assert.match(prompt, /领域:动作:对象/);
 assert.match(prompt, /语义相同的行动必须复用已有 decisionIntent/);
 assert.match(prompt, /不能自行创建或修改 Arc 状态|模型不得修改 phase/);
+assert.match(prompt, /正文尽量避免描述当前存款、积蓄、身家、净资产或累计财富的精确总额/);
+assert.match(prompt, /最终金额由系统统一计算和展示/);
 assert.doesNotMatch(prompt, /达到 73 岁及以上/);
