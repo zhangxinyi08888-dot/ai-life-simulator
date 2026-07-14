@@ -1,5 +1,5 @@
-import { buildEventMeta, getEventTemporalProfile, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "../../data/lifeEvents";
-import { ChoiceTemporalHint, HistoryItem, LifeAttributes, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
+import { buildEventMeta, getEventTemporalProfile, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "../../data/lifeEvents";
+import { ChoiceTemporalHint, FinancialChange, FinancialSignals, FinancialState, HistoryItem, LifeAttributes, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
 import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
 import { buildQuestionPrompt } from "../../utils/questionPrompt";
 import { normalizePersonalityInsight } from "../../utils/insightResponse";
@@ -15,12 +15,14 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
+import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
 import { getBrowserE2eAiJsonCaller, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import {
   buildNextNodePrompt,
+  buildFinancialSignalsRepairPrompt,
   buildEndingNodePrompt,
   buildNodePromptWithRetryNotice,
   buildPersonalityPrompt,
@@ -32,6 +34,7 @@ type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
 
 export interface SimulationServiceDeps {
   callAiJson?: AiJsonCaller;
+  enableFinancialRepair?: boolean;
 }
 
 export interface GenerateQuestionsResult {
@@ -41,6 +44,132 @@ export interface GenerateQuestionsResult {
 export interface StartSimulationResult {
   initialAttributes: LifeAttributes;
   startNode: SimulationNode;
+}
+
+function hasFinancialObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function attachFinancialProgress(input: {
+  node: SimulationNode;
+  rawNode: any;
+  previousState: FinancialState;
+  previousWealth: number;
+  elapsedMonths: number;
+  targetAgeInMonths: number;
+}): SimulationNode {
+  const rawSignals = hasFinancialObject(input.rawNode?.financialSignals)
+    ? input.rawNode.financialSignals as Partial<FinancialSignals>
+    : undefined;
+  const signalIssues = rawSignals
+    ? getFinancialSignalsInputIssues(rawSignals, input.elapsedMonths)
+    : ["financialSignals 缺失"];
+  if (rawSignals && signalIssues.length === 0) {
+    const calculated = applyFinancialSignals(
+      input.previousState,
+      rawSignals,
+      input.elapsedMonths,
+      input.targetAgeInMonths
+    );
+    return {
+      ...input.node,
+      attributes: withCalculatedWealth(input.node.attributes, calculated.financialState, input.previousWealth),
+      financialState: calculated.financialState,
+      financialSignals: calculated.financialSignals,
+      financialChange: calculated.financialChange
+    };
+  }
+
+  const rawChange = hasFinancialObject(input.rawNode?.financialChange)
+    ? input.rawNode.financialChange as Partial<FinancialChange>
+    : undefined;
+  const financialIssues = rawChange
+    ? getFinancialChangeInputIssues(rawChange, input.elapsedMonths)
+    : ["financialChange 缺失"];
+  if (rawChange && financialIssues.length === 0) {
+    const calculated = applyFinancialChange(
+      input.previousState,
+      rawChange,
+      input.elapsedMonths,
+      input.targetAgeInMonths
+    );
+    return {
+      ...input.node,
+      attributes: withCalculatedWealth(input.node.attributes, calculated.financialState, input.previousWealth),
+      financialState: calculated.financialState,
+      financialChange: calculated.financialChange
+    };
+  }
+
+  const inferredSignals = inferFinancialSignalsFromNarrative({
+    description: input.node.description,
+    previousState: input.previousState,
+    periodMonths: input.elapsedMonths,
+    targetAgeInMonths: input.targetAgeInMonths
+  });
+  const inferred = applyFinancialSignals(
+    input.previousState,
+    inferredSignals,
+    input.elapsedMonths,
+    input.targetAgeInMonths
+  );
+  return {
+    ...input.node,
+    attributes: withCalculatedWealth(input.node.attributes, inferred.financialState, input.previousWealth),
+    financialState: inferred.financialState,
+    financialSignals: inferred.financialSignals,
+    financialChange: inferred.financialChange
+  };
+}
+
+function isMajorFinancialNarrative(text: string): boolean {
+  return /买房|卖房|房产|首付|按揭|继承|遗产|股权|融资|公司估值|企业出售|破产|债务重组|大额负债/.test(text);
+}
+
+async function repairFinancialChangeIfNeeded(input: {
+  rawNode: any;
+  node: SimulationNode;
+  currentFinancialState: FinancialState;
+  elapsedMonths: number;
+  targetAgeInMonths: number;
+  selectedDecision: string;
+  history: HistoryItem[];
+  callAiJson: AiJsonCaller;
+  enabled: boolean;
+}): Promise<any> {
+  const rawSignals = input.rawNode?.financialSignals;
+  const signalIssues = hasFinancialObject(rawSignals)
+    ? getFinancialSignalsInputIssues(rawSignals, input.elapsedMonths)
+    : ["financialSignals 缺失"];
+  const rawChange = input.rawNode?.financialChange;
+  const legacyIssues = hasFinancialObject(rawChange)
+    ? getFinancialChangeInputIssues(rawChange, input.elapsedMonths)
+    : ["financialChange 缺失"];
+  if (signalIssues.length === 0 || legacyIssues.length === 0 || !input.enabled || !isMajorFinancialNarrative(input.node.description)) {
+    return input.rawNode;
+  }
+
+  try {
+    const prompt = buildFinancialSignalsRepairPrompt({
+      description: input.node.description,
+      title: input.node.title,
+      ageInMonths: input.targetAgeInMonths,
+      elapsedMonths: input.elapsedMonths,
+      selectedDecision: input.selectedDecision,
+      currentFinancialState: input.currentFinancialState,
+      recentHistory: input.history
+    });
+    const repairedData = parseAiJsonResponse(await input.callAiJson(prompt));
+    const repairedSignals = hasFinancialObject(repairedData?.financialSignals)
+      ? repairedData.financialSignals
+      : repairedData;
+    if (!hasFinancialObject(repairedSignals) || getFinancialSignalsInputIssues(repairedSignals, input.elapsedMonths).length > 0) {
+      return input.rawNode;
+    }
+    return { ...input.rawNode, financialSignals: repairedSignals };
+  } catch {
+    return input.rawNode;
+  }
 }
 
 function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
@@ -57,16 +186,6 @@ function parseAiJsonResponse(response: { text?: string }): any {
   } catch (error) {
     throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回内容不是合法 JSON，请重试。", { cause: error });
   }
-}
-
-function hasCompleteLifeAttributes(attributes: any): attributes is LifeAttributes {
-  return [
-    attributes?.happiness,
-    attributes?.intelligence,
-    attributes?.wealth,
-    attributes?.relation,
-    attributes?.health
-  ].every((value) => typeof value === "number" && Number.isFinite(value));
 }
 
 function stringifyQuestionField(value: unknown): string {
@@ -175,17 +294,26 @@ export async function startSimulation(
     elapsedMonths: 0,
     lifeIntensity: "normal"
   });
+  const startAgeInMonths = startNode.ageInMonths ?? startNode.age * 12;
+  const rawFinancialState = latestData.initialFinancialState || latestData.startNode?.financialState || latestData.financialState;
+  const financialState = normalizeInitialFinancialState(rawFinancialState, startAgeInMonths, startNode.attributes.wealth);
+  const startAttributes = hasFinancialObject(rawFinancialState)
+    ? withCalculatedWealth(startNode.attributes, financialState)
+    : startNode.attributes;
   const startWorldState = emptyWorldState();
   startWorldState.directionArcs = ensureDirectionArcs(startWorldState, userData, startNode.ageInMonths ?? startNode.age * 12);
   startWorldState.people = rebuildPersonStates(userData, [], startNode.ageInMonths ?? startNode.age * 12);
-  const initializedStartNode = { ...startNode, worldStateSnapshot: startWorldState };
+  const initializedStartNodeWithFinance = {
+    ...startNode,
+    attributes: startAttributes,
+    financialState,
+    worldStateSnapshot: startWorldState
+  };
 
   return {
     ...latestData,
-    initialAttributes: hasCompleteLifeAttributes(latestData.initialAttributes)
-      ? latestData.initialAttributes
-      : initializedStartNode.attributes,
-    startNode: initializedStartNode
+    initialAttributes: initializedStartNodeWithFinance.attributes,
+    startNode: initializedStartNodeWithFinance
   };
 }
 
@@ -245,18 +373,26 @@ export async function generateNextNode(
   deps: SimulationServiceDeps = {}
 ): Promise<SimulationNode> {
   const callAiJson = getAiJsonCaller(deps);
+  const shouldRepairFinancialChange = deps.enableFinancialRepair
+    ?? (!deps.callAiJson && !getBrowserE2eAiJsonCaller());
   const lastNode = input.history[input.history.length - 1];
   const lastAge = lastNode ? lastNode.age : (input.userData.regressionAge || 20);
   const currentAgeInMonths = lastNode?.ageInMonths ?? lastAge * 12;
+  const currentFinancialState = lastNode?.financialState
+    || estimateFinancialStateFromWealth(input.currentAttributes.wealth, currentAgeInMonths);
   const nodeIndex = input.nodeIndex ?? input.history.length;
   const simulationSeed = input.simulationSeed || stableHash({ user: input.userData.birthday, regressionAge: input.userData.regressionAge });
   const branchFingerprint = buildBranchFingerprint(input.history, input.selectedDecision, nodeIndex);
   const baseWorldState = latestWorldState(input.history);
   const currentWorldState = { ...baseWorldState, directionArcs: ensureDirectionArcs(baseWorldState, input.userData, currentAgeInMonths) };
   const existingPressureArc = foregroundPressureArc(input.history);
+  const healthEscalationEvent = existingPressureArc
+    ? null
+    : queryHealthEscalationEvent(input.currentAttributes, input.history);
   const seedEvent = existingPressureArc
     ? LIFE_EVENTS_DATABASE.find((event) => event.id === existingPressureArc.eventId) || null
-    : queryDynamicLifeEvent(input.currentAttributes, input.userData, Math.floor(currentAgeInMonths / 12), input.history, input.answers);
+    : healthEscalationEvent
+      || queryDynamicLifeEvent(input.currentAttributes, input.userData, Math.floor(currentAgeInMonths / 12), input.history, input.answers);
   const eventProfile = seedEvent ? getEventTemporalProfile(seedEvent) : undefined;
   const startArcDecision = !existingPressureArc && seedEvent && eventProfile?.requiresFollowUp
     ? reducePressureArc({
@@ -296,7 +432,7 @@ export async function generateNextNode(
     directionArcs: worldState.directionArcs
   });
   const storyContext = buildStoryContextPack(input.userData, input.answers, input.history);
-  const prompt = buildNextNodePrompt({ ...input, eventSeed: seedEvent, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc: workingPressureArc });
+  const prompt = buildNextNodePrompt({ ...input, currentFinancialState, eventSeed: seedEvent, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc: workingPressureArc });
 
   let latestRawNode: any = {};
   let node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
@@ -313,6 +449,17 @@ export async function generateNextNode(
     lifeIntensity: timelineAdvance.lifeIntensity,
     pressureArcId: workingPressureArc?.id
   });
+  latestRawNode = await repairFinancialChangeIfNeeded({
+    rawNode: latestRawNode,
+    node,
+    currentFinancialState,
+    elapsedMonths: timelineAdvance.elapsedMonths,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    selectedDecision: input.selectedDecision,
+    history: input.history,
+    callAiJson,
+    enabled: shouldRepairFinancialChange
+  });
   node = {
     ...node,
     isEndingNode: false,
@@ -322,6 +469,14 @@ export async function generateNextNode(
       expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length ? choice.expectedWorldDeltaTypes : fallbackWorldDeltaTypes({ ...node, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined })
     }))
   };
+  node = attachFinancialProgress({
+    node,
+    rawNode: latestRawNode,
+    previousState: currentFinancialState,
+    previousWealth: input.currentAttributes.wealth,
+    elapsedMonths: timelineAdvance.elapsedMonths,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths
+  });
 
   let consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
   if (containsForbiddenArcWrite(latestRawNode) || consistencyIssues.some((issue) => issue.severity === "error")) {
@@ -343,6 +498,25 @@ export async function generateNextNode(
       pressureArcId: workingPressureArc?.id
     });
     node = { ...node, isEndingNode: false, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined };
+    latestRawNode = await repairFinancialChangeIfNeeded({
+      rawNode: latestRawNode,
+      node,
+      currentFinancialState,
+      elapsedMonths: timelineAdvance.elapsedMonths,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      selectedDecision: input.selectedDecision,
+      history: input.history,
+      callAiJson,
+      enabled: shouldRepairFinancialChange
+    });
+    node = attachFinancialProgress({
+      node,
+      rawNode: latestRawNode,
+      previousState: currentFinancialState,
+      previousWealth: input.currentAttributes.wealth,
+      elapsedMonths: timelineAdvance.elapsedMonths,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths
+    });
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
     if (consistencyIssues.some((issue) => issue.severity === "error")) throw new AiClientError("AI_RESPONSE_INVALID", consistencyIssues.map((issue) => issue.message).join("；"));
   }
@@ -374,6 +548,8 @@ export async function generateNextNode(
     const endingNode: SimulationNode = {
       ...normalizedEnding,
       attributes: node.attributes,
+      financialState: node.financialState,
+      financialChange: node.financialChange,
       isEndingNode: true,
       choices: [{ id: "ENDING", text: "安详落幕，查看一生洞察", impactSummary: "一生回望" }],
       eventMeta: node.eventMeta
@@ -417,6 +593,25 @@ export async function generateNextNode(
       pressureArcId: workingPressureArc?.id
     });
     node = { ...node, isEndingNode: false, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined };
+    latestRawNode = await repairFinancialChangeIfNeeded({
+      rawNode: latestRawNode,
+      node,
+      currentFinancialState,
+      elapsedMonths: timelineAdvance.elapsedMonths,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      selectedDecision: input.selectedDecision,
+      history: input.history,
+      callAiJson,
+      enabled: shouldRepairFinancialChange
+    });
+    node = attachFinancialProgress({
+      node,
+      rawNode: latestRawNode,
+      previousState: currentFinancialState,
+      previousWealth: input.currentAttributes.wealth,
+      elapsedMonths: timelineAdvance.elapsedMonths,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths
+    });
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
     if (consistencyIssues.some((issue) => issue.severity === "error")) throw new AiClientError("AI_RESPONSE_INVALID", consistencyIssues.map((issue) => issue.message).join("；"));
     decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history, targetAgeInMonths: timelineAdvance.targetAgeInMonths });

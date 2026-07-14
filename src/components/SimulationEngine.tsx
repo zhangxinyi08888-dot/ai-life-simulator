@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Activity, BookOpen, Compass, DollarSign, Heart, History, MessageSquarePlus, Send, Sparkles, Users } from "lucide-react";
 import { HistoryItem, LifeAttributes, SimulationNode } from "../types";
 import { formatAgeInMonths } from "../utils/timelineAdvance";
+import { formatNetWorthWan } from "../utils/financialState";
 
 interface SimulationEngineProps {
   currentNode: SimulationNode;
@@ -17,7 +18,7 @@ interface SimulationEngineProps {
 const ATTRIBUTES = [
   { key: "happiness", name: "幸福", icon: Heart },
   { key: "intelligence", name: "才智", icon: BookOpen },
-  { key: "wealth", name: "财富", icon: DollarSign },
+  { key: "wealth", name: "累计财富", icon: DollarSign },
   { key: "relation", name: "关系", icon: Users },
   { key: "health", name: "健康", icon: Activity }
 ] as const;
@@ -56,10 +57,22 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
         <div className="mt-3 grid grid-cols-5 gap-1" id="stats-meters-grid">
           {ATTRIBUTES.map(({ key, name, icon: Icon }) => {
             const value = currentNode.attributes[key as keyof LifeAttributes] ?? 50;
+            const isWealth = key === "wealth" && Boolean(currentNode.financialState);
+            const displayValue = isWealth
+              ? formatNetWorthWan(currentNode.financialState!.netWorthWan)
+              : value;
+            const wealthChange = isWealth ? currentNode.financialChange?.netWorthChangeWan : undefined;
+            const wealthEstimated = isWealth && currentNode.financialState?.isEstimated;
             return (
-              <div key={key} className="rounded-[10px] border border-[#292724] bg-[#0b0b0b] px-1.5 py-2 text-center" id={`attribute-card-${key}`}>
+              <div key={key} title={isWealth ? `财富资源度 ${value}` : undefined} className="rounded-[10px] border border-[#292724] bg-[#0b0b0b] px-1.5 py-2 text-center" id={`attribute-card-${key}`}>
                 <div className="flex items-center justify-center gap-1 text-[9px] text-[#77726b]" id={`attribute-label-${key}`}><Icon className="h-2.5 w-2.5 text-[#aa9b70]" />{name}</div>
-                <div className="mt-1 text-[12px] font-semibold tabular-nums text-[#d6c99f]" id={`attribute-value-${key}`}>{value}</div>
+                <div className={`${isWealth ? "text-[10px]" : "text-[12px]"} mt-1 font-semibold tabular-nums text-[#d6c99f]`} id={`attribute-value-${key}`}>{displayValue}</div>
+                {(wealthEstimated || typeof wealthChange === "number") && (
+                  <div className={`mt-0.5 text-[7px] tabular-nums ${(wealthChange ?? 0) >= 0 ? "text-[#7e9875]" : "text-[#a5746f]"}`} id="wealth-change-value">
+                    {wealthEstimated ? "估算" : ""}{wealthEstimated && typeof wealthChange === "number" ? " · " : ""}
+                    {typeof wealthChange === "number" ? `本阶段 ${wealthChange >= 0 ? "+" : ""}${formatNetWorthWan(wealthChange)}` : ""}
+                  </div>
+                )}
                 <div className="mt-1.5 h-px overflow-hidden bg-[#292724]" id={`attribute-bar-bg-${key}`}>
                   <motion.div initial={{ width: 0 }} animate={{ width: `${value}%` }} transition={{ duration: 0.45 }} className="h-full bg-[#c4b47e]" id={`attribute-bar-fill-${key}`} />
                 </div>
@@ -153,6 +166,9 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
                         <h4 className="mt-1.5 text-[12px] font-medium text-[#d7d0c5]">{item.title}</h4>
                         <p className="mt-1 line-clamp-3 text-[10px] leading-5 text-[#77716a]">{item.description}</p>
                         <p className="mt-2 rounded-[8px] border border-[#2f2c27] bg-[#0d0d0c] px-2 py-1.5 text-[9px] leading-4 text-[#9f978c]">选择：{item.selectedChoice}</p>
+                        {item.financialState && (
+                          <p className="mt-1 text-[9px] text-[#8d8265]">累计财富：{formatNetWorthWan(item.financialState.netWorthWan)}{item.financialState.isEstimated ? " · 估算" : ""}</p>
+                        )}
                         <button type="button" onClick={() => { setIsHistoryOpen(false); onTimeTravel(index); }} className="mt-2 text-[9px] text-[#b6a778] hover:text-[#d4c592]" id={`timeline-travel-btn-${index}`}>回到此处重新选择 →</button>
                       </article>
                     ))}
