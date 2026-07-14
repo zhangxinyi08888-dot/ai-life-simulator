@@ -47,6 +47,8 @@ assert.match(intentPrompt, /至少显性使用 1 条追问答案/);
 assert.match(intentPrompt, /allowedOutcomes 是行动原语/);
 assert.match(intentPrompt, /background thread.*不等于把用户未采纳的具体方案/);
 assert.match(intentPrompt, /state=cooldown 或 dormant/);
+assert.doesNotMatch(intentPrompt, /高薪不是必然伤健康/);
+assert.doesNotMatch(intentPrompt, /高收入选项/);
 assert.doesNotMatch(intentPrompt, /现实人生事件触发/);
 assert.doesNotMatch(intentPrompt, /剧情指令/);
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { HistoryItem, LifeAttributes } from "../types";
-import { calculateAgeAffinityMultiplier, calculateEventSelectionWeight, isEventAgeEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
+import { HistoryItem, LifeAttributes, RecoveryState } from "../types";
+import { buildEventMeta, calculateAgeAffinityMultiplier, calculateEventSelectionWeight, getEventTemporalProfile, isEventAgeEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "./lifeEvents";
 
 const lowHealth: LifeAttributes = {
   happiness: 45,
@@ -32,6 +32,20 @@ function historyItem(eventMeta: HistoryItem["eventMeta"]): HistoryItem {
   };
 }
 
+function healthTrendItem(health: number, eventId?: string, recoveryState: RecoveryState = "depleted"): HistoryItem {
+  return {
+    ...historyItem(eventId ? {
+      eventId,
+      eventCategory: "health",
+      eventTags: eventId === "health_forced_pause"
+        ? ["health", "forced_pause", "major_crisis"]
+        : ["health", "burnout", "system_warning"]
+    } : undefined),
+    attributes: { ...lowHealth, health },
+    narrativeMeta: { recoveryState } as HistoryItem["narrativeMeta"]
+  };
+}
+
 assert.notEqual(
   queryDynamicLifeEvent(lowHealth, {}, 55, [
     historyItem({
@@ -59,6 +73,73 @@ assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("conceptPrompt" in event)));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("promptSeed" in event)));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("check" in event)));
 
+const randomHealthEvents = LIFE_EVENTS_DATABASE.filter((event) => event.category === "health" && event.dispatchMode !== "arc_only");
+const forcedPauseEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_forced_pause");
+const healthWarningEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_system_warning");
+assert.deepEqual(randomHealthEvents.map((event) => event.id), ["health_system_warning"]);
+assert.equal(forcedPauseEvent?.dispatchMode, "arc_only");
+assert.equal(healthWarningEvent && buildEventMeta(healthWarningEvent).eventIntensity, "minor");
+assert.equal(healthWarningEvent?.intent.emotionalTone, "pressure");
+assert.deepEqual(healthWarningEvent && getEventTemporalProfile(healthWarningEvent), {
+  lifeIntensity: "normal",
+  durationMonths: [3, 9],
+  requiresFollowUp: false
+});
+assert.equal(forcedPauseEvent && buildEventMeta(forcedPauseEvent).eventIntensity, "major");
+assert.equal(forcedPauseEvent?.intent.emotionalTone, "crisis");
+assert.equal(forcedPauseEvent && getEventTemporalProfile(forcedPauseEvent).requiresFollowUp, true);
+assert.equal(healthWarningEvent?.trigger.eligibility(
+  { happiness: 25, intelligence: 50, wealth: 50, relation: 50, health: 60 },
+  {},
+  30
+), false);
+assert.equal(forcedPauseEvent?.trigger.eligibility(
+  { happiness: 25, intelligence: 50, wealth: 50, relation: 50, health: 60 },
+  {},
+  30
+), false);
+assert.equal(queryHealthEscalationEvent(
+  { happiness: 25, intelligence: 50, wealth: 50, relation: 50, health: 60 },
+  []
+), null);
+assert.equal(healthWarningEvent?.trigger.eligibility(
+  { happiness: 80, intelligence: 50, wealth: 50, relation: 50, health: 41 },
+  {},
+  30
+), true);
+
+assert.equal(queryHealthEscalationEvent(
+  { ...lowHealth, health: 29 },
+  []
+)?.id, "health_forced_pause");
+
+const decliningAfterWarning = [
+  healthTrendItem(45, "health_system_warning"),
+  healthTrendItem(41),
+  healthTrendItem(36)
+];
+assert.equal(queryHealthEscalationEvent(
+  { ...lowHealth, health: 36 },
+  decliningAfterWarning
+)?.id, "health_forced_pause");
+
+assert.equal(queryHealthEscalationEvent(
+  { ...lowHealth, health: 36 },
+  [healthTrendItem(45, "health_system_warning"), healthTrendItem(35), healthTrendItem(36)]
+), null);
+assert.equal(queryHealthEscalationEvent(
+  { ...lowHealth, health: 37 },
+  [healthTrendItem(44, "health_system_warning"), healthTrendItem(40), healthTrendItem(37)]
+), null);
+assert.equal(queryHealthEscalationEvent(
+  { ...lowHealth, health: 36 },
+  [healthTrendItem(45, "health_system_warning"), healthTrendItem(41, undefined, "neutral"), healthTrendItem(36)]
+), null);
+assert.equal(queryHealthEscalationEvent(
+  { ...lowHealth, health: 29 },
+  [healthTrendItem(45), healthTrendItem(36, "health_forced_pause"), healthTrendItem(29)]
+), null);
+
 const ventureEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "career_venture_pressure");
 assert.ok(ventureEvent);
 assert.equal(isEventAgeEligible(ventureEvent, 70), true);
@@ -69,6 +150,7 @@ assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], mini
 const selected = queryDynamicLifeEvent(lowHealth, {}, 55, []);
 assert.notEqual(selected?.id, "life_normal_transition");
 assert.ok(selected === null || selected.intent);
+assert.notEqual(selected?.id, "health_forced_pause");
 
 const similarBlocked = queryDynamicLifeEvent(lowHealth, {}, 55, [
   historyItem({

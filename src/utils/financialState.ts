@@ -1,0 +1,434 @@
+import { EmploymentStatus, FinancialChange, FinancialSignals, FinancialState, IncomeStability, LifeAttributes } from "../types";
+
+const STABILITIES: IncomeStability[] = ["unstable", "volatile", "stable", "very_stable"];
+const EMPLOYMENT_STATUSES: EmploymentStatus[] = ["student", "part_time", "employed", "self_employed", "not_working", "medical_leave", "retired"];
+
+function finite(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function stability(value: unknown, fallback: IncomeStability = "volatile"): IncomeStability {
+  return typeof value === "string" && STABILITIES.includes(value as IncomeStability)
+    ? value as IncomeStability
+    : fallback;
+}
+
+const REQUIRED_CHANGE_NUMBERS: Array<keyof FinancialChange> = [
+  "afterTaxIncomeWan",
+  "livingExpenseWan",
+  "medicalEducationExpenseWan",
+  "interestAndFeesWan",
+  "assetValueChangeWan",
+  "otherNetChangeWan"
+];
+
+export function getFinancialChangeInputIssues(raw: unknown, expectedPeriodMonths: number): string[] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return ["financialChange 缺失"];
+  const record = raw as Record<string, unknown>;
+  const issues = REQUIRED_CHANGE_NUMBERS
+    .filter((key) => typeof record[key] !== "number" || !Number.isFinite(record[key]))
+    .map((key) => `financialChange.${key} 必须是有效数字`);
+  if (record.periodMonths !== undefined && record.periodMonths !== expectedPeriodMonths) {
+    issues.push(`financialChange.periodMonths 必须等于 ${expectedPeriodMonths}`);
+  }
+  if (record.incomeStability !== undefined && !STABILITIES.includes(record.incomeStability as IncomeStability)) {
+    issues.push("financialChange.incomeStability 无效");
+  }
+  if (!Array.isArray(record.reasons) || !record.reasons.some((reason) => typeof reason === "string" && Boolean(reason.trim()))) {
+    issues.push("financialChange.reasons 至少需要一条变化依据");
+  }
+  return issues;
+}
+
+const REQUIRED_SIGNAL_NUMBERS: Array<keyof FinancialSignals> = [
+  "monthlyNetIncomeWan",
+  "incomeMonths",
+  "monthlyLivingExpenseWan",
+  "oneOffIncomeWan",
+  "oneOffExpenseWan",
+  "assetValueChangeWan",
+  "personalDebtChangeWan",
+  "confidence"
+];
+
+export function getFinancialSignalsInputIssues(raw: unknown, periodMonths: number): string[] {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return ["financialSignals 缺失"];
+  const record = raw as Record<string, unknown>;
+  const issues = REQUIRED_SIGNAL_NUMBERS
+    .filter((key) => typeof record[key] !== "number" || !Number.isFinite(record[key]))
+    .map((key) => `financialSignals.${key} 必须是有效数字`);
+  if (!EMPLOYMENT_STATUSES.includes(record.employmentStatus as EmploymentStatus)) issues.push("financialSignals.employmentStatus 无效");
+  if (!STABILITIES.includes(record.incomeStability as IncomeStability)) issues.push("financialSignals.incomeStability 无效");
+  if (typeof record.incomeMonths === "number" && (record.incomeMonths < 0 || record.incomeMonths > periodMonths)) {
+    issues.push(`financialSignals.incomeMonths 必须在 0-${periodMonths} 之间`);
+  }
+  if (typeof record.confidence === "number" && (record.confidence < 0 || record.confidence > 1)) {
+    issues.push("financialSignals.confidence 必须在 0-1 之间");
+  }
+  if (!Array.isArray(record.reasons) || !record.reasons.some((reason) => typeof reason === "string" && Boolean(reason.trim()))) {
+    issues.push("financialSignals.reasons 至少需要一条依据");
+  }
+  return issues;
+}
+
+export function normalizeFinancialSignals(raw: Partial<FinancialSignals>, periodMonths: number): FinancialSignals {
+  const employmentStatus = EMPLOYMENT_STATUSES.includes(raw.employmentStatus as EmploymentStatus)
+    ? raw.employmentStatus as EmploymentStatus
+    : "not_working";
+  return {
+    employmentStatus,
+    monthlyNetIncomeWan: roundMoney(Math.max(0, finite(raw.monthlyNetIncomeWan))),
+    incomeMonths: roundMoney(clamp(finite(raw.incomeMonths), 0, periodMonths)),
+    monthlyLivingExpenseWan: roundMoney(Math.max(0, finite(raw.monthlyLivingExpenseWan))),
+    oneOffIncomeWan: roundMoney(Math.max(0, finite(raw.oneOffIncomeWan))),
+    oneOffExpenseWan: roundMoney(Math.max(0, finite(raw.oneOffExpenseWan))),
+    assetValueChangeWan: roundMoney(finite(raw.assetValueChangeWan)),
+    personalDebtChangeWan: roundMoney(finite(raw.personalDebtChangeWan)),
+    incomeStability: stability(raw.incomeStability),
+    confidence: clamp(finite(raw.confidence, 0.3), 0, 1),
+    reasons: Array.isArray(raw.reasons)
+      ? raw.reasons.filter((reason): reason is string => typeof reason === "string" && Boolean(reason.trim())).map((reason) => reason.trim()).slice(0, 4)
+      : []
+  };
+}
+
+function moneyToWan(value: string, unit: string): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return unit === "万" || unit === "万元" ? parsed : parsed / 10000;
+}
+
+function firstMoneyMatch(text: string, patterns: RegExp[]): number | undefined {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return moneyToWan(match[1], match[2]);
+  }
+  return undefined;
+}
+
+function inferEmploymentStatus(description: string, hasMonthlyIncome: boolean, previous?: EmploymentStatus): EmploymentStatus {
+  if (/退休|养老金/.test(description)) return "retired";
+  if (/病假|停工治疗|住院休养/.test(description)) return "medical_leave";
+  if (/失业|待业|辞职后尚未|没有工作/.test(description)) return "not_working";
+  if (/创业|个体经营|自由职业/.test(description)) return "self_employed";
+  if (/在校|大学|学生|学徒|考研|读研/.test(description)) return hasMonthlyIncome ? "part_time" : "student";
+  if (hasMonthlyIncome || /入职|工作|岗位|上班/.test(description)) return "employed";
+  return previous || "not_working";
+}
+
+export function inferFinancialSignalsFromNarrative(input: {
+  description: string;
+  previousState: FinancialState;
+  periodMonths: number;
+  targetAgeInMonths: number;
+}): FinancialSignals {
+  const monthlyIncome = firstMoneyMatch(input.description, [
+    /(?:月薪|月工资|月收入|月入(?:能到)?|每月收入)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
+    /每月[^。；，]{0,16}(?:能赚|赚到|拿到)[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/
+  ]);
+  const previousMonthlyIncome = Math.max(0, input.previousState.annualAfterTaxIncomeWan / 12);
+  const previousMonthlyExpense = Math.max(0, input.previousState.annualCoreExpenseWan / 12);
+  const age = Math.floor(input.targetAgeInMonths / 12);
+  const employmentStatus = inferEmploymentStatus(input.description, monthlyIncome !== undefined, input.previousState.employmentStatus);
+  const defaultLivingExpense = employmentStatus === "student" || employmentStatus === "part_time"
+    ? 0.2
+    : age < 30 ? 0.35 : 0.45;
+  const monthlyLivingExpenseWan = previousMonthlyExpense > 0 ? previousMonthlyExpense : defaultLivingExpense;
+  const explicitMonthlyTransfer = firstMoneyMatch(input.description, [
+    /每月(?:寄|汇|转)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/
+  ]) || 0;
+  const resolvedMonthlyIncome = monthlyIncome ?? previousMonthlyIncome;
+  const inactive = employmentStatus === "not_working" || employmentStatus === "medical_leave" || employmentStatus === "retired";
+  const incomeMonths = inactive && monthlyIncome === undefined ? 0 : input.periodMonths;
+  const reasons = monthlyIncome !== undefined
+    ? ["根据正文明确月收入估算", "按阶段月份累计收入并参考上期生活成本"]
+    : ["正文未给出新薪资，沿用上一阶段收入和生活水平"];
+  if (explicitMonthlyTransfer > 0) reasons.push("计入正文明确的每月家庭汇款");
+
+  return normalizeFinancialSignals({
+    employmentStatus,
+    monthlyNetIncomeWan: resolvedMonthlyIncome,
+    incomeMonths,
+    monthlyLivingExpenseWan: monthlyLivingExpenseWan + explicitMonthlyTransfer,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: monthlyIncome !== undefined ? "volatile" : input.previousState.incomeStability,
+    confidence: monthlyIncome !== undefined ? 0.65 : 0.35,
+    reasons
+  }, input.periodMonths);
+}
+
+function scoreByBands(value: number, bands: Array<[number, number]>): number {
+  if (value <= bands[0][0]) return bands[0][1];
+  for (let index = 1; index < bands.length; index += 1) {
+    const [rightValue, rightScore] = bands[index];
+    const [leftValue, leftScore] = bands[index - 1];
+    if (value <= rightValue) {
+      const progress = (value - leftValue) / (rightValue - leftValue);
+      return leftScore + (rightScore - leftScore) * progress;
+    }
+  }
+  return bands[bands.length - 1][1];
+}
+
+export function calculateNetWorth(state: Pick<FinancialState,
+  "cashWan" | "investmentAssetsWan" | "propertyMarketValueWan" | "businessAndOtherAssetsWan" | "totalDebtWan"
+>): number {
+  return roundMoney(
+    state.cashWan
+      + state.investmentAssetsWan
+      + state.propertyMarketValueWan
+      + state.businessAndOtherAssetsWan
+      - state.totalDebtWan
+  );
+}
+
+export function calculateFinancialChange(raw: Partial<FinancialChange>, periodMonths: number): FinancialChange {
+  const afterTaxIncomeWan = finite(raw.afterTaxIncomeWan);
+  const livingExpenseWan = Math.max(0, finite(raw.livingExpenseWan));
+  const medicalEducationExpenseWan = Math.max(0, finite(raw.medicalEducationExpenseWan));
+  const interestAndFeesWan = Math.max(0, finite(raw.interestAndFeesWan));
+  const assetValueChangeWan = finite(raw.assetValueChangeWan);
+  const otherNetChangeWan = finite(raw.otherNetChangeWan);
+  const netWorthChangeWan = roundMoney(
+    afterTaxIncomeWan
+      - livingExpenseWan
+      - medicalEducationExpenseWan
+      - interestAndFeesWan
+      + assetValueChangeWan
+      + otherNetChangeWan
+  );
+
+  return {
+    periodMonths,
+    afterTaxIncomeWan: roundMoney(afterTaxIncomeWan),
+    livingExpenseWan: roundMoney(livingExpenseWan),
+    medicalEducationExpenseWan: roundMoney(medicalEducationExpenseWan),
+    interestAndFeesWan: roundMoney(interestAndFeesWan),
+    assetValueChangeWan: roundMoney(assetValueChangeWan),
+    otherNetChangeWan: roundMoney(otherNetChangeWan),
+    netWorthChangeWan,
+    incomeStability: raw.incomeStability ? stability(raw.incomeStability) : undefined,
+    reasons: Array.isArray(raw.reasons)
+      ? raw.reasons.filter((reason): reason is string => typeof reason === "string" && Boolean(reason.trim())).map((reason) => reason.trim()).slice(0, 4)
+      : []
+  };
+}
+
+export function normalizeInitialFinancialState(
+  raw: Partial<FinancialState> | undefined,
+  ageInMonths: number,
+  fallbackWealth: number
+): FinancialState {
+  if (!raw || typeof raw !== "object") return estimateFinancialStateFromWealth(fallbackWealth, ageInMonths);
+  const fallback = estimateFinancialStateFromWealth(fallbackWealth, ageInMonths);
+  const requiredInitialNumbers: Array<keyof FinancialState> = [
+    "cashWan", "investmentAssetsWan", "propertyMarketValueWan", "businessAndOtherAssetsWan",
+    "totalDebtWan", "annualAfterTaxIncomeWan", "annualDisposableIncomeWan", "annualCoreExpenseWan"
+  ];
+  const isIncomplete = requiredInitialNumbers.some((key) => typeof raw[key] !== "number" || !Number.isFinite(raw[key]));
+
+  const state: FinancialState = {
+    currencyUnit: "CNY_WAN_REAL",
+    asOfAgeInMonths: ageInMonths,
+    cashWan: roundMoney(finite(raw.cashWan, fallback.cashWan)),
+    investmentAssetsWan: roundMoney(Math.max(0, finite(raw.investmentAssetsWan, fallback.investmentAssetsWan))),
+    propertyMarketValueWan: roundMoney(Math.max(0, finite(raw.propertyMarketValueWan, fallback.propertyMarketValueWan))),
+    businessAndOtherAssetsWan: roundMoney(Math.max(0, finite(raw.businessAndOtherAssetsWan, fallback.businessAndOtherAssetsWan))),
+    totalDebtWan: roundMoney(Math.max(0, finite(raw.totalDebtWan, fallback.totalDebtWan))),
+    netWorthWan: 0,
+    annualAfterTaxIncomeWan: roundMoney(Math.max(0, finite(raw.annualAfterTaxIncomeWan, fallback.annualAfterTaxIncomeWan))),
+    annualDisposableIncomeWan: roundMoney(finite(raw.annualDisposableIncomeWan, fallback.annualDisposableIncomeWan)),
+    annualCoreExpenseWan: roundMoney(Math.max(0, finite(raw.annualCoreExpenseWan, fallback.annualCoreExpenseWan))),
+    employmentStatus: EMPLOYMENT_STATUSES.includes(raw.employmentStatus as EmploymentStatus)
+      ? raw.employmentStatus as EmploymentStatus
+      : fallback.employmentStatus,
+    incomeStability: stability(raw.incomeStability, fallback.incomeStability),
+    isEstimated: raw.isEstimated !== false || isIncomplete
+  };
+  state.netWorthWan = calculateNetWorth(state);
+  return state;
+}
+
+export function estimateFinancialStateFromWealth(wealth: number, ageInMonths: number): FinancialState {
+  const score = clamp(finite(wealth, 50), 0, 100);
+  const age = Math.floor(ageInMonths / 12);
+  const netWorthWan = roundMoney(age <= 22
+    ? clamp((score - 40) * 0.5, -5, 30)
+    : age <= 30
+      ? clamp((score - 35) * 1.5, -20, 120)
+      : age <= 45
+        ? clamp((score - 30) * 5, -50, 350)
+        : clamp((score - 25) * 8, -100, 600));
+  const debtWan = netWorthWan < 0 ? Math.abs(netWorthWan) : score < 35 ? roundMoney((35 - score) * 1.5) : 0;
+  const positiveAssets = Math.max(0, netWorthWan + debtWan);
+  const annualAfterTaxIncomeWan = roundMoney(age <= 22
+    ? Math.max(0, (score - 35) * 0.15)
+    : Math.max(0, (score - 25) * 0.8));
+  const annualCoreExpenseWan = roundMoney(Math.max(age <= 22 ? 2.4 : 4.2, annualAfterTaxIncomeWan * 0.55));
+  return {
+    currencyUnit: "CNY_WAN_REAL",
+    asOfAgeInMonths: ageInMonths,
+    cashWan: roundMoney(positiveAssets * 0.25),
+    investmentAssetsWan: roundMoney(positiveAssets * 0.15),
+    propertyMarketValueWan: roundMoney(positiveAssets * 0.6),
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: debtWan,
+    netWorthWan,
+    annualAfterTaxIncomeWan,
+    annualDisposableIncomeWan: roundMoney(annualAfterTaxIncomeWan - annualCoreExpenseWan),
+    annualCoreExpenseWan,
+    employmentStatus: age <= 22 ? "student" : annualAfterTaxIncomeWan > 0 ? "employed" : "not_working",
+    incomeStability: score >= 70 ? "very_stable" : score >= 50 ? "stable" : score >= 30 ? "volatile" : "unstable",
+    isEstimated: true
+  };
+}
+
+export function applyFinancialChange(
+  previous: FinancialState,
+  rawChange: Partial<FinancialChange> | undefined,
+  periodMonths: number,
+  targetAgeInMonths: number
+): { financialState: FinancialState; financialChange: FinancialChange } {
+  const financialChange = calculateFinancialChange(rawChange || {}, periodMonths);
+  const cashFlowChange = financialChange.afterTaxIncomeWan
+    - financialChange.livingExpenseWan
+    - financialChange.medicalEducationExpenseWan
+    - financialChange.interestAndFeesWan
+    + financialChange.otherNetChangeWan;
+  const annualFactor = periodMonths > 0 ? 12 / periodMonths : 0;
+  const next: FinancialState = {
+    ...previous,
+    asOfAgeInMonths: targetAgeInMonths,
+    cashWan: roundMoney(previous.cashWan + cashFlowChange),
+    investmentAssetsWan: roundMoney(previous.investmentAssetsWan + financialChange.assetValueChangeWan),
+    annualAfterTaxIncomeWan: roundMoney(financialChange.afterTaxIncomeWan * annualFactor),
+    annualCoreExpenseWan: roundMoney(financialChange.livingExpenseWan * annualFactor),
+    annualDisposableIncomeWan: roundMoney(
+      (financialChange.afterTaxIncomeWan
+        - financialChange.livingExpenseWan
+        - financialChange.medicalEducationExpenseWan
+        - financialChange.interestAndFeesWan) * annualFactor
+    ),
+    incomeStability: financialChange.incomeStability || previous.incomeStability,
+    isEstimated: previous.isEstimated || !rawChange
+  };
+  next.netWorthWan = calculateNetWorth(next);
+  return { financialState: next, financialChange };
+}
+
+export function applyFinancialSignals(
+  previous: FinancialState,
+  rawSignals: Partial<FinancialSignals>,
+  periodMonths: number,
+  targetAgeInMonths: number
+): { financialState: FinancialState; financialSignals: FinancialSignals; financialChange: FinancialChange } {
+  const financialSignals = normalizeFinancialSignals(rawSignals, periodMonths);
+  const recurringIncome = roundMoney(financialSignals.monthlyNetIncomeWan * financialSignals.incomeMonths);
+  const livingExpense = roundMoney(financialSignals.monthlyLivingExpenseWan * periodMonths);
+  const afterTaxIncome = roundMoney(recurringIncome + financialSignals.oneOffIncomeWan);
+  const financialChange = calculateFinancialChange({
+    afterTaxIncomeWan: afterTaxIncome,
+    livingExpenseWan: livingExpense,
+    medicalEducationExpenseWan: financialSignals.oneOffExpenseWan,
+    interestAndFeesWan: 0,
+    assetValueChangeWan: financialSignals.assetValueChangeWan,
+    otherNetChangeWan: -financialSignals.personalDebtChangeWan,
+    incomeStability: financialSignals.incomeStability,
+    reasons: financialSignals.reasons
+  }, periodMonths);
+  const next: FinancialState = {
+    ...previous,
+    asOfAgeInMonths: targetAgeInMonths,
+    cashWan: roundMoney(
+      previous.cashWan
+      + afterTaxIncome
+      - livingExpense
+      - financialSignals.oneOffExpenseWan
+    ),
+    investmentAssetsWan: roundMoney(previous.investmentAssetsWan + financialSignals.assetValueChangeWan),
+    totalDebtWan: roundMoney(Math.max(0, previous.totalDebtWan + financialSignals.personalDebtChangeWan)),
+    annualAfterTaxIncomeWan: roundMoney(financialSignals.monthlyNetIncomeWan * 12),
+    annualCoreExpenseWan: roundMoney(financialSignals.monthlyLivingExpenseWan * 12),
+    annualDisposableIncomeWan: roundMoney((financialSignals.monthlyNetIncomeWan - financialSignals.monthlyLivingExpenseWan) * 12),
+    employmentStatus: financialSignals.employmentStatus,
+    incomeStability: financialSignals.incomeStability,
+    isEstimated: previous.isEstimated || financialSignals.confidence < 0.85
+  };
+  next.netWorthWan = calculateNetWorth(next);
+  return { financialState: next, financialSignals, financialChange };
+}
+
+export function deriveWealthScore(state: FinancialState): number {
+  const netWorthScore = scoreByBands(state.netWorthWan, [
+    [-100, 0], [0, 20], [50, 35], [100, 45], [300, 60], [500, 70], [1000, 82], [3000, 94], [10000, 100]
+  ]);
+  const cashFlowScore = scoreByBands(state.annualDisposableIncomeWan, [
+    [-20, 0], [0, 30], [10, 45], [30, 60], [60, 75], [100, 85], [200, 95], [500, 100]
+  ]);
+  const stabilityScore: Record<IncomeStability, number> = {
+    unstable: 20, volatile: 40, stable: 70, very_stable: 90
+  };
+  const monthlyExpense = state.annualCoreExpenseWan / 12;
+  const liquidityMonths = monthlyExpense > 0 ? Math.max(0, state.cashWan) / monthlyExpense : 24;
+  const liquidityScore = scoreByBands(liquidityMonths, [[0, 10], [3, 40], [6, 60], [12, 80], [24, 100]]);
+  const debtRatio = state.annualAfterTaxIncomeWan > 0
+    ? state.totalDebtWan / Math.max(state.annualAfterTaxIncomeWan * 5, 1)
+    : state.totalDebtWan > 0 ? 1 : 0;
+  const debtSafetyScore = scoreByBands(1 - clamp(debtRatio, 0, 1), [[0, 0], [0.2, 20], [0.5, 50], [0.8, 80], [1, 100]]);
+  return clamp(Math.round(
+    netWorthScore * 0.3
+      + cashFlowScore * 0.25
+      + stabilityScore[state.incomeStability] * 0.2
+      + liquidityScore * 0.15
+      + debtSafetyScore * 0.1
+  ), 0, 100);
+}
+
+export function withCalculatedWealth(
+  attributes: LifeAttributes,
+  financialState: FinancialState,
+  previousWealth?: number,
+  maxOrdinaryDelta = 12
+): LifeAttributes {
+  const calculated = deriveWealthScore(financialState);
+  const wealth = typeof previousWealth === "number"
+    ? clamp(calculated, previousWealth - maxOrdinaryDelta, previousWealth + maxOrdinaryDelta)
+    : calculated;
+  return { ...attributes, wealth: clamp(Math.round(wealth), 0, 100) };
+}
+
+export function formatNetWorthWan(value: number): string {
+  if (Math.abs(value) >= 10000) {
+    const yi = value / 10000;
+    return `${Number.isInteger(yi) ? yi.toFixed(0) : yi.toFixed(1)}亿`;
+  }
+  const rounded = Math.abs(value) >= 100 ? Math.round(value) : roundMoney(value);
+  return `${rounded}万`;
+}
+
+export function formatFinancialStateForPrompt(state?: FinancialState): string {
+  if (!state) return "暂无结构化财务快照";
+  return [
+    `累计净财富：${state.netWorthWan} 万元（${state.isEstimated ? "估算" : "已确认"}）`,
+    `现金及存款：${state.cashWan} 万元`,
+    `投资资产：${state.investmentAssetsWan} 万元`,
+    `房产市值：${state.propertyMarketValueWan} 万元`,
+    `企业及其他资产：${state.businessAndOtherAssetsWan} 万元`,
+    `总负债：${state.totalDebtWan} 万元`,
+    `当前工作状态：${state.employmentStatus || "unknown"}`,
+    `年税后收入：${state.annualAfterTaxIncomeWan} 万元`,
+    `年可支配收入：${state.annualDisposableIncomeWan} 万元`,
+    `收入稳定性：${state.incomeStability}`
+  ].join("\n- ");
+}

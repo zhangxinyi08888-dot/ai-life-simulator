@@ -43,6 +43,7 @@ export interface EventFingerprint {
 export interface LifeEventSeed {
   id: string;
   category: LifeEventCategory;
+  dispatchMode?: "random" | "arc_only";
   title: string;
   minAge: number;
   maxAge: number;
@@ -211,33 +212,39 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     title: "健康系统预警",
     minAge: 22,
     maxAge: 60,
-    conditionDescription: "健康下降或长期幸福度不足",
+    conditionDescription: "健康下降或整体状态长期承压",
     cooldown: 6,
     baseProbability: 0.75,
     tags: ["health", "burnout", "instability", "system_warning"],
     fingerprint: {
       category: "health",
       tags: ["health", "burnout", "instability", "system_warning"],
-      intensity: "major"
+      intensity: "minor"
     },
     trigger: {
-      eligibility: (attribs) => attribs.health < 45 || attribs.happiness < 36
+      eligibility: (attribs) => attribs.health < 42
     },
     intent: {
       type: "health_system_warning",
-      meaning: "长期高压、缺少恢复机制的生活引发身体或精神系统性的现实反馈；高薪本身不是健康风险，风险来自强度、时长和恢复缺口。",
-      tensionAxes: ["收入机会 vs 工作强度", "短期稳定 vs 长期恢复", "责任 vs 自我保护"],
-      allowedOutcomes: ["persist_high_pressure", "optimize_load", "exit_or_pause"],
-      emotionalTone: "crisis"
+      meaning: "持续压力、生活负荷或恢复不足引发身体或精神状态预警，需要结合最近经历判断具体影响。",
+      tensionAxes: ["维持当前节奏 vs 调整整体负荷", "现实责任 vs 身体边界", "独自承受 vs 寻求支持"],
+      allowedOutcomes: ["maintain_with_monitoring", "adjust_rhythm_and_recover", "seek_medical_or_social_support"],
+      emotionalTone: "pressure",
+      temporalProfile: {
+        lifeIntensity: "normal",
+        durationMonths: [3, 9],
+        requiresFollowUp: false
+      }
     }
   },
   {
     id: "health_forced_pause",
     category: "health",
+    dispatchMode: "arc_only",
     title: "身体停摆与节奏重排",
     minAge: 18,
     maxAge: 70,
-    conditionDescription: "健康很低或幸福度很低",
+    conditionDescription: "健康或整体状态已接近承受边界",
     cooldown: 8,
     baseProbability: 0.7,
     tags: ["health", "forced_pause", "burnout", "major_crisis"],
@@ -247,11 +254,11 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
       intensity: "major"
     },
     trigger: {
-      eligibility: (attribs) => attribs.health < 40 || attribs.happiness < 35
+      eligibility: (attribs) => attribs.health < 30
     },
     intent: {
       type: "health_forced_pause",
-      meaning: "身体或心理状态迫使原有生活节奏暂停，你必须重新安排责任、收入和自我照料。",
+      meaning: "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。",
       tensionAxes: ["继续硬撑 vs 接受停顿", "现实责任 vs 身体边界", "自我价值 vs 休息羞耻"],
       allowedOutcomes: ["continue_hard_mode", "reduce_load", "pause_recovery"],
       emotionalTone: "crisis"
@@ -441,6 +448,7 @@ function hasRelationshipContext(userData: UserEventData, answers?: unknown): boo
 }
 
 function isEligibleForCandidatePool(event: LifeEventSeed, attribs: LifeAttributes, userData: UserEventData, age: number, answers?: unknown): boolean {
+  if (event.dispatchMode === "arc_only") return false;
   if (event.trigger.eligibility(attribs, userData, age)) return true;
   return event.category === "relationship" && hasRelationshipContext(userData, answers);
 }
@@ -551,6 +559,32 @@ export function queryDynamicLifeEvent(
   if (Math.random() < NULL_EVENT_CHANCE) return null;
 
   return pickWeighted(dramaticCandidates, userData, age, history);
+}
+
+export function queryHealthEscalationEvent(
+  attribs: LifeAttributes,
+  history: HistoryItem[] = []
+): LifeEventSeed | null {
+  const forcedPause = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_forced_pause");
+  if (!forcedPause || isEventInCooldown(forcedPause, history)) return null;
+
+  if (attribs.health < 30) return forcedPause;
+  if (attribs.health >= 38) return null;
+
+  const recent = history.slice(-3);
+  if (recent.length < 3) return null;
+
+  const hasRecentWarning = recent.some((item) => item.eventMeta?.eventId === "health_system_warning");
+  if (!hasRecentWarning) return null;
+
+  const healthValues = [recent[0].attributes.health, recent[1].attributes.health, attribs.health];
+  const continuouslyDeclining = healthValues[0] > healthValues[1] && healthValues[1] > healthValues[2];
+  const totalDecline = healthValues[0] - healthValues[2];
+  const continuouslyDepleted = recent.slice(-2).every((item) => item.narrativeMeta?.recoveryState === "depleted");
+
+  return continuouslyDeclining && totalDecline >= 8 && continuouslyDepleted
+    ? forcedPause
+    : null;
 }
 
 export function buildEventMeta(event: LifeEventSeed): EventMeta {

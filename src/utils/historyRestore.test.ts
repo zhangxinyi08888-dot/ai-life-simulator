@@ -15,6 +15,32 @@ const node: SimulationNode = {
   description: "你站在是否离开的节点上。",
   choices,
   attributes: { happiness: 55, intelligence: 63, wealth: 41, relation: 58, health: 72 },
+  financialState: {
+    currencyUnit: "CNY_WAN_REAL",
+    asOfAgeInMonths: 24 * 12,
+    cashWan: 20,
+    investmentAssetsWan: 10,
+    propertyMarketValueWan: 100,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 40,
+    netWorthWan: 90,
+    annualAfterTaxIncomeWan: 24,
+    annualDisposableIncomeWan: 10,
+    annualCoreExpenseWan: 14,
+    incomeStability: "stable",
+    isEstimated: false
+  },
+  financialChange: {
+    periodMonths: 12,
+    afterTaxIncomeWan: 24,
+    livingExpenseWan: 12,
+    medicalEducationExpenseWan: 1,
+    interestAndFeesWan: 1,
+    assetValueChangeWan: 0,
+    otherNetChangeWan: 0,
+    netWorthChangeWan: 10,
+    reasons: ["稳定工作形成结余"]
+  },
   isEndingNode: false,
   eventMeta: { eventId: "career-crossroad", eventCategory: "career", eventTags: ["job"] }
 };
@@ -23,6 +49,7 @@ const item = createHistoryItemFromNode(node, "去外地接受新机会");
 assert.deepEqual(item.choices, choices);
 assert.equal(item.isEndingNode, false);
 assert.equal(item.selectedChoice, "去外地接受新机会");
+assert.equal(item.financialState?.netWorthWan, 90);
 
 const earlier: HistoryItem = createHistoryItemFromNode(
   { ...node, age: 23, title: "前一个节点" },
@@ -40,6 +67,7 @@ assert.equal(restored.node.description, "同一年发生的另一个转折。");
 assert.deepEqual(restored.node.choices, choices);
 assert.deepEqual(restored.historyBefore, [earlier, item]);
 assert.equal(restored.nodeCount, 3);
+assert.equal(restored.node.financialState?.netWorthWan, 90);
 
 assert.throws(() => restoreHistoryNodeAtIndex([earlier], -1), /HISTORY_RESTORE_INDEX_OUT_OF_RANGE/);
 assert.throws(() => restoreHistoryNodeAtIndex([earlier], 1), /HISTORY_RESTORE_INDEX_OUT_OF_RANGE/);

@@ -10,6 +10,53 @@ export interface LifeAttributes {
   health: number;       // 健康/精力 (0 - 100)
 }
 
+export type IncomeStability = "unstable" | "volatile" | "stable" | "very_stable";
+export type EmploymentStatus = "student" | "part_time" | "employed" | "self_employed" | "not_working" | "medical_leave" | "retired";
+
+export interface FinancialSignals {
+  employmentStatus: EmploymentStatus;
+  monthlyNetIncomeWan: number;
+  incomeMonths: number;
+  monthlyLivingExpenseWan: number;
+  oneOffIncomeWan: number;
+  oneOffExpenseWan: number;
+  assetValueChangeWan: number;
+  personalDebtChangeWan: number;
+  incomeStability: IncomeStability;
+  confidence: number;
+  reasons: string[];
+}
+
+export interface FinancialState {
+  currencyUnit: "CNY_WAN_REAL";
+  asOfAgeInMonths: number;
+  cashWan: number;
+  investmentAssetsWan: number;
+  propertyMarketValueWan: number;
+  businessAndOtherAssetsWan: number;
+  totalDebtWan: number;
+  netWorthWan: number;
+  annualAfterTaxIncomeWan: number;
+  annualDisposableIncomeWan: number;
+  annualCoreExpenseWan: number;
+  employmentStatus?: EmploymentStatus;
+  incomeStability: IncomeStability;
+  isEstimated: boolean;
+}
+
+export interface FinancialChange {
+  periodMonths: number;
+  afterTaxIncomeWan: number;
+  livingExpenseWan: number;
+  medicalEducationExpenseWan: number;
+  interestAndFeesWan: number;
+  assetValueChangeWan: number;
+  otherNetChangeWan: number;
+  netWorthChangeWan: number;
+  incomeStability?: IncomeStability;
+  reasons: string[];
+}
+
 export interface UserInitialData {
   birthday: string;          // 出生日期: YYYY-MM-DD
   birthtime: string;         // 出生时间: HH:MM or unspecified
@@ -210,6 +257,9 @@ export interface SimulationNode {
   description: string;      // 描述性互动小说正文
   choices: SimulationChoice[]; // 三个预设选项 + 支持自定义
   attributes: LifeAttributes;  // 更新后的五维属性值
+  financialState?: FinancialState;
+  financialSignals?: FinancialSignals;
+  financialChange?: FinancialChange;
   isEndingNode: boolean;       // 是否已到达人生终点
   eventMeta?: EventMeta;        // 触发本节点的事件种子元数据，用于冷却与同类限制
   narrativeMeta?: NarrativeMeta;
@@ -230,6 +280,9 @@ export interface HistoryItem {
   description: string;
   selectedChoice: string;
   attributes: LifeAttributes;   // 存储该历史节点当时的属性状态，支持高保真时光回溯
+  financialState?: FinancialState;
+  financialSignals?: FinancialSignals;
+  financialChange?: FinancialChange;
   choices: SimulationChoice[];   // 存储该节点当时的选项，支持回到历史节点重新选择
   isEndingNode: boolean;         // 存储该节点是否为结局节点，支持完整恢复节点状态
   eventMeta?: EventMeta;

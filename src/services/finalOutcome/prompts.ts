@@ -27,7 +27,9 @@ function formatMilestones(userData: UserInitialData): string {
 function formatHistory(history: HistoryItem[]): string {
   return history.map((item, index) => `索引 ${index}：【${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} - ${item.title}】
 情境：${item.description}
-用户选择：${item.selectedChoice}`).join("\n\n");
+用户选择：${item.selectedChoice}
+累计净财富：${item.financialState ? `${item.financialState.netWorthWan} 万元${item.financialState.isEstimated ? "（估算）" : ""}` : "暂无快照"}
+本阶段财富变化：${item.financialChange ? `${item.financialChange.netWorthChangeWan >= 0 ? "+" : ""}${item.financialChange.netWorthChangeWan} 万元` : "暂无"}`).join("\n\n");
 }
 
 export function buildFinalOutcomePrompt(
@@ -70,6 +72,9 @@ ${formatHistory(history)}
 
 【终局属性】
 幸福 ${currentAttributes.happiness} | 才智 ${currentAttributes.intelligence} | 财富 ${currentAttributes.wealth} | 人际 ${currentAttributes.relation} | 健康 ${currentAttributes.health}
+
+【终局累计净财富】
+${history.at(-1)?.financialState ? `${history.at(-1)!.financialState!.netWorthWan} 万元${history.at(-1)!.financialState!.isEstimated ? "（估算）" : ""}` : "暂无结构化财务快照"}
 
 【输出要求】
 请严格返回 JSON，不要 Markdown，不要解释。返回字段：

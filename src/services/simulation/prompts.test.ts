@@ -72,10 +72,10 @@ const prompt = buildNextNodePrompt({
   eventSeed: healthWarningEvent
 });
 
-assert.match(prompt, /高薪不是必然伤健康/);
-assert.match(prompt, /高强度、长期、无恢复机制/);
-assert.match(prompt, /选择高薪项目可以提高财富/);
-assert.match(prompt, /健康是否下降要看工作强度、当前健康、是否有恢复策略/);
+assert.doesNotMatch(prompt, /高薪不是必然伤健康/);
+assert.doesNotMatch(prompt, /高强度、长期、无恢复机制/);
+assert.doesNotMatch(prompt, /选择高薪项目可以提高财富/);
+assert.doesNotMatch(prompt, /健康是否下降要看工作强度、当前健康、是否有恢复策略/);
 assert.match(prompt, /年龄约束执行条件，不约束人生愿望/);
 assert.match(prompt, /55岁创业/);
 assert.match(prompt, /temporalHint、decisionIntent、expectedWorldDeltaTypes/);
