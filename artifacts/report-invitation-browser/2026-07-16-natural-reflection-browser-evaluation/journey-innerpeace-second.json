@@ -1,0 +1,5688 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-07-16-natural-reflection-browser-evaluation",
+  "caseSlug": "journey-innerpeace-second",
+  "scenario": "accept_second",
+  "startedAt": "2026-07-15T16:29:08.195Z",
+  "completedAt": "2026-07-15T16:29:38.366Z",
+  "sourceUrl": "http://127.0.0.1:5173/?e2eCase=journey-innerpeace-second",
+  "firstInvitation": {
+    "id": "587ccecc",
+    "status": "pending",
+    "reason": "stable_window",
+    "triggerKey": "stable:0",
+    "completedChoiceCount": 15
+  },
+  "secondInvitation": {
+    "id": "506c3276",
+    "status": "pending",
+    "reason": "arc_resolved",
+    "triggerKey": "arc:pressure_a890b8bf",
+    "completedChoiceCount": 23,
+    "pressureArcId": "pressure_a890b8bf",
+    "resolutionEvidence": [
+      "当前阶段的压力已经形成了明确而可验证的结果"
+    ]
+  },
+  "unexpectedInvitations": [],
+  "interactionLog": [
+    {
+      "type": "browser_case_started",
+      "slug": "journey-innerpeace-second",
+      "scenario": "accept_second",
+      "url": "http://127.0.0.1:5173/?e2eCase=journey-innerpeace-second",
+      "at": "2026-07-15T16:29:08.195Z"
+    },
+    {
+      "type": "simulation_started",
+      "nodeTitle": "内在节奏双阶段线 · 阶段 01",
+      "initialAttributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 54,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 288,
+        "cashWan": 7.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 28.5,
+        "annualAfterTaxIncomeWan": 23.2,
+        "annualDisposableIncomeWan": 10.4,
+        "annualCoreExpenseWan": 12.8,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:12.684Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 01",
+      "resultingHistoryLength": 1,
+      "resultingNode": "内在节奏双阶段线 · 阶段 02",
+      "ageInMonths": 300,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 57,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 300,
+        "cashWan": 16.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 38.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:13.606Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 02",
+      "resultingHistoryLength": 2,
+      "resultingNode": "内在节奏双阶段线 · 阶段 03",
+      "ageInMonths": 312,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 60,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 312,
+        "cashWan": 26.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 47.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:14.781Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 03",
+      "resultingHistoryLength": 3,
+      "resultingNode": "内在节奏双阶段线 · 阶段 04",
+      "ageInMonths": 324,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 71,
+        "wealth": 61,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 324,
+        "cashWan": 35.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 57.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:15.785Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 04",
+      "resultingHistoryLength": 4,
+      "resultingNode": "内在节奏双阶段线 · 阶段 05",
+      "ageInMonths": 336,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 71,
+        "wealth": 62,
+        "relation": 61,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 336,
+        "cashWan": 45.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 66.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:16.789Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 05",
+      "resultingHistoryLength": 5,
+      "resultingNode": "内在节奏双阶段线 · 阶段 06",
+      "ageInMonths": 348,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 71,
+        "wealth": 62,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 348,
+        "cashWan": 55.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 76.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:17.792Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 06",
+      "resultingHistoryLength": 6,
+      "resultingNode": "内在节奏双阶段线 · 阶段 07",
+      "ageInMonths": 360,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 72,
+        "wealth": 63,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 360,
+        "cashWan": 64.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 86.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:18.798Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 07",
+      "resultingHistoryLength": 7,
+      "resultingNode": "内在节奏双阶段线 · 阶段 08",
+      "ageInMonths": 372,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 72,
+        "wealth": 63,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 372,
+        "cashWan": 74.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 95.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:19.783Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 08",
+      "resultingHistoryLength": 8,
+      "resultingNode": "内在节奏双阶段线 · 阶段 09",
+      "ageInMonths": 384,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 72,
+        "wealth": 64,
+        "relation": 62,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 384,
+        "cashWan": 83.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 105.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:20.803Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 09",
+      "resultingHistoryLength": 9,
+      "resultingNode": "内在节奏双阶段线 · 阶段 10",
+      "ageInMonths": 396,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 396,
+        "cashWan": 93.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 114.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:21.598Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 10",
+      "resultingHistoryLength": 10,
+      "resultingNode": "内在节奏双阶段线 · 阶段 11",
+      "ageInMonths": 408,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 408,
+        "cashWan": 103.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 124.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:22.811Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 11",
+      "resultingHistoryLength": 11,
+      "resultingNode": "内在节奏双阶段线 · 阶段 12",
+      "ageInMonths": 420,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 420,
+        "cashWan": 112.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 134.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:23.814Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 12",
+      "resultingHistoryLength": 12,
+      "resultingNode": "内在节奏双阶段线 · 阶段 13",
+      "ageInMonths": 432,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 65,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 432,
+        "cashWan": 122.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 143.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:24.702Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 13",
+      "resultingHistoryLength": 13,
+      "resultingNode": "内在节奏双阶段线 · 阶段 14",
+      "ageInMonths": 444,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 65,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 444,
+        "cashWan": 131.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 153.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:25.823Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 14",
+      "resultingHistoryLength": 14,
+      "resultingNode": "内在节奏双阶段线 · 阶段 15",
+      "ageInMonths": 456,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 65,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 456,
+        "cashWan": 141.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 162.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:26.817Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 15",
+      "resultingHistoryLength": 15,
+      "resultingNode": "内在节奏双阶段线 · 阶段 16",
+      "ageInMonths": 468,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 75,
+        "wealth": 65,
+        "relation": 63,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 468,
+        "cashWan": 151.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 172.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "invitation": {
+        "id": "587ccecc",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15
+      },
+      "at": "2026-07-15T16:29:27.827Z"
+    },
+    {
+      "type": "invitation_shown",
+      "invitation": {
+        "id": "587ccecc",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15
+      },
+      "historyLength": 15,
+      "nodeTitle": "内在节奏双阶段线 · 阶段 16",
+      "at": "2026-07-15T16:29:27.845Z"
+    },
+    {
+      "type": "invitation_declined",
+      "invitation": {
+        "id": "587ccecc",
+        "status": "declined",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15,
+        "declinedAtChoiceCount": 15
+      },
+      "historyLength": 15,
+      "at": "2026-07-15T16:29:28.704Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 16",
+      "resultingHistoryLength": 16,
+      "resultingNode": "内在节奏双阶段线 · 阶段 17",
+      "ageInMonths": 480,
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 75,
+        "wealth": 65,
+        "relation": 64,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 480,
+        "cashWan": 160.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 182.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:29.334Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 17”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 17",
+      "resultingHistoryLength": 17,
+      "resultingNode": "内在节奏双阶段线 · 阶段 18",
+      "ageInMonths": 492,
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 75,
+        "wealth": 66,
+        "relation": 64,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 492,
+        "cashWan": 170.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 191.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:30.337Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 18”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 18",
+      "resultingHistoryLength": 18,
+      "resultingNode": "内在节奏双阶段线 · 阶段 19",
+      "ageInMonths": 498,
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 76,
+        "wealth": 66,
+        "relation": 64,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 498,
+        "cashWan": 175.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 196.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:31.845Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 19”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 19",
+      "resultingHistoryLength": 19,
+      "resultingNode": "内在节奏双阶段线 · 阶段 20",
+      "ageInMonths": 506,
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 76,
+        "wealth": 66,
+        "relation": 64,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 506,
+        "cashWan": 181.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 202.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:32.847Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 20”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 20",
+      "resultingHistoryLength": 20,
+      "resultingNode": "内在节奏双阶段线 · 阶段 21",
+      "ageInMonths": 514,
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 76,
+        "wealth": 66,
+        "relation": 65,
+        "health": 68
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 514,
+        "cashWan": 187.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 209.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:33.852Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 21”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 21",
+      "resultingHistoryLength": 21,
+      "resultingNode": "内在节奏双阶段线 · 阶段 22",
+      "ageInMonths": 530,
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 77,
+        "wealth": 66,
+        "relation": 65,
+        "health": 68
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 530,
+        "cashWan": 200.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 222.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:34.857Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 22”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 22",
+      "resultingHistoryLength": 22,
+      "resultingNode": "内在节奏双阶段线 · 阶段 23",
+      "ageInMonths": 549,
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 77,
+        "wealth": 67,
+        "relation": 65,
+        "health": 68
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 549,
+        "cashWan": 215.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 237.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:35.861Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 23”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "内在节奏双阶段线 · 阶段 23",
+      "resultingHistoryLength": 23,
+      "resultingNode": "内在节奏双阶段线 · 阶段 24",
+      "ageInMonths": 586,
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 77,
+        "wealth": 67,
+        "relation": 65,
+        "health": 68
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 586,
+        "cashWan": 245.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 266.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "invitation": {
+        "id": "506c3276",
+        "status": "pending",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_a890b8bf",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_a890b8bf",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ]
+      },
+      "at": "2026-07-15T16:29:37.249Z"
+    },
+    {
+      "type": "invitation_shown",
+      "invitation": {
+        "id": "506c3276",
+        "status": "pending",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_a890b8bf",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_a890b8bf",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ]
+      },
+      "historyLength": 23,
+      "nodeTitle": "内在节奏双阶段线 · 阶段 24",
+      "at": "2026-07-15T16:29:37.363Z"
+    },
+    {
+      "type": "invitation_accepted",
+      "invitation": {
+        "id": "506c3276",
+        "status": "pending",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_a890b8bf",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_a890b8bf",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ]
+      },
+      "closureType": "user_reflection",
+      "historyLength": 24,
+      "at": "2026-07-15T16:29:38.366Z"
+    }
+  ],
+  "assertions": {
+    "firstInvitationInProductWindow": true,
+    "secondInvitationIsLaterStage": true,
+    "expectedInvitationCount": true,
+    "noUnexpectedThirdInvitation": true,
+    "finalClosureType": true,
+    "reportLanguageMatchesClosure": true,
+    "allHistoryNodesPreserveChoices": true,
+    "financialStatePreserved": true,
+    "reportPresent": true,
+    "firstInvitationConditionValid": true,
+    "firstInvitationReasonMatchesFixture": true
+  },
+  "finalState": {
+    "capturedAt": "2026-07-15T16:29:37.902Z",
+    "e2eCase": "journey-innerpeace-second",
+    "step": "insight",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "07:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "24 岁 · 工作与转折",
+      "milestones": [
+        {
+          "id": "career",
+          "title": "工作与转折",
+          "content": "第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。",
+      "milestoneRelationship": "",
+      "milestoneOther": "",
+      "regressionNodeKey": "career",
+      "regressionAge": 24,
+      "regressionSituation": "【用户想重写的真实事件】\n第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+      "coreStoryFocus": "career"
+    },
+    "answers": [
+      {
+        "id": 1,
+        "question": "在“恢复与成长”这条线里，当时最具体的现实限制是什么？",
+        "answer": "我最担心收入不稳。"
+      },
+      {
+        "id": 2,
+        "question": "当时遇到压力时，你通常会怎么反应？",
+        "answer": "我会查资料慢慢解决。"
+      },
+      {
+        "id": 3,
+        "question": "当时你能动用的能力、兴趣或资源是什么？",
+        "answer": "我有长期学习的能力。"
+      }
+    ],
+    "history": [
+      {
+        "age": 24,
+        "ageInMonths": 288,
+        "lifeStage": "emerging_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 01",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 1 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 54,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashWan": 7.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 28.5,
+          "annualAfterTaxIncomeWan": 23.2,
+          "annualDisposableIncomeWan": 10.4,
+          "annualCoreExpenseWan": 12.8,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-01:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 01”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-01:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 01”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-01:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_f93be1d9",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 288,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_38ded56f",
+            "summary": "在恢复与成长这条路上，第 1 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 25,
+        "ageInMonths": 300,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 02",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 2 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 57,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 300,
+          "cashWan": 16.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 38.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-02:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 02”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-02:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 02”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-02:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_88febe43",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 300,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_56cdc186",
+            "summary": "在恢复与成长这条路上，第 2 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 26,
+        "ageInMonths": 312,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 03",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 3 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 60,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 312,
+          "cashWan": 26.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 47.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-03:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 03”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-03:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 03”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-03:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_5a886133",
+            "startAgeInMonths": 300,
+            "endAgeInMonths": 312,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_a02df815",
+            "summary": "在恢复与成长这条路上，第 3 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 27,
+        "ageInMonths": 324,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 04",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 4 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 71,
+          "wealth": 61,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 324,
+          "cashWan": 35.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 57.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-04:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 04”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-04:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 04”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-04:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_a34b4c17",
+            "startAgeInMonths": 312,
+            "endAgeInMonths": 324,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_c38310e6",
+            "summary": "在恢复与成长这条路上，第 4 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 28,
+        "ageInMonths": 336,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 05",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 5 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 71,
+          "wealth": 62,
+          "relation": 61,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 336,
+          "cashWan": 45.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 66.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-05:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 05”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-05:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 05”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-05:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_9b3e473b",
+            "startAgeInMonths": 324,
+            "endAgeInMonths": 336,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_f0bd51ad",
+            "summary": "在恢复与成长这条路上，第 5 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 29,
+        "ageInMonths": 348,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 06",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 6 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 71,
+          "wealth": 62,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 348,
+          "cashWan": 55.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 76.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-06:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 06”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-06:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 06”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-06:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_cf6e5b6b",
+            "startAgeInMonths": 336,
+            "endAgeInMonths": 348,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_77769f3c",
+            "summary": "在恢复与成长这条路上，第 6 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 30,
+        "ageInMonths": 360,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 07",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 7 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 72,
+          "wealth": 63,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 360,
+          "cashWan": 64.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 86.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-07:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 07”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-07:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 07”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-07:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_a07b725e",
+            "startAgeInMonths": 348,
+            "endAgeInMonths": 360,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_8cadf78b",
+            "summary": "在恢复与成长这条路上，第 7 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 31,
+        "ageInMonths": 372,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 08",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 8 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 72,
+          "wealth": 63,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 372,
+          "cashWan": 74.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 95.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-08:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 08”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-08:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 08”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-08:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_c1a18360",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 372,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_a8b5fdf0",
+            "summary": "在恢复与成长这条路上，第 8 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 32,
+        "ageInMonths": 384,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 09",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 9 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 72,
+          "wealth": 64,
+          "relation": 62,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 384,
+          "cashWan": 83.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 105.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-09:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 09”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-09:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 09”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-09:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_051a0676",
+            "startAgeInMonths": 372,
+            "endAgeInMonths": 384,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_1066d522",
+            "summary": "在恢复与成长这条路上，第 9 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 33,
+        "ageInMonths": 396,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 10",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 10 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 396,
+          "cashWan": 93.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 114.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-10:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 10”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-10:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 10”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-10:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_08ca3e43",
+            "startAgeInMonths": 384,
+            "endAgeInMonths": 396,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_e7982099",
+            "summary": "在恢复与成长这条路上，第 10 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 34,
+        "ageInMonths": 408,
+        "lifeStage": "early_adulthood",
+        "title": "内在节奏双阶段线 · 阶段 11",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 11 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 408,
+          "cashWan": 103.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 124.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-11:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 11”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-11:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 11”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-11:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_1e46ba5e",
+            "startAgeInMonths": 396,
+            "endAgeInMonths": 408,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_aabfec88",
+            "summary": "在恢复与成长这条路上，第 11 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 35,
+        "ageInMonths": 420,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 12",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 12 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 420,
+          "cashWan": 112.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 134.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-12:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 12”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-12:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 12”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-12:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_ee575f99",
+            "startAgeInMonths": 408,
+            "endAgeInMonths": 420,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_b4c252bd",
+            "summary": "在恢复与成长这条路上，第 12 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 36,
+        "ageInMonths": 432,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 13",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 13 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 65,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 432,
+          "cashWan": 122.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 143.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-13:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 13”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-13:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 13”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-13:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_bd8dccd9",
+            "startAgeInMonths": 420,
+            "endAgeInMonths": 432,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_7cd1d23a",
+            "summary": "在恢复与成长这条路上，第 13 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 37,
+        "ageInMonths": 444,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 14",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 14 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 65,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 444,
+          "cashWan": 131.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 153.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-14:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 14”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-14:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 14”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-14:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_34d20031",
+            "startAgeInMonths": 432,
+            "endAgeInMonths": 444,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_97eba199",
+            "summary": "在恢复与成长这条路上，第 14 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 38,
+        "ageInMonths": 456,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 15",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 15 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 65,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 456,
+          "cashWan": 141.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 162.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-15:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 15”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-15:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 15”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-15:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_dec5fdad",
+            "startAgeInMonths": 444,
+            "endAgeInMonths": 456,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_d4214a59",
+            "summary": "在恢复与成长这条路上，第 15 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 39,
+        "ageInMonths": 468,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 16",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 16 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 75,
+          "wealth": 65,
+          "relation": 63,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 468,
+          "cashWan": 151.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 172.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-16:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 16”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-16:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 16”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-16:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_91ed4d59",
+            "startAgeInMonths": 456,
+            "endAgeInMonths": 468,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_81faa21b",
+            "summary": "在恢复与成长这条路上，第 16 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        },
+        "reportInvitation": {
+          "id": "587ccecc",
+          "status": "declined",
+          "reason": "stable_window",
+          "triggerKey": "stable:0",
+          "completedChoiceCount": 15,
+          "declinedAtChoiceCount": 15
+        }
+      },
+      {
+        "age": 40,
+        "ageInMonths": 480,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 17",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 17 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 17”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 75,
+          "wealth": 65,
+          "relation": 64,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 480,
+          "cashWan": 160.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 182.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 17”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-17:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 17”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-17:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 17”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-17:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_3d7872d4",
+            "startAgeInMonths": 468,
+            "endAgeInMonths": 480,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_73f16394",
+            "summary": "在恢复与成长这条路上，第 17 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b",
+            "921b1eee"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 41,
+        "ageInMonths": 492,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 18",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 18 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 18”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 75,
+          "wealth": 66,
+          "relation": 64,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 492,
+          "cashWan": 170.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 191.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 18”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-18:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 18”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-18:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 18”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-18:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_2241341a",
+            "startAgeInMonths": 480,
+            "endAgeInMonths": 492,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_d169a15c",
+            "summary": "在恢复与成长这条路上，第 18 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b",
+            "921b1eee",
+            "749b4b60"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 41,
+        "ageInMonths": 498,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 19",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 19 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 19”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 76,
+          "wealth": 66,
+          "relation": 64,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 498,
+          "cashWan": 175.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 196.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 6,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 6,
+          "afterTaxIncomeWan": 11.4,
+          "livingExpenseWan": 6.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 4.8,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 19”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-19:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 19”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-19:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 19”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-19:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 6,
+          "elapsedYears": 0.5,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_96de5e2f",
+            "pressureArcId": "pressure_a890b8bf",
+            "startAgeInMonths": 492,
+            "endAgeInMonths": 498,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_0fc89ce3",
+            "summary": "在恢复与成长这条路上，第 19 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_a890b8bf",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 492,
+              "phaseStartedAtAgeInMonths": 498,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b",
+            "921b1eee",
+            "749b4b60",
+            "115cda16"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_a890b8bf"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_a890b8bf",
+          "phaseId": "response",
+          "transitionAction": "advance"
+        }
+      },
+      {
+        "age": 42,
+        "ageInMonths": 506,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 20",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 20 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 20”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 76,
+          "wealth": 66,
+          "relation": 64,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 506,
+          "cashWan": 181.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 202.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 8,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 8,
+          "afterTaxIncomeWan": 15.2,
+          "livingExpenseWan": 8.8,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 6.4,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 20”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-20:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 20”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-20:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 20”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-20:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 8,
+          "elapsedYears": 0.6666666666666666,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_2de1a987",
+            "pressureArcId": "pressure_a890b8bf",
+            "startAgeInMonths": 498,
+            "endAgeInMonths": 506,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_c8cfb1f0",
+            "summary": "在恢复与成长这条路上，第 20 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_a890b8bf",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 492,
+              "phaseStartedAtAgeInMonths": 498,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 2,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b",
+            "921b1eee",
+            "749b4b60",
+            "115cda16",
+            "c9449302"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_a890b8bf"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_a890b8bf",
+          "phaseId": "response",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 42,
+        "ageInMonths": 514,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 21",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 21 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 21”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 63,
+          "intelligence": 76,
+          "wealth": 66,
+          "relation": 65,
+          "health": 68
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 514,
+          "cashWan": 187.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 209.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 8,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 8,
+          "afterTaxIncomeWan": 15.2,
+          "livingExpenseWan": 8.8,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 6.4,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 21”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-21:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 21”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-21:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 21”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-21:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 8,
+          "elapsedYears": 0.6666666666666666,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_e0fa0f97",
+            "pressureArcId": "pressure_a890b8bf",
+            "startAgeInMonths": 506,
+            "endAgeInMonths": 514,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_997bb960",
+            "summary": "在恢复与成长这条路上，第 21 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_a890b8bf",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 492,
+              "phaseStartedAtAgeInMonths": 514,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 3,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b",
+            "921b1eee",
+            "749b4b60",
+            "115cda16",
+            "c9449302",
+            "2f32e0f3"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_a890b8bf"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_a890b8bf",
+          "phaseId": "growth",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 44,
+        "ageInMonths": 530,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 22",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 22 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 22”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 63,
+          "intelligence": 77,
+          "wealth": 66,
+          "relation": 65,
+          "health": 68
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 530,
+          "cashWan": 200.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 222.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 16,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 16,
+          "afterTaxIncomeWan": 30.4,
+          "livingExpenseWan": 17.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 12.8,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 22”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-22:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 22”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-22:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 22”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-22:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 16,
+          "elapsedYears": 1.3333333333333333,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_763757ac",
+            "pressureArcId": "pressure_a890b8bf",
+            "startAgeInMonths": 514,
+            "endAgeInMonths": 530,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_32636ce2",
+            "summary": "在恢复与成长这条路上，第 22 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_a890b8bf",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 492,
+              "phaseStartedAtAgeInMonths": 514,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 4,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b",
+            "921b1eee",
+            "749b4b60",
+            "115cda16",
+            "c9449302",
+            "2f32e0f3",
+            "e0d3a023"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_a890b8bf"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_a890b8bf",
+          "phaseId": "growth",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 45,
+        "ageInMonths": 549,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 23",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 23 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“内在节奏双阶段线 · 阶段 23”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 63,
+          "intelligence": 77,
+          "wealth": 67,
+          "relation": 65,
+          "health": 68
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 549,
+          "cashWan": 215.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 237.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 19,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 19,
+          "afterTaxIncomeWan": 36.1,
+          "livingExpenseWan": 20.9,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 15.2,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 23”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-23:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 23”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-23:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 23”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-23:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 19,
+          "elapsedYears": 1.5833333333333333,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_7fba429b",
+            "pressureArcId": "pressure_a890b8bf",
+            "startAgeInMonths": 530,
+            "endAgeInMonths": 549,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_e28b6b33",
+            "summary": "在恢复与成长这条路上，第 23 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_a890b8bf",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "active",
+              "startedAtAgeInMonths": 492,
+              "phaseStartedAtAgeInMonths": 549,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 5,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b",
+            "921b1eee",
+            "749b4b60",
+            "115cda16",
+            "c9449302",
+            "2f32e0f3",
+            "e0d3a023",
+            "ddd8a3b7"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_a890b8bf"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_a890b8bf",
+          "phaseId": "operation",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 48,
+        "ageInMonths": 586,
+        "lifeStage": "midlife",
+        "title": "内在节奏双阶段线 · 阶段 24",
+        "stage": "现实抉择",
+        "description": "在恢复与成长这条路上，第 24 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。\n\n当前阶段的压力已经形成了明确而可验证的结果，长期方向仍然可以继续推进。",
+        "selectedChoice": "查看这段人生的报告",
+        "attributes": {
+          "happiness": 63,
+          "intelligence": 77,
+          "wealth": 67,
+          "relation": 65,
+          "health": 68
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 586,
+          "cashWan": 245.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 266.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 37,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 37,
+          "afterTaxIncomeWan": 70.3,
+          "livingExpenseWan": 40.7,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 29.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“内在节奏双阶段线 · 阶段 24”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-24:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“内在节奏双阶段线 · 阶段 24”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-24:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“内在节奏双阶段线 · 阶段 24”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:内在节奏双阶段线-阶段-24:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 37,
+          "elapsedYears": 3.0833333333333335,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_28c3863b",
+            "pressureArcId": "pressure_a890b8bf",
+            "startAgeInMonths": 549,
+            "endAgeInMonths": 586,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_aafb7de0",
+            "summary": "在恢复与成长这条路上，第 24 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "type": "pressure_resolved",
+              "pressureArcId": "pressure_a890b8bf",
+              "evidence": "当前阶段的压力已经形成了明确而可验证的结果",
+              "confidence": 1
+            }
+          ],
+          "activeCharacters": [],
+          "worldDeltas": [
+            {
+              "type": "career_state",
+              "summary": "当前阶段的压力已经形成了明确而可验证的结果"
+            }
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_a890b8bf",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 492,
+              "phaseStartedAtAgeInMonths": 549,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "19d6c0fb",
+            "c0fa5438",
+            "97adf2e3",
+            "866d3623",
+            "dc67bb87",
+            "fb2830de",
+            "c4a05bdd",
+            "b5accdba",
+            "ecd18027",
+            "6c878730",
+            "994770ec",
+            "10e378a0",
+            "b68fb36d",
+            "6493483f",
+            "81799b1b",
+            "921b1eee",
+            "749b4b60",
+            "115cda16",
+            "c9449302",
+            "2f32e0f3",
+            "e0d3a023",
+            "ddd8a3b7",
+            "81fac370"
+          ],
+          "version": 1,
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_a890b8bf",
+          "phaseId": "operation",
+          "transitionAction": "resolve"
+        },
+        "reportInvitation": {
+          "id": "506c3276",
+          "status": "accepted",
+          "reason": "arc_resolved",
+          "triggerKey": "arc:pressure_a890b8bf",
+          "completedChoiceCount": 23,
+          "pressureArcId": "pressure_a890b8bf",
+          "resolutionEvidence": [
+            "当前阶段的压力已经形成了明确而可验证的结果"
+          ],
+          "acceptedAtChoiceCount": 23
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 48,
+      "stage": "现实抉择",
+      "title": "内在节奏双阶段线 · 阶段 24",
+      "description": "在恢复与成长这条路上，第 24 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。\n\n当前阶段的压力已经形成了明确而可验证的结果，长期方向仍然可以继续推进。",
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 77,
+        "wealth": 67,
+        "relation": 65,
+        "health": 68
+      },
+      "isEndingNode": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "围绕“内在节奏双阶段线 · 阶段 24”先完成一个可以验证的阶段成果，按一年节奏继续",
+          "impactSummary": "沉淀成果",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              12
+            ],
+            "requiresFollowUp": false,
+            "reason": "浏览器长流程普通推进"
+          },
+          "decisionIntent": "e2e:内在节奏双阶段线-阶段-24:build",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "在“内在节奏双阶段线 · 阶段 24”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+          "impactSummary": "稳中试探",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              48,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "浏览器长流程寿命推进"
+          },
+          "decisionIntent": "e2e:内在节奏双阶段线-阶段-24:stabilize",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "为“内在节奏双阶段线 · 阶段 24”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+          "impactSummary": "借力成长",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "浏览器长流程阶段切换"
+          },
+          "decisionIntent": "e2e:内在节奏双阶段线-阶段-24:collaborate",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "narrativeMeta": {
+        "elapsedMonths": 37,
+        "elapsedYears": 3.0833333333333335,
+        "lifeIntensity": "stable",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_28c3863b",
+          "pressureArcId": "pressure_a890b8bf",
+          "startAgeInMonths": 549,
+          "endAgeInMonths": 586,
+          "internalTransitions": [],
+          "decisionCheckpointId": "checkpoint_aafb7de0",
+          "summary": "在恢复与成长这条路上，第 24 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [
+          {
+            "type": "pressure_resolved",
+            "pressureArcId": "pressure_a890b8bf",
+            "evidence": "当前阶段的压力已经形成了明确而可验证的结果",
+            "confidence": 1
+          }
+        ],
+        "activeCharacters": [],
+        "worldDeltas": [
+          {
+            "type": "career_state",
+            "summary": "当前阶段的压力已经形成了明确而可验证的结果"
+          }
+        ]
+      },
+      "ageInMonths": 586,
+      "lifeStage": "midlife",
+      "eventMeta": {
+        "eventId": "career_structural_instability",
+        "eventCategory": "career",
+        "eventTags": [
+          "career",
+          "instability",
+          "survival_pressure",
+          "transition"
+        ],
+        "eventIntensity": "major",
+        "phasePolicyId": "generic_pressure_v1"
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 586,
+        "cashWan": 245.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 266.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "financialSignals": {
+        "employmentStatus": "employed",
+        "monthlyNetIncomeWan": 1.9,
+        "incomeMonths": 37,
+        "monthlyLivingExpenseWan": 1.1,
+        "oneOffIncomeWan": 0,
+        "oneOffExpenseWan": 0,
+        "assetValueChangeWan": 0,
+        "propertyMarketValueChangeWan": 0,
+        "personalDebtChangeWan": 0,
+        "incomeStability": "stable",
+        "confidence": 0.35,
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "financialChange": {
+        "periodMonths": 37,
+        "afterTaxIncomeWan": 70.3,
+        "livingExpenseWan": 40.7,
+        "medicalEducationExpenseWan": 0,
+        "interestAndFeesWan": 0,
+        "assetValueChangeWan": 0,
+        "otherNetChangeWan": 0,
+        "netWorthChangeWan": 29.6,
+        "incomeStability": "stable",
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "committedArcMeta": {
+        "pressureArcId": "pressure_a890b8bf",
+        "phaseId": "operation",
+        "transitionAction": "resolve"
+      },
+      "worldStateSnapshot": {
+        "people": [],
+        "directionArcs": [
+          {
+            "id": "direction_8212eb41",
+            "directionType": "career",
+            "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+            "status": "active",
+            "startedAtAgeInMonths": 288,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [
+          {
+            "id": "pressure_a890b8bf",
+            "eventId": "career_structural_instability",
+            "eventIntentType": "career_structural_instability",
+            "phasePolicyId": "generic_pressure_v1",
+            "phaseId": "operation",
+            "status": "resolved",
+            "startedAtAgeInMonths": 492,
+            "phaseStartedAtAgeInMonths": 549,
+            "phaseCheckpointCount": 1,
+            "totalCheckpointCount": 6,
+            "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+          }
+        ],
+        "committedTransactionIds": [
+          "19d6c0fb",
+          "c0fa5438",
+          "97adf2e3",
+          "866d3623",
+          "dc67bb87",
+          "fb2830de",
+          "c4a05bdd",
+          "b5accdba",
+          "ecd18027",
+          "6c878730",
+          "994770ec",
+          "10e378a0",
+          "b68fb36d",
+          "6493483f",
+          "81799b1b",
+          "921b1eee",
+          "749b4b60",
+          "115cda16",
+          "c9449302",
+          "2f32e0f3",
+          "e0d3a023",
+          "ddd8a3b7",
+          "81fac370"
+        ],
+        "version": 1,
+        "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+      },
+      "reportInvitation": {
+        "id": "506c3276",
+        "status": "accepted",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_a890b8bf",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_a890b8bf",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ],
+        "acceptedAtChoiceCount": 23
+      }
+    },
+    "currentAttributes": {
+      "happiness": 63,
+      "intelligence": 77,
+      "wealth": 67,
+      "relation": 65,
+      "health": 68
+    },
+    "simulationSeed": "4f5eb21f-8322-4688-aded-44b0dadb873d",
+    "outcome": {
+      "share": {
+        "viralTitle": "重生之我走过内在节奏双阶段线",
+        "covenantTitle": "仍然选择的人",
+        "oneLineSummary": "这条恢复与成长路线记录了阶段性压力、主动回望和继续生活之间的真实关系。",
+        "timeline": [
+          {
+            "ageLabel": "24岁",
+            "icon": "🌱",
+            "title": "关键阶段 1",
+            "choiceSummary": "保留第 1 次真实选择",
+            "keyMomentIndexes": [
+              0
+            ]
+          },
+          {
+            "ageLabel": "28岁",
+            "icon": "🧭",
+            "title": "关键阶段 2",
+            "choiceSummary": "保留第 2 次真实选择",
+            "keyMomentIndexes": [
+              1
+            ]
+          },
+          {
+            "ageLabel": "32岁",
+            "icon": "💼",
+            "title": "关键阶段 3",
+            "choiceSummary": "保留第 3 次真实选择",
+            "keyMomentIndexes": [
+              2
+            ]
+          },
+          {
+            "ageLabel": "36岁",
+            "icon": "🤝",
+            "title": "关键阶段 4",
+            "choiceSummary": "保留第 4 次真实选择",
+            "keyMomentIndexes": [
+              3
+            ]
+          },
+          {
+            "ageLabel": "40岁",
+            "icon": "🏠",
+            "title": "关键阶段 5",
+            "choiceSummary": "保留第 5 次真实选择",
+            "keyMomentIndexes": [
+              4
+            ]
+          },
+          {
+            "ageLabel": "44岁",
+            "icon": "🌿",
+            "title": "关键阶段 6",
+            "choiceSummary": "保留第 6 次真实选择",
+            "keyMomentIndexes": [
+              5
+            ]
+          }
+        ],
+        "closingLine": "人生不是由成功组成，而是由一次次选择组成。",
+        "posterTheme": "warm_realistic",
+        "downloadFileName": "这段人生的报告.png",
+        "imageAlt": "重生之我走过内在节奏双阶段线 阶段人生报告海报"
+      },
+      "report": {
+        "executiveSummary": {
+          "headline": "AI 回顾了你的人生轨迹，发现真正塑造你的不是某一次决定，而是三个反复出现的选择模式。",
+          "patterns": [
+            {
+              "name": "成长优先，而非短期稳定",
+              "shortDescription": "每次关键转折，你都会把长期能力放在眼前确定性之前。",
+              "keyMomentIndexes": [
+                0,
+                1
+              ]
+            },
+            {
+              "name": "先准备，再行动",
+              "shortDescription": "你很少冲动开始，通常会等作品、经验或判断更扎实后才真正迈出去。",
+              "keyMomentIndexes": [
+                1,
+                2
+              ]
+            },
+            {
+              "name": "独自解决，再慢慢沉淀",
+              "shortDescription": "你习惯把压力先接住，再用学习和复盘把它变成自己的方法。",
+              "keyMomentIndexes": [
+                2,
+                3
+              ]
+            }
+          ],
+          "closingLine": "这些模式让你获得了今天的优势，也带来了今天的代价。"
+        },
+        "repeatedPatterns": [
+          {
+            "name": "成长优先",
+            "title": "你总是在稳定和成长之间，把票投给成长",
+            "paragraphs": [
+              "回看这条轨迹，真正改变你的不是某个突然的运气，而是你一次次把自己放进更难但更能长本事的位置。早期你会顾虑现实，后来每到分岔点，还是会选择能积累经验、作品和判断力的那条路。",
+              "这已经不是单次决定，而是一套长期运行的选择系统。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              1,
+              2
+            ],
+            "closingLine": "你的人生不是被机会推着走，而是被能力复利慢慢推开。"
+          }
+        ],
+        "patternEffects": [
+          {
+            "patternName": "长期积累",
+            "compoundReturn": "经验越来越能迁移，作品越来越能证明你。",
+            "hiddenCost": "速度看起来不够快，也容易在独自硬扛时消耗自己。",
+            "paragraphs": [
+              "这种模式让你的优势更耐用：行业和环境变化时，你不是只剩一个岗位，而是带着可迁移的能力继续往前走。但它也让你习惯把压力内部消化，很多本可以被合作放大的事情，最后都变成了一个人的长跑。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              2,
+              3
+            ],
+            "closingLine": "真正限制你的，已经不是努力，而是放大努力的方式。"
+          }
+        ],
+        "futureTrends": [
+          {
+            "title": "经验产品化会变得越来越重要",
+            "trend": "如果这个模式继续，未来十年你最可能把过往经验变成产品、方法或服务，而不是单纯依赖职位变化。",
+            "reason": "因为你的增长一直来自积累和沉淀，这是模式延续，不是命运预测。",
+            "keyMomentIndexes": [
+              2,
+              3
+            ]
+          }
+        ],
+        "patternsToKeep": [
+          {
+            "title": "保留把事情做成作品的习惯",
+            "why": "它已经在多个阶段证明，比短期热闹更能帮你留下真实资产。",
+            "paragraphs": [
+              "继续让选择落到作品、案例、方法和可复用成果上。你越能把经历沉淀下来，未来越不容易被单一环境定义。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              2
+            ],
+            "closingLine": "作品，是你和时间合作的方式。"
+          }
+        ],
+        "patternsToAdjust": [
+          {
+            "title": "把自己做，升级成一起做",
+            "why": "过去独自解决问题让你成长很快，但下一阶段它会成为瓶颈。",
+            "paragraphs": [
+              "未来五年，重要的不是再证明你能一个人扛住，而是找到能放大你能力的人、流程和资源。合作不是降低自主性，而是让你的积累产生更大回声。"
+            ],
+            "keyMomentIndexes": [
+              2,
+              3
+            ],
+            "closingLine": "能力决定你能走多快，合作决定你能走多远。"
+          }
+        ],
+        "finalLifeReading": {
+          "title": "如果我是十年后的你",
+          "paragraphs": [
+            "回头看你的轨迹，我会发现一件很有意思的事：你并不是靠某一次大胆翻盘改变人生。真正发生的是，你把同一种选择重复了很多年。",
+            "别人看到的是节点，你走过的是一套越来越清晰的运行机制。"
+          ],
+          "finalSentence": "阶段性答案不是人生完成，它只是让下一次选择变得更清楚。"
+        }
+      },
+      "meta": {
+        "generatedAt": "2026-07-02T00:00:00.000Z",
+        "modelProvider": "mock",
+        "posterVersion": "web-v1",
+        "reportVersion": "life-pattern-v2",
+        "closureType": "user_reflection"
+      }
+    },
+    "invitations": [
+      {
+        "nodeIndex": 15,
+        "id": "587ccecc",
+        "status": "declined",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15,
+        "declinedAtChoiceCount": 15,
+        "terminalAction": "围绕“内在节奏双阶段线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续"
+      },
+      {
+        "nodeIndex": 23,
+        "id": "506c3276",
+        "status": "accepted",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_a890b8bf",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_a890b8bf",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ],
+        "acceptedAtChoiceCount": 23,
+        "terminalAction": "查看这段人生的报告"
+      }
+    ]
+  }
+}

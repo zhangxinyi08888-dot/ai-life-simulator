@@ -1,6 +1,7 @@
 import { buildEventMeta, getEventTemporalProfile, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "../../data/lifeEvents";
 import { ChoiceTemporalHint, FinancialChange, FinancialSignals, FinancialState, HistoryItem, LifeAttributes, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
 import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
+import { DEFAULT_REPORT_INVITATION_POLICY } from "../../config/reportInvitationPolicy";
 import { buildQuestionPrompt } from "../../utils/questionPrompt";
 import { normalizePersonalityInsight } from "../../utils/insightResponse";
 import { generateCompleteSimulationNode } from "../../utils/simulationNodeRetry";
@@ -18,10 +19,11 @@ import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils
 import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
+import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
-import { getBrowserE2eAiJsonCaller, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
+import { getBrowserE2eAiJsonCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import {
   buildNextNodePrompt,
   buildFinancialSignalsRepairPrompt,
@@ -399,13 +401,16 @@ export async function generateNextNode(
   const baseWorldState = latestWorldState(input.history);
   const currentWorldState = { ...baseWorldState, directionArcs: ensureDirectionArcs(baseWorldState, input.userData, currentAgeInMonths) };
   const existingPressureArc = foregroundPressureArc(input.history);
+  const e2eEventOverride = existingPressureArc ? undefined : getBrowserE2eEventOverride(input.history.length);
   const healthEscalationEvent = existingPressureArc
     ? null
     : queryHealthEscalationEvent(input.currentAttributes, input.history);
   const seedEvent = existingPressureArc
     ? LIFE_EVENTS_DATABASE.find((event) => event.id === existingPressureArc.eventId) || null
-    : healthEscalationEvent
-      || queryDynamicLifeEvent(input.currentAttributes, input.userData, Math.floor(currentAgeInMonths / 12), input.history, input.answers);
+    : e2eEventOverride !== undefined
+      ? LIFE_EVENTS_DATABASE.find((event) => event.id === e2eEventOverride) || null
+      : healthEscalationEvent
+        || queryDynamicLifeEvent(input.currentAttributes, input.userData, Math.floor(currentAgeInMonths / 12), input.history, input.answers);
   const eventProfile = seedEvent ? getEventTemporalProfile(seedEvent) : undefined;
   const startArcDecision = !existingPressureArc && seedEvent && eventProfile?.requiresFollowUp
     ? reducePressureArc({
@@ -668,7 +673,19 @@ export async function generateNextNode(
     pressureArcTransition,
     currentWorldStateSnapshot: worldState
   });
-  return committed.node;
+  const invitationDecision = evaluateReportInvitation({
+    candidateNode: committed.node,
+    history: input.history,
+    completedChoiceCount: input.history.length,
+    pressureArcTransition,
+    acceptedOutcome,
+    policy: DEFAULT_REPORT_INVITATION_POLICY,
+    simulationSeed,
+    branchFingerprint
+  });
+  return invitationDecision.invitation
+    ? { ...committed.node, reportInvitation: invitationDecision.invitation }
+    : committed.node;
 }
 
 export interface AnalyzePersonalityInput {

@@ -38,7 +38,8 @@ const outcome = await generateFinalOutcome({
   userData,
   answers,
   history,
-  currentAttributes: attributes
+  currentAttributes: attributes,
+  context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
 }, {
   callAiJson: async (prompt) => {
     capturedPrompt = prompt;
@@ -84,3 +85,6 @@ assert.doesNotMatch(capturedPrompt, /"decisionPatterns"/);
 assert.equal(outcome.share.viralTitle.includes("我"), true);
 assert.equal(outcome.report.executiveSummary.patterns.length, 3);
 assert.equal(outcome.report.futureTrends[0].title, "经验产品化");
+assert.equal(outcome.meta.closureType, "user_reflection");
+assert.equal(outcome.share.downloadFileName, "这段人生的报告.png");
+assert.match(capturedPrompt, /角色并未死亡/);

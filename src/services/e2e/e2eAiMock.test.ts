@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { createE2eAiJsonCaller, getCachedE2eAiJsonCaller, getE2eCaseSlugs } from "./e2eAiMock";
 
 const slugs = getE2eCaseSlugs();
-assert.equal(slugs.length, 5);
+assert.equal(slugs.length, 15);
+assert.equal(slugs.filter((slug) => slug.startsWith("journey-")).length, 10);
 
 const callAiJson = createE2eAiJsonCaller("interest-app");
 

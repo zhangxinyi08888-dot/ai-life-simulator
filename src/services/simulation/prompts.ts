@@ -253,6 +253,15 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
   const pressurePrompt = foregroundPressureArc
     ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}。模型不得修改 phase，只能返回 arcSignals。`
     : "当前没有前台 PressureArc；事件只能提出事实结果，不能自行创建或修改 Arc 状态。";
+  const pressureResolutionRule = foregroundPressureArc?.phaseId === "operation"
+    ? `
+【当前阶段收束要求】
+- 本节点必须写清当前阶段压力最终形成了什么结果。
+- arcSignals 必须返回 pressure_resolved。
+- evidence 必须是正文中直接描述该结果的原句。
+- pressureArcId 必须为 ${foregroundPressureArc.id}。
+- 这里只表示阶段压力解决，不表示 DirectionArc 或长期人生方向完成。`
+    : "";
 
   return `你是一个才华横溢、精通大众心理学、社会规律与命运因果抉择的顶级推演大师。
 请写实模拟用户重新选择一次后，各条生命轨迹在现代中国社会下的真实进展。剧情要咬合用户回到这个节点的真实意图、困苦和核心主线。
@@ -283,6 +292,7 @@ ${peoplePrompt}
 
 【PressureArc 单写者边界】
 ${pressurePrompt}
+${pressureResolutionRule}
 
 【上一步做出的命运裁决】
 用户在刚才的十字路口选择了：【${selectedDecision}】

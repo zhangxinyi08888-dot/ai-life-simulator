@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Compass, AlertCircle, X, Orbit } from "lucide-react";
 
-import { UserInitialData, QuestionTurn, SimulationNode, LifeAttributes, HistoryItem, FinalLifeOutcome, QuestionItem } from "./types";
+import { UserInitialData, QuestionTurn, SimulationNode, LifeAttributes, HistoryItem, FinalLifeOutcome, FinalOutcomeContext, QuestionItem, ReportInvitationMeta } from "./types";
 import InitialSetup from "./components/InitialSetup";
 import SoulQuestioning from "./components/SoulQuestioning";
 import SimulationEngine from "./components/SimulationEngine";
@@ -64,6 +64,35 @@ export default function App() {
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === "undefined") return;
+    const e2eCase = new URLSearchParams(window.location.search).get("e2eCase");
+    if (!e2eCase) return;
+    const snapshot = {
+      capturedAt: new Date().toISOString(),
+      e2eCase,
+      step,
+      userName: name,
+      userData,
+      answers,
+      history,
+      currentNode,
+      currentAttributes: attributes,
+      simulationSeed,
+      outcome,
+      invitations: history.flatMap((item, index) => item.reportInvitation ? [{ nodeIndex: index, ...item.reportInvitation, terminalAction: item.selectedChoice }] : [])
+    };
+    (window as Window & { __AI_LIFE_TEST_STATE__?: typeof snapshot }).__AI_LIFE_TEST_STATE__ = structuredClone(snapshot);
+    let stateElement = document.getElementById("ai-life-test-state");
+    if (!stateElement) {
+      stateElement = document.createElement("script");
+      stateElement.id = "ai-life-test-state";
+      stateElement.setAttribute("type", "application/json");
+      document.body.appendChild(stateElement);
+    }
+    stateElement.textContent = JSON.stringify(snapshot);
+  }, [answers, attributes, currentNode, history, name, outcome, simulationSeed, step, userData]);
+
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
     setIsLoading(true);
@@ -106,6 +135,66 @@ export default function App() {
     }
   };
 
+  const handleGenerateFinalOutcome = async (context: FinalOutcomeContext, terminalAction: string, terminalNode = currentNode) => {
+    if (!terminalNode || !userData) return;
+    setErrorMsg(null);
+    setIsLoading(true);
+
+    const finalHistoryItem = createHistoryItemFromNode(terminalNode, terminalAction);
+    const updatedHistory = [...history, finalHistoryItem];
+
+    try {
+      const body = await generateFinalOutcome({
+        userData,
+        answers,
+        history: updatedHistory,
+        currentAttributes: attributes,
+        context
+      });
+      setHistory(updatedHistory);
+      setCurrentNode(terminalNode);
+      setOutcome(body);
+      setStep("insight");
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(getSimulationErrorMessage(err, "宿命总结遭遇神识乱流，请重新请求结契。"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAcceptReportInvitation = (invitation: ReportInvitationMeta) => {
+    if (!currentNode) return;
+    const acceptedNode: SimulationNode = {
+      ...currentNode,
+      reportInvitation: {
+        ...invitation,
+        status: "accepted",
+        acceptedAtChoiceCount: invitation.completedChoiceCount
+      }
+    };
+    void handleGenerateFinalOutcome({
+      closureType: "user_reflection",
+      invitationReason: invitation.reason,
+      pressureArcId: invitation.pressureArcId,
+      resolutionEvidence: invitation.resolutionEvidence
+    }, "查看这段人生的报告", acceptedNode);
+  };
+
+  const handleContinueReportInvitation = (invitationId: string) => {
+    setCurrentNode((node) => {
+      if (!node?.reportInvitation || node.reportInvitation.id !== invitationId) return node;
+      return {
+        ...node,
+        reportInvitation: {
+          ...node.reportInvitation,
+          status: "declined",
+          declinedAtChoiceCount: node.reportInvitation.completedChoiceCount
+        }
+      };
+    });
+  };
+
   // Make selected / custom choice -> Advance details
   const handleChoiceSelect = async (choiceText: string) => {
     if (!currentNode || !userData) return;
@@ -114,27 +203,7 @@ export default function App() {
 
     // If we've reached ending and clicked final report button
     if (currentNode.isEndingNode || choiceText === "安详落幕，查看一生洞察") {
-      setIsLoading(true);
-      
-      const finalHistoryItem = createHistoryItemFromNode(currentNode, choiceText);
-      const updatedHistory = [...history, finalHistoryItem];
-
-      try {
-        const body = await generateFinalOutcome({
-          userData,
-          answers,
-          history: updatedHistory,
-          currentAttributes: attributes
-        });
-        setOutcome(body);
-        setStep("insight");
-
-      } catch (err: any) {
-        console.error(err);
-        setErrorMsg(getSimulationErrorMessage(err, "宿命总结遭遇神识乱流，请重新请求结契。"));
-      } finally {
-        setIsLoading(false);
-      }
+      await handleGenerateFinalOutcome({ closureType: "mortality" }, choiceText);
       return;
     }
 
@@ -259,6 +328,8 @@ export default function App() {
                   history={history}
                   nodeCount={nodeCount}
                   onSelectChoice={handleChoiceSelect}
+                  onAcceptReportInvitation={handleAcceptReportInvitation}
+                  onContinueReportInvitation={handleContinueReportInvitation}
                   isLoadingNext={isLoadingNext}
                   isLoadingReport={isLoading}
                   onTimeTravel={handleTimeTravel}

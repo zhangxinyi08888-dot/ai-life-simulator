@@ -1,0 +1,6059 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-07-16-natural-reflection-browser-evaluation",
+  "caseSlug": "journey-venture-second",
+  "scenario": "accept_second",
+  "startedAt": "2026-07-15T16:23:48.866Z",
+  "completedAt": "2026-07-15T16:24:17.921Z",
+  "sourceUrl": "http://127.0.0.1:5173/?e2eCase=journey-venture-second",
+  "firstInvitation": {
+    "id": "360e60f2",
+    "status": "pending",
+    "reason": "arc_resolved",
+    "triggerKey": "arc:pressure_6f20e862",
+    "completedChoiceCount": 13,
+    "pressureArcId": "pressure_6f20e862",
+    "resolutionEvidence": [
+      "当前阶段的压力已经形成了明确而可验证的结果"
+    ]
+  },
+  "secondInvitation": {
+    "id": "a82dd5a2",
+    "status": "pending",
+    "reason": "arc_resolved",
+    "triggerKey": "arc:pressure_4fc1575d",
+    "completedChoiceCount": 23,
+    "pressureArcId": "pressure_4fc1575d",
+    "resolutionEvidence": [
+      "当前阶段的压力已经形成了明确而可验证的结果"
+    ]
+  },
+  "unexpectedInvitations": [],
+  "interactionLog": [
+    {
+      "type": "browser_case_started",
+      "slug": "journey-venture-second",
+      "scenario": "accept_second",
+      "url": "http://127.0.0.1:5173/?e2eCase=journey-venture-second",
+      "at": "2026-07-15T16:23:48.866Z"
+    },
+    {
+      "type": "simulation_started",
+      "nodeTitle": "创业双阶段验证线 · 阶段 01",
+      "initialAttributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 54,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 288,
+        "cashWan": 7.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 28.5,
+        "annualAfterTaxIncomeWan": 23.2,
+        "annualDisposableIncomeWan": 10.4,
+        "annualCoreExpenseWan": 12.8,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:23:53.390Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 01",
+      "resultingHistoryLength": 1,
+      "resultingNode": "创业双阶段验证线 · 阶段 02",
+      "ageInMonths": 300,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 57,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 300,
+        "cashWan": 16.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 38.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:23:54.433Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 02",
+      "resultingHistoryLength": 2,
+      "resultingNode": "创业双阶段验证线 · 阶段 03",
+      "ageInMonths": 312,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 60,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 312,
+        "cashWan": 26.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 47.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:23:55.439Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 03",
+      "resultingHistoryLength": 3,
+      "resultingNode": "创业双阶段验证线 · 阶段 04",
+      "ageInMonths": 324,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 71,
+        "wealth": 61,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 324,
+        "cashWan": 35.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 57.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:23:56.443Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 04",
+      "resultingHistoryLength": 4,
+      "resultingNode": "创业双阶段验证线 · 阶段 05",
+      "ageInMonths": 336,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 71,
+        "wealth": 62,
+        "relation": 61,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 336,
+        "cashWan": 45.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 66.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:23:57.448Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 05",
+      "resultingHistoryLength": 5,
+      "resultingNode": "创业双阶段验证线 · 阶段 06",
+      "ageInMonths": 348,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 71,
+        "wealth": 62,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 348,
+        "cashWan": 55.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 76.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:23:58.451Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 06",
+      "resultingHistoryLength": 6,
+      "resultingNode": "创业双阶段验证线 · 阶段 07",
+      "ageInMonths": 360,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 72,
+        "wealth": 63,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 360,
+        "cashWan": 64.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 86.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:23:59.455Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 07",
+      "resultingHistoryLength": 7,
+      "resultingNode": "创业双阶段验证线 · 阶段 08",
+      "ageInMonths": 372,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 72,
+        "wealth": 63,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 372,
+        "cashWan": 74.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 95.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:00.459Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 08",
+      "resultingHistoryLength": 8,
+      "resultingNode": "创业双阶段验证线 · 阶段 09",
+      "ageInMonths": 376,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 72,
+        "wealth": 64,
+        "relation": 62,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 376,
+        "cashWan": 77.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 98.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:01.463Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 09",
+      "resultingHistoryLength": 9,
+      "resultingNode": "创业双阶段验证线 · 阶段 10",
+      "ageInMonths": 385,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 385,
+        "cashWan": 84.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 106.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:02.469Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 10",
+      "resultingHistoryLength": 10,
+      "resultingNode": "创业双阶段验证线 · 阶段 11",
+      "ageInMonths": 394,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 394,
+        "cashWan": 91.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 113.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:03.141Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 11",
+      "resultingHistoryLength": 11,
+      "resultingNode": "创业双阶段验证线 · 阶段 12",
+      "ageInMonths": 415,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 415,
+        "cashWan": 108.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 130.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:04.476Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 12",
+      "resultingHistoryLength": 12,
+      "resultingNode": "创业双阶段验证线 · 阶段 13",
+      "ageInMonths": 439,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 65,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 439,
+        "cashWan": 127.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 149.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:05.373Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 13",
+      "resultingHistoryLength": 13,
+      "resultingNode": "创业双阶段验证线 · 阶段 14",
+      "ageInMonths": 472,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 65,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 472,
+        "cashWan": 154.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 175.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "invitation": {
+        "id": "360e60f2",
+        "status": "pending",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_6f20e862",
+        "completedChoiceCount": 13,
+        "pressureArcId": "pressure_6f20e862",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ]
+      },
+      "at": "2026-07-15T16:24:05.984Z"
+    },
+    {
+      "type": "invitation_shown",
+      "invitation": {
+        "id": "360e60f2",
+        "status": "pending",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_6f20e862",
+        "completedChoiceCount": 13,
+        "pressureArcId": "pressure_6f20e862",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ]
+      },
+      "historyLength": 13,
+      "nodeTitle": "创业双阶段验证线 · 阶段 14",
+      "at": "2026-07-15T16:24:06.487Z"
+    },
+    {
+      "type": "invitation_declined",
+      "invitation": {
+        "id": "360e60f2",
+        "status": "declined",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_6f20e862",
+        "completedChoiceCount": 13,
+        "pressureArcId": "pressure_6f20e862",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ],
+        "declinedAtChoiceCount": 13
+      },
+      "historyLength": 13,
+      "at": "2026-07-15T16:24:07.489Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 14",
+      "resultingHistoryLength": 14,
+      "resultingNode": "创业双阶段验证线 · 阶段 15",
+      "ageInMonths": 484,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 66,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 484,
+        "cashWan": 163.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 185.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:08.476Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 15",
+      "resultingHistoryLength": 15,
+      "resultingNode": "创业双阶段验证线 · 阶段 16",
+      "ageInMonths": 496,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 75,
+        "wealth": 66,
+        "relation": 63,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 496,
+        "cashWan": 173.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 194.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:08.995Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 16",
+      "resultingHistoryLength": 16,
+      "resultingNode": "创业双阶段验证线 · 阶段 17",
+      "ageInMonths": 508,
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 75,
+        "wealth": 66,
+        "relation": 64,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 508,
+        "cashWan": 183.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 204.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:09.903Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 17”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 17",
+      "resultingHistoryLength": 17,
+      "resultingNode": "创业双阶段验证线 · 阶段 18",
+      "ageInMonths": 520,
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 75,
+        "wealth": 66,
+        "relation": 64,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 520,
+        "cashWan": 192.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 214.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:10.502Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 18”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 18",
+      "resultingHistoryLength": 18,
+      "resultingNode": "创业双阶段验证线 · 阶段 19",
+      "ageInMonths": 524,
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 76,
+        "wealth": 66,
+        "relation": 64,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 524,
+        "cashWan": 195.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 217.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:11.505Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 19”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 19",
+      "resultingHistoryLength": 19,
+      "resultingNode": "创业双阶段验证线 · 阶段 20",
+      "ageInMonths": 536,
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 76,
+        "wealth": 66,
+        "relation": 64,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 536,
+        "cashWan": 205.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 226.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:12.510Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 20”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 20",
+      "resultingHistoryLength": 20,
+      "resultingNode": "创业双阶段验证线 · 阶段 21",
+      "ageInMonths": 542,
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 76,
+        "wealth": 67,
+        "relation": 65,
+        "health": 68
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 542,
+        "cashWan": 210.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 231.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:13.513Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 21”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 21",
+      "resultingHistoryLength": 21,
+      "resultingNode": "创业双阶段验证线 · 阶段 22",
+      "ageInMonths": 561,
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 77,
+        "wealth": 67,
+        "relation": 65,
+        "health": 68
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 561,
+        "cashWan": 225.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 246.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:14.517Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 22”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 22",
+      "resultingHistoryLength": 22,
+      "resultingNode": "创业双阶段验证线 · 阶段 23",
+      "ageInMonths": 581,
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 77,
+        "wealth": 67,
+        "relation": 65,
+        "health": 68
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 581,
+        "cashWan": 241.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 262.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:24:15.521Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“创业双阶段验证线 · 阶段 23”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "创业双阶段验证线 · 阶段 23",
+      "resultingHistoryLength": 23,
+      "resultingNode": "创业双阶段验证线 · 阶段 24",
+      "ageInMonths": 627,
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 77,
+        "wealth": 68,
+        "relation": 65,
+        "health": 68
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 627,
+        "cashWan": 278.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 299.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "invitation": {
+        "id": "a82dd5a2",
+        "status": "pending",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_4fc1575d",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_4fc1575d",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ]
+      },
+      "at": "2026-07-15T16:24:16.526Z"
+    },
+    {
+      "type": "invitation_shown",
+      "invitation": {
+        "id": "a82dd5a2",
+        "status": "pending",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_4fc1575d",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_4fc1575d",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ]
+      },
+      "historyLength": 23,
+      "nodeTitle": "创业双阶段验证线 · 阶段 24",
+      "at": "2026-07-15T16:24:16.920Z"
+    },
+    {
+      "type": "invitation_accepted",
+      "invitation": {
+        "id": "a82dd5a2",
+        "status": "pending",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_4fc1575d",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_4fc1575d",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ]
+      },
+      "closureType": "user_reflection",
+      "historyLength": 24,
+      "at": "2026-07-15T16:24:17.921Z"
+    }
+  ],
+  "assertions": {
+    "firstInvitationInProductWindow": true,
+    "firstInvitationIsArcResolution": true,
+    "secondInvitationIsLaterStage": true,
+    "expectedInvitationCount": true,
+    "noUnexpectedThirdInvitation": true,
+    "finalClosureType": true,
+    "reportLanguageMatchesClosure": true,
+    "allHistoryNodesPreserveChoices": true,
+    "financialStatePreserved": true,
+    "reportPresent": true
+  },
+  "finalState": {
+    "capturedAt": "2026-07-15T16:24:17.076Z",
+    "e2eCase": "journey-venture-second",
+    "step": "insight",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "07:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "24 岁 · 工作与转折",
+      "milestones": [
+        {
+          "id": "career",
+          "title": "工作与转折",
+          "content": "第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。",
+      "milestoneRelationship": "",
+      "milestoneOther": "",
+      "regressionNodeKey": "career",
+      "regressionAge": 24,
+      "regressionSituation": "【用户想重写的真实事件】\n第一次收到理想公司的邀请时，我因为不够自信，选择留在了熟悉但没有成长的岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+      "coreStoryFocus": "career"
+    },
+    "answers": [
+      {
+        "id": 1,
+        "question": "在“创业与现金流”这条线里，当时最具体的现实限制是什么？",
+        "answer": "我最担心收入不稳。"
+      },
+      {
+        "id": 2,
+        "question": "当时遇到压力时，你通常会怎么反应？",
+        "answer": "我会查资料慢慢解决。"
+      },
+      {
+        "id": 3,
+        "question": "当时你能动用的能力、兴趣或资源是什么？",
+        "answer": "我有长期学习的能力。"
+      }
+    ],
+    "history": [
+      {
+        "age": 24,
+        "ageInMonths": 288,
+        "lifeStage": "emerging_adulthood",
+        "title": "创业双阶段验证线 · 阶段 01",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 1 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 54,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashWan": 7.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 28.5,
+          "annualAfterTaxIncomeWan": 23.2,
+          "annualDisposableIncomeWan": 10.4,
+          "annualCoreExpenseWan": 12.8,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-01:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 01”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-01:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 01”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-01:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_cd475a8b",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 288,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_5cf80ba0",
+            "summary": "在创业与现金流这条路上，第 1 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 25,
+        "ageInMonths": 300,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 02",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 2 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 57,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 300,
+          "cashWan": 16.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 38.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-02:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 02”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-02:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 02”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-02:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_2456b535",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 300,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_a265a9e7",
+            "summary": "在创业与现金流这条路上，第 2 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "1cf8ec34"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 26,
+        "ageInMonths": 312,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 03",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 3 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 60,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 312,
+          "cashWan": 26.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 47.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-03:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 03”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-03:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 03”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-03:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_04ea5dd1",
+            "startAgeInMonths": 300,
+            "endAgeInMonths": 312,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_574c0c34",
+            "summary": "在创业与现金流这条路上，第 3 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 27,
+        "ageInMonths": 324,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 04",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 4 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 71,
+          "wealth": 61,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 324,
+          "cashWan": 35.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 57.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-04:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 04”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-04:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 04”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-04:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_e048f66d",
+            "startAgeInMonths": 312,
+            "endAgeInMonths": 324,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_193547b0",
+            "summary": "在创业与现金流这条路上，第 4 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 28,
+        "ageInMonths": 336,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 05",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 5 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 71,
+          "wealth": 62,
+          "relation": 61,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 336,
+          "cashWan": 45.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 66.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-05:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 05”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-05:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 05”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-05:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_54c6a435",
+            "startAgeInMonths": 324,
+            "endAgeInMonths": 336,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_45e309b5",
+            "summary": "在创业与现金流这条路上，第 5 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 29,
+        "ageInMonths": 348,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 06",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 6 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 71,
+          "wealth": 62,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 348,
+          "cashWan": 55.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 76.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-06:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 06”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-06:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 06”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-06:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_bcca9e0d",
+            "startAgeInMonths": 336,
+            "endAgeInMonths": 348,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_da22312c",
+            "summary": "在创业与现金流这条路上，第 6 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 30,
+        "ageInMonths": 360,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 07",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 7 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 72,
+          "wealth": 63,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 360,
+          "cashWan": 64.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 86.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-07:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 07”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-07:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 07”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-07:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_908de8f0",
+            "startAgeInMonths": 348,
+            "endAgeInMonths": 360,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_48899c5e",
+            "summary": "在创业与现金流这条路上，第 7 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 31,
+        "ageInMonths": 372,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 08",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 8 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 72,
+          "wealth": 63,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 372,
+          "cashWan": 74.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 95.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-08:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 08”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-08:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 08”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-08:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_3cf2dd1a",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 372,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_38453605",
+            "summary": "在创业与现金流这条路上，第 8 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 31,
+        "ageInMonths": 376,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 09",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 9 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 72,
+          "wealth": 64,
+          "relation": 62,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 376,
+          "cashWan": 77.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 98.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 4,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 4,
+          "afterTaxIncomeWan": 7.6,
+          "livingExpenseWan": 4.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 3.2,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-09:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 09”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-09:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 09”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-09:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 4,
+          "elapsedYears": 0.3333333333333333,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_9b7c11bd",
+            "pressureArcId": "pressure_6f20e862",
+            "startAgeInMonths": 372,
+            "endAgeInMonths": 376,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_17bb2f05",
+            "summary": "在创业与现金流这条路上，第 9 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 376,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_6f20e862"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_6f20e862",
+          "phaseId": "response",
+          "transitionAction": "advance"
+        }
+      },
+      {
+        "age": 32,
+        "ageInMonths": 385,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 10",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 10 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 385,
+          "cashWan": 84.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 106.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 9,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 9,
+          "afterTaxIncomeWan": 17.1,
+          "livingExpenseWan": 9.9,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 7.2,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-10:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 10”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-10:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 10”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-10:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 9,
+          "elapsedYears": 0.75,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_4203d26d",
+            "pressureArcId": "pressure_6f20e862",
+            "startAgeInMonths": 376,
+            "endAgeInMonths": 385,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_f28e2a79",
+            "summary": "在创业与现金流这条路上，第 10 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 376,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 2,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_6f20e862"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_6f20e862",
+          "phaseId": "response",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 32,
+        "ageInMonths": 394,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 11",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 11 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 394,
+          "cashWan": 91.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 113.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 9,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 9,
+          "afterTaxIncomeWan": 17.1,
+          "livingExpenseWan": 9.9,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 7.2,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-11:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 11”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-11:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 11”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-11:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 9,
+          "elapsedYears": 0.75,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_0e2a03c0",
+            "pressureArcId": "pressure_6f20e862",
+            "startAgeInMonths": 385,
+            "endAgeInMonths": 394,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_c8e42327",
+            "summary": "在创业与现金流这条路上，第 11 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 394,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 3,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_6f20e862"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_6f20e862",
+          "phaseId": "growth",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 34,
+        "ageInMonths": 415,
+        "lifeStage": "early_adulthood",
+        "title": "创业双阶段验证线 · 阶段 12",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 12 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 415,
+          "cashWan": 108.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 130.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 21,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 21,
+          "afterTaxIncomeWan": 39.9,
+          "livingExpenseWan": 23.1,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 16.8,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-12:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 12”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-12:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 12”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-12:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 21,
+          "elapsedYears": 1.75,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_3c9c616b",
+            "pressureArcId": "pressure_6f20e862",
+            "startAgeInMonths": 394,
+            "endAgeInMonths": 415,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_0bcf4adb",
+            "summary": "在创业与现金流这条路上，第 12 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 394,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 4,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_6f20e862"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_6f20e862",
+          "phaseId": "growth",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 36,
+        "ageInMonths": 439,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 13",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 13 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 65,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 439,
+          "cashWan": 127.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 149.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 24,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 24,
+          "afterTaxIncomeWan": 45.6,
+          "livingExpenseWan": 26.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 19.2,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-13:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 13”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-13:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 13”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-13:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 24,
+          "elapsedYears": 2,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_96bafd8a",
+            "pressureArcId": "pressure_6f20e862",
+            "startAgeInMonths": 415,
+            "endAgeInMonths": 439,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_dc1919bc",
+            "summary": "在创业与现金流这条路上，第 13 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "active",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 5,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_6f20e862"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_6f20e862",
+          "phaseId": "operation",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 39,
+        "ageInMonths": 472,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 14",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 14 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。\n\n当前阶段的压力已经形成了明确而可验证的结果，长期方向仍然可以继续推进。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 65,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 472,
+          "cashWan": 154.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 175.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 33,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 33,
+          "afterTaxIncomeWan": 62.7,
+          "livingExpenseWan": 36.3,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 26.4,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-14:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 14”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-14:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 14”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-14:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 33,
+          "elapsedYears": 2.75,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_c8e4772a",
+            "pressureArcId": "pressure_6f20e862",
+            "startAgeInMonths": 439,
+            "endAgeInMonths": 472,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_2472280b",
+            "summary": "在创业与现金流这条路上，第 14 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "type": "pressure_resolved",
+              "pressureArcId": "pressure_6f20e862",
+              "evidence": "当前阶段的压力已经形成了明确而可验证的结果",
+              "confidence": 1
+            }
+          ],
+          "activeCharacters": [],
+          "worldDeltas": [
+            {
+              "type": "career_state",
+              "summary": "当前阶段的压力已经形成了明确而可验证的结果"
+            }
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae"
+          ],
+          "version": 1,
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_6f20e862",
+          "phaseId": "operation",
+          "transitionAction": "resolve"
+        },
+        "reportInvitation": {
+          "id": "360e60f2",
+          "status": "declined",
+          "reason": "arc_resolved",
+          "triggerKey": "arc:pressure_6f20e862",
+          "completedChoiceCount": 13,
+          "pressureArcId": "pressure_6f20e862",
+          "resolutionEvidence": [
+            "当前阶段的压力已经形成了明确而可验证的结果"
+          ],
+          "declinedAtChoiceCount": 13
+        }
+      },
+      {
+        "age": 40,
+        "ageInMonths": 484,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 15",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 15 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 66,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 484,
+          "cashWan": 163.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 185.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-15:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 15”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-15:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 15”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-15:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_82c99d18",
+            "startAgeInMonths": 472,
+            "endAgeInMonths": 484,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_01be0189",
+            "summary": "在创业与现金流这条路上，第 15 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5"
+          ],
+          "version": 1,
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 41,
+        "ageInMonths": 496,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 16",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 16 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 75,
+          "wealth": 66,
+          "relation": 63,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 496,
+          "cashWan": 173.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 194.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-16:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 16”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-16:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 16”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-16:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_b7a593fe",
+            "startAgeInMonths": 484,
+            "endAgeInMonths": 496,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_2f1faace",
+            "summary": "在创业与现金流这条路上，第 16 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58"
+          ],
+          "version": 1,
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 42,
+        "ageInMonths": 508,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 17",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 17 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 17”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 75,
+          "wealth": 66,
+          "relation": 64,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 508,
+          "cashWan": 183.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 204.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 17”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-17:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 17”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-17:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 17”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-17:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_484e84e9",
+            "startAgeInMonths": 496,
+            "endAgeInMonths": 508,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_b5b7d806",
+            "summary": "在创业与现金流这条路上，第 17 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58",
+            "26fa7751"
+          ],
+          "version": 1,
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 43,
+        "ageInMonths": 520,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 18",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 18 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 18”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 75,
+          "wealth": 66,
+          "relation": 64,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 520,
+          "cashWan": 192.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 214.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 18”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-18:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 18”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-18:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 18”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-18:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_0cc14ab2",
+            "startAgeInMonths": 508,
+            "endAgeInMonths": 520,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_6cd48cda",
+            "summary": "在创业与现金流这条路上，第 18 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58",
+            "26fa7751",
+            "d9592daa"
+          ],
+          "version": 1,
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 43,
+        "ageInMonths": 524,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 19",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 19 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 19”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 76,
+          "wealth": 66,
+          "relation": 64,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 524,
+          "cashWan": 195.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 217.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 4,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 4,
+          "afterTaxIncomeWan": 7.6,
+          "livingExpenseWan": 4.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 3.2,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 19”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-19:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 19”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-19:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 19”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-19:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 4,
+          "elapsedYears": 0.3333333333333333,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_ebd2b19d",
+            "pressureArcId": "pressure_4fc1575d",
+            "startAgeInMonths": 520,
+            "endAgeInMonths": 524,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_e8fdde58",
+            "summary": "在创业与现金流这条路上，第 19 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_4fc1575d",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 520,
+              "phaseStartedAtAgeInMonths": 524,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58",
+            "26fa7751",
+            "d9592daa",
+            "b4ba9d0a"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4fc1575d",
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4fc1575d",
+          "phaseId": "response",
+          "transitionAction": "advance"
+        }
+      },
+      {
+        "age": 44,
+        "ageInMonths": 536,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 20",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 20 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 20”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 76,
+          "wealth": 66,
+          "relation": 64,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 536,
+          "cashWan": 205.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 226.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 20”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-20:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 20”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-20:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 20”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-20:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_fc49e1be",
+            "pressureArcId": "pressure_4fc1575d",
+            "startAgeInMonths": 524,
+            "endAgeInMonths": 536,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_b28e1ef2",
+            "summary": "在创业与现金流这条路上，第 20 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_4fc1575d",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 520,
+              "phaseStartedAtAgeInMonths": 524,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 2,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58",
+            "26fa7751",
+            "d9592daa",
+            "b4ba9d0a",
+            "5de0090e"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4fc1575d",
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4fc1575d",
+          "phaseId": "response",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 45,
+        "ageInMonths": 542,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 21",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 21 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 21”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 63,
+          "intelligence": 76,
+          "wealth": 67,
+          "relation": 65,
+          "health": 68
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 542,
+          "cashWan": 210.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 231.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 6,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 6,
+          "afterTaxIncomeWan": 11.4,
+          "livingExpenseWan": 6.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 4.8,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 21”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-21:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 21”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-21:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 21”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-21:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 6,
+          "elapsedYears": 0.5,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_ac6e311a",
+            "pressureArcId": "pressure_4fc1575d",
+            "startAgeInMonths": 536,
+            "endAgeInMonths": 542,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_2014ffb9",
+            "summary": "在创业与现金流这条路上，第 21 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_4fc1575d",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 520,
+              "phaseStartedAtAgeInMonths": 542,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 3,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58",
+            "26fa7751",
+            "d9592daa",
+            "b4ba9d0a",
+            "5de0090e",
+            "ba699a0e"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4fc1575d",
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4fc1575d",
+          "phaseId": "growth",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 46,
+        "ageInMonths": 561,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 22",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 22 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 22”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 63,
+          "intelligence": 77,
+          "wealth": 67,
+          "relation": 65,
+          "health": 68
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 561,
+          "cashWan": 225.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 246.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 19,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 19,
+          "afterTaxIncomeWan": 36.1,
+          "livingExpenseWan": 20.9,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 15.2,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 22”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-22:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 22”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-22:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 22”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-22:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 19,
+          "elapsedYears": 1.5833333333333333,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_56ac7c50",
+            "pressureArcId": "pressure_4fc1575d",
+            "startAgeInMonths": 542,
+            "endAgeInMonths": 561,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_bf9571e1",
+            "summary": "在创业与现金流这条路上，第 22 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_4fc1575d",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 520,
+              "phaseStartedAtAgeInMonths": 542,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 4,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58",
+            "26fa7751",
+            "d9592daa",
+            "b4ba9d0a",
+            "5de0090e",
+            "ba699a0e",
+            "8b846b26"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4fc1575d",
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4fc1575d",
+          "phaseId": "growth",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 48,
+        "ageInMonths": 581,
+        "lifeStage": "midlife",
+        "title": "创业双阶段验证线 · 阶段 23",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 23 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“创业双阶段验证线 · 阶段 23”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 63,
+          "intelligence": 77,
+          "wealth": 67,
+          "relation": 65,
+          "health": 68
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 581,
+          "cashWan": 241.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 262.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 20,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 20,
+          "afterTaxIncomeWan": 38,
+          "livingExpenseWan": 22,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 16,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 23”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-23:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 23”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-23:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 23”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-23:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 20,
+          "elapsedYears": 1.6666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_5198beb9",
+            "pressureArcId": "pressure_4fc1575d",
+            "startAgeInMonths": 561,
+            "endAgeInMonths": 581,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_88081b8b",
+            "summary": "在创业与现金流这条路上，第 23 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_4fc1575d",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "active",
+              "startedAtAgeInMonths": 520,
+              "phaseStartedAtAgeInMonths": 581,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 5,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58",
+            "26fa7751",
+            "d9592daa",
+            "b4ba9d0a",
+            "5de0090e",
+            "ba699a0e",
+            "8b846b26",
+            "c4e7fcb7"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4fc1575d",
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4fc1575d",
+          "phaseId": "operation",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 52,
+        "ageInMonths": 627,
+        "lifeStage": "mature_adulthood",
+        "title": "创业双阶段验证线 · 阶段 24",
+        "stage": "现实抉择",
+        "description": "在创业与现金流这条路上，第 24 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。\n\n当前阶段的压力已经形成了明确而可验证的结果，长期方向仍然可以继续推进。",
+        "selectedChoice": "查看这段人生的报告",
+        "attributes": {
+          "happiness": 63,
+          "intelligence": 77,
+          "wealth": 68,
+          "relation": 65,
+          "health": 68
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 627,
+          "cashWan": 278.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 299.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "self_employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 46,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 46,
+          "afterTaxIncomeWan": 87.4,
+          "livingExpenseWan": 50.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 36.8,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“创业双阶段验证线 · 阶段 24”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-24:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“创业双阶段验证线 · 阶段 24”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-24:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“创业双阶段验证线 · 阶段 24”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:创业双阶段验证线-阶段-24:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 46,
+          "elapsedYears": 3.8333333333333335,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_299bdaf5",
+            "pressureArcId": "pressure_4fc1575d",
+            "startAgeInMonths": 581,
+            "endAgeInMonths": 627,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_3d4c2073",
+            "summary": "在创业与现金流这条路上，第 24 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "type": "pressure_resolved",
+              "pressureArcId": "pressure_4fc1575d",
+              "evidence": "当前阶段的压力已经形成了明确而可验证的结果",
+              "confidence": 1
+            }
+          ],
+          "activeCharacters": [],
+          "worldDeltas": [
+            {
+              "type": "career_state",
+              "summary": "当前阶段的压力已经形成了明确而可验证的结果"
+            }
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_8212eb41",
+              "directionType": "career",
+              "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_6f20e862",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 372,
+              "phaseStartedAtAgeInMonths": 439,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_4fc1575d",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 520,
+              "phaseStartedAtAgeInMonths": 581,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "1cf8ec34",
+            "c0c25ed5",
+            "44170641",
+            "e6a94afd",
+            "45340aac",
+            "4f6eb518",
+            "aeab048c",
+            "5fb2725c",
+            "05d19c68",
+            "14aaf930",
+            "cf7f1080",
+            "54ffbb77",
+            "baf08cae",
+            "85fa24b5",
+            "9dff5e58",
+            "26fa7751",
+            "d9592daa",
+            "b4ba9d0a",
+            "5de0090e",
+            "ba699a0e",
+            "8b846b26",
+            "c4e7fcb7",
+            "1a956d05"
+          ],
+          "version": 1,
+          "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4fc1575d",
+          "phaseId": "operation",
+          "transitionAction": "resolve"
+        },
+        "reportInvitation": {
+          "id": "a82dd5a2",
+          "status": "accepted",
+          "reason": "arc_resolved",
+          "triggerKey": "arc:pressure_4fc1575d",
+          "completedChoiceCount": 23,
+          "pressureArcId": "pressure_4fc1575d",
+          "resolutionEvidence": [
+            "当前阶段的压力已经形成了明确而可验证的结果"
+          ],
+          "acceptedAtChoiceCount": 23
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 52,
+      "stage": "现实抉择",
+      "title": "创业双阶段验证线 · 阶段 24",
+      "description": "在创业与现金流这条路上，第 24 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。\n\n当前阶段的压力已经形成了明确而可验证的结果，长期方向仍然可以继续推进。",
+      "attributes": {
+        "happiness": 63,
+        "intelligence": 77,
+        "wealth": 68,
+        "relation": 65,
+        "health": 68
+      },
+      "isEndingNode": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "围绕“创业双阶段验证线 · 阶段 24”先完成一个可以验证的阶段成果，按一年节奏继续",
+          "impactSummary": "沉淀成果",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              12
+            ],
+            "requiresFollowUp": false,
+            "reason": "浏览器长流程普通推进"
+          },
+          "decisionIntent": "e2e:创业双阶段验证线-阶段-24:build",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "在“创业双阶段验证线 · 阶段 24”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+          "impactSummary": "稳中试探",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              48,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "浏览器长流程寿命推进"
+          },
+          "decisionIntent": "e2e:创业双阶段验证线-阶段-24:stabilize",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "为“创业双阶段验证线 · 阶段 24”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+          "impactSummary": "借力成长",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "浏览器长流程阶段切换"
+          },
+          "decisionIntent": "e2e:创业双阶段验证线-阶段-24:collaborate",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "narrativeMeta": {
+        "elapsedMonths": 46,
+        "elapsedYears": 3.8333333333333335,
+        "lifeIntensity": "stable",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_299bdaf5",
+          "pressureArcId": "pressure_4fc1575d",
+          "startAgeInMonths": 581,
+          "endAgeInMonths": 627,
+          "internalTransitions": [],
+          "decisionCheckpointId": "checkpoint_3d4c2073",
+          "summary": "在创业与现金流这条路上，第 24 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [
+          {
+            "type": "pressure_resolved",
+            "pressureArcId": "pressure_4fc1575d",
+            "evidence": "当前阶段的压力已经形成了明确而可验证的结果",
+            "confidence": 1
+          }
+        ],
+        "activeCharacters": [],
+        "worldDeltas": [
+          {
+            "type": "career_state",
+            "summary": "当前阶段的压力已经形成了明确而可验证的结果"
+          }
+        ]
+      },
+      "ageInMonths": 627,
+      "lifeStage": "mature_adulthood",
+      "eventMeta": {
+        "eventId": "career_structural_instability",
+        "eventCategory": "career",
+        "eventTags": [
+          "career",
+          "instability",
+          "survival_pressure",
+          "transition"
+        ],
+        "eventIntensity": "major",
+        "phasePolicyId": "generic_pressure_v1"
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 627,
+        "cashWan": 278.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 299.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "financialSignals": {
+        "employmentStatus": "self_employed",
+        "monthlyNetIncomeWan": 1.9,
+        "incomeMonths": 46,
+        "monthlyLivingExpenseWan": 1.1,
+        "oneOffIncomeWan": 0,
+        "oneOffExpenseWan": 0,
+        "assetValueChangeWan": 0,
+        "propertyMarketValueChangeWan": 0,
+        "personalDebtChangeWan": 0,
+        "incomeStability": "stable",
+        "confidence": 0.35,
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "financialChange": {
+        "periodMonths": 46,
+        "afterTaxIncomeWan": 87.4,
+        "livingExpenseWan": 50.6,
+        "medicalEducationExpenseWan": 0,
+        "interestAndFeesWan": 0,
+        "assetValueChangeWan": 0,
+        "otherNetChangeWan": 0,
+        "netWorthChangeWan": 36.8,
+        "incomeStability": "stable",
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "committedArcMeta": {
+        "pressureArcId": "pressure_4fc1575d",
+        "phaseId": "operation",
+        "transitionAction": "resolve"
+      },
+      "worldStateSnapshot": {
+        "people": [],
+        "directionArcs": [
+          {
+            "id": "direction_8212eb41",
+            "directionType": "career",
+            "summary": "A. 接受新的机会，进入更有成长性的环境\nB. 留在原岗位，但主动争取更核心的职责\nC. 先离开既定轨道，尝试独立发展自己的能力",
+            "status": "active",
+            "startedAtAgeInMonths": 288,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [
+          {
+            "id": "pressure_6f20e862",
+            "eventId": "career_structural_instability",
+            "eventIntentType": "career_structural_instability",
+            "phasePolicyId": "generic_pressure_v1",
+            "phaseId": "operation",
+            "status": "resolved",
+            "startedAtAgeInMonths": 372,
+            "phaseStartedAtAgeInMonths": 439,
+            "phaseCheckpointCount": 1,
+            "totalCheckpointCount": 6,
+            "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+          },
+          {
+            "id": "pressure_4fc1575d",
+            "eventId": "career_structural_instability",
+            "eventIntentType": "career_structural_instability",
+            "phasePolicyId": "generic_pressure_v1",
+            "phaseId": "operation",
+            "status": "resolved",
+            "startedAtAgeInMonths": 520,
+            "phaseStartedAtAgeInMonths": 581,
+            "phaseCheckpointCount": 1,
+            "totalCheckpointCount": 6,
+            "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+          }
+        ],
+        "committedTransactionIds": [
+          "1cf8ec34",
+          "c0c25ed5",
+          "44170641",
+          "e6a94afd",
+          "45340aac",
+          "4f6eb518",
+          "aeab048c",
+          "5fb2725c",
+          "05d19c68",
+          "14aaf930",
+          "cf7f1080",
+          "54ffbb77",
+          "baf08cae",
+          "85fa24b5",
+          "9dff5e58",
+          "26fa7751",
+          "d9592daa",
+          "b4ba9d0a",
+          "5de0090e",
+          "ba699a0e",
+          "8b846b26",
+          "c4e7fcb7",
+          "1a956d05"
+        ],
+        "version": 1,
+        "careerSummary": "当前阶段的压力已经形成了明确而可验证的结果"
+      },
+      "reportInvitation": {
+        "id": "a82dd5a2",
+        "status": "accepted",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_4fc1575d",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_4fc1575d",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ],
+        "acceptedAtChoiceCount": 23
+      }
+    },
+    "currentAttributes": {
+      "happiness": 63,
+      "intelligence": 77,
+      "wealth": 68,
+      "relation": 65,
+      "health": 68
+    },
+    "simulationSeed": "b6a7e26c-3bc4-4b33-9329-0b49096947a7",
+    "outcome": {
+      "share": {
+        "viralTitle": "重生之我走过创业双阶段验证线",
+        "covenantTitle": "仍然选择的人",
+        "oneLineSummary": "这条创业与现金流路线记录了阶段性压力、主动回望和继续生活之间的真实关系。",
+        "timeline": [
+          {
+            "ageLabel": "26岁",
+            "icon": "🌱",
+            "title": "关键阶段 1",
+            "choiceSummary": "保留第 1 次真实选择",
+            "keyMomentIndexes": [
+              0
+            ]
+          },
+          {
+            "ageLabel": "30岁",
+            "icon": "🧭",
+            "title": "关键阶段 2",
+            "choiceSummary": "保留第 2 次真实选择",
+            "keyMomentIndexes": [
+              1
+            ]
+          },
+          {
+            "ageLabel": "34岁",
+            "icon": "💼",
+            "title": "关键阶段 3",
+            "choiceSummary": "保留第 3 次真实选择",
+            "keyMomentIndexes": [
+              2
+            ]
+          },
+          {
+            "ageLabel": "38岁",
+            "icon": "🤝",
+            "title": "关键阶段 4",
+            "choiceSummary": "保留第 4 次真实选择",
+            "keyMomentIndexes": [
+              3
+            ]
+          },
+          {
+            "ageLabel": "42岁",
+            "icon": "🏠",
+            "title": "关键阶段 5",
+            "choiceSummary": "保留第 5 次真实选择",
+            "keyMomentIndexes": [
+              4
+            ]
+          },
+          {
+            "ageLabel": "46岁",
+            "icon": "🌿",
+            "title": "关键阶段 6",
+            "choiceSummary": "保留第 6 次真实选择",
+            "keyMomentIndexes": [
+              5
+            ]
+          }
+        ],
+        "closingLine": "人生不是由成功组成，而是由一次次选择组成。",
+        "posterTheme": "warm_realistic",
+        "downloadFileName": "这段人生的报告.png",
+        "imageAlt": "重生之我走过创业双阶段验证线 阶段人生报告海报"
+      },
+      "report": {
+        "executiveSummary": {
+          "headline": "AI 回顾了你的人生轨迹，发现真正塑造你的不是某一次决定，而是三个反复出现的选择模式。",
+          "patterns": [
+            {
+              "name": "成长优先，而非短期稳定",
+              "shortDescription": "每次关键转折，你都会把长期能力放在眼前确定性之前。",
+              "keyMomentIndexes": [
+                0,
+                1
+              ]
+            },
+            {
+              "name": "先准备，再行动",
+              "shortDescription": "你很少冲动开始，通常会等作品、经验或判断更扎实后才真正迈出去。",
+              "keyMomentIndexes": [
+                1,
+                2
+              ]
+            },
+            {
+              "name": "独自解决，再慢慢沉淀",
+              "shortDescription": "你习惯把压力先接住，再用学习和复盘把它变成自己的方法。",
+              "keyMomentIndexes": [
+                2,
+                3
+              ]
+            }
+          ],
+          "closingLine": "这些模式让你获得了今天的优势，也带来了今天的代价。"
+        },
+        "repeatedPatterns": [
+          {
+            "name": "成长优先",
+            "title": "你总是在稳定和成长之间，把票投给成长",
+            "paragraphs": [
+              "回看这条轨迹，真正改变你的不是某个突然的运气，而是你一次次把自己放进更难但更能长本事的位置。早期你会顾虑现实，后来每到分岔点，还是会选择能积累经验、作品和判断力的那条路。",
+              "这已经不是单次决定，而是一套长期运行的选择系统。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              1,
+              2
+            ],
+            "closingLine": "你的人生不是被机会推着走，而是被能力复利慢慢推开。"
+          }
+        ],
+        "patternEffects": [
+          {
+            "patternName": "长期积累",
+            "compoundReturn": "经验越来越能迁移，作品越来越能证明你。",
+            "hiddenCost": "速度看起来不够快，也容易在独自硬扛时消耗自己。",
+            "paragraphs": [
+              "这种模式让你的优势更耐用：行业和环境变化时，你不是只剩一个岗位，而是带着可迁移的能力继续往前走。但它也让你习惯把压力内部消化，很多本可以被合作放大的事情，最后都变成了一个人的长跑。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              2,
+              3
+            ],
+            "closingLine": "真正限制你的，已经不是努力，而是放大努力的方式。"
+          }
+        ],
+        "futureTrends": [
+          {
+            "title": "经验产品化会变得越来越重要",
+            "trend": "如果这个模式继续，未来十年你最可能把过往经验变成产品、方法或服务，而不是单纯依赖职位变化。",
+            "reason": "因为你的增长一直来自积累和沉淀，这是模式延续，不是命运预测。",
+            "keyMomentIndexes": [
+              2,
+              3
+            ]
+          }
+        ],
+        "patternsToKeep": [
+          {
+            "title": "保留把事情做成作品的习惯",
+            "why": "它已经在多个阶段证明，比短期热闹更能帮你留下真实资产。",
+            "paragraphs": [
+              "继续让选择落到作品、案例、方法和可复用成果上。你越能把经历沉淀下来，未来越不容易被单一环境定义。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              2
+            ],
+            "closingLine": "作品，是你和时间合作的方式。"
+          }
+        ],
+        "patternsToAdjust": [
+          {
+            "title": "把自己做，升级成一起做",
+            "why": "过去独自解决问题让你成长很快，但下一阶段它会成为瓶颈。",
+            "paragraphs": [
+              "未来五年，重要的不是再证明你能一个人扛住，而是找到能放大你能力的人、流程和资源。合作不是降低自主性，而是让你的积累产生更大回声。"
+            ],
+            "keyMomentIndexes": [
+              2,
+              3
+            ],
+            "closingLine": "能力决定你能走多快，合作决定你能走多远。"
+          }
+        ],
+        "finalLifeReading": {
+          "title": "如果我是十年后的你",
+          "paragraphs": [
+            "回头看你的轨迹，我会发现一件很有意思的事：你并不是靠某一次大胆翻盘改变人生。真正发生的是，你把同一种选择重复了很多年。",
+            "别人看到的是节点，你走过的是一套越来越清晰的运行机制。"
+          ],
+          "finalSentence": "阶段性答案不是人生完成，它只是让下一次选择变得更清楚。"
+        }
+      },
+      "meta": {
+        "generatedAt": "2026-07-02T00:00:00.000Z",
+        "modelProvider": "mock",
+        "posterVersion": "web-v1",
+        "reportVersion": "life-pattern-v2",
+        "closureType": "user_reflection"
+      }
+    },
+    "invitations": [
+      {
+        "nodeIndex": 13,
+        "id": "360e60f2",
+        "status": "declined",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_6f20e862",
+        "completedChoiceCount": 13,
+        "pressureArcId": "pressure_6f20e862",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ],
+        "declinedAtChoiceCount": 13,
+        "terminalAction": "围绕“创业双阶段验证线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续"
+      },
+      {
+        "nodeIndex": 23,
+        "id": "a82dd5a2",
+        "status": "accepted",
+        "reason": "arc_resolved",
+        "triggerKey": "arc:pressure_4fc1575d",
+        "completedChoiceCount": 23,
+        "pressureArcId": "pressure_4fc1575d",
+        "resolutionEvidence": [
+          "当前阶段的压力已经形成了明确而可验证的结果"
+        ],
+        "acceptedAtChoiceCount": 23,
+        "terminalAction": "查看这段人生的报告"
+      }
+    ]
+  }
+}

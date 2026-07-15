@@ -9,7 +9,8 @@ import {
   PatternUpgradeItem,
   PosterTheme,
   ShareEndingCard,
-  ShareTimelineItem
+  ShareTimelineItem,
+  SimulationClosureType
 } from "../types";
 import { formatAgeInMonths } from "./timelineAdvance";
 
@@ -32,12 +33,13 @@ function clampText(value: string, maxLength: number): string {
   return `${chars.slice(0, Math.max(0, maxLength - 1)).join("")}…`;
 }
 
-function sanitizeFileName(value: unknown): string {
-  const raw = readString(value, "人生终章.png")
+function sanitizeFileName(value: unknown, closureType: SimulationClosureType): string {
+  const fallback = closureType === "user_reflection" ? "这段人生的报告.png" : "人生终章.png";
+  const raw = readString(value, fallback)
     .replace(/[\\/:*?"<>|]+/g, "")
     .replace(/\s+/g, "")
     .trim();
-  const withoutExt = raw.replace(/\.png$/i, "") || "人生终章";
+  const withoutExt = raw.replace(/\.png$/i, "") || fallback.replace(/\.png$/i, "");
   return `${withoutExt}.png`;
 }
 
@@ -85,7 +87,7 @@ function normalizeTimelineItem(item: any, history: HistoryItem[], index: number)
   };
 }
 
-function normalizeShare(data: any, history: HistoryItem[]): ShareEndingCard {
+function normalizeShare(data: any, history: HistoryItem[], closureType: SimulationClosureType): ShareEndingCard {
   const rawTimeline = Array.isArray(data?.timeline) ? data.timeline : [];
   const normalizedTimeline = rawTimeline
     .slice(0, 6)
@@ -103,8 +105,12 @@ function normalizeShare(data: any, history: HistoryItem[]): ShareEndingCard {
     timeline: timeline.slice(0, 6),
     closingLine: clampText(readString(data?.closingLine, "人生不是由成功组成，而是由一次次选择组成。"), 40),
     posterTheme,
-    downloadFileName: sanitizeFileName(data?.downloadFileName),
-    imageAlt: readString(data?.imageAlt, `${viralTitle} 人生终章海报`)
+    downloadFileName: closureType === "user_reflection"
+      ? "这段人生的报告.png"
+      : sanitizeFileName(data?.downloadFileName, closureType),
+    imageAlt: closureType === "user_reflection"
+      ? `${viralTitle} 阶段人生报告海报`
+      : readString(data?.imageAlt, `${viralTitle} 人生终章海报`)
   };
 }
 
@@ -233,15 +239,16 @@ function normalizeReport(data: any, historyLength: number): LifePatternReport {
   };
 }
 
-export function normalizeFinalLifeOutcome(data: any, history: HistoryItem[] = []): FinalLifeOutcome {
+export function normalizeFinalLifeOutcome(data: any, history: HistoryItem[] = [], closureType: SimulationClosureType = "mortality"): FinalLifeOutcome {
   return {
-    share: normalizeShare(data?.share, history),
+    share: normalizeShare(data?.share, history, closureType),
     report: normalizeReport(data?.report, history.length),
     meta: {
       generatedAt: readString(data?.meta?.generatedAt, new Date().toISOString()),
       modelProvider: data?.meta?.modelProvider === "openai" || data?.meta?.modelProvider === "mock" ? data.meta.modelProvider : "deepseek",
       posterVersion: "web-v1",
-      reportVersion: "life-pattern-v2"
+      reportVersion: "life-pattern-v2",
+      closureType
     }
   };
 }

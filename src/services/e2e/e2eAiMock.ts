@@ -81,7 +81,8 @@ function outcome(
       generatedAt: "2026-07-02T00:00:00.000Z",
       modelProvider: "mock",
       posterVersion: "web-v1",
-      reportVersion: "life-pattern-v2"
+      reportVersion: "life-pattern-v2",
+      closureType: "mortality"
     },
     share: {
       viralTitle,
@@ -165,7 +166,7 @@ function outcome(
   };
 }
 
-const cases: E2eCase[] = [
+const legacyCases: E2eCase[] = [
   {
     slug: "interest-app",
     regressionAge: 18,
@@ -303,6 +304,80 @@ const cases: E2eCase[] = [
   }
 ];
 
+interface JourneyDefinition {
+  slug: string;
+  title: string;
+  theme: string;
+  regressionAge: number;
+}
+
+const journeyDefinitions: JourneyDefinition[] = [
+  { slug: "journey-wealth-first", title: "财富秩序验证线", theme: "财富与风险", regressionAge: 24 },
+  { slug: "journey-career-first", title: "职业成长验证线", theme: "职业与成长", regressionAge: 24 },
+  { slug: "journey-relationship-first", title: "关系边界验证线", theme: "关系与边界", regressionAge: 25 },
+  { slug: "journey-education-second", title: "继续教育双阶段线", theme: "教育与转型", regressionAge: 23 },
+  { slug: "journey-venture-second", title: "创业双阶段验证线", theme: "创业与现金流", regressionAge: 26 },
+  { slug: "journey-innerpeace-second", title: "内在节奏双阶段线", theme: "恢复与成长", regressionAge: 24 },
+  { slug: "journey-wealth-lifespan", title: "财富完整生命周期线", theme: "财富与长期生活", regressionAge: 24 },
+  { slug: "journey-career-lifespan", title: "职业完整生命周期线", theme: "职业与长期能力", regressionAge: 24 },
+  { slug: "journey-relationship-lifespan", title: "关系完整生命周期线", theme: "关系与家庭", regressionAge: 25 },
+  { slug: "journey-custom-lifespan", title: "自定义完整生命周期线", theme: "自定义人生方向", regressionAge: 23 }
+];
+
+function journeyNode(definition: JourneyDefinition, index: number, ending = false): SimulationNode {
+  const base = choiceNode(
+    definition.regressionAge + index,
+    ending ? `${definition.title}的生命终章` : `${definition.title} · 阶段 ${String(index + 1).padStart(2, "0")}`,
+    ending
+      ? `岁月最终走到生命的自然终点。回看一路的选择，${definition.theme}没有给出唯一答案，却留下了清晰的获得、代价与关系。`
+      : `在${definition.theme}这条路上，第 ${index + 1} 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。`,
+    attrs({
+      happiness: Math.min(86, 58 + Math.floor(index / 4)),
+      intelligence: Math.min(92, 70 + Math.floor(index / 3)),
+      wealth: Math.min(88, 54 + Math.floor(index / 2)),
+      relation: Math.min(86, 60 + Math.floor(index / 4)),
+      health: Math.max(42, 72 - Math.floor(index / 5))
+    }),
+    ending
+  );
+  if (ending) return base;
+  return {
+    ...base,
+    choices: base.choices.map((choice) => {
+      if (choice.id === "A") return { ...choice, text: `${choice.text}，按一年节奏继续`, temporalHint: { lifeIntensity: "normal", durationMonths: [12, 12], requiresFollowUp: false, reason: "浏览器长流程普通推进" } };
+      if (choice.id === "B") return { ...choice, text: `${choice.text}，用数年时间沉淀`, temporalHint: { lifeIntensity: "stable", durationMonths: [48, 60], requiresFollowUp: false, reason: "浏览器长流程寿命推进" } };
+      return { ...choice, text: `${choice.text}，直面一次新的阶段危机`, temporalHint: { lifeIntensity: "high_tension", durationMonths: [6, 12], requiresFollowUp: true, reason: "浏览器长流程阶段切换" } };
+    })
+  };
+}
+
+function createJourneyCase(definition: JourneyDefinition): E2eCase {
+  const nodes = Array.from({ length: 54 }, (_, index) => journeyNode(definition, index));
+  nodes.push(journeyNode(definition, 54, true));
+  return {
+    ...definition,
+    viralTitle: `重生之我走过${definition.title}`,
+    covenantTitle: "仍然选择的人",
+    summary: `这条${definition.theme}路线记录了阶段性压力、主动回望和继续生活之间的真实关系。`,
+    nodes,
+    outcome: outcome(
+      `重生之我走过${definition.title}`,
+      "仍然选择的人",
+      `这条${definition.theme}路线记录了阶段性压力、主动回望和继续生活之间的真实关系。`,
+      "阶段性答案不是人生完成，它只是让下一次选择变得更清楚。",
+      Array.from({ length: 6 }, (_, index) => ({
+        ageLabel: `${definition.regressionAge + index * 4}岁`,
+        icon: ["🌱", "🧭", "💼", "🤝", "🏠", "🌿"][index],
+        title: `关键阶段 ${index + 1}`,
+        choiceSummary: `保留第 ${index + 1} 次真实选择`,
+        keyMomentIndexes: [index]
+      }))
+    )
+  };
+}
+
+const journeyCases = journeyDefinitions.map(createJourneyCase);
+const cases: E2eCase[] = [...legacyCases, ...journeyCases];
 const casesBySlug = new Map(cases.map((item) => [item.slug, item]));
 const cachedCallers = new Map<string, AiJsonCaller>();
 
@@ -358,8 +433,21 @@ export function createE2eAiJsonCaller(slug: string): AiJsonCaller {
     }
 
     if (prompt.includes("【上一步做出的命运裁决】")) {
-      const node = fixture.nodes[Math.min(nextNodeIndex, fixture.nodes.length - 1)];
+      let node = fixture.nodes[Math.min(nextNodeIndex, fixture.nodes.length - 1)];
       nextNodeIndex += 1;
+      const operationArcId = prompt.match(/pressureArcId=([^，\s]+)，phase=operation/)?.[1];
+      if (operationArcId) {
+        const evidence = "当前阶段的压力已经形成了明确而可验证的结果";
+        node = {
+          ...node,
+          description: `${node.description}\n\n${evidence}，长期方向仍然可以继续推进。`,
+          narrativeMeta: {
+            ...(node.narrativeMeta || {} as SimulationNode["narrativeMeta"]),
+            arcSignals: [{ type: "pressure_resolved", pressureArcId: operationArcId, evidence, confidence: 1 }],
+            worldDeltas: [{ type: "career_state", summary: evidence }]
+          } as SimulationNode["narrativeMeta"]
+        };
+      }
       if (node.isEndingNode) {
         return {
           text: JSON.stringify({
@@ -394,6 +482,19 @@ export function getBrowserE2eAiJsonCaller(): AiJsonCaller | undefined {
   if (!slug) return undefined;
 
   return getCachedE2eAiJsonCaller(slug);
+}
+
+export function getBrowserE2eEventOverride(completedChoiceCount: number): string | null | undefined {
+  const env = (import.meta as unknown as { env?: { DEV?: boolean } }).env;
+  if (!env?.DEV || typeof window === "undefined") return undefined;
+  const slug = new URLSearchParams(window.location.search).get("e2eCase");
+  if (!slug?.startsWith("journey-")) return undefined;
+  const usesStableWindowFirst = slug === "journey-relationship-first"
+    || slug === "journey-innerpeace-second"
+    || slug === "journey-custom-lifespan";
+  if (completedChoiceCount === 8 && usesStableWindowFirst) return null;
+  if (completedChoiceCount === 8 || completedChoiceCount === 18) return "career_structural_instability";
+  return null;
 }
 
 export function shouldForceBrowserE2eEnding(rawNode: unknown): boolean {

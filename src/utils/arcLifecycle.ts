@@ -45,7 +45,7 @@ export interface PressureArcTransitionDecision {
 export const DEFAULT_PHASE_POLICY: PhaseTransitionPolicy = {
   id: "generic_pressure_v1",
   initialPhaseId: "trigger",
-  allowedSignalTypes: ["pressure_addressed", "pressure_persists", "stability_reached", "funding_secured", "funding_failed", "cashflow_stable", "team_formed"],
+  allowedSignalTypes: ["pressure_addressed", "pressure_persists", "pressure_resolved", "stability_reached", "funding_secured", "funding_failed", "cashflow_stable", "team_formed"],
   phases: [
     { id: "trigger", ...DEFAULT_TEMPORAL_PROFILES.high_tension, durationMonths: [3, 6], minCheckpoints: 1, maxCheckpoints: 1, exitConditions: [{ type: "checkpoint_cap", value: 1 }], nextPhaseId: "response" },
     { id: "response", ...DEFAULT_TEMPORAL_PROFILES.high_tension, minCheckpoints: 1, maxCheckpoints: 2, exitConditions: [{ type: "arc_signal", signalType: "pressure_addressed" }, { type: "arc_signal", signalType: "funding_secured" }, { type: "checkpoint_cap", value: 2 }], nextPhaseId: "growth", fallbackPhaseId: "growth" },

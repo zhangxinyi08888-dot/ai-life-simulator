@@ -1,0 +1,330 @@
+{
+  "generatedAt": "2026-07-15T16:31:16.181Z",
+  "inputDir": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-16-natural-reflection-browser-evaluation",
+  "caseCount": 10,
+  "allCasesPassed": true,
+  "scenarioCounts": {
+    "accept_first": 3,
+    "natural_lifespan": 4,
+    "accept_second": 3
+  },
+  "totalHistoryNodes": 276,
+  "totalInvitations": 17,
+  "invitationReasons": {
+    "arc_resolved": 14,
+    "stable_window": 3
+  },
+  "invitationStatuses": {
+    "accepted": 6,
+    "declined": 11
+  },
+  "closureTypes": {
+    "user_reflection": 6,
+    "mortality": 4
+  },
+  "firstInvitationRange": [
+    13,
+    15
+  ],
+  "secondInvitationRange": [
+    23,
+    23
+  ],
+  "historyNodeRange": [
+    14,
+    45
+  ],
+  "cases": [
+    {
+      "caseSlug": "journey-career-first",
+      "scenario": "accept_first",
+      "historyNodeCount": 14,
+      "firstInvitationAt": 13,
+      "firstInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "accepted"
+      ],
+      "finalClosureType": "user_reflection",
+      "finalAgeInMonths": 464,
+      "interactionCount": 17,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-career-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 45,
+      "firstInvitationAt": 13,
+      "firstInvitationReason": "arc_resolved",
+      "secondInvitationAt": 23,
+      "secondInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "declined",
+        "declined"
+      ],
+      "finalClosureType": "mortality",
+      "finalAgeInMonths": 1095,
+      "interactionCount": 51,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 42,
+      "firstInvitationAt": 15,
+      "firstInvitationReason": "stable_window",
+      "secondInvitationAt": 23,
+      "secondInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "declined",
+        "declined"
+      ],
+      "finalClosureType": "mortality",
+      "finalAgeInMonths": 1011,
+      "interactionCount": 48,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-education-second",
+      "scenario": "accept_second",
+      "historyNodeCount": 24,
+      "firstInvitationAt": 13,
+      "firstInvitationReason": "arc_resolved",
+      "secondInvitationAt": 23,
+      "secondInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "declined",
+        "accepted"
+      ],
+      "finalClosureType": "user_reflection",
+      "finalAgeInMonths": 651,
+      "interactionCount": 29,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-innerpeace-second",
+      "scenario": "accept_second",
+      "historyNodeCount": 24,
+      "firstInvitationAt": 15,
+      "firstInvitationReason": "stable_window",
+      "secondInvitationAt": 23,
+      "secondInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "declined",
+        "accepted"
+      ],
+      "finalClosureType": "user_reflection",
+      "finalAgeInMonths": 586,
+      "interactionCount": 29,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-relationship-first",
+      "scenario": "accept_first",
+      "historyNodeCount": 16,
+      "firstInvitationAt": 15,
+      "firstInvitationReason": "stable_window",
+      "invitationStatuses": [
+        "accepted"
+      ],
+      "finalClosureType": "user_reflection",
+      "finalAgeInMonths": 492,
+      "interactionCount": 19,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-relationship-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 36,
+      "firstInvitationAt": 13,
+      "firstInvitationReason": "arc_resolved",
+      "secondInvitationAt": 23,
+      "secondInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "declined",
+        "declined"
+      ],
+      "finalClosureType": "mortality",
+      "finalAgeInMonths": 908,
+      "interactionCount": 42,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-venture-second",
+      "scenario": "accept_second",
+      "historyNodeCount": 24,
+      "firstInvitationAt": 13,
+      "firstInvitationReason": "arc_resolved",
+      "secondInvitationAt": 23,
+      "secondInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "declined",
+        "accepted"
+      ],
+      "finalClosureType": "user_reflection",
+      "finalAgeInMonths": 627,
+      "interactionCount": 29,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-wealth-first",
+      "scenario": "accept_first",
+      "historyNodeCount": 14,
+      "firstInvitationAt": 13,
+      "firstInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "accepted"
+      ],
+      "finalClosureType": "user_reflection",
+      "finalAgeInMonths": 541,
+      "interactionCount": 17,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    },
+    {
+      "caseSlug": "journey-wealth-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 37,
+      "firstInvitationAt": 13,
+      "firstInvitationReason": "arc_resolved",
+      "secondInvitationAt": 23,
+      "secondInvitationReason": "arc_resolved",
+      "invitationStatuses": [
+        "declined",
+        "declined"
+      ],
+      "finalClosureType": "mortality",
+      "finalAgeInMonths": 1005,
+      "interactionCount": 43,
+      "assertions": {
+        "firstInvitationIn12To17": true,
+        "firstInvitationConditionValid": true,
+        "secondInvitationUsesNewStage": true,
+        "expectedInvitationCount": true,
+        "noUnexpectedThirdInvitation": true,
+        "expectedClosureType": true,
+        "allNodesPreserveSelectedChoice": true,
+        "allNodesPreserveStoryChoices": true,
+        "allNodesPreserveAttributes": true,
+        "allNodesPreserveFinancialState": true,
+        "finalReportPresent": true
+      },
+      "passed": true
+    }
+  ]
+}

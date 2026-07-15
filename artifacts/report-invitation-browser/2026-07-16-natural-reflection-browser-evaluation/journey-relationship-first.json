@@ -1,0 +1,3668 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-07-16-natural-reflection-browser-evaluation",
+  "caseSlug": "journey-relationship-first",
+  "scenario": "accept_first",
+  "startedAt": "2026-07-15T16:28:46.754Z",
+  "completedAt": "2026-07-15T16:29:08.187Z",
+  "sourceUrl": "http://127.0.0.1:5173/?e2eCase=journey-relationship-first",
+  "firstInvitation": {
+    "id": "70b0d7f8",
+    "status": "pending",
+    "reason": "stable_window",
+    "triggerKey": "stable:0",
+    "completedChoiceCount": 15
+  },
+  "unexpectedInvitations": [],
+  "interactionLog": [
+    {
+      "type": "browser_case_started",
+      "slug": "journey-relationship-first",
+      "scenario": "accept_first",
+      "url": "http://127.0.0.1:5173/?e2eCase=journey-relationship-first",
+      "at": "2026-07-15T16:28:46.754Z"
+    },
+    {
+      "type": "simulation_started",
+      "nodeTitle": "关系边界验证线 · 阶段 01",
+      "initialAttributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 54,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 312,
+        "cashWan": 7.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 28.5,
+        "annualAfterTaxIncomeWan": 23.2,
+        "annualDisposableIncomeWan": 10.4,
+        "annualCoreExpenseWan": 12.8,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:51.232Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 01",
+      "resultingHistoryLength": 1,
+      "resultingNode": "关系边界验证线 · 阶段 02",
+      "ageInMonths": 324,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 57,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 324,
+        "cashWan": 16.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 38.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:52.157Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 02",
+      "resultingHistoryLength": 2,
+      "resultingNode": "关系边界验证线 · 阶段 03",
+      "ageInMonths": 336,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 70,
+        "wealth": 60,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 336,
+        "cashWan": 26.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 47.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:53.207Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 03",
+      "resultingHistoryLength": 3,
+      "resultingNode": "关系边界验证线 · 阶段 04",
+      "ageInMonths": 348,
+      "attributes": {
+        "happiness": 58,
+        "intelligence": 71,
+        "wealth": 61,
+        "relation": 60,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 348,
+        "cashWan": 35.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 57.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:54.211Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 04",
+      "resultingHistoryLength": 4,
+      "resultingNode": "关系边界验证线 · 阶段 05",
+      "ageInMonths": 360,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 71,
+        "wealth": 62,
+        "relation": 61,
+        "health": 72
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 360,
+        "cashWan": 45.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 66.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:55.215Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 05",
+      "resultingHistoryLength": 5,
+      "resultingNode": "关系边界验证线 · 阶段 06",
+      "ageInMonths": 372,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 71,
+        "wealth": 62,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 372,
+        "cashWan": 55.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 76.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:56.649Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 06",
+      "resultingHistoryLength": 6,
+      "resultingNode": "关系边界验证线 · 阶段 07",
+      "ageInMonths": 384,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 72,
+        "wealth": 63,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 384,
+        "cashWan": 64.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 86.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:57.726Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 07",
+      "resultingHistoryLength": 7,
+      "resultingNode": "关系边界验证线 · 阶段 08",
+      "ageInMonths": 396,
+      "attributes": {
+        "happiness": 59,
+        "intelligence": 72,
+        "wealth": 63,
+        "relation": 61,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 396,
+        "cashWan": 74.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 95.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:58.727Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 08",
+      "resultingHistoryLength": 8,
+      "resultingNode": "关系边界验证线 · 阶段 09",
+      "ageInMonths": 408,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 72,
+        "wealth": 64,
+        "relation": 62,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 408,
+        "cashWan": 83.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 105.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:28:59.653Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 09",
+      "resultingHistoryLength": 9,
+      "resultingNode": "关系边界验证线 · 阶段 10",
+      "ageInMonths": 420,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 71
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 420,
+        "cashWan": 93.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 114.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:00.732Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 10",
+      "resultingHistoryLength": 10,
+      "resultingNode": "关系边界验证线 · 阶段 11",
+      "ageInMonths": 432,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 432,
+        "cashWan": 103.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 124.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:01.745Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 11",
+      "resultingHistoryLength": 11,
+      "resultingNode": "关系边界验证线 · 阶段 12",
+      "ageInMonths": 444,
+      "attributes": {
+        "happiness": 60,
+        "intelligence": 73,
+        "wealth": 64,
+        "relation": 62,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 444,
+        "cashWan": 112.7,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 134.1,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:02.738Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 12",
+      "resultingHistoryLength": 12,
+      "resultingNode": "关系边界验证线 · 阶段 13",
+      "ageInMonths": 456,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 65,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 456,
+        "cashWan": 122.3,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 143.7,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:03.740Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 13",
+      "resultingHistoryLength": 13,
+      "resultingNode": "关系边界验证线 · 阶段 14",
+      "ageInMonths": 468,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 65,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 468,
+        "cashWan": 131.9,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 153.3,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:04.668Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 14",
+      "resultingHistoryLength": 14,
+      "resultingNode": "关系边界验证线 · 阶段 15",
+      "ageInMonths": 480,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 74,
+        "wealth": 65,
+        "relation": 63,
+        "health": 70
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 480,
+        "cashWan": 141.5,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 162.9,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T16:29:05.748Z"
+    },
+    {
+      "type": "choice_completed",
+      "selectedChoiceId": "A",
+      "selectedChoice": "围绕“关系边界验证线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+      "sourceNodeTitle": "关系边界验证线 · 阶段 15",
+      "resultingHistoryLength": 15,
+      "resultingNode": "关系边界验证线 · 阶段 16",
+      "ageInMonths": 492,
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 75,
+        "wealth": 65,
+        "relation": 63,
+        "health": 69
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 492,
+        "cashWan": 151.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 172.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "invitation": {
+        "id": "70b0d7f8",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15
+      },
+      "at": "2026-07-15T16:29:06.752Z"
+    },
+    {
+      "type": "invitation_shown",
+      "invitation": {
+        "id": "70b0d7f8",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15
+      },
+      "historyLength": 15,
+      "nodeTitle": "关系边界验证线 · 阶段 16",
+      "at": "2026-07-15T16:29:07.187Z"
+    },
+    {
+      "type": "invitation_accepted",
+      "invitation": {
+        "id": "70b0d7f8",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15
+      },
+      "closureType": "user_reflection",
+      "historyLength": 16,
+      "at": "2026-07-15T16:29:08.187Z"
+    }
+  ],
+  "assertions": {
+    "firstInvitationInProductWindow": true,
+    "secondInvitationIsLaterStage": true,
+    "expectedInvitationCount": true,
+    "noUnexpectedThirdInvitation": true,
+    "finalClosureType": true,
+    "reportLanguageMatchesClosure": true,
+    "allHistoryNodesPreserveChoices": true,
+    "financialStatePreserved": true,
+    "reportPresent": true,
+    "firstInvitationConditionValid": true,
+    "firstInvitationReasonMatchesFixture": true
+  },
+  "finalState": {
+    "capturedAt": "2026-07-15T16:29:07.254Z",
+    "e2eCase": "journey-relationship-first",
+    "step": "insight",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "07:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n那次争吵后，我明明还在意，却因为骄傲没有说出真正想说的话。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "26 岁 · 关系与遗憾",
+      "milestones": [
+        {
+          "id": "relationship",
+          "title": "关系与遗憾",
+          "content": "那次争吵后，我明明还在意，却因为骄傲没有说出真正想说的话。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "",
+      "milestoneRelationship": "那次争吵后，我明明还在意，却因为骄傲没有说出真正想说的话。",
+      "milestoneOther": "",
+      "regressionNodeKey": "relationship",
+      "regressionAge": 26,
+      "regressionSituation": "【用户想重写的真实事件】\n那次争吵后，我明明还在意，却因为骄傲没有说出真正想说的话。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+      "coreStoryFocus": "romance"
+    },
+    "answers": [
+      {
+        "id": 1,
+        "question": "在“关系与边界”这条线里，当时最具体的现实限制是什么？",
+        "answer": "我最担心收入不稳。"
+      },
+      {
+        "id": 2,
+        "question": "当时遇到压力时，你通常会怎么反应？",
+        "answer": "我会查资料慢慢解决。"
+      },
+      {
+        "id": 3,
+        "question": "当时你能动用的能力、兴趣或资源是什么？",
+        "answer": "我有长期学习的能力。"
+      }
+    ],
+    "history": [
+      {
+        "age": 26,
+        "ageInMonths": 312,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 01",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 1 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 54,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 312,
+          "cashWan": 7.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 28.5,
+          "annualAfterTaxIncomeWan": 23.2,
+          "annualDisposableIncomeWan": 10.4,
+          "annualCoreExpenseWan": 12.8,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 01”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-01:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 01”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-01:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 01”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-01:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_316f1116",
+            "startAgeInMonths": 312,
+            "endAgeInMonths": 312,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_ed17ff9c",
+            "summary": "在关系与边界这条路上，第 1 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 27,
+        "ageInMonths": 324,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 02",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 2 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 57,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 324,
+          "cashWan": 16.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 38.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 02”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-02:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 02”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-02:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 02”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-02:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_3b2d3a8c",
+            "startAgeInMonths": 312,
+            "endAgeInMonths": 324,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_5b4a901e",
+            "summary": "在关系与边界这条路上，第 2 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 28,
+        "ageInMonths": 336,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 03",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 3 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 70,
+          "wealth": 60,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 336,
+          "cashWan": 26.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 47.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 03”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-03:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 03”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-03:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 03”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-03:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_1501cd62",
+            "startAgeInMonths": 324,
+            "endAgeInMonths": 336,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_9a7a5c45",
+            "summary": "在关系与边界这条路上，第 3 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 29,
+        "ageInMonths": 348,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 04",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 4 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 71,
+          "wealth": 61,
+          "relation": 60,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 348,
+          "cashWan": 35.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 57.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 04”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-04:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 04”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-04:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 04”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-04:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_24276b40",
+            "startAgeInMonths": 336,
+            "endAgeInMonths": 348,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_7a948163",
+            "summary": "在关系与边界这条路上，第 4 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 30,
+        "ageInMonths": 360,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 05",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 5 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 71,
+          "wealth": 62,
+          "relation": 61,
+          "health": 72
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 360,
+          "cashWan": 45.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 66.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 05”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-05:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 05”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-05:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 05”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-05:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_246b757d",
+            "startAgeInMonths": 348,
+            "endAgeInMonths": 360,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_86f55fbc",
+            "summary": "在关系与边界这条路上，第 5 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 31,
+        "ageInMonths": 372,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 06",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 6 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 71,
+          "wealth": 62,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 372,
+          "cashWan": 55.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 76.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 06”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-06:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 06”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-06:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 06”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-06:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_50efee75",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 372,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_e27274b0",
+            "summary": "在关系与边界这条路上，第 6 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 32,
+        "ageInMonths": 384,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 07",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 7 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 72,
+          "wealth": 63,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 384,
+          "cashWan": 64.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 86.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 07”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-07:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 07”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-07:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 07”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-07:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_59c00a25",
+            "startAgeInMonths": 372,
+            "endAgeInMonths": 384,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_ffdc6784",
+            "summary": "在关系与边界这条路上，第 7 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 33,
+        "ageInMonths": 396,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 08",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 8 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 59,
+          "intelligence": 72,
+          "wealth": 63,
+          "relation": 61,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 396,
+          "cashWan": 74.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 95.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 08”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-08:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 08”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-08:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 08”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-08:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_71de68c9",
+            "startAgeInMonths": 384,
+            "endAgeInMonths": 396,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_9b765f73",
+            "summary": "在关系与边界这条路上，第 8 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 34,
+        "ageInMonths": 408,
+        "lifeStage": "early_adulthood",
+        "title": "关系边界验证线 · 阶段 09",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 9 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 72,
+          "wealth": 64,
+          "relation": 62,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 408,
+          "cashWan": 83.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 105.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 09”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-09:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 09”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-09:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 09”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-09:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_ecdd79ec",
+            "startAgeInMonths": 396,
+            "endAgeInMonths": 408,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_deb52135",
+            "summary": "在关系与边界这条路上，第 9 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73",
+            "ecc2cab2"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 35,
+        "ageInMonths": 420,
+        "lifeStage": "midlife",
+        "title": "关系边界验证线 · 阶段 10",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 10 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 71
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 420,
+          "cashWan": 93.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 114.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 10”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-10:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 10”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-10:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 10”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-10:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_5732fd1c",
+            "startAgeInMonths": 408,
+            "endAgeInMonths": 420,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_0dd704fc",
+            "summary": "在关系与边界这条路上，第 10 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73",
+            "ecc2cab2",
+            "12f14ad9"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 36,
+        "ageInMonths": 432,
+        "lifeStage": "midlife",
+        "title": "关系边界验证线 · 阶段 11",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 11 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 432,
+          "cashWan": 103.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 124.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 11”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-11:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 11”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-11:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 11”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-11:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_bd7ae8ce",
+            "startAgeInMonths": 420,
+            "endAgeInMonths": 432,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_0abf5823",
+            "summary": "在关系与边界这条路上，第 11 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73",
+            "ecc2cab2",
+            "12f14ad9",
+            "86c5d926"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 37,
+        "ageInMonths": 444,
+        "lifeStage": "midlife",
+        "title": "关系边界验证线 · 阶段 12",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 12 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 73,
+          "wealth": 64,
+          "relation": 62,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 444,
+          "cashWan": 112.7,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 134.1,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 12”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-12:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 12”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-12:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 12”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-12:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_2a3f3e88",
+            "startAgeInMonths": 432,
+            "endAgeInMonths": 444,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_f8e4b2ed",
+            "summary": "在关系与边界这条路上，第 12 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73",
+            "ecc2cab2",
+            "12f14ad9",
+            "86c5d926",
+            "fc975103"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 38,
+        "ageInMonths": 456,
+        "lifeStage": "midlife",
+        "title": "关系边界验证线 · 阶段 13",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 13 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 65,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 456,
+          "cashWan": 122.3,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 143.7,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 13”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-13:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 13”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-13:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 13”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-13:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_cdff95c2",
+            "startAgeInMonths": 444,
+            "endAgeInMonths": 456,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_913026ee",
+            "summary": "在关系与边界这条路上，第 13 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73",
+            "ecc2cab2",
+            "12f14ad9",
+            "86c5d926",
+            "fc975103",
+            "6b452af2"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 39,
+        "ageInMonths": 468,
+        "lifeStage": "midlife",
+        "title": "关系边界验证线 · 阶段 14",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 14 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 65,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 468,
+          "cashWan": 131.9,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 153.3,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 14”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-14:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 14”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-14:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 14”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-14:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_04b4590c",
+            "startAgeInMonths": 456,
+            "endAgeInMonths": 468,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_1d101c62",
+            "summary": "在关系与边界这条路上，第 14 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73",
+            "ecc2cab2",
+            "12f14ad9",
+            "86c5d926",
+            "fc975103",
+            "6b452af2",
+            "f8e11ec4"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 40,
+        "ageInMonths": 480,
+        "lifeStage": "midlife",
+        "title": "关系边界验证线 · 阶段 15",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 15 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "围绕“关系边界验证线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 74,
+          "wealth": 65,
+          "relation": 63,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 480,
+          "cashWan": 141.5,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 162.9,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 15”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-15:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 15”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-15:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 15”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-15:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_461cbfb1",
+            "startAgeInMonths": 468,
+            "endAgeInMonths": 480,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_f37f30a3",
+            "summary": "在关系与边界这条路上，第 15 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73",
+            "ecc2cab2",
+            "12f14ad9",
+            "86c5d926",
+            "fc975103",
+            "6b452af2",
+            "f8e11ec4",
+            "8e0027e8"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 41,
+        "ageInMonths": 492,
+        "lifeStage": "midlife",
+        "title": "关系边界验证线 · 阶段 16",
+        "stage": "现实抉择",
+        "description": "在关系与边界这条路上，第 16 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+        "selectedChoice": "查看这段人生的报告",
+        "attributes": {
+          "happiness": 61,
+          "intelligence": 75,
+          "wealth": 65,
+          "relation": 63,
+          "health": 69
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 492,
+          "cashWan": 151.1,
+          "investmentAssetsWan": 4.3,
+          "propertyMarketValueWan": 17.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 172.5,
+          "annualAfterTaxIncomeWan": 22.8,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 13.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.9,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 22.8,
+          "livingExpenseWan": 13.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "围绕“关系边界验证线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续",
+            "impactSummary": "沉淀成果",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                12
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程普通推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-16:build",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在“关系边界验证线 · 阶段 16”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+            "impactSummary": "稳中试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                48,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "浏览器长流程寿命推进"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-16:stabilize",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "为“关系边界验证线 · 阶段 16”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+            "impactSummary": "借力成长",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "浏览器长流程阶段切换"
+            },
+            "decisionIntent": "e2e:关系边界验证线-阶段-16:collaborate",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_738c430d",
+            "startAgeInMonths": 480,
+            "endAgeInMonths": 492,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_bc917ac3",
+            "summary": "在关系与边界这条路上，第 16 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_77ed721b",
+              "directionType": "romance",
+              "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "892bccda",
+            "f9c089a3",
+            "5cb2c4d5",
+            "d54fe419",
+            "e4c5a4ad",
+            "4d639818",
+            "06fe1e73",
+            "ecc2cab2",
+            "12f14ad9",
+            "86c5d926",
+            "fc975103",
+            "6b452af2",
+            "f8e11ec4",
+            "8e0027e8",
+            "c350595a"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        },
+        "reportInvitation": {
+          "id": "70b0d7f8",
+          "status": "accepted",
+          "reason": "stable_window",
+          "triggerKey": "stable:0",
+          "completedChoiceCount": 15,
+          "acceptedAtChoiceCount": 15
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 41,
+      "stage": "现实抉择",
+      "title": "关系边界验证线 · 阶段 16",
+      "description": "在关系与边界这条路上，第 16 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。",
+      "attributes": {
+        "happiness": 61,
+        "intelligence": 75,
+        "wealth": 65,
+        "relation": 63,
+        "health": 69
+      },
+      "isEndingNode": false,
+      "choices": [
+        {
+          "id": "A",
+          "text": "围绕“关系边界验证线 · 阶段 16”先完成一个可以验证的阶段成果，按一年节奏继续",
+          "impactSummary": "沉淀成果",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              12
+            ],
+            "requiresFollowUp": false,
+            "reason": "浏览器长流程普通推进"
+          },
+          "decisionIntent": "e2e:关系边界验证线-阶段-16:build",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "在“关系边界验证线 · 阶段 16”阶段保留安全边界，小步验证下一方向，用数年时间沉淀",
+          "impactSummary": "稳中试探",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              48,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "浏览器长流程寿命推进"
+          },
+          "decisionIntent": "e2e:关系边界验证线-阶段-16:stabilize",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "为“关系边界验证线 · 阶段 16”寻找互补伙伴并建立清晰分工，直面一次新的阶段危机",
+          "impactSummary": "借力成长",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "浏览器长流程阶段切换"
+          },
+          "decisionIntent": "e2e:关系边界验证线-阶段-16:collaborate",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "ageInMonths": 492,
+      "lifeStage": "midlife",
+      "narrativeMeta": {
+        "elapsedMonths": 12,
+        "elapsedYears": 1,
+        "lifeIntensity": "normal",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_738c430d",
+          "startAgeInMonths": 480,
+          "endAgeInMonths": 492,
+          "internalTransitions": [],
+          "decisionCheckpointId": "checkpoint_bc917ac3",
+          "summary": "在关系与边界这条路上，第 16 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [],
+        "activeCharacters": [],
+        "worldDeltas": []
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 492,
+        "cashWan": 151.1,
+        "investmentAssetsWan": 4.3,
+        "propertyMarketValueWan": 17.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 172.5,
+        "annualAfterTaxIncomeWan": 22.8,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 13.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "financialSignals": {
+        "employmentStatus": "employed",
+        "monthlyNetIncomeWan": 1.9,
+        "incomeMonths": 12,
+        "monthlyLivingExpenseWan": 1.1,
+        "oneOffIncomeWan": 0,
+        "oneOffExpenseWan": 0,
+        "assetValueChangeWan": 0,
+        "propertyMarketValueChangeWan": 0,
+        "personalDebtChangeWan": 0,
+        "incomeStability": "stable",
+        "confidence": 0.35,
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "financialChange": {
+        "periodMonths": 12,
+        "afterTaxIncomeWan": 22.8,
+        "livingExpenseWan": 13.2,
+        "medicalEducationExpenseWan": 0,
+        "interestAndFeesWan": 0,
+        "assetValueChangeWan": 0,
+        "otherNetChangeWan": 0,
+        "netWorthChangeWan": 9.6,
+        "incomeStability": "stable",
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "committedArcMeta": {
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [],
+        "directionArcs": [
+          {
+            "id": "direction_77ed721b",
+            "directionType": "romance",
+            "summary": "A. 坦诚表达感受，主动修复这段关系\nB. 尊重彼此边界，给关系一次冷静重启\nC. 接受告别，把未说完的话变成重新生活的勇气",
+            "status": "active",
+            "startedAtAgeInMonths": 312,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [],
+        "committedTransactionIds": [
+          "892bccda",
+          "f9c089a3",
+          "5cb2c4d5",
+          "d54fe419",
+          "e4c5a4ad",
+          "4d639818",
+          "06fe1e73",
+          "ecc2cab2",
+          "12f14ad9",
+          "86c5d926",
+          "fc975103",
+          "6b452af2",
+          "f8e11ec4",
+          "8e0027e8",
+          "c350595a"
+        ],
+        "version": 1
+      },
+      "reportInvitation": {
+        "id": "70b0d7f8",
+        "status": "accepted",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15,
+        "acceptedAtChoiceCount": 15
+      }
+    },
+    "currentAttributes": {
+      "happiness": 61,
+      "intelligence": 75,
+      "wealth": 65,
+      "relation": 63,
+      "health": 69
+    },
+    "simulationSeed": "493deffc-f582-4b0c-9b49-2148066eb143",
+    "outcome": {
+      "share": {
+        "viralTitle": "重生之我走过关系边界验证线",
+        "covenantTitle": "仍然选择的人",
+        "oneLineSummary": "这条关系与边界路线记录了阶段性压力、主动回望和继续生活之间的真实关系。",
+        "timeline": [
+          {
+            "ageLabel": "25岁",
+            "icon": "🌱",
+            "title": "关键阶段 1",
+            "choiceSummary": "保留第 1 次真实选择",
+            "keyMomentIndexes": [
+              0
+            ]
+          },
+          {
+            "ageLabel": "29岁",
+            "icon": "🧭",
+            "title": "关键阶段 2",
+            "choiceSummary": "保留第 2 次真实选择",
+            "keyMomentIndexes": [
+              1
+            ]
+          },
+          {
+            "ageLabel": "33岁",
+            "icon": "💼",
+            "title": "关键阶段 3",
+            "choiceSummary": "保留第 3 次真实选择",
+            "keyMomentIndexes": [
+              2
+            ]
+          },
+          {
+            "ageLabel": "37岁",
+            "icon": "🤝",
+            "title": "关键阶段 4",
+            "choiceSummary": "保留第 4 次真实选择",
+            "keyMomentIndexes": [
+              3
+            ]
+          },
+          {
+            "ageLabel": "41岁",
+            "icon": "🏠",
+            "title": "关键阶段 5",
+            "choiceSummary": "保留第 5 次真实选择",
+            "keyMomentIndexes": [
+              4
+            ]
+          },
+          {
+            "ageLabel": "45岁",
+            "icon": "🌿",
+            "title": "关键阶段 6",
+            "choiceSummary": "保留第 6 次真实选择",
+            "keyMomentIndexes": [
+              5
+            ]
+          }
+        ],
+        "closingLine": "人生不是由成功组成，而是由一次次选择组成。",
+        "posterTheme": "warm_realistic",
+        "downloadFileName": "这段人生的报告.png",
+        "imageAlt": "重生之我走过关系边界验证线 阶段人生报告海报"
+      },
+      "report": {
+        "executiveSummary": {
+          "headline": "AI 回顾了你的人生轨迹，发现真正塑造你的不是某一次决定，而是三个反复出现的选择模式。",
+          "patterns": [
+            {
+              "name": "成长优先，而非短期稳定",
+              "shortDescription": "每次关键转折，你都会把长期能力放在眼前确定性之前。",
+              "keyMomentIndexes": [
+                0,
+                1
+              ]
+            },
+            {
+              "name": "先准备，再行动",
+              "shortDescription": "你很少冲动开始，通常会等作品、经验或判断更扎实后才真正迈出去。",
+              "keyMomentIndexes": [
+                1,
+                2
+              ]
+            },
+            {
+              "name": "独自解决，再慢慢沉淀",
+              "shortDescription": "你习惯把压力先接住，再用学习和复盘把它变成自己的方法。",
+              "keyMomentIndexes": [
+                2,
+                3
+              ]
+            }
+          ],
+          "closingLine": "这些模式让你获得了今天的优势，也带来了今天的代价。"
+        },
+        "repeatedPatterns": [
+          {
+            "name": "成长优先",
+            "title": "你总是在稳定和成长之间，把票投给成长",
+            "paragraphs": [
+              "回看这条轨迹，真正改变你的不是某个突然的运气，而是你一次次把自己放进更难但更能长本事的位置。早期你会顾虑现实，后来每到分岔点，还是会选择能积累经验、作品和判断力的那条路。",
+              "这已经不是单次决定，而是一套长期运行的选择系统。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              1,
+              2
+            ],
+            "closingLine": "你的人生不是被机会推着走，而是被能力复利慢慢推开。"
+          }
+        ],
+        "patternEffects": [
+          {
+            "patternName": "长期积累",
+            "compoundReturn": "经验越来越能迁移，作品越来越能证明你。",
+            "hiddenCost": "速度看起来不够快，也容易在独自硬扛时消耗自己。",
+            "paragraphs": [
+              "这种模式让你的优势更耐用：行业和环境变化时，你不是只剩一个岗位，而是带着可迁移的能力继续往前走。但它也让你习惯把压力内部消化，很多本可以被合作放大的事情，最后都变成了一个人的长跑。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              2,
+              3
+            ],
+            "closingLine": "真正限制你的，已经不是努力，而是放大努力的方式。"
+          }
+        ],
+        "futureTrends": [
+          {
+            "title": "经验产品化会变得越来越重要",
+            "trend": "如果这个模式继续，未来十年你最可能把过往经验变成产品、方法或服务，而不是单纯依赖职位变化。",
+            "reason": "因为你的增长一直来自积累和沉淀，这是模式延续，不是命运预测。",
+            "keyMomentIndexes": [
+              2,
+              3
+            ]
+          }
+        ],
+        "patternsToKeep": [
+          {
+            "title": "保留把事情做成作品的习惯",
+            "why": "它已经在多个阶段证明，比短期热闹更能帮你留下真实资产。",
+            "paragraphs": [
+              "继续让选择落到作品、案例、方法和可复用成果上。你越能把经历沉淀下来，未来越不容易被单一环境定义。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              2
+            ],
+            "closingLine": "作品，是你和时间合作的方式。"
+          }
+        ],
+        "patternsToAdjust": [
+          {
+            "title": "把自己做，升级成一起做",
+            "why": "过去独自解决问题让你成长很快，但下一阶段它会成为瓶颈。",
+            "paragraphs": [
+              "未来五年，重要的不是再证明你能一个人扛住，而是找到能放大你能力的人、流程和资源。合作不是降低自主性，而是让你的积累产生更大回声。"
+            ],
+            "keyMomentIndexes": [
+              2,
+              3
+            ],
+            "closingLine": "能力决定你能走多快，合作决定你能走多远。"
+          }
+        ],
+        "finalLifeReading": {
+          "title": "如果我是十年后的你",
+          "paragraphs": [
+            "回头看你的轨迹，我会发现一件很有意思的事：你并不是靠某一次大胆翻盘改变人生。真正发生的是，你把同一种选择重复了很多年。",
+            "别人看到的是节点，你走过的是一套越来越清晰的运行机制。"
+          ],
+          "finalSentence": "阶段性答案不是人生完成，它只是让下一次选择变得更清楚。"
+        }
+      },
+      "meta": {
+        "generatedAt": "2026-07-02T00:00:00.000Z",
+        "modelProvider": "mock",
+        "posterVersion": "web-v1",
+        "reportVersion": "life-pattern-v2",
+        "closureType": "user_reflection"
+      }
+    },
+    "invitations": [
+      {
+        "nodeIndex": 15,
+        "id": "70b0d7f8",
+        "status": "accepted",
+        "reason": "stable_window",
+        "triggerKey": "stable:0",
+        "completedChoiceCount": 15,
+        "acceptedAtChoiceCount": 15,
+        "terminalAction": "查看这段人生的报告"
+      }
+    ]
+  }
+}

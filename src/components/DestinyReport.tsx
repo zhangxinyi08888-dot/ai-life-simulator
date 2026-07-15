@@ -89,6 +89,7 @@ function ShareEndingPoster({
   outcome: FinalLifeOutcome;
   posterRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  const isReflection = outcome.meta.closureType === "user_reflection";
   return (
     <div
       ref={posterRef}
@@ -97,7 +98,7 @@ function ShareEndingPoster({
       aria-label={outcome.share.imageAlt}
     >
       <div className="flex items-center justify-between text-[10px] font-semibold tracking-[0.18em] text-[#8f897f]">
-        <span>平行时空 · 人生终章</span>
+        <span>{isReflection ? "平行时空 · 阶段回望" : "平行时空 · 人生终章"}</span>
         <Sparkles className="h-3.5 w-3.5 text-[#c5b57f]" />
       </div>
 
@@ -239,10 +240,11 @@ export default function DestinyReport({
 }: DestinyReportProps) {
   const posterRef = useRef<HTMLDivElement | null>(null);
   const [downloadState, setDownloadState] = useState<"idle" | "saving" | "failed">("idle");
+  const isReflection = outcome.meta.closureType === "user_reflection";
 
   const copyReport = () => {
     navigator.clipboard.writeText(buildFullReportText(outcome))
-      .then(() => alert("已复制人生终章与人生模式分析。"))
+      .then(() => alert(isReflection ? "已复制这段人生的报告。" : "已复制人生终章与人生模式分析。"))
       .catch(() => alert("复制失败，可以手动长按文本复制。"));
   };
 
@@ -288,7 +290,7 @@ export default function DestinyReport({
 
         {downloadState === "failed" && (
           <div className="rounded-[11px] border border-[#6f5f3b] bg-[#16130d] px-3 py-2 text-xs text-[#c9b984]">
-            图片下载失败，可以先截图保存这张人生终章。
+            {isReflection ? "图片下载失败，可以先截图保存这段人生的报告。" : "图片下载失败，可以先截图保存这张人生终章。"}
           </div>
         )}
       </div>

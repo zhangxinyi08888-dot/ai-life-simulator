@@ -87,6 +87,7 @@ assert.equal(outcome.share.timeline.length, 6);
 assert.deepEqual(outcome.share.timeline[1].keyMomentIndexes, [1]);
 assert.equal(outcome.share.posterTheme, "warm_realistic");
 assert.equal(outcome.meta.reportVersion, "life-pattern-v2");
+assert.equal(outcome.meta.closureType, "mortality");
 assert.equal(outcome.report.repeatedPatterns[0].keyMomentIndexes.includes(99), false);
 assert.equal(outcome.report.executiveSummary.patterns.length >= 1, true);
 assert.equal(outcome.report.patternsToAdjust[0].closingLine, "请把自己做，升级成一起做。");
@@ -96,3 +97,8 @@ assert.match(fallback.share.viralTitle, /我/);
 assert.equal(fallback.share.timeline.length, 4);
 assert.equal(fallback.report.repeatedPatterns.length >= 1, true);
 assert.equal(fallback.meta.reportVersion, "life-pattern-v2");
+
+const reflection = normalizeFinalLifeOutcome({}, history, "user_reflection");
+assert.equal(reflection.meta.closureType, "user_reflection");
+assert.equal(reflection.share.downloadFileName, "这段人生的报告.png");
+assert.doesNotMatch(reflection.share.imageAlt, /人生终章/);
