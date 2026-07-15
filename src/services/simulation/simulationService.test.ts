@@ -160,7 +160,7 @@ const nextNode = await generateNextNode({
         age: 23,
         stage: "试错开局",
         title: "新行业的第一年",
-        description: "她进入小团队做基础内容执行，收入变低，但每天都能接触真实项目。",
+        description: "目前存款约90万；她进入小团队做基础内容执行，收入变低，但每天都能接触真实项目。",
         choices: [
           { id: "A", text: "继续留在小团队磨作品", impactSummary: "低薪成长" },
           { id: "B", text: "回到稳定岗位补现金流", impactSummary: "现实回撤" },
@@ -175,6 +175,7 @@ const nextNode = await generateNextNode({
           oneOffIncomeWan: 0,
           oneOffExpenseWan: 1,
           assetValueChangeWan: 1,
+          propertyMarketValueChangeWan: 0,
           personalDebtChangeWan: 0,
           incomeStability: "volatile",
           confidence: 0.9,
@@ -194,6 +195,8 @@ assert.match(capturedNextPrompt, /当前财务快照/);
 assert.equal(nextNode.financialSignals?.employmentStatus, "part_time");
 assert.ok(nextNode.financialChange);
 assert.ok(nextNode.financialState);
+assert.doesNotMatch(nextNode.description, /存款约90万/);
+assert.match(nextNode.description, /现金流|现金缓冲|储蓄|负债状态/);
 assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, deriveWealthScore(nextNode.financialState!)));
 
 const ordinaryHealthDrop = await generateNextNode({
@@ -325,6 +328,7 @@ const repairedFinancialNode = await generateNextNode({
             oneOffIncomeWan: 5,
             oneOffExpenseWan: 0,
             assetValueChangeWan: 10,
+            propertyMarketValueChangeWan: -10,
             personalDebtChangeWan: 0,
             incomeStability: "volatile",
             confidence: 0.9,
@@ -357,6 +361,79 @@ assert.match(capturedFinancialRepairPrompt, /月薪、月入、年薪/);
 assert.match(capturedFinancialRepairPrompt, /生活支出不能无故为 0/);
 assert.equal(repairedFinancialNode.financialSignals?.confidence, 0.9);
 assert.ok((repairedFinancialNode.financialState?.netWorthWan || 0) > repairPreviousState.netWorthWan);
+
+let propertyRepairCalls = 0;
+const propertyRepairNode = await generateNextNode({
+  userData,
+  answers,
+  history,
+  currentAttributes: attributes,
+  selectedDecision: "在省会购买一套小户型",
+  nodeIndex: 1,
+  simulationSeed: "property-semantic-repair"
+}, {
+  enableFinancialRepair: true,
+  callAiJson: async (prompt) => {
+    propertyRepairCalls += 1;
+    if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+      return {
+        text: JSON.stringify({
+          financialSignals: {
+            employmentStatus: "employed",
+            monthlyNetIncomeWan: 0,
+            incomeMonths: 0,
+            monthlyLivingExpenseWan: 0,
+            oneOffIncomeWan: 0,
+            oneOffExpenseWan: 63,
+            assetValueChangeWan: 0,
+            propertyMarketValueChangeWan: 180,
+            personalDebtChangeWan: 120,
+            incomeStability: "stable",
+            confidence: 0.9,
+            reasons: ["支付六十万元首付和三万元税费", "新增一百二十万元房贷并购入一百八十万元房产"]
+          }
+        })
+      };
+    }
+    return {
+      text: JSON.stringify({
+        age: 23,
+        stage: "安家选择",
+        title: "小户型落定",
+        description: "她支付了60万首付并办理120万房贷，购入一套价值180万的小户型。",
+        choices: [
+          { id: "A", text: "稳定工作并按期还贷", impactSummary: "稳步还贷" },
+          { id: "B", text: "利用空房间增加租金收入", impactSummary: "补充现金" },
+          { id: "C", text: "控制其他支出建立应急金", impactSummary: "建立缓冲" }
+        ],
+        attributes,
+        financialSignals: {
+          employmentStatus: "employed",
+          monthlyNetIncomeWan: 0,
+          incomeMonths: 0,
+          monthlyLivingExpenseWan: 0,
+          oneOffIncomeWan: 0,
+          oneOffExpenseWan: 63,
+          assetValueChangeWan: 0,
+          propertyMarketValueChangeWan: 0,
+          personalDebtChangeWan: 120,
+          incomeStability: "stable",
+          confidence: 0.9,
+          reasons: ["支付首付并新增房贷"]
+        },
+        isEndingNode: false
+      })
+    };
+  }
+});
+
+assert.equal(propertyRepairCalls, 2);
+assert.equal(propertyRepairNode.financialSignals?.propertyMarketValueChangeWan, 180);
+assert.equal(
+  propertyRepairNode.financialState?.propertyMarketValueWan,
+  repairPreviousState.propertyMarketValueWan + 180
+);
+assert.equal(propertyRepairNode.financialChange?.netWorthChangeWan, -3);
 
 let failedRepairCalls = 0;
 const failedRepairNode = await generateNextNode({

@@ -15,7 +15,8 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
-import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
+import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
+import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
@@ -74,6 +75,7 @@ function attachFinancialProgress(input: {
     );
     return {
       ...input.node,
+      description: sanitizeFinancialNarrative(input.node.description, calculated.financialState),
       attributes: withCalculatedWealth(input.node.attributes, calculated.financialState, input.previousWealth),
       financialState: calculated.financialState,
       financialSignals: calculated.financialSignals,
@@ -96,6 +98,7 @@ function attachFinancialProgress(input: {
     );
     return {
       ...input.node,
+      description: sanitizeFinancialNarrative(input.node.description, calculated.financialState),
       attributes: withCalculatedWealth(input.node.attributes, calculated.financialState, input.previousWealth),
       financialState: calculated.financialState,
       financialChange: calculated.financialChange
@@ -116,6 +119,7 @@ function attachFinancialProgress(input: {
   );
   return {
     ...input.node,
+    description: sanitizeFinancialNarrative(input.node.description, inferred.financialState),
     attributes: withCalculatedWealth(input.node.attributes, inferred.financialState, input.previousWealth),
     financialState: inferred.financialState,
     financialSignals: inferred.financialSignals,
@@ -146,7 +150,10 @@ async function repairFinancialChangeIfNeeded(input: {
   const legacyIssues = hasFinancialObject(rawChange)
     ? getFinancialChangeInputIssues(rawChange, input.elapsedMonths)
     : ["financialChange 缺失"];
-  if (signalIssues.length === 0 || legacyIssues.length === 0 || !input.enabled || !isMajorFinancialNarrative(input.node.description)) {
+  const propertyIssues = getPropertyTransactionSignalIssues(input.node.description, rawSignals);
+  const hasValidSignals = signalIssues.length === 0 && propertyIssues.length === 0;
+  const hasValidLegacyChange = legacyIssues.length === 0 && propertyIssues.length === 0;
+  if (hasValidSignals || hasValidLegacyChange || !input.enabled || !isMajorFinancialNarrative(input.node.description)) {
     return input.rawNode;
   }
 
@@ -164,7 +171,11 @@ async function repairFinancialChangeIfNeeded(input: {
     const repairedSignals = hasFinancialObject(repairedData?.financialSignals)
       ? repairedData.financialSignals
       : repairedData;
-    if (!hasFinancialObject(repairedSignals) || getFinancialSignalsInputIssues(repairedSignals, input.elapsedMonths).length > 0) {
+    if (
+      !hasFinancialObject(repairedSignals)
+      || getFinancialSignalsInputIssues(repairedSignals, input.elapsedMonths).length > 0
+      || getPropertyTransactionSignalIssues(input.node.description, repairedSignals).length > 0
+    ) {
       return input.rawNode;
     }
     return { ...input.rawNode, financialSignals: repairedSignals };
@@ -306,6 +317,7 @@ export async function startSimulation(
   startWorldState.people = rebuildPersonStates(userData, [], startNode.ageInMonths ?? startNode.age * 12);
   const initializedStartNodeWithFinance = {
     ...startNode,
+    description: sanitizeFinancialNarrative(startNode.description, financialState),
     attributes: startAttributes,
     financialState,
     worldStateSnapshot: startWorldState
@@ -561,6 +573,7 @@ export async function generateNextNode(
     });
     const endingNode: SimulationNode = {
       ...normalizedEnding,
+      description: sanitizeFinancialNarrative(normalizedEnding.description, node.financialState!),
       attributes: node.attributes,
       financialState: node.financialState,
       financialChange: node.financialChange,

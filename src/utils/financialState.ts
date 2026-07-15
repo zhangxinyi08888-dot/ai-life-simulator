@@ -55,6 +55,7 @@ const REQUIRED_SIGNAL_NUMBERS: Array<keyof FinancialSignals> = [
   "oneOffIncomeWan",
   "oneOffExpenseWan",
   "assetValueChangeWan",
+  "propertyMarketValueChangeWan",
   "personalDebtChangeWan",
   "confidence"
 ];
@@ -91,6 +92,7 @@ export function normalizeFinancialSignals(raw: Partial<FinancialSignals>, period
     oneOffIncomeWan: roundMoney(Math.max(0, finite(raw.oneOffIncomeWan))),
     oneOffExpenseWan: roundMoney(Math.max(0, finite(raw.oneOffExpenseWan))),
     assetValueChangeWan: roundMoney(finite(raw.assetValueChangeWan)),
+    propertyMarketValueChangeWan: roundMoney(finite(raw.propertyMarketValueChangeWan)),
     personalDebtChangeWan: roundMoney(finite(raw.personalDebtChangeWan)),
     incomeStability: stability(raw.incomeStability),
     confidence: clamp(finite(raw.confidence, 0.3), 0, 1),
@@ -161,6 +163,7 @@ export function inferFinancialSignalsFromNarrative(input: {
     oneOffIncomeWan: 0,
     oneOffExpenseWan: 0,
     assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
     personalDebtChangeWan: 0,
     incomeStability: monthlyIncome !== undefined ? "volatile" : input.previousState.incomeStability,
     confidence: monthlyIncome !== undefined ? 0.65 : 0.35,
@@ -342,7 +345,10 @@ export function applyFinancialSignals(
     livingExpenseWan: livingExpense,
     medicalEducationExpenseWan: financialSignals.oneOffExpenseWan,
     interestAndFeesWan: 0,
-    assetValueChangeWan: financialSignals.assetValueChangeWan,
+    assetValueChangeWan: roundMoney(
+      financialSignals.assetValueChangeWan
+      + financialSignals.propertyMarketValueChangeWan
+    ),
     otherNetChangeWan: -financialSignals.personalDebtChangeWan,
     incomeStability: financialSignals.incomeStability,
     reasons: financialSignals.reasons
@@ -357,6 +363,10 @@ export function applyFinancialSignals(
       - financialSignals.oneOffExpenseWan
     ),
     investmentAssetsWan: roundMoney(previous.investmentAssetsWan + financialSignals.assetValueChangeWan),
+    propertyMarketValueWan: roundMoney(Math.max(
+      0,
+      previous.propertyMarketValueWan + financialSignals.propertyMarketValueChangeWan
+    )),
     totalDebtWan: roundMoney(Math.max(0, previous.totalDebtWan + financialSignals.personalDebtChangeWan)),
     annualAfterTaxIncomeWan: roundMoney(financialSignals.monthlyNetIncomeWan * 12),
     annualCoreExpenseWan: roundMoney(financialSignals.monthlyLivingExpenseWan * 12),
@@ -367,6 +377,33 @@ export function applyFinancialSignals(
   };
   next.netWorthWan = calculateNetWorth(next);
   return { financialState: next, financialSignals, financialChange };
+}
+
+const COMPLETED_PROPERTY_PURCHASE = /买下|购入|购买了|支付(?:了)?.{0,12}首付|首付.{0,8}(?:支付|付清)|办理(?:了)?.{0,8}(?:按揭|房贷)/;
+const COMPLETED_PROPERTY_SALE = /卖掉|卖出|出售了|出售房产|房产出售|完成.{0,8}房产出售/;
+
+export function getPropertyTransactionSignalIssues(
+  description: string,
+  rawSignals: unknown
+): string[] {
+  const record = rawSignals && typeof rawSignals === "object" && !Array.isArray(rawSignals)
+    ? rawSignals as Record<string, unknown>
+    : {};
+  const propertyChange = finite(record.propertyMarketValueChangeWan);
+  const issues: string[] = [];
+  const completedPurchase = COMPLETED_PROPERTY_PURCHASE.test(description);
+  const completedSale = COMPLETED_PROPERTY_SALE.test(description);
+  // A single net-change field cannot infer the direction when a home is sold and
+  // another is bought in the same stage; the required numeric field still gets
+  // validated by getFinancialSignalsInputIssues.
+  if (completedPurchase && completedSale) return issues;
+  if (completedPurchase && propertyChange <= 0) {
+    issues.push("正文已发生购房，但 propertyMarketValueChangeWan 未填写正数房产价值");
+  }
+  if (completedSale && propertyChange >= 0) {
+    issues.push("正文已发生卖房，但 propertyMarketValueChangeWan 未填写负数房产价值");
+  }
+  return issues;
 }
 
 export function deriveWealthScore(state: FinancialState): number {

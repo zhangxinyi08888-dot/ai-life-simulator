@@ -8,7 +8,8 @@ import { formatPersonStateForPrompt } from "../../utils/personTimeline";
 import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance";
 import { formatFinancialStateForPrompt } from "../../utils/financialState";
 
-const FINANCIAL_NARRATIVE_RULE = "- 正文尽量避免描述当前存款、积蓄、身家、净资产或累计财富的精确总额。需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述；最终金额由系统统一计算和展示。";
+const FINANCIAL_NARRATIVE_RULE = `- 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
+- 允许描述本阶段实际发生的交易金额，例如月薪、房租、医疗费、首付、贷款、投资额和项目收入。`;
 
 function focusLabel(value: string): string {
   if (value === "career") return "事业发展与职场长征";
@@ -209,8 +210,10 @@ ${input.description}
 - “家里欠债”不是用户个人负债；只有用户实际代偿、汇款或共同承担时，才计入本阶段支出。
 - 尚未支付的手术费、计划投资和候选选项中的金额不能提前计入；只计算正文已经发生的事实。
 - 普通学生或工薪阶段单期净财富变化必须写实。超过 50 万元时，正文必须有房产出售、股权变现、继承、重大负债等明确依据，否则按保守金额重估。
-- assetValueChangeWan 只填写已有投资、房产或企业资产的价值涨跌；工资和项目收入不能放入该字段。
+- assetValueChangeWan 只填写已有投资资产的价值涨跌；工资、项目收入和房产变化不能放入该字段。
+- propertyMarketValueChangeWan 单独填写房产市值变化：买房或房产升值为正数，卖房或房产贬值为负数；不得与 assetValueChangeWan 重复。
 - oneOffIncomeWan 和 oneOffExpenseWan 只记录已经发生的一次性收支；personalDebtChangeWan 只记录用户个人债务净增加或减少。
+- 已发生购房时，oneOffExpenseWan 包含首付和税费，propertyMarketValueChangeWan 填写购入房产价值，personalDebtChangeWan 填写新增房贷。
 - employmentStatus 只能是 student、part_time、employed、self_employed、not_working、medical_leave、retired。
 - incomeStability 只能是 unstable、volatile、stable、very_stable。
 - reasons 返回 1-4 条简短依据，必须能在正文或最近经历中找到支持。
@@ -225,6 +228,7 @@ ${input.description}
     "oneOffIncomeWan": 0,
     "oneOffExpenseWan": 0,
     "assetValueChangeWan": 0,
+    "propertyMarketValueChangeWan": 0,
     "personalDebtChangeWan": 0,
     "incomeStability": "volatile",
     "confidence": 0.8,
@@ -296,7 +300,7 @@ ${FINANCIAL_NARRATIVE_RULE}
 - 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes。
 ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
-- financialSignals 必须放在返回 JSON 顶层，返回 employmentStatus、monthlyNetIncomeWan、incomeMonths、monthlyLivingExpenseWan、oneOffIncomeWan、oneOffExpenseWan、assetValueChangeWan、personalDebtChangeWan、incomeStability、confidence、reasons。
+- financialSignals 必须放在返回 JSON 顶层，返回 employmentStatus、monthlyNetIncomeWan、incomeMonths、monthlyLivingExpenseWan、oneOffIncomeWan、oneOffExpenseWan、assetValueChangeWan、propertyMarketValueChangeWan、personalDebtChangeWan、incomeStability、confidence、reasons。
 - incomeMonths 必须在 0-${elapsedMonths} 之间。正文出现月薪、年薪、兼职、项目收入、房租、医疗、教育、汇款或债务时，必须反映到对应字段。
 - 只返回财务事实信号，不要自行返回 netWorthWan、netWorthChangeWan、financialChange 或计算 wealth；这些值由代码统一计算。
 - 不要返回 netWorthWan、netWorthChangeWan 或自行计算 wealth；这些值由代码根据财务变化统一计算。
