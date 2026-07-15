@@ -21,6 +21,7 @@ export interface FinancialSignals {
   oneOffIncomeWan: number;
   oneOffExpenseWan: number;
   assetValueChangeWan: number;
+  propertyMarketValueChangeWan: number;
   personalDebtChangeWan: number;
   incomeStability: IncomeStability;
   confidence: number;

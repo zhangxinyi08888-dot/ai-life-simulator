@@ -9,6 +9,7 @@ import {
   estimateFinancialStateFromWealth,
   formatNetWorthWan,
   getFinancialChangeInputIssues,
+  getPropertyTransactionSignalIssues,
   inferFinancialSignalsFromNarrative,
   normalizeInitialFinancialState
 } from "./financialState";
@@ -184,6 +185,7 @@ test("reconciles the student startup and interest-free loan narrative round by r
     oneOffIncomeWan: 0,
     oneOffExpenseWan: 0.2,
     assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
     personalDebtChangeWan: 0,
     incomeStability: "unstable",
     confidence: 0.9,
@@ -205,6 +207,7 @@ test("reconciles the student startup and interest-free loan narrative round by r
     oneOffIncomeWan: 5,
     oneOffExpenseWan: 5,
     assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
     personalDebtChangeWan: 0,
     incomeStability: "unstable",
     confidence: 0.9,
@@ -242,6 +245,7 @@ test("reconciles annual salary plus side-income narrative for a one-month stage"
     oneOffIncomeWan: 0,
     oneOffExpenseWan: 0,
     assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
     personalDebtChangeWan: 0,
     incomeStability: "volatile",
     confidence: 0.9,
@@ -277,6 +281,7 @@ test("reconciles a fourteen-month salary and community-income accumulation", () 
     oneOffIncomeWan: 0.3,
     oneOffExpenseWan: 0,
     assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
     personalDebtChangeWan: 0,
     incomeStability: "volatile",
     confidence: 0.9,
@@ -316,6 +321,7 @@ test("keeps cumulative wealth and stage change aligned when health costs exceed 
     oneOffIncomeWan: 0,
     oneOffExpenseWan: 5.1,
     assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
     personalDebtChangeWan: 0,
     incomeStability: "unstable",
     confidence: 0.9,
@@ -326,4 +332,97 @@ test("keeps cumulative wealth and stage change aligned when health costs exceed 
   assert.equal(result.financialChange.livingExpenseWan, 7.2);
   assert.equal(result.financialChange.netWorthChangeWan, -4.8);
   assert.equal(result.financialState.netWorthWan, 111);
+});
+
+function propertyTestState() {
+  return normalizeInitialFinancialState({
+    cashWan: 391,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: 0,
+    annualCoreExpenseWan: 0,
+    employmentStatus: "employed",
+    incomeStability: "stable",
+    isEstimated: false
+  }, 50 * 12, 70);
+}
+
+function propertySignals(overrides: Partial<Parameters<typeof applyFinancialSignals>[1]>) {
+  return {
+    employmentStatus: "employed" as const,
+    monthlyNetIncomeWan: 0,
+    incomeMonths: 0,
+    monthlyLivingExpenseWan: 0,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "stable" as const,
+    confidence: 0.9,
+    reasons: ["房产交易"],
+    ...overrides
+  };
+}
+
+test("records a mortgaged home purchase as an asset transfer plus fees", () => {
+  const previous = propertyTestState();
+  const result = applyFinancialSignals(previous, propertySignals({
+    oneOffExpenseWan: 63,
+    propertyMarketValueChangeWan: 180,
+    personalDebtChangeWan: 120
+  }), 1, 50 * 12 + 1);
+
+  assert.equal(result.financialState.cashWan, 328);
+  assert.equal(result.financialState.propertyMarketValueWan, 180);
+  assert.equal(result.financialState.totalDebtWan, 120);
+  assert.equal(result.financialChange.netWorthChangeWan, -3);
+  assert.equal(result.financialState.netWorthWan, 388);
+});
+
+test("keeps net worth stable for full-cash property purchases and sales", () => {
+  const purchase = applyFinancialSignals(propertyTestState(), propertySignals({
+    oneOffExpenseWan: 100,
+    propertyMarketValueChangeWan: 100
+  }), 1, 50 * 12 + 1);
+  assert.equal(purchase.financialChange.netWorthChangeWan, 0);
+  assert.equal(purchase.financialState.netWorthWan, 391);
+
+  const sale = applyFinancialSignals(purchase.financialState, propertySignals({
+    oneOffIncomeWan: 100,
+    propertyMarketValueChangeWan: -100
+  }), 1, 50 * 12 + 2);
+  assert.equal(sale.financialChange.netWorthChangeWan, 0);
+  assert.equal(sale.financialState.netWorthWan, 391);
+});
+
+test("adds property appreciation to cumulative net worth", () => {
+  const result = applyFinancialSignals(propertyTestState(), propertySignals({
+    propertyMarketValueChangeWan: 10,
+    reasons: ["房产升值十万元"]
+  }), 12, 51 * 12);
+  assert.equal(result.financialChange.netWorthChangeWan, 10);
+  assert.equal(result.financialState.netWorthWan, 401);
+});
+
+test("requires property value direction for completed purchases and sales", () => {
+  assert.deepEqual(
+    getPropertyTransactionSignalIssues("你支付了60万首付并办理房贷，房产已经完成过户。", propertySignals({})),
+    ["正文已发生购房，但 propertyMarketValueChangeWan 未填写正数房产价值"]
+  );
+  assert.deepEqual(
+    getPropertyTransactionSignalIssues("你出售了名下房产并完成交割。", propertySignals({})),
+    ["正文已发生卖房，但 propertyMarketValueChangeWan 未填写负数房产价值"]
+  );
+  assert.deepEqual(
+    getPropertyTransactionSignalIssues("你支付了60万首付并办理房贷。", propertySignals({ propertyMarketValueChangeWan: 180 })),
+    []
+  );
+  assert.deepEqual(
+    getPropertyTransactionSignalIssues("你卖出旧房后又买下一套新房。", propertySignals({ propertyMarketValueChangeWan: 0 })),
+    []
+  );
 });
