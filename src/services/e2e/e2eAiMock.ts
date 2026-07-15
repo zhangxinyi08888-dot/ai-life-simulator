@@ -33,6 +33,7 @@ function choiceNode(
   attributes: LifeAttributes,
   isEndingNode = false
 ): SimulationNode {
+  const decisionKey = title.replace(/[^\p{L}\p{N}]+/gu, "-").toLowerCase();
   return {
     age,
     stage: isEndingNode ? "人生收束" : "现实抉择",
@@ -43,9 +44,27 @@ function choiceNode(
     choices: isEndingNode
       ? [{ id: "A", text: "安详落幕，查看一生洞察", impactSummary: "终章" }]
       : [
-          { id: "A", text: "先把手里的事情做成一个可以展示的作品", impactSummary: "沉淀作品" },
-          { id: "B", text: "继续保持稳定节奏，同时小步验证新方向", impactSummary: "稳中试探" },
-          { id: "C", text: "找一个能互补的人一起推进，不再全部自己扛", impactSummary: "借力成长" }
+          {
+            id: "A",
+            text: `围绕“${title}”先完成一个可以验证的阶段成果`,
+            impactSummary: "沉淀成果",
+            decisionIntent: `e2e:${decisionKey}:build`,
+            expectedWorldDeltaTypes: ["career_state"]
+          },
+          {
+            id: "B",
+            text: `在“${title}”阶段保留安全边界，小步验证下一方向`,
+            impactSummary: "稳中试探",
+            decisionIntent: `e2e:${decisionKey}:stabilize`,
+            expectedWorldDeltaTypes: ["health_state"]
+          },
+          {
+            id: "C",
+            text: `为“${title}”寻找互补伙伴并建立清晰分工`,
+            impactSummary: "借力成长",
+            decisionIntent: `e2e:${decisionKey}:collaborate`,
+            expectedWorldDeltaTypes: ["relationship_change"]
+          }
         ]
   };
 }

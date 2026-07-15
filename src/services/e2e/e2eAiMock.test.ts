@@ -13,8 +13,13 @@ assert.equal(questions.questions[0].suggestions.length >= 4, true);
 const start = JSON.parse((await callAiJson("startNode")).text);
 assert.equal(start.startNode.isEndingNode, false);
 assert.equal(start.startNode.choices.length, 3);
+assert.equal(new Set(start.startNode.choices.map((choice: { decisionIntent: string }) => choice.decisionIntent)).size, 3);
 
-JSON.parse((await callAiJson("【上一步做出的命运裁决】")).text);
+const next = JSON.parse((await callAiJson("【上一步做出的命运裁决】")).text);
+assert.notDeepEqual(
+  next.choices.map((choice: { decisionIntent: string }) => choice.decisionIntent),
+  start.startNode.choices.map((choice: { decisionIntent: string }) => choice.decisionIntent)
+);
 JSON.parse((await callAiJson("【上一步做出的命运裁决】")).text);
 const endingCandidate = JSON.parse((await callAiJson("【上一步做出的命运裁决】")).text);
 assert.equal(endingCandidate.isEndingNode, false);

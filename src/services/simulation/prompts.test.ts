@@ -58,7 +58,11 @@ const healthWarningEvent: LifeEventSeed = {
     type: "health_system_warning",
     meaning: "长期高压生活引发身体或精神系统性的现实反馈。",
     tensionAxes: ["收益 vs 健康", "短期稳定 vs 长期风险", "责任 vs 自我保护"],
-    allowedOutcomes: ["persist_high_pressure", "optimize_load", "exit_or_pause"],
+    allowedOutcomes: [
+      "maintain_current_load_with_monitoring",
+      "continue_goal_with_adjusted_execution",
+      "pause_or_seek_professional_support"
+    ],
     emotionalTone: "crisis"
   }
 };
@@ -82,6 +86,10 @@ assert.match(prompt, /temporalHint、decisionIntent、expectedWorldDeltaTypes/);
 assert.match(prompt, /decisionIntent 是代码识别行动方向的稳定指纹/);
 assert.match(prompt, /领域:动作:对象/);
 assert.match(prompt, /语义相同的行动必须复用已有 decisionIntent/);
+assert.match(prompt, /不得仅因为人物处于事业线、收入增加或继续工作就自动降低健康/);
+assert.match(prompt, /也不得仅因为停止工作就自动增加健康/);
+assert.match(prompt, /继续工作也可以是 protected/);
+assert.match(prompt, /recoveryState=depleted 必须有/);
 assert.match(prompt, /不能自行创建或修改 Arc 状态|模型不得修改 phase/);
 assert.match(prompt, /正文尽量避免描述当前存款、积蓄、身家、净资产或累计财富的精确总额/);
 assert.match(prompt, /最终金额由系统统一计算和展示/);

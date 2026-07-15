@@ -16,3 +16,19 @@ assert.ok(context.hardConstraints.some((item) => item.includes("不能默认仍�
 const prompt = formatAgeContextForPrompt(context);
 assert.match(prompt, /年龄只约束执行条件/);
 assert.match(prompt, /80岁旅行/);
+
+const thirteenMonthContext = buildAgeContext({
+  previousAgeInMonths: 24 * 12 + 6,
+  targetAgeInMonths: 25 * 12 + 7,
+  attributes: { happiness: 42, intelligence: 53, wealth: 48, relation: 38, health: 52 },
+  userData: { regressionChoices: "继续推进产品职业方向" },
+  history: [],
+  people: []
+});
+const thirteenMonthPrompt = formatAgeContextForPrompt(thirteenMonthContext);
+
+assert.equal(thirteenMonthContext.elapsedMonths, 13);
+assert.match(thirteenMonthPrompt, /必须覆盖完整的13个月/);
+assert.match(thirteenMonthPrompt, /阶段末尾/);
+assert.match(thirteenMonthPrompt, /storyEpisode\.internalTransitions/);
+assert.match(thirteenMonthPrompt, /目标时间25 岁 7 个月附近/);

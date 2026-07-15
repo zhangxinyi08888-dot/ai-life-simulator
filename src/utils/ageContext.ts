@@ -41,6 +41,13 @@ export function buildAgeContext(input: {
   const activeAgencyDirections = directionSummaries(input.userData, input.directionArcs || []);
   const executionAdaptations: string[] = [];
   const supportFactors: string[] = [];
+  const timeTransitionRequirements = elapsedMonths >= 6
+    ? [
+        `本轮叙事必须覆盖完整的${elapsedMonths}个月，不能只描写其中几天或几周。`,
+        "若核心冲突只发生在阶段末尾，必须先概述此前的人物、工作、家庭、财务或健康变化，或将短期过程写入 storyEpisode.internalTransitions。",
+        `正文结尾必须落在目标时间${formatAgeInMonths(input.targetAgeInMonths)}附近，不得仍停留在阶段开始时。`
+      ]
+    : [];
   const hardConstraints = [
     `本轮目标时间必须是${formatAgeInMonths(input.targetAgeInMonths)}。`,
     "年龄只约束执行条件，不得替换用户仍在推进的人生愿望。"
@@ -73,7 +80,7 @@ export function buildAgeContext(input: {
     executionAdaptations,
     supportFactors,
     healthAndRecoveryContext: [`health=${input.attributes.health}`, `relation=${input.attributes.relation}`],
-    timeTransitionRequirements: elapsedMonths >= 24 ? ["正文至少体现一项人物、工作、家庭、财务或健康状态的时间变化。"] : [],
+    timeTransitionRequirements,
     hardConstraints,
     probabilityNotes: ["少见不等于错误；45岁读书、55岁创业、70岁写书、80岁旅行、90岁研究均可成立。"],
     exceptionalFacts: []
@@ -95,7 +102,7 @@ ${list(context.activeAgencyDirections)}
 ${list([...context.executionAdaptations, ...context.supportFactors])}
 
 【时间硬约束】
-${list(context.hardConstraints)}
+${list([...context.hardConstraints, ...context.timeTransitionRequirements])}
 
 【现实概率备注】
 ${list(context.probabilityNotes)}`;

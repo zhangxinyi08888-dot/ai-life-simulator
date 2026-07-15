@@ -7,12 +7,25 @@ function formatList(items: string[]): string {
 
 const directionChoiceRule = "\n- 生成 A/B/C 选项时，只有 state=stage_main_arc 或 long_term_main_arc 的方向可以成为职业、创业、重大转型方向\n- state=background_detail 的方向不得进入选项主语；state=side_thread 只能作为附带考虑；state=mentioned 不得主动出现在选项中\n- state=cooldown 或 dormant 的 decisionIntent 不得再次进入 A/B/C，初始事实、追问答案和 background thread 都不能绕过冷却\n- 延续 background thread 是推进人物关系、压力或既有后果，不等于把用户未采纳的具体方案换一种文案再次提供";
 
+function formatEventSpecificRules(event: LifeEventSeed): string {
+  if (event.intent.type !== "health_system_warning" && event.intent.type !== "health_forced_pause") {
+    return "";
+  }
+
+  const warningRecoveryRule = event.intent.type === "health_system_warning"
+    ? "\n- 健康预警正文应说明当前风险和可调整因素；三个选项中至少一个应能实质改善恢复条件，但不得承诺健康立即回升，也不得把它写成唯一正确答案"
+    : "";
+
+  return `\n- 健康事件不得把继续事业目标等同于维持原有负荷，也不得把恢复健康等同于必须永久放弃工作；选项应包含调整负荷的中间路径，当健康风险、医疗建议或现实条件充分支持时，也允许暂停、离职或退出当前工作进行调养${warningRecoveryRule}`;
+}
+
 export function buildEventIntentPrompt(event: LifeEventSeed, storyContext?: StoryContextPack): string {
   const contextPrompt = storyContext ? formatStoryContextPack(storyContext) : "";
   const answerRule = storyContext?.answerFacts.length
     ? "\n- 追问答案非空，本轮剧情必须至少显性使用 1 条追问答案中的事实或限制；不要机械复述原话，要转化成场景约束、人物反应、可选路径或心理惯性"
     : "";
-  return `${contextPrompt}\n\n【Event Intent】\ntype: ${event.intent.type}\nmeaning: ${event.intent.meaning}\ntensionAxes:\n${formatList(event.intent.tensionAxes)}\nallowedOutcomes:\n${formatList(event.intent.allowedOutcomes)}\nemotionalTone: ${event.intent.emotionalTone || "neutral"}\n\n请严格围绕该结构生成现实人生场景。\n要求：\n- 不要复述事件定义\n- 不要使用模板化灾难剧情\n- 不要使用事件库语言原句作为正文\n- 必须根据用户真实信息、追问补全信息、历史选择、当前属性、最近 5 个历史节点状态调整细节\n- 必须保持剧情延续性\n- 优先延续最近 5 个节点中已经出现的人、关系、职业状态、健康状态、财务状态，但人物必须随时间变化\n- 年龄只调整执行条件、风险和支持方式，不得删除学习、事业、创业、创作、旅行、研究等用户方向\n- Event 只提出阶段性压力，不能永久锁定 LifeIntensity，也不能修改 PressureArc phase\n- 每个非终章节点至少推进主事件 intent、延续一个 background thread、或从追问答案中转化一个现实限制/人物关系\n- 必须体现真实生活代价与选择\n- allowedOutcomes 是行动原语，不是选项文案；请将其渲染成自然、具体、符合上下文的用户选择${directionChoiceRule}${answerRule}`;
+  const eventSpecificRules = formatEventSpecificRules(event);
+  return `${contextPrompt}\n\n【Event Intent】\ntype: ${event.intent.type}\nmeaning: ${event.intent.meaning}\ntensionAxes:\n${formatList(event.intent.tensionAxes)}\nallowedOutcomes:\n${formatList(event.intent.allowedOutcomes)}\nemotionalTone: ${event.intent.emotionalTone || "neutral"}\n\n请严格围绕该结构生成现实人生场景。\n要求：\n- 不要复述事件定义\n- 不要使用模板化灾难剧情\n- 不要使用事件库语言原句作为正文\n- 必须根据用户真实信息、追问补全信息、历史选择、当前属性、最近 5 个历史节点状态调整细节\n- 必须保持剧情延续性\n- 优先延续最近 5 个节点中已经出现的人、关系、职业状态、健康状态、财务状态，但人物必须随时间变化\n- 年龄只调整执行条件、风险和支持方式，不得删除学习、事业、创业、创作、旅行、研究等用户方向\n- Event 只提出阶段性压力，不能永久锁定 LifeIntensity，也不能修改 PressureArc phase\n- 每个非终章节点至少推进主事件 intent、延续一个 background thread、或从追问答案中转化一个现实限制/人物关系\n- 必须体现真实生活代价与选择\n- allowedOutcomes 是行动原语，不是选项文案；请将其渲染成自然、具体、符合上下文的用户选择${directionChoiceRule}${answerRule}${eventSpecificRules}`;
 }
 
 export function buildNullEventPrompt(storyContext?: StoryContextPack): string {
