@@ -15,7 +15,7 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
-import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
+import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, reconcileStudentFinancialSignals, withCalculatedWealth } from "../../utils/financialState";
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
@@ -67,9 +67,15 @@ function attachFinancialProgress(input: {
     ? getFinancialSignalsInputIssues(rawSignals, input.elapsedMonths)
     : ["financialSignals 缺失"];
   if (rawSignals && signalIssues.length === 0) {
+    const reconciledSignals = reconcileStudentFinancialSignals(
+      rawSignals,
+      input.node.description,
+      input.elapsedMonths,
+      input.previousState
+    );
     const calculated = applyFinancialSignals(
       input.previousState,
-      rawSignals,
+      reconciledSignals,
       input.elapsedMonths,
       input.targetAgeInMonths
     );

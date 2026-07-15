@@ -11,7 +11,8 @@ import {
   getFinancialChangeInputIssues,
   getPropertyTransactionSignalIssues,
   inferFinancialSignalsFromNarrative,
-  normalizeInitialFinancialState
+  normalizeInitialFinancialState,
+  reconcileStudentFinancialSignals
 } from "./financialState";
 
 test("calculates cumulative net worth from assets minus debt", () => {
@@ -425,4 +426,118 @@ test("requires property value direction for completed purchases and sales", () =
     getPropertyTransactionSignalIssues("你卖出旧房后又买下一套新房。", propertySignals({ propertyMarketValueChangeWan: 0 })),
     []
   );
+});
+
+test("reconciles yuan-denominated student income and installment expenses", () => {
+  const signals = reconcileStudentFinancialSignals({
+    employmentStatus: "part_time",
+    monthlyNetIncomeWan: 0.8,
+    incomeMonths: 6,
+    monthlyLivingExpenseWan: 0.8,
+    oneOffIncomeWan: 0.5,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "unstable",
+    confidence: 0.8,
+    reasons: ["根据正文估算"]
+  }, "你接拍宣传片，两天赚了500元。训练营分12期，每月816元；随后去公司实习，月薪800元。", 6);
+
+  assert.equal(signals.monthlyNetIncomeWan, 0.08);
+  assert.equal(signals.oneOffIncomeWan, 0.05);
+  assert.equal(signals.monthlyLivingExpenseWan, 0.1816);
+});
+
+test("does not carry an adult-sized living expense into an inferred student stage", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 1,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: -6,
+    annualCoreExpenseWan: 6,
+    employmentStatus: "student",
+    incomeStability: "unstable",
+    isEstimated: true
+  }, 20 * 12, 40);
+  const signals = inferFinancialSignalsFromNarrative({
+    description: "大二期间，你继续在校学习。",
+    previousState: previous,
+    periodMonths: 6,
+    targetAgeInMonths: 20 * 12 + 6
+  });
+
+  assert.equal(signals.employmentStatus, "student");
+  assert.equal(signals.monthlyLivingExpenseWan, 0.2);
+});
+
+test("does not create implicit negative cash for an unfunded student expense", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 0,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: 0,
+    annualCoreExpenseWan: 1.2,
+    employmentStatus: "student",
+    incomeStability: "unstable",
+    isEstimated: true
+  }, 20 * 12, 40);
+  const signals = reconcileStudentFinancialSignals({
+    employmentStatus: "student",
+    monthlyNetIncomeWan: 0,
+    incomeMonths: 0,
+    monthlyLivingExpenseWan: 0.5,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "unstable",
+    confidence: 0.5,
+    reasons: ["估算学生生活费"]
+  }, "你继续在校学习，日常开支主要由家里承担。", 6, previous);
+  const result = applyFinancialSignals(previous, signals, 6, 20 * 12 + 6);
+
+  assert.equal(signals.monthlyLivingExpenseWan, 0);
+  assert.equal(result.financialState.netWorthWan, 0);
+});
+
+test("recognizes a freshman narrative and caps unfunded one-off costs", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 0.5,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: 0,
+    annualCoreExpenseWan: 1.2,
+    employmentStatus: "student",
+    incomeStability: "unstable",
+    isEstimated: true
+  }, 19 * 12, 40);
+  const signals = reconcileStudentFinancialSignals({
+    employmentStatus: "employed",
+    monthlyNetIncomeWan: 0,
+    incomeMonths: 0,
+    monthlyLivingExpenseWan: 0.5,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 3.4,
+    assetValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "unstable",
+    confidence: 0.5,
+    reasons: ["估算大一阶段开支"]
+  }, "大一这一年，你完成专业课并留校参加古建测绘工作坊。", 5, previous);
+  const result = applyFinancialSignals(previous, signals, 5, 19 * 12 + 5);
+
+  assert.equal(signals.employmentStatus, "student");
+  assert.equal(signals.oneOffExpenseWan, 0.5);
+  assert.equal(signals.monthlyLivingExpenseWan, 0);
+  assert.equal(result.financialState.netWorthWan, 0);
+  assert.equal(result.financialChange.netWorthChangeWan, -0.5);
 });

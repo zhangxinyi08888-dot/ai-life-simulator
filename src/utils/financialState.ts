@@ -11,6 +11,10 @@ function roundMoney(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+function roundSignalMoney(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -86,14 +90,14 @@ export function normalizeFinancialSignals(raw: Partial<FinancialSignals>, period
     : "not_working";
   return {
     employmentStatus,
-    monthlyNetIncomeWan: roundMoney(Math.max(0, finite(raw.monthlyNetIncomeWan))),
+    monthlyNetIncomeWan: roundSignalMoney(Math.max(0, finite(raw.monthlyNetIncomeWan))),
     incomeMonths: roundMoney(clamp(finite(raw.incomeMonths), 0, periodMonths)),
-    monthlyLivingExpenseWan: roundMoney(Math.max(0, finite(raw.monthlyLivingExpenseWan))),
-    oneOffIncomeWan: roundMoney(Math.max(0, finite(raw.oneOffIncomeWan))),
-    oneOffExpenseWan: roundMoney(Math.max(0, finite(raw.oneOffExpenseWan))),
-    assetValueChangeWan: roundMoney(finite(raw.assetValueChangeWan)),
-    propertyMarketValueChangeWan: roundMoney(finite(raw.propertyMarketValueChangeWan)),
-    personalDebtChangeWan: roundMoney(finite(raw.personalDebtChangeWan)),
+    monthlyLivingExpenseWan: roundSignalMoney(Math.max(0, finite(raw.monthlyLivingExpenseWan))),
+    oneOffIncomeWan: roundSignalMoney(Math.max(0, finite(raw.oneOffIncomeWan))),
+    oneOffExpenseWan: roundSignalMoney(Math.max(0, finite(raw.oneOffExpenseWan))),
+    assetValueChangeWan: roundSignalMoney(finite(raw.assetValueChangeWan)),
+    propertyMarketValueChangeWan: roundSignalMoney(finite(raw.propertyMarketValueChangeWan)),
+    personalDebtChangeWan: roundSignalMoney(finite(raw.personalDebtChangeWan)),
     incomeStability: stability(raw.incomeStability),
     confidence: clamp(finite(raw.confidence, 0.3), 0, 1),
     reasons: Array.isArray(raw.reasons)
@@ -114,6 +118,91 @@ function firstMoneyMatch(text: string, patterns: RegExp[]): number | undefined {
     if (match) return moneyToWan(match[1], match[2]);
   }
   return undefined;
+}
+
+function moneyMismatchIsMaterial(actual: number, explicit: number): boolean {
+  if (explicit <= 0) return false;
+  return actual >= explicit * 5 || actual <= explicit / 5;
+}
+
+function studentExpenseCeiling(description: string): number {
+  const explicitLivingExpense = firstMoneyMatch(description, [
+    /(?:生活费|房租|住宿费|伙食费)[^。；，]{0,16}(?:每月|月付)[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
+    /(?:每月|月付)[^。；，]{0,12}(\d+(?:\.\d+)?)\s*(万元|万|元)[^。；，]{0,8}(?:生活费|房租|住宿费|伙食费)/
+  ]);
+  const explicitStudyInstallment = firstMoneyMatch(description, [
+    /(?:训练营|培训费|课程费|学费|分期)[^。；]{0,24}(?:每月|月付)[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
+    /(?:每月|月付)[^。；，]{0,12}(\d+(?:\.\d+)?)\s*(万元|万|元)[^。；，]{0,8}(?:训练营|培训费|课程费|学费|分期)/
+  ]) || 0;
+
+  // 学生的默认值只代表本人实际承担、扣除家庭或学校支持后的净生活支出。
+  return Math.max(0.1, explicitLivingExpense || 0) + explicitStudyInstallment;
+}
+
+export function reconcileStudentFinancialSignals(
+  raw: Partial<FinancialSignals>,
+  description: string,
+  periodMonths: number,
+  previousState?: FinancialState
+): FinancialSignals {
+  const explicitMonthlyIncome = firstMoneyMatch(description, [
+    /(?:月薪|月工资|月收入|月入(?:能到)?|每月收入)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
+    /每月[^。；，]{0,16}(?:能赚|赚到|拿到)[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/
+  ]);
+  const explicitOneOffIncome = firstMoneyMatch(description, [
+    /(?:赚了|挣了|获得报酬|拿到报酬|收入)[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/
+  ]);
+  const normalized = normalizeFinancialSignals(raw, periodMonths);
+  const narrativeIsStudent = /在校|大学|学生|大[一二三四]|院校|专业课|学期|导师/.test(description);
+  const isStudentPhase = narrativeIsStudent
+    || normalized.employmentStatus === "student"
+    || normalized.employmentStatus === "part_time";
+  if (!isStudentPhase) return normalized;
+  const signals: FinancialSignals = {
+    ...normalized,
+    employmentStatus: narrativeIsStudent
+      ? explicitMonthlyIncome !== undefined ? "part_time" : "student"
+      : normalized.employmentStatus
+  };
+  const expenseCeiling = studentExpenseCeiling(description);
+
+  const reconciled = {
+    ...signals,
+    monthlyNetIncomeWan: explicitMonthlyIncome !== undefined
+      && moneyMismatchIsMaterial(signals.monthlyNetIncomeWan, explicitMonthlyIncome)
+      ? roundSignalMoney(explicitMonthlyIncome)
+      : signals.monthlyNetIncomeWan,
+    oneOffIncomeWan: explicitOneOffIncome !== undefined
+      && moneyMismatchIsMaterial(signals.oneOffIncomeWan, explicitOneOffIncome)
+      ? roundSignalMoney(explicitOneOffIncome)
+      : signals.oneOffIncomeWan,
+    monthlyLivingExpenseWan: roundSignalMoney(Math.min(signals.monthlyLivingExpenseWan, expenseCeiling)),
+    reasons: signals.monthlyLivingExpenseWan > expenseCeiling
+      ? [...signals.reasons, "学生个人净支出按正文金额和保守生活费校正"].slice(0, 4)
+      : signals.reasons
+  };
+
+  if (!previousState || reconciled.personalDebtChangeWan > 0 || periodMonths <= 0) return reconciled;
+
+  const availableForExpenses = Math.max(0,
+    Math.max(0, previousState.cashWan)
+      + reconciled.monthlyNetIncomeWan * reconciled.incomeMonths
+      + reconciled.oneOffIncomeWan
+  );
+  const fundedOneOffExpense = roundSignalMoney(Math.min(reconciled.oneOffExpenseWan, availableForExpenses));
+  const remainingForLiving = Math.max(0, availableForExpenses - fundedOneOffExpense);
+  const fundedMonthlyExpense = roundSignalMoney(remainingForLiving / periodMonths);
+  if (
+    reconciled.oneOffExpenseWan <= fundedOneOffExpense
+    && reconciled.monthlyLivingExpenseWan <= fundedMonthlyExpense
+  ) return reconciled;
+
+  return {
+    ...reconciled,
+    oneOffExpenseWan: fundedOneOffExpense,
+    monthlyLivingExpenseWan: roundSignalMoney(Math.min(reconciled.monthlyLivingExpenseWan, fundedMonthlyExpense)),
+    reasons: [...reconciled.reasons, "无新增个人债务时学生支出不生成隐含负现金"].slice(0, 4)
+  };
 }
 
 function inferEmploymentStatus(description: string, hasMonthlyIncome: boolean, previous?: EmploymentStatus): EmploymentStatus {
@@ -141,9 +230,11 @@ export function inferFinancialSignalsFromNarrative(input: {
   const age = Math.floor(input.targetAgeInMonths / 12);
   const employmentStatus = inferEmploymentStatus(input.description, monthlyIncome !== undefined, input.previousState.employmentStatus);
   const defaultLivingExpense = employmentStatus === "student" || employmentStatus === "part_time"
-    ? 0.2
+    ? 0.1
     : age < 30 ? 0.35 : 0.45;
-  const monthlyLivingExpenseWan = previousMonthlyExpense > 0 ? previousMonthlyExpense : defaultLivingExpense;
+  const monthlyLivingExpenseWan = employmentStatus === "student" || employmentStatus === "part_time"
+    ? Math.min(previousMonthlyExpense || defaultLivingExpense, 0.2)
+    : previousMonthlyExpense > 0 ? previousMonthlyExpense : defaultLivingExpense;
   const explicitMonthlyTransfer = firstMoneyMatch(input.description, [
     /每月(?:寄|汇|转)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/
   ]) || 0;

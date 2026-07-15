@@ -117,7 +117,8 @@ initialFinancialState 要求：
 - 返回 cashWan、investmentAssetsWan、propertyMarketValueWan、businessAndOtherAssetsWan、totalDebtWan、annualAfterTaxIncomeWan、annualDisposableIncomeWan、annualCoreExpenseWan、employmentStatus、incomeStability、isEstimated。
 - employmentStatus 只能是 student、part_time、employed、self_employed、not_working、medical_leave、retired。
 - incomeStability 只能是 unstable、volatile、stable、very_stable。
-- 只使用用户明确事实或符合职业、城市、年龄的保守估算；缺少依据时使用 5 万或 10 万档位并设置 isEstimated=true。
+- 只使用用户明确事实或符合职业、城市、年龄的保守估算；学生缺少依据时个人净财富使用 0-3 万元，其他阶段才使用 5 万或 10 万档位，并设置 isEstimated=true。
+- 学生的 totalDebtWan 只记录助学贷款、信用卡、分期或其他明确属于用户本人的债务；家庭债务不得算到学生个人名下，没有个人借款依据时填 0。
 - 不返回 netWorthWan，净财富和 wealth 由代码计算。
 
 startNode 要求：
@@ -207,6 +208,8 @@ ${input.description}
 - 优先使用正文明确出现的月薪、月入、年薪、兼职、项目收入、奖金、房租、生活费、学费、医疗费、汇款、债务和资产变化。
 - 月薪或稳定月入必须按实际持续月份折算为本阶段总收入；不能把月薪直接当成年收入，也不能把年薪重复乘月份。
 - 正文没有写日常生活支出时，结合年龄、学生/工作状态、是否与家人同住、所在城市和上期支出做保守估算，生活支出不能无故为 0。
+- 学生的 monthlyLivingExpenseWan 表示本人实际承担、扣除家庭代付或学校补助后的净支出；无明确金额时通常按 0.1-0.2 万元/月，不得直接套用在职成年人生活成本。
+- 所有金额字段单位都是万元：500 元=0.05 万元，800 元=0.08 万元，816 元=0.0816 万元；分期只累计本阶段已经支付的期数。
 - “家里欠债”不是用户个人负债；只有用户实际代偿、汇款或共同承担时，才计入本阶段支出。
 - 尚未支付的手术费、计划投资和候选选项中的金额不能提前计入；只计算正文已经发生的事实。
 - 普通学生或工薪阶段单期净财富变化必须写实。超过 50 万元时，正文必须有房产出售、股权变现、继承、重大负债等明确依据，否则按保守金额重估。
@@ -302,6 +305,8 @@ ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
 - financialSignals 必须放在返回 JSON 顶层，返回 employmentStatus、monthlyNetIncomeWan、incomeMonths、monthlyLivingExpenseWan、oneOffIncomeWan、oneOffExpenseWan、assetValueChangeWan、propertyMarketValueChangeWan、personalDebtChangeWan、incomeStability、confidence、reasons。
 - incomeMonths 必须在 0-${elapsedMonths} 之间。正文出现月薪、年薪、兼职、项目收入、房租、医疗、教育、汇款或债务时，必须反映到对应字段。
+- 学生的 monthlyLivingExpenseWan 只记录本人实际承担、扣除家庭代付或学校补助后的净支出；无明确金额时通常按 0.1-0.2 万元/月，不得套用在职成年人生活成本。
+- 所有财务字段单位都是万元，例如 500 元=0.05 万元、800 元=0.08 万元、816 元=0.0816 万元；分期只累计本阶段实际支付的期数。
 - 只返回财务事实信号，不要自行返回 netWorthWan、netWorthChangeWan、financialChange 或计算 wealth；这些值由代码统一计算。
 - 不要返回 netWorthWan、netWorthChangeWan 或自行计算 wealth；这些值由代码根据财务变化统一计算。
 - 收入、支出和资产变化必须与 description 一致；借款、还本金和购买资产不得重复当作净财富损益。
