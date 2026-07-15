@@ -50,7 +50,11 @@ function formatHistoryForInsight(history: HistoryItem[]): string {
 function formatAttributeChangeRules(): string {
   return `【属性变化规则】
 - attributes 必须由上一步选择和本轮现实后果共同决定，不要只因为选项名称或事件类别机械扣分。
-- 属性变化幅度要写实克制，通常每项单轮变化控制在 -12 到 +12。`;
+- 属性变化幅度要写实克制，通常每项单轮变化控制在 -12 到 +12。
+- 健康由睡眠、持续负荷、运动、医疗、生活环境和恢复条件共同决定；不得仅因为人物处于事业线、收入增加或继续工作就自动降低健康，也不得仅因为停止工作就自动增加健康。
+- recoveryState=protected 表示有明确恢复条件，例如睡眠改善、调整工时、委派任务、规律运动、治疗或稳定支持；继续工作也可以是 protected。
+- recoveryState=neutral 表示没有持续透支或明显恢复的充分证据，健康通常保持稳定或小幅波动。
+- recoveryState=depleted 必须有持续熬夜、症状加重、长期超负荷或无视医疗建议等明确证据；不得仅凭职业或事件类别判断。`;
 }
 
 function formatDecisionIntentRules(): string {

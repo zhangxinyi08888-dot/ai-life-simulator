@@ -196,6 +196,63 @@ assert.ok(nextNode.financialChange);
 assert.ok(nextNode.financialState);
 assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, deriveWealthScore(nextNode.financialState!)));
 
+const ordinaryHealthDrop = await generateNextNode({
+  userData,
+  answers,
+  history,
+  currentAttributes: attributes,
+  selectedDecision: "继续推进项目但暂时没有恢复安排",
+  nodeIndex: 1,
+  simulationSeed: "ordinary-health-cap"
+}, {
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 23,
+      stage: "项目推进",
+      title: "工作节奏持续紧张",
+      description: "项目仍在推进，连续熬夜让疲惫感更加明显，但尚未出现需要强制停工的重大健康危机。",
+      choices: [
+        { id: "A", text: "维持当前安排并监测状态", impactSummary: "维持观察" },
+        { id: "B", text: "减少并行任务调整节奏", impactSummary: "调整节奏" },
+        { id: "C", text: "暂停部分任务寻求支持", impactSummary: "暂停求助" }
+      ],
+      attributes: { ...attributes, health: 30 },
+      narrativeMeta: { recoveryState: "depleted", recoveryEvidence: ["连续熬夜"] },
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(ordinaryHealthDrop.attributes.health, 58);
+
+const majorHealthDrop = await generateNextNode({
+  userData,
+  answers,
+  history,
+  currentAttributes: { ...attributes, health: 29 },
+  selectedDecision: "身体恶化后重新安排工作与治疗",
+  nodeIndex: 1,
+  simulationSeed: "major-health-cap"
+}, {
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 23,
+      stage: "健康危机",
+      title: "身体迫使节奏停下",
+      description: "症状明显加重，医生要求立即降低活动强度并开始治疗，原有工作安排必须重新分配。",
+      choices: [
+        { id: "A", text: "了解风险后仍维持关键工作", impactSummary: "风险继续" },
+        { id: "B", text: "限制工时并交出部分职责", impactSummary: "受限参与" },
+        { id: "C", text: "暂停工作接受治疗恢复", impactSummary: "治疗恢复" }
+      ],
+      attributes: { ...attributes, health: 0 },
+      narrativeMeta: { recoveryState: "depleted", recoveryEvidence: ["症状明显加重"] },
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(majorHealthDrop.eventMeta?.eventId, "health_forced_pause");
+assert.equal(majorHealthDrop.attributes.health, 17);
+
 const degradedFinanceCases: Array<{ label: string; financialChange?: unknown }> = [
   { label: "missing" },
   { label: "malformed", financialChange: { afterTaxIncomeWan: "12", reasons: [] } }

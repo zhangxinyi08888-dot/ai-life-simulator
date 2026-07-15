@@ -80,6 +80,16 @@ assert.deepEqual(randomHealthEvents.map((event) => event.id), ["health_system_wa
 assert.equal(forcedPauseEvent?.dispatchMode, "arc_only");
 assert.equal(healthWarningEvent && buildEventMeta(healthWarningEvent).eventIntensity, "minor");
 assert.equal(healthWarningEvent?.intent.emotionalTone, "pressure");
+assert.deepEqual(healthWarningEvent?.intent.allowedOutcomes, [
+  "maintain_current_load_with_monitoring",
+  "continue_goal_with_adjusted_execution",
+  "pause_or_seek_professional_support"
+]);
+assert.deepEqual(forcedPauseEvent?.intent.allowedOutcomes, [
+  "continue_despite_medical_risk",
+  "continue_with_restricted_capacity",
+  "pause_for_treatment_and_recovery"
+]);
 assert.deepEqual(healthWarningEvent && getEventTemporalProfile(healthWarningEvent), {
   lifeIntensity: "normal",
   durationMonths: [3, 9],

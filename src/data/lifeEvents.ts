@@ -228,7 +228,11 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
       type: "health_system_warning",
       meaning: "持续压力、生活负荷或恢复不足引发身体或精神状态预警，需要结合最近经历判断具体影响。",
       tensionAxes: ["维持当前节奏 vs 调整整体负荷", "现实责任 vs 身体边界", "独自承受 vs 寻求支持"],
-      allowedOutcomes: ["maintain_with_monitoring", "adjust_rhythm_and_recover", "seek_medical_or_social_support"],
+      allowedOutcomes: [
+        "maintain_current_load_with_monitoring",
+        "continue_goal_with_adjusted_execution",
+        "pause_or_seek_professional_support"
+      ],
       emotionalTone: "pressure",
       temporalProfile: {
         lifeIntensity: "normal",
@@ -260,7 +264,11 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
       type: "health_forced_pause",
       meaning: "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。",
       tensionAxes: ["继续硬撑 vs 接受停顿", "现实责任 vs 身体边界", "自我价值 vs 休息羞耻"],
-      allowedOutcomes: ["continue_hard_mode", "reduce_load", "pause_recovery"],
+      allowedOutcomes: [
+        "continue_despite_medical_risk",
+        "continue_with_restricted_capacity",
+        "pause_for_treatment_and_recovery"
+      ],
       emotionalTone: "crisis"
     }
   },

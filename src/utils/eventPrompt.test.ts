@@ -34,7 +34,11 @@ const intentPrompt = buildEventIntentPrompt({
     type: "health_system_warning",
     meaning: "长期高压生活引发身体系统性反馈",
     tensionAxes: ["收益 vs 健康", "短期稳定 vs 长期风险"],
-    allowedOutcomes: ["persist_high_pressure", "optimize_load", "exit_or_pause"],
+    allowedOutcomes: [
+      "maintain_current_load_with_monitoring",
+      "continue_goal_with_adjusted_execution",
+      "pause_or_seek_professional_support"
+    ],
     emotionalTone: "crisis"
   }
 }, storyContext);
@@ -45,6 +49,12 @@ assert.match(intentPrompt, /health_system_warning/);
 assert.match(intentPrompt, /我爸妈希望我稳定/);
 assert.match(intentPrompt, /至少显性使用 1 条追问答案/);
 assert.match(intentPrompt, /allowedOutcomes 是行动原语/);
+assert.match(intentPrompt, /不得把继续事业目标等同于维持原有负荷/);
+assert.match(intentPrompt, /也允许暂停、离职或退出当前工作进行调养/);
+assert.match(intentPrompt, /正文应说明当前风险和可调整因素/);
+assert.match(intentPrompt, /至少一个应能实质改善恢复条件/);
+assert.match(intentPrompt, /不得承诺健康立即回升/);
+assert.match(intentPrompt, /continue_goal_with_adjusted_execution/);
 assert.match(intentPrompt, /background thread.*不等于把用户未采纳的具体方案/);
 assert.match(intentPrompt, /state=cooldown 或 dormant/);
 assert.doesNotMatch(intentPrompt, /高薪不是必然伤健康/);

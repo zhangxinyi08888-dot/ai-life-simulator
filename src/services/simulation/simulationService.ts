@@ -16,6 +16,7 @@ import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
 import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
+import { reconcileHealth } from "../../utils/healthReconciliation";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
@@ -520,6 +521,19 @@ export async function generateNextNode(
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
     if (consistencyIssues.some((issue) => issue.severity === "error")) throw new AiClientError("AI_RESPONSE_INVALID", consistencyIssues.map((issue) => issue.message).join("；"));
   }
+
+  node = {
+    ...node,
+    attributes: {
+      ...node.attributes,
+      health: reconcileHealth(
+        input.currentAttributes.health,
+        node.attributes.health,
+        node.narrativeMeta?.recoveryState ?? "neutral",
+        node.eventMeta?.eventId === "health_forced_pause"
+      )
+    }
+  };
 
   const endingDecision = evaluateEnding({
     candidateNode: node,
