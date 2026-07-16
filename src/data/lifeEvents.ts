@@ -277,7 +277,45 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
         "continue_with_restricted_capacity",
         "pause_for_treatment_and_recovery"
       ],
-      emotionalTone: "crisis"
+      emotionalTone: "crisis",
+      phasePolicyId: "health_crisis_v1"
+    }
+  },
+  {
+    id: "health_recovery_observation",
+    category: "health",
+    dispatchMode: "arc_only",
+    title: "治疗与负荷观察",
+    minAge: 0,
+    maxAge: 110,
+    conditionDescription: "健康危机后的治疗、减负、恢复和长期管理阶段",
+    cooldown: 0,
+    baseProbability: 0,
+    tags: ["health", "recovery", "observation"],
+    fingerprint: {
+      category: "health",
+      tags: ["health", "recovery", "observation"],
+      intensity: "minor"
+    },
+    trigger: {
+      eligibility: () => false
+    },
+    intent: {
+      type: "health_recovery_observation",
+      meaning: "急性健康压力已经进入治疗、调整负荷和观察结果的阶段。",
+      tensionAxes: ["恢复条件是否可持续", "原有人生方向如何调整执行", "短期缓解与长期管理"],
+      allowedOutcomes: [
+        "continue_goal_with_adjusted_execution",
+        "maintain_recovery_and_monitoring",
+        "restructure_life_around_health_limits"
+      ],
+      emotionalTone: "reflection",
+      temporalProfile: {
+        lifeIntensity: "normal",
+        durationMonths: [3, 12],
+        requiresFollowUp: false
+      },
+      phasePolicyId: "health_crisis_v1"
     }
   },
   {

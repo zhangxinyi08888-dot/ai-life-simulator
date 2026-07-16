@@ -54,6 +54,55 @@ export const DEFAULT_PHASE_POLICY: PhaseTransitionPolicy = {
   ]
 };
 
+export const HEALTH_CRISIS_PHASE_POLICY: PhaseTransitionPolicy = {
+  id: "health_crisis_v1",
+  initialPhaseId: "trigger",
+  allowedSignalTypes: ["pressure_addressed", "pressure_persists", "pressure_resolved", "stability_reached"],
+  phases: [
+    {
+      id: "trigger",
+      ...DEFAULT_TEMPORAL_PROFILES.high_tension,
+      durationMonths: [3, 6],
+      minCheckpoints: 1,
+      maxCheckpoints: 1,
+      exitConditions: [{ type: "checkpoint_cap", value: 1 }],
+      nextPhaseId: "recovery"
+    },
+    {
+      id: "recovery",
+      ...DEFAULT_TEMPORAL_PROFILES.normal,
+      durationMonths: [3, 12],
+      minCheckpoints: 1,
+      maxCheckpoints: 2,
+      exitConditions: [
+        { type: "arc_signal", signalType: "stability_reached" },
+        { type: "arc_signal", signalType: "pressure_addressed" },
+        { type: "checkpoint_cap", value: 2 }
+      ],
+      nextPhaseId: "operation",
+      fallbackPhaseId: "operation"
+    },
+    {
+      id: "operation",
+      ...DEFAULT_TEMPORAL_PROFILES.stable,
+      durationMonths: [6, 18],
+      minCheckpoints: 1,
+      maxCheckpoints: 1,
+      exitConditions: [{ type: "checkpoint_cap", value: 1 }],
+      resolvesPressureArc: true
+    }
+  ]
+};
+
+const PHASE_POLICIES: Record<string, PhaseTransitionPolicy> = {
+  [DEFAULT_PHASE_POLICY.id]: DEFAULT_PHASE_POLICY,
+  [HEALTH_CRISIS_PHASE_POLICY.id]: HEALTH_CRISIS_PHASE_POLICY
+};
+
+export function resolvePhasePolicy(policyId?: string): PhaseTransitionPolicy {
+  return PHASE_POLICIES[policyId || DEFAULT_PHASE_POLICY.id] || DEFAULT_PHASE_POLICY;
+}
+
 export function resolvePhase(policy: PhaseTransitionPolicy, phaseId: string): ArcPhaseDefinition {
   return policy.phases.find((phase) => phase.id === phaseId)
     || policy.phases.find((phase) => phase.id === policy.initialPhaseId)

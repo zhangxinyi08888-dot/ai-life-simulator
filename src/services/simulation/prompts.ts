@@ -262,6 +262,34 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
 - pressureArcId 必须为 ${foregroundPressureArc.id}。
 - 这里只表示阶段压力解决，不表示 DirectionArc 或长期人生方向完成。`
     : "";
+  const healthPhaseRule = foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
+    ? foregroundPressureArc.phaseId === "trigger"
+      ? `
+【健康危机触发阶段】
+- 本节点写清身体或心理状态为什么迫使原生活节奏发生中断。
+- 不把继续人生方向等同于维持原有负荷。
+- 选择必须包含调整执行方式的中间路径。
+- 这是本次健康 Arc 唯一允许使用“停摆、住院、被迫暂停”等急性危机表达的节点。`
+      : foregroundPressureArc.phaseId === "recovery"
+        ? `
+【健康恢复与观察阶段】
+- 延续同一次健康压力，但不得再次制造新的停摆、住院或突发恶化来重复 trigger。
+- 重点写治疗、睡眠、工时、任务委派、运动、照护支持或生活结构调整是否真正建立。
+- protected 只表示恢复条件成立，不表示已经治愈。
+- 允许继续原有人生方向，但必须说明执行方式如何改变。
+- 若恢复条件已经建立，可返回 pressure_addressed 或 stability_reached；evidence 必须是正文原句。`
+        : foregroundPressureArc.phaseId === "operation"
+          ? `
+【健康压力阶段结果】
+- 本节点必须写清这次健康压力最终形成了什么阶段结果。
+- 结果可以是恢复、长期管理、带病调整、接受边界或治疗效果有限。
+- 不得把阶段结果写成完全治愈，也不得把 PressureArc resolve 写成人生完成。
+- arcSignals 必须返回 pressure_resolved。
+- pressureArcId 必须与当前前台 PressureArc 一致。
+- evidence 必须是正文中直接描述结果的完整原句。
+- 本节点不得引入另一项需要长期跟进的重大危机。`
+          : ""
+    : "";
 
   return `你是一个才华横溢、精通大众心理学、社会规律与命运因果抉择的顶级推演大师。
 请写实模拟用户重新选择一次后，各条生命轨迹在现代中国社会下的真实进展。剧情要咬合用户回到这个节点的真实意图、困苦和核心主线。
@@ -293,6 +321,7 @@ ${peoplePrompt}
 【PressureArc 单写者边界】
 ${pressurePrompt}
 ${pressureResolutionRule}
+${healthPhaseRule}
 
 【上一步做出的命运裁决】
 用户在刚才的十字路口选择了：【${selectedDecision}】

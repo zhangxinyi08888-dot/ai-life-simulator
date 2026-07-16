@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { LifeEventSeed } from "../../data/lifeEvents";
-import { HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
+import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import { buildNextNodePrompt } from "./prompts";
 
 const userData: UserInitialData = {
@@ -96,3 +96,38 @@ assert.match(prompt, /允许描述本阶段实际发生的交易金额/);
 assert.match(prompt, /propertyMarketValueChangeWan/);
 assert.match(prompt, /最终金额由系统统一计算和展示/);
 assert.doesNotMatch(prompt, /达到 73 岁及以上/);
+
+const healthArcBase: PressureArcState = {
+  id: "pressure_health_test",
+  eventId: "health_forced_pause",
+  eventIntentType: "health_forced_pause",
+  phasePolicyId: "health_crisis_v1",
+  phaseId: "trigger",
+  status: "active",
+  startedAtAgeInMonths: 24 * 12,
+  phaseStartedAtAgeInMonths: 24 * 12,
+  phaseCheckpointCount: 0,
+  totalCheckpointCount: 0,
+  unresolvedSummary: "身体状态迫使生活节奏暂停"
+};
+
+function healthPhasePrompt(phaseId: string): string {
+  return buildNextNodePrompt({
+    userData,
+    answers,
+    history,
+    currentAttributes,
+    selectedDecision: "调整负荷并继续治疗",
+    eventSeed: healthWarningEvent,
+    foregroundPressureArc: { ...healthArcBase, phaseId }
+  });
+}
+
+assert.match(healthPhasePrompt("trigger"), /健康危机触发阶段/);
+assert.match(healthPhasePrompt("trigger"), /唯一允许使用“停摆、住院、被迫暂停”/);
+assert.match(healthPhasePrompt("recovery"), /健康恢复与观察阶段/);
+assert.match(healthPhasePrompt("recovery"), /不得再次制造新的停摆、住院或突发恶化/);
+assert.match(healthPhasePrompt("recovery"), /pressure_addressed 或 stability_reached/);
+assert.match(healthPhasePrompt("operation"), /健康压力阶段结果/);
+assert.match(healthPhasePrompt("operation"), /arcSignals 必须返回 pressure_resolved/);
+assert.match(healthPhasePrompt("operation"), /不得把阶段结果写成完全治愈/);

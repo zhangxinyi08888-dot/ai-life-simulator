@@ -75,9 +75,15 @@ assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("check" in event)));
 
 const randomHealthEvents = LIFE_EVENTS_DATABASE.filter((event) => event.category === "health" && event.dispatchMode !== "arc_only");
 const forcedPauseEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_forced_pause");
+const healthRecoveryEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_recovery_observation");
 const healthWarningEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_system_warning");
 assert.deepEqual(randomHealthEvents.map((event) => event.id), ["health_system_warning"]);
 assert.equal(forcedPauseEvent?.dispatchMode, "arc_only");
+assert.equal(forcedPauseEvent?.intent.phasePolicyId, "health_crisis_v1");
+assert.equal(healthRecoveryEvent?.dispatchMode, "arc_only");
+assert.equal(healthRecoveryEvent?.trigger.eligibility(stableAttributes, {}, 45), false);
+assert.equal(healthRecoveryEvent && buildEventMeta(healthRecoveryEvent).eventIntensity, "minor");
+assert.equal(healthRecoveryEvent?.intent.phasePolicyId, "health_crisis_v1");
 assert.equal(healthWarningEvent && buildEventMeta(healthWarningEvent).eventIntensity, "minor");
 assert.equal(healthWarningEvent?.intent.emotionalTone, "pressure");
 assert.deepEqual(healthWarningEvent?.intent.allowedOutcomes, [

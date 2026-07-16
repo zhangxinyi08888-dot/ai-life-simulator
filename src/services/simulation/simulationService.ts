@@ -1,4 +1,4 @@
-import { buildEventMeta, getEventTemporalProfile, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "../../data/lifeEvents";
+import { buildEventMeta, getEventTemporalProfile, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent, type LifeEventSeed } from "../../data/lifeEvents";
 import { ChoiceTemporalHint, FinancialChange, FinancialSignals, FinancialState, HistoryItem, LifeAttributes, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
 import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
 import { DEFAULT_REPORT_INVITATION_POLICY } from "../../config/reportInvitationPolicy";
@@ -8,7 +8,7 @@ import { generateCompleteSimulationNode } from "../../utils/simulationNodeRetry"
 import { normalizeSimulationNode } from "../../utils/simulationResponse";
 import { buildStoryContextPack } from "../../utils/storyContext";
 import { buildAgeContext } from "../../utils/ageContext";
-import { DEFAULT_PHASE_POLICY, reducePressureArc, resolvePhase, validateNodeOutcomeProposal } from "../../utils/arcLifecycle";
+import { HEALTH_CRISIS_PHASE_POLICY, reducePressureArc, resolvePhase, resolvePhasePolicy, validateNodeOutcomeProposal, type PhaseTransitionPolicy } from "../../utils/arcLifecycle";
 import { evaluateDecisionGate } from "../../utils/decisionGate";
 import { evaluateEnding } from "../../utils/endingDecision";
 import { rebuildPersonStates } from "../../utils/personTimeline";
@@ -375,6 +375,40 @@ function foregroundPressureArc(history: HistoryItem[]): PressureArcState | undef
   return worldState.pressureArcs.find((arc) => arc.id === worldState.foregroundPressureArcId && arc.status !== "resolved");
 }
 
+function resolvePressureArcPresentationEvent(arc: PressureArcState): LifeEventSeed | null {
+  if (arc.eventId === "health_forced_pause") {
+    const usesNewHealthPolicy = arc.phasePolicyId === HEALTH_CRISIS_PHASE_POLICY.id;
+    const isAcutePhase = usesNewHealthPolicy
+      ? arc.phaseId === "trigger"
+      : arc.phaseId === "trigger" || arc.phaseId === "response";
+    const eventId = isAcutePhase ? arc.eventId : "health_recovery_observation";
+    const event = LIFE_EVENTS_DATABASE.find((candidate) => candidate.id === eventId) || null;
+    if (!event && eventId === "health_recovery_observation") {
+      console.warn("health-recovery-event-missing");
+    }
+    return event;
+  }
+
+  return LIFE_EVENTS_DATABASE.find((event) => event.id === arc.eventId) || null;
+}
+
+function hasMatchingPressureResolvedSignal(
+  node: SimulationNode,
+  arc: PressureArcState,
+  policy: PhaseTransitionPolicy
+): boolean {
+  const acceptedOutcome = validateNodeOutcomeProposal({
+    worldDeltas: node.narrativeMeta?.worldDeltas,
+    arcSignals: node.narrativeMeta?.arcSignals,
+    policy,
+    narrativeText: node.description
+  });
+  return acceptedOutcome.arcSignals.some((signal) => (
+    signal.type === "pressure_resolved"
+    && signal.pressureArcId === arc.id
+  ));
+}
+
 function fallbackWorldDeltaTypes(node: SimulationNode): WorldDelta["type"][] {
   const category = node.eventMeta?.eventCategory;
   if (category === "health") return ["health_state"];
@@ -405,24 +439,30 @@ export async function generateNextNode(
   const healthEscalationEvent = existingPressureArc
     ? null
     : queryHealthEscalationEvent(input.currentAttributes, input.history);
-  const seedEvent = existingPressureArc
-    ? LIFE_EVENTS_DATABASE.find((event) => event.id === existingPressureArc.eventId) || null
+  const selectedEvent = existingPressureArc
+    ? null
     : e2eEventOverride !== undefined
       ? LIFE_EVENTS_DATABASE.find((event) => event.id === e2eEventOverride) || null
       : healthEscalationEvent
         || queryDynamicLifeEvent(input.currentAttributes, input.userData, Math.floor(currentAgeInMonths / 12), input.history, input.answers);
-  const eventProfile = seedEvent ? getEventTemporalProfile(seedEvent) : undefined;
-  const startArcDecision = !existingPressureArc && seedEvent && eventProfile?.requiresFollowUp
+  const selectedEventProfile = selectedEvent ? getEventTemporalProfile(selectedEvent) : undefined;
+  const startPolicy = resolvePhasePolicy(selectedEvent?.intent.phasePolicyId);
+  const startArcDecision = !existingPressureArc && selectedEvent && selectedEventProfile?.requiresFollowUp
     ? reducePressureArc({
-        startProposal: { eventId: seedEvent.id, eventIntentType: seedEvent.intent.type, currentAgeInMonths, summary: seedEvent.intent.meaning },
-        policy: DEFAULT_PHASE_POLICY,
+        startProposal: { eventId: selectedEvent.id, eventIntentType: selectedEvent.intent.type, currentAgeInMonths, summary: selectedEvent.intent.meaning },
+        policy: startPolicy,
         selectedDecision: input.selectedDecision,
         attributes: input.currentAttributes,
         timelineAdvance: { elapsedMonths: 0, targetAgeInMonths: currentAgeInMonths }
       })
     : undefined;
   const workingPressureArc = existingPressureArc || startArcDecision?.nextArcState;
-  const pressurePhaseProfile = workingPressureArc ? resolvePhase(DEFAULT_PHASE_POLICY, workingPressureArc.phaseId) : undefined;
+  const pressureArcPolicy = resolvePhasePolicy(workingPressureArc?.phasePolicyId);
+  const nodeEvent = workingPressureArc
+    ? resolvePressureArcPresentationEvent(workingPressureArc)
+    : selectedEvent;
+  const eventProfile = nodeEvent ? getEventTemporalProfile(nodeEvent) : selectedEventProfile;
+  const pressurePhaseProfile = workingPressureArc ? resolvePhase(pressureArcPolicy, workingPressureArc.phaseId) : undefined;
   const stableNodeCount = input.history.slice(-2).filter((item) => item.narrativeMeta?.lifeIntensity === "stable").length;
   const temporalProfile = deriveTemporalProfile({
     pressurePhaseProfile,
@@ -450,7 +490,7 @@ export async function generateNextNode(
     directionArcs: worldState.directionArcs
   });
   const storyContext = buildStoryContextPack(input.userData, input.answers, input.history);
-  const prompt = buildNextNodePrompt({ ...input, currentFinancialState, eventSeed: seedEvent, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc: workingPressureArc });
+  const prompt = buildNextNodePrompt({ ...input, currentFinancialState, eventSeed: nodeEvent, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc: workingPressureArc });
 
   let latestRawNode: any = {};
   let node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
@@ -467,6 +507,35 @@ export async function generateNextNode(
     lifeIntensity: timelineAdvance.lifeIntensity,
     pressureArcId: workingPressureArc?.id
   });
+  if (
+    workingPressureArc?.phasePolicyId === HEALTH_CRISIS_PHASE_POLICY.id
+    && workingPressureArc.phaseId === "operation"
+    && !hasMatchingPressureResolvedSignal(node, workingPressureArc, pressureArcPolicy)
+  ) {
+    const originalRawNode = latestRawNode;
+    const originalNode = node;
+    try {
+      const response = await callAiJson(`${prompt}\n\n【健康 operation 结果证据修复】\n上一次结果缺少可校验的 pressure_resolved。请重新生成完整节点：正文必须写清本次健康压力形成的阶段结果；arcSignals 必须包含 pressureArcId=${workingPressureArc.id}、type=pressure_resolved，且 evidence 必须是正文中的完整原句。不得修改 PressureArc 状态。`);
+      const repairedRawNode = parseAiJsonResponse(response);
+      const repairedNode = normalizeSimulationNode(repairedRawNode, {
+        fallbackAge: timelineAdvance.targetAge,
+        minAge: timelineAdvance.targetAge,
+        maxAge: timelineAdvance.targetAge,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        previousAgeInMonths: currentAgeInMonths,
+        elapsedMonths: timelineAdvance.elapsedMonths,
+        lifeIntensity: timelineAdvance.lifeIntensity,
+        pressureArcId: workingPressureArc.id
+      });
+      if (hasMatchingPressureResolvedSignal(repairedNode, workingPressureArc, pressureArcPolicy)) {
+        latestRawNode = repairedRawNode;
+        node = repairedNode;
+      }
+    } catch {
+      latestRawNode = originalRawNode;
+      node = originalNode;
+    }
+  }
   latestRawNode = await repairFinancialChangeIfNeeded({
     rawNode: latestRawNode,
     node,
@@ -481,10 +550,10 @@ export async function generateNextNode(
   node = {
     ...node,
     isEndingNode: false,
-    eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined,
+    eventMeta: nodeEvent ? buildEventMeta(nodeEvent) : undefined,
     choices: node.choices.map((choice) => ({
       ...choice,
-      expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length ? choice.expectedWorldDeltaTypes : fallbackWorldDeltaTypes({ ...node, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined })
+      expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length ? choice.expectedWorldDeltaTypes : fallbackWorldDeltaTypes({ ...node, eventMeta: nodeEvent ? buildEventMeta(nodeEvent) : undefined })
     }))
   };
   node = attachFinancialProgress({
@@ -515,7 +584,7 @@ export async function generateNextNode(
       lifeIntensity: timelineAdvance.lifeIntensity,
       pressureArcId: workingPressureArc?.id
     });
-    node = { ...node, isEndingNode: false, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined };
+    node = { ...node, isEndingNode: false, eventMeta: nodeEvent ? buildEventMeta(nodeEvent) : undefined };
     latestRawNode = await repairFinancialChangeIfNeeded({
       rawNode: latestRawNode,
       node,
@@ -589,7 +658,7 @@ export async function generateNextNode(
     const endingOutcome = validateNodeOutcomeProposal({
       worldDeltas: endingNode.narrativeMeta?.worldDeltas,
       arcSignals: endingNode.narrativeMeta?.arcSignals,
-      policy: DEFAULT_PHASE_POLICY,
+      policy: pressureArcPolicy,
       narrativeText: endingNode.description
     });
     const terminalTransition = workingPressureArc
@@ -624,7 +693,7 @@ export async function generateNextNode(
       lifeIntensity: timelineAdvance.lifeIntensity,
       pressureArcId: workingPressureArc?.id
     });
-    node = { ...node, isEndingNode: false, eventMeta: seedEvent ? buildEventMeta(seedEvent) : undefined };
+    node = { ...node, isEndingNode: false, eventMeta: nodeEvent ? buildEventMeta(nodeEvent) : undefined };
     latestRawNode = await repairFinancialChangeIfNeeded({
       rawNode: latestRawNode,
       node,
@@ -653,12 +722,12 @@ export async function generateNextNode(
   const acceptedOutcome = validateNodeOutcomeProposal({
     worldDeltas: node.narrativeMeta?.worldDeltas,
     arcSignals: node.narrativeMeta?.arcSignals,
-    policy: DEFAULT_PHASE_POLICY,
+    policy: pressureArcPolicy,
     narrativeText: node.description
   });
   const pressureArcTransition = reducePressureArc({
     currentArc: workingPressureArc,
-    policy: DEFAULT_PHASE_POLICY,
+    policy: pressureArcPolicy,
     selectedDecision: input.selectedDecision,
     acceptedOutcome,
     attributes: node.attributes,

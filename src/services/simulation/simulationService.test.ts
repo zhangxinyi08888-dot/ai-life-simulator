@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
+import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import { generateNextNode, generateQuestions, startSimulation } from "./simulationService";
 import { deriveWealthScore, estimateFinancialStateFromWealth } from "../../utils/financialState";
 
@@ -255,6 +255,9 @@ const majorHealthDrop = await generateNextNode({
 });
 assert.equal(majorHealthDrop.eventMeta?.eventId, "health_forced_pause");
 assert.equal(majorHealthDrop.attributes.health, 17);
+assert.equal(majorHealthDrop.narrativeMeta?.lifeIntensity, "high_tension");
+assert.equal(majorHealthDrop.worldStateSnapshot?.pressureArcs[0]?.phasePolicyId, "health_crisis_v1");
+assert.equal(majorHealthDrop.worldStateSnapshot?.pressureArcs[0]?.phaseId, "recovery");
 
 const degradedFinanceCases: Array<{ label: string; financialChange?: unknown }> = [
   { label: "missing" },
@@ -473,3 +476,176 @@ assert.equal(failedRepairCalls, 2);
 assert.notEqual(failedRepairNode.attributes.wealth, 88);
 assert.ok(failedRepairNode.financialSignals);
 assert.ok(failedRepairNode.financialChange);
+
+function healthArcHistory(phaseId: "recovery" | "operation", length: number): HistoryItem[] {
+  const arc: PressureArcState = {
+    id: `pressure_health_${phaseId}`,
+    eventId: "health_forced_pause",
+    eventIntentType: "health_forced_pause",
+    phasePolicyId: "health_crisis_v1",
+    phaseId,
+    status: "active",
+    startedAtAgeInMonths: 39 * 12,
+    phaseStartedAtAgeInMonths: 40 * 12,
+    phaseCheckpointCount: 0,
+    totalCheckpointCount: phaseId === "recovery" ? 1 : 2,
+    unresolvedSummary: "身体状态迫使原有生活节奏暂停"
+  };
+
+  return Array.from({ length }, (_, index) => ({
+    age: 40,
+    ageInMonths: 40 * 12,
+    stage: "健康调整",
+    title: `健康阶段历史 ${index + 1}`,
+    description: "她已经开始治疗并重新安排工作负荷。",
+    selectedChoice: `执行健康调整方案 ${index + 1}`,
+    attributes: { ...attributes, health: 35 },
+    choices: [{ id: "A", text: `执行健康调整方案 ${index + 1}`, impactSummary: "调整负荷" }],
+    isEndingNode: false,
+    worldStateSnapshot: {
+      people: [],
+      directionArcs: [],
+      pressureArcs: [{ ...arc }],
+      foregroundPressureArcId: arc.id,
+      committedTransactionIds: [],
+      version: 1
+    }
+  }));
+}
+
+function healthArcRawNode(input: { arcId: string; includeResolvedSignal?: boolean }) {
+  const resultEvidence = "这次健康危机已经转为可以持续管理的长期状态。";
+  return {
+    age: 40,
+    stage: "治疗观察",
+    title: "重新安排后的生活",
+    description: input.includeResolvedSignal
+      ? `她保留治疗和减负安排，同时继续原来的方向。${resultEvidence}`
+      : "她保留治疗和减负安排，同时继续原来的方向，身体状态仍需长期观察。",
+    choices: [
+      {
+        id: "A",
+        text: "维持减负后的工作节奏",
+        impactSummary: "稳态执行",
+        decisionIntent: "health:maintain:adjusted_load",
+        expectedWorldDeltaTypes: ["health_state"]
+      },
+      {
+        id: "B",
+        text: "进一步委派工作并扩大支持",
+        impactSummary: "扩大支持",
+        decisionIntent: "career:delegate:workload",
+        expectedWorldDeltaTypes: ["career_state"]
+      },
+      {
+        id: "C",
+        text: "重新规划长期生活结构",
+        impactSummary: "重排生活",
+        decisionIntent: "family:restructure:daily_life",
+        expectedWorldDeltaTypes: ["relationship_change"]
+      }
+    ],
+    attributes: { ...attributes, health: 36 },
+    narrativeMeta: {
+      recoveryState: "protected",
+      recoveryEvidence: ["治疗、睡眠和工作减负安排已经稳定"],
+      arcSignals: input.includeResolvedSignal
+        ? [{
+            pressureArcId: input.arcId,
+            type: "pressure_resolved",
+            evidence: resultEvidence,
+            confidence: 0.95
+          }]
+        : [{
+            pressureArcId: input.arcId,
+            type: "pressure_persists",
+            evidence: "身体状态仍需长期观察",
+            confidence: 0.8
+          }],
+      worldDeltas: [{ type: "health_state", summary: "健康进入长期管理阶段" }]
+    },
+    isEndingNode: false
+  };
+}
+
+let recoveryPrompt = "";
+const recoveryHistory = healthArcHistory("recovery", 1);
+const recoveryNode = await generateNextNode({
+  userData,
+  answers,
+  history: recoveryHistory,
+  currentAttributes: { ...attributes, health: 35 },
+  selectedDecision: "继续执行治疗和减负安排",
+  nodeIndex: recoveryHistory.length,
+  simulationSeed: "health-recovery-presentation"
+}, {
+  callAiJson: async (prompt) => {
+    recoveryPrompt = prompt;
+    const arcId = recoveryHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+    const node = healthArcRawNode({ arcId });
+    node.narrativeMeta.arcSignals = [{
+      pressureArcId: arcId,
+      type: "stability_reached",
+      evidence: "治疗、睡眠和工作减负安排已经稳定",
+      confidence: 0.9
+    }];
+    node.description = "治疗、睡眠和工作减负安排已经稳定，她开始观察这一方案能否长期维持。";
+    return { text: JSON.stringify(node) };
+  }
+});
+
+assert.equal(recoveryNode.eventMeta?.eventId, "health_recovery_observation");
+assert.equal(recoveryNode.narrativeMeta?.lifeIntensity, "normal");
+assert.equal(recoveryNode.committedArcMeta?.transitionAction, "advance");
+assert.equal(recoveryNode.worldStateSnapshot?.pressureArcs[0]?.phaseId, "operation");
+assert.match(recoveryPrompt, /健康恢复与观察阶段/);
+assert.doesNotMatch(recoveryPrompt, /当前没有前台 PressureArc/);
+
+let operationRepairCalls = 0;
+const operationHistory = healthArcHistory("operation", 12);
+const operationArcId = operationHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+const resolvedHealthNode = await generateNextNode({
+  userData,
+  answers,
+  history: operationHistory,
+  currentAttributes: { ...attributes, health: 24 },
+  selectedDecision: "接受长期健康管理方案",
+  nodeIndex: operationHistory.length,
+  simulationSeed: "health-operation-evidence-repair"
+}, {
+  callAiJson: async (prompt) => {
+    operationRepairCalls += 1;
+    const includeResolvedSignal = prompt.includes("健康 operation 结果证据修复");
+    return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId, includeResolvedSignal })) };
+  }
+});
+
+assert.equal(operationRepairCalls, 2);
+assert.equal(resolvedHealthNode.eventMeta?.eventId, "health_recovery_observation");
+assert.equal(resolvedHealthNode.narrativeMeta?.lifeIntensity, "stable");
+assert.equal(resolvedHealthNode.committedArcMeta?.transitionAction, "resolve");
+assert.equal(resolvedHealthNode.worldStateSnapshot?.foregroundPressureArcId, undefined);
+assert.equal(resolvedHealthNode.attributes.health, 30);
+assert.equal(resolvedHealthNode.reportInvitation?.reason, "arc_resolved");
+assert.equal(resolvedHealthNode.reportInvitation?.pressureArcId, operationArcId);
+assert.deepEqual(resolvedHealthNode.reportInvitation?.resolutionEvidence, ["这次健康危机已经转为可以持续管理的长期状态。"]);
+
+let failedOperationEvidenceCalls = 0;
+const unresolvedOperationNode = await generateNextNode({
+  userData,
+  answers,
+  history: operationHistory,
+  currentAttributes: { ...attributes, health: 24 },
+  selectedDecision: "继续观察但暂时没有明确结论",
+  nodeIndex: operationHistory.length,
+  simulationSeed: "health-operation-evidence-fallback"
+}, {
+  callAiJson: async () => {
+    failedOperationEvidenceCalls += 1;
+    return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId })) };
+  }
+});
+
+assert.equal(failedOperationEvidenceCalls, 2);
+assert.equal(unresolvedOperationNode.committedArcMeta?.transitionAction, "resolve");
+assert.equal(unresolvedOperationNode.reportInvitation, undefined);
