@@ -1,0 +1,4964 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-07-16-real-ai-browser-evaluation",
+  "dataSource": "real_ai_browser",
+  "caseSlug": "real-wealth-first",
+  "scenario": "natural_lifespan",
+  "config": {
+    "slug": "real-wealth-first",
+    "scenario": "natural_lifespan",
+    "birthday": "1989-11-02",
+    "birthtime": "15:00",
+    "returnPointName": "重判财富机会 回到机会出现之前，重新判断风险与取舍 约 30 岁",
+    "anchorText": "30岁时朋友邀请我拿出大部分积蓄合伙开社区餐饮店，我担心错过机会，也担心家庭现金流被拖垮。",
+    "branches": [
+      "投入40万元成为主要股东，并亲自负责经营",
+      "只投入10万元小比例参股，保留一年家庭备用金",
+      "拒绝投资，把资金用于提前还贷和指数基金"
+    ],
+    "answers": [
+      "当时家庭税后年收入约45万元，有房贷180万元和一个刚出生的孩子，现金存款约55万元。",
+      "我容易被身边人的赚钱故事打动，但会在真正转账前反复核算最坏结果。",
+      "朋友有餐饮经验，我擅长财务和线上运营，但从未管理过门店，也没有额外融资渠道。"
+    ]
+  },
+  "startedAt": "2026-07-15T17:32:26.677Z",
+  "completedAt": "2026-07-15T17:39:37.255Z",
+  "extraInvitations": [],
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "real-wealth-first",
+      "scenario": "accept_first",
+      "at": "2026-07-15T17:32:26.677Z"
+    },
+    {
+      "type": "questions_generated",
+      "questions": [
+        {
+          "question": "当时你的朋友具体是什么背景？他/她之前有过餐饮或创业经验吗？你们关系如何？",
+          "suggestions": [
+            "我朋友之前在一家连锁餐饮店做过店长，经验丰富，我们认识五六年了，关系很好。",
+            "我朋友是跨行创业，之前做销售，没接触过餐饮，但很有热情，我们从小一起长大。",
+            "我朋友之前开过一家小餐馆，但亏本关了，这次又想试试，我有点犹豫。",
+            "不太确定他/她的具体背景，但感觉他/她挺靠谱的，平时做事很认真。"
+          ]
+        },
+        {
+          "question": "当时你面对这个邀请，内心最直接的顾虑是什么？是怕亏钱、怕影响家庭，还是怕错过朋友？",
+          "suggestions": [
+            "我最怕积蓄亏光，家里孩子刚出生，房贷还要还，现金流不能断。",
+            "我担心如果拒绝会伤朋友感情，但又觉得风险太大，很纠结。",
+            "主要是怕自己不懂餐饮经营，投了钱却管理不好，最后打水漂。",
+            "我其实有点想试试，但家人强烈反对，说风险太高，让我别冲动。"
+          ]
+        },
+        {
+          "question": "当时你手头有多少积蓄？家庭每月固定支出大概多少？有没有其他负债或投资？",
+          "suggestions": [
+            "积蓄大概50万，家庭每月支出1.5万，房贷每月8000，没有其他投资。",
+            "积蓄30万左右，每月支出1万，有车贷，还欠父母5万。",
+            "积蓄60万，但大部分是定期和理财，手头现金只有20万，家里每月花销2万。",
+            "具体数字记不清了，但大概有40万积蓄，每月固定支出1.2万，没有外债。"
+          ]
+        }
+      ],
+      "at": "2026-07-15T17:32:34.627Z"
+    },
+    {
+      "type": "simulation_started",
+      "node": {
+        "age": 30,
+        "stage": "选择前夜",
+        "title": "朋友的社区餐饮店邀请",
+        "description": "你30岁，孩子刚满半岁，家庭税后年收入约45万，房贷180万，已经积累了一些储蓄。朋友有餐饮经验，邀请你合伙开社区餐饮店，他看好社区客流和外卖增量。你擅长财务和线上运营，但从未管过门店，也没有额外融资渠道。你既想抓住可能的机会，又担心亏掉家庭备用金，影响房贷和孩子开支。妻子态度谨慎，希望至少留一年应急金。你反复算账：投入40万成为主要股东并亲自经营，还是只参股10万小比例，或者干脆拒绝、把资金用于提前还贷和指数基金？这个决定将深刻影响你未来几年的现金流、职业精力和家庭关系。",
+        "choices": [
+          {
+            "id": "A",
+            "text": "投入40万元成为主要股东，并亲自负责经营",
+            "impactSummary": "孤注一掷",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "孤注一掷"
+            },
+            "decisionIntent": "finance:invest_heavily:friend_restaurant",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "只投入10万元小比例参股，保留一年家庭备用金",
+            "impactSummary": "谨慎试水",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "谨慎试水"
+            },
+            "decisionIntent": "finance:invest_lightly:friend_restaurant",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "拒绝投资，把资金用于提前还贷和指数基金",
+            "impactSummary": "稳健守成",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳健守成"
+            },
+            "decisionIntent": "finance:reject_invest:debt_and_index_fund",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "attributes": {
+          "happiness": 50,
+          "intelligence": 65,
+          "wealth": 55,
+          "relation": 55,
+          "health": 60
+        },
+        "isEndingNode": false,
+        "ageInMonths": 360,
+        "lifeStage": "early_adulthood",
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_4d0aa7cd",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 360,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_cffd6901",
+            "summary": "你30岁，孩子刚满半岁，家庭税后年收入约45万，房贷180万，现金存款55万。朋友有餐饮经验，邀请你合伙开社区餐饮店，他看好社区客流和外卖增量。你擅长财务和线上"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 360,
+          "cashWan": 30,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 105,
+          "annualAfterTaxIncomeWan": 45,
+          "annualDisposableIncomeWan": 18,
+          "annualCoreExpenseWan": 27,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": false
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      "at": "2026-07-15T17:32:42.144Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "朋友的社区餐饮店邀请",
+      "sourceAgeInMonths": 360,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "投入40万元成为主要股东，并亲自负责经营",
+          "impactSummary": "孤注一掷",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "孤注一掷"
+          },
+          "decisionIntent": "finance:invest_heavily:friend_restaurant",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "只投入10万元小比例参股，保留一年家庭备用金",
+          "impactSummary": "谨慎试水",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "谨慎试水"
+          },
+          "decisionIntent": "finance:invest_lightly:friend_restaurant",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "拒绝投资，把资金用于提前还贷和指数基金",
+          "impactSummary": "稳健守成",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳健守成"
+          },
+          "decisionIntent": "finance:reject_invest:debt_and_index_fund",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "只投入10万元小比例参股，保留一年家庭备用金",
+      "resultingNodeTitle": "参股餐饮店后的三年：信任裂纹与财务分化",
+      "resultingAgeInMonths": 396,
+      "resultingAttributes": {
+        "happiness": 42,
+        "intelligence": 68,
+        "wealth": 59,
+        "relation": 42,
+        "health": 58
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 396,
+        "cashWan": 84,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 159,
+        "annualAfterTaxIncomeWan": 45.6,
+        "annualDisposableIncomeWan": 18,
+        "annualCoreExpenseWan": 27.6,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:33:04.817Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "参股餐饮店后的三年：信任裂纹与财务分化",
+      "sourceAgeInMonths": 396,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受朋友提议，追加15万元并兼职参与门店改造，试图挽回投资和关系",
+          "impactSummary": "冒险挽救",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "冒险挽救"
+          },
+          "decisionIntent": "finance:invest_more:friend_restaurant_renovation",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "彻底退出，接受4万元回收，将精力转向提升本职工作技能，准备跳槽到更高收入行业",
+          "impactSummary": "止损转型",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "止损转型"
+          },
+          "decisionIntent": "career:switch_to:higher_income_industry",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "维持现状，继续定投指数基金并增加每月还贷金额，同时与朋友保持距离，仅保留法律上份额",
+          "impactSummary": "保守防守",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "保守防守"
+          },
+          "decisionIntent": "finance:stay_course:debt_repay_and_index",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "彻底退出，接受4万元回收，将精力转向提升本职工作技能，准备跳槽到更高收入行业",
+      "resultingNodeTitle": "跳槽后的阵痛与适应",
+      "resultingAgeInMonths": 424,
+      "resultingAttributes": {
+        "happiness": 38,
+        "intelligence": 70,
+        "wealth": 47,
+        "relation": 35,
+        "health": 52
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 424,
+        "cashWan": 70,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 145,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": -6,
+        "annualCoreExpenseWan": 27.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:33:15.830Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "跳槽后的阵痛与适应",
+      "sourceAgeInMonths": 424,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "坚持当前节奏，继续在互联网公司深耕，争取三年内晋升到总监级别",
+          "impactSummary": "职业爬坡，收入增长",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "职业爬坡，收入增长"
+          },
+          "decisionIntent": "career:climb_to:internet_operations_director",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "利用业余时间尝试轻资产副业，比如跨境电商或知识付费，分散收入来源",
+          "impactSummary": "副业试水，收入多元",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "副业试水，收入多元"
+          },
+          "decisionIntent": "finance:start_side_business:ecommerce_or_knowledge_payment",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "减少加班，回归家庭，接受当前收入增长放缓，但保证陪伴孩子成长",
+          "impactSummary": "家庭优先，收入稳定",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "家庭优先，收入稳定"
+          },
+          "decisionIntent": "life:rebalance:family_over_career",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "利用业余时间尝试轻资产副业，比如跨境电商或知识付费，分散收入来源",
+      "resultingNodeTitle": "跨境电商试水与职业倦怠",
+      "resultingAgeInMonths": 453,
+      "resultingAttributes": {
+        "happiness": 30,
+        "intelligence": 72,
+        "wealth": 42,
+        "relation": 32,
+        "health": 48
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 453,
+        "cashWan": 55.5,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 130.5,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": -6,
+        "annualCoreExpenseWan": 27.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:34:33.407Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "跨境电商试水与职业倦怠",
+      "sourceAgeInMonths": 453,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "辞去电商公司工作，全职投入跨境电商，用半年时间验证能否规模化",
+          "impactSummary": "全职创业，高风险高回报",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "全职创业，高风险高回报"
+          },
+          "decisionIntent": "career:switch_to:full_time_crossborder_ecommerce",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "维持现状，副业保持低强度，同时投简历寻找更稳定或薪酬更高的工作",
+          "impactSummary": "稳中求进，精力分散",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳中求进，精力分散"
+          },
+          "decisionIntent": "career:dual_track:side_hustle_and_job_hopping",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "与妻子商议，她暂时减少工作时间支持家庭，你全力冲刺副业并兼职顾问",
+          "impactSummary": "家庭协作，共同冒险",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "家庭协作，共同冒险"
+          },
+          "decisionIntent": "family:restructure:spouse_support_side_hustle",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "维持现状，副业保持低强度，同时投简历寻找更稳定或薪酬更高的工作",
+      "resultingNodeTitle": "求职空窗与副业收缩",
+      "resultingAgeInMonths": 467,
+      "resultingAttributes": {
+        "happiness": 28,
+        "intelligence": 74,
+        "wealth": 42,
+        "relation": 30,
+        "health": 44
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 467,
+        "cashWan": 48.5,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 123.5,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": -6,
+        "annualCoreExpenseWan": 27.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:35:07.450Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "求职空窗与副业收缩",
+      "sourceAgeInMonths": 467,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受制造企业offer，求稳积累，业余再找副业机会",
+          "impactSummary": "稳定现金流",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳定现金流"
+          },
+          "decisionIntent": "career:accept:manufacturing_ecommerce_manager",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "拒绝offer，继续投互联网公司，同时全力重启跨境电商",
+          "impactSummary": "冒险博反弹",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "冒险博反弹"
+          },
+          "decisionIntent": "career:dual_track:internet_job_search_and_side_hustle",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "和妻子商议，接受制造企业offer，同时她暂缓工作支持你周末进修，准备转行数据相关岗位",
+          "impactSummary": "家庭支持转型",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "家庭支持转型"
+          },
+          "decisionIntent": "career:transition:data_analyst_with_spouse_support",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "拒绝offer，继续投互联网公司，同时全力重启跨境电商",
+      "resultingNodeTitle": "双线作战的极限拉扯",
+      "resultingAgeInMonths": 489,
+      "resultingAttributes": {
+        "happiness": 28,
+        "intelligence": 74,
+        "wealth": 43,
+        "relation": 30,
+        "health": 44
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 489,
+        "cashWan": 46.3,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 121.3,
+        "annualAfterTaxIncomeWan": 26.4,
+        "annualDisposableIncomeWan": -1.2,
+        "annualCoreExpenseWan": 27.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:35:29.652Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "双线作战的极限拉扯",
+      "sourceAgeInMonths": 489,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "A. 主业稳定，副业收缩",
+          "impactSummary": "主业稳定，副业收缩",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "主业稳定，副业收缩"
+          },
+          "decisionIntent": "career:accept:medium_ecommerce_platform",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "B. 双线加码，赌爆发",
+          "impactSummary": "双线加码，赌爆发",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "双线加码，赌爆发"
+          },
+          "decisionIntent": "career:dual_track:intense_side_hustle_and_job_search",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "C. 家庭优先，本地就业",
+          "impactSummary": "家庭优先，本地就业",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "家庭优先，本地就业"
+          },
+          "decisionIntent": "career:local_stable_job_and_family",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "B. 双线加码，赌爆发",
+      "resultingNodeTitle": "双线加码，赌爆发",
+      "resultingAgeInMonths": 494,
+      "resultingAttributes": {
+        "happiness": 22,
+        "intelligence": 76,
+        "wealth": 43,
+        "relation": 25,
+        "health": 38
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 494,
+        "cashWan": 45.8,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 120.8,
+        "annualAfterTaxIncomeWan": 26.4,
+        "annualDisposableIncomeWan": -1.2,
+        "annualCoreExpenseWan": 27.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:35:47.930Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "双线加码，赌爆发",
+      "sourceAgeInMonths": 494,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "全力冲刺副业，抓住榨汁机爆款，投入全部时间和剩余积蓄，争取在三个月内将月利润做到3万，然后全职做跨境电商",
+          "impactSummary": "副业冲刺，家庭风险高",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "副业冲刺，家庭风险高"
+          },
+          "decisionIntent": "career:full_time_crossborder_ecommerce",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "接受北京面试，尽力平衡副业，若拿到offer则回归主业，副业降级为兴趣",
+          "impactSummary": "主业求稳，副业收缩",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "主业求稳，副业收缩"
+          },
+          "decisionIntent": "career:accept_internet_company_interview",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "与妻子协商，她暂缓工作支持你半年，你全职做跨境电商，同时聘请兼职帮手处理客服和发货",
+          "impactSummary": "家庭支持，转型尝试",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "家庭支持，转型尝试"
+          },
+          "decisionIntent": "career:full_time_ecommerce_with_spouse_support",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "接受北京面试，尽力平衡副业，若拿到offer则回归主业，副业降级为兴趣",
+      "resultingNodeTitle": "北京面试后的抉择",
+      "resultingAgeInMonths": 506,
+      "resultingAttributes": {
+        "happiness": 12,
+        "intelligence": 78,
+        "wealth": 35,
+        "relation": 18,
+        "health": 32
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 506,
+        "cashWan": 33.8,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 108.8,
+        "annualAfterTaxIncomeWan": 33.6,
+        "annualDisposableIncomeWan": -12,
+        "annualCoreExpenseWan": 45.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:36:05.333Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "北京面试后的抉择",
+      "sourceAgeInMonths": 506,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "申请调回本地分公司，降薪至2万，换取家庭时间",
+          "impactSummary": "稳定但降薪",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳定但降薪"
+          },
+          "decisionIntent": "career:transfer_back_to_local_branch",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "让妻子辞职做全职主妇，你继续在北京拼两年再调回",
+          "impactSummary": "牺牲伴侣事业",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "牺牲伴侣事业"
+          },
+          "decisionIntent": "career:continue_beijing_with_spouse_quitting",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "辞去北京工作，回本地重启副业并找一份远程工作",
+          "impactSummary": "自主但冒险",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "自主但冒险"
+          },
+          "decisionIntent": "career:quit_beijing_and_restart_side_hustle_remote",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "让妻子辞职做全职主妇，你继续在北京拼两年再调回",
+      "resultingNodeTitle": "全职主妇计划启动的代价",
+      "resultingAgeInMonths": 517,
+      "resultingAttributes": {
+        "happiness": 8,
+        "intelligence": 80,
+        "wealth": 24,
+        "relation": 14,
+        "health": 26
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 517,
+        "cashWan": 6.3,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 81.3,
+        "annualAfterTaxIncomeWan": 33.6,
+        "annualDisposableIncomeWan": -30,
+        "annualCoreExpenseWan": 63.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:36:24.530Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "全职主妇计划启动的代价",
+      "sourceAgeInMonths": 517,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "主动争取被裁，拿赔偿回本地，用剩余积蓄与妻子一起开一家社区便利店，她管店你继续找远程工作",
+          "impactSummary": "破釜沉舟",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "破釜沉舟"
+          },
+          "decisionIntent": "career:start_convenience_store_with_spouse",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "接受降薪留守北京，同时让妻子重新找工作，孩子托给父母或晚托班，恢复双职工模式以缓解财务压力",
+          "impactSummary": "回归双薪",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "回归双薪"
+          },
+          "decisionIntent": "career:accept_paycut_and_spouse_returns_to_work",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "向公司申请停薪留职3个月，回本地尝试重启跨境电商，同时与妻子一起参加社区餐饮培训，为未来合伙做准备",
+          "impactSummary": "中间路线",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "中间路线"
+          },
+          "decisionIntent": "career:unpaid_leave_to_restart_ecommerce_and_food_training",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "接受降薪留守北京，同时让妻子重新找工作，孩子托给父母或晚托班，恢复双职工模式以缓解财务压力",
+      "resultingNodeTitle": "降薪留守与家庭重组：疲惫的平衡术",
+      "resultingAgeInMonths": 531,
+      "resultingAttributes": {
+        "happiness": 8,
+        "intelligence": 80,
+        "wealth": 17,
+        "relation": 14,
+        "health": 20
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 531,
+        "cashWan": -56.7,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 18.3,
+        "annualAfterTaxIncomeWan": 27.6,
+        "annualDisposableIncomeWan": -54,
+        "annualCoreExpenseWan": 81.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:36:46.554Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "降薪留守与家庭重组：疲惫的平衡术",
+      "sourceAgeInMonths": 531,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "申请调回本地分公司，接受降薪至2万，用剩余积蓄请保姆分担家务，自己利用业余时间重新启动跨境电商，专注选品和供应链，不碰重资产。",
+          "impactSummary": "降薪回归，副业重启",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "降薪回归，副业重启"
+          },
+          "decisionIntent": "career:transfer_back_to_local_branch",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "继续留守北京，但要求公司减少出差频率或调整岗位，同时让妻子辞职回父母家全职带孩子，你每月寄2万，剩余自己存着，争取两年后存够首付在本地买小房。",
+          "impactSummary": "留守加码，妻子再退",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "留守加码，妻子再退"
+          },
+          "decisionIntent": "career:continue_beijing_with_spouse_quitting_again",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "主动申请被裁，拿N+1赔偿约10万元，回本地用赔款及剩余积蓄与妻子一起开一家社区早餐店，主打外卖和团购，你负责线上运营和采购，妻子负责后厨和堂食。",
+          "impactSummary": "拿赔偿，夫妻创业",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "拿赔偿，夫妻创业"
+          },
+          "decisionIntent": "career:start_breakfast_shop_with_spouse",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "继续留守北京，但要求公司减少出差频率或调整岗位，同时让妻子辞职回父母家全职带孩子，你每月寄2万，剩余自己存着，争取两年后存够首付在本地买小房。",
+      "resultingNodeTitle": "留守北京的最后一搏：家庭重组与本地梦",
+      "resultingAgeInMonths": 551,
+      "resultingAttributes": {
+        "happiness": 10,
+        "intelligence": 82,
+        "wealth": 28,
+        "relation": 13,
+        "health": 18
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 551,
+        "cashWan": -46.7,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 250,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 180,
+        "netWorthWan": 28.3,
+        "annualAfterTaxIncomeWan": 33.6,
+        "annualDisposableIncomeWan": 6,
+        "annualCoreExpenseWan": 27.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:37:11.409Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "留守北京的最后一搏：家庭重组与本地梦",
+      "sourceAgeInMonths": 551,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "向公司申请主动降薪转岗至本地分部，哪怕月薪降至1.8万，换取每天回家，同时利用业余时间重启跨境电商，专注小众选品，不投大广告",
+          "impactSummary": "降薪回归，副业重启",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "降薪回归，副业重启"
+          },
+          "decisionIntent": "career:demote_to_local_branch_and_restart_ecommerce",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "咬牙继续留守北京，争取在裁员时拿N+1赔偿（约12万），同时偷偷面试本地公司，一旦找到合适岗位立即辞职，用赔偿金补足首付缺口",
+          "impactSummary": "忍痛留守，伺机而动",
+          "temporalHint": {
+            "lifeIntensity": "critical",
+            "durationMonths": [
+              1,
+              6
+            ],
+            "requiresFollowUp": true,
+            "reason": "忍痛留守，伺机而动"
+          },
+          "decisionIntent": "career:stay_beijing_until_severance_then_apply_local",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "主动离职，用20万积蓄和妻子一起在本地开一家社区生鲜店，主打线上团购和配送，你负责供应链和运营，妻子负责门店和客服，孩子由父母帮忙接送",
+          "impactSummary": "夫妻创业，破釜沉舟",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "夫妻创业，破釜沉舟"
+          },
+          "decisionIntent": "business:start_community_fresh_store_with_wife",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "咬牙继续留守北京，争取在裁员时拿N+1赔偿（约12万），同时偷偷面试本地公司，一旦找到合适岗位立即辞职，用赔偿金补足首付缺口",
+      "resultingNodeTitle": "留守北京的最后一搏：裁员与本地面试的赛跑",
+      "resultingAgeInMonths": 607,
+      "resultingAttributes": {
+        "happiness": 15,
+        "intelligence": 85,
+        "wealth": 32,
+        "relation": 12,
+        "health": 20
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 607,
+        "cashWan": -26.1,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 400,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 305,
+        "netWorthWan": 73.9,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": 7.2,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:37:34.465Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "留守北京的最后一搏：裁员与本地面试的赛跑",
+      "sourceAgeInMonths": 607,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受本地运营经理的工作，安心还贷，业余时间尝试用跨境电商副业贴补家用，坚持一年看能否打开局面。",
+          "impactSummary": "稳守还贷",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳守还贷"
+          },
+          "decisionIntent": "career:accept_local_manager_job_and_restart_ecommerce_side",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "拒绝本地经理岗，用赔偿金和积蓄作为启动资金，与妻子一起开一家社区早餐店，主打外卖和线上团购，你负责运营和采购，妻子负责门店。",
+          "impactSummary": "夫妻创业",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "夫妻创业"
+          },
+          "decisionIntent": "business:start_breakfast_shop_with_spouse_final",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "不急于接受或创业，先以自由职业身份接电商代运营和数据分析项目，同时继续面试更有前景的本地中型公司，给自己三个月时间。",
+          "impactSummary": "自由缓冲",
+          "temporalHint": {
+            "lifeIntensity": "critical",
+            "durationMonths": [
+              1,
+              6
+            ],
+            "requiresFollowUp": true,
+            "reason": "自由缓冲"
+          },
+          "decisionIntent": "career:freelance_ecommerce_consulting_and_search",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "拒绝本地经理岗，用赔偿金和积蓄作为启动资金，与妻子一起开一家社区早餐店，主打外卖和线上团购，你负责运营和采购，妻子负责门店。",
+      "resultingNodeTitle": "早餐店开业三个月：体力与信任的双重考验",
+      "resultingAgeInMonths": 610,
+      "resultingAttributes": {
+        "happiness": 10,
+        "intelligence": 85,
+        "wealth": 32,
+        "relation": 8,
+        "health": 12
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 610,
+        "cashWan": -24.3,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 400,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 305,
+        "netWorthWan": 75.7,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": 7.2,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:37:52.637Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "早餐店开业三个月：体力与信任的双重考验",
+      "sourceAgeInMonths": 610,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "坚持自己干，减少线上投入，专注堂食和口碑，同时每周抽一天休息，改善身体",
+          "impactSummary": "收缩战线养身体",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "收缩战线养身体"
+          },
+          "decisionIntent": "business:breakfast_shop_focus_on_dine_in_and_health",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "雇一个兼职员工分担凌晨进货和后厨杂活，自己多花时间优化线上运营和外卖评分，争取半年内流水翻倍",
+          "impactSummary": "借力提升线上单量",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "借力提升线上单量"
+          },
+          "decisionIntent": "business:breakfast_shop_hire_part_time_boost_delivery",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "和妻子坦诚谈一次，如果她实在撑不住，就关店止损，你重新找本地工作，她回归家庭，承认这次创业失败",
+          "impactSummary": "评估是否及时止损",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "评估是否及时止损"
+          },
+          "decisionIntent": "business:breakfast_shop_assess_closure_and_restart_job_search",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "坚持自己干，减少线上投入，专注堂食和口碑，同时每周抽一天休息，改善身体",
+      "resultingNodeTitle": "清晨的雾气渐渐散了",
+      "resultingAgeInMonths": 622,
+      "resultingAttributes": {
+        "happiness": 8,
+        "intelligence": 85,
+        "wealth": 32,
+        "relation": 6,
+        "health": 8
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 622,
+        "cashWan": -17.1,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 400,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 305,
+        "netWorthWan": 82.9,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": 7.2,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:38:26.089Z"
+    },
+    {
+      "type": "mortality_report_opened",
+      "historyLength": 14,
+      "closureType": "mortality",
+      "at": "2026-07-15T17:39:37.254Z"
+    }
+  ],
+  "validation": {
+    "realAiBrowserSource": true,
+    "completeWebHistory": true,
+    "allStoryBodiesPresent": true,
+    "noDeterministicTemplateBodies": true,
+    "allDisplayedChoicesPreserved": true,
+    "allUserChoicesPreserved": true,
+    "allAttributesPreserved": true,
+    "allFinancialStatesPreserved": true,
+    "allInvitationsPreserved": true,
+    "expectedClosureType": true,
+    "finalReportPresent": true
+  },
+  "passed": true,
+  "finalState": {
+    "capturedAt": "2026-07-15T17:39:36.827Z",
+    "e2eCase": null,
+    "recordTestRun": "real-wealth-first",
+    "testDataSource": "real_ai_browser",
+    "step": "insight",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "15:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n30岁时朋友邀请我拿出大部分积蓄合伙开社区餐饮店，我担心错过机会，也担心家庭现金流被拖垮。\n\n【系统生成的回溯锚点】\n回到 30 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "30 岁 · 财富与机会",
+      "milestones": [
+        {
+          "id": "wealth",
+          "title": "财富与机会",
+          "content": "30岁时朋友邀请我拿出大部分积蓄合伙开社区餐饮店，我担心错过机会，也担心家庭现金流被拖垮。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "",
+      "milestoneRelationship": "",
+      "milestoneOther": "30岁时朋友邀请我拿出大部分积蓄合伙开社区餐饮店，我担心错过机会，也担心家庭现金流被拖垮。",
+      "regressionNodeKey": "wealth",
+      "regressionAge": 30,
+      "regressionSituation": "【用户想重写的真实事件】\n30岁时朋友邀请我拿出大部分积蓄合伙开社区餐饮店，我担心错过机会，也担心家庭现金流被拖垮。\n\n【系统生成的回溯锚点】\n回到 30 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+      "coreStoryFocus": "wealth"
+    },
+    "questions": [
+      {
+        "question": "当时你的朋友具体是什么背景？他/她之前有过餐饮或创业经验吗？你们关系如何？",
+        "suggestions": [
+          "我朋友之前在一家连锁餐饮店做过店长，经验丰富，我们认识五六年了，关系很好。",
+          "我朋友是跨行创业，之前做销售，没接触过餐饮，但很有热情，我们从小一起长大。",
+          "我朋友之前开过一家小餐馆，但亏本关了，这次又想试试，我有点犹豫。",
+          "不太确定他/她的具体背景，但感觉他/她挺靠谱的，平时做事很认真。"
+        ]
+      },
+      {
+        "question": "当时你面对这个邀请，内心最直接的顾虑是什么？是怕亏钱、怕影响家庭，还是怕错过朋友？",
+        "suggestions": [
+          "我最怕积蓄亏光，家里孩子刚出生，房贷还要还，现金流不能断。",
+          "我担心如果拒绝会伤朋友感情，但又觉得风险太大，很纠结。",
+          "主要是怕自己不懂餐饮经营，投了钱却管理不好，最后打水漂。",
+          "我其实有点想试试，但家人强烈反对，说风险太高，让我别冲动。"
+        ]
+      },
+      {
+        "question": "当时你手头有多少积蓄？家庭每月固定支出大概多少？有没有其他负债或投资？",
+        "suggestions": [
+          "积蓄大概50万，家庭每月支出1.5万，房贷每月8000，没有其他投资。",
+          "积蓄30万左右，每月支出1万，有车贷，还欠父母5万。",
+          "积蓄60万，但大部分是定期和理财，手头现金只有20万，家里每月花销2万。",
+          "具体数字记不清了，但大概有40万积蓄，每月固定支出1.2万，没有外债。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "当时你的朋友具体是什么背景？他/她之前有过餐饮或创业经验吗？你们关系如何？",
+        "answer": "当时家庭税后年收入约45万元，有房贷180万元和一个刚出生的孩子，现金存款约55万元。"
+      },
+      {
+        "id": 2,
+        "question": "当时你面对这个邀请，内心最直接的顾虑是什么？是怕亏钱、怕影响家庭，还是怕错过朋友？",
+        "answer": "我容易被身边人的赚钱故事打动，但会在真正转账前反复核算最坏结果。"
+      },
+      {
+        "id": 3,
+        "question": "当时你手头有多少积蓄？家庭每月固定支出大概多少？有没有其他负债或投资？",
+        "answer": "朋友有餐饮经验，我擅长财务和线上运营，但从未管理过门店，也没有额外融资渠道。"
+      }
+    ],
+    "history": [
+      {
+        "age": 30,
+        "ageInMonths": 360,
+        "lifeStage": "early_adulthood",
+        "title": "朋友的社区餐饮店邀请",
+        "stage": "选择前夜",
+        "description": "你30岁，孩子刚满半岁，家庭税后年收入约45万，房贷180万，已经积累了一些储蓄。朋友有餐饮经验，邀请你合伙开社区餐饮店，他看好社区客流和外卖增量。你擅长财务和线上运营，但从未管过门店，也没有额外融资渠道。你既想抓住可能的机会，又担心亏掉家庭备用金，影响房贷和孩子开支。妻子态度谨慎，希望至少留一年应急金。你反复算账：投入40万成为主要股东并亲自经营，还是只参股10万小比例，或者干脆拒绝、把资金用于提前还贷和指数基金？这个决定将深刻影响你未来几年的现金流、职业精力和家庭关系。",
+        "selectedChoice": "只投入10万元小比例参股，保留一年家庭备用金",
+        "attributes": {
+          "happiness": 50,
+          "intelligence": 65,
+          "wealth": 55,
+          "relation": 55,
+          "health": 60
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 360,
+          "cashWan": 30,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 105,
+          "annualAfterTaxIncomeWan": 45,
+          "annualDisposableIncomeWan": 18,
+          "annualCoreExpenseWan": 27,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": false
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "投入40万元成为主要股东，并亲自负责经营",
+            "impactSummary": "孤注一掷",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "孤注一掷"
+            },
+            "decisionIntent": "finance:invest_heavily:friend_restaurant",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "只投入10万元小比例参股，保留一年家庭备用金",
+            "impactSummary": "谨慎试水",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "谨慎试水"
+            },
+            "decisionIntent": "finance:invest_lightly:friend_restaurant",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "拒绝投资，把资金用于提前还贷和指数基金",
+            "impactSummary": "稳健守成",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳健守成"
+            },
+            "decisionIntent": "finance:reject_invest:debt_and_index_fund",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_4d0aa7cd",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 360,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_cffd6901",
+            "summary": "你30岁，孩子刚满半岁，家庭税后年收入约45万，房贷180万，现金存款55万。朋友有餐饮经验，邀请你合伙开社区餐饮店，他看好社区客流和外卖增量。你擅长财务和线上"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 33,
+        "ageInMonths": 396,
+        "lifeStage": "early_adulthood",
+        "title": "参股餐饮店后的三年：信任裂纹与财务分化",
+        "stage": "早期成年期",
+        "description": "你投入10万元参股朋友的社区餐饮店，保留了家庭备用金。朋友主导经营，你负责线上运营和财务支持。起初半年，门店凭借社区客流和外卖增量实现盈利，每月分红约3000元，让你略感安心。但一年后，外卖平台抽成上升，社区出现两家同质化竞争门店，利润急剧下滑。朋友开始要求你增加投入或全职参与，你以家庭现金流为由拒绝。关系逐渐紧张，朋友认为你“只出钱不出力”，你则觉得对方经营策略僵化。第二年，门店勉强维持，分红断断续续。第三年初，朋友提出扩大店面、增加品类，需要你再投15万元。你核算后认为风险过高，拒绝。朋友最终引入新合伙人，你被稀释股份，实际分红权名存实亡。这笔10万元投资在三年后账面回收约4万元，心理上你失去了一段友谊。与此同时，你利用保留的家庭备用金提前还贷10万元，并开始定投指数基金，年化收益约6%。妻子因你未冒险而关系稳定，孩子健康成长。工作方面，你继续在原岗位，因表现稳定获得两次小幅加薪，年收入增至约49万元。但这次经历让你对“朋友合伙”产生深刻戒备，也强化了你对家庭财务安全的执着。",
+        "selectedChoice": "彻底退出，接受4万元回收，将精力转向提升本职工作技能，准备跳槽到更高收入行业",
+        "attributes": {
+          "happiness": 42,
+          "intelligence": 68,
+          "wealth": 59,
+          "relation": 42,
+          "health": 58
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 396,
+          "cashWan": 84,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 159,
+          "annualAfterTaxIncomeWan": 45.6,
+          "annualDisposableIncomeWan": 18,
+          "annualCoreExpenseWan": 27.6,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.8,
+          "incomeMonths": 36,
+          "monthlyLivingExpenseWan": 2.3,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 36,
+          "afterTaxIncomeWan": 136.8,
+          "livingExpenseWan": 82.8,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 54,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受朋友提议，追加15万元并兼职参与门店改造，试图挽回投资和关系",
+            "impactSummary": "冒险挽救",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "冒险挽救"
+            },
+            "decisionIntent": "finance:invest_more:friend_restaurant_renovation",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "彻底退出，接受4万元回收，将精力转向提升本职工作技能，准备跳槽到更高收入行业",
+            "impactSummary": "止损转型",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "止损转型"
+            },
+            "decisionIntent": "career:switch_to:higher_income_industry",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "维持现状，继续定投指数基金并增加每月还贷金额，同时与朋友保持距离，仅保留法律上份额",
+            "impactSummary": "保守防守",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "保守防守"
+            },
+            "decisionIntent": "finance:stay_course:debt_repay_and_index",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "relationship_trust_interest_fracture",
+          "eventCategory": "relationship",
+          "eventTags": [
+            "relationship",
+            "betrayal",
+            "interest_conflict",
+            "trust"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 36,
+          "elapsedYears": 3,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_cd5ed93b",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 396,
+            "internalTransitions": [
+              "第1-6个月：门店盈利，分红稳定，你负责线上运营，与朋友合作愉快",
+              "第7-12个月：竞争加剧，利润下滑，朋友提议追加投入被你拒绝，关系开始紧张",
+              "第13-24个月：门店勉强维持，分红断断续续，你开始定投指数基金并提前还贷",
+              "第25-36个月：朋友引入新合伙人，你被稀释股份，投资回收4万元，友谊受损"
+            ],
+            "decisionCheckpointId": "checkpoint_f5ad8467",
+            "summary": "你投入10万元参股朋友的社区餐饮店，保留了家庭备用金。朋友主导经营，你负责线上运营和财务支持。起初半年，门店凭借社区客流和外卖增量实现盈利，每月分红约3000元"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "妻子",
+            "孩子",
+            "朋友"
+          ],
+          "primaryActivity": "工作与家庭财务管理",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                21,
+                45
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 396,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -12,
+                18
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 396,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "3ed028c0"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 35,
+        "ageInMonths": 424,
+        "lifeStage": "midlife",
+        "title": "跳槽后的阵痛与适应",
+        "stage": "midlife",
+        "description": "彻底退出餐饮投资后，你开始全力准备跳槽。凭借财务和线上运营的背景，你瞄准了互联网行业的中小公司运营岗位。经过三个月准备，你成功入职一家B轮电商公司担任运营经理，月薪从税后1.8万涨到2.5万，但工作强度翻倍，经常加班到晚上十点。孩子已经两岁半，妻子抱怨你陪伴时间太少。你利用周末学习数据分析课程，试图提升竞争力。同时，你继续定投指数基金，每月定投5000元。餐饮店最终在一年后关闭，朋友与你彻底断了联系。你偶尔会想，如果当初选择另一条路会怎样？但看着家庭财务逐渐改善，房贷压力减轻，你告诉自己这是正确的选择。",
+        "selectedChoice": "利用业余时间尝试轻资产副业，比如跨境电商或知识付费，分散收入来源",
+        "attributes": {
+          "happiness": 38,
+          "intelligence": 70,
+          "wealth": 47,
+          "relation": 35,
+          "health": 52
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 424,
+          "cashWan": 70,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 145,
+          "annualAfterTaxIncomeWan": 21.6,
+          "annualDisposableIncomeWan": -6,
+          "annualCoreExpenseWan": 27.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.8,
+          "incomeMonths": 28,
+          "monthlyLivingExpenseWan": 2.3,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 28,
+          "afterTaxIncomeWan": 50.4,
+          "livingExpenseWan": 64.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -14,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "坚持当前节奏，继续在互联网公司深耕，争取三年内晋升到总监级别",
+            "impactSummary": "职业爬坡，收入增长",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "职业爬坡，收入增长"
+            },
+            "decisionIntent": "career:climb_to:internet_operations_director",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "利用业余时间尝试轻资产副业，比如跨境电商或知识付费，分散收入来源",
+            "impactSummary": "副业试水，收入多元",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "副业试水，收入多元"
+            },
+            "decisionIntent": "finance:start_side_business:ecommerce_or_knowledge_payment",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "减少加班，回归家庭，接受当前收入增长放缓，但保证陪伴孩子成长",
+            "impactSummary": "家庭优先，收入稳定",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "家庭优先，收入稳定"
+            },
+            "decisionIntent": "life:rebalance:family_over_career",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 28,
+          "elapsedYears": 2.3333333333333335,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_b19928d8",
+            "startAgeInMonths": 396,
+            "endAgeInMonths": 424,
+            "internalTransitions": [
+              "跳槽准备期：三个月内更新简历、学习行业知识、参加面试",
+              "入职适应期：前两个月熟悉业务、建立同事关系",
+              "技能提升：周末参加数据分析线上课程"
+            ],
+            "decisionCheckpointId": "checkpoint_53f4f462",
+            "summary": "彻底退出餐饮投资后，你开始全力准备跳槽。凭借财务和线上运营的背景，你瞄准了互联网行业的中小公司运营岗位。经过三个月准备，你成功入职一家B轮电商公司担任运营经理，"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "用户",
+            "妻子",
+            "孩子"
+          ],
+          "primaryActivity": "职场打拼与家庭平衡",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                23.333333333333332,
+                47.333333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 424,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -9.666666666666666,
+                20.333333333333332
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 424,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 37,
+        "ageInMonths": 453,
+        "lifeStage": "midlife",
+        "title": "跨境电商试水与职业倦怠",
+        "stage": "37岁9个月-副业试水与主业瓶颈",
+        "description": "你决定利用业余时间尝试轻资产副业，选择了跨境电商——在Shopify上开设独立站，销售小众家居用品。你投入2万元启动，利用下班后和周末选品、建站、投Facebook广告。起初三个月，月销售额约3000元，扣除成本几乎不赚钱。你花大量时间学习选品和广告优化，同时本职工作因互联网行业降温，公司开始裁员，你虽保住职位，但工作量增大，加班常态化。妻子抱怨你回家越来越晚，孩子上幼儿园后频繁生病，你常请假，同事有微词。副业在第六个月出现转机，一款产品因TikTok偶然曝光，月销售额飙升至2万元，净利润约8000元。但好景不长，两个月后因版权投诉，产品下架，销售额回落。你意识到副业需要更系统化的运营，但时间精力严重不足。同时，你的数据分析课程接近尾声，但工作晋升渺茫，公司内部晋升通道冻结。你站在十字路口：是加大副业投入，期望它成为主业？还是回归主业，争取跳槽到更稳定的公司？或者与妻子商量，调整家庭分工，换取更多时间？",
+        "selectedChoice": "维持现状，副业保持低强度，同时投简历寻找更稳定或薪酬更高的工作",
+        "attributes": {
+          "happiness": 30,
+          "intelligence": 72,
+          "wealth": 42,
+          "relation": 32,
+          "health": 48
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 453,
+          "cashWan": 55.5,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 130.5,
+          "annualAfterTaxIncomeWan": 21.6,
+          "annualDisposableIncomeWan": -6,
+          "annualCoreExpenseWan": 27.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.8,
+          "incomeMonths": 29,
+          "monthlyLivingExpenseWan": 2.3,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 29,
+          "afterTaxIncomeWan": 52.2,
+          "livingExpenseWan": 66.7,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -14.5,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "辞去电商公司工作，全职投入跨境电商，用半年时间验证能否规模化",
+            "impactSummary": "全职创业，高风险高回报",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "全职创业，高风险高回报"
+            },
+            "decisionIntent": "career:switch_to:full_time_crossborder_ecommerce",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "维持现状，副业保持低强度，同时投简历寻找更稳定或薪酬更高的工作",
+            "impactSummary": "稳中求进，精力分散",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳中求进，精力分散"
+            },
+            "decisionIntent": "career:dual_track:side_hustle_and_job_hopping",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "与妻子商议，她暂时减少工作时间支持家庭，你全力冲刺副业并兼职顾问",
+            "impactSummary": "家庭协作，共同冒险",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "家庭协作，共同冒险"
+            },
+            "decisionIntent": "family:restructure:spouse_support_side_hustle",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "financial_side_path_conflict",
+          "eventCategory": "financial",
+          "eventTags": [
+            "financial",
+            "side_income",
+            "compliance_risk",
+            "opportunity"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 29,
+          "elapsedYears": 2.4166666666666665,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d7b0df3f",
+            "startAgeInMonths": 424,
+            "endAgeInMonths": 453,
+            "internalTransitions": [
+              "前三个月副业平淡，学习阶段",
+              "第六个月爆发后两个月回落",
+              "本职工作因裁员更忙碌"
+            ],
+            "decisionCheckpointId": "checkpoint_973d0ba2",
+            "summary": "你决定利用业余时间尝试轻资产副业，选择了跨境电商——在Shopify上开设独立站，销售小众家居用品。你投入2万元启动，利用下班后和周末选品、建站、投Facebo"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "妻子",
+            "孩子",
+            "同事"
+          ],
+          "primaryActivity": "跨境电商副业运营",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                25.75,
+                49.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 453,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -7.25,
+                22.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 453,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 38,
+        "ageInMonths": 467,
+        "lifeStage": "midlife",
+        "title": "求职空窗与副业收缩",
+        "stage": "现实转折",
+        "description": "你决定维持现状后，继续在电商公司上班，同时低强度运营跨境电商副业。投简历三个月，收到两次面试机会，但均因公司冻结招聘或技能不匹配未果。副业方面，你未再投入精力推广，月销售额稳定在2000元左右，净利润约500元。第五个月，公司第二轮裁员，你被列入优化名单，获赔N+1共4.5万元后离职。你开始全职求职，但互联网行业持续降温，适合的运营经理岗位竞争激烈。妻子建议你考虑降薪去传统行业，你内心抗拒。期间，孩子幼升小面试需要你陪同，你感受到家庭责任的压力。副业因无暇管理，在第八个月彻底停滞。第十个月，你通过前同事介绍，获得一家中型制造企业的电商主管offer，月薪税后1.8万，比之前低但稳定。你犹豫是否接受，还是继续等待互联网机会，或者尝试将副业重新激活。",
+        "selectedChoice": "拒绝offer，继续投互联网公司，同时全力重启跨境电商",
+        "attributes": {
+          "happiness": 28,
+          "intelligence": 74,
+          "wealth": 42,
+          "relation": 30,
+          "health": 44
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 467,
+          "cashWan": 48.5,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 123.5,
+          "annualAfterTaxIncomeWan": 21.6,
+          "annualDisposableIncomeWan": -6,
+          "annualCoreExpenseWan": 27.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.8,
+          "incomeMonths": 14,
+          "monthlyLivingExpenseWan": 2.3,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 14,
+          "afterTaxIncomeWan": 25.2,
+          "livingExpenseWan": 32.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -7,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受制造企业offer，求稳积累，业余再找副业机会",
+            "impactSummary": "稳定现金流",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳定现金流"
+            },
+            "decisionIntent": "career:accept:manufacturing_ecommerce_manager",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "拒绝offer，继续投互联网公司，同时全力重启跨境电商",
+            "impactSummary": "冒险博反弹",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "冒险博反弹"
+            },
+            "decisionIntent": "career:dual_track:internet_job_search_and_side_hustle",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "和妻子商议，接受制造企业offer，同时她暂缓工作支持你周末进修，准备转行数据相关岗位",
+            "impactSummary": "家庭支持转型",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "家庭支持转型"
+            },
+            "decisionIntent": "career:transition:data_analyst_with_spouse_support",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_credit_ownership_conflict",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "credit_ownership",
+            "boundary",
+            "reputation_risk"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 14,
+          "elapsedYears": 1.1666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_faa5f87c",
+            "startAgeInMonths": 453,
+            "endAgeInMonths": 467,
+            "internalTransitions": [
+              "前三个月投简历无果，副业维持低水平",
+              "第五个月被裁员，获赔4.5万元",
+              "第七个月参加两次面试未成功",
+              "第十个月获得制造企业offer"
+            ],
+            "decisionCheckpointId": "checkpoint_60393fa7",
+            "summary": "你决定维持现状后，继续在电商公司上班，同时低强度运营跨境电商副业。投简历三个月，收到两次面试机会，但均因公司冻结招聘或技能不匹配未果。副业方面，你未再投入精力推"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": "求职与家庭平衡",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                26.916666666666668,
+                50.916666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 467,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -6.083333333333333,
+                23.916666666666668
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 467,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 40,
+        "ageInMonths": 489,
+        "lifeStage": "midlife",
+        "title": "双线作战的极限拉扯",
+        "stage": "39岁至40岁9个月",
+        "description": "拒绝制造企业offer后，你全力投入互联网求职和跨境电商重启。前三个月，你每天投递10份简历，同时重新上架旧产品线并优化广告。第四个月，你获得一家二线互联网公司的面试，但竞争激烈，最终落选。跨境电商方面，你选了一款小众厨房用品，利用TikTok短视频引流，第五个月月销达到1.5万元，净利润约6000元。然而，第九个月，你的独立站因支付合规问题被暂停，资金冻结两周，你不得不动用家庭备用金垫付货款。妻子情绪爆发，指责你“不顾家庭，只顾自己折腾”。孩子刚上小学，需要辅导作业，你经常因加班或处理副业而缺席，父子关系变得紧张。第十五个月，你终于拿到一家中型电商平台的运营专家offer，月薪税后2.2万元，但需要每周三天去杭州总部出差。你犹豫是否接受，因为这意味着更多离家时间，但收入比之前高，且平台更稳定。同时，你的跨境电商月利润稳定在4000元左右，但占用大量精力。你站在十字路口：是接受offer回归主业稳定，还是继续双线作战赌一个未来，或者与妻子协商调整家庭分工？",
+        "selectedChoice": "B. 双线加码，赌爆发",
+        "attributes": {
+          "happiness": 28,
+          "intelligence": 74,
+          "wealth": 43,
+          "relation": 30,
+          "health": 44
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 489,
+          "cashWan": 46.3,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 121.3,
+          "annualAfterTaxIncomeWan": 26.4,
+          "annualDisposableIncomeWan": -1.2,
+          "annualCoreExpenseWan": 27.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.2,
+          "incomeMonths": 22,
+          "monthlyLivingExpenseWan": 2.3,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 22,
+          "afterTaxIncomeWan": 48.4,
+          "livingExpenseWan": 50.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -2.2,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "A. 主业稳定，副业收缩",
+            "impactSummary": "主业稳定，副业收缩",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "主业稳定，副业收缩"
+            },
+            "decisionIntent": "career:accept:medium_ecommerce_platform",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "B. 双线加码，赌爆发",
+            "impactSummary": "双线加码，赌爆发",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "双线加码，赌爆发"
+            },
+            "decisionIntent": "career:dual_track:intense_side_hustle_and_job_search",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "C. 家庭优先，本地就业",
+            "impactSummary": "家庭优先，本地就业",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "家庭优先，本地就业"
+            },
+            "decisionIntent": "career:local_stable_job_and_family",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "opportunity_escape_route",
+          "eventCategory": "opportunity",
+          "eventTags": [
+            "opportunity",
+            "escape_route",
+            "isolation",
+            "high_reward"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 22,
+          "elapsedYears": 1.8333333333333333,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_5a3d8983",
+            "startAgeInMonths": 467,
+            "endAgeInMonths": 489,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_e2de08f0",
+            "summary": "拒绝制造企业offer后，你全力投入互联网求职和跨境电商重启。前三个月，你每天投递10份简历，同时重新上架旧产品线并优化广告。第四个月，你获得一家二线互联网公司"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "妻子",
+            "孩子"
+          ],
+          "primaryActivity": "求职与副业并行",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                28.75,
+                52.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 489,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -4.25,
+                25.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 489,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 41,
+        "ageInMonths": 494,
+        "lifeStage": "midlife",
+        "title": "双线加码，赌爆发",
+        "stage": "双线作战的极限拉扯",
+        "description": "你选择了双线加码，赌爆发。你拒绝了去杭州的offer，决心同时推进互联网求职和跨境电商。你向妻子保证，如果半年内副业月利润能稳定在1.5万以上，就全职做跨境电商；否则就回归主业。妻子勉强同意，但要求你每天至少陪孩子1小时。你调整作息，每天6点起床处理副业，晚上加班到9点，回家后辅导孩子作业。前两个月，你投出100份简历，只收到3个面试，均无下文。副业方面，你重新选品，尝试了几款小家电，但广告投入产出比很低，月利润跌至2000元。第三个月，你偶然发现一款便携式榨汁机在TikTok上有爆款潜质，你集中预算投了5000元广告，月销突破5万元，净利润1.2万元。你信心大增，但同时也面临库存压力和资金周转问题。你向妻子借钱，她犹豫后给了你2万元。第四个月，你继续优化广告，但竞品开始跟进，利润率下降。你意识到需要更系统的运营，但精力严重不足。第五个月，你接到一家中型互联网公司的面试邀请，但需要去北京面试三天。你犹豫是否请假，因为副业正处于关键期，而妻子已经因为你的缺席感到不满。你感到极度疲惫，健康亮起红灯，经常失眠，体重下降。你站在新的十字路口：是全力冲刺副业，争取成为全职卖家？还是抓住面试机会，回归职场稳定？或者与妻子协商，调整策略？",
+        "selectedChoice": "接受北京面试，尽力平衡副业，若拿到offer则回归主业，副业降级为兴趣",
+        "attributes": {
+          "happiness": 22,
+          "intelligence": 76,
+          "wealth": 43,
+          "relation": 25,
+          "health": 38
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 494,
+          "cashWan": 45.8,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 120.8,
+          "annualAfterTaxIncomeWan": 26.4,
+          "annualDisposableIncomeWan": -1.2,
+          "annualCoreExpenseWan": 27.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.2,
+          "incomeMonths": 5,
+          "monthlyLivingExpenseWan": 2.3,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 5,
+          "afterTaxIncomeWan": 11,
+          "livingExpenseWan": 11.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -0.5,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "全力冲刺副业，抓住榨汁机爆款，投入全部时间和剩余积蓄，争取在三个月内将月利润做到3万，然后全职做跨境电商",
+            "impactSummary": "副业冲刺，家庭风险高",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "副业冲刺，家庭风险高"
+            },
+            "decisionIntent": "career:full_time_crossborder_ecommerce",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "接受北京面试，尽力平衡副业，若拿到offer则回归主业，副业降级为兴趣",
+            "impactSummary": "主业求稳，副业收缩",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "主业求稳，副业收缩"
+            },
+            "decisionIntent": "career:accept_internet_company_interview",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "与妻子协商，她暂缓工作支持你半年，你全职做跨境电商，同时聘请兼职帮手处理客服和发货",
+            "impactSummary": "家庭支持，转型尝试",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "家庭支持，转型尝试"
+            },
+            "decisionIntent": "career:full_time_ecommerce_with_spouse_support",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 5,
+          "elapsedYears": 0.4166666666666667,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_f1d5f308",
+            "pressureArcId": "pressure_b27cc047",
+            "startAgeInMonths": 489,
+            "endAgeInMonths": 494,
+            "internalTransitions": [
+              "拒绝杭州offer后，向妻子承诺半年验证期",
+              "调整作息，每天6点起处理副业",
+              "副业出现爆款但利润率下降",
+              "接到北京面试邀请"
+            ],
+            "decisionCheckpointId": "checkpoint_e5b8a075",
+            "summary": "你选择了双线加码，赌爆发。你拒绝了去杭州的offer，决心同时推进互联网求职和跨境电商。你向妻子保证，如果半年内副业月利润能稳定在1.5万以上，就全职做跨境电商"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "妻子",
+            "孩子"
+          ],
+          "primaryActivity": "双线作战：互联网求职与跨境电商运营",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                29.166666666666668,
+                53.166666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 494,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -3.8333333333333335,
+                26.166666666666668
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 494,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_b27cc047",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 489,
+              "phaseStartedAtAgeInMonths": 494,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0",
+            "cd017b9f"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_b27cc047"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_b27cc047",
+          "phaseId": "response",
+          "transitionAction": "advance"
+        }
+      },
+      {
+        "age": 42,
+        "ageInMonths": 506,
+        "lifeStage": "midlife",
+        "title": "北京面试后的抉择",
+        "stage": "7-8",
+        "description": "你咬牙接受了北京面试，向公司请了三天假，妻子虽不满但也未阻拦。面试过程顺利，你凭借电商运营经验获得了一家二线互联网公司运营总监的offer，月薪税后2.8万，但需要常驻北京，每月只能回两次家。你权衡了三天：副业因你离开而暂停，便携榨汁机竞品已跟进，月利润跌至3000元。你最终接受offer，将副业降级为每月维护状态。新工作强度极大，你每天工作12小时，住公司附近合租房，周末才与家人视频。妻子独自带娃，孩子成绩下滑，她开始抱怨你“为了钱不要家”。你每月寄回1.5万，但家庭关系愈发紧张。第八个月，你因长期失眠和胃痛就医，诊断为中度焦虑和慢性胃炎。第十个月，孩子班主任约谈，称孩子上课走神、作业不交。你感到前所未有的愧疚和疲惫，但房贷压力让你无法轻易离职。年底，你累计净财富略有回升，但健康和家庭关系严重透支。",
+        "selectedChoice": "让妻子辞职做全职主妇，你继续在北京拼两年再调回",
+        "attributes": {
+          "happiness": 12,
+          "intelligence": 78,
+          "wealth": 35,
+          "relation": 18,
+          "health": 32
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 506,
+          "cashWan": 33.8,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 108.8,
+          "annualAfterTaxIncomeWan": 33.6,
+          "annualDisposableIncomeWan": -12,
+          "annualCoreExpenseWan": 45.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.8,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 3.8,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本",
+            "计入正文明确的每月家庭汇款"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 33.6,
+          "livingExpenseWan": 45.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -12,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本",
+            "计入正文明确的每月家庭汇款"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "申请调回本地分公司，降薪至2万，换取家庭时间",
+            "impactSummary": "稳定但降薪",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳定但降薪"
+            },
+            "decisionIntent": "career:transfer_back_to_local_branch",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "让妻子辞职做全职主妇，你继续在北京拼两年再调回",
+            "impactSummary": "牺牲伴侣事业",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "牺牲伴侣事业"
+            },
+            "decisionIntent": "career:continue_beijing_with_spouse_quitting",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "辞去北京工作，回本地重启副业并找一份远程工作",
+            "impactSummary": "自主但冒险",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "自主但冒险"
+            },
+            "decisionIntent": "career:quit_beijing_and_restart_side_hustle_remote",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d50eeddd",
+            "pressureArcId": "pressure_b27cc047",
+            "startAgeInMonths": 494,
+            "endAgeInMonths": 506,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_9d0e751c",
+            "summary": "你咬牙接受了北京面试，向公司请了三天假，妻子虽不满但也未阻拦。面试过程顺利，你凭借电商运营经验获得了一家二线互联网公司运营总监的offer，月薪税后2.8万，但"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "self",
+            "spouse",
+            "child"
+          ],
+          "primaryActivity": "北京互联网运营总监",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                30.166666666666668,
+                54.166666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 506,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -2.8333333333333335,
+                27.166666666666668
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 506,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_b27cc047",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 489,
+              "phaseStartedAtAgeInMonths": 494,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 2,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0",
+            "cd017b9f",
+            "4c450848"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_b27cc047"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_b27cc047",
+          "phaseId": "response",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 43,
+        "ageInMonths": 517,
+        "lifeStage": "midlife",
+        "title": "全职主妇计划启动的代价",
+        "stage": "北京裂缝与家庭重组",
+        "description": "你让妻子辞职后，她全力接管孩子和家务，但你每月寄回1.5万后家庭现金流依然紧张——孩子课外班、房贷、你的房租和医药费让存款持续减少。你尝试在北京拓展人脉争取调回机会，但公司内部没有轮岗通道。你的焦虑加重，开始服用助眠药物。妻子独自带娃半年后情绪低落，抱怨与社会脱节，你们视频时频繁争吵。副业完全停滞，你意识到双线作战已无可能。第8个月，你偶然得知前合伙人——那位30岁时的餐饮朋友——他的店在疫情后转型外卖，去年净赚了80万。你感到一阵刺痛，但很快压下。第11个月，公司启动新一轮架构调整，你的部门可能被合并，你面临被裁或降薪留守的选择。",
+        "selectedChoice": "接受降薪留守北京，同时让妻子重新找工作，孩子托给父母或晚托班，恢复双职工模式以缓解财务压力",
+        "attributes": {
+          "happiness": 8,
+          "intelligence": 80,
+          "wealth": 24,
+          "relation": 14,
+          "health": 26
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 517,
+          "cashWan": 6.3,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 81.3,
+          "annualAfterTaxIncomeWan": 33.6,
+          "annualDisposableIncomeWan": -30,
+          "annualCoreExpenseWan": 63.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.8,
+          "incomeMonths": 11,
+          "monthlyLivingExpenseWan": 5.3,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平",
+            "计入正文明确的每月家庭汇款"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 11,
+          "afterTaxIncomeWan": 30.8,
+          "livingExpenseWan": 58.3,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -27.5,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平",
+            "计入正文明确的每月家庭汇款"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "主动争取被裁，拿赔偿回本地，用剩余积蓄与妻子一起开一家社区便利店，她管店你继续找远程工作",
+            "impactSummary": "破釜沉舟",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "破釜沉舟"
+            },
+            "decisionIntent": "career:start_convenience_store_with_spouse",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "接受降薪留守北京，同时让妻子重新找工作，孩子托给父母或晚托班，恢复双职工模式以缓解财务压力",
+            "impactSummary": "回归双薪",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "回归双薪"
+            },
+            "decisionIntent": "career:accept_paycut_and_spouse_returns_to_work",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "向公司申请停薪留职3个月，回本地尝试重启跨境电商，同时与妻子一起参加社区餐饮培训，为未来合伙做准备",
+            "impactSummary": "中间路线",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "中间路线"
+            },
+            "decisionIntent": "career:unpaid_leave_to_restart_ecommerce_and_food_training",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 11,
+          "elapsedYears": 0.9166666666666666,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_7b175ab9",
+            "pressureArcId": "pressure_b27cc047",
+            "startAgeInMonths": 506,
+            "endAgeInMonths": 517,
+            "internalTransitions": [
+              "妻子辞职后前3个月家庭运转改善，孩子成绩回升",
+              "第4个月你开始焦虑调回无望，视频争吵增多",
+              "第8个月得知前合伙人成功，内心刺痛",
+              "第11个月公司架构调整，面临裁或降薪"
+            ],
+            "decisionCheckpointId": "checkpoint_3404d837",
+            "summary": "你让妻子辞职后，她全力接管孩子和家务，但你每月寄回1.5万后家庭现金流依然紧张——孩子课外班、房贷、你的房租和医药费让存款持续减少。你尝试在北京拓展人脉争取调回"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "name": "妻子",
+              "role": "全职主妇",
+              "status": "情绪低落，抱怨与社会脱节"
+            },
+            {
+              "name": "孩子",
+              "role": "小学生",
+              "status": "课外班增加，成绩中等"
+            },
+            {
+              "name": "前合伙人",
+              "role": "餐饮店老板",
+              "status": "疫情后转型外卖，去年净赚80万"
+            }
+          ],
+          "primaryActivity": "争取调回机会未果，家庭财务紧张，健康持续恶化",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                31.083333333333336,
+                55.08333333333333
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 517,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -1.916666666666667,
+                28.083333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 517,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_b27cc047",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 489,
+              "phaseStartedAtAgeInMonths": 517,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 3,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0",
+            "cd017b9f",
+            "4c450848",
+            "e1424b5c"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_b27cc047"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_b27cc047",
+          "phaseId": "growth",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 44,
+        "ageInMonths": 531,
+        "lifeStage": "midlife",
+        "title": "降薪留守与家庭重组：疲惫的平衡术",
+        "stage": "44岁3个月",
+        "description": "你接受降薪留守北京，月薪税后2.3万，同时催促妻子重新找工作。她投了两个月简历，最终入职一家本地教育机构做行政，月薪税后6000元。孩子被送到父母家附近的晚托班，你每月回两次家，但每次匆匆忙忙。前三个月，你因部门合并被划入新团队，负责一个边缘项目，绩效压力不大但毫无成就感。妻子重返职场后情绪好转，但她抱怨你总不在家，孩子成绩依然在及格线徘徊。你的焦虑和失眠时好时坏，胃痛发作时靠药店买药硬扛。第五个月，你偶然得知前餐饮朋友的店已开了第二家分店，年利润过百万，你深夜翻来覆去，最终删掉了他朋友圈。第七个月，公司内部竞聘一个本地岗位，你申请了但未通过，原因是你常驻北京已非核心圈。第十个月，你的慢性胃炎加重，医生建议你做胃镜，你因怕花钱和工作冲突一拖再拖。第十三个月，孩子期末考试数学不及格，妻子在电话里崩溃大哭，说“要么你回来，要么离婚”。你坐在出租屋里，看着北京凌晨三点的灯光，意识到自己既没攒下钱也没保住家。你手上还有之前积攒的5万元基金和6万现金，但房贷每月要还1.2万，家庭月支出包括孩子课外班、你的房租和医药费共约1.5万，妻子工资仅够覆盖日常开销，你每月寄回1.5万后自己只剩8000元，在北京勉强生活。你站在新的十字路口。",
+        "selectedChoice": "继续留守北京，但要求公司减少出差频率或调整岗位，同时让妻子辞职回父母家全职带孩子，你每月寄2万，剩余自己存着，争取两年后存够首付在本地买小房。",
+        "attributes": {
+          "happiness": 8,
+          "intelligence": 80,
+          "wealth": 17,
+          "relation": 14,
+          "health": 20
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 531,
+          "cashWan": -56.7,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 18.3,
+          "annualAfterTaxIncomeWan": 27.6,
+          "annualDisposableIncomeWan": -54,
+          "annualCoreExpenseWan": 81.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.3,
+          "incomeMonths": 14,
+          "monthlyLivingExpenseWan": 6.8,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本",
+            "计入正文明确的每月家庭汇款"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 14,
+          "afterTaxIncomeWan": 32.2,
+          "livingExpenseWan": 95.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -63,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本",
+            "计入正文明确的每月家庭汇款"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "申请调回本地分公司，接受降薪至2万，用剩余积蓄请保姆分担家务，自己利用业余时间重新启动跨境电商，专注选品和供应链，不碰重资产。",
+            "impactSummary": "降薪回归，副业重启",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "降薪回归，副业重启"
+            },
+            "decisionIntent": "career:transfer_back_to_local_branch",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续留守北京，但要求公司减少出差频率或调整岗位，同时让妻子辞职回父母家全职带孩子，你每月寄2万，剩余自己存着，争取两年后存够首付在本地买小房。",
+            "impactSummary": "留守加码，妻子再退",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "留守加码，妻子再退"
+            },
+            "decisionIntent": "career:continue_beijing_with_spouse_quitting_again",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "主动申请被裁，拿N+1赔偿约10万元，回本地用赔款及剩余积蓄与妻子一起开一家社区早餐店，主打外卖和团购，你负责线上运营和采购，妻子负责后厨和堂食。",
+            "impactSummary": "拿赔偿，夫妻创业",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "拿赔偿，夫妻创业"
+            },
+            "decisionIntent": "career:start_breakfast_shop_with_spouse",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 14,
+          "elapsedYears": 1.1666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_dc77f091",
+            "pressureArcId": "pressure_b27cc047",
+            "startAgeInMonths": 517,
+            "endAgeInMonths": 531,
+            "internalTransitions": [
+              "妻子求职两个月后入职教育机构行政",
+              "孩子转晚托班后成绩下滑",
+              "竞聘本地岗位失败",
+              "胃炎加重但未就医"
+            ],
+            "decisionCheckpointId": "checkpoint_51e17c5c",
+            "summary": "你接受降薪留守北京，月薪税后2.3万，同时催促妻子重新找工作。她投了两个月简历，最终入职一家本地教育机构做行政，月薪税后6000元。孩子被送到父母家附近的晚托班"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "妻子",
+            "孩子",
+            "前餐饮朋友"
+          ],
+          "primaryActivity": "降薪留守北京，妻子重返职场，家庭重组",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                32.25,
+                56.24999999999999
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 531,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -0.7500000000000002,
+                29.250000000000004
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 531,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_b27cc047",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 489,
+              "phaseStartedAtAgeInMonths": 517,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 4,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0",
+            "cd017b9f",
+            "4c450848",
+            "e1424b5c",
+            "c85640f3"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_b27cc047"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_b27cc047",
+          "phaseId": "growth",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 45,
+        "ageInMonths": 551,
+        "lifeStage": "midlife",
+        "title": "留守北京的最后一搏：家庭重组与本地梦",
+        "stage": "11",
+        "description": "你向公司申请减少出差或调整岗位，HR回应称无合适本地岗位，但可接受你每周远程办公两天，前提是每月至少到岗两周。你妥协，继续在北京合租，每月寄回家2万元，自己留8000元。妻子辞职后回到父母家全职带孩子，孩子转入父母家附近小学，由她接送和辅导。起初两个月，家庭气氛缓和，孩子成绩略有回升。但第四个月，妻子抱怨与社会脱节，情绪反复；你因长期服用助眠药物导致白天嗜睡，工作效率下降。第七个月，你偶然在行业群看到前餐饮朋友开了第三家店，年利润传闻超150万，你失眠一夜后决定彻底屏蔽他。第九个月，公司启动裁员，你因绩效边缘化被列入观察名单。你开始焦虑，但不敢轻易离职，因为房贷和家庭开销全靠这份收入。第十三个月，你终于攒够15万现金流十分紧张基金，共20万，但本地一套小两房首付至少25万。你向朋友借钱被婉拒，妻子也因你长期不在家而冷淡。你感觉被困在北京，但又不甘心放弃。",
+        "selectedChoice": "咬牙继续留守北京，争取在裁员时拿N+1赔偿（约12万），同时偷偷面试本地公司，一旦找到合适岗位立即辞职，用赔偿金补足首付缺口",
+        "attributes": {
+          "happiness": 10,
+          "intelligence": 82,
+          "wealth": 28,
+          "relation": 13,
+          "health": 18
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 551,
+          "cashWan": -46.7,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 250,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 180,
+          "netWorthWan": 28.3,
+          "annualAfterTaxIncomeWan": 33.6,
+          "annualDisposableIncomeWan": 6,
+          "annualCoreExpenseWan": 27.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.8,
+          "incomeMonths": 20,
+          "monthlyLivingExpenseWan": 2.3,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.9,
+          "reasons": [
+            "正文：每月寄回家2万元，自己留8000元，合计月薪税后2.8万",
+            "正文：每月寄回2万+自己8000生活，家庭月支出含房贷1.2万、其他1.5万，共2.7万，但妻子有工资6000，故家庭月净支出约2.1万，加上主角生活8000，总计2.3万",
+            "正文：公司裁员被列入观察名单，收入稳定性为volatile"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 20,
+          "afterTaxIncomeWan": 56,
+          "livingExpenseWan": 46,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 10,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文：每月寄回家2万元，自己留8000元，合计月薪税后2.8万",
+            "正文：每月寄回2万+自己8000生活，家庭月支出含房贷1.2万、其他1.5万，共2.7万，但妻子有工资6000，故家庭月净支出约2.1万，加上主角生活8000，总计2.3万",
+            "正文：公司裁员被列入观察名单，收入稳定性为volatile"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "向公司申请主动降薪转岗至本地分部，哪怕月薪降至1.8万，换取每天回家，同时利用业余时间重启跨境电商，专注小众选品，不投大广告",
+            "impactSummary": "降薪回归，副业重启",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "降薪回归，副业重启"
+            },
+            "decisionIntent": "career:demote_to_local_branch_and_restart_ecommerce",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "咬牙继续留守北京，争取在裁员时拿N+1赔偿（约12万），同时偷偷面试本地公司，一旦找到合适岗位立即辞职，用赔偿金补足首付缺口",
+            "impactSummary": "忍痛留守，伺机而动",
+            "temporalHint": {
+              "lifeIntensity": "critical",
+              "durationMonths": [
+                1,
+                6
+              ],
+              "requiresFollowUp": true,
+              "reason": "忍痛留守，伺机而动"
+            },
+            "decisionIntent": "career:stay_beijing_until_severance_then_apply_local",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "主动离职，用20万积蓄和妻子一起在本地开一家社区生鲜店，主打线上团购和配送，你负责供应链和运营，妻子负责门店和客服，孩子由父母帮忙接送",
+            "impactSummary": "夫妻创业，破釜沉舟",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "夫妻创业，破釜沉舟"
+            },
+            "decisionIntent": "business:start_community_fresh_store_with_wife",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 20,
+          "elapsedYears": 1.6666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_e23b1ae2",
+            "pressureArcId": "pressure_b27cc047",
+            "startAgeInMonths": 531,
+            "endAgeInMonths": 551,
+            "internalTransitions": [
+              "第1-2个月：申请远程办公获批，每月回两次家，家庭关系缓和",
+              "第3-6个月：妻子情绪反复，你白天嗜睡，工作效率下滑",
+              "第7-9个月：得知朋友成功，失眠后屏蔽；公司裁员观察名单",
+              "第10-13个月：攒够20万，但首付不足，借钱无门"
+            ],
+            "decisionCheckpointId": "checkpoint_e895c595",
+            "summary": "你向公司申请减少出差或调整岗位，HR回应称无合适本地岗位，但可接受你每周远程办公两天，前提是每月至少到岗两周。你妥协，继续在北京合租，每月寄回家2万元，自己留8"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "妻子",
+            "孩子",
+            "父母"
+          ],
+          "primaryActivity": "留守北京的同时寻求本地出路",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                33.916666666666664,
+                57.91666666666666
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 551,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                0.9166666666666665,
+                30.91666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 551,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_b27cc047",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "active",
+              "startedAtAgeInMonths": 489,
+              "phaseStartedAtAgeInMonths": 551,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 5,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0",
+            "cd017b9f",
+            "4c450848",
+            "e1424b5c",
+            "c85640f3",
+            "c37e292f"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_b27cc047"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_b27cc047",
+          "phaseId": "operation",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 50,
+        "ageInMonths": 607,
+        "lifeStage": "mature_adulthood",
+        "title": "留守北京的最后一搏：裁员与本地面试的赛跑",
+        "stage": "现实转折",
+        "description": "你咬牙留守北京，一边在裁员观察名单上如履薄冰，一边偷偷投递本地简历。前三个月，公司没有任何动静，你每天焦虑地查看邮件，同时利用周末远程面试了四家本地公司，但都因薪资或岗位匹配度被拒。第四个月，裁员终于落地，你拿到12万元赔偿金和一个月缓冲期。你立即用赔偿金加上手头20万现金流十分紧张，在本地远郊买下一套小两房，总价150万，首付25万，贷款125万，月供降至8000元。但妻子对你先斩后奏的购房决定异常愤怒，认为你再次把家庭置于财务悬崖边。孩子已上初中，成绩中等，妻子在父母家附近找了份兼职，月入3000元。你搬回本地，却发现本地互联网岗位稀少，你的总监经验在小公司显得资历过深。你投了两个月简历，面试五家，均因薪资期望不匹配而失败。第十个月，你被迫接受一家本地小公司的运营经理岗，月薪税后1.5万，比北京降了8000元。家庭月收入降至1.8万，但房贷只有8000元，加上生活开销约1.2万，每个月能存下4000元。你感到一种久违的安稳，但内心不甘——前餐饮朋友已开了第四家店，你彻底删除了他的联系方式。妻子开始接受现实，但她对你的信任已难以修复。你站在人生的新起点，看着本地灰蒙蒙的天空，不知这条路通向哪里。",
+        "selectedChoice": "拒绝本地经理岗，用赔偿金和积蓄作为启动资金，与妻子一起开一家社区早餐店，主打外卖和线上团购，你负责运营和采购，妻子负责门店。",
+        "attributes": {
+          "happiness": 15,
+          "intelligence": 85,
+          "wealth": 32,
+          "relation": 12,
+          "health": 20
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 607,
+          "cashWan": -26.1,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 400,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 305,
+          "netWorthWan": 73.9,
+          "annualAfterTaxIncomeWan": 21.6,
+          "annualDisposableIncomeWan": 7.2,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.8,
+          "incomeMonths": 56,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 12,
+          "oneOffExpenseWan": 25,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 150,
+          "personalDebtChangeWan": 125,
+          "incomeStability": "volatile",
+          "confidence": 0.9,
+          "reasons": [
+            "裁员赔偿12万，一次性收入",
+            "购买总价150万房产，首付25万，新增房贷125万",
+            "最终月收入1.8万（男主1.5万+妻子0.3万），月生活支出1.2万",
+            "本阶段56个月，前期继续北京工作，后期本地工作"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 56,
+          "afterTaxIncomeWan": 112.8,
+          "livingExpenseWan": 67.2,
+          "medicalEducationExpenseWan": 25,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 150,
+          "otherNetChangeWan": -125,
+          "netWorthChangeWan": 45.6,
+          "incomeStability": "volatile",
+          "reasons": [
+            "裁员赔偿12万，一次性收入",
+            "购买总价150万房产，首付25万，新增房贷125万",
+            "最终月收入1.8万（男主1.5万+妻子0.3万），月生活支出1.2万",
+            "本阶段56个月，前期继续北京工作，后期本地工作"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受本地运营经理的工作，安心还贷，业余时间尝试用跨境电商副业贴补家用，坚持一年看能否打开局面。",
+            "impactSummary": "稳守还贷",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳守还贷"
+            },
+            "decisionIntent": "career:accept_local_manager_job_and_restart_ecommerce_side",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "拒绝本地经理岗，用赔偿金和积蓄作为启动资金，与妻子一起开一家社区早餐店，主打外卖和线上团购，你负责运营和采购，妻子负责门店。",
+            "impactSummary": "夫妻创业",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "夫妻创业"
+            },
+            "decisionIntent": "business:start_breakfast_shop_with_spouse_final",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "不急于接受或创业，先以自由职业身份接电商代运营和数据分析项目，同时继续面试更有前景的本地中型公司，给自己三个月时间。",
+            "impactSummary": "自由缓冲",
+            "temporalHint": {
+              "lifeIntensity": "critical",
+              "durationMonths": [
+                1,
+                6
+              ],
+              "requiresFollowUp": true,
+              "reason": "自由缓冲"
+            },
+            "decisionIntent": "career:freelance_ecommerce_consulting_and_search",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 56,
+          "elapsedYears": 4.666666666666667,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d23afae8",
+            "pressureArcId": "pressure_b27cc047",
+            "startAgeInMonths": 551,
+            "endAgeInMonths": 607,
+            "internalTransitions": [
+              "裁员赔偿谈判与交接",
+              "本地看房、购房、贷款手续",
+              "妻子愤怒期与冷战",
+              "五场面试与期望落差"
+            ],
+            "decisionCheckpointId": "checkpoint_d46bea56",
+            "summary": "你咬牙留守北京，一边在裁员观察名单上如履薄冰，一边偷偷投递本地简历。前三个月，公司没有任何动静，你每天焦虑地查看邮件，同时利用周末远程面试了四家本地公司，但都因"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "妻子：从全职主妇转为兼职，对你购房决定愤怒但被迫接受",
+            "孩子：初中生，成绩中等，家庭动荡影响其安全感"
+          ],
+          "primaryActivity": "处理裁员赔偿、购房、本地求职",
+          "worldDeltas": [
+            "完成裁员赔偿和本地购房，结束北京留守",
+            "夫妻关系因购房先斩后奏出现新裂痕",
+            "本地就业市场与个人资历错位，职业降级",
+            "孩子进入初中，学业压力增加"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                38.58333333333333,
+                62.58333333333332
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 607,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                5.583333333333334,
+                35.583333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 607,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_b27cc047",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 489,
+              "phaseStartedAtAgeInMonths": 551,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0",
+            "cd017b9f",
+            "4c450848",
+            "e1424b5c",
+            "c85640f3",
+            "c37e292f",
+            "a9cc81e4"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_b27cc047",
+          "phaseId": "operation",
+          "transitionAction": "resolve"
+        }
+      },
+      {
+        "age": 50,
+        "ageInMonths": 610,
+        "lifeStage": "mature_adulthood",
+        "title": "早餐店开业三个月：体力与信任的双重考验",
+        "stage": "mature_adulthood",
+        "description": "你拒绝了本地经理岗，用赔偿金和20万积蓄启动早餐店。妻子负责后厨和堂食，你负责采购、线上运营和外卖管理。前两个月，你们每天凌晨4点起床，你骑电动车去批发市场进货，妻子在店里准备食材。线上团购订单逐渐从每天5单涨到30单，月流水从2万涨到5万，但扣除食材、房租和你的药费，每月净利仅1.2万，远不如你预期的2万。你的慢性胃炎因饮食不规律加重，凌晨进货受凉后胃痛频繁发作。妻子也因长期站立腰肌劳损，开始抱怨你“理想化”，你们为是否雇人、是否增加品类多次争吵。第三个月，你因一次外卖投诉（顾客说粥里有头发）和妻子激烈争吵，她摔了勺子说“我当年就不该跟你开这破店”。你坐在店门口，看着对面连锁早餐店排起长队，想起30岁时朋友拉你合伙开餐饮店——如果当时选了A，是不是早就财务自由了？你感到一种深深的疲惫和幻灭，但店已经开起来了，房贷还在，你无法回头。",
+        "selectedChoice": "坚持自己干，减少线上投入，专注堂食和口碑，同时每周抽一天休息，改善身体",
+        "attributes": {
+          "happiness": 10,
+          "intelligence": 85,
+          "wealth": 32,
+          "relation": 8,
+          "health": 12
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 610,
+          "cashWan": -24.3,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 400,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 305,
+          "netWorthWan": 75.7,
+          "annualAfterTaxIncomeWan": 21.6,
+          "annualDisposableIncomeWan": 7.2,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.8,
+          "incomeMonths": 3,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 3,
+          "afterTaxIncomeWan": 5.4,
+          "livingExpenseWan": 3.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 1.8,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "坚持自己干，减少线上投入，专注堂食和口碑，同时每周抽一天休息，改善身体",
+            "impactSummary": "收缩战线养身体",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "收缩战线养身体"
+            },
+            "decisionIntent": "business:breakfast_shop_focus_on_dine_in_and_health",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "雇一个兼职员工分担凌晨进货和后厨杂活，自己多花时间优化线上运营和外卖评分，争取半年内流水翻倍",
+            "impactSummary": "借力提升线上单量",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "借力提升线上单量"
+            },
+            "decisionIntent": "business:breakfast_shop_hire_part_time_boost_delivery",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "和妻子坦诚谈一次，如果她实在撑不住，就关店止损，你重新找本地工作，她回归家庭，承认这次创业失败",
+            "impactSummary": "评估是否及时止损",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "评估是否及时止损"
+            },
+            "decisionIntent": "business:breakfast_shop_assess_closure_and_restart_job_search",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "health_forced_pause",
+          "eventCategory": "health",
+          "eventTags": [
+            "health",
+            "forced_pause",
+            "burnout",
+            "major_crisis"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 3,
+          "elapsedYears": 0.25,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_746f0590",
+            "pressureArcId": "pressure_49b0f52d",
+            "startAgeInMonths": 607,
+            "endAgeInMonths": 610,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_05f7c4a1",
+            "summary": "你拒绝了本地经理岗，用赔偿金和20万积蓄启动早餐店。妻子负责后厨和堂食，你负责采购、线上运营和外卖管理。前两个月，你们每天凌晨4点起床，你骑电动车去批发市场进货"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "signal": "创业现实与预期差距引发自我怀疑",
+              "evidence": "对比朋友餐饮店的成功，对当前选择产生动摇"
+            },
+            {
+              "signal": "健康与关系在高压下持续恶化",
+              "evidence": "胃炎加重、妻子腰肌劳损、多次争吵"
+            }
+          ],
+          "activeCharacters": [
+            {
+              "name": "妻子",
+              "role": "合伙人",
+              "relationship": "紧张",
+              "confidence": 0.6
+            },
+            {
+              "name": "孩子",
+              "role": "初中生",
+              "relationship": "疏远",
+              "confidence": 0.5
+            }
+          ],
+          "primaryActivity": "经营社区早餐店",
+          "worldDeltas": [
+            {
+              "type": "business_started",
+              "entity": "社区早餐店",
+              "description": "开业三个月，月流水5万，净利1.2万"
+            }
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                38.83333333333333,
+                62.83333333333332
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 610,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                5.833333333333334,
+                35.833333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 610,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_b27cc047",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 489,
+              "phaseStartedAtAgeInMonths": 551,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_49b0f52d",
+              "eventId": "health_forced_pause",
+              "eventIntentType": "health_forced_pause",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 607,
+              "phaseStartedAtAgeInMonths": 610,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。"
+            }
+          ],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0",
+            "cd017b9f",
+            "4c450848",
+            "e1424b5c",
+            "c85640f3",
+            "c37e292f",
+            "a9cc81e4",
+            "9079c869"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_49b0f52d"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_49b0f52d",
+          "phaseId": "response",
+          "transitionAction": "advance"
+        }
+      },
+      {
+        "age": 51,
+        "ageInMonths": 622,
+        "lifeStage": "mature_adulthood",
+        "title": "清晨的雾气渐渐散了",
+        "stage": "现实转折",
+        "description": "最后一年的冬天格外冷。胃出血后，你被迫放慢了脚步，雇了兼职顶凌晨进货，每天只工作十小时。堂食客流被连锁店和网红店分流，月流水跌至2.7万，净利仅够还房贷。妻子腰间贴着膏药，话越来越少；孩子成绩依然在及格线徘徊。某个清晨，你站在店门口，看着对面连锁店排起长队，忽然想起三十岁那年的选择。你曾以为自己能靠拼搏改写命运，但身体和家庭的损耗已到极限。你不再失眠，也不再焦虑——只是平静地关掉了店门。最后一周，你陪妻子买菜，接孩子放学，把店里的蒸笼送给了隔壁。某个下午，你坐在阳台上，阳光照在胃药瓶上，你闭上了眼睛。",
+        "selectedChoice": "安详落幕，查看一生洞察",
+        "attributes": {
+          "happiness": 8,
+          "intelligence": 85,
+          "wealth": 32,
+          "relation": 6,
+          "health": 8
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 622,
+          "cashWan": -17.1,
+          "investmentAssetsWan": 5,
+          "propertyMarketValueWan": 400,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 305,
+          "netWorthWan": 82.9,
+          "annualAfterTaxIncomeWan": 21.6,
+          "annualDisposableIncomeWan": 7.2,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 21.6,
+          "livingExpenseWan": 14.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 7.2,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "ENDING",
+            "text": "安详落幕，查看一生洞察",
+            "impactSummary": "一生回望"
+          }
+        ],
+        "isEndingNode": true,
+        "eventMeta": {
+          "eventId": "health_forced_pause",
+          "eventCategory": "health",
+          "eventTags": [
+            "health",
+            "forced_pause",
+            "burnout",
+            "major_crisis"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_692cf026",
+            "pressureArcId": "pressure_49b0f52d",
+            "startAgeInMonths": 610,
+            "endAgeInMonths": 622,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_22519099",
+            "summary": "最后一年的冬天格外冷。胃出血后，你被迫放慢了脚步，雇了兼职顶凌晨进货，每天只工作十小时。堂食客流被连锁店和网红店分流，月流水跌至2.7万，净利仅够还房贷。妻子腰"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                39.83333333333333,
+                63.83333333333332
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 622,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "妻子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                6.833333333333334,
+                36.833333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 622,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5184352a",
+              "directionType": "wealth",
+              "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_b27cc047",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 489,
+              "phaseStartedAtAgeInMonths": 551,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_49b0f52d",
+              "eventId": "health_forced_pause",
+              "eventIntentType": "health_forced_pause",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "resolved",
+              "startedAtAgeInMonths": 607,
+              "phaseStartedAtAgeInMonths": 610,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。"
+            }
+          ],
+          "committedTransactionIds": [
+            "3ed028c0",
+            "fc557d13",
+            "d0dc4b7a",
+            "a032be58",
+            "86afdea0",
+            "cd017b9f",
+            "4c450848",
+            "e1424b5c",
+            "c85640f3",
+            "c37e292f",
+            "a9cc81e4",
+            "9079c869",
+            "1933a34e"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_49b0f52d",
+          "phaseId": "response",
+          "transitionAction": "resolve"
+        }
+      }
+    ],
+    "currentNode": {
+      "title": "清晨的雾气渐渐散了",
+      "stage": "现实转折",
+      "description": "最后一年的冬天格外冷。胃出血后，你被迫放慢了脚步，雇了兼职顶凌晨进货，每天只工作十小时。堂食客流被连锁店和网红店分流，月流水跌至2.7万，净利仅够还房贷。妻子腰间贴着膏药，话越来越少；孩子成绩依然在及格线徘徊。某个清晨，你站在店门口，看着对面连锁店排起长队，忽然想起三十岁那年的选择。你曾以为自己能靠拼搏改写命运，但身体和家庭的损耗已到极限。你不再失眠，也不再焦虑——只是平静地关掉了店门。最后一周，你陪妻子买菜，接孩子放学，把店里的蒸笼送给了隔壁。某个下午，你坐在阳台上，阳光照在胃药瓶上，你闭上了眼睛。",
+      "attributes": {
+        "happiness": 8,
+        "intelligence": 85,
+        "wealth": 32,
+        "relation": 6,
+        "health": 8
+      },
+      "choices": [
+        {
+          "id": "ENDING",
+          "text": "安详落幕，查看一生洞察",
+          "impactSummary": "一生回望"
+        }
+      ],
+      "isEndingNode": true,
+      "age": 51,
+      "ageInMonths": 622,
+      "lifeStage": "mature_adulthood",
+      "narrativeMeta": {
+        "elapsedMonths": 12,
+        "elapsedYears": 1,
+        "lifeIntensity": "high_tension",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_692cf026",
+          "pressureArcId": "pressure_49b0f52d",
+          "startAgeInMonths": 610,
+          "endAgeInMonths": 622,
+          "internalTransitions": [],
+          "decisionCheckpointId": "checkpoint_22519099",
+          "summary": "最后一年的冬天格外冷。胃出血后，你被迫放慢了脚步，雇了兼职顶凌晨进货，每天只工作十小时。堂食客流被连锁店和网红店分流，月流水跌至2.7万，净利仅够还房贷。妻子腰"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [],
+        "activeCharacters": [],
+        "worldDeltas": []
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 622,
+        "cashWan": -17.1,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 400,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 305,
+        "netWorthWan": 82.9,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": 7.2,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "financialChange": {
+        "periodMonths": 12,
+        "afterTaxIncomeWan": 21.6,
+        "livingExpenseWan": 14.4,
+        "medicalEducationExpenseWan": 0,
+        "interestAndFeesWan": 0,
+        "assetValueChangeWan": 0,
+        "otherNetChangeWan": 0,
+        "netWorthChangeWan": 7.2,
+        "incomeStability": "volatile",
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "eventMeta": {
+        "eventId": "health_forced_pause",
+        "eventCategory": "health",
+        "eventTags": [
+          "health",
+          "forced_pause",
+          "burnout",
+          "major_crisis"
+        ],
+        "eventIntensity": "major",
+        "phasePolicyId": "generic_pressure_v1"
+      },
+      "committedArcMeta": {
+        "pressureArcId": "pressure_49b0f52d",
+        "phaseId": "response",
+        "transitionAction": "resolve"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "family_partner",
+            "relation": "partner",
+            "estimatedAgeRange": [
+              39.83333333333333,
+              63.83333333333332
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 622,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "妻子",
+            "source": "model_inferred",
+            "confidence": 0.55
+          },
+          {
+            "id": "family_child",
+            "relation": "child",
+            "estimatedAgeRange": [
+              6.833333333333334,
+              36.833333333333336
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 622,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "孩子",
+            "source": "model_inferred",
+            "confidence": 0.55
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_5184352a",
+            "directionType": "wealth",
+            "summary": "A. 投入40万元成为主要股东，并亲自负责经营\nB. 只投入10万元小比例参股，保留一年家庭备用金\nC. 拒绝投资，把资金用于提前还贷和指数基金",
+            "status": "active",
+            "startedAtAgeInMonths": 360,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [
+          {
+            "id": "pressure_b27cc047",
+            "eventId": "career_structural_instability",
+            "eventIntentType": "career_structural_instability",
+            "phasePolicyId": "generic_pressure_v1",
+            "phaseId": "operation",
+            "status": "resolved",
+            "startedAtAgeInMonths": 489,
+            "phaseStartedAtAgeInMonths": 551,
+            "phaseCheckpointCount": 1,
+            "totalCheckpointCount": 6,
+            "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+          },
+          {
+            "id": "pressure_49b0f52d",
+            "eventId": "health_forced_pause",
+            "eventIntentType": "health_forced_pause",
+            "phasePolicyId": "generic_pressure_v1",
+            "phaseId": "response",
+            "status": "resolved",
+            "startedAtAgeInMonths": 607,
+            "phaseStartedAtAgeInMonths": 610,
+            "phaseCheckpointCount": 0,
+            "totalCheckpointCount": 1,
+            "unresolvedSummary": "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。"
+          }
+        ],
+        "committedTransactionIds": [
+          "3ed028c0",
+          "fc557d13",
+          "d0dc4b7a",
+          "a032be58",
+          "86afdea0",
+          "cd017b9f",
+          "4c450848",
+          "e1424b5c",
+          "c85640f3",
+          "c37e292f",
+          "a9cc81e4",
+          "9079c869",
+          "1933a34e"
+        ],
+        "version": 1
+      }
+    },
+    "currentAttributes": {
+      "happiness": 8,
+      "intelligence": 85,
+      "wealth": 32,
+      "relation": 6,
+      "health": 8
+    },
+    "nodeCount": 14,
+    "simulationSeed": "56a65718-13eb-439a-a10c-eb3886e44fb3",
+    "outcome": {
+      "share": {
+        "viralTitle": "我用20年证明，最贵的不是机会，是半条命",
+        "covenantTitle": "谨慎的赌徒",
+        "oneLineSummary": "你一生都在安全与机会之间走钢丝，每次选择都计算最坏结果，却总在保住底线后不甘地追加赌注。",
+        "timeline": [
+          {
+            "ageLabel": "30岁",
+            "icon": "💰",
+            "title": "朋友邀约，你只投了10万",
+            "choiceSummary": "小比例参股，留备用金",
+            "keyMomentIndexes": [
+              0
+            ]
+          },
+          {
+            "ageLabel": "35岁",
+            "icon": "💼",
+            "title": "跳槽互联网，赌一次薪资翻倍",
+            "choiceSummary": "放弃副业，全力求职",
+            "keyMomentIndexes": [
+              2
+            ]
+          },
+          {
+            "ageLabel": "42岁",
+            "icon": "🏠",
+            "title": "双线加码后，你选择去北京",
+            "choiceSummary": "接受异地offer，副业降级",
+            "keyMomentIndexes": [
+              7
+            ]
+          },
+          {
+            "ageLabel": "50岁",
+            "icon": "🍳",
+            "title": "用赔偿金开早餐店，最后一搏",
+            "choiceSummary": "拒绝打工，夫妻创业",
+            "keyMomentIndexes": [
+              11
+            ]
+          }
+        ],
+        "closingLine": "人生不是由成功组成，而是由一次次选择组成。",
+        "posterTheme": "warm_realistic",
+        "downloadFileName": "人生终章.png",
+        "imageAlt": "一个中年男人站在清晨的早餐店门口，雾气中对面连锁店排起长队，他手里拿着胃药瓶，眼神平静而疲惫。"
+      },
+      "report": {
+        "executiveSummary": {
+          "headline": "你一生都在安全与机会之间走钢丝，每次选择都计算最坏结果，却总在保住底线后不甘地追加赌注。",
+          "patterns": [
+            {
+              "name": "安全垫赌徒",
+              "shortDescription": "先确保家庭财务不崩盘，再用剩余资源赌一把大的。",
+              "keyMomentIndexes": [
+                0
+              ]
+            },
+            {
+              "name": "精力透支者",
+              "shortDescription": "总想同时抓住主业和副业，用身体和家庭关系换时间。",
+              "keyMomentIndexes": [
+                7
+              ]
+            },
+            {
+              "name": "不甘的回头者",
+              "shortDescription": "每次放弃一个机会后，都会用更极端的方式重新入场。",
+              "keyMomentIndexes": [
+                11
+              ]
+            }
+          ],
+          "closingLine": "这些模式让你获得了今天的优势，也带来了今天的代价。"
+        },
+        "repeatedPatterns": [
+          {
+            "name": "安全垫赌徒",
+            "title": "先算最坏结果，再下注",
+            "paragraphs": [
+              "30岁朋友拉你开餐饮店，你反复核算后只投了10万，留了一年家用。这笔小赌注后来亏了6万，但保住了家庭现金流。",
+              "35岁跳槽互联网，你选择薪资翻倍的岗位，但前提是妻子有稳定工作。你赌对了薪资增长，但赌输了陪伴时间。",
+              "50岁用赔偿金开早餐店，你再次计算过：即使全亏，每月房贷还能靠积蓄撑半年。这次你赌上了夫妻关系。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              2,
+              11
+            ],
+            "closingLine": "你永远在踩刹车的同时踩油门。"
+          },
+          {
+            "name": "精力透支者",
+            "title": "用健康换时间，用时间换可能",
+            "paragraphs": [
+              "37岁做跨境电商副业时，你白天上班、晚上选品，周末建站。孩子生病你请假，同事有微词。",
+              "42岁去北京后，你每天工作12小时，周末视频陪家人。慢性胃炎和失眠成为常态。",
+              "51岁开早餐店，你凌晨4点进货、胃出血后仍坚持。"
+            ],
+            "keyMomentIndexes": [
+              3,
+              7,
+              12
+            ],
+            "closingLine": "你总以为熬过这段就能休息，但身体不会等你。"
+          },
+          {
+            "name": "不甘的回头者",
+            "title": "放弃后，用更重的方式重新入场",
+            "paragraphs": [
+              "33岁退出餐饮投资后，你不甘心，35岁跳槽到更高强度行业。",
+              "38岁被裁员后，你拒绝降薪offer，全力重启跨境电商，但最终失败。",
+              "50岁拿到本地经理岗后，你拒绝，用全部积蓄开早餐店。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              4,
+              11
+            ],
+            "closingLine": "每次回头都像在证明：我还能赢回来。"
+          }
+        ],
+        "patternEffects": [
+          {
+            "patternName": "安全垫赌徒",
+            "compoundReturn": "家庭财务从未崩盘，你始终能还上房贷、供孩子上学。",
+            "hiddenCost": "每次小赌都让你错过真正的大机会，最终财富积累慢于同龄冒险者。",
+            "paragraphs": [
+              "30岁的小额投资保住了家庭备用金，但让你与朋友疏远，也错过了餐饮红利。",
+              "50岁的早餐店让你有了自己的生意，但耗尽了你和妻子的健康与信任。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              11
+            ],
+            "closingLine": "安全垫让你活下来，但没让你活得好。"
+          },
+          {
+            "patternName": "精力透支者",
+            "compoundReturn": "你在职场上保持了竞争力，收入从45万涨到峰值70万。",
+            "hiddenCost": "健康严重受损，孩子成绩下滑，夫妻关系紧绷。",
+            "paragraphs": [
+              "35岁到42岁，你通过加班和跳槽实现了薪资增长，但慢性胃炎和失眠成为终身代价。",
+              "42岁后，家庭关系因长期异地出现裂痕，孩子教育问题成为夫妻争执焦点。"
+            ],
+            "keyMomentIndexes": [
+              2,
+              7
+            ],
+            "closingLine": "你用身体和家庭换钱，最终发现钱换不回它们。"
+          },
+          {
+            "patternName": "不甘的回头者",
+            "compoundReturn": "你从未完全放弃尝试，每次回头都带来新的学习曲线。",
+            "hiddenCost": "每一次回头都让你付出更大的代价，包括财务损失和情感消耗。",
+            "paragraphs": [
+              "33岁退出餐饮后，你选择跳槽，虽然薪资涨了，但错过了早期互联网红利。",
+              "50岁拒绝本地经理岗，开早餐店，最终体力不支关门。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              11
+            ],
+            "closingLine": "不甘心是你的动力，也是你的枷锁。"
+          }
+        ],
+        "futureTrends": [
+          {
+            "title": "身体崩盘，被迫慢下来",
+            "trend": "如果继续透支健康，未来5年内你会因严重胃病或心血管问题被迫停止工作，家庭收入锐减。",
+            "reason": "你一直用健康换时间，但身体已多次报警（胃出血、失眠）。模式延续必然导致健康崩溃。",
+            "keyMomentIndexes": [
+              12
+            ]
+          },
+          {
+            "title": "孩子成为你最深的遗憾",
+            "trend": "如果继续忽视家庭，孩子成年后与你会保持疏离，你们之间只剩下转账记录。",
+            "reason": "你多次选择工作优先，孩子成绩下滑、夫妻争吵都是信号。模式延续会让亲子关系永久性损伤。",
+            "keyMomentIndexes": [
+              7
+            ]
+          }
+        ],
+        "patternsToKeep": [
+          {
+            "title": "保留：安全垫计算",
+            "why": "它让你在多次危机中保住了家庭财务底线，没有因为冲动而一无所有。",
+            "paragraphs": [
+              "30岁只投10万，让你在朋友关系破裂后仍有积蓄。",
+              "50岁开早餐店前，你算好了最坏情况，所以即使关门也没破产。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              11
+            ],
+            "closingLine": "你永远不会掉进同一个坑里，因为你会提前算好坑的深度。"
+          }
+        ],
+        "patternsToAdjust": [
+          {
+            "title": "升级：从透支到可持续投入",
+            "why": "过去的透支模式让你短期内获得了收入和机会，但长期来看，它消耗了你的健康和家庭，而这些都是不可再生资源。",
+            "paragraphs": [
+              "你一直用“再坚持一下”来应对疲劳，但身体和家庭不会无限期忍耐。",
+              "模式升级方向：在每次选择前，把健康和家庭时间作为硬约束，而不是弹性变量。比如接受降薪但离家近的工作，或者用更低强度的方式维持副业。"
+            ],
+            "keyMomentIndexes": [
+              3,
+              7,
+              12
+            ],
+            "closingLine": "慢一点，才能走更远。"
+          },
+          {
+            "title": "升级：从“不甘”到“接受损失”",
+            "why": "你不甘于放弃，总想用更重的方式证明自己，但这让你不断重复高风险的回头。",
+            "paragraphs": [
+              "每一次回头都源于你无法接受之前的损失，但回头往往带来更大损失。",
+              "模式升级方向：在放弃一个机会后，允许自己空窗一段时间，接受损失是沉没成本，而不是复仇动机。"
+            ],
+            "keyMomentIndexes": [
+              1,
+              4,
+              11
+            ],
+            "closingLine": "真正的勇气不是重来，而是转身离开。"
+          }
+        ],
+        "finalLifeReading": {
+          "title": "如果我是十年后的你",
+          "paragraphs": [
+            "你会坐在阳台上，胃不再疼，妻子在旁边择菜。孩子上大学了，偶尔打电话来。",
+            "你会想起30岁那年的选择，不再后悔。因为你终于明白，你的一生不是在赢钱，而是在守住一个家。",
+            "你的早餐店虽然关了，但隔壁阿姨还记得你送她的蒸笼。你的北京拼过，但孩子记得你周末回家的身影。",
+            "你的人生不是一部成功史，而是一部平衡术——你一直在计算，也一直在失去，但最后你发现，失去的那些，其实换来了一些更重的东西。"
+          ],
+          "finalSentence": "你的一生，是在安全与冒险之间走完了钢丝，最后稳稳地落在自家阳台上。"
+        }
+      },
+      "meta": {
+        "generatedAt": "2026-07-15T17:39:36.826Z",
+        "modelProvider": "deepseek",
+        "posterVersion": "web-v1",
+        "reportVersion": "life-pattern-v2",
+        "closureType": "mortality"
+      }
+    },
+    "isLoading": false,
+    "isLoadingNext": false,
+    "errorMsg": null,
+    "invitations": []
+  }
+}

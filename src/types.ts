@@ -102,6 +102,28 @@ export interface SimulationChoice {
 }
 
 export type LifeIntensity = "critical" | "high_tension" | "normal" | "stable";
+export type ReportInvitationReason = "arc_resolved" | "stable_window";
+export type SimulationClosureType = "user_reflection" | "mortality";
+
+export interface FinalOutcomeContext {
+  closureType: SimulationClosureType;
+  invitationReason?: ReportInvitationReason;
+  pressureArcId?: string;
+  resolutionEvidence?: string[];
+}
+
+export interface ReportInvitationMeta {
+  id: string;
+  status: "pending" | "accepted" | "declined";
+  reason: ReportInvitationReason;
+  triggerKey: string;
+  completedChoiceCount: number;
+  pressureArcId?: string;
+  resolutionEvidence?: string[];
+  acceptedAtChoiceCount?: number;
+  declinedAtChoiceCount?: number;
+}
+
 export type LifeStage =
   | "childhood"
   | "adolescence"
@@ -123,7 +145,7 @@ export interface ChoiceTemporalHint extends TemporalProfile {
   reason: string;
 }
 
-export type LifeEventCategory = "career" | "relationship" | "health" | "financial" | "growth" | "opportunity";
+export type LifeEventCategory = "career" | "relationship" | "health" | "financial" | "growth" | "opportunity" | "community";
 
 export interface EventMeta {
   eventId?: string;
@@ -270,6 +292,7 @@ export interface SimulationNode {
     phaseId?: string;
     transitionAction?: "start" | "stay" | "advance" | "fallback" | "suspend" | "resume" | "resolve";
   };
+  reportInvitation?: ReportInvitationMeta;
 }
 
 export interface HistoryItem {
@@ -290,6 +313,7 @@ export interface HistoryItem {
   narrativeMeta?: NarrativeMeta;
   worldStateSnapshot?: WorldStateSnapshot;
   committedArcMeta?: SimulationNode["committedArcMeta"];
+  reportInvitation?: ReportInvitationMeta;
 }
 
 export interface PersonalityInsight {
@@ -392,5 +416,6 @@ export interface FinalLifeOutcome {
     modelProvider: "deepseek" | "openai" | "mock";
     posterVersion: "web-v1";
     reportVersion: "life-pattern-v2";
+    closureType: SimulationClosureType;
   };
 }

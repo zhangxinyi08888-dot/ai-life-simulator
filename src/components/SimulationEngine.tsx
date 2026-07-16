@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Activity, BookOpen, Compass, DollarSign, Heart, History, MessageSquarePlus, Send, Sparkles, Users } from "lucide-react";
-import { HistoryItem, LifeAttributes, SimulationNode } from "../types";
+import { HistoryItem, LifeAttributes, ReportInvitationMeta, SimulationNode } from "../types";
 import { formatAgeInMonths } from "../utils/timelineAdvance";
 import { formatNetWorthWan } from "../utils/financialState";
 
@@ -10,6 +10,8 @@ interface SimulationEngineProps {
   history: HistoryItem[];
   nodeCount: number;
   onSelectChoice: (choiceText: string) => void;
+  onAcceptReportInvitation: (invitation: ReportInvitationMeta) => void;
+  onContinueReportInvitation: (invitationId: string) => void;
   isLoadingNext: boolean;
   isLoadingReport: boolean;
   onTimeTravel: (targetIndex: number) => void;
@@ -23,11 +25,14 @@ const ATTRIBUTES = [
   { key: "health", name: "健康", icon: Activity }
 ] as const;
 
-export default function SimulationEngine({ currentNode, history, nodeCount, onSelectChoice, isLoadingNext, isLoadingReport, onTimeTravel }: SimulationEngineProps) {
+export default function SimulationEngine({ currentNode, history, nodeCount, onSelectChoice, onAcceptReportInvitation, onContinueReportInvitation, isLoadingNext, isLoadingReport, onTimeTravel }: SimulationEngineProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customText, setCustomText] = useState("");
   const storyRef = useRef<HTMLDivElement>(null);
+  const pendingInvitation = currentNode.reportInvitation?.status === "pending"
+    ? currentNode.reportInvitation
+    : undefined;
 
   useEffect(() => {
     storyRef.current?.scrollTo({ top: 0, behavior: "auto" });
@@ -101,12 +106,19 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
         {isLoadingNext || isLoadingReport ? (
           <div className="flex min-h-36 flex-col items-center justify-center gap-3 text-center" id="loading-next-spinner">
             <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#4a4435] border-t-[#c8b77d]" />
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[#b6a778]">{isLoadingReport ? "一生报告生成中" : "新的时空正在展开"}</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[#b6a778]">{isLoadingReport ? (pendingInvitation ? "这段人生的报告生成中" : "完整人生报告生成中") : "新的时空正在展开"}</p>
             <p className="max-w-[280px] text-[10px] leading-5 text-[#625e58]">{isLoadingReport ? "正在整理你的人生轨迹与关键选择。" : "正在根据之前的选择，推演下一段真实人生。"}</p>
           </div>
         ) : (
           <AnimatePresence mode="wait">
-            {!isCustomMode ? (
+            {pendingInvitation ? (
+              <motion.div key="report-invitation" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-[16px] border border-[#6f6244] bg-[#11100d] p-4" id="report-invitation-card">
+                <div className="flex items-center gap-2 text-[#cbbb89]"><Sparkles className="h-4 w-4" /><h3 className="font-serif text-[17px] text-[#ece4d6]">这条人生，已经有了值得回望的轨迹</h3></div>
+                <p className="mt-3 text-[11px] leading-6 text-[#9d968b]">一路走到这里，你的选择、得到的东西和付出的代价，已经慢慢形成了一条清晰的轨迹。</p>
+                <button type="button" onClick={() => onAcceptReportInvitation(pendingInvitation)} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-[13px] border border-[#ded3b6]/60 bg-[#d2c08d] text-[12px] font-semibold text-[#15130f] transition hover:bg-[#dac99a]" id="report-invitation-accept-btn"><Sparkles className="h-4 w-4" />查看这段人生的报告</button>
+                <button type="button" onClick={() => onContinueReportInvitation(pendingInvitation.id)} className="mt-3 w-full text-center text-[10px] leading-5 text-[#827b70] transition hover:text-[#c5ba9d]" id="report-invitation-continue-btn">继续走下去，看看更远的结果</button>
+              </motion.div>
+            ) : !isCustomMode ? (
               <motion.div key="choices" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-2" id="preset-choices-container">
                 {!currentNode.isEndingNode && currentNode.choices.map((choice) => (
                   <button key={choice.id} id={`choice-btn-${choice.id}`} type="button" onClick={() => choose(choice.text)} className="group flex min-h-12 w-full items-start gap-3 rounded-[13px] border border-[#302e2a] bg-[#0a0a0a] px-3 py-2.5 text-left transition hover:border-[#73694f] hover:bg-[#12110d]">

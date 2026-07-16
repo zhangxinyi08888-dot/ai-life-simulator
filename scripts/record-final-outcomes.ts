@@ -287,7 +287,8 @@ async function main() {
       userData: fixture.userData,
       answers: fixture.answers,
       history: fixture.history,
-      currentAttributes: fixture.attributes
+      currentAttributes: fixture.attributes,
+      context: { closureType: "mortality" }
     }, {
       callAiJson: (prompt) => callDeepSeekJson({ apiKey, baseUrl, model }, prompt)
     });

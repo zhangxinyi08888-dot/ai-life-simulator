@@ -2,7 +2,15 @@ import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory, Tempora
 
 type UserEventData = Partial<UserInitialData> & { birthday?: string; gender?: string; currentSituation?: string };
 
-export type EmotionalTone = "pressure" | "neutral" | "opportunity" | "crisis";
+export type EmotionalTone =
+  | "crisis"        // 直接威胁，需要立即响应（健康停摆、失业、重大损失）
+  | "pressure"      // 累积张力，艰难取舍（责任冲突、利益博弈、家庭义务）
+  | "crossroads"    // 真正的分岔口，每条路都有道理（职业转型、关系升级、城市迁移）
+  | "opportunity"   // 正向可能，风险可控（新合作、新技能、新连接）
+  | "flourishing"   // 事情在变好，选择在于如何利用这个势头
+  | "connection"    // 关系在加深，选择在于信任和脆弱的程度
+  | "reflection"    // 内部视角转变，选择在于如何看待自己和过去
+  | "everyday";     // 日常的微小选择，随时间复利
 export type ActionPrimitive = string;
 
 export interface EventTrigger {
@@ -269,7 +277,45 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
         "continue_with_restricted_capacity",
         "pause_for_treatment_and_recovery"
       ],
-      emotionalTone: "crisis"
+      emotionalTone: "crisis",
+      phasePolicyId: "health_crisis_v1"
+    }
+  },
+  {
+    id: "health_recovery_observation",
+    category: "health",
+    dispatchMode: "arc_only",
+    title: "治疗与负荷观察",
+    minAge: 0,
+    maxAge: 110,
+    conditionDescription: "健康危机后的治疗、减负、恢复和长期管理阶段",
+    cooldown: 0,
+    baseProbability: 0,
+    tags: ["health", "recovery", "observation"],
+    fingerprint: {
+      category: "health",
+      tags: ["health", "recovery", "observation"],
+      intensity: "minor"
+    },
+    trigger: {
+      eligibility: () => false
+    },
+    intent: {
+      type: "health_recovery_observation",
+      meaning: "急性健康压力已经进入治疗、调整负荷和观察结果的阶段。",
+      tensionAxes: ["恢复条件是否可持续", "原有人生方向如何调整执行", "短期缓解与长期管理"],
+      allowedOutcomes: [
+        "continue_goal_with_adjusted_execution",
+        "maintain_recovery_and_monitoring",
+        "restructure_life_around_health_limits"
+      ],
+      emotionalTone: "reflection",
+      temporalProfile: {
+        lifeIntensity: "normal",
+        durationMonths: [3, 12],
+        requiresFollowUp: false
+      },
+      phasePolicyId: "health_crisis_v1"
     }
   },
   {
@@ -358,7 +404,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
       meaning: "没有强烈突发事件，生活进入一段平稳但仍有细小取舍的长期积累阶段。",
       tensionAxes: ["维持节奏 vs 微调方向", "日常责任 vs 自我修复", "平淡积累 vs 新的可能"],
       allowedOutcomes: ["maintain_current_rhythm", "make_small_adjustment", "repair_health_or_relationship"],
-      emotionalTone: "neutral"
+      emotionalTone: "everyday"
     }
   }
 ];
@@ -508,7 +554,8 @@ function isUserDirected(event: LifeEventSeed, userData: UserEventData, history: 
     health: ["健康", "恢复", "治疗", "运动"],
     financial: ["财富", "收入", "现金流", "投资"],
     growth: ["学习", "读书", "旅行", "创作", "成长"],
-    opportunity: ["机会", "合作", "创业", "转型"]
+    opportunity: ["机会", "合作", "创业", "转型"],
+    community: ["社区", "公益", "邻里", "志愿", "公共事务"]
   };
   return categoryKeywords[event.category].some((keyword) => recentChoiceText.includes(keyword));
 }

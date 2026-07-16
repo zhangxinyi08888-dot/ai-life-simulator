@@ -1,7 +1,7 @@
 import { AiClientError } from "../ai/errors";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
-import { FinalLifeOutcome, HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
+import { FinalLifeOutcome, FinalOutcomeContext, HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
 import { normalizeFinalLifeOutcome } from "../../utils/finalOutcomeResponse";
 import { buildFinalOutcomePrompt } from "./prompts";
 import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
@@ -17,6 +17,7 @@ export interface GenerateFinalOutcomeInput {
   answers: QuestionTurn[];
   history: HistoryItem[];
   currentAttributes: LifeAttributes;
+  context: FinalOutcomeContext;
 }
 
 function getAiJsonCaller(deps: FinalOutcomeServiceDeps = {}): AiJsonCaller {
@@ -39,7 +40,7 @@ export async function generateFinalOutcome(
   deps: FinalOutcomeServiceDeps = {}
 ): Promise<FinalLifeOutcome> {
   const callAiJson = getAiJsonCaller(deps);
-  const prompt = buildFinalOutcomePrompt(input.userData, input.answers, input.history, input.currentAttributes);
+  const prompt = buildFinalOutcomePrompt(input.userData, input.answers, input.history, input.currentAttributes, input.context);
   const data = parseAiJsonResponse(await callAiJson(prompt));
-  return normalizeFinalLifeOutcome(data, input.history);
+  return normalizeFinalLifeOutcome(data, input.history, input.context.closureType);
 }

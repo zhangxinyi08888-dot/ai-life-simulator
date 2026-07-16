@@ -29,7 +29,8 @@ export function createHistoryItemFromNode(node: SimulationNode, selectedChoice: 
     eventMeta: node.eventMeta,
     narrativeMeta: cloneValue(node.narrativeMeta),
     worldStateSnapshot: cloneValue(node.worldStateSnapshot),
-    committedArcMeta: cloneValue(node.committedArcMeta)
+    committedArcMeta: cloneValue(node.committedArcMeta),
+    reportInvitation: cloneValue(node.reportInvitation)
   };
 }
 
@@ -55,7 +56,8 @@ export function restoreHistoryNodeAtIndex(history: HistoryItem[], targetIndex: n
     eventMeta: targetItem.eventMeta,
     narrativeMeta: cloneValue(targetItem.narrativeMeta),
     worldStateSnapshot: cloneValue(targetItem.worldStateSnapshot),
-    committedArcMeta: cloneValue(targetItem.committedArcMeta)
+    committedArcMeta: cloneValue(targetItem.committedArcMeta),
+    reportInvitation: cloneValue(targetItem.reportInvitation)
   };
 
   return {

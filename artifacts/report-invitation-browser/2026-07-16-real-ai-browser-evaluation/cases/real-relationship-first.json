@@ -1,0 +1,5607 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-07-16-real-ai-browser-evaluation",
+  "dataSource": "real_ai_browser",
+  "caseSlug": "real-relationship-first",
+  "scenario": "accept_first",
+  "config": {
+    "slug": "real-relationship-first",
+    "scenario": "accept_first",
+    "birthday": "1994-06-26",
+    "birthtime": "21:00",
+    "returnPointName": "重做情感选择 回到关系的关键节点，重新回应或告别 约 26 岁",
+    "anchorText": "28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。",
+    "branches": [
+      "放弃外地晋升，与伴侣共同制定结婚和家庭计划",
+      "接受一年外派，约定固定见面并在年底重新评估关系",
+      "接受长期调任，结束这段无法兼顾的关系"
+    ],
+    "answers": [
+      "我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市。",
+      "冲突时我通常先沉默，等情绪平复后再谈，但也容易为了避免争执而让步。",
+      "我拿到的晋升会让年收入增加约12万元，手里有20万元存款，伴侣有稳定职业和自己的社交支持。"
+    ]
+  },
+  "startedAt": "2026-07-15T17:39:51.229Z",
+  "completedAt": "2026-07-15T17:46:24.365Z",
+  "firstInvitation": {
+    "id": "d514f0a5",
+    "status": "pending",
+    "reason": "stable_window",
+    "triggerKey": "stable:8",
+    "completedChoiceCount": 15
+  },
+  "extraInvitations": [],
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "at": "2026-07-15T17:39:51.229Z"
+    },
+    {
+      "type": "questions_generated",
+      "questions": [
+        {
+          "question": "在26岁这年，你和伴侣的关系发展到什么阶段？你们当时分别在哪个城市工作，各自的工作和收入情况如何？",
+          "suggestions": [
+            "我们已交往两年，同居在一线城市，我月薪1.2万，他月薪1.5万，都在私企。",
+            "我们异地一年，他在老家省会国企月薪8千，我在一线城市外企月薪2万。",
+            "我们刚认识半年，还在热恋期，我在新一线城市做市场，他读研二。",
+            "我们已订婚，双方父母见过面，我在本地事业单位月薪6千，他创业初期收入不稳定。",
+            "不确定具体收入，但当时我们都在同城，他工作稳定，我准备跳槽去外地拿更高薪水。"
+          ]
+        },
+        {
+          "question": "当时的你，在面对职业和感情冲突时，通常是什么反应模式？你更倾向于理性权衡、逃避拖延、还是感性优先？",
+          "suggestions": [
+            "我会先列出利弊清单，和伴侣冷静讨论，但内心很焦虑，怕选错。",
+            "我倾向于回避冲突，先拖着，直到不得不做决定。",
+            "我会被感情牵动，优先考虑对方感受，哪怕牺牲自己的机会。",
+            "我很独立，习惯自己做决定，不太会被他人意见左右，但会考虑现实。",
+            "我会找朋友或家人倾诉，听一圈建议后更迷茫，最后凭直觉选。"
+          ]
+        },
+        {
+          "question": "当时你有哪些实际的能力、资源或限制，会影响你选择是否接受外地晋升？比如职业技能、存款、家庭支持、城市偏好等。",
+          "suggestions": [
+            "我工作三年，是部门骨干，但没积蓄，家里也帮不上忙，去外地是唯一升职加薪机会。",
+            "我有行业稀缺技能，即使放弃这次机会，一年内也能找到本地同等薪水的工作。",
+            "我是独生女，父母身体不好，我无法长期离开他们所在的城市。",
+            "我名下有一套小房子在本地，如果去外地需要租房，经济压力会变大。",
+            "我擅长适应新环境，但伴侣有焦虑型依恋，如果我离开，关系会很难维系。"
+          ]
+        }
+      ],
+      "at": "2026-07-15T17:39:59.717Z"
+    },
+    {
+      "type": "simulation_started",
+      "node": {
+        "age": 26,
+        "stage": "选择前夜",
+        "title": "升职调令与爱情天平",
+        "description": "你在一家二线城市的科技公司担任项目经理，月薪税后约1.5万，略有积蓄。伴侣是同城的中学教师，工作稳定但无法轻易调动。你们已交往四年，感情深厚，双方父母都在本地，需要时常照应。本周你收到总部调令，外派到一线城市担任区域负责人，年薪增加12万，但至少需要异地两年。伴侣父母开始催婚，而你内心纠结：留下意味着放弃职业上升通道，接受则可能动摇婚姻基础。今晚你们约好认真讨论这件事，窗外万家灯火，你清楚这个决定将重塑未来十年的生活轨迹。",
+        "choices": [
+          {
+            "id": "A",
+            "text": "放弃外地晋升，与伴侣共同制定结婚和家庭计划",
+            "impactSummary": "稳定扎根",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳定扎根"
+            },
+            "decisionIntent": "career:decline:promotion_offer",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "接受一年外派，约定固定见面并在年底重新评估关系",
+            "impactSummary": "折中试探",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "折中试探"
+            },
+            "decisionIntent": "career:accept:one_year_expat",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "接受长期调任，结束这段无法兼顾的关系",
+            "impactSummary": "孤注一掷",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "孤注一掷"
+            },
+            "decisionIntent": "relationship:end:long_distance_breakup",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 60,
+          "wealth": 54,
+          "relation": 65,
+          "health": 60
+        },
+        "isEndingNode": false,
+        "ageInMonths": 312,
+        "lifeStage": "early_adulthood",
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_8bb09966",
+            "startAgeInMonths": 312,
+            "endAgeInMonths": 312,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_35fe7ae7",
+            "summary": "你在一家二线城市的科技公司担任项目经理，月薪税后约1.5万，略有积蓄。伴侣是同城的中学教师，工作稳定但无法轻易调动。你们已交往四年，感情深厚，双方父母都在本地，"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 312,
+          "cashWan": 20,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 110,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                44,
+                71
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 312,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                14,
+                38
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 312,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      "at": "2026-07-15T17:40:08.291Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "升职调令与爱情天平",
+      "sourceAgeInMonths": 312,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "放弃外地晋升，与伴侣共同制定结婚和家庭计划",
+          "impactSummary": "稳定扎根",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳定扎根"
+          },
+          "decisionIntent": "career:decline:promotion_offer",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "接受一年外派，约定固定见面并在年底重新评估关系",
+          "impactSummary": "折中试探",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "折中试探"
+          },
+          "decisionIntent": "career:accept:one_year_expat",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "接受长期调任，结束这段无法兼顾的关系",
+          "impactSummary": "孤注一掷",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "孤注一掷"
+          },
+          "decisionIntent": "relationship:end:long_distance_breakup",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "接受一年外派，约定固定见面并在年底重新评估关系",
+      "resultingNodeTitle": "一年外派的终局评估",
+      "resultingAgeInMonths": 340,
+      "resultingAttributes": {
+        "happiness": 48,
+        "intelligence": 65,
+        "wealth": 57,
+        "relation": 58,
+        "health": 60
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 340,
+        "cashWan": 48,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 138,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:40:29.813Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "一年外派的终局评估",
+      "sourceAgeInMonths": 340,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "提议领证，你申请调回二线城市总部，承诺不再接受长期外派",
+          "impactSummary": "稳定婚姻",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳定婚姻"
+          },
+          "decisionIntent": "relationship:marry_and_return:two_year_expat",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "承认异地无法持续，但请求再给一年缓冲期，同时探索伴侣调动或你远程工作的可能性",
+          "impactSummary": "延长拉扯",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "延长拉扯"
+          },
+          "decisionIntent": "relationship:negotiate_one_more_year:two_year_expat",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "接受感情已经变淡的事实，和平分手，各自回归生活",
+          "impactSummary": "痛苦放手",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "痛苦放手"
+          },
+          "decisionIntent": "relationship:breakup_after_expat:two_year_expat",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "承认异地无法持续，但请求再给一年缓冲期，同时探索伴侣调动或你远程工作的可能性",
+      "resultingNodeTitle": "缓冲年：尝试找回平衡",
+      "resultingAgeInMonths": 357,
+      "resultingAttributes": {
+        "happiness": 52,
+        "intelligence": 66,
+        "wealth": 57,
+        "relation": 56,
+        "health": 58
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 357,
+        "cashWan": 65,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 155,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:40:44.364Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "缓冲年：尝试找回平衡",
+      "sourceAgeInMonths": 357,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "确信家庭优先，主动放弃外派职位，申请调回二线城市总部，并正式向伴侣求婚",
+          "impactSummary": "放弃晋升，回归家庭",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "放弃晋升，回归家庭"
+          },
+          "decisionIntent": "career:return_to:second_tier_city",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "继续维持现状，再观望半年，同时加大力度推动伴侣调动，并考虑自己跳槽到二线城市同等职位",
+          "impactSummary": "维持现状，寻求机会",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "维持现状，寻求机会"
+          },
+          "decisionIntent": "career:seek_local_job:second_tier_city",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "承认两人生活轨迹已难以重合，和平结束关系，各自追求事业和新的生活",
+          "impactSummary": "断舍离，各自安好",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "断舍离，各自安好"
+          },
+          "decisionIntent": "relationship:end:peaceful_breakup",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "继续维持现状，再观望半年，同时加大力度推动伴侣调动，并考虑自己跳槽到二线城市同等职位",
+      "resultingNodeTitle": "缓冲期的尽头",
+      "resultingAgeInMonths": 371,
+      "resultingAttributes": {
+        "happiness": 48,
+        "intelligence": 67,
+        "wealth": 58,
+        "relation": 54,
+        "health": 56
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 371,
+        "cashWan": 79,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 169,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:41:03.530Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "缓冲期的尽头",
+      "sourceAgeInMonths": 371,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受本地offer，正式向伴侣求婚，承诺彻底结束异地生活",
+          "impactSummary": "回归家庭，扎根本地",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "回归家庭，扎根本地"
+          },
+          "decisionIntent": "career:accept_local_offer:second_tier_city",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "接受总部晋升机会，但提议伴侣辞职随你搬迁，由你承担家庭开支并协助其在新城市求职",
+          "impactSummary": "职业晋升，家庭搬迁",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "职业晋升，家庭搬迁"
+          },
+          "decisionIntent": "career:accept_promotion:headquarters",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "承认目标已难以调和，和平分手，各自专注事业与父母",
+          "impactSummary": "结束关系，各自前行",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "结束关系，各自前行"
+          },
+          "decisionIntent": "relationship:end:peaceful_breakup",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "接受总部晋升机会，但提议伴侣辞职随你搬迁，由你承担家庭开支并协助其在新城市求职",
+      "resultingNodeTitle": "伴侣辞职搬迁后的磨合与财务压力",
+      "resultingAgeInMonths": 380,
+      "resultingAttributes": {
+        "happiness": 42,
+        "intelligence": 68,
+        "wealth": 58,
+        "relation": 50,
+        "health": 54
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 380,
+        "cashWan": 88,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 178,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:41:15.427Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "伴侣辞职搬迁后的磨合与财务压力",
+      "sourceAgeInMonths": 380,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "支持伴侣重新考证或转行，你调整工作节奏多分担家务和情感陪伴，共同适应新生活",
+          "impactSummary": "家庭优先，关系修复",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "家庭优先，关系修复"
+          },
+          "decisionIntent": "relationship:support_partner_career_change:new_city",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "鼓励伴侣接受当前私立学校职位先稳定收入，你争取更多出差补贴和项目奖金来缓解经济压力",
+          "impactSummary": "经济优先，伴侣妥协",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "经济优先，伴侣妥协"
+          },
+          "decisionIntent": "career:increase_income:overtime_and_bonus",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "利用你的人际资源为伴侣寻找更合适的工作机会，同时请钟点工分担家务，把精力集中在工作和关系上",
+          "impactSummary": "资源整合，效率优先",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "资源整合，效率优先"
+          },
+          "decisionIntent": "career:use_network:partner_job_search",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "鼓励伴侣接受当前私立学校职位先稳定收入，你争取更多出差补贴和项目奖金来缓解经济压力",
+      "resultingNodeTitle": "伴侣入职私立学校后的新常态",
+      "resultingAgeInMonths": 409,
+      "resultingAttributes": {
+        "happiness": 36,
+        "intelligence": 70,
+        "wealth": 59,
+        "relation": 48,
+        "health": 48
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 409,
+        "cashWan": 119.9,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 209.9,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 13.2,
+        "annualCoreExpenseWan": 16.8,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:42:15.944Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "伴侣入职私立学校后的新常态",
+      "sourceAgeInMonths": 409,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "同意伴侣的提议，承诺在一年内备孕，同时计划用存款支付二线城市一套小户型首付，为未来家庭和父母养老做准备",
+          "impactSummary": "家庭优先，调整职业节奏",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "家庭优先，调整职业节奏"
+          },
+          "decisionIntent": "family:plan_pregnancy_and_buy_house:second_tier_city",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "坦诚表达自己尚未准备好要孩子，但愿意减少出差频率、增加居家办公，并支持伴侣重返职场深造或考编，共同寻找事业与家庭的平衡点",
+          "impactSummary": "暂缓生育，强化关系沟通",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "暂缓生育，强化关系沟通"
+          },
+          "decisionIntent": "relationship:delay_child_and_support_partner_career:current_city",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "承认双方在关键人生节奏上已无法同步，提议和平分手，各自追求更契合的生活规划，并协商处理好财产和父母告知方式",
+          "impactSummary": "结束关系，重新规划人生",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "结束关系，重新规划人生"
+          },
+          "decisionIntent": "relationship:end_peacefully_after_mismatch:current_city",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "坦诚表达自己尚未准备好要孩子，但愿意减少出差频率、增加居家办公，并支持伴侣重返职场深造或考编，共同寻找事业与家庭的平衡点",
+      "resultingNodeTitle": "承诺的试炼：平衡与选择的十字路口",
+      "resultingAgeInMonths": 428,
+      "resultingAttributes": {
+        "happiness": 32,
+        "intelligence": 72,
+        "wealth": 59,
+        "relation": 46,
+        "health": 46
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 428,
+        "cashWan": 140.8,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 230.8,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 13.2,
+        "annualCoreExpenseWan": 16.8,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:42:39.633Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "承诺的试炼：平衡与选择的十字路口",
+      "sourceAgeInMonths": 428,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "同意伴侣的提议，承诺在一年内备孕，同时计划用存款支付二线城市一套小户型首付，为未来家庭和父母养老做准备",
+          "impactSummary": "承诺备孕购房",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "承诺备孕购房"
+          },
+          "decisionIntent": "family:plan_pregnancy_and_buy_house:second_tier_city",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "坦诚自己仍未准备好要孩子，但愿意共同制定一个两年缓冲计划：这期间伴侣可全力备考或创业，你承担全部家庭开支，并安排每年一次长途旅行修复关系",
+          "impactSummary": "制定两年缓冲",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "制定两年缓冲"
+          },
+          "decisionIntent": "relationship:delay_child_and_support_partner_career:current_city",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "承认双方在关键人生节奏上已无法同步，提议和平分手，各自追求更契合的生活规划，并协商处理好财产和父母告知方式",
+          "impactSummary": "和平结束关系",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "和平结束关系"
+          },
+          "decisionIntent": "relationship:end_peacefully_after_mismatch:current_city",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "坦诚自己仍未准备好要孩子，但愿意共同制定一个两年缓冲计划：这期间伴侣可全力备考或创业，你承担全部家庭开支，并安排每年一次长途旅行修复关系",
+      "resultingNodeTitle": "缓冲期的日常与暗流",
+      "resultingAgeInMonths": 438,
+      "resultingAttributes": {
+        "happiness": 34,
+        "intelligence": 73,
+        "wealth": 59,
+        "relation": 47,
+        "health": 47
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 438,
+        "cashWan": 148.4,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 238.4,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 9.6,
+        "annualCoreExpenseWan": 20.4,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:42:53.165Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "缓冲期的日常与暗流",
+      "sourceAgeInMonths": 438,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "支持伴侣报课转型，认为职业满足感比编制更重要，你愿意延长存钱周期并继续承担主要开支",
+          "impactSummary": "支持转型",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "支持转型"
+          },
+          "decisionIntent": "career:support_partner_retraining:online_education_course",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "建议伴侣优先考编，报课可等考编后再考虑，以确保收入稳定和购房计划不拖延",
+          "impactSummary": "优先考编",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "优先考编"
+          },
+          "decisionIntent": "career:prioritize_partner_exam:teacher_certification",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "折中方案：伴侣周末报课，平时继续备考，你适当增加项目兼职来弥补额外开支",
+          "impactSummary": "折中兼顾",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "折中兼顾"
+          },
+          "decisionIntent": "career:balance_partner_study_and_work:part_time_course",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "建议伴侣优先考编，报课可等考编后再考虑，以确保收入稳定和购房计划不拖延",
+      "resultingNodeTitle": "考编落榜后的现实抉择",
+      "resultingAgeInMonths": 474,
+      "resultingAttributes": {
+        "happiness": 30,
+        "intelligence": 75,
+        "wealth": 59,
+        "relation": 45,
+        "health": 45
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 474,
+        "cashWan": 120.2,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 210.2,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 15.6,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:43:30.043Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "考编落榜后的现实抉择",
+      "sourceAgeInMonths": 474,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "支持伴侣创业，共同制定为期一年的试运营计划，你承担家庭主要开支并协助商业规划",
+          "impactSummary": "支持创业试水",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "支持创业试水"
+          },
+          "decisionIntent": "career:support_partner_startup:children_bookstore",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "坚持建议伴侣继续考编，同时申请调往二线分公司以减轻异地压力",
+          "impactSummary": "坚持考编降压力",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "坚持考编降压力"
+          },
+          "decisionIntent": "career:relocate_to:second_tier_city_branch",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "坦诚自己已疲惫于反复权衡，建议伴侣自主决定未来方向，你愿意接受任何结果包括分手",
+          "impactSummary": "放手让伴侣决定",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "放手让伴侣决定"
+          },
+          "decisionIntent": "relationship:let_partner_decide:future_path",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "坚持建议伴侣继续考编，同时申请调往二线分公司以减轻异地压力",
+      "resultingNodeTitle": "二线分公司的平淡与裂痕",
+      "resultingAgeInMonths": 490,
+      "resultingAttributes": {
+        "happiness": 28,
+        "intelligence": 76,
+        "wealth": 53,
+        "relation": 42,
+        "health": 43
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 490,
+        "cashWan": 139.4,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 229.4,
+        "annualAfterTaxIncomeWan": 28.8,
+        "annualDisposableIncomeWan": 14.4,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:43:40.822Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "二线分公司的平淡与裂痕",
+      "sourceAgeInMonths": 490,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "同意伴侣暂停备考，支持她先找私立学校工作，你继续承担主要开支，并鼓励她拓展社交圈",
+          "impactSummary": "缓解伴侣压力",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "缓解伴侣压力"
+          },
+          "decisionIntent": "career:support_partner_work_first:private_school",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "鼓励伴侣再坚持备考半年，你为她报名备考冲刺班，并承诺若仍不成功则全力支持她转行",
+          "impactSummary": "坚持备考冲刺",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "坚持备考冲刺"
+          },
+          "decisionIntent": "career:encourage_partner_exam:teacher_certification",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "建议伴侣彻底放弃考编，支持她创业开绘本馆，你利用二线人脉帮她寻找场地和客源",
+          "impactSummary": "支持伴侣创业",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "支持伴侣创业"
+          },
+          "decisionIntent": "career:support_partner_startup:children_bookstore",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "鼓励伴侣再坚持备考半年，你为她报名备考冲刺班，并承诺若仍不成功则全力支持她转行",
+      "resultingNodeTitle": "冲刺班的终局：承诺的重量",
+      "resultingAgeInMonths": 523,
+      "resultingAttributes": {
+        "happiness": 22,
+        "intelligence": 78,
+        "wealth": 54,
+        "relation": 36,
+        "health": 41
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 523,
+        "cashWan": 179,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 269,
+        "annualAfterTaxIncomeWan": 28.8,
+        "annualDisposableIncomeWan": 14.4,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:44:09.048Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "冲刺班的终局：承诺的重量",
+      "sourceAgeInMonths": 523,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "A. 放手与祝福",
+          "impactSummary": "放手与祝福",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "放手与祝福"
+          },
+          "decisionIntent": "relationship:accept_separation:peaceful_parting",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "B. 重新磨合",
+          "impactSummary": "重新磨合",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "重新磨合"
+          },
+          "decisionIntent": "relationship:renegotiate_long_distance:new_terms",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "C. 追随与重建",
+          "impactSummary": "追随与重建",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "追随与重建"
+          },
+          "decisionIntent": "location:relocate_to_partner_city:restart",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "B. 重新磨合",
+      "resultingNodeTitle": "重新磨合的代价：独自修复",
+      "resultingAgeInMonths": 530,
+      "resultingAttributes": {
+        "happiness": 18,
+        "intelligence": 80,
+        "wealth": 54,
+        "relation": 32,
+        "health": 39
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 530,
+        "cashWan": 187.4,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 277.4,
+        "annualAfterTaxIncomeWan": 28.8,
+        "annualDisposableIncomeWan": 14.4,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:44:20.465Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "重新磨合的代价：独自修复",
+      "sourceAgeInMonths": 530,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "继续留在二线分公司，专注事业发展，同时接受关系现状，给自己一年时间重建生活",
+          "impactSummary": "事业稳定，情感搁置",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "事业稳定，情感搁置"
+          },
+          "decisionIntent": "career:focus_on_independent_consulting:second_tier_city",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "卖掉房子，搬回一线城市重新开始，利用之前的行业人脉寻找机会，主动拓展社交圈",
+          "impactSummary": "环境重置，风险并存",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "环境重置，风险并存"
+          },
+          "decisionIntent": "location:relocate_to:first_tier_city_restart",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "向伴侣提出正式分手，彻底结束这段关系，然后请假一个月去旅行，给自己时间和空间疗愈",
+          "impactSummary": "情感终结，自我疗愈",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "情感终结，自我疗愈"
+          },
+          "decisionIntent": "relationship:end_relationship:peaceful_separation",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "继续留在二线分公司，专注事业发展，同时接受关系现状，给自己一年时间重建生活",
+      "resultingNodeTitle": "独立咨询的起步与关系的新定义",
+      "resultingAgeInMonths": 547,
+      "resultingAttributes": {
+        "happiness": 30,
+        "intelligence": 82,
+        "wealth": 55,
+        "relation": 40,
+        "health": 45
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 547,
+        "cashWan": 207.8,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 297.8,
+        "annualAfterTaxIncomeWan": 28.8,
+        "annualDisposableIncomeWan": 14.4,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:44:46.182Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "独立咨询的起步与关系的新定义",
+      "sourceAgeInMonths": 547,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "正式向公司申请内部创业，将咨询业务纳入分公司新部门，换取稳定底薪加分成",
+          "impactSummary": "体制内创新",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "体制内创新"
+          },
+          "decisionIntent": "career:intrapreneurship:consulting_division",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "辞去分公司职位，全职投入独立咨询，并邀请两位沙龙认识的合伙人共同成立工作室",
+          "impactSummary": "创业起飞",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "创业起飞"
+          },
+          "decisionIntent": "career:start_consulting_studio:partnership",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "保持现状，继续在分公司兼职做咨询，同时加强线上获客，等客户群稳定后再决定",
+          "impactSummary": "稳健过渡",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳健过渡"
+          },
+          "decisionIntent": "career:maintain_hybrid:online_client_building",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "保持现状，继续在分公司兼职做咨询，同时加强线上获客，等客户群稳定后再决定",
+      "resultingNodeTitle": "线上咨询的瓶颈与新机会",
+      "resultingAgeInMonths": 573,
+      "resultingAttributes": {
+        "happiness": 32,
+        "intelligence": 84,
+        "wealth": 44,
+        "relation": 42,
+        "health": 43
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 573,
+        "cashWan": 187,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 277,
+        "annualAfterTaxIncomeWan": 4.8,
+        "annualDisposableIncomeWan": -9.6,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:44:59.613Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "线上咨询的瓶颈与新机会",
+      "sourceAgeInMonths": 573,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受前同事邀请，辞职搬到一线城市加入新公司，成为合伙人，开启全新职业阶段",
+          "impactSummary": "职业跃迁，关系终结",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "职业跃迁，关系终结"
+          },
+          "decisionIntent": "career:relocate_to_first_tier:partnership",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "拒绝邀请，辞去分公司职位，全职投入线上咨询，并扩大团队，将业务从二线城市向全国拓展",
+          "impactSummary": "自主创业，风险自担",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "自主创业，风险自担"
+          },
+          "decisionIntent": "career:start_online_consulting:full_time",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "与公司协商，转为兼职顾问，同时接受前同事的项目合作邀约，以远程方式参与，维持现有生活基础",
+          "impactSummary": "双线并行，平衡试探",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "双线并行，平衡试探"
+          },
+          "decisionIntent": "career:hybrid_remote_partnership:negotiate",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "与公司协商，转为兼职顾问，同时接受前同事的项目合作邀约，以远程方式参与，维持现有生活基础",
+      "resultingNodeTitle": "远程合作的真实代价",
+      "resultingAgeInMonths": 605,
+      "resultingAttributes": {
+        "happiness": 28,
+        "intelligence": 85,
+        "wealth": 48,
+        "relation": 36,
+        "health": 37
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 605,
+        "cashWan": 187,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 277,
+        "annualAfterTaxIncomeWan": 14.4,
+        "annualDisposableIncomeWan": 0,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T17:45:31.745Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "远程合作的真实代价",
+      "sourceAgeInMonths": 605,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "A. 全职转型一线",
+          "impactSummary": "全职转型一线",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "全职转型一线"
+          },
+          "decisionIntent": "location:relocate_to:first_tier_city_consulting_partner",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "B. 回归体制内求稳",
+          "impactSummary": "回归体制内求稳",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "回归体制内求稳"
+          },
+          "decisionIntent": "career:return_to_full_time:second_tier_branch",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "C. 自主创业咨询",
+          "impactSummary": "自主创业咨询",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "自主创业咨询"
+          },
+          "decisionIntent": "career:start_independent_consulting:second_tier_city",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "B. 回归体制内求稳",
+      "resultingNodeTitle": "体制内的平静代价",
+      "resultingAgeInMonths": 619,
+      "resultingAttributes": {
+        "happiness": 30,
+        "intelligence": 86,
+        "wealth": 51,
+        "relation": 38,
+        "health": 42
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 619,
+        "cashWan": 195.4,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 285.4,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": 7.2,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "invitation": {
+        "id": "d514f0a5",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "stable:8",
+        "completedChoiceCount": 15
+      },
+      "at": "2026-07-15T17:45:44.794Z"
+    },
+    {
+      "type": "invitation_shown",
+      "invitation": {
+        "id": "d514f0a5",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "stable:8",
+        "completedChoiceCount": 15
+      },
+      "nodeTitle": "体制内的平静代价",
+      "historyLength": 15,
+      "at": "2026-07-15T17:45:55.832Z"
+    },
+    {
+      "type": "invitation_accepted",
+      "invitation": {
+        "id": "d514f0a5",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "stable:8",
+        "completedChoiceCount": 15
+      },
+      "historyLength": 16,
+      "closureType": "user_reflection",
+      "at": "2026-07-15T17:46:24.364Z"
+    }
+  ],
+  "validation": {
+    "realAiBrowserSource": true,
+    "completeWebHistory": true,
+    "allStoryBodiesPresent": true,
+    "noDeterministicTemplateBodies": true,
+    "allDisplayedChoicesPreserved": true,
+    "allUserChoicesPreserved": true,
+    "allAttributesPreserved": true,
+    "allFinancialStatesPreserved": true,
+    "allInvitationsPreserved": true,
+    "expectedClosureType": true,
+    "finalReportPresent": true
+  },
+  "passed": true,
+  "finalState": {
+    "capturedAt": "2026-07-15T17:46:23.968Z",
+    "e2eCase": null,
+    "recordTestRun": "real-relationship-first",
+    "testDataSource": "real_ai_browser",
+    "step": "insight",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "21:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "26 岁 · 关系与遗憾",
+      "milestones": [
+        {
+          "id": "relationship",
+          "title": "关系与遗憾",
+          "content": "28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "",
+      "milestoneRelationship": "28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。",
+      "milestoneOther": "",
+      "regressionNodeKey": "relationship",
+      "regressionAge": 26,
+      "regressionSituation": "【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+      "coreStoryFocus": "romance"
+    },
+    "questions": [
+      {
+        "question": "在26岁这年，你和伴侣的关系发展到什么阶段？你们当时分别在哪个城市工作，各自的工作和收入情况如何？",
+        "suggestions": [
+          "我们已交往两年，同居在一线城市，我月薪1.2万，他月薪1.5万，都在私企。",
+          "我们异地一年，他在老家省会国企月薪8千，我在一线城市外企月薪2万。",
+          "我们刚认识半年，还在热恋期，我在新一线城市做市场，他读研二。",
+          "我们已订婚，双方父母见过面，我在本地事业单位月薪6千，他创业初期收入不稳定。",
+          "不确定具体收入，但当时我们都在同城，他工作稳定，我准备跳槽去外地拿更高薪水。"
+        ]
+      },
+      {
+        "question": "当时的你，在面对职业和感情冲突时，通常是什么反应模式？你更倾向于理性权衡、逃避拖延、还是感性优先？",
+        "suggestions": [
+          "我会先列出利弊清单，和伴侣冷静讨论，但内心很焦虑，怕选错。",
+          "我倾向于回避冲突，先拖着，直到不得不做决定。",
+          "我会被感情牵动，优先考虑对方感受，哪怕牺牲自己的机会。",
+          "我很独立，习惯自己做决定，不太会被他人意见左右，但会考虑现实。",
+          "我会找朋友或家人倾诉，听一圈建议后更迷茫，最后凭直觉选。"
+        ]
+      },
+      {
+        "question": "当时你有哪些实际的能力、资源或限制，会影响你选择是否接受外地晋升？比如职业技能、存款、家庭支持、城市偏好等。",
+        "suggestions": [
+          "我工作三年，是部门骨干，但没积蓄，家里也帮不上忙，去外地是唯一升职加薪机会。",
+          "我有行业稀缺技能，即使放弃这次机会，一年内也能找到本地同等薪水的工作。",
+          "我是独生女，父母身体不好，我无法长期离开他们所在的城市。",
+          "我名下有一套小房子在本地，如果去外地需要租房，经济压力会变大。",
+          "我擅长适应新环境，但伴侣有焦虑型依恋，如果我离开，关系会很难维系。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "在26岁这年，你和伴侣的关系发展到什么阶段？你们当时分别在哪个城市工作，各自的工作和收入情况如何？",
+        "answer": "我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市。"
+      },
+      {
+        "id": 2,
+        "question": "当时的你，在面对职业和感情冲突时，通常是什么反应模式？你更倾向于理性权衡、逃避拖延、还是感性优先？",
+        "answer": "冲突时我通常先沉默，等情绪平复后再谈，但也容易为了避免争执而让步。"
+      },
+      {
+        "id": 3,
+        "question": "当时你有哪些实际的能力、资源或限制，会影响你选择是否接受外地晋升？比如职业技能、存款、家庭支持、城市偏好等。",
+        "answer": "我拿到的晋升会让年收入增加约12万元，手里有20万元存款，伴侣有稳定职业和自己的社交支持。"
+      }
+    ],
+    "history": [
+      {
+        "age": 26,
+        "ageInMonths": 312,
+        "lifeStage": "early_adulthood",
+        "title": "升职调令与爱情天平",
+        "stage": "选择前夜",
+        "description": "你在一家二线城市的科技公司担任项目经理，月薪税后约1.5万，略有积蓄。伴侣是同城的中学教师，工作稳定但无法轻易调动。你们已交往四年，感情深厚，双方父母都在本地，需要时常照应。本周你收到总部调令，外派到一线城市担任区域负责人，年薪增加12万，但至少需要异地两年。伴侣父母开始催婚，而你内心纠结：留下意味着放弃职业上升通道，接受则可能动摇婚姻基础。今晚你们约好认真讨论这件事，窗外万家灯火，你清楚这个决定将重塑未来十年的生活轨迹。",
+        "selectedChoice": "接受一年外派，约定固定见面并在年底重新评估关系",
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 60,
+          "wealth": 54,
+          "relation": 65,
+          "health": 60
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 312,
+          "cashWan": 20,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 110,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "放弃外地晋升，与伴侣共同制定结婚和家庭计划",
+            "impactSummary": "稳定扎根",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳定扎根"
+            },
+            "decisionIntent": "career:decline:promotion_offer",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "接受一年外派，约定固定见面并在年底重新评估关系",
+            "impactSummary": "折中试探",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "折中试探"
+            },
+            "decisionIntent": "career:accept:one_year_expat",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "接受长期调任，结束这段无法兼顾的关系",
+            "impactSummary": "孤注一掷",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "孤注一掷"
+            },
+            "decisionIntent": "relationship:end:long_distance_breakup",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_8bb09966",
+            "startAgeInMonths": 312,
+            "endAgeInMonths": 312,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_35fe7ae7",
+            "summary": "你在一家二线城市的科技公司担任项目经理，月薪税后约1.5万，略有积蓄。伴侣是同城的中学教师，工作稳定但无法轻易调动。你们已交往四年，感情深厚，双方父母都在本地，"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                44,
+                71
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 312,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                14,
+                38
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 312,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 28,
+        "ageInMonths": 340,
+        "lifeStage": "early_adulthood",
+        "title": "一年外派的终局评估",
+        "stage": "early_adulthood",
+        "description": "28岁4个月，你从一线城市回到二线城市。过去两年，你每周视频通话，每两个月飞回去见面，伴侣也来过两次。第一年，你们还规划着年底重新评估；第二年，话题逐渐变成沉默。你攒下了钱，升了职，但每次回去都感到距离在拉长。今晚，你们坐在熟悉的咖啡馆，你清楚这次谈话将决定未来。",
+        "selectedChoice": "承认异地无法持续，但请求再给一年缓冲期，同时探索伴侣调动或你远程工作的可能性",
+        "attributes": {
+          "happiness": 48,
+          "intelligence": 65,
+          "wealth": 57,
+          "relation": 58,
+          "health": 60
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 340,
+          "cashWan": 48,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 138,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 28,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 28,
+          "afterTaxIncomeWan": 70,
+          "livingExpenseWan": 42,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 28,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "提议领证，你申请调回二线城市总部，承诺不再接受长期外派",
+            "impactSummary": "稳定婚姻",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳定婚姻"
+            },
+            "decisionIntent": "relationship:marry_and_return:two_year_expat",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "承认异地无法持续，但请求再给一年缓冲期，同时探索伴侣调动或你远程工作的可能性",
+            "impactSummary": "延长拉扯",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "延长拉扯"
+            },
+            "decisionIntent": "relationship:negotiate_one_more_year:two_year_expat",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "接受感情已经变淡的事实，和平分手，各自回归生活",
+            "impactSummary": "痛苦放手",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "痛苦放手"
+            },
+            "decisionIntent": "relationship:breakup_after_expat:two_year_expat",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_responsibility_shift",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "responsibility_shift",
+            "interest_conflict",
+            "reputation_risk"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 28,
+          "elapsedYears": 2.3333333333333335,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_a2ff3df7",
+            "startAgeInMonths": 312,
+            "endAgeInMonths": 340,
+            "internalTransitions": [
+              "外派第一年：你适应新城市，团队管理顺利，年收入增至30万。每月存款约8000元。伴侣暑期来过一次，你们一起规划年底评估。",
+              "外派第二年：工作进入瓶颈期，你开始考虑回二线城市。伴侣的父母身体欠佳，她压力增大，通话时长从半小时缩短到十分钟。",
+              "回城前三个月：你申请调回原城市总部，获批。伴侣表示需要认真谈谈。"
+            ],
+            "decisionCheckpointId": "checkpoint_d2723132",
+            "summary": "28岁4个月，你从一线城市回到二线城市。过去两年，你每周视频通话，每两个月飞回去见面，伴侣也来过两次。第一年，你们还规划着年底重新评估；第二年，话题逐渐变成沉默"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "id": "partner",
+              "role": "伴侣",
+              "status": "同城中学教师，28岁，社交圈稳定，对异地感到疲惫"
+            },
+            {
+              "id": "parent_father",
+              "role": "父亲",
+              "status": "53岁，退休职工，血压偏高"
+            },
+            {
+              "id": "parent_mother",
+              "role": "母亲",
+              "status": "51岁，退休教师，偶有腰椎不适"
+            }
+          ],
+          "primaryActivity": "结束外派返回二线城市，与伴侣面对面评估关系",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                46.333333333333336,
+                73.33333333333333
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 340,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                16.333333333333332,
+                40.333333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 340,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 29,
+        "ageInMonths": 357,
+        "lifeStage": "early_adulthood",
+        "title": "缓冲年：尝试找回平衡",
+        "stage": "early_adulthood",
+        "description": "28岁4个月，你在咖啡馆向伴侣坦白承认异地无法持续，但请求再给一年缓冲期。伴侣沉默许久后同意，但要求这期间你需积极寻找调回或远程工作的机会，并约定每月至少见面两次。此后17个月，你向公司申请远程办公，每周三天在家工作，两天通勤到一线城市总部。你减少了出差，把更多时间花在陪伴伴侣和照顾双方父母上。伴侣开始尝试申请调动到你所在城市的学校，但编制限制进展缓慢。你的收入因减少出差补贴而略有下降，但生活成本降低，存款缓慢增长。你们的关系逐渐回暖，但伴侣偶尔流露的疲惫和父母身体的小状况让你感到压力。你意识到，彻底解决异地问题需要更果断的决策。29岁9个月，你面临新的十字路口。",
+        "selectedChoice": "继续维持现状，再观望半年，同时加大力度推动伴侣调动，并考虑自己跳槽到二线城市同等职位",
+        "attributes": {
+          "happiness": 52,
+          "intelligence": 66,
+          "wealth": 57,
+          "relation": 56,
+          "health": 58
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 357,
+          "cashWan": 65,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 155,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 17,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 17,
+          "afterTaxIncomeWan": 42.5,
+          "livingExpenseWan": 25.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 17,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "确信家庭优先，主动放弃外派职位，申请调回二线城市总部，并正式向伴侣求婚",
+            "impactSummary": "放弃晋升，回归家庭",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "放弃晋升，回归家庭"
+            },
+            "decisionIntent": "career:return_to:second_tier_city",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "继续维持现状，再观望半年，同时加大力度推动伴侣调动，并考虑自己跳槽到二线城市同等职位",
+            "impactSummary": "维持现状，寻求机会",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "维持现状，寻求机会"
+            },
+            "decisionIntent": "career:seek_local_job:second_tier_city",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "承认两人生活轨迹已难以重合，和平结束关系，各自追求事业和新的生活",
+            "impactSummary": "断舍离，各自安好",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "断舍离，各自安好"
+            },
+            "decisionIntent": "relationship:end:peaceful_breakup",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 17,
+          "elapsedYears": 1.4166666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_af18da46",
+            "startAgeInMonths": 340,
+            "endAgeInMonths": 357,
+            "internalTransitions": [
+              "前6个月：申请远程办公获批，每周在家工作3天，通勤2天，通勤成本和时间增加但情绪改善。",
+              "第7-12个月：伴侣尝试调动受阻，你开始关注二线城市本地职位，但薪酬普遍低于当前水平。",
+              "第13-17个月：父母相继有小病住院，你们轮流照顾，加深了共同承担家庭责任的默契，也放大了对稳定未来的渴望。"
+            ],
+            "decisionCheckpointId": "checkpoint_c6c46e11",
+            "summary": "28岁4个月，你在咖啡馆向伴侣坦白承认异地无法持续，但请求再给一年缓冲期。伴侣沉默许久后同意，但要求这期间你需积极寻找调回或远程工作的机会，并约定每月至少见面两"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "signal": "romance",
+              "evidence": "伴侣同意一年缓冲期，关系回暖但基础仍脆弱。"
+            },
+            {
+              "signal": "family",
+              "evidence": "双方父母健康出现小问题，需更多照应。"
+            },
+            {
+              "signal": "career",
+              "evidence": "远程办公模式建立，收入稳定但晋升路径变窄。"
+            }
+          ],
+          "activeCharacters": [
+            "伴侣（中学教师）",
+            "你的父母",
+            "伴侣的父母"
+          ],
+          "primaryActivity": "在远程办公与家庭责任之间寻找平衡，尝试修复异地带来的情感裂痕。",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                47.75,
+                74.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 357,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                17.75,
+                41.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 357,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 30,
+        "ageInMonths": 371,
+        "lifeStage": "early_adulthood",
+        "title": "缓冲期的尽头",
+        "stage": "30岁11个月 - 终局抉择：去留之间",
+        "description": "你维持现状观望半年，同时加大力度推动伴侣调动，并开始投递二线城市的同等级职位。三个月后，伴侣的调动申请因编制冻结被退回，而你收到一家本地科技公司的offer，薪资与一线总部持平，但要求一个月内到岗。与此同时，一线总部的新任副总裁约你谈话，暗示若继续留任，明年可晋升为总监。伴侣明确表示无法再承受异地，要求你在年底前做出最终决定。父母体检报告显示父亲血压偏高，母亲关节退化需要定期理疗。你意识到，必须做出一个无法回头的选择。",
+        "selectedChoice": "接受总部晋升机会，但提议伴侣辞职随你搬迁，由你承担家庭开支并协助其在新城市求职",
+        "attributes": {
+          "happiness": 48,
+          "intelligence": 67,
+          "wealth": 58,
+          "relation": 54,
+          "health": 56
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 371,
+          "cashWan": 79,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 169,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 14,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 14,
+          "afterTaxIncomeWan": 35,
+          "livingExpenseWan": 21,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 14,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受本地offer，正式向伴侣求婚，承诺彻底结束异地生活",
+            "impactSummary": "回归家庭，扎根本地",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "回归家庭，扎根本地"
+            },
+            "decisionIntent": "career:accept_local_offer:second_tier_city",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "接受总部晋升机会，但提议伴侣辞职随你搬迁，由你承担家庭开支并协助其在新城市求职",
+            "impactSummary": "职业晋升，家庭搬迁",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "职业晋升，家庭搬迁"
+            },
+            "decisionIntent": "career:accept_promotion:headquarters",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "承认目标已难以调和，和平分手，各自专注事业与父母",
+            "impactSummary": "结束关系，各自前行",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "结束关系，各自前行"
+            },
+            "decisionIntent": "relationship:end:peaceful_breakup",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "relationship_trust_interest_fracture",
+          "eventCategory": "relationship",
+          "eventTags": [
+            "relationship",
+            "betrayal",
+            "interest_conflict",
+            "trust"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 14,
+          "elapsedYears": 1.1666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_5118f270",
+            "startAgeInMonths": 357,
+            "endAgeInMonths": 371,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_ba765b12",
+            "summary": "你维持现状观望半年，同时加大力度推动伴侣调动，并开始投递二线城市的同等级职位。三个月后，伴侣的调动申请因编制冻结被退回，而你收到一家本地科技公司的offer，薪"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父母"
+          ],
+          "primaryActivity": "职业与婚姻的最终抉择",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                48.916666666666664,
+                75.91666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 371,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                18.916666666666668,
+                42.916666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 371,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 31,
+        "ageInMonths": 380,
+        "lifeStage": "early_adulthood",
+        "title": "伴侣辞职搬迁后的磨合与财务压力",
+        "stage": "31岁8个月：伴侣搬迁与家庭整合",
+        "description": "你接受了总部晋升机会，伴侣经过一个月的纠结后同意辞职随你搬迁到一线城市。你承担了全部家庭开支，并动用存款支付了搬家费用和伴侣的过渡期生活费。伴侣在新城市求职并不顺利，教师编制考试竞争激烈，私立学校薪资较低且不稳定。你一边适应总监岗位的高强度工作，一边安抚伴侣的失落情绪。父母的身体状况需要你每月远程关注，父亲血压控制不佳，母亲膝盖手术排期在即。你们租住在一间月租8000元的一居室，生活成本比二线城市高出不少。伴侣开始抱怨孤独和职业落差，你们的关系在柴米油盐中变得紧张。你意识到，仅靠收入增长不足以解决所有问题，家庭与事业的平衡需要更细致的经营。",
+        "selectedChoice": "鼓励伴侣接受当前私立学校职位先稳定收入，你争取更多出差补贴和项目奖金来缓解经济压力",
+        "attributes": {
+          "happiness": 42,
+          "intelligence": 68,
+          "wealth": 58,
+          "relation": 50,
+          "health": 54
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 380,
+          "cashWan": 88,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 178,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 9,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 9,
+          "afterTaxIncomeWan": 22.5,
+          "livingExpenseWan": 13.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 9,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "支持伴侣重新考证或转行，你调整工作节奏多分担家务和情感陪伴，共同适应新生活",
+            "impactSummary": "家庭优先，关系修复",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "家庭优先，关系修复"
+            },
+            "decisionIntent": "relationship:support_partner_career_change:new_city",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "鼓励伴侣接受当前私立学校职位先稳定收入，你争取更多出差补贴和项目奖金来缓解经济压力",
+            "impactSummary": "经济优先，伴侣妥协",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "经济优先，伴侣妥协"
+            },
+            "decisionIntent": "career:increase_income:overtime_and_bonus",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "利用你的人际资源为伴侣寻找更合适的工作机会，同时请钟点工分担家务，把精力集中在工作和关系上",
+            "impactSummary": "资源整合，效率优先",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "资源整合，效率优先"
+            },
+            "decisionIntent": "career:use_network:partner_job_search",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "financial_side_path_conflict",
+          "eventCategory": "financial",
+          "eventTags": [
+            "financial",
+            "side_income",
+            "compliance_risk",
+            "opportunity"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 9,
+          "elapsedYears": 0.75,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d2fcb53c",
+            "startAgeInMonths": 371,
+            "endAgeInMonths": 380,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_ad34ad38",
+            "summary": "你接受了总部晋升机会，伴侣经过一个月的纠结后同意辞职随你搬迁到一线城市。你承担了全部家庭开支，并动用存款支付了搬家费用和伴侣的过渡期生活费。伴侣在新城市求职并不"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父母"
+          ],
+          "primaryActivity": "工作与家庭平衡",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                49.666666666666664,
+                76.66666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 380,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                19.666666666666668,
+                43.666666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 380,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 34,
+        "ageInMonths": 409,
+        "lifeStage": "early_adulthood",
+        "title": "伴侣入职私立学校后的新常态",
+        "stage": "第6阶段：34岁1个月——现实与承诺的平衡",
+        "description": "31岁8个月时，你鼓励伴侣接受私立学校职位，自己则加倍投入工作争取奖金。接下来的29个月，生活逐渐形成新的平衡。伴侣在私立学校教高一数学，月薪税后6000元，虽不如编制内稳定，但至少有了收入，也缓解了孤独感。你作为区域总监，年收入增至30万，通过频繁出差和项目奖金，月均额外入账4000元左右。你们搬到了月租7000元的两居室，生活成本稍有下降。父亲血压在药物控制下趋于稳定，母亲膝盖手术后恢复良好，你们每月请一次护工上门理疗。然而，长期的异地奔波和高强度工作开始侵蚀你的健康：你出现了慢性胃病和睡眠障碍，伴侣也因职业落差偶尔情绪低落。你们尝试过几次深度沟通，但关于是否要孩子、何时买房、是否回二线城市等根本分歧依然存在。34岁1个月的某天，你刚结束连续三周的出差回家，伴侣平静地提出想认真谈谈未来——她希望你在年底前明确是否愿意要孩子，并考虑换一份不那么奔波的工作。你意识到，这段关系已经走到了需要做出更根本承诺的十字路口。",
+        "selectedChoice": "坦诚表达自己尚未准备好要孩子，但愿意减少出差频率、增加居家办公，并支持伴侣重返职场深造或考编，共同寻找事业与家庭的平衡点",
+        "attributes": {
+          "happiness": 36,
+          "intelligence": 70,
+          "wealth": 59,
+          "relation": 48,
+          "health": 48
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 409,
+          "cashWan": 119.9,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 209.9,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 13.2,
+          "annualCoreExpenseWan": 16.8,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 29,
+          "monthlyLivingExpenseWan": 1.4,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.8,
+          "reasons": [
+            "年税后收入30万，折算月收入2.5万",
+            "伴侣月薪6000元，生活成本降低至月租7000元加日常支出估算1.4万",
+            "每月出差补贴和项目奖金约4000元，但已含在年收入中"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 29,
+          "afterTaxIncomeWan": 72.5,
+          "livingExpenseWan": 40.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 31.9,
+          "incomeStability": "stable",
+          "reasons": [
+            "年税后收入30万，折算月收入2.5万",
+            "伴侣月薪6000元，生活成本降低至月租7000元加日常支出估算1.4万",
+            "每月出差补贴和项目奖金约4000元，但已含在年收入中"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "同意伴侣的提议，承诺在一年内备孕，同时计划用存款支付二线城市一套小户型首付，为未来家庭和父母养老做准备",
+            "impactSummary": "家庭优先，调整职业节奏",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "家庭优先，调整职业节奏"
+            },
+            "decisionIntent": "family:plan_pregnancy_and_buy_house:second_tier_city",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "坦诚表达自己尚未准备好要孩子，但愿意减少出差频率、增加居家办公，并支持伴侣重返职场深造或考编，共同寻找事业与家庭的平衡点",
+            "impactSummary": "暂缓生育，强化关系沟通",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "暂缓生育，强化关系沟通"
+            },
+            "decisionIntent": "relationship:delay_child_and_support_partner_career:current_city",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "承认双方在关键人生节奏上已无法同步，提议和平分手，各自追求更契合的生活规划，并协商处理好财产和父母告知方式",
+            "impactSummary": "结束关系，重新规划人生",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "结束关系，重新规划人生"
+            },
+            "decisionIntent": "relationship:end_peacefully_after_mismatch:current_city",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "relationship_material_commitment_test",
+          "eventCategory": "relationship",
+          "eventTags": [
+            "relationship",
+            "commitment",
+            "financial_pressure",
+            "family_expectation"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 29,
+          "elapsedYears": 2.4166666666666665,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_deae5d9b",
+            "startAgeInMonths": 380,
+            "endAgeInMonths": 409,
+            "internalTransitions": [
+              "31岁8个月-32岁2个月：伴侣适应新工作，你争取项目奖金，生活渐入正轨",
+              "32岁3个月-33岁1个月：父母健康稳定，但你们因是否买房、要孩子产生多次争论",
+              "33岁2个月-34岁1个月：你健康下滑，伴侣职业倦怠，最终再次坐下来谈未来"
+            ],
+            "decisionCheckpointId": "checkpoint_a0927bd0",
+            "summary": "伴侣入职私立学校后，关系回暖但分歧犹存；高强度工作导致健康受损；34岁时伴侣提出生育和工作节奏的明确要求。"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "家庭与职业的重新谈判",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                52.08333333333333,
+                79.08333333333334
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 409,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                22.083333333333336,
+                46.08333333333333
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 409,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 35,
+        "ageInMonths": 428,
+        "lifeStage": "midlife",
+        "title": "承诺的试炼：平衡与选择的十字路口",
+        "stage": "伴侣入职私立学校后的新常态",
+        "description": "34岁1个月，你坦诚表达了尚未准备好要孩子，但承诺减少出差、增加居家办公，并支持伴侣重返职场深造或考编。接下来的19个月，你努力兑现诺言。你成功将出差频率从每月两周降至每周两天，并向公司申请了更多远程办公权限。伴侣在你的鼓励下，报名参加了在职研究生考试和教师编制培训，每周三天在私立学校教书，其余时间备考。你们搬到了月租6500元的两居室，生活成本略有下降。父亲血压在药物控制下稳定，母亲膝盖术后恢复良好，你们每月请护工上门理疗两次。你的胃病通过规律饮食有所缓解，但睡眠问题依然存在，偶尔需要安眠药辅助。伴侣的备考压力大，情绪时有波动，你们每周安排一次固定沟通时间，关系在磨合中逐渐找到新的节奏。然而，35岁8个月的一天，伴侣的研究生入学考试结果公布——她未被录取，而教师编制考试也因竞争激烈再次落榜。她陷入低谷，开始质疑自己是否应该放弃事业回归家庭，并提出希望你在一年内明确要孩子的时间表，否则她将考虑独自回二线城市重新开始。你意识到，关于生育和未来的根本分歧，已经到了无法回避的节点。",
+        "selectedChoice": "坦诚自己仍未准备好要孩子，但愿意共同制定一个两年缓冲计划：这期间伴侣可全力备考或创业，你承担全部家庭开支，并安排每年一次长途旅行修复关系",
+        "attributes": {
+          "happiness": 32,
+          "intelligence": 72,
+          "wealth": 59,
+          "relation": 46,
+          "health": 46
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 428,
+          "cashWan": 140.8,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 230.8,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 13.2,
+          "annualCoreExpenseWan": 16.8,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 19,
+          "monthlyLivingExpenseWan": 1.4,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 19,
+          "afterTaxIncomeWan": 47.5,
+          "livingExpenseWan": 26.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 20.9,
+          "incomeStability": "stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "同意伴侣的提议，承诺在一年内备孕，同时计划用存款支付二线城市一套小户型首付，为未来家庭和父母养老做准备",
+            "impactSummary": "承诺备孕购房",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "承诺备孕购房"
+            },
+            "decisionIntent": "family:plan_pregnancy_and_buy_house:second_tier_city",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "坦诚自己仍未准备好要孩子，但愿意共同制定一个两年缓冲计划：这期间伴侣可全力备考或创业，你承担全部家庭开支，并安排每年一次长途旅行修复关系",
+            "impactSummary": "制定两年缓冲",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "制定两年缓冲"
+            },
+            "decisionIntent": "relationship:delay_child_and_support_partner_career:current_city",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "承认双方在关键人生节奏上已无法同步，提议和平分手，各自追求更契合的生活规划，并协商处理好财产和父母告知方式",
+            "impactSummary": "和平结束关系",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "和平结束关系"
+            },
+            "decisionIntent": "relationship:end_peacefully_after_mismatch:current_city",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "relationship_family_obligation_pull",
+          "eventCategory": "relationship",
+          "eventTags": [
+            "relationship",
+            "family_obligation",
+            "boundary",
+            "sacrifice"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 19,
+          "elapsedYears": 1.5833333333333333,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_be2a9296",
+            "startAgeInMonths": 409,
+            "endAgeInMonths": 428,
+            "internalTransitions": [
+              "34岁1个月至34岁4个月：你成功与公司协商，将出差频率降至每周两天，并增加了远程办公天数。伴侣开始备考研究生和教师编制。",
+              "34岁5个月至34岁10个月：伴侣备考压力大，情绪波动，你们每周固定沟通一次。你支付了伴侣的培训费用，月均支出增加2000元。父亲血压稳定，母亲膝盖恢复良好。",
+              "34岁11个月至35岁8个月：伴侣两次考试均未通过，陷入低谷。你们就未来规划多次讨论，分歧集中在生育时间上。"
+            ],
+            "decisionCheckpointId": "checkpoint_4467e91f",
+            "summary": "34岁1个月，你坦诚表达了尚未准备好要孩子，但承诺减少出差、增加居家办公，并支持伴侣重返职场深造或考编。接下来的19个月，你努力兑现诺言。你成功将出差频率从每月"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "arc": "romance",
+              "phase": "conflict",
+              "evidence": "伴侣落榜后提出要孩子时间表，关系面临根本分歧。"
+            },
+            {
+              "arc": "family",
+              "phase": "caregiving",
+              "evidence": "父母健康稳定，但养老压力持续。"
+            },
+            {
+              "arc": "career",
+              "phase": "established",
+              "evidence": "你成功减少了出差，维持了总监职位和收入。"
+            }
+          ],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "平衡工作、伴侣支持与家庭责任",
+          "worldDeltas": [
+            "伴侣两次考试落榜，职业前景受挫",
+            "你的出差频率降低，健康有所改善",
+            "父母健康稳定，但养老需求持续",
+            "关系因生育分歧面临重大考验"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                53.666666666666664,
+                80.66666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 428,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                23.666666666666668,
+                47.666666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 428,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 36,
+        "ageInMonths": 438,
+        "lifeStage": "midlife",
+        "title": "缓冲期的日常与暗流",
+        "stage": "现实转折",
+        "description": "你承诺的两年缓冲计划开始执行。伴侣在落榜后情绪低沉了两个月，但逐渐接受了你提出的方案：她辞去私立学校工作，全力备考下一年度的教师编制和研究生考试，同时尝试在线教育兼职。你减少了出差频率，每周居家办公三天，分担更多家务。父亲血压稳定，母亲膝盖康复良好，但每月护工费用和伴侣的备考开销让现金流略显紧张。你开始每天晨跑改善睡眠，胃病偶有发作但可控。你们按计划去了一趟云南旅行，关系有所缓和，但关于孩子的根本分歧仍像一块未落地的石头。第10个月，伴侣的在线教育兼职有了稳定收入，她提出想用自己的积蓄报一个为期半年的职业转型课程——这意味着要推迟考编，也可能影响你们存钱买房的节奏。你感受到又一次平衡的考验。",
+        "selectedChoice": "建议伴侣优先考编，报课可等考编后再考虑，以确保收入稳定和购房计划不拖延",
+        "attributes": {
+          "happiness": 34,
+          "intelligence": 73,
+          "wealth": 59,
+          "relation": 47,
+          "health": 47
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 438,
+          "cashWan": 148.4,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 238.4,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 20.4,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 10,
+          "monthlyLivingExpenseWan": 1.7,
+          "oneOffIncomeWan": 0.8,
+          "oneOffExpenseWan": 1.2,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.85,
+          "reasons": [
+            "年税后收入30万元，月均2.5万元（含项目奖金月均4000元），收入稳定",
+            "月生活费1.65万元含房租0.65万、护工0.2万、伴侣备考开销0.3万、日常0.5万",
+            "一次性收入0.8万元来自伴侣在线教育兼职",
+            "一次性支出1.2万元为云南旅行费用"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 10,
+          "afterTaxIncomeWan": 25.8,
+          "livingExpenseWan": 17,
+          "medicalEducationExpenseWan": 1.2,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 7.6,
+          "incomeStability": "stable",
+          "reasons": [
+            "年税后收入30万元，月均2.5万元（含项目奖金月均4000元），收入稳定",
+            "月生活费1.65万元含房租0.65万、护工0.2万、伴侣备考开销0.3万、日常0.5万",
+            "一次性收入0.8万元来自伴侣在线教育兼职",
+            "一次性支出1.2万元为云南旅行费用"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "支持伴侣报课转型，认为职业满足感比编制更重要，你愿意延长存钱周期并继续承担主要开支",
+            "impactSummary": "支持转型",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "支持转型"
+            },
+            "decisionIntent": "career:support_partner_retraining:online_education_course",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "建议伴侣优先考编，报课可等考编后再考虑，以确保收入稳定和购房计划不拖延",
+            "impactSummary": "优先考编",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "优先考编"
+            },
+            "decisionIntent": "career:prioritize_partner_exam:teacher_certification",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "折中方案：伴侣周末报课，平时继续备考，你适当增加项目兼职来弥补额外开支",
+            "impactSummary": "折中兼顾",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "折中兼顾"
+            },
+            "decisionIntent": "career:balance_partner_study_and_work:part_time_course",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 10,
+          "elapsedYears": 0.8333333333333334,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_c5c14706",
+            "startAgeInMonths": 428,
+            "endAgeInMonths": 438,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_1029b3dd",
+            "summary": "你承诺的两年缓冲计划开始执行。伴侣在落榜后情绪低沉了两个月，但逐渐接受了你提出的方案：她辞去私立学校工作，全力备考下一年度的教师编制和研究生考试，同时尝试在线教"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "工作与家庭平衡",
+          "worldDeltas": [
+            "伴侣辞职备考，在线教育兼职月入3000元",
+            "年收入30万，月生活支出1.5万（含房租6500、护工1000、伴侣备考及课程费用2000）",
+            "父亲血压稳定，母亲膝盖康复良好"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                54.5,
+                81.5
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 438,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                24.5,
+                48.5
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 438,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 39,
+        "ageInMonths": 474,
+        "lifeStage": "midlife",
+        "title": "考编落榜后的现实抉择",
+        "stage": "缓冲期的余波与人生十字路口",
+        "description": "你建议伴侣优先考编后，她虽然表面接受，但内心对再次备考感到厌倦。接下来的半年里，她白天备考，晚上做在线教育兼职，但效率低下，两次模拟考成绩均不理想。你继续每周三天居家办公，每天晨跑，胃病偶有发作但可控。父亲血压稳定，母亲膝盖康复良好。半年后，伴侣提出想暂停考编，用积蓄和朋友合伙开一家小型绘本馆，认为这既能发挥她的教育专业，也能实现自我价值。你感到又一次平衡的考验：支持她创业意味着买房计划推迟，且创业风险未知；坚持考编则可能让伴侣陷入更深的抑郁。与此同时，你的公司启动新一轮组织调整，你的总监职位可能面临合并，但若主动申请调往二线分公司，可保留薪资并减少出差。",
+        "selectedChoice": "坚持建议伴侣继续考编，同时申请调往二线分公司以减轻异地压力",
+        "attributes": {
+          "happiness": 30,
+          "intelligence": 75,
+          "wealth": 59,
+          "relation": 45,
+          "health": 45
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 474,
+          "cashWan": 120.2,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 210.2,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 15.6,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 6,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.8,
+          "reasons": [
+            "年税后收入30万，月均2.5万，持续6个月",
+            "每月生活支出根据上期年可支配收入9.6万，估算月支出1.2万",
+            "伴侣兼职收入未明确，暂不计入",
+            "无一次性收支或资产变化"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 36,
+          "afterTaxIncomeWan": 15,
+          "livingExpenseWan": 43.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -28.2,
+          "incomeStability": "stable",
+          "reasons": [
+            "年税后收入30万，月均2.5万，持续6个月",
+            "每月生活支出根据上期年可支配收入9.6万，估算月支出1.2万",
+            "伴侣兼职收入未明确，暂不计入",
+            "无一次性收支或资产变化"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "支持伴侣创业，共同制定为期一年的试运营计划，你承担家庭主要开支并协助商业规划",
+            "impactSummary": "支持创业试水",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "支持创业试水"
+            },
+            "decisionIntent": "career:support_partner_startup:children_bookstore",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "坚持建议伴侣继续考编，同时申请调往二线分公司以减轻异地压力",
+            "impactSummary": "坚持考编降压力",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "坚持考编降压力"
+            },
+            "decisionIntent": "career:relocate_to:second_tier_city_branch",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "坦诚自己已疲惫于反复权衡，建议伴侣自主决定未来方向，你愿意接受任何结果包括分手",
+            "impactSummary": "放手让伴侣决定",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "放手让伴侣决定"
+            },
+            "decisionIntent": "relationship:let_partner_decide:future_path",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 36,
+          "elapsedYears": 3,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d043e12f",
+            "startAgeInMonths": 438,
+            "endAgeInMonths": 474,
+            "internalTransitions": [
+              "伴侣模拟考两次不理想，情绪低落",
+              "你继续居家办公，晨跑习惯保持",
+              "父母身体状况稳定，定期视频通话",
+              "公司宣布组织调整，你的职位可能合并"
+            ],
+            "decisionCheckpointId": "checkpoint_ec5097ca",
+            "summary": "你建议伴侣优先考编后，她虽然表面接受，但内心对再次备考感到厌倦。接下来的半年里，她白天备考，晚上做在线教育兼职，但效率低下，两次模拟考成绩均不理想。你继续每周三"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "伴侣考编备考与创业提议的冲突",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                57.5,
+                84.5
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 474,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                27.5,
+                51.5
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 474,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f",
+            "3964b4a3"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 40,
+        "ageInMonths": 490,
+        "lifeStage": "midlife",
+        "title": "二线分公司的平淡与裂痕",
+        "stage": "现实转折",
+        "description": "你坚持调往二线分公司的申请获批，伴侣勉强同意继续备考。搬迁后你月薪降至2.4万，但生活成本降低，月租仅3500元。伴侣在新城市备考效率仍低，且社交圈狭窄，情绪日渐低落。父亲血压稳定，母亲膝盖康复，但每月仍需护工两次。你的胃病和睡眠问题在规律作息下稍有改善。第8个月，伴侣提出想暂停备考，先找一份私立学校工作稳定下来，考编从长计议。你再次面临平衡考验。",
+        "selectedChoice": "鼓励伴侣再坚持备考半年，你为她报名备考冲刺班，并承诺若仍不成功则全力支持她转行",
+        "attributes": {
+          "happiness": 28,
+          "intelligence": 76,
+          "wealth": 53,
+          "relation": 42,
+          "health": 43
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 490,
+          "cashWan": 139.4,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 229.4,
+          "annualAfterTaxIncomeWan": 28.8,
+          "annualDisposableIncomeWan": 14.4,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.4,
+          "incomeMonths": 16,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 16,
+          "afterTaxIncomeWan": 38.4,
+          "livingExpenseWan": 19.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 19.2,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "同意伴侣暂停备考，支持她先找私立学校工作，你继续承担主要开支，并鼓励她拓展社交圈",
+            "impactSummary": "缓解伴侣压力",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "缓解伴侣压力"
+            },
+            "decisionIntent": "career:support_partner_work_first:private_school",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "鼓励伴侣再坚持备考半年，你为她报名备考冲刺班，并承诺若仍不成功则全力支持她转行",
+            "impactSummary": "坚持备考冲刺",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "坚持备考冲刺"
+            },
+            "decisionIntent": "career:encourage_partner_exam:teacher_certification",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "建议伴侣彻底放弃考编，支持她创业开绘本馆，你利用二线人脉帮她寻找场地和客源",
+            "impactSummary": "支持伴侣创业",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "支持伴侣创业"
+            },
+            "decisionIntent": "career:support_partner_startup:children_bookstore",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 16,
+          "elapsedYears": 1.3333333333333333,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_e72bd401",
+            "startAgeInMonths": 474,
+            "endAgeInMonths": 490,
+            "internalTransitions": [
+              "前8个月：搬迁、适应新岗位、伴侣备考效率低",
+              "第8个月：伴侣提出暂停备考找工作"
+            ],
+            "decisionCheckpointId": "checkpoint_46fba638",
+            "summary": "你坚持调往二线分公司的申请获批，伴侣勉强同意继续备考。搬迁后你月薪降至2.4万，但生活成本降低，月租仅3500元。伴侣在新城市备考效率仍低，且社交圈狭窄，情绪日"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "工作与家庭平衡",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                58.833333333333336,
+                85.83333333333333
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 490,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                28.833333333333332,
+                52.833333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 490,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f",
+            "3964b4a3",
+            "f1e8a318"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 43,
+        "ageInMonths": 523,
+        "lifeStage": "midlife",
+        "title": "冲刺班的终局：承诺的重量",
+        "stage": "现实转折",
+        "description": "你为伴侣报名了备考冲刺班，承诺若仍不成功则全力支持她转行。接下来的33个月，生活进入了一种高度聚焦又暗藏压力的节奏。伴侣每天早出晚归参加集训，你则承担了全部家务和家庭开支，同时应对二线分公司日渐琐碎的事务。你的胃病在规律饮食下趋于稳定，但睡眠问题依然顽固，偶尔需要安眠药。父亲血压稳定，母亲膝盖康复良好，但每月护工费用和伴侣的培训费让现金流紧绷。第10个月，伴侣冲刺班结业，参加编制考试——再次以5分之差落榜。她崩溃了，整日卧床不起，拒绝沟通。你意识到，坚持考编的路径已经走到了尽头。第12个月，伴侣提出想回老家休整一段时间，你同意了，但内心明白这可能是分离的前兆。第15个月，伴侣从老家回来，情绪平复，但两人之间多了一层隔阂。你开始认真考虑之前被搁置的绘本馆创业计划，但伴侣似乎失去了所有动力。第24个月，伴侣在一次深夜谈话中坦言，她感到自己在这段关系中一直是被推着走的那个，从未真正掌握过自己的人生方向。你心中一震，意识到自己在“为你好”的执念中，可能忽略了她的主体性。第30个月，伴侣决定独自去外地参加一个为期半年的艺术治疗培训，这是她第一次为自己做的重大决定。你支持了她，但也感到关系正在不可逆地疏远。43岁7个月，伴侣培训结束，她告诉你她打算在培训城市找一份工作，暂时不回来了。你们平静地讨论了未来，没有争吵，只有一种疲惫的释然。你站在空了一半的公寓里，意识到这段关系最终走向了开放式结局——没有彻底断裂，但也无法回到从前。",
+        "selectedChoice": "B. 重新磨合",
+        "attributes": {
+          "happiness": 22,
+          "intelligence": 78,
+          "wealth": 54,
+          "relation": 36,
+          "health": 41
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 523,
+          "cashWan": 179,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 269,
+          "annualAfterTaxIncomeWan": 28.8,
+          "annualDisposableIncomeWan": 14.4,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 2.4,
+          "incomeMonths": 33,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 33,
+          "afterTaxIncomeWan": 79.2,
+          "livingExpenseWan": 39.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 39.6,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "A. 放手与祝福",
+            "impactSummary": "放手与祝福",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "放手与祝福"
+            },
+            "decisionIntent": "relationship:accept_separation:peaceful_parting",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "B. 重新磨合",
+            "impactSummary": "重新磨合",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "重新磨合"
+            },
+            "decisionIntent": "relationship:renegotiate_long_distance:new_terms",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "C. 追随与重建",
+            "impactSummary": "追随与重建",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "追随与重建"
+            },
+            "decisionIntent": "location:relocate_to_partner_city:restart",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "relationship_trust_interest_fracture",
+          "eventCategory": "relationship",
+          "eventTags": [
+            "relationship",
+            "betrayal",
+            "interest_conflict",
+            "trust"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 33,
+          "elapsedYears": 2.75,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_931dcc9e",
+            "startAgeInMonths": 490,
+            "endAgeInMonths": 523,
+            "internalTransitions": [
+              "伴侣冲刺班结业后落榜，陷入抑郁，你承担全部家庭开支",
+              "伴侣回老家休整两个月，关系出现裂痕",
+              "伴侣主动决定参加艺术治疗培训，你支持但感到疏远",
+              "伴侣培训结束后提出异地工作，两人平静讨论未来"
+            ],
+            "decisionCheckpointId": "checkpoint_735405b6",
+            "summary": "你为伴侣报名了备考冲刺班，承诺若仍不成功则全力支持她转行。接下来的33个月，生活进入了一种高度聚焦又暗藏压力的节奏。伴侣每天早出晚归参加集训，你则承担了全部家务"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "居家办公与伴侣备考支持",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                61.583333333333336,
+                88.58333333333333
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 523,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                31.583333333333332,
+                55.583333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 523,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f",
+            "3964b4a3",
+            "f1e8a318",
+            "4d06cfb8"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 44,
+        "ageInMonths": 530,
+        "lifeStage": "midlife",
+        "title": "重新磨合的代价：独自修复",
+        "stage": "现实转折",
+        "description": "伴侣在艺术治疗培训城市找到了一份助理工作，决定暂时不回来。你独自留在二线城市的公寓里，意识到这段关系已经走到了一个无法回头的岔路口。接下来的7个月，你尝试重新定义自己的生活。你减少了安眠药依赖，开始每周三次心理咨询，胃病在规律饮食下有所好转。工作上，你利用二线分公司的资源，开始接一些独立咨询项目，年收入略有回升。父亲血压稳定，母亲膝盖康复良好，但每月护工费用和心理咨询支出让现金流依然紧张。你偶尔和伴侣视频通话，话题变得客气而疏离。第4个月，你参加了一次行业交流会，认识了一些新朋友，但社交圈依然狭窄。第6个月，伴侣提出想正式分开一段时间，你同意了，没有争吵。第7个月末，你站在空了一半的公寓里，开始思考是否要卖掉这套房子，彻底换个环境。健康预警：长期的压力和孤独开始影响你的免疫系统，你连续感冒两次，恢复缓慢。",
+        "selectedChoice": "继续留在二线分公司，专注事业发展，同时接受关系现状，给自己一年时间重建生活",
+        "attributes": {
+          "happiness": 18,
+          "intelligence": 80,
+          "wealth": 54,
+          "relation": 32,
+          "health": 39
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 530,
+          "cashWan": 187.4,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 277.4,
+          "annualAfterTaxIncomeWan": 28.8,
+          "annualDisposableIncomeWan": 14.4,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.4,
+          "incomeMonths": 7,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 7,
+          "afterTaxIncomeWan": 16.8,
+          "livingExpenseWan": 8.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 8.4,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "继续留在二线分公司，专注事业发展，同时接受关系现状，给自己一年时间重建生活",
+            "impactSummary": "事业稳定，情感搁置",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "事业稳定，情感搁置"
+            },
+            "decisionIntent": "career:focus_on_independent_consulting:second_tier_city",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "卖掉房子，搬回一线城市重新开始，利用之前的行业人脉寻找机会，主动拓展社交圈",
+            "impactSummary": "环境重置，风险并存",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "环境重置，风险并存"
+            },
+            "decisionIntent": "location:relocate_to:first_tier_city_restart",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "向伴侣提出正式分手，彻底结束这段关系，然后请假一个月去旅行，给自己时间和空间疗愈",
+            "impactSummary": "情感终结，自我疗愈",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "情感终结，自我疗愈"
+            },
+            "decisionIntent": "relationship:end_relationship:peaceful_separation",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "health_system_warning",
+          "eventCategory": "health",
+          "eventTags": [
+            "health",
+            "burnout",
+            "instability",
+            "system_warning"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 7,
+          "elapsedYears": 0.5833333333333334,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_c8407784",
+            "startAgeInMonths": 523,
+            "endAgeInMonths": 530,
+            "internalTransitions": [
+              "第1-2个月：适应独居生活，减少安眠药用量，开始心理咨询",
+              "第3-4个月：接了两个独立咨询项目，工作节奏调整，社交活动增加",
+              "第5-6个月：伴侣提出正式分开，情绪波动但未影响工作，连续感冒两次",
+              "第7个月：开始考虑未来规划，评估是否卖房换城市"
+            ],
+            "decisionCheckpointId": "checkpoint_1101b1f4",
+            "summary": "伴侣在艺术治疗培训城市找到了一份助理工作，决定暂时不回来。你独自留在二线城市的公寓里，意识到这段关系已经走到了一个无法回头的岔路口。接下来的7个月，你尝试重新定"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "工作与心理修复",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                62.16666666666667,
+                89.16666666666666
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 530,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                32.166666666666664,
+                56.16666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 530,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f",
+            "3964b4a3",
+            "f1e8a318",
+            "4d06cfb8",
+            "461fa47a"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 45,
+        "ageInMonths": 547,
+        "lifeStage": "midlife",
+        "title": "独立咨询的起步与关系的新定义",
+        "stage": "现实转折",
+        "description": "你决定留在二线分公司，专注事业发展，并接受关系现状。接下来的17个月，你逐步将精力从日常管理转向独立咨询项目。第3个月，你利用公司资源接下了第一个外部咨询单，金额不大但让你看到了方向。第6个月，伴侣在培训城市稳定下来，你们达成共识：关系转为开放式，定期联系但不再绑定未来。第9个月，你的第二个咨询项目落地，年收入增长至约32万。第12个月，你开始定期参加行业沙龙，结识了几位潜在合伙人。第15个月，父亲因高血压住院一次，你请假一周回去照顾，之后决定每月多汇2000元用于父母健康管理。第17个月末，你的独立咨询业务已占收入40%，但公司内部对你的兼职态度暧昧。你感到职业生涯的又一次十字路口：是继续在体制内求稳，还是全职投入咨询？健康方面，胃病基本控制，睡眠仍需改善，但整体状态回升。",
+        "selectedChoice": "保持现状，继续在分公司兼职做咨询，同时加强线上获客，等客户群稳定后再决定",
+        "attributes": {
+          "happiness": 30,
+          "intelligence": 82,
+          "wealth": 55,
+          "relation": 40,
+          "health": 45
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 547,
+          "cashWan": 207.8,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 297.8,
+          "annualAfterTaxIncomeWan": 28.8,
+          "annualDisposableIncomeWan": 14.4,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.4,
+          "incomeMonths": 17,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 17,
+          "afterTaxIncomeWan": 40.8,
+          "livingExpenseWan": 20.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 20.4,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "正式向公司申请内部创业，将咨询业务纳入分公司新部门，换取稳定底薪加分成",
+            "impactSummary": "体制内创新",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "体制内创新"
+            },
+            "decisionIntent": "career:intrapreneurship:consulting_division",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "辞去分公司职位，全职投入独立咨询，并邀请两位沙龙认识的合伙人共同成立工作室",
+            "impactSummary": "创业起飞",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "创业起飞"
+            },
+            "decisionIntent": "career:start_consulting_studio:partnership",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "保持现状，继续在分公司兼职做咨询，同时加强线上获客，等客户群稳定后再决定",
+            "impactSummary": "稳健过渡",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳健过渡"
+            },
+            "decisionIntent": "career:maintain_hybrid:online_client_building",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_credit_ownership_conflict",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "credit_ownership",
+            "boundary",
+            "reputation_risk"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 17,
+          "elapsedYears": 1.4166666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_329f5ab2",
+            "startAgeInMonths": 530,
+            "endAgeInMonths": 547,
+            "internalTransitions": [
+              "第3个月接首个外部咨询单",
+              "第6个月与伴侣达成开放式关系共识",
+              "第9个月第二个咨询项目落地",
+              "第12个月参加行业沙龙结识合伙人",
+              "第15个月父亲住院，增加家庭照顾投入"
+            ],
+            "decisionCheckpointId": "checkpoint_63f157fb",
+            "summary": "你决定留在二线分公司，专注事业发展，并接受关系现状。接下来的17个月，你逐步将精力从日常管理转向独立咨询项目。第3个月，你利用公司资源接下了第一个外部咨询单，金"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "独立咨询业务拓展与职业路径决策",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                63.583333333333336,
+                90.58333333333333
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 547,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                33.58333333333333,
+                57.583333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 547,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f",
+            "3964b4a3",
+            "f1e8a318",
+            "4d06cfb8",
+            "461fa47a",
+            "8eed3e69"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 47,
+        "ageInMonths": 573,
+        "lifeStage": "midlife",
+        "title": "线上咨询的瓶颈与新机会",
+        "stage": "现实转折",
+        "description": "你决定保持现状，在分公司兼职做咨询并加强线上获客。接下来26个月，你逐渐将线上咨询发展成稳定的副业，月收入从兼职的4000元增长至1.2万元。然而，公司内部对你的兼职态度愈发暧昧，第13个月时，HR找你谈话，要求你必须在全职与兼职之间做出选择。与此同时，伴侣在培训城市的生活逐渐独立，你们的关系维持在开放式状态，每月视频一次，话题客气而疏离。第16个月，父亲再次因高血压住院，你请假两周回去照顾，母亲膝盖旧伤复发，你不得不增加护工频率。第20个月，你通过线上平台接到一个来自一线城市的大客户，项目金额15万元，但需要你每周出差三天。第22个月，你接到前同事的电话，他邀请你加入他新成立的咨询公司，作为合伙人，底薪加分成，但需要你搬到一线城市。你感到这是一个逃离当前困局的机会——既能突破职业瓶颈，又能重新开始生活，但代价是彻底放弃现有稳定工作、离开二线城市的公寓，以及与伴侣的关系面临最终考验。健康方面，胃病基本稳定，但长期久坐和压力导致腰椎间盘突出，需要每周理疗。",
+        "selectedChoice": "与公司协商，转为兼职顾问，同时接受前同事的项目合作邀约，以远程方式参与，维持现有生活基础",
+        "attributes": {
+          "happiness": 32,
+          "intelligence": 84,
+          "wealth": 44,
+          "relation": 42,
+          "health": 43
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 573,
+          "cashWan": 187,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 277,
+          "annualAfterTaxIncomeWan": 4.8,
+          "annualDisposableIncomeWan": -9.6,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 0.4,
+          "incomeMonths": 26,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 26,
+          "afterTaxIncomeWan": 10.4,
+          "livingExpenseWan": 31.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -20.8,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受前同事邀请，辞职搬到一线城市加入新公司，成为合伙人，开启全新职业阶段",
+            "impactSummary": "职业跃迁，关系终结",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "职业跃迁，关系终结"
+            },
+            "decisionIntent": "career:relocate_to_first_tier:partnership",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "拒绝邀请，辞去分公司职位，全职投入线上咨询，并扩大团队，将业务从二线城市向全国拓展",
+            "impactSummary": "自主创业，风险自担",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "自主创业，风险自担"
+            },
+            "decisionIntent": "career:start_online_consulting:full_time",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "与公司协商，转为兼职顾问，同时接受前同事的项目合作邀约，以远程方式参与，维持现有生活基础",
+            "impactSummary": "双线并行，平衡试探",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "双线并行，平衡试探"
+            },
+            "decisionIntent": "career:hybrid_remote_partnership:negotiate",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "opportunity_escape_route",
+          "eventCategory": "opportunity",
+          "eventTags": [
+            "opportunity",
+            "escape_route",
+            "isolation",
+            "high_reward"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 26,
+          "elapsedYears": 2.1666666666666665,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_dc554656",
+            "startAgeInMonths": 547,
+            "endAgeInMonths": 573,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_6621c652",
+            "summary": "你决定保持现状，在分公司兼职做咨询并加强线上获客。接下来26个月，你逐渐将线上咨询发展成稳定的副业，月收入从兼职的4000元增长至1.2万元。然而，公司内部对你"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "伴侣",
+            "父亲",
+            "母亲",
+            "前同事"
+          ],
+          "primaryActivity": "线上咨询业务发展与职业选择",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                65.75,
+                92.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 573,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                35.74999999999999,
+                59.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 573,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f",
+            "3964b4a3",
+            "f1e8a318",
+            "4d06cfb8",
+            "461fa47a",
+            "8eed3e69",
+            "3737e080"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 50,
+        "ageInMonths": 605,
+        "lifeStage": "mature_adulthood",
+        "title": "远程合作的真实代价",
+        "stage": "中年转型的十字路口",
+        "description": "你与公司协商后成功转为兼职顾问，月薪降至1.2万元，但保留了社保和基本福利。前同事的项目合作以远程方式启动，初期每月额外增加8000元收入，但需要频繁跨时区沟通和每周两次深夜会议。第5个月，腰椎间盘突出加重，理疗频率增至每周两次，医疗支出每月多出1500元。第8个月，父亲再次因高血压住院，你请假一周回去，发现母亲膝盖需要置换手术，预估费用8万元。你决定先垫付，但现金流瞬间紧绷。第12个月，前同事的项目进入关键阶段，要求你每月至少出差一周，你不得不频繁往返一线城市，睡眠严重不足，胃病复发。第18个月，公司内部重组，你的兼职岗位被取消，HR提出要么转全职回分公司，要么彻底离职。与此同时，前同事的项目因甲方预算削减陷入停滞，远程收入骤降。你意识到，所谓的稳定过渡并未实现，反而陷入了两头落空的窘境。第24个月，你拒绝了转全职的提议，正式离职，全职投入前同事的项目，但项目前景不明，月收入降至1.5万元。第30个月，母亲膝盖手术成功，但康复期需要长期护理，你每月多支出3000元。第32个月，前同事的项目勉强续约，但分成比例下调，你年收入预计仅18万元。你感到身体被透支，关系上，与伴侣已近乎失联，她偶尔发来消息，内容只是简单问候。你站在空荡的公寓里，意识到自己用健康换来的所谓平衡，其实是一场缓慢的坠落。",
+        "selectedChoice": "B. 回归体制内求稳",
+        "attributes": {
+          "happiness": 28,
+          "intelligence": 85,
+          "wealth": 48,
+          "relation": 36,
+          "health": 37
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 605,
+          "cashWan": 187,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 277,
+          "annualAfterTaxIncomeWan": 14.4,
+          "annualDisposableIncomeWan": 0,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.2,
+          "incomeMonths": 32,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 32,
+          "afterTaxIncomeWan": 38.4,
+          "livingExpenseWan": 38.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 0,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "A. 全职转型一线",
+            "impactSummary": "全职转型一线",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "全职转型一线"
+            },
+            "decisionIntent": "location:relocate_to:first_tier_city_consulting_partner",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "B. 回归体制内求稳",
+            "impactSummary": "回归体制内求稳",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "回归体制内求稳"
+            },
+            "decisionIntent": "career:return_to_full_time:second_tier_branch",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "C. 自主创业咨询",
+            "impactSummary": "自主创业咨询",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "自主创业咨询"
+            },
+            "decisionIntent": "career:start_independent_consulting:second_tier_city",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "opportunity_unstable_alliance",
+          "eventCategory": "opportunity",
+          "eventTags": [
+            "opportunity",
+            "alliance",
+            "uncertainty",
+            "resource_gap"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 32,
+          "elapsedYears": 2.6666666666666665,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_4ec0b043",
+            "startAgeInMonths": 573,
+            "endAgeInMonths": 605,
+            "internalTransitions": [
+              "前5个月尝试远程协作，初期收入尚可，但健康开始下滑。",
+              "第8个月因母亲手术垫付费用，现金流紧张。",
+              "第18个月公司取消兼职岗位，被迫离职。",
+              "第24个月全职投入前同事项目，但收入不稳定。",
+              "第30个月母亲康复期增加支出。"
+            ],
+            "decisionCheckpointId": "checkpoint_76081d1a",
+            "summary": "你与公司协商后成功转为兼职顾问，月薪降至1.2万元，但保留了社保和基本福利。前同事的项目合作以远程方式启动，初期每月额外增加8000元收入，但需要频繁跨时区沟通"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "前同事（项目合作方）",
+            "伴侣（疏远）",
+            "父亲",
+            "母亲"
+          ],
+          "primaryActivity": "远程项目合作与家庭照护",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                68.41666666666667,
+                95.41666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 605,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                38.41666666666666,
+                62.416666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 605,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f",
+            "3964b4a3",
+            "f1e8a318",
+            "4d06cfb8",
+            "461fa47a",
+            "8eed3e69",
+            "3737e080",
+            "3e5d652a"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 51,
+        "ageInMonths": 619,
+        "lifeStage": "mature_adulthood",
+        "title": "体制内的平静代价",
+        "stage": "回归体制内求稳",
+        "description": "你决定彻底回归体制内，重新申请了原二线分公司的全职岗位。经过两周的等待，公司批准了你的申请，恢复你为全职员工，月薪1.8万元，年收入约21.6万元。你卖掉了公寓套现200万，还清债务后剩余80万，加上已经积累了一些储蓄。你租了一套小两居，月租金3500元。第2个月，前同事的项目彻底结束，你不再有兼职收入。第4个月，父亲因高血压再次住院，你请假一周回去，母亲膝盖康复良好但仍需护工，每月支出4000元。第6个月，你开始每周两次理疗，腰椎间盘突出逐渐缓解，胃病在规律饮食下趋于稳定。第8个月，你通过行业沙龙认识了一位新朋友，她邀请你周末一起徒步，你开始尝试轻度运动。第10个月，公司内部调整，你被调到一个更清闲的部门，负责内部培训，工作压力大幅降低。第12个月，你偶然得知伴侣在培训城市有了新的伴侣，你们平静地断了联系。第14个月末，你站在租住的公寓里，意识到生活虽平淡，但健康在恢复，财务趋于稳定，只是内心深处仍有一丝不甘——你放弃了曾经渴望的独立咨询事业，换来了安稳。",
+        "selectedChoice": "查看这段人生的报告",
+        "attributes": {
+          "happiness": 30,
+          "intelligence": 86,
+          "wealth": 51,
+          "relation": 38,
+          "health": 42
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 619,
+          "cashWan": 195.4,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 285.4,
+          "annualAfterTaxIncomeWan": 21.6,
+          "annualDisposableIncomeWan": 7.2,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.8,
+          "incomeMonths": 14,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 14,
+          "afterTaxIncomeWan": 25.2,
+          "livingExpenseWan": 16.8,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 8.4,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "安于现状，在体制内深耕培训岗位，同时利用业余时间发展兴趣爱好，接受平淡生活",
+            "impactSummary": "固守稳定",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "固守稳定"
+            },
+            "decisionIntent": "career:stay_in_branch_training",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "利用业余时间重拾独立咨询，但保持全职工作，重新建立线上客户群，低调开展副业",
+            "impactSummary": "兼职回归",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "兼职回归"
+            },
+            "decisionIntent": "career:start_online_consulting_parttime",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "考虑卖掉现有资产，搬到一线城市重新开始，寻找新的职业机会和生活环境",
+            "impactSummary": "城市重启",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "城市重启"
+            },
+            "decisionIntent": "location:relocate_to_first_tier_city",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 14,
+          "elapsedYears": 1.1666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_fd00a990",
+            "startAgeInMonths": 605,
+            "endAgeInMonths": 619,
+            "internalTransitions": [
+              "第1-2个月：办妥离职手续，卖掉公寓，还清债务，租住新公寓，恢复全职工作",
+              "第3-5个月：适应新岗位，处理父亲住院事宜，腰椎理疗开始，收入稳定但无副业",
+              "第6-8个月：健康改善，开始徒步，结识新朋友，工作压力降低",
+              "第9-12个月：调岗至培训部门，生活规律，与伴侣彻底断联",
+              "第13-14个月：生活平稳，健康基本恢复，财务稳定，内心接受平淡但仍有不甘"
+            ],
+            "decisionCheckpointId": "checkpoint_42368170",
+            "summary": "你决定彻底回归体制内，重新申请了原二线分公司的全职岗位。经过两周的等待，公司批准了你的申请，恢复你为全职员工，月薪1.8万元，年收入约21.6万元。你卖掉了公寓"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "自己",
+            "父亲",
+            "母亲",
+            "新朋友"
+          ],
+          "primaryActivity": "体制内培训工作",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                69.58333333333334,
+                96.58333333333334
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 619,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            },
+            {
+              "id": "family_partner",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                39.58333333333332,
+                63.58333333333333
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 619,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "4a04b3d8",
+            "85000cde",
+            "f785b989",
+            "5fc0fbd0",
+            "f1d48663",
+            "9eda2594",
+            "e0bd175f",
+            "3964b4a3",
+            "f1e8a318",
+            "4d06cfb8",
+            "461fa47a",
+            "8eed3e69",
+            "3737e080",
+            "3e5d652a",
+            "01b70748"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        },
+        "reportInvitation": {
+          "id": "d514f0a5",
+          "status": "accepted",
+          "reason": "stable_window",
+          "triggerKey": "stable:8",
+          "completedChoiceCount": 15,
+          "acceptedAtChoiceCount": 15
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 51,
+      "ageInMonths": 619,
+      "stage": "回归体制内求稳",
+      "title": "体制内的平静代价",
+      "description": "你决定彻底回归体制内，重新申请了原二线分公司的全职岗位。经过两周的等待，公司批准了你的申请，恢复你为全职员工，月薪1.8万元，年收入约21.6万元。你卖掉了公寓套现200万，还清债务后剩余80万，加上已经积累了一些储蓄。你租了一套小两居，月租金3500元。第2个月，前同事的项目彻底结束，你不再有兼职收入。第4个月，父亲因高血压再次住院，你请假一周回去，母亲膝盖康复良好但仍需护工，每月支出4000元。第6个月，你开始每周两次理疗，腰椎间盘突出逐渐缓解，胃病在规律饮食下趋于稳定。第8个月，你通过行业沙龙认识了一位新朋友，她邀请你周末一起徒步，你开始尝试轻度运动。第10个月，公司内部调整，你被调到一个更清闲的部门，负责内部培训，工作压力大幅降低。第12个月，你偶然得知伴侣在培训城市有了新的伴侣，你们平静地断了联系。第14个月末，你站在租住的公寓里，意识到生活虽平淡，但健康在恢复，财务趋于稳定，只是内心深处仍有一丝不甘——你放弃了曾经渴望的独立咨询事业，换来了安稳。",
+      "choices": [
+        {
+          "id": "A",
+          "text": "安于现状，在体制内深耕培训岗位，同时利用业余时间发展兴趣爱好，接受平淡生活",
+          "impactSummary": "固守稳定",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "固守稳定"
+          },
+          "decisionIntent": "career:stay_in_branch_training",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "利用业余时间重拾独立咨询，但保持全职工作，重新建立线上客户群，低调开展副业",
+          "impactSummary": "兼职回归",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "兼职回归"
+          },
+          "decisionIntent": "career:start_online_consulting_parttime",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "考虑卖掉现有资产，搬到一线城市重新开始，寻找新的职业机会和生活环境",
+          "impactSummary": "城市重启",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "城市重启"
+          },
+          "decisionIntent": "location:relocate_to_first_tier_city",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "attributes": {
+        "happiness": 30,
+        "intelligence": 86,
+        "wealth": 51,
+        "relation": 38,
+        "health": 42
+      },
+      "isEndingNode": false,
+      "narrativeMeta": {
+        "elapsedMonths": 14,
+        "elapsedYears": 1.1666666666666667,
+        "lifeIntensity": "normal",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_fd00a990",
+          "startAgeInMonths": 605,
+          "endAgeInMonths": 619,
+          "internalTransitions": [
+            "第1-2个月：办妥离职手续，卖掉公寓，还清债务，租住新公寓，恢复全职工作",
+            "第3-5个月：适应新岗位，处理父亲住院事宜，腰椎理疗开始，收入稳定但无副业",
+            "第6-8个月：健康改善，开始徒步，结识新朋友，工作压力降低",
+            "第9-12个月：调岗至培训部门，生活规律，与伴侣彻底断联",
+            "第13-14个月：生活平稳，健康基本恢复，财务稳定，内心接受平淡但仍有不甘"
+          ],
+          "decisionCheckpointId": "checkpoint_42368170",
+          "summary": "你决定彻底回归体制内，重新申请了原二线分公司的全职岗位。经过两周的等待，公司批准了你的申请，恢复你为全职员工，月薪1.8万元，年收入约21.6万元。你卖掉了公寓"
+        },
+        "recoveryState": "protected",
+        "recoveryEvidence": [],
+        "arcSignals": [],
+        "activeCharacters": [
+          "自己",
+          "父亲",
+          "母亲",
+          "新朋友"
+        ],
+        "primaryActivity": "体制内培训工作",
+        "worldDeltas": []
+      },
+      "financialSignals": {
+        "employmentStatus": "employed",
+        "monthlyNetIncomeWan": 1.8,
+        "incomeMonths": 14,
+        "monthlyLivingExpenseWan": 1.2,
+        "oneOffIncomeWan": 0,
+        "oneOffExpenseWan": 0,
+        "assetValueChangeWan": 0,
+        "propertyMarketValueChangeWan": 0,
+        "personalDebtChangeWan": 0,
+        "incomeStability": "volatile",
+        "confidence": 0.65,
+        "reasons": [
+          "根据正文明确月收入估算",
+          "按阶段月份累计收入并参考上期生活成本"
+        ]
+      },
+      "lifeStage": "mature_adulthood",
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 619,
+        "cashWan": 195.4,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 200,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 120,
+        "netWorthWan": 285.4,
+        "annualAfterTaxIncomeWan": 21.6,
+        "annualDisposableIncomeWan": 7.2,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "financialChange": {
+        "periodMonths": 14,
+        "afterTaxIncomeWan": 25.2,
+        "livingExpenseWan": 16.8,
+        "medicalEducationExpenseWan": 0,
+        "interestAndFeesWan": 0,
+        "assetValueChangeWan": 0,
+        "otherNetChangeWan": 0,
+        "netWorthChangeWan": 8.4,
+        "incomeStability": "volatile",
+        "reasons": [
+          "根据正文明确月收入估算",
+          "按阶段月份累计收入并参考上期生活成本"
+        ]
+      },
+      "committedArcMeta": {
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "family_parent",
+            "relation": "parent",
+            "estimatedAgeRange": [
+              69.58333333333334,
+              96.58333333333334
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 619,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "父母",
+            "source": "model_inferred",
+            "confidence": 0.55
+          },
+          {
+            "id": "family_partner",
+            "relation": "partner",
+            "estimatedAgeRange": [
+              39.58333333333332,
+              63.58333333333333
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 619,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "伴侣",
+            "source": "model_inferred",
+            "confidence": 0.55
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_dd665c17",
+            "directionType": "romance",
+            "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+            "status": "active",
+            "startedAtAgeInMonths": 312,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [],
+        "committedTransactionIds": [
+          "4a04b3d8",
+          "85000cde",
+          "f785b989",
+          "5fc0fbd0",
+          "f1d48663",
+          "9eda2594",
+          "e0bd175f",
+          "3964b4a3",
+          "f1e8a318",
+          "4d06cfb8",
+          "461fa47a",
+          "8eed3e69",
+          "3737e080",
+          "3e5d652a",
+          "01b70748"
+        ],
+        "version": 1
+      },
+      "reportInvitation": {
+        "id": "d514f0a5",
+        "status": "accepted",
+        "reason": "stable_window",
+        "triggerKey": "stable:8",
+        "completedChoiceCount": 15,
+        "acceptedAtChoiceCount": 15
+      }
+    },
+    "currentAttributes": {
+      "happiness": 30,
+      "intelligence": 86,
+      "wealth": 51,
+      "relation": 38,
+      "health": 42
+    },
+    "nodeCount": 16,
+    "simulationSeed": "fdc7afe9-694e-4580-b2c0-5c89057530ff",
+    "outcome": {
+      "share": {
+        "viralTitle": "我用20年学会了一个道理：不是所有问题都能靠‘再坚持一下’…",
+        "covenantTitle": "承诺的摆渡人",
+        "oneLineSummary": "你一次次试图用妥协和承诺来平衡感情与事业，最终发现人生不是一道选择题，而是一道证明题。",
+        "timeline": [
+          {
+            "ageLabel": "26岁",
+            "icon": "💼",
+            "title": "天平的两端",
+            "choiceSummary": "接受一年外派，约定年底评估",
+            "keyMomentIndexes": [
+              0
+            ]
+          },
+          {
+            "ageLabel": "30岁",
+            "icon": "🏠",
+            "title": "迁徙的代价",
+            "choiceSummary": "接受晋升，伴侣辞职随迁",
+            "keyMomentIndexes": [
+              3
+            ]
+          },
+          {
+            "ageLabel": "35岁",
+            "icon": "👶",
+            "title": "未落地的石头",
+            "choiceSummary": "承诺两年缓冲，回避生育分歧",
+            "keyMomentIndexes": [
+              6
+            ]
+          },
+          {
+            "ageLabel": "43岁",
+            "icon": "🛤️",
+            "title": "岔路口",
+            "choiceSummary": "接受关系开放式结局，各自独立",
+            "keyMomentIndexes": [
+              10
+            ]
+          },
+          {
+            "ageLabel": "50岁",
+            "icon": "🌱",
+            "title": "回归平静",
+            "choiceSummary": "回归体制内，放弃独立咨询梦",
+            "keyMomentIndexes": [
+              14
+            ]
+          }
+        ],
+        "closingLine": "人生不是由成功组成，而是由一次次选择组成。",
+        "posterTheme": "warm_realistic",
+        "downloadFileName": "这段人生的报告.png",
+        "imageAlt": "我用20年学会了一个道理：不是所有问题都能靠‘再坚持一下’… 阶段人生报告海报"
+      },
+      "report": {
+        "executiveSummary": {
+          "headline": "你的人生一直在用‘承诺’和‘妥协’来平衡感情与事业，但每一次平衡都在透支你的健康和关系。",
+          "patterns": [
+            {
+              "name": "承诺缓冲器",
+              "shortDescription": "面对冲突时，你倾向于用‘再坚持一下’和‘再给一年’来推迟最终决策。",
+              "keyMomentIndexes": [
+                0,
+                2,
+                6
+              ]
+            },
+            {
+              "name": "为你好型付出",
+              "shortDescription": "你习惯替伴侣规划人生路径，却忽略了她真正想要的是自主选择。",
+              "keyMomentIndexes": [
+                6,
+                8,
+                9
+              ]
+            },
+            {
+              "name": "风险对冲者",
+              "shortDescription": "你总是试图同时保住两个选项，结果常常两头落空。",
+              "keyMomentIndexes": [
+                13,
+                14
+              ]
+            }
+          ],
+          "closingLine": "这些模式让你获得了今天的优势，也带来了今天的代价。"
+        },
+        "repeatedPatterns": [
+          {
+            "name": "承诺缓冲器",
+            "title": "用‘再坚持一下’推迟最终决策",
+            "paragraphs": [
+              "28岁时，伴侣希望你放弃外地晋升，你没有直接选择留下或离开，而是提出‘一年外派，年底评估’。一年后，你再次请求‘再给一年缓冲’。35岁时，面对生育分歧，你又提出‘两年缓冲计划’。每一次，你都用承诺来争取时间，但时间并没有解决问题，只是让问题发酵。",
+              "这个模式让你避免了当下的激烈冲突，但也让你和伴侣在漫长的等待中消耗了信任和激情。你在43岁那年终于意识到，有些问题不是靠‘再坚持一下’就能解决的。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              2,
+              6
+            ],
+            "closingLine": "承诺不是答案，只是问题的延期。"
+          },
+          {
+            "name": "为你好型付出",
+            "title": "替伴侣规划人生，却忽略她的主体性",
+            "paragraphs": [
+              "31岁时，你鼓励伴侣接受私立学校工作；34岁时，你支持她考编；39岁时，你坚持让她继续备考；43岁时，你为她报名冲刺班。你一直在为她‘好’，却从未真正问过她想要什么。直到她坦言‘从未掌控过自己的人生’，你才意识到自己成了她人生的编剧。",
+              "这个模式源于你内心对‘完美关系’的执念——只要规划得当，感情和事业就能双赢。但伴侣不是项目，她需要的是平等的伙伴，而不是项目经理。"
+            ],
+            "keyMomentIndexes": [
+              4,
+              8,
+              9
+            ],
+            "closingLine": "爱不是替对方走路，而是陪她走路。"
+          },
+          {
+            "name": "风险对冲者",
+            "title": "试图同时保住两个选项，结果两头落空",
+            "paragraphs": [
+              "47岁时，你试图同时保留分公司的稳定工作和远程合作机会，结果公司取消了兼职岗位，合作项目也因甲方预算削减而停滞。你最终两头落空，被迫回归体制内，收入下降，健康恶化。",
+              "这个模式在你的职业生涯中反复出现——你总想‘既要又要’，但资源有限，精力有限，最终往往什么都没抓住。"
+            ],
+            "keyMomentIndexes": [
+              13,
+              14
+            ],
+            "closingLine": "人生不是多选题，有些选择必须单选。"
+          }
+        ],
+        "patternEffects": [
+          {
+            "patternName": "承诺缓冲器",
+            "compoundReturn": "你通过不断延后决策，避免了早期关系的剧烈破裂，为自己争取了职业上升的时间。外派一年让你收入增长28万，缓冲期让你最终实现了伴侣随迁，并在二线城市获得了稳定职位。",
+            "hiddenCost": "每一次缓冲都消耗了伴侣的信任和耐心，最终导致关系从亲密走向疏离。你错过了生育的最佳时机，也错过了与伴侣共同成长的可能。",
+            "paragraphs": [
+              "这个模式让你在职业上稳步前进，但在感情上逐步后退。你得到了更高的职位和积蓄，却失去了与伴侣并肩前行的可能性。",
+              "从外派到缓冲再到开放式关系，你一直在‘争取时间’，但时间也在无声地改变你们。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              10
+            ],
+            "closingLine": "你赢得了时间，却输掉了同步。"
+          },
+          {
+            "patternName": "为你好型付出",
+            "compoundReturn": "伴侣在你的推动下尝试了多种职业路径，虽然最终没有找到稳定的方向，但她在过程中积累了技能和自我认知。你也在付出中获得了‘负责任伴侣’的自我认同。",
+            "hiddenCost": "你的‘为你好’让伴侣感到窒息，她失去了自主选择的权力，也失去了对你的依赖。最终她选择独自出走，去一个没有你规划的城市重新开始。",
+            "paragraphs": [
+              "你把她的人生当成自己的项目来经营，却忘了她是一个独立的人。你的付出成了她的枷锁，你的规划成了她的牢笼。"
+            ],
+            "keyMomentIndexes": [
+              4,
+              10
+            ],
+            "closingLine": "你给的不是她想要的，而是你以为她想要的。"
+          }
+        ],
+        "futureTrends": [
+          {
+            "title": "回归体制内的安稳晚年",
+            "trend": "你将在体制内继续工作到退休，收入稳定但增长缓慢。随着父母医疗支出增加，你的积蓄会逐渐减少，但基本生活无忧。你的社交圈会局限于同事和老友，健康问题（腰椎、睡眠）需要长期管理。",
+            "reason": "这是你最后一次选择‘求稳’后的必然延续。你已经放弃了风险较高的独立咨询事业，也没有动力再开辟新路径。",
+            "keyMomentIndexes": [
+              14
+            ]
+          },
+          {
+            "title": "孤独终老的可能性",
+            "trend": "你与伴侣已断联，未来十年内你很难再建立新的亲密关系。你习惯了独处，但也会在深夜感到孤独。你可能会养一只猫或狗，但不会再为另一个人做出重大牺牲。",
+            "reason": "你的人生模式让你在关系中过度付出，最终导致关系破裂。你没有学会如何平等地爱与被爱。",
+            "keyMomentIndexes": [
+              14
+            ]
+          }
+        ],
+        "patternsToKeep": [
+          {
+            "title": "保持‘坚持’的习惯",
+            "why": "你在职业生涯中展现出的韧性——从外派到晋升，从兼职到独立咨询——让你在经济上始终有底线。即使在最困难的时候，你也没有放弃工作。",
+            "paragraphs": [
+              "这种坚持让你在50岁时仍有285万净资产，这在同龄人中已是中上水平。你该保留这种‘不轻易放弃’的韧性，但需要调整它的应用场景。",
+              "你坚持了26年的职业生涯，这是你最大的资产。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              14
+            ],
+            "closingLine": "坚持不是问题，问题是坚持什么。"
+          },
+          {
+            "title": "保留‘为他人着想’的本能",
+            "why": "你始终把伴侣、父母的感受放在重要位置，这让你在关系初期获得了深厚的信任。你愿意为爱付出，这是你人格中最温暖的部分。",
+            "paragraphs": [
+              "但你需要升级这个模式：从‘替他人做决定’变成‘支持他人做决定’。未来，你可以继续关心他人，但要学会放手，让对方走自己的路。"
+            ],
+            "keyMomentIndexes": [
+              4,
+              10
+            ],
+            "closingLine": "善良需要边界，付出需要方向。"
+          }
+        ],
+        "patternsToAdjust": [
+          {
+            "title": "从‘承诺缓冲’升级为‘果断决策’",
+            "why": "承诺缓冲让你避免了短期痛苦，但延长了长期痛苦。你花了20年才明白，有些问题无法通过拖延解决。",
+            "paragraphs": [
+              "升级方案：当面临重大决策时，给自己设定一个明确的截止日期（比如3个月），然后做出选择。即使选错，也比悬而未决好。",
+              "你可以在职业上尝试：如果再次面临机会，用‘接受或放弃’替代‘我再想想’。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              6
+            ],
+            "closingLine": "果断的遗憾好过拖延的消耗。"
+          },
+          {
+            "title": "从‘为你好型付出’升级为‘协作型付出’",
+            "why": "你的付出模式源于控制欲和对不确定性的恐惧。你害怕伴侣走错路，所以替她规划，但这剥夺了她的成长机会。",
+            "paragraphs": [
+              "升级方案：在关系中建立‘共同决策’机制。当分歧出现时，先问对方‘你想要什么’，而不是直接给出方案。把伴侣当作合伙人，而不是下属。",
+              "你可以从小事开始练习：比如下一次家庭支出，先问伴侣的意见再决定。"
+            ],
+            "keyMomentIndexes": [
+              4,
+              8
+            ],
+            "closingLine": "最好的爱是放手让对方成为她自己。"
+          },
+          {
+            "title": "从‘风险对冲’升级为‘专注深耕’",
+            "why": "你试图同时保住稳定工作和兼职咨询，结果两头落空。专注才能带来真正的复利。",
+            "paragraphs": [
+              "升级方案：在职业上选择一条路走到黑。如果你选择体制内，就深耕内部培训，成为专家；如果你选择咨询，就全力投入，不再保留退路。",
+              "你的健康已经不允许你再‘两头跑’了。身体是1，其他是0。"
+            ],
+            "keyMomentIndexes": [
+              13
+            ],
+            "closingLine": "与其在两个领域平庸，不如在一个领域卓越。"
+          }
+        ],
+        "finalLifeReading": {
+          "title": "如果我是十年后的你",
+          "paragraphs": [
+            "十年后的你，会坐在公园的长椅上，看着年轻人匆忙路过。你会想起那些深夜的会议、未兑现的承诺，以及最后那个空了一半的公寓。你不会后悔，因为每一步都是当时的你所能做出的最好选择。",
+            "你会明白，人生不是一道选择题，而是一道证明题——你证明了自己可以坚持，可以付出，也可以放手。你证明了即使没有完美的答案，你依然走完了这条路。",
+            "你的故事里没有赢家，也没有输家，只有一个在承诺与放手之间摇摆的人，最终学会了与自己和解。"
+          ],
+          "finalSentence": "你的人生是一首未完成的诗，字里行间都是‘如果当初’的省略号。"
+        }
+      },
+      "meta": {
+        "generatedAt": "2026-07-15T17:46:23.965Z",
+        "modelProvider": "deepseek",
+        "posterVersion": "web-v1",
+        "reportVersion": "life-pattern-v2",
+        "closureType": "user_reflection"
+      }
+    },
+    "isLoading": false,
+    "isLoadingNext": false,
+    "errorMsg": null,
+    "invitations": [
+      {
+        "nodeIndex": 15,
+        "id": "d514f0a5",
+        "status": "accepted",
+        "reason": "stable_window",
+        "triggerKey": "stable:8",
+        "completedChoiceCount": 15,
+        "acceptedAtChoiceCount": 15,
+        "terminalAction": "查看这段人生的报告"
+      }
+    ]
+  }
+}
