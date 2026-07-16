@@ -125,6 +125,17 @@ function moneyMismatchIsMaterial(actual: number, explicit: number): boolean {
   return actual >= explicit * 5 || actual <= explicit / 5;
 }
 
+export function isStudentFinancialNarrative(description: string): boolean {
+  return /在校|大学|学生|大[一二三四]|院校|专业课|学期|导师/.test(description);
+}
+
+function monthlyFamilySupport(description: string): number {
+  return firstMoneyMatch(description, [
+    /(?:父母|家里|家人|母亲|父亲)[^。；]{0,16}(?:每月|每个月)[^。；]{0,12}(?:给|提供|补贴|承担)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
+    /(?:每月|每个月)[^。；]{0,12}(?:父母|家里|家人|母亲|父亲)[^。；]{0,12}(?:给|提供|补贴|承担)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/
+  ]) || 0;
+}
+
 function studentExpenseCeiling(description: string): number {
   const explicitLivingExpense = firstMoneyMatch(description, [
     /(?:生活费|房租|住宿费|伙食费)[^。；，]{0,16}(?:每月|月付)[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
@@ -152,8 +163,9 @@ export function reconcileStudentFinancialSignals(
   const explicitOneOffIncome = firstMoneyMatch(description, [
     /(?:赚了|挣了|获得报酬|拿到报酬|收入)[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/
   ]);
+  const explicitMonthlyFamilySupport = monthlyFamilySupport(description);
   const normalized = normalizeFinancialSignals(raw, periodMonths);
-  const narrativeIsStudent = /在校|大学|学生|大[一二三四]|院校|专业课|学期|导师/.test(description);
+  const narrativeIsStudent = isStudentFinancialNarrative(description);
   const isStudentPhase = narrativeIsStudent
     || normalized.employmentStatus === "student"
     || normalized.employmentStatus === "part_time";
@@ -166,20 +178,29 @@ export function reconcileStudentFinancialSignals(
   };
   const expenseCeiling = studentExpenseCeiling(description);
 
+  const monthlyNetIncomeWan = explicitMonthlyIncome !== undefined
+    && moneyMismatchIsMaterial(signals.monthlyNetIncomeWan, explicitMonthlyIncome)
+    ? roundSignalMoney(explicitMonthlyIncome)
+    : explicitMonthlyFamilySupport > 0 && explicitMonthlyIncome === undefined
+      ? 0
+      : signals.monthlyNetIncomeWan;
+  const monthlyLivingExpenseWan = roundSignalMoney(Math.max(
+    0,
+    Math.min(signals.monthlyLivingExpenseWan, expenseCeiling) - explicitMonthlyFamilySupport
+  ));
   const reconciled = {
     ...signals,
-    monthlyNetIncomeWan: explicitMonthlyIncome !== undefined
-      && moneyMismatchIsMaterial(signals.monthlyNetIncomeWan, explicitMonthlyIncome)
-      ? roundSignalMoney(explicitMonthlyIncome)
-      : signals.monthlyNetIncomeWan,
+    monthlyNetIncomeWan,
     oneOffIncomeWan: explicitOneOffIncome !== undefined
       && moneyMismatchIsMaterial(signals.oneOffIncomeWan, explicitOneOffIncome)
       ? roundSignalMoney(explicitOneOffIncome)
       : signals.oneOffIncomeWan,
-    monthlyLivingExpenseWan: roundSignalMoney(Math.min(signals.monthlyLivingExpenseWan, expenseCeiling)),
-    reasons: signals.monthlyLivingExpenseWan > expenseCeiling
-      ? [...signals.reasons, "学生个人净支出按正文金额和保守生活费校正"].slice(0, 4)
-      : signals.reasons
+    monthlyLivingExpenseWan,
+    reasons: [
+      ...signals.reasons,
+      ...(signals.monthlyLivingExpenseWan > expenseCeiling ? ["学生个人净支出按正文金额和保守生活费校正"] : []),
+      ...(explicitMonthlyFamilySupport > 0 ? ["父母生活支持只抵扣学生生活支出，不计入工资或可积累财富"] : [])
+    ].slice(0, 4)
   };
 
   if (!previousState || reconciled.personalDebtChangeWan > 0 || periodMonths <= 0) return reconciled;
@@ -211,7 +232,7 @@ function inferEmploymentStatus(description: string, hasMonthlyIncome: boolean, p
   if (/失业|待业|辞职后尚未|没有工作/.test(description)) return "not_working";
   if (/创业|个体经营|自由职业/.test(description)) return "self_employed";
   if (/在校|大学|学生|学徒|考研|读研/.test(description)) return hasMonthlyIncome ? "part_time" : "student";
-  if (hasMonthlyIncome || /入职|工作|岗位|上班/.test(description)) return "employed";
+  if (hasMonthlyIncome || /入职|工作|岗位|上班|实习|进入.{0,8}(?:公司|团队|机构)/.test(description)) return "employed";
   return previous || "not_working";
 }
 

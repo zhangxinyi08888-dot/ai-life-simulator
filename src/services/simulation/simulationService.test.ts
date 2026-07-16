@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
 import { generateNextNode, generateQuestions, startSimulation } from "./simulationService";
-import { deriveWealthScore, estimateFinancialStateFromWealth } from "../../utils/financialState";
+import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -300,6 +300,78 @@ for (const testCase of degradedFinanceCases) {
   assert.equal(degradedNode.financialState?.isEstimated, true);
   assert.ok(degradedNode.financialSignals);
   assert.ok(degradedNode.financialChange);
+}
+
+const studentFinancialState = normalizeInitialFinancialState({
+  cashWan: 0.5,
+  investmentAssetsWan: 0,
+  propertyMarketValueWan: 0,
+  businessAndOtherAssetsWan: 0,
+  totalDebtWan: 0,
+  annualAfterTaxIncomeWan: 0,
+  annualDisposableIncomeWan: 0,
+  annualCoreExpenseWan: 1.2,
+  employmentStatus: "student",
+  incomeStability: "unstable",
+  isEstimated: true
+}, 18 * 12, 40);
+const studentHistory: HistoryItem[] = [{
+  ...history[0],
+  age: 18,
+  ageInMonths: 18 * 12,
+  title: "进入大学",
+  description: "你进入大学学习会计专业。",
+  financialState: studentFinancialState,
+  attributes: { ...attributes, wealth: 40 }
+}];
+const studentFallbackCases = [
+  { label: "missing-signals" },
+  {
+    label: "legacy-change",
+    financialChange: {
+      afterTaxIncomeWan: 0,
+      livingExpenseWan: 2.4,
+      medicalEducationExpenseWan: 0,
+      interestAndFeesWan: 0,
+      assetValueChangeWan: 0,
+      otherNetChangeWan: 0,
+      incomeStability: "unstable",
+      reasons: ["按学生生活费估算"]
+    }
+  }
+];
+
+for (const testCase of studentFallbackCases) {
+  const studentNode = await generateNextNode({
+    userData: { ...userData, regressionAge: 18 },
+    answers,
+    history: studentHistory,
+    currentAttributes: { ...attributes, wealth: 40 },
+    selectedDecision: "继续完成大学学业",
+    nodeIndex: 1,
+    simulationSeed: `student-support-${testCase.label}`
+  }, {
+    callAiJson: async () => ({
+      text: JSON.stringify({
+        age: 20,
+        stage: "大学阶段",
+        title: "夹缝中的两年",
+        description: "大学两年里，父母每月给你1500元生活费，你继续完成专业课。",
+        choices: [
+          { id: "A", text: "继续完成会计专业", impactSummary: "稳步完成" },
+          { id: "B", text: "辅修感兴趣的课程", impactSummary: "拓展方向" },
+          { id: "C", text: "寻找校内实践机会", impactSummary: "积累经验" }
+        ],
+        attributes,
+        financialChange: testCase.financialChange,
+        isEndingNode: false
+      })
+    })
+  });
+
+  assert.equal(studentNode.financialChange?.netWorthChangeWan, 0);
+  assert.equal(studentNode.financialState?.netWorthWan, studentFinancialState.netWorthWan);
+  assert.equal(studentNode.financialSignals?.monthlyLivingExpenseWan, 0);
 }
 
 let financialRepairCalls = 0;
