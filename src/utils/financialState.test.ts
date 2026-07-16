@@ -541,3 +541,39 @@ test("recognizes a freshman narrative and caps unfunded one-off costs", () => {
   assert.equal(result.financialState.netWorthWan, 0);
   assert.equal(result.financialChange.netWorthChangeWan, -0.5);
 });
+
+test("uses monthly family support to offset student living costs without creating income", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 0.5,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: 0,
+    annualCoreExpenseWan: 1.2,
+    employmentStatus: "student",
+    incomeStability: "unstable",
+    isEstimated: true
+  }, 18 * 12, 40);
+  const signals = reconcileStudentFinancialSignals({
+    employmentStatus: "student",
+    monthlyNetIncomeWan: 0.15,
+    incomeMonths: 24,
+    monthlyLivingExpenseWan: 0.1,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "unstable",
+    confidence: 0.5,
+    reasons: ["估算大学阶段生活费"]
+  }, "大学两年里，父母每月给你1500元生活费。", 24, previous);
+  const result = applyFinancialSignals(previous, signals, 24, 20 * 12);
+
+  assert.equal(signals.monthlyNetIncomeWan, 0);
+  assert.equal(signals.monthlyLivingExpenseWan, 0);
+  assert.equal(result.financialChange.netWorthChangeWan, 0);
+  assert.equal(result.financialState.netWorthWan, 0.5);
+});

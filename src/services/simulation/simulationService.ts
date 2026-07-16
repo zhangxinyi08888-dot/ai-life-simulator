@@ -15,7 +15,7 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
-import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, reconcileStudentFinancialSignals, withCalculatedWealth } from "../../utils/financialState";
+import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, isStudentFinancialNarrative, normalizeInitialFinancialState, reconcileStudentFinancialSignals, withCalculatedWealth } from "../../utils/financialState";
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
@@ -95,7 +95,7 @@ function attachFinancialProgress(input: {
   const financialIssues = rawChange
     ? getFinancialChangeInputIssues(rawChange, input.elapsedMonths)
     : ["financialChange 缺失"];
-  if (rawChange && financialIssues.length === 0) {
+  if (rawChange && financialIssues.length === 0 && !isStudentFinancialNarrative(input.node.description)) {
     const calculated = applyFinancialChange(
       input.previousState,
       rawChange,
@@ -117,9 +117,15 @@ function attachFinancialProgress(input: {
     periodMonths: input.elapsedMonths,
     targetAgeInMonths: input.targetAgeInMonths
   });
+  const reconciledInferredSignals = reconcileStudentFinancialSignals(
+    inferredSignals,
+    input.node.description,
+    input.elapsedMonths,
+    input.previousState
+  );
   const inferred = applyFinancialSignals(
     input.previousState,
-    inferredSignals,
+    reconciledInferredSignals,
     input.elapsedMonths,
     input.targetAgeInMonths
   );
