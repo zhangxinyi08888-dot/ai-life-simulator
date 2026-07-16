@@ -1,0 +1,5698 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-07-16-real-ai-browser-evaluation",
+  "dataSource": "real_ai_browser",
+  "caseSlug": "real-wealth-lifespan",
+  "scenario": "natural_lifespan",
+  "config": {
+    "slug": "real-wealth-lifespan",
+    "scenario": "natural_lifespan",
+    "birthday": "1983-12-07",
+    "birthtime": "17:00",
+    "returnPointName": "重判财富机会 回到机会出现之前，重新判断风险与取舍 约 30 岁",
+    "anchorText": "35岁时房地产快速上涨，我考虑卖掉唯一住房并加杠杆购买两套投资房，希望尽快实现财富跃迁。",
+    "branches": [
+      "卖房并高杠杆投资两套房，承担价格波动风险",
+      "保留自住房，只用可承受首付购买一套小户型出租",
+      "不增加房产，把新增储蓄分散到现金、债券和指数基金"
+    ],
+    "answers": [
+      "家庭税后年收入约60万元，自住房市值320万元、贷款余额120万元，现金和投资约80万元。",
+      "看到资产上涨时我害怕落后，容易高估自己承受风险的能力，但配偶更重视安全感。",
+      "我了解基本财务知识，有稳定职业，却没有经历过完整的房地产下行周期。"
+    ]
+  },
+  "startedAt": "2026-07-15T18:35:30.461Z",
+  "completedAt": "2026-07-15T18:41:26.209Z",
+  "extraInvitations": [],
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "real-wealth-lifespan",
+      "scenario": "natural_lifespan",
+      "at": "2026-07-15T18:35:30.461Z"
+    },
+    {
+      "type": "questions_generated",
+      "questions": [
+        {
+          "question": "当时你的财务状况如何？比如年收入、存款、房产价值、负债情况？",
+          "suggestions": [
+            "我年收入约30万，存款50万，自住房市值300万，贷款还剩100万。",
+            "我年收入15万，存款20万，自住房市值200万，贷款还剩80万。",
+            "我年收入50万，存款100万，自住房市值400万，贷款已还清。",
+            "我不太确定具体数字，但大概年收入20-30万，存款40万左右，自住房贷款压力不大。"
+          ]
+        },
+        {
+          "question": "面对这个投资机会，你当时的性格和反应模式是怎样的？",
+          "suggestions": [
+            "我比较激进，看到机会就兴奋，愿意冒险，不太听劝。",
+            "我比较谨慎，会反复计算风险，犹豫不决，最后可能还是保守。",
+            "我有点焦虑，怕错过机会，但又怕亏钱，会找朋友商量。",
+            "我很理性，会做详细分析，但也会被市场情绪影响。"
+          ]
+        },
+        {
+          "question": "当时你有哪些资源或限制？比如家人支持、专业知识、时间精力等。",
+          "suggestions": [
+            "我从事金融行业，懂一些投资，家人支持但也没钱帮忙。",
+            "我是普通上班族，不懂房产投资，没人指导，时间也有限。",
+            "我有朋友做房产中介，能拿到内部信息，但自己资金有限。",
+            "我家人反对加杠杆，觉得风险太大，但我自己很想试试。"
+          ]
+        }
+      ],
+      "at": "2026-07-15T18:35:36.448Z"
+    },
+    {
+      "type": "simulation_started",
+      "node": {
+        "age": 30,
+        "stage": "风口试水",
+        "title": "房产增值诱惑",
+        "description": "你30岁，已婚，在二线城市工作生活。家庭税后年收入约60万，自住房市值320万，贷款余额120万，另有已经积累了一些储蓄。近期房地产市场快速升温，身边朋友靠投资房产获利。你看到资产上涨的机会，但配偶更重视安全感。你了解基本财务知识，但未经历过完整下行周期。现在你面临是否利用现有房产加杠杆的决策。",
+        "choices": [
+          {
+            "id": "A",
+            "text": "卖掉自住房，加杠杆买两套投资房，赌一把上升周期",
+            "impactSummary": "高风险跃迁",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "高风险跃迁"
+            },
+            "decisionIntent": "investment:buy:two_investment_properties_with_leverage",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "保留自住房，用首付买一套小户型出租，稳中求进",
+            "impactSummary": "稳健增持",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳健增持"
+            },
+            "decisionIntent": "investment:buy:one_rental_small_unit",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "不增加房产，将新增储蓄分散到现金、债券和指数基金",
+            "impactSummary": "多元避险",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "多元避险"
+            },
+            "decisionIntent": "investment:allocate:to_cash_bonds_index_funds",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 65,
+          "wealth": 54,
+          "relation": 55,
+          "health": 70
+        },
+        "isEndingNode": false,
+        "ageInMonths": 360,
+        "lifeStage": "early_adulthood",
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_c22b58e7",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 360,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_1451ea7b",
+            "summary": "你30岁，已婚，在二线城市工作生活。家庭税后年收入约60万，自住房市值320万，贷款余额120万，另有现金和投资共80万。近期房地产市场快速升温，身边朋友靠投资"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 360,
+          "cashWan": 20,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 110,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      "at": "2026-07-15T18:35:42.943Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "房产增值诱惑",
+      "sourceAgeInMonths": 360,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "卖掉自住房，加杠杆买两套投资房，赌一把上升周期",
+          "impactSummary": "高风险跃迁",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "高风险跃迁"
+          },
+          "decisionIntent": "investment:buy:two_investment_properties_with_leverage",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "保留自住房，用首付买一套小户型出租，稳中求进",
+          "impactSummary": "稳健增持",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳健增持"
+          },
+          "decisionIntent": "investment:buy:one_rental_small_unit",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "不增加房产，将新增储蓄分散到现金、债券和指数基金",
+          "impactSummary": "多元避险",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "多元避险"
+          },
+          "decisionIntent": "investment:allocate:to_cash_bonds_index_funds",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "卖掉自住房，加杠杆买两套投资房，赌一把上升周期",
+      "resultingNodeTitle": "杠杆下的裂痕",
+      "resultingAgeInMonths": 392,
+      "resultingAttributes": {
+        "happiness": 42,
+        "intelligence": 68,
+        "wealth": 42,
+        "relation": 48,
+        "health": 64
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 392,
+        "cashWan": 93.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 170,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 480,
+        "netWorthWan": -206.4,
+        "annualAfterTaxIncomeWan": 45.6,
+        "annualDisposableIncomeWan": 27.6,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:36:09.939Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "杠杆下的裂痕",
+      "sourceAgeInMonths": 392,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "咬牙持有，继续扛月供，等待反弹",
+          "impactSummary": "高杠杆坚守",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "高杠杆坚守"
+          },
+          "decisionIntent": "investment:hold:leveraged_properties",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "亏本卖出一套投资房，降低负债，保留一套和现金流",
+          "impactSummary": "止损降杠杆",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "止损降杠杆"
+          },
+          "decisionIntent": "investment:sell:one_investment_property_at_loss",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "与配偶协商，向父母借款暂渡难关，同时出租投资房减少月供",
+          "impactSummary": "借力缓压",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "借力缓压"
+          },
+          "decisionIntent": "finance:borrow_from:parents_for_mortgage",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "咬牙持有，继续扛月供，等待反弹",
+      "resultingNodeTitle": "债务悬崖边的转机",
+      "resultingAgeInMonths": 410,
+      "resultingAttributes": {
+        "happiness": 30,
+        "intelligence": 72,
+        "wealth": 38,
+        "relation": 38,
+        "health": 58
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 410,
+        "cashWan": 135,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 151.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 480,
+        "netWorthWan": -183.9,
+        "annualAfterTaxIncomeWan": 39.6,
+        "annualDisposableIncomeWan": 27.6,
+        "annualCoreExpenseWan": 12,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:36:27.980Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "债务悬崖边的转机",
+      "sourceAgeInMonths": 410,
+      "displayedChoices": [
+        {
+          "id": "join_full_commitment",
+          "text": "接受前同事邀请，全职加入新公司，赌一把事业翻身",
+          "impactSummary": "高风险高回报",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "高风险高回报"
+          },
+          "decisionIntent": "career:join:friend_consulting_firm",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "decline_for_stability",
+          "text": "拒绝邀请，继续在原公司熬着，同时寻找兼职增加收入",
+          "impactSummary": "保守求稳",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "保守求稳"
+          },
+          "decisionIntent": "career:stay:current_job_with_side_gig",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "support_part_time",
+          "text": "先以兼职形式帮前同事做项目，同时保留原职，观望半年",
+          "impactSummary": "折中试水",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "折中试水"
+          },
+          "decisionIntent": "career:part_time:friend_consulting_project",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "join_full_commitment",
+      "selectedChoice": "接受前同事邀请，全职加入新公司，赌一把事业翻身",
+      "resultingNodeTitle": "新公司创业与债务重压",
+      "resultingAgeInMonths": 446,
+      "resultingAttributes": {
+        "happiness": 42,
+        "intelligence": 78,
+        "wealth": 38,
+        "relation": 40,
+        "health": 52
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 446,
+        "cashWan": 217.8,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 151.1,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 480,
+        "netWorthWan": -101.1,
+        "annualAfterTaxIncomeWan": 39.6,
+        "annualDisposableIncomeWan": 27.6,
+        "annualCoreExpenseWan": 12,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:36:38.112Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "新公司创业与债务重压",
+      "sourceAgeInMonths": 446,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "继续全力经营咨询公司，同时寻求出售或重组投资房，彻底摆脱负资产",
+          "impactSummary": "聚焦主业，减负前行",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "聚焦主业，减负前行"
+          },
+          "decisionIntent": "career:focus:consulting_firm_and_debt_restructure",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "用公司股权和未来收入预期，争取银行贷款或投资者支持，低价收购更多房产，抄底赌反弹",
+          "impactSummary": "加码赌注，杠杆再升",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "加码赌注，杠杆再升"
+          },
+          "decisionIntent": "investment:buy:additional_properties_with_leverage",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "出售咨询公司部分股权换取现金，还清投资房贷款，保留自住能力，回归稳定职业",
+          "impactSummary": "变现退出，回归安稳",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "变现退出，回归安稳"
+          },
+          "decisionIntent": "career:sell:equity_for_debt_repayment_and_stable_job",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "出售咨询公司部分股权换取现金，还清投资房贷款，保留自住能力，回归稳定职业",
+      "resultingNodeTitle": "出售股权，还清贷款，回归稳定",
+      "resultingAgeInMonths": 452,
+      "resultingAttributes": {
+        "happiness": 50,
+        "intelligence": 80,
+        "wealth": 45,
+        "relation": 45,
+        "health": 50
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 452,
+        "cashWan": -82,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 78,
+        "annualAfterTaxIncomeWan": 38.4,
+        "annualDisposableIncomeWan": 20.4,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:36:52.217Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "出售股权，还清贷款，回归稳定",
+      "sourceAgeInMonths": 452,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受新工作，专注主业，同时用每月结余定投指数基金和债券，慢慢积累",
+          "impactSummary": "保守复利积累",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "保守复利积累"
+          },
+          "decisionIntent": "investment:start:index_fund_dollar_cost_averaging",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "利用财务总监职位的信息优势，业余时间做小型财务咨询，增加收入，尽快重新购房",
+          "impactSummary": "副业加速购房",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "副业加速购房"
+          },
+          "decisionIntent": "career:start:freelance_financial_consulting",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "尝试与配偶复合，用稳定收入共同规划未来，同时考虑卖掉小户型换一套更适合家庭的自住房",
+          "impactSummary": "家庭关系重建",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "家庭关系重建"
+          },
+          "decisionIntent": "family:reconcile:with_spouse_and_housing_plan",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "尝试与配偶复合，用稳定收入共同规划未来，同时考虑卖掉小户型换一套更适合家庭的自住房",
+      "resultingNodeTitle": "修复与重建：复合之路与自住计划",
+      "resultingAgeInMonths": 458,
+      "resultingAttributes": {
+        "happiness": 55,
+        "intelligence": 82,
+        "wealth": 45,
+        "relation": 48,
+        "health": 55
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 458,
+        "cashWan": -71.8,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 88.2,
+        "annualAfterTaxIncomeWan": 38.4,
+        "annualDisposableIncomeWan": 20.4,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:37:11.284Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "修复与重建：复合之路与自住计划",
+      "sourceAgeInMonths": 458,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "A. 稳步换房，家庭重启",
+          "impactSummary": "稳步换房，家庭重启",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳步换房，家庭重启"
+          },
+          "decisionIntent": "family:reconcile:with_spouse_and_housing_plan",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "B. 优先修复关系",
+          "impactSummary": "优先修复关系",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "优先修复关系"
+          },
+          "decisionIntent": "family:reconcile:focus_on_relationship_first",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "C. 降维换房，财务独立",
+          "impactSummary": "降维换房，财务独立",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "降维换房，财务独立"
+          },
+          "decisionIntent": "investment:downsize_housing_for_cash_flow",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "A. 稳步换房，家庭重启",
+      "resultingNodeTitle": "换房波折与信任重建",
+      "resultingAgeInMonths": 469,
+      "resultingAttributes": {
+        "happiness": 60,
+        "intelligence": 84,
+        "wealth": 46,
+        "relation": 50,
+        "health": 53
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 469,
+        "cashWan": -53.1,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 106.9,
+        "annualAfterTaxIncomeWan": 38.4,
+        "annualDisposableIncomeWan": 20.4,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:37:22.278Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "换房波折与信任重建",
+      "sourceAgeInMonths": 469,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "专注家庭与稳定工作，延续定投和咨询副业，逐步还贷",
+          "impactSummary": "稳扎稳打，亲情修复",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳扎稳打，亲情修复"
+          },
+          "decisionIntent": "family:reconcile:stable_cohabitation_with_spouse",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "利用财务总监经验，业余时间系统学习CFA，准备转型投资分析",
+          "impactSummary": "职业升级，长期布局",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "职业升级，长期布局"
+          },
+          "decisionIntent": "career:upskill:prepare_for_investment_analyst",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "与配偶商议，将现有三居室出租一套房间，增加现金流，加速还贷",
+          "impactSummary": "加速还贷，空间压缩",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "加速还贷，空间压缩"
+          },
+          "decisionIntent": "finance:generate_rental_income:room_rental",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "专注家庭与稳定工作，延续定投和咨询副业，逐步还贷",
+      "resultingNodeTitle": "换房后的稳定与成长",
+      "resultingAgeInMonths": 492,
+      "resultingAttributes": {
+        "happiness": 62,
+        "intelligence": 85,
+        "wealth": 47,
+        "relation": 52,
+        "health": 55
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 492,
+        "cashWan": -14,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 146,
+        "annualAfterTaxIncomeWan": 38.4,
+        "annualDisposableIncomeWan": 20.4,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:37:32.860Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "换房后的稳定与成长",
+      "sourceAgeInMonths": 492,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "利用业余时间系统学习CFA，为转型投资分析做准备，同时维持现有工作",
+          "impactSummary": "技能提升，风险对冲",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "技能提升，风险对冲"
+          },
+          "decisionIntent": "career:upskill:prepare_for_investment_analyst",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "与配偶商议，将现有三居室出租一套房间，增加现金流，加速还贷",
+          "impactSummary": "现金流改善，家庭摩擦",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "现金流改善，家庭摩擦"
+          },
+          "decisionIntent": "finance:generate_rental_income:room_rental",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "维持现状，专注主业和定投，减少副业咨询，多陪伴家庭",
+          "impactSummary": "稳定家庭，收入平稳",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳定家庭，收入平稳"
+          },
+          "decisionIntent": "family:reconcile:stable_cohabitation_with_spouse",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "维持现状，专注主业和定投，减少副业咨询，多陪伴家庭",
+      "resultingNodeTitle": "裁员潮下的坚守与微调",
+      "resultingAgeInMonths": 510,
+      "resultingAttributes": {
+        "happiness": 54,
+        "intelligence": 86,
+        "wealth": 58,
+        "relation": 48,
+        "health": 53
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 510,
+        "cashWan": 16.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 176.6,
+        "annualAfterTaxIncomeWan": 38.4,
+        "annualDisposableIncomeWan": 20.4,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:37:44.316Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "裁员潮下的坚守与微调",
+      "sourceAgeInMonths": 510,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "主动与新管理层沟通，争取留任并转型为业务财务BP，利用数据技能提升价值",
+          "impactSummary": "主动转型求存",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "主动转型求存"
+          },
+          "decisionIntent": "career:transform_to:bp_in_acquired_company",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "接受可能的离职补偿，利用财务总监经验和数据分析技能，寻找中型企业或创业公司财务负责人岗位",
+          "impactSummary": "跳槽寻求机会",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "跳槽寻求机会"
+          },
+          "decisionIntent": "career:job_hopping:senior_finance_role",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "维持现有岗位，同时加大副业投入，与配偶一起经营社区团购或线上财务咨询，拓宽收入来源",
+          "impactSummary": "主业副业并行",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "主业副业并行"
+          },
+          "decisionIntent": "income:side_business:community_group_buying",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "维持现有岗位，同时加大副业投入，与配偶一起经营社区团购或线上财务咨询，拓宽收入来源",
+      "resultingNodeTitle": "副业突围与家庭财务韧性",
+      "resultingAgeInMonths": 561,
+      "resultingAttributes": {
+        "happiness": 48,
+        "intelligence": 88,
+        "wealth": 46,
+        "relation": 42,
+        "health": 48
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 561,
+        "cashWan": 1.3,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 161.3,
+        "annualAfterTaxIncomeWan": 14.4,
+        "annualDisposableIncomeWan": -3.6,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:38:17.020Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "副业突围与家庭财务韧性",
+      "sourceAgeInMonths": 561,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "专注线上财务咨询，辞去兼职顾问，投入更多时间考CFA二级，提升专业壁垒",
+          "impactSummary": "深耕专业",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "深耕专业"
+          },
+          "decisionIntent": "career:transform_to:online_financial_advisor_cfa",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "接受创业公司全职财务经理岗位，稳定收入，副业转为周末经营",
+          "impactSummary": "回归稳定",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "回归稳定"
+          },
+          "decisionIntent": "career:job_hopping:startup_finance_manager",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "继续当前模式，同时与配偶共同学习短视频运营，扩大团购和咨询规模",
+          "impactSummary": "双线扩张",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "双线扩张"
+          },
+          "decisionIntent": "income:side_business:expand_community_group_buying_and_consulting",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "专注线上财务咨询，辞去兼职顾问，投入更多时间考CFA二级，提升专业壁垒",
+      "resultingNodeTitle": "CFA二级突破与咨询业务恢复增长",
+      "resultingAgeInMonths": 590,
+      "resultingAttributes": {
+        "happiness": 50,
+        "intelligence": 91,
+        "wealth": 40,
+        "relation": 44,
+        "health": 45
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 590,
+        "cashWan": -7.4,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 152.6,
+        "annualAfterTaxIncomeWan": 14.4,
+        "annualDisposableIncomeWan": -3.6,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:38:29.281Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "CFA二级突破与咨询业务恢复增长",
+      "sourceAgeInMonths": 590,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受全职财务分析经理岗位，稳定收入同时利用CFA持证优势，逐步建立个人品牌",
+          "impactSummary": "职业回归，品牌积累",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "职业回归，品牌积累"
+          },
+          "decisionIntent": "career:accept:financial_analysis_manager_cfa",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "保持自由职业状态，扩大线上咨询和课程产品，探索被动收入来源",
+          "impactSummary": "自由灵活，收入波动",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "自由灵活，收入波动"
+          },
+          "decisionIntent": "career:expand:online_financial_education_cfa",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "兼顾全职工作和副业咨询，用CFA证书提升主业谈判力，同时定投指数基金",
+          "impactSummary": "双线并进，压力增大",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "双线并进，压力增大"
+          },
+          "decisionIntent": "finance:dual_income:job_and_consulting_cfa",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "接受全职财务分析经理岗位，稳定收入同时利用CFA持证优势，逐步建立个人品牌",
+      "resultingNodeTitle": "全职稳定后的隐性代价",
+      "resultingAgeInMonths": 615,
+      "resultingAttributes": {
+        "happiness": 45,
+        "intelligence": 93,
+        "wealth": 52,
+        "relation": 42,
+        "health": 40
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 615,
+        "cashWan": 17.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 177.6,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:38:41.302Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "全职稳定后的隐性代价",
+      "sourceAgeInMonths": 615,
+      "displayedChoices": [
+        {
+          "id": "go_independent_fast",
+          "text": "辞去全职，全力开展线上财务咨询和顾问业务，利用CFA持证优势建立个人品牌",
+          "impactSummary": "冒险创业",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "冒险创业"
+          },
+          "decisionIntent": "career:go_independent:online_financial_consultant_cfa",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "reduce_and_hide_exposure",
+          "text": "继续全职工作，秘密维持少量高价值顾问客户，但严格规避利益冲突",
+          "impactSummary": "双轨风险",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "双轨风险"
+          },
+          "decisionIntent": "finance:dual_income:hidden_consulting_risk",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "continue_dual_track_risk",
+          "text": "与公司合规部门沟通，申请兼职许可，同时缩减咨询业务至合规范围",
+          "impactSummary": "合规探索",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "合规探索"
+          },
+          "decisionIntent": "career:negotiate_compliance:dual_role_disclosure",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "go_independent_fast",
+      "selectedChoice": "辞去全职，全力开展线上财务咨询和顾问业务，利用CFA持证优势建立个人品牌",
+      "resultingNodeTitle": "自由职业的起伏与信任裂痕",
+      "resultingAgeInMonths": 644,
+      "resultingAttributes": {
+        "happiness": 40,
+        "intelligence": 95,
+        "wealth": 53,
+        "relation": 38,
+        "health": 35
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 644,
+        "cashWan": 17.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 177.6,
+        "annualAfterTaxIncomeWan": 18,
+        "annualDisposableIncomeWan": 0,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:38:53.620Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "自由职业的起伏与信任裂痕",
+      "sourceAgeInMonths": 644,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "A. 接受平台邀请，稳定收入同时利用平台资源扩大客户群，但减少自主创作时间",
+          "impactSummary": "稳定增收，创作减少",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳定增收，创作减少"
+          },
+          "decisionIntent": "career:join_platform:financial_consultant_online",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "B. 继续独立运营，加大内容创作和广告投放，尝试打造个人IP，但收入波动更大",
+          "impactSummary": "高风险高回报",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "高风险高回报"
+          },
+          "decisionIntent": "career:build_personal_brand:financial_consultant_independent",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "C. 降低工作强度，每周接固定客户，更多时间用于恢复健康和家庭，接受较低收入",
+          "impactSummary": "健康优先，收入下降",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "健康优先，收入下降"
+          },
+          "decisionIntent": "health:reduce_workload:focus_on_wellbeing",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "A. 接受平台邀请，稳定收入同时利用平台资源扩大客户群，但减少自主创作时间",
+      "resultingNodeTitle": "平台合作的价值分配冲突",
+      "resultingAgeInMonths": 656,
+      "resultingAttributes": {
+        "happiness": 35,
+        "intelligence": 96,
+        "wealth": 59,
+        "relation": 35,
+        "health": 30
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 656,
+        "cashWan": 29.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 189.6,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:39:08.219Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "平台合作的价值分配冲突",
+      "sourceAgeInMonths": 656,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受高抽成，继续留在平台，利用其客户资源稳定收入，但减少工作量以恢复健康",
+          "impactSummary": "稳定妥协",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳定妥协"
+          },
+          "decisionIntent": "career:accept_high_cut:stay_on_platform",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "与平台正式谈判，提出基于业绩的分成方案，同时准备退出预案",
+          "impactSummary": "权益谈判",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "权益谈判"
+          },
+          "decisionIntent": "career:negotiate_cut:revenue_share",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "退出平台，重新独立运营，利用CFA持证和过往客户口碑，专注高净值个人和小企业顾问服务",
+          "impactSummary": "独立冒险",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "独立冒险"
+          },
+          "decisionIntent": "career:exit_platform:independent_consultant",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "接受高抽成，继续留在平台，利用其客户资源稳定收入，但减少工作量以恢复健康",
+      "resultingNodeTitle": "健康预警下的平台生存",
+      "resultingAgeInMonths": 664,
+      "resultingAttributes": {
+        "happiness": 30,
+        "intelligence": 96,
+        "wealth": 60,
+        "relation": 33,
+        "health": 25
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 664,
+        "cashWan": 37.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 197.6,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:39:29.808Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "健康预警下的平台生存",
+      "sourceAgeInMonths": 664,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受客户私下合作请求，脱离平台直接服务，但需谨慎规避法律风险",
+          "impactSummary": "高收益高风险",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "高收益高风险"
+          },
+          "decisionIntent": "career:underground_direct_client:high_net_worth",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "继续留在平台，同时严格限定工作时间，每周工作不超过35小时，接受收入下降",
+          "impactSummary": "收入换健康",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "收入换健康"
+          },
+          "decisionIntent": "health:reduce_workload:35_hour_week",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "与平台再次谈判，提出基于业绩的阶梯分成方案，否则考虑退出",
+          "impactSummary": "争取主动权",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "争取主动权"
+          },
+          "decisionIntent": "career:renegotiate_platform_terms:performance_based",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "接受客户私下合作请求，脱离平台直接服务，但需谨慎规避法律风险",
+      "resultingNodeTitle": "私下合作的代价",
+      "resultingAgeInMonths": 667,
+      "resultingAttributes": {
+        "happiness": 24,
+        "intelligence": 97,
+        "wealth": 60,
+        "relation": 28,
+        "health": 20
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 667,
+        "cashWan": 40.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 200.6,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:39:41.355Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "私下合作的代价",
+      "sourceAgeInMonths": 667,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "与平台和解后，全心维护私下客户，并拓展新客户，但接受收入波动",
+          "impactSummary": "独立顾问风险",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "独立顾问风险"
+          },
+          "decisionIntent": "career:independent_consultant:under_the_radar",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "寻求法律咨询，主动与平台达成正式退出协议，支付违约金后重新独立运营，同时加入行业协会规范执业",
+          "impactSummary": "合规重建信誉",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "合规重建信誉"
+          },
+          "decisionIntent": "career:exit_platform:legal_compliance",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "放弃独立咨询，重新寻找全职工作，利用CFA持证优势应聘中型企业财务总监或高级分析师岗位",
+          "impactSummary": "回归稳定就业",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "回归稳定就业"
+          },
+          "decisionIntent": "career:full_time_employment:senior_finance_role",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "与平台和解后，全心维护私下客户，并拓展新客户，但接受收入波动",
+      "resultingNodeTitle": "生命终章：在追求与放下之间",
+      "resultingAgeInMonths": 673,
+      "resultingAttributes": {
+        "happiness": 20,
+        "intelligence": 97,
+        "wealth": 54,
+        "relation": 25,
+        "health": 12
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 673,
+        "cashWan": 37.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 197.6,
+        "annualAfterTaxIncomeWan": 12,
+        "annualDisposableIncomeWan": -6,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-15T18:39:56.415Z"
+    },
+    {
+      "type": "model_response_error",
+      "phase": "mortality_report",
+      "message": "AI 返回内容格式异常，请重新生成。",
+      "historyLength": 16,
+      "nodeTitle": "生命终章：在追求与放下之间",
+      "recoveredBy": "dismiss_and_retry_same_ending_report",
+      "at": "2026-07-15T18:40:55.529Z"
+    },
+    {
+      "type": "mortality_report_opened",
+      "historyLength": 17,
+      "closureType": "mortality",
+      "at": "2026-07-15T18:41:26.209Z"
+    }
+  ],
+  "validation": {
+    "realAiBrowserSource": true,
+    "completeWebHistory": true,
+    "allStoryBodiesPresent": true,
+    "noDeterministicTemplateBodies": true,
+    "allDisplayedChoicesPreserved": true,
+    "allUserChoicesPreserved": true,
+    "allAttributesPreserved": true,
+    "allFinancialStatesPreserved": true,
+    "allInvitationsPreserved": true,
+    "expectedClosureType": true,
+    "finalReportPresent": true
+  },
+  "passed": true,
+  "finalState": {
+    "capturedAt": "2026-07-15T18:41:25.382Z",
+    "e2eCase": null,
+    "recordTestRun": "real-wealth-lifespan",
+    "testDataSource": "real_ai_browser",
+    "step": "insight",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "17:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n35岁时房地产快速上涨，我考虑卖掉唯一住房并加杠杆购买两套投资房，希望尽快实现财富跃迁。\n\n【系统生成的回溯锚点】\n回到 30 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "30 岁 · 财富与机会",
+      "milestones": [
+        {
+          "id": "wealth",
+          "title": "财富与机会",
+          "content": "35岁时房地产快速上涨，我考虑卖掉唯一住房并加杠杆购买两套投资房，希望尽快实现财富跃迁。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "",
+      "milestoneRelationship": "",
+      "milestoneOther": "35岁时房地产快速上涨，我考虑卖掉唯一住房并加杠杆购买两套投资房，希望尽快实现财富跃迁。",
+      "regressionNodeKey": "wealth",
+      "regressionAge": 30,
+      "regressionSituation": "【用户想重写的真实事件】\n35岁时房地产快速上涨，我考虑卖掉唯一住房并加杠杆购买两套投资房，希望尽快实现财富跃迁。\n\n【系统生成的回溯锚点】\n回到 30 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+      "coreStoryFocus": "wealth"
+    },
+    "questions": [
+      {
+        "question": "当时你的财务状况如何？比如年收入、存款、房产价值、负债情况？",
+        "suggestions": [
+          "我年收入约30万，存款50万，自住房市值300万，贷款还剩100万。",
+          "我年收入15万，存款20万，自住房市值200万，贷款还剩80万。",
+          "我年收入50万，存款100万，自住房市值400万，贷款已还清。",
+          "我不太确定具体数字，但大概年收入20-30万，存款40万左右，自住房贷款压力不大。"
+        ]
+      },
+      {
+        "question": "面对这个投资机会，你当时的性格和反应模式是怎样的？",
+        "suggestions": [
+          "我比较激进，看到机会就兴奋，愿意冒险，不太听劝。",
+          "我比较谨慎，会反复计算风险，犹豫不决，最后可能还是保守。",
+          "我有点焦虑，怕错过机会，但又怕亏钱，会找朋友商量。",
+          "我很理性，会做详细分析，但也会被市场情绪影响。"
+        ]
+      },
+      {
+        "question": "当时你有哪些资源或限制？比如家人支持、专业知识、时间精力等。",
+        "suggestions": [
+          "我从事金融行业，懂一些投资，家人支持但也没钱帮忙。",
+          "我是普通上班族，不懂房产投资，没人指导，时间也有限。",
+          "我有朋友做房产中介，能拿到内部信息，但自己资金有限。",
+          "我家人反对加杠杆，觉得风险太大，但我自己很想试试。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "当时你的财务状况如何？比如年收入、存款、房产价值、负债情况？",
+        "answer": "家庭税后年收入约60万元，自住房市值320万元、贷款余额120万元，现金和投资约80万元。"
+      },
+      {
+        "id": 2,
+        "question": "面对这个投资机会，你当时的性格和反应模式是怎样的？",
+        "answer": "看到资产上涨时我害怕落后，容易高估自己承受风险的能力，但配偶更重视安全感。"
+      },
+      {
+        "id": 3,
+        "question": "当时你有哪些资源或限制？比如家人支持、专业知识、时间精力等。",
+        "answer": "我了解基本财务知识，有稳定职业，却没有经历过完整的房地产下行周期。"
+      }
+    ],
+    "history": [
+      {
+        "age": 30,
+        "ageInMonths": 360,
+        "lifeStage": "early_adulthood",
+        "title": "房产增值诱惑",
+        "stage": "风口试水",
+        "description": "你30岁，已婚，在二线城市工作生活。家庭税后年收入约60万，自住房市值320万，贷款余额120万，另有已经积累了一些储蓄。近期房地产市场快速升温，身边朋友靠投资房产获利。你看到资产上涨的机会，但配偶更重视安全感。你了解基本财务知识，但未经历过完整下行周期。现在你面临是否利用现有房产加杠杆的决策。",
+        "selectedChoice": "卖掉自住房，加杠杆买两套投资房，赌一把上升周期",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 65,
+          "wealth": 54,
+          "relation": 55,
+          "health": 70
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 360,
+          "cashWan": 20,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 200,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 120,
+          "netWorthWan": 110,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "卖掉自住房，加杠杆买两套投资房，赌一把上升周期",
+            "impactSummary": "高风险跃迁",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "高风险跃迁"
+            },
+            "decisionIntent": "investment:buy:two_investment_properties_with_leverage",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "保留自住房，用首付买一套小户型出租，稳中求进",
+            "impactSummary": "稳健增持",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳健增持"
+            },
+            "decisionIntent": "investment:buy:one_rental_small_unit",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "不增加房产，将新增储蓄分散到现金、债券和指数基金",
+            "impactSummary": "多元避险",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "多元避险"
+            },
+            "decisionIntent": "investment:allocate:to_cash_bonds_index_funds",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_c22b58e7",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 360,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_1451ea7b",
+            "summary": "你30岁，已婚，在二线城市工作生活。家庭税后年收入约60万，自住房市值320万，贷款余额120万，另有现金和投资共80万。近期房地产市场快速升温，身边朋友靠投资"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 32,
+        "ageInMonths": 392,
+        "lifeStage": "early_adulthood",
+        "title": "杠杆下的裂痕",
+        "stage": "early_adulthood",
+        "description": "你卖掉自住房，用全部现金加两套投资房首付，贷款总额飙升至480万。起初房价继续上涨，账面财富膨胀，但月供高达3.8万，家庭现金流极度紧张。配偶因失去自住房而焦虑，频繁争吵。32岁时市场转向，房价下跌15%，投资房市值缩水，你面临补保证金或亏本卖出的压力。同时，你的工作因行业调整降薪，年收入降至45万。家庭矛盾加剧，健康也开始亮红灯。",
+        "selectedChoice": "咬牙持有，继续扛月供，等待反弹",
+        "attributes": {
+          "happiness": 42,
+          "intelligence": 68,
+          "wealth": 42,
+          "relation": 48,
+          "health": 64
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 392,
+          "cashWan": 93.6,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 170,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 480,
+          "netWorthWan": -206.4,
+          "annualAfterTaxIncomeWan": 45.6,
+          "annualDisposableIncomeWan": 27.6,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.8,
+          "incomeMonths": 32,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": -30,
+          "personalDebtChangeWan": 360,
+          "incomeStability": "volatile",
+          "confidence": 0.9,
+          "reasons": [
+            "本阶段年收入降至45万，折算月收入3.75万；月供3.8万，但正文未明确生活支出，参考上期年可支配12万估算月生活支出1.5万；房价下跌15%，原房产市值200万，贬值30万；贷款从120万增至480万，净增360万"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 32,
+          "afterTaxIncomeWan": 121.6,
+          "livingExpenseWan": 48,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": -30,
+          "otherNetChangeWan": -360,
+          "netWorthChangeWan": -316.4,
+          "incomeStability": "volatile",
+          "reasons": [
+            "本阶段年收入降至45万，折算月收入3.75万；月供3.8万，但正文未明确生活支出，参考上期年可支配12万估算月生活支出1.5万；房价下跌15%，原房产市值200万，贬值30万；贷款从120万增至480万，净增360万"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "咬牙持有，继续扛月供，等待反弹",
+            "impactSummary": "高杠杆坚守",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "高杠杆坚守"
+            },
+            "decisionIntent": "investment:hold:leveraged_properties",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "亏本卖出一套投资房，降低负债，保留一套和现金流",
+            "impactSummary": "止损降杠杆",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "止损降杠杆"
+            },
+            "decisionIntent": "investment:sell:one_investment_property_at_loss",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "与配偶协商，向父母借款暂渡难关，同时出租投资房减少月供",
+            "impactSummary": "借力缓压",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "借力缓压"
+            },
+            "decisionIntent": "finance:borrow_from:parents_for_mortgage",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "relationship_family_obligation_pull",
+          "eventCategory": "relationship",
+          "eventTags": [
+            "relationship",
+            "family_obligation",
+            "boundary",
+            "sacrifice"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 32,
+          "elapsedYears": 2.6666666666666665,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_4b972a10",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 392,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_f7868f2b",
+            "summary": "你卖掉自住房，用全部现金加两套投资房首付，贷款总额飙升至480万。起初房价继续上涨，账面财富膨胀，但月供高达3.8万，家庭现金流极度紧张。配偶因失去自住房而焦虑"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "name": "配偶",
+              "role": "伴侣",
+              "state": "焦虑，缺乏安全感，与你的矛盾增多"
+            }
+          ],
+          "primaryActivity": "应对高杠杆带来的财务和家庭压力",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "0d5bbcaf"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 34,
+        "ageInMonths": 410,
+        "lifeStage": "early_adulthood",
+        "title": "债务悬崖边的转机",
+        "stage": "34岁2个月",
+        "description": "经过18个月的咬牙坚持，市场并未好转。两套投资房市值再跌10%，合计仅剩340万，而贷款总额480万，已沦为负资产。月供3.8万压得喘不过气，家庭年收入因行业持续低迷降至40万。配偶因长期争吵和财务压力，已分居三个月。你的健康也亮起红灯，经常失眠、心悸。就在最绝望时，一位前同事邀请你加入他新成立的财务咨询公司，承诺股权和更高收入，但初期项目不稳定。你必须在稳定现金流与高风险机会之间做出抉择。",
+        "selectedChoice": "接受前同事邀请，全职加入新公司，赌一把事业翻身",
+        "attributes": {
+          "happiness": 30,
+          "intelligence": 72,
+          "wealth": 38,
+          "relation": 38,
+          "health": 58
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 410,
+          "cashWan": 135,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 151.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 480,
+          "netWorthWan": -183.9,
+          "annualAfterTaxIncomeWan": 39.6,
+          "annualDisposableIncomeWan": 27.6,
+          "annualCoreExpenseWan": 12,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.3,
+          "incomeMonths": 18,
+          "monthlyLivingExpenseWan": 1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": -18.9,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.8,
+          "reasons": [
+            "正文说年收入降至40万（实际为45.6万？但正文说'年收入降至40万'，以上期45.6万为基准，本阶段持续18个月，月均3.3333万",
+            "正文说'两套投资房市值再跌10%，合计仅剩340万'，上期房产市值170万（两套合计？但上期房产市值170万，再跌10%即减少17万，但正文说合计仅剩340万，暗示之前两套共约378万？实际应以上期房产市值170万（单套？）为基准，再跌10%即-17万，但上期房产市值170万，若两套合计340万，则上期应为378万？矛盾。按上期170万为单套，则两套340万，再跌10%至306万，减少34万？但正文说合计仅剩340万，所以上期应为378万？无法精确，保守按上期房产市值170万（单套？）不变，再跌10%为-17万；但正文明确说'两套投资房市值再跌10%，合计仅剩340万'，意味着上期两套总市值约378万，每套189万，再跌10%至170万每套，合计340万，但上期房产市值170万是单套？不匹配。最合理：上期房产市值170万是两套？按正文，上期房产市值170万应为一套？但之前卖掉自住房买两套，上期房产市值170万不合理。以上期财务快照为准，房产市值170万，再跌10%为-17万；但正文说合计仅剩340万，若上期两套总市值378万，则下降38万。因数据冲突，保守取-18.8889（按上期170万*10%*18/18？不对）。简单按正文'再跌10%'，上期房价170万，跌10%即-17万，但正文说合计340万，隐含上期378万。采用上期房产市值170万为基准，下跌10%即-17万，但需合理。取-18.8889为估算值（计算过程：上期170万，本阶段18个月，月均下跌约1.0494万，但一次性变化。直接取-17万）。但为了与上期单位一致，取-18.8889无意义。按正文'再跌10%'，房产市值变化=-170*10% = -17万。但正文说合计仅剩340万，若上期两套总市值378万，则下跌38万。取中间值-27.5万？为保守，取-20万。但规则要求精确，选择-18.8889不合理。更正：取-20万。",
+            "月支出：无明确生活支出，结合家庭分居、健康问题，保守估算月生活费1万",
+            "收入稳定性 volatile"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 18,
+          "afterTaxIncomeWan": 59.4,
+          "livingExpenseWan": 18,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": -18.9,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 22.5,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文说年收入降至40万（实际为45.6万？但正文说'年收入降至40万'，以上期45.6万为基准，本阶段持续18个月，月均3.3333万",
+            "正文说'两套投资房市值再跌10%，合计仅剩340万'，上期房产市值170万（两套合计？但上期房产市值170万，再跌10%即减少17万，但正文说合计仅剩340万，暗示之前两套共约378万？实际应以上期房产市值170万（单套？）为基准，再跌10%即-17万，但上期房产市值170万，若两套合计340万，则上期应为378万？矛盾。按上期170万为单套，则两套340万，再跌10%至306万，减少34万？但正文说合计仅剩340万，所以上期应为378万？无法精确，保守按上期房产市值170万（单套？）不变，再跌10%为-17万；但正文明确说'两套投资房市值再跌10%，合计仅剩340万'，意味着上期两套总市值约378万，每套189万，再跌10%至170万每套，合计340万，但上期房产市值170万是单套？不匹配。最合理：上期房产市值170万是两套？按正文，上期房产市值170万应为一套？但之前卖掉自住房买两套，上期房产市值170万不合理。以上期财务快照为准，房产市值170万，再跌10%为-17万；但正文说合计仅剩340万，若上期两套总市值378万，则下降38万。因数据冲突，保守取-18.8889（按上期170万*10%*18/18？不对）。简单按正文'再跌10%'，上期房价170万，跌10%即-17万，但正文说合计340万，隐含上期378万。采用上期房产市值170万为基准，下跌10%即-17万，但需合理。取-18.8889为估算值（计算过程：上期170万，本阶段18个月，月均下跌约1.0494万，但一次性变化。直接取-17万）。但为了与上期单位一致，取-18.8889无意义。按正文'再跌10%'，房产市值变化=-170*10% = -17万。但正文说合计仅剩340万，若上期两套总市值378万，则下跌38万。取中间值-27.5万？为保守，取-20万。但规则要求精确，选择-18.8889不合理。更正：取-20万。",
+            "月支出：无明确生活支出，结合家庭分居、健康问题，保守估算月生活费1万",
+            "收入稳定性 volatile"
+          ]
+        },
+        "choices": [
+          {
+            "id": "join_full_commitment",
+            "text": "接受前同事邀请，全职加入新公司，赌一把事业翻身",
+            "impactSummary": "高风险高回报",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "高风险高回报"
+            },
+            "decisionIntent": "career:join:friend_consulting_firm",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "decline_for_stability",
+            "text": "拒绝邀请，继续在原公司熬着，同时寻找兼职增加收入",
+            "impactSummary": "保守求稳",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "保守求稳"
+            },
+            "decisionIntent": "career:stay:current_job_with_side_gig",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "support_part_time",
+            "text": "先以兼职形式帮前同事做项目，同时保留原职，观望半年",
+            "impactSummary": "折中试水",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "折中试水"
+            },
+            "decisionIntent": "career:part_time:friend_consulting_project",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "opportunity_unstable_alliance",
+          "eventCategory": "opportunity",
+          "eventTags": [
+            "opportunity",
+            "alliance",
+            "uncertainty",
+            "resource_gap"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 18,
+          "elapsedYears": 1.5,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_ff10d57f",
+            "startAgeInMonths": 392,
+            "endAgeInMonths": 410,
+            "internalTransitions": [
+              "34岁2个月前，你已连续18个月扛着高额月供，家庭矛盾激化，配偶于3个月前搬出。",
+              "你尝试出租投资房，但租金仅能覆盖部分月供，每月仍需自掏腰包约2万。",
+              "原公司业务萎缩，你虽未被裁员，但收入已降至40万。",
+              "健康恶化，出现持续性失眠和心悸，但未就医。",
+              "前同事张伟（化名）邀请你加入其新成立的财务咨询公司，承诺年薪60万加股权，但项目初期不稳定。"
+            ],
+            "decisionCheckpointId": "checkpoint_08160ac4",
+            "summary": "经过18个月的咬牙坚持，市场并未好转。两套投资房市值再跌10%，合计仅剩340万，而贷款总额480万，已沦为负资产。月供3.8万压得喘不过气，家庭年收入因行业持"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "配偶",
+            "前同事"
+          ],
+          "primaryActivity": "职业选择与财务挣扎",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 37,
+        "ageInMonths": 446,
+        "lifeStage": "midlife",
+        "title": "新公司创业与债务重压",
+        "stage": "34岁2个月-37岁2个月",
+        "description": "加入前同事的财务咨询公司后，你全力投入，凭借过去的经验和人脉，项目逐渐增多。第一年公司收入微薄，你只拿到基本工资加少量提成，年税后收入约35万元。配偶仍分居，但每月固定支付孩子抚养费。第二年，公司拿下几个中型企业客户，你的年收入回升至50万元，但工作强度极大，经常出差和熬夜。两套投资房仍负资产，你与银行协商只还利息，月供降至2.5万元，但总负债未减。第三年，公司业务稳定，你成为合伙人，年收入达到65万元，但健康持续透支，出现胃病和焦虑症状。你开始在业余时间学习冥想和健身。配偶仍不愿复合，但关系略有缓和。你意识到财富跃迁的梦想被债务和风险改写，但事业上的成就感和自主权让你看到新可能。",
+        "selectedChoice": "出售咨询公司部分股权换取现金，还清投资房贷款，保留自住能力，回归稳定职业",
+        "attributes": {
+          "happiness": 42,
+          "intelligence": 78,
+          "wealth": 38,
+          "relation": 40,
+          "health": 52
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 446,
+          "cashWan": 217.8,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 151.1,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 480,
+          "netWorthWan": -101.1,
+          "annualAfterTaxIncomeWan": 39.6,
+          "annualDisposableIncomeWan": 27.6,
+          "annualCoreExpenseWan": 12,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.3,
+          "incomeMonths": 36,
+          "monthlyLivingExpenseWan": 1,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 36,
+          "afterTaxIncomeWan": 118.8,
+          "livingExpenseWan": 36,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 82.8,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "继续全力经营咨询公司，同时寻求出售或重组投资房，彻底摆脱负资产",
+            "impactSummary": "聚焦主业，减负前行",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "聚焦主业，减负前行"
+            },
+            "decisionIntent": "career:focus:consulting_firm_and_debt_restructure",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "用公司股权和未来收入预期，争取银行贷款或投资者支持，低价收购更多房产，抄底赌反弹",
+            "impactSummary": "加码赌注，杠杆再升",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "加码赌注，杠杆再升"
+            },
+            "decisionIntent": "investment:buy:additional_properties_with_leverage",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "出售咨询公司部分股权换取现金，还清投资房贷款，保留自住能力，回归稳定职业",
+            "impactSummary": "变现退出，回归安稳",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "变现退出，回归安稳"
+            },
+            "decisionIntent": "career:sell:equity_for_debt_repayment_and_stable_job",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "opportunity_escape_route",
+          "eventCategory": "opportunity",
+          "eventTags": [
+            "opportunity",
+            "escape_route",
+            "isolation",
+            "high_reward"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 36,
+          "elapsedYears": 3,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_b1c3d988",
+            "startAgeInMonths": 410,
+            "endAgeInMonths": 446,
+            "internalTransitions": [
+              "第一年收入低，项目开拓艰难",
+              "第二年业务增长，工作强度大",
+              "第三年成为合伙人，收入提高"
+            ],
+            "decisionCheckpointId": "checkpoint_2b9a0ee1",
+            "summary": "加入前同事的财务咨询公司后，你全力投入，凭借过去的经验和人脉，项目逐渐增多。第一年公司收入微薄，你只拿到基本工资加少量提成，年税后收入约35万元。配偶仍分居，但"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "arcId": "wealth",
+              "signal": "创业收入增长，但债务仍重",
+              "evidence": "年收入65万，但总负债480万"
+            }
+          ],
+          "activeCharacters": [
+            "前同事",
+            "配偶",
+            "孩子"
+          ],
+          "primaryActivity": "经营财务咨询公司",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 37,
+        "ageInMonths": 452,
+        "lifeStage": "midlife",
+        "title": "出售股权，还清贷款，回归稳定",
+        "stage": "37岁8个月-债务重组与职业转向",
+        "description": "你最终决定出售咨询公司部分股权，获得现金流十分紧张。你立即还清两套投资房的贷款本息共约480万，但银行因你提前还款收取了违约金，实际支出约510万，加上交易税费，现金几乎耗尽。你保留了自住的一套小户型（市值已跌至150万左右），无贷款。你离开咨询公司，凭借合伙人的经验和人脉，在一家中型企业找到财务总监职位，税后月薪约3.2万，年收入约38万。配偶仍分居，但看到你终于摆脱债务，态度缓和，同意共同抚养孩子。健康方面，胃病和焦虑仍在，你开始每周三次慢跑和心理咨询。这六个月你经历了从焦虑到逐渐安定的过程，虽然财富大幅缩水，但不再有月供压力，现金流转正。你意识到稳健的重要性，开始系统学习指数基金定投和债券配置。",
+        "selectedChoice": "尝试与配偶复合，用稳定收入共同规划未来，同时考虑卖掉小户型换一套更适合家庭的自住房",
+        "attributes": {
+          "happiness": 50,
+          "intelligence": 80,
+          "wealth": 45,
+          "relation": 45,
+          "health": 50
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 452,
+          "cashWan": -82,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 78,
+          "annualAfterTaxIncomeWan": 38.4,
+          "annualDisposableIncomeWan": 20.4,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.2,
+          "incomeMonths": 6,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 200,
+          "oneOffExpenseWan": 510,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": -1.1,
+          "personalDebtChangeWan": -480,
+          "incomeStability": "volatile",
+          "confidence": 0.9,
+          "reasons": [
+            "出售股权一次性收入200万元",
+            "还清投资房贷款本息并支付违约金，总支出510万元",
+            "新工作税后月薪3.2万，年收入约38万，工作稳定但前期收入波动",
+            "房产市值从151.1万降至150万，变化-1.1万"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 6,
+          "afterTaxIncomeWan": 219.2,
+          "livingExpenseWan": 9,
+          "medicalEducationExpenseWan": 510,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": -1.1,
+          "otherNetChangeWan": 480,
+          "netWorthChangeWan": 179.1,
+          "incomeStability": "volatile",
+          "reasons": [
+            "出售股权一次性收入200万元",
+            "还清投资房贷款本息并支付违约金，总支出510万元",
+            "新工作税后月薪3.2万，年收入约38万，工作稳定但前期收入波动",
+            "房产市值从151.1万降至150万，变化-1.1万"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受新工作，专注主业，同时用每月结余定投指数基金和债券，慢慢积累",
+            "impactSummary": "保守复利积累",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "保守复利积累"
+            },
+            "decisionIntent": "investment:start:index_fund_dollar_cost_averaging",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "利用财务总监职位的信息优势，业余时间做小型财务咨询，增加收入，尽快重新购房",
+            "impactSummary": "副业加速购房",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "副业加速购房"
+            },
+            "decisionIntent": "career:start:freelance_financial_consulting",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "尝试与配偶复合，用稳定收入共同规划未来，同时考虑卖掉小户型换一套更适合家庭的自住房",
+            "impactSummary": "家庭关系重建",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "家庭关系重建"
+            },
+            "decisionIntent": "family:reconcile:with_spouse_and_housing_plan",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 6,
+          "elapsedYears": 0.5,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_085d1b8e",
+            "pressureArcId": "pressure_0bbd8f3c",
+            "startAgeInMonths": 446,
+            "endAgeInMonths": 452,
+            "internalTransitions": [
+              "出售股权的谈判持续了两个月，最终以200万成交",
+              "还贷过程中与银行周旋，支付违约金和税费",
+              "找工作投了20份简历，面试5家，最终选择中型企业",
+              "开始慢跑和心理咨询，胃病好转",
+              "与配偶每月见面两次讨论孩子教育"
+            ],
+            "decisionCheckpointId": "checkpoint_d86b8c4d",
+            "summary": "你最终决定出售咨询公司部分股权，获得现金约200万元。你立即还清两套投资房的贷款本息共约480万，但银行因你提前还款收取了违约金，实际支出约510万，加上交易税"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "配偶",
+            "前同事"
+          ],
+          "primaryActivity": "稳定工作与健康恢复",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -8,
+                22
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 452,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 452,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_0bbd8f3c"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_0bbd8f3c",
+          "phaseId": "response",
+          "transitionAction": "advance"
+        }
+      },
+      {
+        "age": 38,
+        "ageInMonths": 458,
+        "lifeStage": "midlife",
+        "title": "修复与重建：复合之路与自住计划",
+        "stage": "现实转折",
+        "description": "你决定尝试与配偶复合，同时计划卖掉小户型换一套更适合家庭的自住房。过去六个月，你每周三次慢跑和心理咨询显著改善了焦虑和胃病，但失眠偶有反复。配偶看到你摆脱债务并主动修复关系，同意每周见面三次，共同参与家庭活动，但尚未完全搬回。你通过财务总监工作获得稳定现金流，月薪税后3.2万，加上一些业余咨询收入，月均可支配约2.5万。你开始系统学习指数基金定投，每月定投5000元于沪深300和债券基金。同时，你开始看房，目标是一套总价200万左右的三居室，预计需要卖掉现有小户型（市值约150万）并补充部分存款。配偶对购房持谨慎态度，担心再次背上过重负担。你意识到，财富积累不再是短期跃迁，而是通过稳定职业、纪律性投资和家庭和谐慢慢实现。这六个月，你学会了耐心和务实，也体会到重建信任需要时间。",
+        "selectedChoice": "A. 稳步换房，家庭重启",
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 82,
+          "wealth": 45,
+          "relation": 48,
+          "health": 55
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 458,
+          "cashWan": -71.8,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 88.2,
+          "annualAfterTaxIncomeWan": 38.4,
+          "annualDisposableIncomeWan": 20.4,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.2,
+          "incomeMonths": 6,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 6,
+          "afterTaxIncomeWan": 19.2,
+          "livingExpenseWan": 9,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 10.2,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "A. 稳步换房，家庭重启",
+            "impactSummary": "稳步换房，家庭重启",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳步换房，家庭重启"
+            },
+            "decisionIntent": "family:reconcile:with_spouse_and_housing_plan",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "B. 优先修复关系",
+            "impactSummary": "优先修复关系",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "优先修复关系"
+            },
+            "decisionIntent": "family:reconcile:focus_on_relationship_first",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "C. 降维换房，财务独立",
+            "impactSummary": "降维换房，财务独立",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "降维换房，财务独立"
+            },
+            "decisionIntent": "investment:downsize_housing_for_cash_flow",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 6,
+          "elapsedYears": 0.5,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_ab97ef80",
+            "pressureArcId": "pressure_0bbd8f3c",
+            "startAgeInMonths": 452,
+            "endAgeInMonths": 458,
+            "internalTransitions": [
+              "前三个月：坚持慢跑和心理咨询，失眠频率从每周3次降至1次；与配偶每周见面一次，主要讨论孩子和财务安排；开始每月定投5000元指数基金。",
+              "后三个月：配偶同意每周见面三次，参与家庭活动；开始看房，目标三居室；业余咨询项目增加，月均收入额外5000元；胃病基本消失。"
+            ],
+            "decisionCheckpointId": "checkpoint_37668c92",
+            "summary": "你决定尝试与配偶复合，同时计划卖掉小户型换一套更适合家庭的自住房。过去六个月，你每周三次慢跑和心理咨询显著改善了焦虑和胃病，但失眠偶有反复。配偶看到你摆脱债务并"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "name": "配偶",
+              "role": "配偶，分居但复合中",
+              "status": "缓和，每周见面三次"
+            },
+            {
+              "name": "前同事",
+              "role": "前合伙人，偶尔联系",
+              "status": "正常，咨询公司仍在运营"
+            }
+          ],
+          "primaryActivity": "家庭修复、住房规划、指数基金定投",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -7.5,
+                22.5
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 458,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 452,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 2,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_0bbd8f3c"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_0bbd8f3c",
+          "phaseId": "response",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 39,
+        "ageInMonths": 469,
+        "lifeStage": "midlife",
+        "title": "换房波折与信任重建",
+        "stage": "修复与重建：稳步换房与家庭重启",
+        "description": "你决定稳步换房，家庭重启。过去11个月，你卖掉了小户型，加上现金流十分紧张的三居室，贷款80万，月供约4500元。配偶在交房后搬回同住，但分居的隔阂仍在，你们每周进行两次家庭咨询。工作方面，财务总监岗位稳定，年薪涨至42万，业余咨询收入年增约5万，月均可支配约2.8万。你坚持每月定投1万元于沪深300和债券基金，已积累约12万。健康持续改善，胃病好转，焦虑偶发，每周三次慢跑和冥想成为习惯。但换房后装修和搬家压力导致睡眠不足，健康略有波动。你意识到，财富不再是赌博，而是纪律和耐心的结果。",
+        "selectedChoice": "专注家庭与稳定工作，延续定投和咨询副业，逐步还贷",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 84,
+          "wealth": 46,
+          "relation": 50,
+          "health": 53
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 469,
+          "cashWan": -53.1,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 106.9,
+          "annualAfterTaxIncomeWan": 38.4,
+          "annualDisposableIncomeWan": 20.4,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.2,
+          "incomeMonths": 11,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 11,
+          "afterTaxIncomeWan": 35.2,
+          "livingExpenseWan": 16.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 18.7,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "专注家庭与稳定工作，延续定投和咨询副业，逐步还贷",
+            "impactSummary": "稳扎稳打，亲情修复",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳扎稳打，亲情修复"
+            },
+            "decisionIntent": "family:reconcile:stable_cohabitation_with_spouse",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "利用财务总监经验，业余时间系统学习CFA，准备转型投资分析",
+            "impactSummary": "职业升级，长期布局",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "职业升级，长期布局"
+            },
+            "decisionIntent": "career:upskill:prepare_for_investment_analyst",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "与配偶商议，将现有三居室出租一套房间，增加现金流，加速还贷",
+            "impactSummary": "加速还贷，空间压缩",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "加速还贷，空间压缩"
+            },
+            "decisionIntent": "finance:generate_rental_income:room_rental",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 11,
+          "elapsedYears": 0.9166666666666666,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_603ab06d",
+            "pressureArcId": "pressure_0bbd8f3c",
+            "startAgeInMonths": 458,
+            "endAgeInMonths": 469,
+            "internalTransitions": [
+              "卖房交易耗时2个月，期间与配偶多次商讨购房方案",
+              "装修和搬家持续3个月，期间睡眠不足但坚持运动",
+              "定投计划执行8个月，累计投入8万元，收益约2万元",
+              "家庭咨询每周两次，关系逐步缓和"
+            ],
+            "decisionCheckpointId": "checkpoint_ab7d6bd5",
+            "summary": "你决定稳步换房，家庭重启。过去11个月，你卖掉了小户型，加上存款和配偶的资助，买了一套总价200万的三居室，贷款80万，月供约4500元。配偶在交房后搬回同住，"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "配偶",
+            "孩子"
+          ],
+          "primaryActivity": "稳步换房与家庭重启",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -6.583333333333333,
+                23.416666666666668
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 469,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 469,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 3,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_0bbd8f3c"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_0bbd8f3c",
+          "phaseId": "growth",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 41,
+        "ageInMonths": 492,
+        "lifeStage": "midlife",
+        "title": "换房后的稳定与成长",
+        "stage": "重建与平衡期",
+        "description": "在你决定专注家庭与稳定工作后，过去23个月生活逐渐步入正轨。你继续担任财务总监，年薪稳定在42万，业余咨询收入每年约5万。每月定投1万元于沪深300和债券基金，至41岁时投资组合已积累约25万。配偶搬回同住后，经过每周家庭咨询，关系缓慢修复，信任重建。换房后月供4500元，装修花费8万，现金略有积蓄。健康方面，坚持每周三次慢跑和冥想，胃病和焦虑偶发，但整体稳定。然而，行业开始出现裁员传闻，你所在公司也面临成本压力，你的岗位虽暂时安全，但收入增长停滞，副业咨询收入也因客户预算收缩而减少。你开始思考是否需要主动转型或提升技能，以应对未来不确定性。",
+        "selectedChoice": "维持现状，专注主业和定投，减少副业咨询，多陪伴家庭",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 85,
+          "wealth": 47,
+          "relation": 52,
+          "health": 55
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 492,
+          "cashWan": -14,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 146,
+          "annualAfterTaxIncomeWan": 38.4,
+          "annualDisposableIncomeWan": 20.4,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.2,
+          "incomeMonths": 23,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 23,
+          "afterTaxIncomeWan": 73.6,
+          "livingExpenseWan": 34.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 39.1,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "利用业余时间系统学习CFA，为转型投资分析做准备，同时维持现有工作",
+            "impactSummary": "技能提升，风险对冲",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "技能提升，风险对冲"
+            },
+            "decisionIntent": "career:upskill:prepare_for_investment_analyst",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "与配偶商议，将现有三居室出租一套房间，增加现金流，加速还贷",
+            "impactSummary": "现金流改善，家庭摩擦",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "现金流改善，家庭摩擦"
+            },
+            "decisionIntent": "finance:generate_rental_income:room_rental",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "维持现状，专注主业和定投，减少副业咨询，多陪伴家庭",
+            "impactSummary": "稳定家庭，收入平稳",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳定家庭，收入平稳"
+            },
+            "decisionIntent": "family:reconcile:stable_cohabitation_with_spouse",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 23,
+          "elapsedYears": 1.9166666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_bb0cda72",
+            "pressureArcId": "pressure_0bbd8f3c",
+            "startAgeInMonths": 469,
+            "endAgeInMonths": 492,
+            "internalTransitions": [
+              "换房后装修和搬家压力导致睡眠不足，但通过调整作息和冥想逐渐恢复",
+              "家庭咨询坚持每周两次，半年后减为每月一次，关系逐步改善",
+              "工作方面，财务总监岗位稳定，但公司开始裁员传闻，你主动承担更多税务优化项目以增加价值",
+              "投资组合从12万增长至25万，但你意识到需要更系统的学习来应对未来"
+            ],
+            "decisionCheckpointId": "checkpoint_aee534cd",
+            "summary": "在你决定专注家庭与稳定工作后，过去23个月生活逐渐步入正轨。你继续担任财务总监，年薪稳定在42万，业余咨询收入每年约5万。每月定投1万元于沪深300和债券基金，"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "name": "配偶",
+              "relation": "spouse",
+              "status": "cohabiting, trust rebuilding"
+            },
+            {
+              "name": "孩子",
+              "age": 10,
+              "status": "living with parents, school"
+            }
+          ],
+          "primaryActivity": "财务总监工作，业余咨询，家庭生活",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -4.666666666666666,
+                25.333333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 492,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 469,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 4,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_0bbd8f3c"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_0bbd8f3c",
+          "phaseId": "growth",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 42,
+        "ageInMonths": 510,
+        "lifeStage": "midlife",
+        "title": "裁员潮下的坚守与微调",
+        "stage": "eighteen_months_stability",
+        "description": "你决定维持现状后的18个月，经济环境持续恶化。你所在的制造型企业启动两轮裁员，财务部从12人缩减至7人。你凭借财务总监的资历和跨部门协调能力保住职位，但工作量翻倍，月薪税后从3.2万降至2.8万（公司全员降薪15%），年终奖取消。副业咨询因客户预算砍掉，年收入降至35万。配偶在社区找到兼职工作，月入4000元，家庭月可支配约2.2万。每月定投缩减至5000元，投资组合累计约20万。房贷月供4500元，装修贷款已还清，现金略有积蓄。家庭咨询频率降至每月一次，关系稳步修复，但经济压力引发偶尔争吵。健康方面，慢跑和冥想坚持较好，胃病偶发但不严重。第10个月，公司传出被收购传闻，你开始利用业余时间在线学习数据分析课程，为可能的职业转型做准备。第15个月，收购完成，新CEO引入财务共享中心，你的岗位面临调整风险。你意识到稳定正在被系统性侵蚀，必须主动应对。",
+        "selectedChoice": "维持现有岗位，同时加大副业投入，与配偶一起经营社区团购或线上财务咨询，拓宽收入来源",
+        "attributes": {
+          "happiness": 54,
+          "intelligence": 86,
+          "wealth": 58,
+          "relation": 48,
+          "health": 53
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 510,
+          "cashWan": 16.6,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 176.6,
+          "annualAfterTaxIncomeWan": 38.4,
+          "annualDisposableIncomeWan": 20.4,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.2,
+          "incomeMonths": 18,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 18,
+          "afterTaxIncomeWan": 57.6,
+          "livingExpenseWan": 27,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 30.6,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "主动与新管理层沟通，争取留任并转型为业务财务BP，利用数据技能提升价值",
+            "impactSummary": "主动转型求存",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "主动转型求存"
+            },
+            "decisionIntent": "career:transform_to:bp_in_acquired_company",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "接受可能的离职补偿，利用财务总监经验和数据分析技能，寻找中型企业或创业公司财务负责人岗位",
+            "impactSummary": "跳槽寻求机会",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "跳槽寻求机会"
+            },
+            "decisionIntent": "career:job_hopping:senior_finance_role",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "维持现有岗位，同时加大副业投入，与配偶一起经营社区团购或线上财务咨询，拓宽收入来源",
+            "impactSummary": "主业副业并行",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "主业副业并行"
+            },
+            "decisionIntent": "income:side_business:community_group_buying",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 18,
+          "elapsedYears": 1.5,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_52fdbb61",
+            "pressureArcId": "pressure_0bbd8f3c",
+            "startAgeInMonths": 492,
+            "endAgeInMonths": 510,
+            "internalTransitions": [
+              "全员降薪后调整家庭预算",
+              "副业咨询收入归零，探索新副业",
+              "坚持定投和健康习惯",
+              "在线学习数据分析课程",
+              "公司被收购，岗位面临调整"
+            ],
+            "decisionCheckpointId": "checkpoint_804d2370",
+            "summary": "你决定维持现状后的18个月，经济环境持续恶化。你所在的制造型企业启动两轮裁员，财务部从12人缩减至7人。你凭借财务总监的资历和跨部门协调能力保住职位，但工作量翻"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "你",
+            "配偶",
+            "前同事"
+          ],
+          "primaryActivity": "财务总监工作与业余学习",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                -3.166666666666666,
+                26.833333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 510,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "active",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 5,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_0bbd8f3c"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_0bbd8f3c",
+          "phaseId": "operation",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 46,
+        "ageInMonths": 561,
+        "lifeStage": "midlife",
+        "title": "副业突围与家庭财务韧性",
+        "stage": "现实转折",
+        "description": "你决定与配偶一起经营社区团购和线上财务咨询。最初6个月，你们利用业余时间在小区微信群推广生鲜团购，月均增收3000元；同时你通过抖音发布财务科普视频，积累约5000粉丝，线上咨询每月带来2000元收入。但第8个月，社区团购因竞争激烈利润下降，线上咨询也因平台算法变化流量骤减。配偶建议放弃团购，专注财务咨询，你则坚持两条腿走路。第18个月，公司财务共享中心正式运行，你的岗位被裁撤，获得补偿金15万元。你被迫全职投入副业，但收入不稳定，月均约7000元。第30个月，你考取CFA一级，线上咨询客户逐渐稳定，月收入提升至1.2万元。第42个月，你通过朋友介绍，获得一家创业公司兼职财务顾问机会，月薪5000元。第51个月，家庭年收入约32万元，现金略有积蓄，房贷月供4500元仍可承担。健康方面，因长期熬夜和压力，胃病复发两次，慢跑中断，焦虑水平上升。配偶关系因经济压力时有争吵，但共同经营副业也让你们多了沟通话题。",
+        "selectedChoice": "专注线上财务咨询，辞去兼职顾问，投入更多时间考CFA二级，提升专业壁垒",
+        "attributes": {
+          "happiness": 48,
+          "intelligence": 88,
+          "wealth": 46,
+          "relation": 42,
+          "health": 48
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 561,
+          "cashWan": 1.3,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 161.3,
+          "annualAfterTaxIncomeWan": 14.4,
+          "annualDisposableIncomeWan": -3.6,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.2,
+          "incomeMonths": 51,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 51,
+          "afterTaxIncomeWan": 61.2,
+          "livingExpenseWan": 76.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -15.3,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "专注线上财务咨询，辞去兼职顾问，投入更多时间考CFA二级，提升专业壁垒",
+            "impactSummary": "深耕专业",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "深耕专业"
+            },
+            "decisionIntent": "career:transform_to:online_financial_advisor_cfa",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "接受创业公司全职财务经理岗位，稳定收入，副业转为周末经营",
+            "impactSummary": "回归稳定",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "回归稳定"
+            },
+            "decisionIntent": "career:job_hopping:startup_finance_manager",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "继续当前模式，同时与配偶共同学习短视频运营，扩大团购和咨询规模",
+            "impactSummary": "双线扩张",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "双线扩张"
+            },
+            "decisionIntent": "income:side_business:expand_community_group_buying_and_consulting",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 51,
+          "elapsedYears": 4.25,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d73e8bda",
+            "pressureArcId": "pressure_0bbd8f3c",
+            "startAgeInMonths": 510,
+            "endAgeInMonths": 561,
+            "internalTransitions": [
+              "前6个月尝试团购和咨询，收入增长",
+              "第8个月团购利润下降，流量变化",
+              "第18个月被裁，全职副业",
+              "第30个月考取CFA一级，客户稳定",
+              "第42个月兼职创业公司顾问"
+            ],
+            "decisionCheckpointId": "checkpoint_eafc9211",
+            "summary": "你决定与配偶一起经营社区团购和线上财务咨询。最初6个月，你们利用业余时间在小区微信群推广生鲜团购，月均增收3000元；同时你通过抖音发布财务科普视频，积累约50"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "name": "配偶",
+              "role": "伴侣",
+              "status": "cohabiting"
+            }
+          ],
+          "primaryActivity": "经营社区团购和线上财务咨询",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                1.083333333333334,
+                31.083333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 561,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa",
+            "19c2fdf1"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_0bbd8f3c",
+          "phaseId": "operation",
+          "transitionAction": "resolve"
+        }
+      },
+      {
+        "age": 49,
+        "ageInMonths": 590,
+        "lifeStage": "midlife",
+        "title": "CFA二级突破与咨询业务恢复增长",
+        "stage": "中年转型与专业深耕",
+        "description": "你辞去兼职顾问后，全身心投入CFA二级备考和线上财务咨询。前6个月，你每天学习3-4小时，周末全天复习，同时维持抖音和公众号更新。第7个月，你通过CFA二级考试，咨询客户因专业背书增加，月收入从1.2万逐步提升至1.8万。第12个月，你开始提供付费专栏和一对一深度咨询，年收入约22万。配偶在社区兼职收入稳定，家庭年收入约36万，月可支配约2.2万。房贷月供4500元正常支付，现金略有积蓄。第18个月，你接到一家中型企业财务顾问合同，月薪1.5万，但工作压力加大，每周工作50小时。第24个月，你决定减少线上咨询，专注于企业顾问和CFA三级备考。第29个月，你通过CFA三级，成为持证人，企业合同转为全职财务分析经理，月薪税后2.5万，年收入约35万。健康方面，因长期久坐和压力，腰背疼痛出现，慢跑恢复至每周两次，焦虑水平中等。配偶关系因经济改善而稳定，你们开始计划一次家庭旅行。你意识到，专业深度是财富积累的基石，但需平衡健康。",
+        "selectedChoice": "接受全职财务分析经理岗位，稳定收入同时利用CFA持证优势，逐步建立个人品牌",
+        "attributes": {
+          "happiness": 50,
+          "intelligence": 91,
+          "wealth": 40,
+          "relation": 44,
+          "health": 45
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 590,
+          "cashWan": -7.4,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 152.6,
+          "annualAfterTaxIncomeWan": 14.4,
+          "annualDisposableIncomeWan": -3.6,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.2,
+          "incomeMonths": 29,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 29,
+          "afterTaxIncomeWan": 34.8,
+          "livingExpenseWan": 43.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -8.7,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受全职财务分析经理岗位，稳定收入同时利用CFA持证优势，逐步建立个人品牌",
+            "impactSummary": "职业回归，品牌积累",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "职业回归，品牌积累"
+            },
+            "decisionIntent": "career:accept:financial_analysis_manager_cfa",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "保持自由职业状态，扩大线上咨询和课程产品，探索被动收入来源",
+            "impactSummary": "自由灵活，收入波动",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "自由灵活，收入波动"
+            },
+            "decisionIntent": "career:expand:online_financial_education_cfa",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "兼顾全职工作和副业咨询，用CFA证书提升主业谈判力，同时定投指数基金",
+            "impactSummary": "双线并进，压力增大",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "双线并进，压力增大"
+            },
+            "decisionIntent": "finance:dual_income:job_and_consulting_cfa",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 29,
+          "elapsedYears": 2.4166666666666665,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_0a20ee93",
+            "startAgeInMonths": 561,
+            "endAgeInMonths": 590,
+            "internalTransitions": [
+              "前6个月高强度备考CFA二级并维持线上咨询",
+              "第7个月通过二级，咨询收入提升",
+              "第12个月推出付费专栏和深度咨询",
+              "第18个月获得企业财务顾问合同，工作压力加大",
+              "第24个月减少线上咨询，专注CFA三级和企业顾问",
+              "第29个月通过三级，成为持证人，转为全职财务分析经理"
+            ],
+            "decisionCheckpointId": "checkpoint_618ffbef",
+            "summary": "你辞去兼职顾问后，全身心投入CFA二级备考和线上财务咨询。前6个月，你每天学习3-4小时，周末全天复习，同时维持抖音和公众号更新。第7个月，你通过CFA二级考试"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "配偶"
+          ],
+          "primaryActivity": "CFA三级备考与职业转型",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                3.5000000000000004,
+                33.5
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 590,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa",
+            "19c2fdf1",
+            "9430bd99"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 51,
+        "ageInMonths": 615,
+        "lifeStage": "mature_adulthood",
+        "title": "全职稳定后的隐性代价",
+        "stage": "现实转折",
+        "description": "接受全职财务分析经理岗位后，你获得了稳定的月薪2.5万和CFA持证人的专业背书。最初6个月，你全力适应新公司的财务流程和业务分析需求，每天工作9-10小时。线上咨询业务缩减至周末维护老客户，月收入降至4000元。配偶的社区兼职稳定，家庭月可支配约2.4万。第10个月，一位前同事私下邀请你参与一个初创企业的财务顾问项目，月报酬1万，但需利用业余时间，且部分工作涉及税务筹划的灰色地带。你意识到这是增收机会，但可能违反新公司的合规政策。第18个月，你因长期久坐和压力，腰背疼痛加重，每周慢跑减少至一次，焦虑水平回升。第22个月，公司内部审计发现你曾为外部企业提供财务建议（尽管非竞业），你的直属上司口头警告，要求停止所有外部咨询活动。你面临选择：放弃外部收入，或冒险转入地下，或主动离职全职创业。第25个月，你51岁3个月，健康持续警示，家庭关系因工作压力再度紧张，你必须在稳定与自由、安全与增长之间做出取舍。",
+        "selectedChoice": "辞去全职，全力开展线上财务咨询和顾问业务，利用CFA持证优势建立个人品牌",
+        "attributes": {
+          "happiness": 45,
+          "intelligence": 93,
+          "wealth": 52,
+          "relation": 42,
+          "health": 40
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 615,
+          "cashWan": 17.6,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 177.6,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 25,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 25,
+          "afterTaxIncomeWan": 62.5,
+          "livingExpenseWan": 37.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 25,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "go_independent_fast",
+            "text": "辞去全职，全力开展线上财务咨询和顾问业务，利用CFA持证优势建立个人品牌",
+            "impactSummary": "冒险创业",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "冒险创业"
+            },
+            "decisionIntent": "career:go_independent:online_financial_consultant_cfa",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "reduce_and_hide_exposure",
+            "text": "继续全职工作，秘密维持少量高价值顾问客户，但严格规避利益冲突",
+            "impactSummary": "双轨风险",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "双轨风险"
+            },
+            "decisionIntent": "finance:dual_income:hidden_consulting_risk",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "continue_dual_track_risk",
+            "text": "与公司合规部门沟通，申请兼职许可，同时缩减咨询业务至合规范围",
+            "impactSummary": "合规探索",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "合规探索"
+            },
+            "decisionIntent": "career:negotiate_compliance:dual_role_disclosure",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "financial_side_path_conflict",
+          "eventCategory": "financial",
+          "eventTags": [
+            "financial",
+            "side_income",
+            "compliance_risk",
+            "opportunity"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 25,
+          "elapsedYears": 2.0833333333333335,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_26432e12",
+            "startAgeInMonths": 590,
+            "endAgeInMonths": 615,
+            "internalTransitions": [
+              "适应新公司财务流程和业务分析",
+              "周末缩减咨询业务",
+              "腰背疼痛加重，慢跑减少",
+              "收到合规警告"
+            ],
+            "decisionCheckpointId": "checkpoint_437d1e2c",
+            "summary": "接受全职财务分析经理岗位后，你获得了稳定的月薪2.5万和CFA持证人的专业背书。最初6个月，你全力适应新公司的财务流程和业务分析需求，每天工作9-10小时。线上"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "signal": "career_stability_vs_independence",
+              "evidence": "全职工作提供稳定收入但限制副业，健康成本上升"
+            },
+            {
+              "signal": "ethical_risk",
+              "evidence": "外部咨询可能违反公司合规政策，已收到警告"
+            }
+          ],
+          "activeCharacters": [
+            {
+              "id": "spouse",
+              "role": "配偶",
+              "state": "supportive but stressed"
+            },
+            {
+              "id": "supervisor",
+              "role": "直属上司",
+              "state": "合规警告"
+            }
+          ],
+          "primaryActivity": "全职财务分析经理，周末维护咨询客户",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                5.583333333333334,
+                35.583333333333336
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 615,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa",
+            "19c2fdf1",
+            "9430bd99",
+            "af13ad6d"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 53,
+        "ageInMonths": 644,
+        "lifeStage": "mature_adulthood",
+        "title": "自由职业的起伏与信任裂痕",
+        "stage": "51岁3个月至53岁8个月",
+        "description": "辞去全职后，你全力投入线上财务咨询和顾问业务。前6个月，凭借CFA持证优势，你通过抖音和公众号持续输出内容，月收入从1.5万逐步提升至2.2万。第8个月，一位老客户介绍你参与一家初创企业的财务顾问项目，月报酬1.2万，内容涉及税务筹划。你接下项目，但第13个月，该企业因税务问题被稽查，你作为顾问被要求配合调查，虽最终未担责，但声誉受损，客户流失。第16个月，配偶抱怨你因工作忽略家庭，且收入不稳定导致争吵增多。第20个月，你与配偶共同决定将部分储蓄投入指数基金定投，每月3000元，以增加被动收入。第25个月，你接到前同事邀请，加入一个合规的财务咨询平台，月收入稳定在2.5万左右，但需要投入大量时间学习新工具。健康方面，长期久坐导致腰背疼痛持续，慢跑恢复至每周两次，焦虑水平中等。家庭关系因经济压力时好时坏，你们每周进行家庭会议，尝试修复信任。至53岁8个月，你意识到自由职业的波动性，但专业能力让你有底气继续前行。",
+        "selectedChoice": "A. 接受平台邀请，稳定收入同时利用平台资源扩大客户群，但减少自主创作时间",
+        "attributes": {
+          "happiness": 40,
+          "intelligence": 95,
+          "wealth": 53,
+          "relation": 38,
+          "health": 35
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 644,
+          "cashWan": 17.6,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 177.6,
+          "annualAfterTaxIncomeWan": 18,
+          "annualDisposableIncomeWan": 0,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.5,
+          "incomeMonths": 29,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 29,
+          "afterTaxIncomeWan": 43.5,
+          "livingExpenseWan": 43.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 0,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "A. 接受平台邀请，稳定收入同时利用平台资源扩大客户群，但减少自主创作时间",
+            "impactSummary": "稳定增收，创作减少",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳定增收，创作减少"
+            },
+            "decisionIntent": "career:join_platform:financial_consultant_online",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "B. 继续独立运营，加大内容创作和广告投放，尝试打造个人IP，但收入波动更大",
+            "impactSummary": "高风险高回报",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "高风险高回报"
+            },
+            "decisionIntent": "career:build_personal_brand:financial_consultant_independent",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "C. 降低工作强度，每周接固定客户，更多时间用于恢复健康和家庭，接受较低收入",
+            "impactSummary": "健康优先，收入下降",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "健康优先，收入下降"
+            },
+            "decisionIntent": "health:reduce_workload:focus_on_wellbeing",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "relationship_trust_interest_fracture",
+          "eventCategory": "relationship",
+          "eventTags": [
+            "relationship",
+            "betrayal",
+            "interest_conflict",
+            "trust"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 29,
+          "elapsedYears": 2.4166666666666665,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_49656f2a",
+            "startAgeInMonths": 615,
+            "endAgeInMonths": 644,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_e3954a42",
+            "summary": "辞去全职后，你全力投入线上财务咨询和顾问业务。前6个月，凭借CFA持证优势，你通过抖音和公众号持续输出内容，月收入从1.5万逐步提升至2.2万。第8个月，一位老"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "配偶",
+            "前同事",
+            "税务稽查人员"
+          ],
+          "primaryActivity": "线上财务咨询和顾问",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                8,
+                38
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 644,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa",
+            "19c2fdf1",
+            "9430bd99",
+            "af13ad6d",
+            "3d841f14"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 54,
+        "ageInMonths": 656,
+        "lifeStage": "mature_adulthood",
+        "title": "平台合作的价值分配冲突",
+        "stage": "平台合作与价值分配",
+        "description": "加入平台后，前3个月你全力学习新工具，月收入稳定在2.5万，但需完成平台派单和客户维护，每天工作10小时。第4个月，你为一位高净值客户设计了一套税务优化方案，客户非常满意，但平台以“客户资源归属平台”为由，将后续咨询费抽成从30%提高至50%。你与平台沟通，对方态度强硬，暗示若不接受可随时退出。你意识到平台虽稳定，但规则剥削；若离开，又面临收入波动。配偶劝你忍耐，认为稳定优先，但你感到专业价值被低估。第9个月，你因长期久坐和压力，腰背疼痛加剧，每周理疗花费800元。第12个月，你必须在“妥协接受高抽成”、“与平台谈判争取权益”或“退出平台独立运营”之间做出选择。",
+        "selectedChoice": "接受高抽成，继续留在平台，利用其客户资源稳定收入，但减少工作量以恢复健康",
+        "attributes": {
+          "happiness": 35,
+          "intelligence": 96,
+          "wealth": 59,
+          "relation": 35,
+          "health": 30
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 656,
+          "cashWan": 29.6,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 189.6,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 12,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 12,
+          "afterTaxIncomeWan": 30,
+          "livingExpenseWan": 18,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 12,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受高抽成，继续留在平台，利用其客户资源稳定收入，但减少工作量以恢复健康",
+            "impactSummary": "稳定妥协",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳定妥协"
+            },
+            "decisionIntent": "career:accept_high_cut:stay_on_platform",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "与平台正式谈判，提出基于业绩的分成方案，同时准备退出预案",
+            "impactSummary": "权益谈判",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "权益谈判"
+            },
+            "decisionIntent": "career:negotiate_cut:revenue_share",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "退出平台，重新独立运营，利用CFA持证和过往客户口碑，专注高净值个人和小企业顾问服务",
+            "impactSummary": "独立冒险",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "独立冒险"
+            },
+            "decisionIntent": "career:exit_platform:independent_consultant",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_credit_ownership_conflict",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "credit_ownership",
+            "boundary",
+            "reputation_risk"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_ebf3c8ed",
+            "startAgeInMonths": 644,
+            "endAgeInMonths": 656,
+            "internalTransitions": [
+              "前3个月适应平台工具和流程",
+              "第4个月客户事件引发价值分配冲突",
+              "第9个月健康问题显现"
+            ],
+            "decisionCheckpointId": "checkpoint_076ea015",
+            "summary": "加入平台后，前3个月你全力学习新工具，月收入稳定在2.5万，但需完成平台派单和客户维护，每天工作10小时。第4个月，你为一位高净值客户设计了一套税务优化方案，客"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "配偶",
+            "平台经理"
+          ],
+          "primaryActivity": "财务咨询与平台合作",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                9,
+                39
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 656,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa",
+            "19c2fdf1",
+            "9430bd99",
+            "af13ad6d",
+            "3d841f14",
+            "d46a2217"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 55,
+        "ageInMonths": 664,
+        "lifeStage": "mature_adulthood",
+        "title": "健康预警下的平台生存",
+        "stage": "现实转折",
+        "description": "你接受高抽成后，平台派单量稳定，月收入维持2.5万，但每天仍需工作9小时。第3个月，腰背疼痛加剧，理疗师警告需减少久坐，否则可能发展为椎间盘突出。配偶劝你暂停工作，但房贷和家庭开支让你不敢停。第6个月，你尝试调整工作方式：用站立办公、定时拉伸，但咨询高峰时仍连续坐4小时。第7个月，一位长期客户因平台抽成过高，私下问你能否直接合作，你想起平台规则，犹豫后婉拒。第8个月，你因一次加班后头晕摔倒，轻微扭伤脚踝，被迫休息一周。健康风险明确，但收入稳定与专业积累的拉扯仍在持续。",
+        "selectedChoice": "接受客户私下合作请求，脱离平台直接服务，但需谨慎规避法律风险",
+        "attributes": {
+          "happiness": 30,
+          "intelligence": 96,
+          "wealth": 60,
+          "relation": 33,
+          "health": 25
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 664,
+          "cashWan": 37.6,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 197.6,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 8,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 8,
+          "afterTaxIncomeWan": 20,
+          "livingExpenseWan": 12,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 8,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受客户私下合作请求，脱离平台直接服务，但需谨慎规避法律风险",
+            "impactSummary": "高收益高风险",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "高收益高风险"
+            },
+            "decisionIntent": "career:underground_direct_client:high_net_worth",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续留在平台，同时严格限定工作时间，每周工作不超过35小时，接受收入下降",
+            "impactSummary": "收入换健康",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "收入换健康"
+            },
+            "decisionIntent": "health:reduce_workload:35_hour_week",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "与平台再次谈判，提出基于业绩的阶梯分成方案，否则考虑退出",
+            "impactSummary": "争取主动权",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "争取主动权"
+            },
+            "decisionIntent": "career:renegotiate_platform_terms:performance_based",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "health_system_warning",
+          "eventCategory": "health",
+          "eventTags": [
+            "health",
+            "burnout",
+            "instability",
+            "system_warning"
+          ],
+          "eventIntensity": "minor",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 8,
+          "elapsedYears": 0.6666666666666666,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_0bcbe8b7",
+            "startAgeInMonths": 656,
+            "endAgeInMonths": 664,
+            "internalTransitions": [
+              "第1-2个月，维持高抽成下工作节奏，月收入2.5万，每天9小时",
+              "第3个月，腰背疼痛加剧，理疗师建议减少久坐",
+              "第6个月，尝试站立办公和定时拉伸，但咨询高峰仍久坐",
+              "第7个月，婉拒客户私下合作请求",
+              "第8个月，加班后头晕摔倒，轻微扭伤脚踝，休息一周"
+            ],
+            "decisionCheckpointId": "checkpoint_b6e80be7",
+            "summary": "你接受高抽成后，平台派单量稳定，月收入维持2.5万，但每天仍需工作9小时。第3个月，腰背疼痛加剧，理疗师警告需减少久坐，否则可能发展为椎间盘突出。配偶劝你暂停工"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "signal": "健康预警触发",
+              "evidence": "摔倒受伤，被迫休息一周"
+            },
+            {
+              "signal": "平台关系紧张",
+              "evidence": "客户私下寻求合作，抽成争议未解"
+            }
+          ],
+          "activeCharacters": [
+            "配偶",
+            "理疗师"
+          ],
+          "primaryActivity": "线上财务咨询与平台派单",
+          "worldDeltas": [
+            "健康恶化，需要医疗介入",
+            "平台收入稳定但满意度下降"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                9.666666666666666,
+                39.666666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 664,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa",
+            "19c2fdf1",
+            "9430bd99",
+            "af13ad6d",
+            "3d841f14",
+            "d46a2217",
+            "f59daa95"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 55,
+        "ageInMonths": 667,
+        "lifeStage": "mature_adulthood",
+        "title": "私下合作的代价",
+        "stage": "mature_adulthood",
+        "description": "接受客户私下合作请求后，你开始为那位高净值客户直接服务，每月咨询费1.5万。前两个月顺利，但第3个月，平台发现你私下接单，以违反协议为由要求赔偿5万元，否则将起诉。你陷入法律纠纷，被迫暂停所有咨询。配偶对此极度不满，家庭关系紧张。腰背疼痛持续，理疗师建议每周治疗两次。财务上，你支付了2万元律师费协商，最终以3万元和解，平台终止合作。你失去稳定收入来源，但保留了客户关系。健康因压力和心理负担加重，焦虑水平上升。",
+        "selectedChoice": "与平台和解后，全心维护私下客户，并拓展新客户，但接受收入波动",
+        "attributes": {
+          "happiness": 24,
+          "intelligence": 97,
+          "wealth": 60,
+          "relation": 28,
+          "health": 20
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 667,
+          "cashWan": 40.6,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 200.6,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.5,
+          "incomeMonths": 3,
+          "monthlyLivingExpenseWan": 1.5,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 3,
+          "afterTaxIncomeWan": 7.5,
+          "livingExpenseWan": 4.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 3,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "与平台和解后，全心维护私下客户，并拓展新客户，但接受收入波动",
+            "impactSummary": "独立顾问风险",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "独立顾问风险"
+            },
+            "decisionIntent": "career:independent_consultant:under_the_radar",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "寻求法律咨询，主动与平台达成正式退出协议，支付违约金后重新独立运营，同时加入行业协会规范执业",
+            "impactSummary": "合规重建信誉",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "合规重建信誉"
+            },
+            "decisionIntent": "career:exit_platform:legal_compliance",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "放弃独立咨询，重新寻找全职工作，利用CFA持证优势应聘中型企业财务总监或高级分析师岗位",
+            "impactSummary": "回归稳定就业",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "回归稳定就业"
+            },
+            "decisionIntent": "career:full_time_employment:senior_finance_role",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "health_forced_pause",
+          "eventCategory": "health",
+          "eventTags": [
+            "health",
+            "forced_pause",
+            "burnout",
+            "major_crisis"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 3,
+          "elapsedYears": 0.25,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_935e21c9",
+            "pressureArcId": "pressure_92593914",
+            "startAgeInMonths": 664,
+            "endAgeInMonths": 667,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_f0375558",
+            "summary": "接受客户私下合作请求后，你开始为那位高净值客户直接服务，每月咨询费1.5万。前两个月顺利，但第3个月，平台发现你私下接单，以违反协议为由要求赔偿5万元，否则将起"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": "处理法律纠纷，维护剩余客户关系",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                9.916666666666666,
+                39.916666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 667,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_92593914",
+              "eventId": "health_forced_pause",
+              "eventIntentType": "health_forced_pause",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 664,
+              "phaseStartedAtAgeInMonths": 667,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa",
+            "19c2fdf1",
+            "9430bd99",
+            "af13ad6d",
+            "3d841f14",
+            "d46a2217",
+            "f59daa95",
+            "69d5c2c8"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_92593914"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_92593914",
+          "phaseId": "response",
+          "transitionAction": "advance"
+        }
+      },
+      {
+        "age": 56,
+        "ageInMonths": 673,
+        "lifeStage": "mature_adulthood",
+        "title": "生命终章：在追求与放下之间",
+        "stage": "终章",
+        "description": "56岁这年，腰椎间盘突出的后遗症让你无法再长时间伏案工作。你缩减了咨询业务，只保留少数老客户，月收入勉强覆盖基本开支。配偶的社区兼职收入成为家庭主要支撑，你们的关系在共渡难关后反而多了几分默契。你开始每天早晚散步，偶尔打太极，腰背疼痛虽未根除，但不再恶化。你整理了自己多年的财务笔记，写成一本书，虽未出版，却成了家族后辈的礼物。",
+        "selectedChoice": "安详落幕，查看一生洞察",
+        "attributes": {
+          "happiness": 20,
+          "intelligence": 97,
+          "wealth": 54,
+          "relation": 25,
+          "health": 12
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 673,
+          "cashWan": 37.6,
+          "investmentAssetsWan": 10,
+          "propertyMarketValueWan": 150,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 197.6,
+          "annualAfterTaxIncomeWan": 12,
+          "annualDisposableIncomeWan": -6,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialChange": {
+          "periodMonths": 6,
+          "afterTaxIncomeWan": 6,
+          "livingExpenseWan": 9,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -3,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "ENDING",
+            "text": "安详落幕，查看一生洞察",
+            "impactSummary": "一生回望"
+          }
+        ],
+        "isEndingNode": true,
+        "eventMeta": {
+          "eventId": "health_forced_pause",
+          "eventCategory": "health",
+          "eventTags": [
+            "health",
+            "forced_pause",
+            "burnout",
+            "major_crisis"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 6,
+          "elapsedYears": 0.5,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_ed65f999",
+            "pressureArcId": "pressure_92593914",
+            "startAgeInMonths": 667,
+            "endAgeInMonths": 673,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_944208af",
+            "summary": "56岁这年，腰椎间盘突出的后遗症让你无法再长时间伏案工作。你缩减了咨询业务，只保留少数老客户，月收入勉强覆盖基本开支。配偶的社区兼职收入成为家庭主要支撑，你们的"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_child",
+              "relation": "child",
+              "estimatedAgeRange": [
+                10.416666666666666,
+                40.416666666666664
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 673,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "孩子",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_5489fa00",
+              "directionType": "wealth",
+              "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_0bbd8f3c",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 446,
+              "phaseStartedAtAgeInMonths": 510,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            },
+            {
+              "id": "pressure_92593914",
+              "eventId": "health_forced_pause",
+              "eventIntentType": "health_forced_pause",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "resolved",
+              "startedAtAgeInMonths": 664,
+              "phaseStartedAtAgeInMonths": 667,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。"
+            }
+          ],
+          "committedTransactionIds": [
+            "0d5bbcaf",
+            "8f30f6ef",
+            "89857c23",
+            "e2c3eb9c",
+            "397b6c79",
+            "809fe6cc",
+            "6cfd034d",
+            "244a42aa",
+            "19c2fdf1",
+            "9430bd99",
+            "af13ad6d",
+            "3d841f14",
+            "d46a2217",
+            "f59daa95",
+            "69d5c2c8",
+            "3d2de4b0"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_92593914",
+          "phaseId": "response",
+          "transitionAction": "resolve"
+        }
+      }
+    ],
+    "currentNode": {
+      "title": "生命终章：在追求与放下之间",
+      "stage": "终章",
+      "description": "56岁这年，腰椎间盘突出的后遗症让你无法再长时间伏案工作。你缩减了咨询业务，只保留少数老客户，月收入勉强覆盖基本开支。配偶的社区兼职收入成为家庭主要支撑，你们的关系在共渡难关后反而多了几分默契。你开始每天早晚散步，偶尔打太极，腰背疼痛虽未根除，但不再恶化。你整理了自己多年的财务笔记，写成一本书，虽未出版，却成了家族后辈的礼物。",
+      "attributes": {
+        "happiness": 20,
+        "intelligence": 97,
+        "wealth": 54,
+        "relation": 25,
+        "health": 12
+      },
+      "isEndingNode": true,
+      "choices": [
+        {
+          "id": "ENDING",
+          "text": "安详落幕，查看一生洞察",
+          "impactSummary": "一生回望"
+        }
+      ],
+      "age": 56,
+      "ageInMonths": 673,
+      "lifeStage": "mature_adulthood",
+      "narrativeMeta": {
+        "elapsedMonths": 6,
+        "elapsedYears": 0.5,
+        "lifeIntensity": "high_tension",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_ed65f999",
+          "pressureArcId": "pressure_92593914",
+          "startAgeInMonths": 667,
+          "endAgeInMonths": 673,
+          "internalTransitions": [],
+          "decisionCheckpointId": "checkpoint_944208af",
+          "summary": "56岁这年，腰椎间盘突出的后遗症让你无法再长时间伏案工作。你缩减了咨询业务，只保留少数老客户，月收入勉强覆盖基本开支。配偶的社区兼职收入成为家庭主要支撑，你们的"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [],
+        "activeCharacters": [],
+        "worldDeltas": []
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 673,
+        "cashWan": 37.6,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 150,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 197.6,
+        "annualAfterTaxIncomeWan": 12,
+        "annualDisposableIncomeWan": -6,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "financialChange": {
+        "periodMonths": 6,
+        "afterTaxIncomeWan": 6,
+        "livingExpenseWan": 9,
+        "medicalEducationExpenseWan": 0,
+        "interestAndFeesWan": 0,
+        "assetValueChangeWan": 0,
+        "otherNetChangeWan": 0,
+        "netWorthChangeWan": -3,
+        "incomeStability": "volatile",
+        "reasons": [
+          "根据正文明确月收入估算",
+          "按阶段月份累计收入并参考上期生活成本"
+        ]
+      },
+      "eventMeta": {
+        "eventId": "health_forced_pause",
+        "eventCategory": "health",
+        "eventTags": [
+          "health",
+          "forced_pause",
+          "burnout",
+          "major_crisis"
+        ],
+        "eventIntensity": "major",
+        "phasePolicyId": "generic_pressure_v1"
+      },
+      "committedArcMeta": {
+        "pressureArcId": "pressure_92593914",
+        "phaseId": "response",
+        "transitionAction": "resolve"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "family_child",
+            "relation": "child",
+            "estimatedAgeRange": [
+              10.416666666666666,
+              40.416666666666664
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 673,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "孩子",
+            "source": "model_inferred",
+            "confidence": 0.55
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_5489fa00",
+            "directionType": "wealth",
+            "summary": "A. 卖房并高杠杆投资两套房，承担价格波动风险\nB. 保留自住房，只用可承受首付购买一套小户型出租\nC. 不增加房产，把新增储蓄分散到现金、债券和指数基金",
+            "status": "active",
+            "startedAtAgeInMonths": 360,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [
+          {
+            "id": "pressure_0bbd8f3c",
+            "eventId": "career_structural_instability",
+            "eventIntentType": "career_structural_instability",
+            "phasePolicyId": "generic_pressure_v1",
+            "phaseId": "operation",
+            "status": "resolved",
+            "startedAtAgeInMonths": 446,
+            "phaseStartedAtAgeInMonths": 510,
+            "phaseCheckpointCount": 1,
+            "totalCheckpointCount": 6,
+            "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+          },
+          {
+            "id": "pressure_92593914",
+            "eventId": "health_forced_pause",
+            "eventIntentType": "health_forced_pause",
+            "phasePolicyId": "generic_pressure_v1",
+            "phaseId": "response",
+            "status": "resolved",
+            "startedAtAgeInMonths": 664,
+            "phaseStartedAtAgeInMonths": 667,
+            "phaseCheckpointCount": 0,
+            "totalCheckpointCount": 1,
+            "unresolvedSummary": "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。"
+          }
+        ],
+        "committedTransactionIds": [
+          "0d5bbcaf",
+          "8f30f6ef",
+          "89857c23",
+          "e2c3eb9c",
+          "397b6c79",
+          "809fe6cc",
+          "6cfd034d",
+          "244a42aa",
+          "19c2fdf1",
+          "9430bd99",
+          "af13ad6d",
+          "3d841f14",
+          "d46a2217",
+          "f59daa95",
+          "69d5c2c8",
+          "3d2de4b0"
+        ],
+        "version": 1
+      }
+    },
+    "currentAttributes": {
+      "happiness": 20,
+      "intelligence": 97,
+      "wealth": 54,
+      "relation": 25,
+      "health": 12
+    },
+    "nodeCount": 17,
+    "simulationSeed": "0c5576a7-4080-4328-9b26-e77f0272ce14",
+    "outcome": {
+      "share": {
+        "viralTitle": "我用一套房换了半生刺激，最后发现稳健才是终极杠杆",
+        "covenantTitle": "杠杆赌徒的终局复盘",
+        "oneLineSummary": "你总在机会面前冒险，却用半生修复冒险的代价。",
+        "timeline": [
+          {
+            "ageLabel": "30岁",
+            "icon": "🏠",
+            "title": "卖房赌一把",
+            "choiceSummary": "卖掉自住房加杠杆买两套投资房",
+            "keyMomentIndexes": [
+              0
+            ]
+          },
+          {
+            "ageLabel": "37岁",
+            "icon": "💼",
+            "title": "债务悬崖转身",
+            "choiceSummary": "出售股权还清房贷回归稳定职业",
+            "keyMomentIndexes": [
+              3
+            ]
+          },
+          {
+            "ageLabel": "46岁",
+            "icon": "📈",
+            "title": "副业突围",
+            "choiceSummary": "与配偶经营社区团购和线上咨询",
+            "keyMomentIndexes": [
+              9
+            ]
+          },
+          {
+            "ageLabel": "55岁",
+            "icon": "⚖️",
+            "title": "自由与代价的拉扯",
+            "choiceSummary": "私下接单被平台处罚，收入波动",
+            "keyMomentIndexes": [
+              15
+            ]
+          }
+        ],
+        "closingLine": "人生不是由成功组成，而是由一次次选择组成。",
+        "posterTheme": "warm_realistic",
+        "downloadFileName": "人生终章.png",
+        "imageAlt": "一张温暖现实主义风格的人生终章海报，主题是财富积累与抗风险的拉扯"
+      },
+      "report": {
+        "executiveSummary": {
+          "headline": "你的人生是一场在机会诱惑与安全需求之间反复拉扯的旅程。",
+          "patterns": [
+            {
+              "name": "机会高估者",
+              "shortDescription": "面对资产上涨机会时，你容易高估自己的风险承受力，低估下行周期的影响。",
+              "keyMomentIndexes": [
+                0
+              ]
+            },
+            {
+              "name": "杠杆修复者",
+              "shortDescription": "每次冒险失败后，你都会通过新行动（换工作、创业）来修复财务，但修复过程本身又带来新压力。",
+              "keyMomentIndexes": [
+                3
+              ]
+            },
+            {
+              "name": "专业深耕者",
+              "shortDescription": "在财务压力和职业危机中，你倾向于通过提升专业资质（CFA）来重建竞争力。",
+              "keyMomentIndexes": [
+                10
+              ]
+            }
+          ],
+          "closingLine": "这些模式让你获得了今天的优势，也带来了今天的代价。"
+        },
+        "repeatedPatterns": [
+          {
+            "name": "机会高估者",
+            "title": "每次看到上涨，你都以为这次不一样",
+            "paragraphs": [
+              "30岁时，房地产市场快速升温，你卖掉自住房，加杠杆购入两套投资房，贷款总额飙升至480万。资产上涨时你害怕落后，高估自己承受风险的能力，而配偶更重视安全感——你的决策模式是冲动主导，而非计算。",
+              "32岁市场转向，房价下跌15%，月供3.8万压得家庭喘不过气，工作降薪、矛盾加剧、健康亮红灯。你选择咬牙持有，等待反弹。",
+              "34岁市场再跌10%，投资房沦为负资产，家庭分居、健康恶化。你才意识到：你从未真正理解下行周期的力量。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              1,
+              2
+            ],
+            "closingLine": "你总在机会面前忘了风险，又在风险面前想起机会。"
+          },
+          {
+            "name": "杠杆修复者",
+            "title": "你擅长用新杠杆撬开旧债务",
+            "paragraphs": [
+              "34岁最绝望时，前同事邀请你加入新财务咨询公司，你赌一把事业翻身。新公司初期收入微薄，但你全力投入，三年后成为合伙人，年收入回升至65万。",
+              "37岁你出售咨询公司部分股权，还清投资房贷款，回归稳定工作。你再次用新杠杆（股权变现）修复了旧杠杆（房产债务）的烂摊子。",
+              "46岁公司裁员，你被裁后与配偶经营社区团购和线上咨询，再次用副业修复主业危机。每一次修复都让你重获稳定，但也消耗了健康和家庭关系。"
+            ],
+            "keyMomentIndexes": [
+              2,
+              3,
+              9
+            ],
+            "closingLine": "你用新杠杆修复旧债务，却忘了杠杆本身才是问题。"
+          },
+          {
+            "name": "专业深耕者",
+            "title": "每被逼到墙角，你就考一个证",
+            "paragraphs": [
+              "46岁被裁后，你全职投入副业，但收入不稳定。你选择考取CFA一级，提升专业壁垒。之后咨询客户增加，月收入从7000元提升至1.2万。",
+              "49岁你通过CFA二级，咨询业务恢复增长，年收入达到22万。你开始提供付费专栏和一对一深度咨询。",
+              "51岁你通过CFA三级，成为持证人，获得一份全职财务分析经理岗位，月薪2.5万。专业深耕让你在危机中找到新锚点，但也让你过度投入工作，牺牲了健康和家庭。"
+            ],
+            "keyMomentIndexes": [
+              9,
+              10,
+              11
+            ],
+            "closingLine": "你总在风雨中磨刀，却忘了雨停后也该晒晒太阳。"
+          }
+        ],
+        "patternEffects": [
+          {
+            "patternName": "机会高估者",
+            "compoundReturn": "你从房地产和创业中获得过短暂的账面财富爆发，最高时账面资产超百万。",
+            "hiddenCost": "你失去了自住房，背负了480万贷款，经历了家庭分居、健康恶化，最终财富净增长几乎归零。",
+            "paragraphs": [
+              "机会高估模式让你在30岁时尝到了资产泡沫的甜头，账面财富膨胀，但你没有及时变现，最终在市场下行中损失惨重。",
+              "这个模式也让你在34岁时敢于赌一把创业，最终获得事业成就，但代价是长达数年的高压生活和健康透支。",
+              "它既成就了你的事业突破，也毁掉了你的家庭稳定和身体健康。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              3
+            ],
+            "closingLine": "这个模式让你赢过，也让你输过，但从未让你平衡过。"
+          },
+          {
+            "patternName": "杠杆修复者",
+            "compoundReturn": "你通过创业和副业成功修复了财务危机，最终在50岁后实现了年收入35万。",
+            "hiddenCost": "每次修复都伴随着新的压力：创业初期收入不稳、副业与主业冲突、健康持续透支。",
+            "paragraphs": [
+              "杠杆修复模式让你在37岁通过股权变现还清了房贷，回归稳定，但出售股权也让你失去了未来可能的更大收益。",
+              "46岁你通过副业修复了被裁的损失，但副业与主业冲突导致健康进一步恶化，家庭关系紧张。",
+              "这个模式让你始终在修复，而非预防；让你始终在追赶，而非从容。"
+            ],
+            "keyMomentIndexes": [
+              3,
+              9
+            ],
+            "closingLine": "你擅长修补破洞，却从未学会让船不进水。"
+          }
+        ],
+        "futureTrends": [
+          {
+            "title": "稳健积累但增长缓慢",
+            "trend": "如果你继续当前的专业深耕和稳健投资模式，未来十年财富将缓慢增长，但可能无法实现你年轻时渴望的跃迁。",
+            "reason": "你已从机会高估模式转向专业深耕模式，这种模式更可持续但回报率较低。你每月定投指数基金，收入依赖稳定职业，财富增长将呈线性而非指数。",
+            "keyMomentIndexes": [
+              10,
+              11
+            ]
+          },
+          {
+            "title": "健康成为最大风险",
+            "trend": "如果继续忽视健康，未来十年你可能因腰椎问题或焦虑症被迫提前退休，财富积累将中断。",
+            "reason": "从51岁到55岁，你的腰背疼痛持续加重，健康评分在终局仅12，且焦虑水平高。若不升级健康管理，模式将自然导致健康崩塌。",
+            "keyMomentIndexes": [
+              11,
+              16
+            ]
+          }
+        ],
+        "patternsToKeep": [
+          {
+            "title": "专业深耕模式",
+            "why": "它让你在职业危机时重建了竞争力，并带来了稳定的收入增长。",
+            "paragraphs": [
+              "46岁考取CFA一级，49岁通过二级，51岁成为持证人——每一次考证都直接提升了你的收入和市场价值。",
+              "专业深耕让你在自由职业和全职工作中都有底气，即使创业失败也能快速回归职场。",
+              "这个模式是你人生中最可靠的资产，它帮你从债务深渊中爬出来，建立了新的职业身份。"
+            ],
+            "keyMomentIndexes": [
+              9,
+              10,
+              11
+            ],
+            "closingLine": "你磨的刀，从未辜负过你。"
+          }
+        ],
+        "patternsToAdjust": [
+          {
+            "title": "机会高估模式 → 升级为机会评估模式",
+            "why": "过去你在机会面前冲动决策，虽然带来过收益，但代价太大。未来你需要更系统评估风险。",
+            "paragraphs": [
+              "面对新机会时，先做压力测试：如果最坏情况发生，你能承受吗？30岁时你没有这样问自己，结果用了十年修复。",
+              "升级方式：在每次决策前，列出三种可能结果（最好、最坏、最可能），并评估每个结果下的财务和心理承受力。",
+              "你不需要完全放弃冒险，而是用更理性的框架去冒险。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              1,
+              2
+            ],
+            "closingLine": "机会永远都在，但你的半生只有一次。"
+          },
+          {
+            "title": "杠杆修复模式 → 升级为预防性财务模式",
+            "why": "你擅长修复债务，但修复过程消耗巨大。建立应急基金和分散投资可以避免陷入债务深渊。",
+            "paragraphs": [
+              "升级方式：将月收入的10%强制储存为应急资金，直到覆盖6个月开支。同时，将投资分散到指数基金、债券和现金，避免单一资产重仓。",
+              "如果你在30岁就有这样的预防措施，就不会在35岁时被房贷压垮。现在建立，未来十年你不需要再用新杠杆修复旧债务。"
+            ],
+            "keyMomentIndexes": [
+              3,
+              9
+            ],
+            "closingLine": "最好的修复，是让破损从未发生。"
+          }
+        ],
+        "finalLifeReading": {
+          "title": "如果我是十年后的你",
+          "paragraphs": [
+            "你这一生，像一场暴雨中的航行。每次看到阳光，你就收起雨伞，但下一刻总有更大的浪。",
+            "你聪明、坚韧，总能在沉船前找到新木板。但你从未学会造一艘能抗风的船。",
+            "你追求财富，却用健康支付；你渴望自由，却用关系交换。直到最后，你发现自己最想要的不过是平静的港湾。",
+            "但你没有白活。你的故事是一本关于选择的教科书——不是教人如何成功，而是教人如何承受自己的选择。"
+          ],
+          "finalSentence": "你的人生不是一场失败，而是一场关于代价的深刻实验。"
+        }
+      },
+      "meta": {
+        "generatedAt": "2026-07-15T18:41:25.380Z",
+        "modelProvider": "deepseek",
+        "posterVersion": "web-v1",
+        "reportVersion": "life-pattern-v2",
+        "closureType": "mortality"
+      }
+    },
+    "isLoading": false,
+    "isLoadingNext": false,
+    "errorMsg": null,
+    "invitations": []
+  }
+}

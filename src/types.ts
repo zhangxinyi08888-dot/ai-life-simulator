@@ -145,7 +145,7 @@ export interface ChoiceTemporalHint extends TemporalProfile {
   reason: string;
 }
 
-export type LifeEventCategory = "career" | "relationship" | "health" | "financial" | "growth" | "opportunity";
+export type LifeEventCategory = "career" | "relationship" | "health" | "financial" | "growth" | "opportunity" | "community";
 
 export interface EventMeta {
   eventId?: string;

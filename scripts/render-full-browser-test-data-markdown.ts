@@ -124,15 +124,32 @@ function renderCase(record: JsonRecord, caseIndex: number): string[] {
   const finalState = record.finalState || {};
   const history: JsonRecord[] = Array.isArray(finalState.history) ? finalState.history : [];
   const invitations: JsonRecord[] = Array.isArray(finalState.invitations) ? finalState.invitations : [];
+  const invitationEvents: JsonRecord[] = Array.isArray(record.interactionLog)
+    ? record.interactionLog.filter((item: JsonRecord) => item.type?.startsWith("invitation_"))
+    : [];
   const lines: string[] = [
     `# 第 ${caseIndex + 1} 组：${escapeInline(record.caseSlug)}`,
     "",
     `- 测试场景：\`${escapeInline(record.scenario)}\``,
-    `- 浏览器地址：${escapeInline(record.sourceUrl)}`,
+    `- 数据来源：\`${escapeInline(record.dataSource || finalState.testDataSource)}\``,
     `- 历史节点数：${history.length}`,
     `- 邀请数：${invitations.length}`,
     `- 最终报告类型：\`${escapeInline(finalState.outcome?.meta?.closureType)}\``,
     `- 最终年龄：${renderAge(finalState.currentNode || history.at(-1) || {})}`,
+    "",
+    "## 测试人物与起始信息",
+    "",
+    "```json",
+    JSON.stringify({
+      birthday: record.config?.birthday,
+      birthtime: record.config?.birthtime,
+      returnPointName: record.config?.returnPointName,
+      anchorText: record.config?.anchorText,
+      branches: record.config?.branches,
+      questions: finalState.questions,
+      answers: finalState.answers
+    }, null, 2),
+    "```",
     "",
     "## 报告邀请记录",
     ""
@@ -142,6 +159,8 @@ function renderCase(record: JsonRecord, caseIndex: number): string[] {
   invitations.forEach((invitation, invitationIndex) => {
     lines.push(...renderInvitation(invitation, `邀请 ${invitationIndex + 1}`));
   });
+
+  lines.push("### 邀请交互事件原始记录", "", "```json", JSON.stringify(invitationEvents, null, 2), "```", "");
 
   lines.push("## 完整故事节点", "");
   history.forEach((node, nodeIndex) => {
@@ -195,7 +214,7 @@ function renderCase(record: JsonRecord, caseIndex: number): string[] {
 const inputDir = path.resolve(process.argv[2] || "artifacts/report-invitation-browser/2026-07-16-natural-reflection-browser-evaluation");
 const outputPath = path.resolve(process.argv[3] || "docs/reports/2026-07-16-natural-reflection-10-case-full-test-data.md");
 const files = (await readdir(inputDir))
-  .filter((file) => file.startsWith("journey-") && file.endsWith(".json"))
+  .filter((file) => /^(journey-|real-).+\.json$/.test(file))
   .sort();
 const records = await Promise.all(files.map(async (file) => (
   JSON.parse(await readFile(path.join(inputDir, file), "utf8")) as JsonRecord
@@ -204,9 +223,9 @@ const records = await Promise.all(files.map(async (file) => (
 const totalNodes = records.reduce((sum, record) => sum + (record.finalState?.history?.length || 0), 0);
 const totalInvitations = records.reduce((sum, record) => sum + (record.finalState?.invitations?.length || 0), 0);
 const lines = [
-  "# 自然收束报告邀请：10 组完整浏览器测试数据",
+  "# 自然收束报告邀请：10 组真实 AI 网页端完整测试数据",
   "",
-  "> 本文档由保存的浏览器原始 JSON 自动生成。故事正文、全部选择、用户实际选择、状态快照与最终报告均来自测试记录，没有抽样或省略。",
+  "> 本文档由真实网页端测试保存的原始 JSON 自动生成。测试未启用 E2E 固定故事模板；故事正文、全部选择、用户实际选择、状态快照、所有邀请事件与最终报告均来自实际页面运行，没有抽样或省略。",
   "",
   "## 数据概览",
   "",

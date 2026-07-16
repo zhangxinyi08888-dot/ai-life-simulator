@@ -16,6 +16,40 @@ import {
 import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeService";
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 
+type AppStep = "initial" | "questioning" | "simulating" | "insight";
+
+interface DevRecordedAppState {
+  step?: AppStep;
+  userName?: string;
+  userData?: UserInitialData | null;
+  questions?: QuestionItem[];
+  answers?: QuestionTurn[];
+  history?: HistoryItem[];
+  currentNode?: SimulationNode | null;
+  currentAttributes?: LifeAttributes;
+  nodeCount?: number;
+  simulationSeed?: string;
+  outcome?: FinalLifeOutcome | null;
+}
+
+function readDevRecordedAppState(): DevRecordedAppState | null {
+  if (!import.meta.env.DEV || typeof window === "undefined") return null;
+  const searchParams = new URLSearchParams(window.location.search);
+  const recordTestRun = searchParams.get("recordTestRun");
+  if (!recordTestRun) return null;
+  const storageKey = `ai-life-test-resume:${recordTestRun}`;
+  try {
+    if (searchParams.get("resetRecordTestRun") === "1") {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+    const raw = window.localStorage.getItem(storageKey);
+    return raw ? JSON.parse(raw) as DevRecordedAppState : null;
+  } catch {
+    return null;
+  }
+}
+
 function getSimulationErrorMessage(error: unknown, fallback: string): string {
   if (!isAiClientError(error)) return fallback;
 
@@ -39,14 +73,15 @@ function getSimulationErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function App() {
-  const [step, setStep] = useState<"initial" | "questioning" | "simulating" | "insight">("initial");
-  const [name, setName] = useState("");
-  const [userData, setUserData] = useState<UserInitialData | null>(null);
+  const [devRecordedState] = useState(readDevRecordedAppState);
+  const [step, setStep] = useState<AppStep>(devRecordedState?.step ?? "initial");
+  const [name, setName] = useState(devRecordedState?.userName ?? "");
+  const [userData, setUserData] = useState<UserInitialData | null>(devRecordedState?.userData ?? null);
   
-  const [questions, setQuestions] = useState<QuestionItem[]>([]);
-  const [answers, setAnswers] = useState<QuestionTurn[]>([]);
+  const [questions, setQuestions] = useState<QuestionItem[]>(devRecordedState?.questions ?? []);
+  const [answers, setAnswers] = useState<QuestionTurn[]>(devRecordedState?.answers ?? []);
   
-  const [attributes, setAttributes] = useState<LifeAttributes>({
+  const [attributes, setAttributes] = useState<LifeAttributes>(devRecordedState?.currentAttributes ?? {
     happiness: 50,
     intelligence: 50,
     wealth: 50,
@@ -54,32 +89,73 @@ export default function App() {
     health: 50
   });
 
-  const [currentNode, setCurrentNode] = useState<SimulationNode | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [nodeCount, setNodeCount] = useState(1);
-  const [simulationSeed, setSimulationSeed] = useState(() => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
-  const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(null);
+  const [currentNode, setCurrentNode] = useState<SimulationNode | null>(devRecordedState?.currentNode ?? null);
+  const [history, setHistory] = useState<HistoryItem[]>(devRecordedState?.history ?? []);
+  const [nodeCount, setNodeCount] = useState(devRecordedState?.nodeCount ?? ((devRecordedState?.history?.length ?? 0) + 1));
+  const [simulationSeed, setSimulationSeed] = useState(() => devRecordedState?.simulationSeed ?? (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`));
+  const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(devRecordedState?.outcome ?? null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const testStateImportEnabled = import.meta.env.DEV
+    && typeof window !== "undefined"
+    && new URLSearchParams(window.location.search).get("importTestState") === "1";
+  const [showTestStateImporter, setShowTestStateImporter] = useState(testStateImportEnabled);
+  const [testStateImportText, setTestStateImportText] = useState("");
+
+  const handleImportTestState = () => {
+    try {
+      const parsed = JSON.parse(testStateImportText) as DevRecordedAppState & { latestState?: DevRecordedAppState };
+      const restored = parsed.latestState ?? parsed;
+      if (!restored.userData || !restored.currentNode || !restored.step) {
+        throw new Error("测试状态缺少 userData、currentNode 或 step");
+      }
+      setStep(restored.step);
+      setName(restored.userName ?? "旅人");
+      setUserData(restored.userData);
+      setQuestions(restored.questions ?? []);
+      setAnswers(restored.answers ?? []);
+      setHistory(restored.history ?? []);
+      setCurrentNode(restored.currentNode);
+      setAttributes(restored.currentAttributes ?? restored.currentNode.attributes);
+      setNodeCount(restored.nodeCount ?? ((restored.history?.length ?? 0) + 1));
+      setSimulationSeed(restored.simulationSeed ?? `${Date.now()}`);
+      setOutcome(restored.outcome ?? null);
+      setIsLoading(false);
+      setIsLoadingNext(false);
+      setErrorMsg(null);
+      setShowTestStateImporter(false);
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : "测试状态恢复失败");
+    }
+  };
 
   useEffect(() => {
     if (!import.meta.env.DEV || typeof window === "undefined") return;
-    const e2eCase = new URLSearchParams(window.location.search).get("e2eCase");
-    if (!e2eCase) return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const e2eCase = searchParams.get("e2eCase");
+    const recordTestRun = searchParams.get("recordTestRun");
+    if (!e2eCase && !recordTestRun) return;
     const snapshot = {
       capturedAt: new Date().toISOString(),
       e2eCase,
+      recordTestRun,
+      testDataSource: e2eCase ? "deterministic_fixture" : "real_ai_browser",
       step,
       userName: name,
       userData,
+      questions,
       answers,
       history,
       currentNode,
       currentAttributes: attributes,
+      nodeCount,
       simulationSeed,
       outcome,
+      isLoading,
+      isLoadingNext,
+      errorMsg,
       invitations: history.flatMap((item, index) => item.reportInvitation ? [{ nodeIndex: index, ...item.reportInvitation, terminalAction: item.selectedChoice }] : [])
     };
     (window as Window & { __AI_LIFE_TEST_STATE__?: typeof snapshot }).__AI_LIFE_TEST_STATE__ = structuredClone(snapshot);
@@ -91,7 +167,14 @@ export default function App() {
       document.body.appendChild(stateElement);
     }
     stateElement.textContent = JSON.stringify(snapshot);
-  }, [answers, attributes, currentNode, history, name, outcome, simulationSeed, step, userData]);
+    if (recordTestRun) {
+      try {
+        window.localStorage.setItem(`ai-life-test-resume:${recordTestRun}`, JSON.stringify(snapshot));
+      } catch {
+        // The filesystem record remains the source of truth if browser storage is unavailable.
+      }
+    }
+  }, [answers, attributes, currentNode, errorMsg, history, isLoading, isLoadingNext, name, nodeCount, outcome, questions, simulationSeed, step, userData]);
 
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
@@ -358,6 +441,21 @@ export default function App() {
           </AnimatePresence>
         </div>
       </div>
+
+      {showTestStateImporter && (
+        <div className="absolute inset-x-4 bottom-4 z-[60] mx-auto max-w-xl rounded-2xl border border-[#5d543f] bg-[#0a0a0a] p-4 shadow-2xl" id="test-state-importer">
+          <p className="text-xs text-[#d7c99f]">开发测试状态恢复</p>
+          <textarea
+            aria-label="测试状态 JSON"
+            value={testStateImportText}
+            onChange={(event) => setTestStateImportText(event.target.value)}
+            className="mt-3 h-28 w-full rounded-xl border border-[#302e2a] bg-black p-3 text-[10px] text-[#bdb6ab] outline-none"
+          />
+          <button type="button" onClick={handleImportTestState} className="mt-3 h-10 w-full rounded-xl bg-[#d2c08d] text-xs font-semibold text-[#15130f]" id="test-state-import-btn">
+            恢复测试状态
+          </button>
+        </div>
+      )}
 
       {/* Modern sliding error card/dialog */}
       <AnimatePresence>
