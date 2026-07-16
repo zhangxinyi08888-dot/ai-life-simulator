@@ -1,5 +1,9 @@
 # 健康 PressureArc 短生命周期最小修复 Spec
 
+> 状态：基础健康 phase 规则仍然有效；事件选择部分由
+> [PressureArc 事件解耦与健康叙事去重复 Spec](./2026-07-16-health-pressure-arc-event-decoupling-minimal-fix-design.md)
+> 取代。开发时以新 Spec 的事件选择矩阵为准。
+
 ## 1. 背景
 
 当前 `PressureArc` 同时承担三项合理职责：

@@ -1,0 +1,1704 @@
+{
+  "schemaVersion": 2,
+  "runId": "health-pressure-arc-browser-regression-2026-07-16",
+  "dataSource": "real_ai_browser",
+  "caseSlug": "03-depleted-until-cap",
+  "scenario": "health_arc_depleted_cap",
+  "config": {
+    "slug": "03-depleted-until-cap",
+    "scenario": "health_arc_depleted_cap",
+    "birthday": "1985-01-01",
+    "birthtime": "08:00",
+    "returnPointName": "",
+    "anchorText": "",
+    "branches": [],
+    "answers": []
+  },
+  "updatedAt": "2026-07-16T15:46:05.975Z",
+  "complete": false,
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "03-depleted-until-cap",
+      "scenario": "health_arc_depleted_cap",
+      "at": "2026-07-16T15:44:54.173Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "被迫按下暂停键",
+      "sourceAgeInMonths": 485,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "住院接受系统检查，将工作室日常管理暂时交给副手，远程处理关键决策",
+          "impactSummary": "强制休整",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "强制休整"
+          },
+          "decisionIntent": "health:pause_for:treatment_and_delegation",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "不住院，签署免责协议后回家，把工时压缩到每天4小时，只做核心创意工作，其余委派团队",
+          "impactSummary": "半休半工",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "半休半工"
+          },
+          "decisionIntent": "health:adjust_load:reduce_hours",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "拒绝停止工作，配戴动态心电监测仪继续维持原有节奏，但承诺每晚11点前休息",
+          "impactSummary": "冒险硬撑",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "冒险硬撑"
+          },
+          "decisionIntent": "health:continue:with_monitoring",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "拒绝停止工作，配戴动态心电监测仪继续维持原有节奏，但承诺每晚11点前休息",
+      "resultingNodeTitle": "戴着监测器工作的日子",
+      "resultingAgeInMonths": 489,
+      "resultingAttributes": {
+        "happiness": -6,
+        "intelligence": 5,
+        "wealth": 57,
+        "relation": -2,
+        "health": 38
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 489,
+        "cashWan": 28.8,
+        "investmentAssetsWan": 13.5,
+        "propertyMarketValueWan": 54,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 96.3,
+        "annualAfterTaxIncomeWan": 18,
+        "annualDisposableIncomeWan": 8.4,
+        "annualCoreExpenseWan": 9.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-16T15:46:05.975Z"
+    }
+  ],
+  "latestState": {
+    "capturedAt": "2026-07-16T15:46:05.818Z",
+    "e2eCase": null,
+    "recordTestRun": "health-route-3",
+    "testDataSource": "real_ai_browser",
+    "step": "simulating",
+    "userName": "林澄",
+    "userData": {
+      "birthday": "1985-01-01",
+      "birthtime": "08:00",
+      "gender": "女",
+      "currentSituation": "经营内容工作室，长期过劳",
+      "isReturnToPast": true,
+      "targetAgeNode": "30岁创业初期",
+      "regressionNodeKey": "career",
+      "regressionAge": 30,
+      "regressionSituation": "曾在稳定工作与创业之间犹豫",
+      "regressionChoices": "选择创业并建立可持续团队",
+      "coreStoryFocus": "career"
+    },
+    "questions": [],
+    "answers": [],
+    "history": [
+      {
+        "age": 29,
+        "ageInMonths": 348,
+        "lifeStage": "early_adulthood",
+        "stage": "事业积累",
+        "title": "工作室的第1年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 44
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_0",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 348,
+            "endAgeInMonths": 360,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_0",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 30,
+        "ageInMonths": 360,
+        "lifeStage": "early_adulthood",
+        "stage": "事业积累",
+        "title": "工作室的第2年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 43
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_1",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 360,
+            "endAgeInMonths": 372,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_1",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 31,
+        "ageInMonths": 372,
+        "lifeStage": "early_adulthood",
+        "stage": "事业积累",
+        "title": "工作室的第3年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 42
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_2",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 372,
+            "endAgeInMonths": 384,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_2",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 32,
+        "ageInMonths": 384,
+        "lifeStage": "early_adulthood",
+        "stage": "事业积累",
+        "title": "工作室的第4年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 41
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_3",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 384,
+            "endAgeInMonths": 396,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_3",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 33,
+        "ageInMonths": 396,
+        "lifeStage": "early_adulthood",
+        "stage": "事业积累",
+        "title": "工作室的第5年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 40
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_4",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 396,
+            "endAgeInMonths": 408,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_4",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 34,
+        "ageInMonths": 408,
+        "lifeStage": "early_adulthood",
+        "stage": "事业积累",
+        "title": "工作室的第6年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 39
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_5",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 408,
+            "endAgeInMonths": 420,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_5",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 35,
+        "ageInMonths": 420,
+        "lifeStage": "midlife",
+        "stage": "事业积累",
+        "title": "工作室的第7年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 38
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_6",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 420,
+            "endAgeInMonths": 432,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_6",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 36,
+        "ageInMonths": 432,
+        "lifeStage": "midlife",
+        "stage": "事业积累",
+        "title": "工作室的第8年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 37
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_7",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 432,
+            "endAgeInMonths": 444,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_7",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 37,
+        "ageInMonths": 444,
+        "lifeStage": "midlife",
+        "stage": "事业积累",
+        "title": "工作室的第9年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 36
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_8",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 444,
+            "endAgeInMonths": 456,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_8",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 38,
+        "ageInMonths": 456,
+        "lifeStage": "midlife",
+        "stage": "事业积累",
+        "title": "工作室的第10年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 35
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_9",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 456,
+            "endAgeInMonths": 468,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_9",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 39,
+        "ageInMonths": 468,
+        "lifeStage": "midlife",
+        "stage": "事业积累",
+        "title": "工作室的第11年",
+        "description": "她继续经营内容工作室，客户与团队逐步稳定，也开始意识到长期高负荷带来的身体代价。",
+        "selectedChoice": "继续事业并逐步调整团队分工",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 34
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_10",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": 468,
+            "endAgeInMonths": 480,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_10",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 40,
+        "ageInMonths": 480,
+        "lifeStage": "midlife",
+        "title": "被忽略的身体信号",
+        "stage": "身体边界",
+        "description": "连续数月的失眠、心悸和注意力下降已经影响日常工作，她必须决定是否改变原来的生活节奏。",
+        "selectedChoice": "继续目标，但把工时减半并委派任务",
+        "attributes": {
+          "happiness": 56,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 58,
+          "health": 29
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "暂停工作，接受治疗并建立睡眠计划",
+            "impactSummary": "先恢复身体",
+            "decisionIntent": "health:pause:treatment",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续目标，但把工时减半并委派任务",
+            "impactSummary": "调整执行方式",
+            "decisionIntent": "career:continue:adjusted_load",
+            "expectedWorldDeltaTypes": [
+              "career_state",
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "暂时不调整，继续硬撑",
+            "impactSummary": "承担风险",
+            "decisionIntent": "health:continue:overload",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 12,
+          "elapsedYears": 1,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_current",
+            "directionArcId": "direction_health_regression",
+            "startAgeInMonths": null,
+            "endAgeInMonths": null,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_current",
+            "summary": "工作室逐渐稳定，同时长期高负荷开始影响身体。"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [
+            "持续失眠和心悸没有缓解"
+          ],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": {
+            "domain": "career",
+            "intensity": "moderate"
+          },
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 40,
+        "ageInMonths": 485,
+        "lifeStage": "midlife",
+        "title": "被迫按下暂停键",
+        "stage": "被忽略的身体信号",
+        "description": "连续数月的失眠和心悸终于在一次团队会议中爆发——你突然感到天旋地转，无法继续发言。被同事送到医院后，心电图显示频发室性早搏，医生建议立即停止高强度工作，并接受24小时动态心电图监测和睡眠评估。你躺在急诊观察室里，看着手机里堆积的客户消息和团队排班表，意识到这次身体信号已经无法再忽视。团队核心成员小陈发来消息，说项目进度可以暂缓，但几个重要客户已经开始催稿。",
+        "selectedChoice": "拒绝停止工作，配戴动态心电监测仪继续维持原有节奏，但承诺每晚11点前休息",
+        "attributes": {
+          "happiness": -8,
+          "intelligence": 4,
+          "wealth": 57,
+          "relation": -3,
+          "health": 32
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 485,
+          "cashWan": 26,
+          "investmentAssetsWan": 13.5,
+          "propertyMarketValueWan": 54,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 93.5,
+          "annualAfterTaxIncomeWan": 18,
+          "annualDisposableIncomeWan": 8.4,
+          "annualCoreExpenseWan": 9.6,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 1.5,
+          "incomeMonths": 5,
+          "monthlyLivingExpenseWan": 0.8,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 5,
+          "afterTaxIncomeWan": 7.5,
+          "livingExpenseWan": 4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 3.5,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "住院接受系统检查，将工作室日常管理暂时交给副手，远程处理关键决策",
+            "impactSummary": "强制休整",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "强制休整"
+            },
+            "decisionIntent": "health:pause_for:treatment_and_delegation",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "不住院，签署免责协议后回家，把工时压缩到每天4小时，只做核心创意工作，其余委派团队",
+            "impactSummary": "半休半工",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "半休半工"
+            },
+            "decisionIntent": "health:adjust_load:reduce_hours",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "拒绝停止工作，配戴动态心电监测仪继续维持原有节奏，但承诺每晚11点前休息",
+            "impactSummary": "冒险硬撑",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "冒险硬撑"
+            },
+            "decisionIntent": "health:continue:with_monitoring",
+            "expectedWorldDeltaTypes": [
+              "health_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "health_forced_pause",
+          "eventCategory": "health",
+          "eventTags": [
+            "health",
+            "forced_pause",
+            "burnout",
+            "major_crisis"
+          ],
+          "eventIntensity": "major",
+          "phasePolicyId": "health_crisis_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 5,
+          "elapsedYears": 0.4166666666666667,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_70ba5bf3",
+            "pressureArcId": "pressure_126b474c",
+            "startAgeInMonths": 480,
+            "endAgeInMonths": 485,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_9d2496b5",
+            "summary": "连续数月的失眠和心悸终于在一次团队会议中爆发——你突然感到天旋地转，无法继续发言。被同事送到医院后，心电图显示频发室性早搏，医生建议立即停止高强度工作，并接受2"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "小陈（副手）"
+          ],
+          "primaryActivity": "medical_crisis",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_health_regression",
+              "directionType": "career",
+              "summary": "继续创作事业，但建立可持续的工作方式",
+              "status": "active",
+              "startedAtAgeInMonths": 360,
+              "userReinforcementCount": 3,
+              "establishedAssets": [
+                "稳定客户",
+                "合作团队"
+              ]
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_126b474c",
+              "eventId": "health_forced_pause",
+              "eventIntentType": "health_forced_pause",
+              "phasePolicyId": "health_crisis_v1",
+              "phaseId": "recovery",
+              "status": "active",
+              "startedAtAgeInMonths": 480,
+              "phaseStartedAtAgeInMonths": 485,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。"
+            }
+          ],
+          "careerSummary": "经营一间小型内容工作室",
+          "relationshipSummary": "与伴侣共同生活",
+          "healthSummary": "长期过劳后健康明显下降",
+          "locationSummary": "杭州",
+          "committedTransactionIds": [
+            "42b19ff5"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_126b474c"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_126b474c",
+          "phaseId": "recovery",
+          "transitionAction": "advance"
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 40,
+      "ageInMonths": 489,
+      "stage": "40岁9个月 - 恢复与调整",
+      "title": "戴着监测器工作的日子",
+      "description": "戴上动态心电监测仪的第一周，你试图维持原有节奏，但每晚11点前休息的承诺很快被打破——一个老客户突然要求修改方案，你熬到凌晨一点才回复。次日心悸加重，监测数据显示室早次数从每天200次升至800次。医生电话警告必须立即减少负荷。你终于同意将日常管理交给副手小陈，自己只负责核心创意和客户沟通，每天工时压缩到6小时。团队里有人私下议论你“不行了”，但小陈全力支持。你开始每天午休时在办公室沙发上闭眼20分钟，周末去社区公园慢走。一个月后复诊，室早降至每天300次，但医生强调这只是初步缓解，需要持续调整。你意识到，这场健康危机正在逼迫你重新定义“事业”的边界。",
+      "choices": [
+        {
+          "id": "A",
+          "text": "继续压缩工时到4小时，只做创意总监角色，团队日常全权交给小陈，每周两次远程会议",
+          "impactSummary": "角色转型，健康优先",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "角色转型，健康优先"
+          },
+          "decisionIntent": "career:delegate_to:deputy",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "暂停接新项目，用现有存款维持团队半年，自己专心治疗和调整作息，同时学习冥想和运动康复",
+          "impactSummary": "主动休整，重建根基",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "主动休整，重建根基"
+          },
+          "decisionIntent": "health:take_sabbatical:for_treatment",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "维持6小时工时，但引入AI工具辅助创作流程，同时雇佣一名兼职助理分担行政，每月额外支出5000元",
+          "impactSummary": "技术增效，适度投入",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "技术增效，适度投入"
+          },
+          "decisionIntent": "career:invest_in:tooling_and_staff",
+          "expectedWorldDeltaTypes": [
+            "health_state"
+          ]
+        }
+      ],
+      "attributes": {
+        "happiness": -6,
+        "intelligence": 5,
+        "wealth": 57,
+        "relation": -2,
+        "health": 38
+      },
+      "isEndingNode": false,
+      "narrativeMeta": {
+        "elapsedMonths": 4,
+        "elapsedYears": 0.3333333333333333,
+        "lifeIntensity": "normal",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_802cbe17",
+          "pressureArcId": "pressure_126b474c",
+          "startAgeInMonths": 485,
+          "endAgeInMonths": 489,
+          "internalTransitions": [
+            "第一周熬夜导致室早激增",
+            "医生警告后调整工时至6小时",
+            "团队内部出现质疑声音",
+            "小陈主动承担更多管理责任",
+            "开始午休和周末慢走",
+            "一个月后室早次数下降"
+          ],
+          "decisionCheckpointId": "checkpoint_477d6209",
+          "summary": "戴上动态心电监测仪的第一周，你试图维持原有节奏，但每晚11点前休息的承诺很快被打破——一个老客户突然要求修改方案，你熬到凌晨一点才回复。次日心悸加重，监测数据显"
+        },
+        "recoveryState": "protected",
+        "recoveryEvidence": [],
+        "arcSignals": [],
+        "activeCharacters": [
+          "小陈（副手）",
+          "医生（心脏科）"
+        ],
+        "primaryActivity": "工作室创意总监与健康管理",
+        "worldDeltas": []
+      },
+      "financialSignals": {
+        "employmentStatus": "employed",
+        "monthlyNetIncomeWan": 1.5,
+        "incomeMonths": 4,
+        "monthlyLivingExpenseWan": 0.8,
+        "oneOffIncomeWan": 0,
+        "oneOffExpenseWan": 0,
+        "assetValueChangeWan": 0,
+        "propertyMarketValueChangeWan": 0,
+        "personalDebtChangeWan": 0,
+        "incomeStability": "volatile",
+        "confidence": 0.35,
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "lifeStage": "midlife",
+      "eventMeta": {
+        "eventId": "health_recovery_observation",
+        "eventCategory": "health",
+        "eventTags": [
+          "health",
+          "recovery",
+          "observation"
+        ],
+        "eventIntensity": "minor",
+        "phasePolicyId": "health_crisis_v1"
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 489,
+        "cashWan": 28.8,
+        "investmentAssetsWan": 13.5,
+        "propertyMarketValueWan": 54,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 96.3,
+        "annualAfterTaxIncomeWan": 18,
+        "annualDisposableIncomeWan": 8.4,
+        "annualCoreExpenseWan": 9.6,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "financialChange": {
+        "periodMonths": 4,
+        "afterTaxIncomeWan": 6,
+        "livingExpenseWan": 3.2,
+        "medicalEducationExpenseWan": 0,
+        "interestAndFeesWan": 0,
+        "assetValueChangeWan": 0,
+        "otherNetChangeWan": 0,
+        "netWorthChangeWan": 2.8,
+        "incomeStability": "volatile",
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "committedArcMeta": {
+        "pressureArcId": "pressure_126b474c",
+        "phaseId": "recovery",
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [],
+        "directionArcs": [
+          {
+            "id": "direction_health_regression",
+            "directionType": "career",
+            "summary": "继续创作事业，但建立可持续的工作方式",
+            "status": "active",
+            "startedAtAgeInMonths": 360,
+            "userReinforcementCount": 3,
+            "establishedAssets": [
+              "稳定客户",
+              "合作团队"
+            ]
+          }
+        ],
+        "pressureArcs": [
+          {
+            "id": "pressure_126b474c",
+            "eventId": "health_forced_pause",
+            "eventIntentType": "health_forced_pause",
+            "phasePolicyId": "health_crisis_v1",
+            "phaseId": "recovery",
+            "status": "active",
+            "startedAtAgeInMonths": 480,
+            "phaseStartedAtAgeInMonths": 485,
+            "phaseCheckpointCount": 1,
+            "totalCheckpointCount": 2,
+            "unresolvedSummary": "身体或心理状态迫使原有生活节奏暂停，你必须重新安排生活责任、日常节奏和自我照料。"
+          }
+        ],
+        "careerSummary": "经营一间小型内容工作室",
+        "relationshipSummary": "与伴侣共同生活",
+        "healthSummary": "长期过劳后健康明显下降",
+        "locationSummary": "杭州",
+        "committedTransactionIds": [
+          "42b19ff5",
+          "58612502"
+        ],
+        "version": 1,
+        "foregroundPressureArcId": "pressure_126b474c"
+      }
+    },
+    "currentAttributes": {
+      "happiness": -6,
+      "intelligence": 5,
+      "wealth": 57,
+      "relation": -2,
+      "health": 38
+    },
+    "nodeCount": 14,
+    "simulationSeed": "health-route-3-seed",
+    "outcome": null,
+    "isLoading": false,
+    "isLoadingNext": false,
+    "errorMsg": null,
+    "invitations": []
+  }
+}

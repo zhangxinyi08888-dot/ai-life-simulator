@@ -251,7 +251,7 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
     ? worldState.people.map(formatPersonStateForPrompt).map((item) => `- ${item}`).join("\n")
     : "- 暂无结构化人物状态";
   const pressurePrompt = foregroundPressureArc
-    ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}。模型不得修改 phase，只能返回 arcSignals。`
+    ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点事件只提供场景，不得替换这条压力主线；模型不得修改 PressureArc 的 id、eventId、phase 或 status，只能返回 arcSignals。`
     : "当前没有前台 PressureArc；事件只能提出事实结果，不能自行创建或修改 Arc 状态。";
   const pressureResolutionRule = foregroundPressureArc?.phaseId === "operation"
     ? `

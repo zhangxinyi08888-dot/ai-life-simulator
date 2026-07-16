@@ -594,12 +594,41 @@ const recoveryNode = await generateNextNode({
   }
 });
 
-assert.equal(recoveryNode.eventMeta?.eventId, "health_recovery_observation");
+assert.notEqual(recoveryNode.eventMeta?.eventId, "health_forced_pause");
 assert.equal(recoveryNode.narrativeMeta?.lifeIntensity, "normal");
 assert.equal(recoveryNode.committedArcMeta?.transitionAction, "advance");
 assert.equal(recoveryNode.worldStateSnapshot?.pressureArcs[0]?.phaseId, "operation");
 assert.match(recoveryPrompt, /健康恢复与观察阶段/);
+assert.match(recoveryPrompt, /当前压力主线=身体状态迫使原有生活节奏暂停/);
 assert.doesNotMatch(recoveryPrompt, /当前没有前台 PressureArc/);
+
+let repeatedAcuteRecoveryCalls = 0;
+const repairedRecoveryNode = await generateNextNode({
+  userData,
+  answers,
+  history: recoveryHistory,
+  currentAttributes: { ...attributes, health: 35 },
+  selectedDecision: "继续硬撑但观察身体状态",
+  nodeIndex: recoveryHistory.length,
+  simulationSeed: "health-recovery-acute-narrative-repair"
+}, {
+  callAiJson: async (prompt) => {
+    repeatedAcuteRecoveryCalls += 1;
+    const arcId = recoveryHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+    const candidate = healthArcRawNode({ arcId });
+    if (repeatedAcuteRecoveryCalls === 1) {
+      candidate.title = "再次倒下";
+      candidate.description = "她在加班时突然胸闷倒地，拨打120后被送进急诊并被要求立即住院，身体状态仍需长期观察。";
+    } else {
+      assert.match(prompt, /健康 recovery\/operation 不得新增倒地、急救、再次住院或再次停摆/);
+    }
+    return { text: JSON.stringify(candidate) };
+  }
+});
+
+assert.equal(repeatedAcuteRecoveryCalls, 2);
+assert.notEqual(repairedRecoveryNode.eventMeta?.eventId, "health_forced_pause");
+assert.doesNotMatch(`${repairedRecoveryNode.title}\n${repairedRecoveryNode.description}`, /再次倒下|突然胸闷倒地|拨打120|被送进急诊|要求立即住院/);
 
 let operationRepairCalls = 0;
 const operationHistory = healthArcHistory("operation", 12);
@@ -621,7 +650,7 @@ const resolvedHealthNode = await generateNextNode({
 });
 
 assert.equal(operationRepairCalls, 2);
-assert.equal(resolvedHealthNode.eventMeta?.eventId, "health_recovery_observation");
+assert.notEqual(resolvedHealthNode.eventMeta?.eventId, "health_forced_pause");
 assert.equal(resolvedHealthNode.narrativeMeta?.lifeIntensity, "stable");
 assert.equal(resolvedHealthNode.committedArcMeta?.transitionAction, "resolve");
 assert.equal(resolvedHealthNode.worldStateSnapshot?.foregroundPressureArcId, undefined);
@@ -649,3 +678,225 @@ const unresolvedOperationNode = await generateNextNode({
 assert.equal(failedOperationEvidenceCalls, 2);
 assert.equal(unresolvedOperationNode.committedArcMeta?.transitionAction, "resolve");
 assert.equal(unresolvedOperationNode.reportInvitation, undefined);
+
+let lateOperationRepairCalls = 0;
+const lateOperationRepairNode = await generateNextNode({
+  userData,
+  answers,
+  history: operationHistory,
+  currentAttributes: { ...attributes, health: 24 },
+  selectedDecision: "接受长期健康管理方案",
+  nodeIndex: operationHistory.length,
+  simulationSeed: "health-operation-late-evidence-repair"
+}, {
+  callAiJson: async (prompt) => {
+    lateOperationRepairCalls += 1;
+    if (prompt.includes("健康 operation 结果证据修复")) {
+      return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId, includeResolvedSignal: true })) };
+    }
+    if (prompt.includes("DecisionGate 未通过")) {
+      return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId })) };
+    }
+    const initiallyValidButChoiceBlocked = healthArcRawNode({ arcId: operationArcId, includeResolvedSignal: true });
+    initiallyValidButChoiceBlocked.choices = initiallyValidButChoiceBlocked.choices.map((choice) => ({
+      ...choice,
+      decisionIntent: "health:wait:same-plan",
+      expectedWorldDeltaTypes: ["health_state" as const]
+    }));
+    return { text: JSON.stringify(initiallyValidButChoiceBlocked) };
+  }
+});
+
+assert.equal(lateOperationRepairCalls, 3);
+assert.equal(lateOperationRepairNode.committedArcMeta?.transitionAction, "resolve");
+assert.equal(lateOperationRepairNode.reportInvitation?.reason, "arc_resolved");
+assert.notEqual(lateOperationRepairNode.eventMeta?.eventId, "health_forced_pause");
+assert.deepEqual(lateOperationRepairNode.reportInvitation?.resolutionEvidence, ["这次健康危机已经转为可以持续管理的长期状态。"]);
+
+let postResolutionPrompt = "";
+const postResolutionHistory: HistoryItem[] = [
+  ...operationHistory,
+  {
+    ...resolvedHealthNode,
+    selectedChoice: "继续走向下一段人生"
+  }
+];
+const postResolutionNode = await generateNextNode({
+  userData,
+  answers,
+  history: postResolutionHistory,
+  currentAttributes: { ...resolvedHealthNode.attributes, health: 50 },
+  selectedDecision: "继续走向下一段人生",
+  nodeIndex: postResolutionHistory.length,
+  simulationSeed: "health-post-resolution-dynamic-event"
+}, {
+  callAiJson: async (prompt) => {
+    postResolutionPrompt = prompt;
+    return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId })) };
+  }
+});
+
+assert.notEqual(postResolutionNode.eventMeta?.eventId, "health_recovery_observation");
+assert.doesNotMatch(postResolutionPrompt, /健康恢复与观察阶段|健康压力阶段结果/);
+
+function genericArcHistory(phaseId: "growth" | "operation", length: number): HistoryItem[] {
+  const arc: PressureArcState = {
+    id: `pressure_generic_${phaseId}`,
+    eventId: "career_venture_pressure",
+    eventIntentType: "career_venture_pressure",
+    phasePolicyId: "generic_pressure_v1",
+    phaseId,
+    status: "active",
+    startedAtAgeInMonths: 35 * 12,
+    phaseStartedAtAgeInMonths: 36 * 12,
+    phaseCheckpointCount: 0,
+    totalCheckpointCount: phaseId === "growth" ? 2 : 3,
+    unresolvedSummary: "事业机会带来的现金流与长期方向压力"
+  };
+
+  return Array.from({ length }, (_, index) => ({
+    age: 36,
+    ageInMonths: 36 * 12,
+    stage: "事业推进",
+    title: `事业阶段历史 ${index + 1}`,
+    description: "她仍在处理这次事业机会带来的现金流和长期方向压力。",
+    selectedChoice: `处理事业机会 ${index + 1}`,
+    attributes,
+    choices: [{ id: "A", text: `处理事业机会 ${index + 1}`, impactSummary: "继续评估" }],
+    isEndingNode: false,
+    eventMeta: {
+      eventId: "career_venture_pressure",
+      eventCategory: "career",
+      eventTags: ["career", "opportunity"],
+      eventIntensity: "major",
+      phasePolicyId: "generic_pressure_v1"
+    },
+    worldStateSnapshot: {
+      people: [],
+      directionArcs: [],
+      pressureArcs: [{ ...arc }],
+      foregroundPressureArcId: arc.id,
+      committedTransactionIds: [],
+      version: 1
+    }
+  }));
+}
+
+function genericArcRawNode(input: { arcId: string; includeResolvedSignal?: boolean }) {
+  const resultEvidence = "这次事业压力已经转为可以继续管理的长期安排。";
+  return {
+    age: 36,
+    stage: "事业重排",
+    title: "重新分配事业风险",
+    description: input.includeResolvedSignal
+      ? `她把合作规模和现金流边界重新写进计划，同时保留长期方向。${resultEvidence}`
+      : "她把合作规模和现金流边界重新写进计划，同时保留长期方向。",
+    choices: [
+      {
+        id: "A",
+        text: "缩小合作规模保住现金流",
+        impactSummary: "控制风险",
+        decisionIntent: "career:reduce:exposure",
+        expectedWorldDeltaTypes: ["career_state"]
+      },
+      {
+        id: "B",
+        text: "保留机会但设置退出边界",
+        impactSummary: "设置边界",
+        decisionIntent: "career:boundary:exit",
+        expectedWorldDeltaTypes: ["career_state"]
+      },
+      {
+        id: "C",
+        text: "寻找合作伙伴共同承担风险",
+        impactSummary: "分担风险",
+        decisionIntent: "relationship:support:shared",
+        expectedWorldDeltaTypes: ["relationship_change"]
+      }
+    ],
+    attributes: { ...attributes, wealth: 43 },
+    narrativeMeta: {
+      recoveryState: "neutral",
+      recoveryEvidence: ["现金流边界已经写进计划"],
+      arcSignals: input.includeResolvedSignal
+        ? [{ pressureArcId: input.arcId, type: "pressure_resolved", evidence: resultEvidence, confidence: 0.9 }]
+        : [{ pressureArcId: input.arcId, type: "pressure_addressed", evidence: "现金流边界已经写进计划", confidence: 0.85 }],
+      worldDeltas: [{ type: "career_state", summary: "事业风险边界重新设定" }]
+    },
+    isEndingNode: false
+  };
+}
+
+const originalMathRandom = Math.random;
+// Keep the selector above NULL_EVENT_CHANCE while choosing a safe candidate
+// deterministically for this fixture.
+Math.random = () => 0.7;
+try {
+  let genericGrowthPrompt = "";
+  const genericGrowthHistory = genericArcHistory("growth", 3);
+  const genericGrowthNode = await generateNextNode({
+    userData,
+    answers,
+    history: genericGrowthHistory,
+    currentAttributes: attributes,
+    selectedDecision: "继续评估事业机会",
+    nodeIndex: genericGrowthHistory.length,
+    simulationSeed: "generic-growth-dynamic-event"
+  }, {
+    callAiJson: async (prompt) => {
+      genericGrowthPrompt = prompt;
+      return { text: JSON.stringify(genericArcRawNode({ arcId: "pressure_generic_growth" })) };
+    }
+  });
+
+  assert.notEqual(genericGrowthNode.eventMeta?.eventId, "career_venture_pressure");
+  assert.equal(genericGrowthNode.committedArcMeta?.pressureArcId, "pressure_generic_growth");
+  assert.equal(genericGrowthNode.committedArcMeta?.transitionAction, "advance");
+  assert.match(genericGrowthPrompt, /当前压力主线=事业机会带来的现金流与长期方向压力/);
+  assert.equal(genericGrowthNode.narrativeMeta?.lifeIntensity, "normal");
+
+  const genericOperationHistory = genericArcHistory("operation", 12);
+  const genericOperationArcId = genericOperationHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+  const genericOperationNode = await generateNextNode({
+    userData,
+    answers,
+    history: genericOperationHistory,
+    currentAttributes: attributes,
+    selectedDecision: "确认长期风险边界",
+    nodeIndex: genericOperationHistory.length,
+    simulationSeed: "generic-operation-dynamic-event"
+  }, {
+    callAiJson: async () => ({ text: JSON.stringify(genericArcRawNode({ arcId: genericOperationArcId, includeResolvedSignal: true })) })
+  });
+
+  assert.notEqual(genericOperationNode.eventMeta?.eventId, "career_venture_pressure");
+  assert.equal(genericOperationNode.committedArcMeta?.pressureArcId, genericOperationArcId);
+  assert.equal(genericOperationNode.committedArcMeta?.transitionAction, "resolve");
+assert.equal(genericOperationNode.worldStateSnapshot?.foregroundPressureArcId, undefined);
+assert.equal(genericOperationNode.narrativeMeta?.lifeIntensity, "stable");
+} finally {
+  Math.random = originalMathRandom;
+}
+
+const legacyHealthHistory = healthArcHistory("operation", 1);
+const legacyHealthArc = legacyHealthHistory.at(-1)!.worldStateSnapshot!.pressureArcs[0]!;
+legacyHealthArc.phasePolicyId = "generic_pressure_v1";
+legacyHealthArc.phaseId = "growth";
+let legacyHealthPrompt = "";
+const legacyHealthNode = await generateNextNode({
+  userData,
+  answers,
+  history: legacyHealthHistory,
+  currentAttributes: { ...attributes, health: 35 },
+  selectedDecision: "继续处理旧健康事件",
+  nodeIndex: legacyHealthHistory.length,
+  simulationSeed: "legacy-health-arc-compatibility"
+}, {
+  callAiJson: async (prompt) => {
+    legacyHealthPrompt = prompt;
+    return { text: JSON.stringify(healthArcRawNode({ arcId: legacyHealthArc.id })) };
+  }
+});
+
+assert.equal(legacyHealthNode.eventMeta?.eventId, "health_recovery_observation");
+assert.match(legacyHealthPrompt, /身体状态迫使原有生活节奏暂停/);
