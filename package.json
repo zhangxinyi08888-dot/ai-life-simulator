@@ -12,7 +12,9 @@
     "server:start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test:financial-baseline": "node --test scripts/analyze-financial-ledger-baseline.test.mjs"
+    "test": "node scripts/run-typescript-tests.mjs",
+    "test:financial-baseline": "node --test scripts/analyze-financial-ledger-baseline.test.mjs",
+    "test:financial-m2": "node --import tsx --test src/domain/finance/reduceFinancialLedger.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
