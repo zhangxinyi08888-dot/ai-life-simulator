@@ -38,6 +38,9 @@ jobs:
       - name: Financial M2 ledger-core gate
         run: pnpm test:financial-m2
 
+      - name: Financial M5 seven-problem coverage gate
+        run: pnpm test:financial-m5
+
       - name: Full unit regression
         run: pnpm test
 

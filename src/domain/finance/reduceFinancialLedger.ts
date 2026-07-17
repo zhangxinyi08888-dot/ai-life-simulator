@@ -316,6 +316,8 @@ function applyEvent(
         throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "公司融资不得进入个人现金");
       }
       const holding = requiredById(ledger.businessHoldings, payload.businessHoldingId, "企业持股");
+      holding.business.latestFinancingAmountWan = roundWan(payload.financingAmountWan);
+      holding.business.financingAsOfAgeInMonths = event.effectiveAtAgeInMonths;
       if (payload.postMoneyValuationWan !== undefined) {
         holding.business.latestPostMoneyValuationWan = nonNegativeMoney(payload.postMoneyValuationWan, "business_financing_recorded.postMoneyValuationWan");
         holding.business.valuationAsOfAgeInMonths = event.effectiveAtAgeInMonths;
@@ -347,14 +349,25 @@ function applyEvent(
       if (roundWan(holding.personalCarryingValueWan) !== roundWan(payload.previousCarryingValueWan)) {
         throw new FinancialLedgerInvariantError("REVISION_CONFLICT", `企业持股 ${holding.id} 的旧账面价值不一致`);
       }
+      if (payload.postMoneyValuationWan === undefined || payload.ownershipRate === undefined) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "个人企业权益重估必须同时提供企业估值和持股比例");
+      }
+      const valuationWan = nonNegativeMoney(payload.postMoneyValuationWan, "business_holding_revalued.postMoneyValuationWan");
+      if (payload.ownershipRate < 0 || payload.ownershipRate > 1) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "企业权益重估持股比例必须在 0-1 之间");
+      }
+      const attributableValueWan = roundWan(valuationWan * payload.ownershipRate);
+      const expectedCarryingValueWan = roundWan(attributableValueWan * (1 - (holding.liquidityDiscountRate || 0)));
       const nextValue = nonNegativeMoney(payload.newCarryingValueWan, "business_holding_revalued.newCarryingValueWan");
+      if (nextValue !== expectedCarryingValueWan) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", `个人企业权益应为 ${expectedCarryingValueWan} 万元，不能直接搬运融资额或企业总估值`);
+      }
       totals.valuationChangeWan = roundWan(totals.valuationChangeWan + nextValue - holding.personalCarryingValueWan);
       holding.personalCarryingValueWan = nextValue;
-      if (payload.postMoneyValuationWan !== undefined) {
-        holding.business.latestPostMoneyValuationWan = nonNegativeMoney(payload.postMoneyValuationWan, "business_holding_revalued.postMoneyValuationWan");
-        holding.business.valuationAsOfAgeInMonths = event.effectiveAtAgeInMonths;
-      }
-      if (payload.ownershipRate !== undefined) holding.ownershipRate = payload.ownershipRate;
+      holding.attributableValueWan = attributableValueWan;
+      holding.business.latestPostMoneyValuationWan = valuationWan;
+      holding.business.valuationAsOfAgeInMonths = event.effectiveAtAgeInMonths;
+      holding.ownershipRate = payload.ownershipRate;
       holding.evidence.push(...structuredClone(payload.valuationEvidence));
       return;
     }
@@ -372,8 +385,21 @@ function applyEvent(
       const received = positiveMoney(payload.cashReceivedWan, "business_holding_sold.cashReceivedWan");
       const fee = nonNegativeMoney(payload.transactionFeeWan, "business_holding_sold.transactionFeeWan");
       if (removed > holding.personalCarryingValueWan) throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "出售持股价值超过个人账面价值");
+      if (holding.ownershipRate !== undefined && removed < holding.personalCarryingValueWan && payload.ownershipRateSold === undefined) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "部分出售企业权益必须提供出售持股比例");
+      }
+      if (payload.ownershipRateSold !== undefined) {
+        if (payload.ownershipRateSold <= 0 || payload.ownershipRateSold > (holding.ownershipRate ?? 1)) {
+          throw new FinancialLedgerInvariantError("INVALID_LEDGER", "出售持股比例超过当前个人持股");
+        }
+        if (holding.ownershipRate !== undefined) holding.ownershipRate = roundWan(holding.ownershipRate - payload.ownershipRateSold);
+      }
       holding.personalCarryingValueWan = roundWan(holding.personalCarryingValueWan - removed);
       holding.status = holding.personalCarryingValueWan === 0 ? "sold" : "partially_sold";
+      if (holding.status === "sold") {
+        holding.ownershipRate = 0;
+        holding.attributableValueWan = 0;
+      }
       changeCash(ledger, payload.destinationCashAccountId, received - fee);
       totals.assetSaleProceedsWan = roundWan(totals.assetSaleProceedsWan + received);
       totals.otherExpenseWan = roundWan(totals.otherExpenseWan + fee);

@@ -115,6 +115,8 @@ export interface BusinessEntityRef {
   displayName: string;
   latestPostMoneyValuationWan?: number;
   valuationAsOfAgeInMonths?: number;
+  latestFinancingAmountWan?: number;
+  financingAsOfAgeInMonths?: number;
   status: "operating" | "exited" | "closed" | "unknown";
   factStatus: FinancialFactStatus;
   evidence: FinancialEvidence[];
@@ -292,6 +294,7 @@ export interface BusinessHoldingSalePayload {
   businessHoldingId: string;
   destinationCashAccountId: string;
   holdingValueRemovedWan: number;
+  ownershipRateSold?: number;
   cashReceivedWan: number;
   transactionFeeWan: number;
 }

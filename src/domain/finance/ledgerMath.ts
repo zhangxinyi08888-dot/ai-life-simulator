@@ -110,6 +110,13 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
     if (holding.ownershipRate !== undefined && (holding.ownershipRate < 0 || holding.ownershipRate > 1)) {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业持股 ${holding.id}.ownershipRate 必须在 0-1 之间`);
     }
+    if (holding.attributableValueWan !== undefined) {
+      assertFiniteNonNegative(holding.attributableValueWan, `企业持股 ${holding.id}.attributableValueWan`);
+    }
+    if (holding.liquidityDiscountRate !== undefined
+      && (holding.liquidityDiscountRate < 0 || holding.liquidityDiscountRate > 1)) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业持股 ${holding.id}.liquidityDiscountRate 必须在 0-1 之间`);
+    }
     if ((holding.status === "sold" || holding.status === "written_off") && holding.personalCarryingValueWan !== 0) {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `已出售或核销持股 ${holding.id} 的个人账面价值必须归零`);
     }
