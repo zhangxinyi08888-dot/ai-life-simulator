@@ -351,6 +351,44 @@ test("requires an explicit funding event and never silently commits negative cas
   assert.equal(funded.periodSummary.netWorthChangeWan, -3);
 });
 
+test("authoritative liquidity policy converts negative cash into an auditable debt draw", () => {
+  const opening = initializeFinancialLedger({
+    id: "auto_shortfall_ledger",
+    asOfAgeInMonths: 360,
+    openingPosition: {
+      cashAccounts: [{
+        id: PRIMARY_CASH_ACCOUNT_ID,
+        type: "bank_deposit",
+        balanceWan: 1,
+        status: "active",
+        factStatus: "known",
+        evidence
+      }]
+    }
+  });
+  const result = reduceFinancialLedger({
+    ledger: opening,
+    transactionId: "auto_shortfall_tx",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    events: [accepted(
+      "unfunded_expense",
+      "one_off_expense_paid",
+      361,
+      { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 3 }
+    )],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  assert.equal(result.alreadyCommitted, false);
+  if (result.alreadyCommitted) return;
+  assert.equal(result.ledger.cashAccounts[0].balanceWan, 0);
+  assert.equal(result.ledger.debtAccounts[0].principalWan, 2);
+  assert.equal(result.ledger.debtAccounts[0].type, "liquidity_shortfall");
+  assert.equal(result.transaction.eventIds.includes(result.ledger.debtAccounts[0].id), true);
+  assert.equal(result.periodSummary.netWorthChangeWan, -3);
+});
+
 test("does not let a later inflow retroactively fund an earlier expense", () => {
   assert.throws(() => reduceFinancialLedger({
     ledger: ledgerAt(240, 1),

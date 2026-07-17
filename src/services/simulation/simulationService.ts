@@ -8,7 +8,7 @@ import { generateCompleteSimulationNode } from "../../utils/simulationNodeRetry"
 import { normalizeSimulationNode } from "../../utils/simulationResponse";
 import { buildStoryContextPack } from "../../utils/storyContext";
 import { buildAgeContext } from "../../utils/ageContext";
-import { HEALTH_CRISIS_PHASE_POLICY, reducePressureArc, resolvePhase, resolvePhasePolicy, validateNodeOutcomeProposal, type PhaseTransitionPolicy } from "../../utils/arcLifecycle";
+import { HEALTH_CRISIS_PHASE_POLICY, reducePressureArc, resolvePhase, resolvePhasePolicy, validateNodeOutcomeProposal, type AcceptedNodeOutcome, type PhaseTransitionPolicy } from "../../utils/arcLifecycle";
 import { evaluateDecisionGate } from "../../utils/decisionGate";
 import { evaluateEnding } from "../../utils/endingDecision";
 import { rebuildPersonStates } from "../../utils/personTimeline";
@@ -21,10 +21,13 @@ import { resolveAuthoritativeEmploymentStatus, resolveEmploymentStatusForNode } 
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
-import { currentCareerState, initializeCareerState } from "../../domain/career/careerState";
+import { adaptTransitionalEmploymentProposal, currentCareerState, initializeCareerState, validateAndAcceptCareerTransition } from "../../domain/career/careerState";
 import {
+  adaptLegacyFinancialSignalsToProposals,
+  commitFinancialDomainTransaction,
   migrateLegacyFinancialState,
   runFinancialShadowTransition,
+  validateFinancialProposals,
   type FinancialEventProposal
 } from "../../domain/finance";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
@@ -201,6 +204,126 @@ function attachFinancialProgress(input: {
   };
 }
 
+function attachPendingFinancialContext(input: {
+  node: SimulationNode;
+  previousState: FinancialState;
+} & Record<string, unknown>): SimulationNode {
+  return {
+    ...input.node,
+    financialState: structuredClone(input.previousState),
+    financialSignals: undefined,
+    financialChange: undefined
+  };
+}
+
+function commitAuthoritativeFinancialProgress(input: {
+  node: SimulationNode;
+  rawNode: any;
+  previousState: FinancialState;
+  currentLedger?: SimulationNode["financialLedger"];
+  currentWorldState: ReturnType<typeof emptyWorldState>;
+  acceptedOutcome: AcceptedNodeOutcome;
+  acceptedOutcomeId?: string;
+  periodStartAgeInMonths: number;
+  periodEndAgeInMonths: number;
+  transactionId: string;
+  previousWealth: number;
+}): { node: SimulationNode; worldState: ReturnType<typeof emptyWorldState> } {
+  const currentCareer = currentCareerState(input.currentWorldState)!;
+  const currentCareerCollection = {
+    careerStates: input.currentWorldState.careerStates || [currentCareer],
+    currentCareerStateId: currentCareer.id,
+    careerRevision: input.currentWorldState.careerRevision || 0
+  };
+  const acceptedCareerTransitions = input.acceptedOutcome.worldDeltas.flatMap((delta, index) => {
+    if (delta.type !== "career_state" || !delta.employmentTransition || !input.acceptedOutcomeId) return [];
+    const proposal = adaptTransitionalEmploymentProposal({
+      proposal: delta.employmentTransition,
+      currentCareerState: currentCareer,
+      proposalId: `${input.transactionId}_${index}`,
+      acceptedOutcomeId: input.acceptedOutcomeId
+    });
+    return [validateAndAcceptCareerTransition({
+      proposal,
+      currentCareerState: currentCareer,
+      acceptedOutcomeId: input.acceptedOutcomeId,
+      narrativeText: input.node.description,
+      periodStartAgeInMonths: input.periodStartAgeInMonths,
+      periodEndAgeInMonths: input.periodEndAgeInMonths
+    })];
+  });
+  const nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
+  const initialLedger = input.currentLedger?.asOfAgeInMonths === input.periodStartAgeInMonths
+    ? input.currentLedger
+    : migrateLegacyFinancialState({
+        id: input.currentLedger?.id || `financial_${input.transactionId}`,
+        legacyState: input.previousState,
+        linkedCareerStateId: currentCareer.id
+      });
+  const rawSignals = hasFinancialObject(input.rawNode?.financialSignals)
+    && getFinancialSignalsInputIssues(input.rawNode.financialSignals, input.periodEndAgeInMonths - input.periodStartAgeInMonths).length === 0
+    ? input.rawNode.financialSignals as FinancialSignals
+    : undefined;
+  const adapted = rawSignals
+    ? adaptLegacyFinancialSignalsToProposals({
+        signals: rawSignals,
+        narrativeEvidence: input.node.description,
+        currentCareerState: currentCareer,
+        currentLedger: initialLedger,
+        periodStartAgeInMonths: input.periodStartAgeInMonths,
+        periodEndAgeInMonths: input.periodEndAgeInMonths,
+        sourceOutcomeId: input.acceptedOutcomeId,
+        simulationTransactionId: input.transactionId,
+        hasStructuredBusinessActivity: hasStructuredBusinessActivity(input.node)
+      })
+    : { proposals: [], issues: [] };
+  const proposals = [...adapted.proposals, ...rawFinancialEventProposals(input.rawNode)];
+  const validated = adapted.issues.some((issue) => issue.severity === "blocking")
+    ? { acceptedEvents: [], issues: [] }
+    : validateFinancialProposals({
+        proposals,
+        currentLedger: initialLedger,
+        currentCareerState: currentCareer,
+        acceptedOutcomeId: input.acceptedOutcomeId,
+        narrativeText: input.node.description,
+        periodStartAgeInMonths: input.periodStartAgeInMonths,
+        periodEndAgeInMonths: input.periodEndAgeInMonths,
+        simulationTransactionId: input.transactionId,
+        allowedCareerStateIds: nextCareerIds,
+        liquidityPolicy: "auto_shortfall_debt"
+      });
+  const committed = commitFinancialDomainTransaction({
+    transactionId: input.transactionId,
+    periodStartAgeInMonths: input.periodStartAgeInMonths,
+    periodEndAgeInMonths: input.periodEndAgeInMonths,
+    expectedCareerRevision: currentCareerCollection.careerRevision,
+    expectedLedgerRevision: initialLedger.revision,
+    currentCareer: currentCareerCollection,
+    currentFinancialLedger: initialLedger,
+    currentWorldState: input.currentWorldState,
+    acceptedCareerTransitions,
+    acceptedFinancialEvents: validated.acceptedEvents,
+    financialIssues: [...adapted.issues, ...validated.issues],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  const financialState = committed.derivedFinancialState.compatibilityState;
+  return {
+    node: {
+      ...input.node,
+      description: sanitizeFinancialNarrative(input.node.description, financialState),
+      attributes: withCalculatedWealth(input.node.attributes, financialState, input.previousWealth),
+      financialLedger: committed.financialLedger,
+      financialLedgerMode: "authoritative",
+      financialShadowComparison: undefined,
+      financialState,
+      financialPeriodSummary: committed.financialPeriodSummary,
+      financialSignals: undefined,
+      financialChange: undefined
+    },
+    worldState: committed.worldState
+  };
+}
+
 function isMajorFinancialNarrative(text: string): boolean {
   return /买房|卖房|房产|首付|按揭|继承|遗产|股权|融资|公司估值|企业出售|破产|债务重组|大额负债/.test(text);
 }
@@ -216,6 +339,7 @@ async function repairFinancialChangeIfNeeded(input: {
   callAiJson: AiJsonCaller;
   enabled: boolean;
 }): Promise<any> {
+  if (Array.isArray(input.rawNode?.financialEventProposals)) return input.rawNode;
   const rawSignals = input.rawNode?.financialSignals;
   const signalIssues = hasFinancialObject(rawSignals)
     ? getFinancialSignalsInputIssues(rawSignals, input.elapsedMonths)
@@ -409,7 +533,7 @@ export async function startSimulation(
       legacyState: financialState,
       linkedCareerStateId: openingCareerState.id
     }),
-    financialLedgerMode: "shadow" as const,
+    financialLedgerMode: "authoritative" as const,
     financialState,
     worldStateSnapshot: startWorldState
   };
@@ -738,7 +862,7 @@ export async function generateNextNode(
       expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length ? choice.expectedWorldDeltaTypes : fallbackWorldDeltaTypes({ ...node, eventMeta: nodeEvent ? buildEventMeta(nodeEvent) : undefined })
     }))
   };
-  node = attachFinancialProgress({
+  node = attachPendingFinancialContext({
     node,
     rawNode: latestRawNode,
     previousState: currentFinancialState,
@@ -786,7 +910,7 @@ export async function generateNextNode(
       callAiJson,
       enabled: shouldRepairFinancialChange
     });
-    node = attachFinancialProgress({
+    node = attachPendingFinancialContext({
       node,
       rawNode: latestRawNode,
       previousState: currentFinancialState,
@@ -870,24 +994,28 @@ export async function generateNextNode(
       ? { action: "resolve" as const, previousPhaseId: workingPressureArc.phaseId, nextArcState: { ...workingPressureArc, status: "resolved" as const }, reasonCodes: ["life-ending"] }
       : { action: "stay" as const, reasonCodes: ["no-pressure-arc"] };
     const endingTransactionId = stableHash({ namespace: "ending-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
-    endingNode = attachFinancialShadow({
+    const authoritativeFinance = commitAuthoritativeFinancialProgress({
       node: endingNode,
       rawNode: latestRawNode,
       previousState: currentFinancialState,
       currentLedger: lastNode?.financialLedger,
-      currentCareerState: currentCareerState(worldState)!,
+      currentWorldState: worldState,
+      acceptedOutcome: endingOutcome,
       acceptedOutcomeId: selectedOutcomeId,
       periodStartAgeInMonths: currentAgeInMonths,
       periodEndAgeInMonths: timelineAdvance.targetAgeInMonths,
-      transactionId: endingTransactionId
+      transactionId: endingTransactionId,
+      previousWealth: input.currentAttributes.wealth
     });
+    endingNode = authoritativeFinance.node;
     return commitSimulationTransaction({
       transactionId: endingTransactionId,
       node: endingNode,
       storyEpisode: endingNode.narrativeMeta!.storyEpisode,
       acceptedOutcome: endingOutcome,
       pressureArcTransition: terminalTransition,
-      currentWorldStateSnapshot: worldState
+      currentWorldStateSnapshot: authoritativeFinance.worldState,
+      domainTransactionAlreadyCommitted: true
     }).node;
   }
 
@@ -930,7 +1058,7 @@ export async function generateNextNode(
       callAiJson,
       enabled: shouldRepairFinancialChange
     });
-    node = attachFinancialProgress({
+    node = attachPendingFinancialContext({
       node,
       rawNode: latestRawNode,
       previousState: currentFinancialState,
@@ -1014,7 +1142,7 @@ export async function generateNextNode(
         callAiJson,
         enabled: shouldRepairFinancialChange
       });
-      repairedNode = attachFinancialProgress({
+      repairedNode = attachPendingFinancialContext({
         node: repairedNode,
         rawNode: repairedRawNode,
         previousState: currentFinancialState,
@@ -1084,24 +1212,28 @@ export async function generateNextNode(
     timelineAdvance
   });
   const transactionId = stableHash({ namespace: "simulation-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
-  node = attachFinancialShadow({
+  const authoritativeFinance = commitAuthoritativeFinancialProgress({
     node,
     rawNode: latestRawNode,
     previousState: currentFinancialState,
     currentLedger: lastNode?.financialLedger,
-    currentCareerState: currentCareerState(worldState)!,
+    currentWorldState: worldState,
+    acceptedOutcome,
     acceptedOutcomeId: selectedOutcomeId,
     periodStartAgeInMonths: currentAgeInMonths,
     periodEndAgeInMonths: timelineAdvance.targetAgeInMonths,
-    transactionId
+    transactionId,
+    previousWealth: input.currentAttributes.wealth
   });
+  node = authoritativeFinance.node;
   const committed = commitSimulationTransaction({
     transactionId,
     node,
     storyEpisode: node.narrativeMeta!.storyEpisode,
     acceptedOutcome,
     pressureArcTransition,
-    currentWorldStateSnapshot: worldState
+    currentWorldStateSnapshot: authoritativeFinance.worldState,
+    domainTransactionAlreadyCommitted: true
   });
   const invitationDecision = evaluateReportInvitation({
     candidateNode: committed.node,

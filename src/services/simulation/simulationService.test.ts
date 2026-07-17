@@ -130,7 +130,7 @@ assert.equal(startAttempts, 2);
 assert.equal(started.initialAttributes.wealth, 38);
 assert.equal(started.startNode.choices.length, 3);
 assert.equal(started.startNode.age, 22);
-assert.equal(started.startNode.financialLedgerMode, "shadow");
+assert.equal(started.startNode.financialLedgerMode, "authoritative");
 assert.equal(started.startNode.financialLedger?.asOfAgeInMonths, 22 * 12);
 assert.equal(started.startNode.financialLedger?.incomeSources[0]?.linkedCareerStateId, started.startNode.worldStateSnapshot?.currentCareerStateId);
 
@@ -143,7 +143,7 @@ const history: HistoryItem[] = [
     description: "她拿着录用通知，反复比较通勤、工资和成长空间。",
     selectedChoice: "转向内容行业实习",
     attributes,
-    choices: [{ id: "A", text: "转向内容行业实习", impactSummary: "内容试水" }],
+    choices: [{ id: "A", text: "转向内容行业实习", impactSummary: "内容试水", eventOutcomeId: "accept_content_trial" }],
     isEndingNode: false
   }
 ];
@@ -159,32 +159,28 @@ const nextNode = await generateNextNode({
 }, {
   callAiJson: async (prompt) => {
     capturedNextPrompt = prompt;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 23 * 12);
     return {
       text: JSON.stringify({
         age: 23,
         stage: "试错开局",
         title: "新行业的第一年",
-        description: "目前存款约90万；她进入小团队做基础内容执行，收入变低，但每天都能接触真实项目。",
+        description: "目前存款约90万；她进入小团队做基础内容执行，收入变低，但每天都能接触真实项目。她收到一万元项目奖金。",
         choices: [
           { id: "A", text: "继续留在小团队磨作品", impactSummary: "低薪成长" },
           { id: "B", text: "回到稳定岗位补现金流", impactSummary: "现实回撤" },
           { id: "C", text: "兼职接单扩展人脉", impactSummary: "双线积累" }
         ],
         attributes,
-        financialSignals: {
-          employmentStatus: "part_time",
-          monthlyNetIncomeWan: 1,
-          incomeMonths: 1,
-          monthlyLivingExpenseWan: 0.5,
-          oneOffIncomeWan: 0,
-          oneOffExpenseWan: 1,
-          assetValueChangeWan: 1,
-          propertyMarketValueChangeWan: 0,
-          personalDebtChangeWan: 0,
-          incomeStability: "volatile",
-          confidence: 0.9,
-          reasons: ["转行初期收入降低"]
-        },
+        financialEventProposals: [{
+          id: "content_bonus",
+          kind: "one_off_income_received",
+          effectiveAtAgeInMonths: targetAgeInMonths,
+          payload: { destinationCashAccountId: "primary_cash", amountWan: 1 },
+          sourceOutcomeId: "accept_content_trial",
+          evidence: "她收到一万元项目奖金。",
+          confidence: 0.9
+        }],
         isEndingNode: false
       })
     };
@@ -196,13 +192,13 @@ assert.match(capturedNextPrompt, /追问补全事实/);
 assert.match(capturedNextPrompt, /最近 5 个历史节点/);
 assert.match(capturedNextPrompt, /至少显性使用 1 条追问答案/);
 assert.match(capturedNextPrompt, /当前财务快照/);
-assert.equal(nextNode.financialSignals?.employmentStatus, "student");
-assert.ok(nextNode.financialChange);
 assert.ok(nextNode.financialState);
-assert.equal(nextNode.financialLedgerMode, "shadow");
+assert.equal(nextNode.financialLedgerMode, "authoritative");
 assert.equal(nextNode.financialLedger?.asOfAgeInMonths, nextNode.ageInMonths);
-assert.ok(nextNode.financialShadowComparison);
-assert.equal(nextNode.financialShadowComparison?.transactionId.startsWith("financial_shadow_"), true);
+assert.equal(nextNode.financialShadowComparison, undefined);
+assert.equal(nextNode.financialSignals, undefined);
+assert.equal(nextNode.financialChange, undefined);
+assert.ok(nextNode.financialLedger?.recentTransactions.at(-1)?.eventIds.includes("accepted_content_bonus"));
 assert.doesNotMatch(nextNode.description, /存款约90万/);
 assert.match(nextNode.description, /现金流|现金缓冲|储蓄|负债状态/);
 assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, deriveWealthScore(nextNode.financialState!)));
@@ -309,8 +305,9 @@ for (const testCase of degradedFinanceCases) {
   assert.notEqual(degradedNode.attributes.wealth, 88);
   assert.equal(degradedNode.financialState?.employmentStatus, previousFinancialState.employmentStatus);
   assert.equal(degradedNode.financialState?.isEstimated, true);
-  assert.ok(degradedNode.financialSignals);
-  assert.ok(degradedNode.financialChange);
+  assert.equal(degradedNode.financialSignals, undefined);
+  assert.equal(degradedNode.financialChange, undefined);
+  assert.equal(degradedNode.financialLedgerMode, "authoritative");
 }
 
 const studentFinancialState = normalizeInitialFinancialState({
@@ -380,9 +377,11 @@ for (const testCase of studentFallbackCases) {
     })
   });
 
-  assert.equal(studentNode.financialChange?.netWorthChangeWan, 0);
-  assert.equal(studentNode.financialState?.netWorthWan, studentFinancialState.netWorthWan);
-  assert.equal(studentNode.financialSignals?.monthlyLivingExpenseWan, 0);
+  assert.equal(studentNode.financialChange, undefined);
+  assert.ok((studentNode.financialState?.netWorthWan || 0) < studentFinancialState.netWorthWan);
+  assert.ok((studentNode.financialState?.cashWan || 0) >= 0);
+  assert.ok((studentNode.financialState?.totalDebtWan || 0) >= 0);
+  assert.equal(studentNode.financialSignals, undefined);
 }
 
 let financialRepairCalls = 0;
@@ -442,8 +441,16 @@ const repairPreviousState = estimateFinancialStateFromWealth(attributes.wealth, 
 assert.equal(financialRepairCalls, 2);
 assert.match(capturedFinancialRepairPrompt, /月薪、月入、年薪/);
 assert.match(capturedFinancialRepairPrompt, /生活支出不能无故为 0/);
-assert.equal(repairedFinancialNode.financialSignals?.confidence, 0.9);
-assert.ok((repairedFinancialNode.financialState?.netWorthWan || 0) > repairPreviousState.netWorthWan);
+assert.equal(repairedFinancialNode.financialSignals, undefined);
+assert.equal(repairedFinancialNode.financialLedgerMode, "authoritative");
+assert.ok((repairedFinancialNode.financialState?.cashWan || 0) >= 0);
+const repairedLedgerNetWorth = repairedFinancialNode.financialLedger
+  ? repairedFinancialNode.financialLedger.cashAccounts.reduce((sum, account) => sum + account.balanceWan, 0)
+    + repairedFinancialNode.financialLedger.assetAccounts.reduce((sum, account) => sum + account.marketValueWan, 0)
+    + repairedFinancialNode.financialLedger.businessHoldings.reduce((sum, holding) => sum + holding.personalCarryingValueWan, 0)
+    - repairedFinancialNode.financialLedger.debtAccounts.reduce((sum, debt) => sum + debt.principalWan, 0)
+  : 0;
+assert.ok(Math.abs((repairedFinancialNode.financialState?.netWorthWan || 0) - repairedLedgerNetWorth) < 0.001);
 
 let propertyRepairCalls = 0;
 const propertyRepairNode = await generateNextNode({
@@ -511,12 +518,9 @@ const propertyRepairNode = await generateNextNode({
 });
 
 assert.equal(propertyRepairCalls, 2);
-assert.equal(propertyRepairNode.financialSignals?.propertyMarketValueChangeWan, 180);
-assert.equal(
-  propertyRepairNode.financialState?.propertyMarketValueWan,
-  repairPreviousState.propertyMarketValueWan + 180
-);
-assert.equal(propertyRepairNode.financialChange?.netWorthChangeWan, -3);
+assert.equal(propertyRepairNode.financialSignals, undefined);
+assert.equal(propertyRepairNode.financialChange, undefined);
+assert.ok(propertyRepairNode.financialLedger?.unresolvedIssues.some((issue) => issue.code === "UNSUPPORTED_LARGE_VALUE_CHANGE"));
 
 let failedRepairCalls = 0;
 const failedRepairNode = await generateNextNode({
@@ -554,8 +558,9 @@ const failedRepairNode = await generateNextNode({
 
 assert.equal(failedRepairCalls, 2);
 assert.notEqual(failedRepairNode.attributes.wealth, 88);
-assert.ok(failedRepairNode.financialSignals);
-assert.ok(failedRepairNode.financialChange);
+assert.equal(failedRepairNode.financialSignals, undefined);
+assert.equal(failedRepairNode.financialChange, undefined);
+assert.equal(failedRepairNode.financialLedgerMode, "authoritative");
 
 function healthArcHistory(phaseId: "recovery" | "operation", length: number): HistoryItem[] {
   const arc: PressureArcState = {

@@ -3,11 +3,12 @@ import { currentCareerState, reduceCareerStates } from "../career/careerState";
 import type { AcceptedCareerTransition, CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
-import { reduceFinancialLedger } from "./reduceFinancialLedger";
+import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
 import type {
   AcceptedFinancialEvent,
   DerivedFinancialStateResult,
   FinancialLedger,
+  FinancialLedgerIssue,
   FinancialPeriodSummary,
   FinancialTransaction
 } from "./types";
@@ -23,6 +24,8 @@ export interface FinancialDomainTransactionInput {
   currentWorldState: WorldStateSnapshot;
   acceptedCareerTransitions: AcceptedCareerTransition[];
   acceptedFinancialEvents: AcceptedFinancialEvent[];
+  financialIssues?: FinancialLedgerIssue[];
+  liquidityPolicy?: LiquidityPolicy;
 }
 
 export interface CommittedFinancialDomainTransaction {
@@ -88,11 +91,19 @@ export function commitFinancialDomainTransaction(
     expectedLedgerRevision: input.expectedLedgerRevision,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
-    events: input.acceptedFinancialEvents
+    events: input.acceptedFinancialEvents,
+    liquidityPolicy: input.liquidityPolicy
   });
   if (financialResult.alreadyCommitted || !("periodSummary" in financialResult)) {
     throw new FinancialLedgerInvariantError("REVISION_CONFLICT", "事务在原子提交过程中被重复处理");
   }
+  const committedLedger = structuredClone(financialResult.ledger);
+  const existingIssueIds = new Set(committedLedger.unresolvedIssues.map((issue) => issue.id));
+  committedLedger.unresolvedIssues.push(
+    ...(input.financialIssues || [])
+      .filter((issue) => !existingIssueIds.has(issue.id))
+      .map((issue) => structuredClone(issue))
+  );
   const nextCurrentCareerState = currentCareerState(nextCareer);
   if (!nextCurrentCareerState) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "职业事务未产生当前 CareerState");
   const nextWorldState: WorldStateSnapshot = {
@@ -106,12 +117,12 @@ export function commitFinancialDomainTransaction(
   };
   return {
     career: nextCareer,
-    financialLedger: financialResult.ledger,
+    financialLedger: committedLedger,
     worldState: nextWorldState,
     financialTransaction: financialResult.transaction,
     financialPeriodSummary: financialResult.periodSummary,
     derivedFinancialState: deriveFinancialState({
-      ledger: financialResult.ledger,
+      ledger: committedLedger,
       periodSummary: financialResult.periodSummary,
       employmentStatus: nextCurrentCareerState.employmentStatus
     }),

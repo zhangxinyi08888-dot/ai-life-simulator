@@ -9,6 +9,7 @@ export interface SimulationTransactionInput {
   acceptedOutcome: AcceptedNodeOutcome;
   pressureArcTransition: PressureArcTransitionDecision;
   currentWorldStateSnapshot: WorldStateSnapshot;
+  domainTransactionAlreadyCommitted?: boolean;
 }
 
 export interface CommittedSimulationState {
@@ -21,12 +22,17 @@ export function emptyWorldState(): WorldStateSnapshot {
   return { people: [], directionArcs: [], pressureArcs: [], committedTransactionIds: [], version: 1 };
 }
 
-function applySummaries(snapshot: WorldStateSnapshot, outcome: AcceptedNodeOutcome, transactionId: string): WorldStateSnapshot {
+function applySummaries(
+  snapshot: WorldStateSnapshot,
+  outcome: AcceptedNodeOutcome,
+  transactionId: string,
+  skipEmploymentTransition = false
+): WorldStateSnapshot {
   const next = { ...snapshot };
   for (const [deltaIndex, delta] of outcome.worldDeltas.entries()) {
     if (delta.type === "career_state") {
       next.careerSummary = delta.summary;
-      if (delta.employmentTransition) {
+      if (delta.employmentTransition && !skipEmploymentTransition) {
         const careerState = commitTransitionalEmploymentTransition({
           currentCareerState: currentCareerState(next),
           proposal: delta.employmentTransition,
@@ -48,7 +54,7 @@ function applySummaries(snapshot: WorldStateSnapshot, outcome: AcceptedNodeOutco
 
 export function commitSimulationTransaction(input: SimulationTransactionInput): CommittedSimulationState {
   const committedIds = input.currentWorldStateSnapshot.committedTransactionIds || [];
-  if (committedIds.includes(input.transactionId)) {
+  if (committedIds.includes(input.transactionId) && !input.domainTransactionAlreadyCommitted) {
     return {
       node: { ...input.node, worldStateSnapshot: input.currentWorldStateSnapshot },
       worldStateSnapshot: input.currentWorldStateSnapshot,
@@ -61,11 +67,18 @@ export function commitSimulationTransaction(input: SimulationTransactionInput): 
     people: input.currentWorldStateSnapshot.people.map((person) => ({ ...person })),
     directionArcs: input.currentWorldStateSnapshot.directionArcs.map((arc) => ({ ...arc })),
     pressureArcs: input.currentWorldStateSnapshot.pressureArcs.map((arc) => ({ ...arc })),
-    committedTransactionIds: [...committedIds, input.transactionId],
+    committedTransactionIds: input.domainTransactionAlreadyCommitted
+      ? [...committedIds]
+      : [...committedIds, input.transactionId],
     careerStates: input.currentWorldStateSnapshot.careerStates?.map((state) => ({ ...state, activeProjectIds: [...state.activeProjectIds] })),
     version: input.currentWorldStateSnapshot.version
   };
-  nextSnapshot = applySummaries(nextSnapshot, input.acceptedOutcome, input.transactionId);
+  nextSnapshot = applySummaries(
+    nextSnapshot,
+    input.acceptedOutcome,
+    input.transactionId,
+    input.domainTransactionAlreadyCommitted
+  );
 
   const nextArc = input.pressureArcTransition.nextArcState;
   if (nextArc) {

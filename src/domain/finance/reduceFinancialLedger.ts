@@ -5,6 +5,7 @@ import {
   cloneLedger,
   FinancialLedgerInvariantError,
   ledgerNetWorthWan,
+  PRIMARY_CASH_ACCOUNT_ID,
   roundWan,
   totalAssetWan,
   totalCashWan,
@@ -40,6 +41,8 @@ export type ReduceFinancialLedgerResult =
       transaction?: FinancialTransaction;
       alreadyCommitted: true;
     };
+
+export type LiquidityPolicy = "require_explicit" | "auto_shortfall_debt";
 
 function positiveMoney(value: number, label: string): number {
   if (!Number.isFinite(value) || value <= 0) {
@@ -419,6 +422,7 @@ export function reduceFinancialLedger(input: {
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
   events: AcceptedFinancialEvent[];
+  liquidityPolicy?: LiquidityPolicy;
 }): ReduceFinancialLedgerResult {
   if (input.ledger.committedTransactionIds.includes(input.transactionId)) {
     return {
@@ -453,6 +457,34 @@ export function reduceFinancialLedger(input: {
   let recurringIncomeWan = 0;
   let coreExpenseWan = 0;
   let cursor = input.periodStartAgeInMonths;
+  const automaticLiquidityEventIds: string[] = [];
+
+  const closeLiquidityShortfall = (ageInMonths: number) => {
+    const cash = totalCashWan(next);
+    if (cash >= 0 || input.liquidityPolicy !== "auto_shortfall_debt") return;
+    const principalWan = roundWan(-cash);
+    const id = `auto_shortfall_${input.transactionId}_${ageInMonths}_${automaticLiquidityEventIds.length}`;
+    next.debtAccounts.push({
+      id,
+      type: "liquidity_shortfall",
+      displayName: "自动流动性缺口",
+      principalWan,
+      openedAtAgeInMonths: ageInMonths,
+      status: "active",
+      repaymentPolicy: { mode: "event_driven" },
+      factStatus: "known",
+      evidence: [{
+        source: "system_policy",
+        reasonCode: "AUTOMATIC_LIQUIDITY_SHORTFALL",
+        confidence: 1
+      }]
+    });
+    const account = next.cashAccounts.find((candidate) => candidate.id === PRIMARY_CASH_ACCOUNT_ID && candidate.status === "active")
+      || next.cashAccounts.find((candidate) => candidate.status === "active");
+    if (!account) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "自动流动性闭环缺少现金账户");
+    account.balanceWan = roundWan(account.balanceWan + principalWan);
+    automaticLiquidityEventIds.push(id);
+  };
 
   for (let index = 0; index < events.length;) {
     const boundary = events[index].effectiveAtAgeInMonths;
@@ -463,6 +495,7 @@ export function reduceFinancialLedger(input: {
       applyEvent(next, events[index], allEventIds, totals);
       index += 1;
     }
+    closeLiquidityShortfall(boundary);
     assertSufficientLiquidity(next, boundary);
     cursor = boundary;
   }
@@ -470,6 +503,7 @@ export function reduceFinancialLedger(input: {
   recurringIncomeWan = roundWan(recurringIncomeWan + finalAccrual.incomeWan);
   coreExpenseWan = roundWan(coreExpenseWan + finalAccrual.coreExpenseWan);
 
+  closeLiquidityShortfall(input.periodEndAgeInMonths);
   assertSufficientLiquidity(next, input.periodEndAgeInMonths);
 
   next.asOfAgeInMonths = input.periodEndAgeInMonths;
@@ -489,7 +523,7 @@ export function reduceFinancialLedger(input: {
   const transaction: FinancialTransaction = {
     id: `financial_${input.transactionId}`,
     simulationTransactionId: input.transactionId,
-    eventIds: events.map((event) => event.id),
+    eventIds: [...events.map((event) => event.id), ...automaticLiquidityEventIds],
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
     cashDeltaWan: roundWan(afterCash - beforeCash),

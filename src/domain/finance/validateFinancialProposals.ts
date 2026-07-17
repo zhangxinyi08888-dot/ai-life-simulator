@@ -1,6 +1,7 @@
 import type { CareerState } from "../career/types";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
 import { reduceFinancialLedger } from "./reduceFinancialLedger";
+import type { LiquidityPolicy } from "./reduceFinancialLedger";
 import type {
   AcceptedFinancialEvent,
   FinancialEventKind,
@@ -64,6 +65,7 @@ export function validateFinancialProposals(input: {
   periodEndAgeInMonths: number;
   simulationTransactionId: string;
   allowedCareerStateIds?: string[];
+  liquidityPolicy?: LiquidityPolicy;
 }): { acceptedEvents: AcceptedFinancialEvent[]; issues: FinancialLedgerIssue[] } {
   const issues: FinancialLedgerIssue[] = [];
   const acceptedEvents: AcceptedFinancialEvent[] = [];
@@ -124,7 +126,8 @@ export function validateFinancialProposals(input: {
       expectedLedgerRevision: input.currentLedger.revision,
       periodStartAgeInMonths: input.periodStartAgeInMonths,
       periodEndAgeInMonths: input.periodEndAgeInMonths,
-      events: acceptedEvents
+      events: acceptedEvents,
+      liquidityPolicy: input.liquidityPolicy
     });
   } catch (error) {
     const code = error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE"

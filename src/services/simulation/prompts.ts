@@ -353,15 +353,41 @@ ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
 - 只有主角在本阶段已经明确入职、离职、创业、停工休养或退休时，career_state worldDelta 才能增加 employmentTransition；必须返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、正文原句 evidence 和 confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时不得返回 employmentTransition。
 - 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。
-- financialSignals 必须放在返回 JSON 顶层，返回 employmentStatus、monthlyNetIncomeWan、incomeMonths、monthlyLivingExpenseWan、oneOffIncomeWan、oneOffExpenseWan、assetValueChangeWan、propertyMarketValueChangeWan、personalDebtChangeWan、incomeStability、confidence、reasons。
-- incomeMonths 必须在 0-${elapsedMonths} 之间。正文出现月薪、年薪、兼职、项目收入、房租、医疗、教育、汇款或债务时，必须反映到对应字段。
-- 学生的 monthlyLivingExpenseWan 只记录本人实际承担、扣除家庭代付或学校补助后的净支出；无明确金额时通常按 0.1-0.2 万元/月，不得套用在职成年人生活成本。
-- 所有财务字段单位都是万元，例如 500 元=0.05 万元、800 元=0.08 万元、816 元=0.0816 万元；分期只累计本阶段实际支付的期数。
-- 只返回财务事实信号，不要自行返回 netWorthWan、netWorthChangeWan、financialChange 或计算 wealth；这些值由代码统一计算。
+- financialEventProposals 必须放在返回 JSON 顶层；没有已经发生的财务变化时返回空数组，不得重复返回全部现有余额。
+- 每项 Proposal 必须包含 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时返回空数组。
+- evidence 必须逐字摘自 description 中已经发生的事实句，confidence 必须在 0.8-1 之间；候选选项、计划和意向不能提交。
+- 持续收入或支出分别使用 income_source_started/adjusted/paused/ended 与 expense_commitment_started/adjusted/ended；一次性收支使用 one_off_income_received/one_off_expense_paid。
+- 借款、还本、利息、资产购买、资产出售和重估必须使用各自有方向的事件；不得返回债务净变化、资产净变化或最终余额。
+- 公司融资只能用 business_financing_recorded，payload.personalCashReceivedWan 必须为 0；个人分红和出售持股分别使用 business_distribution_received、business_holding_sold。
+- employmentStatus 不属于财务 Proposal，只能通过 career_state.employmentTransition 提交。
+- 所有金额单位都是万元，例如 500 元=0.05 万元；不要返回 incomeMonths、netWorthWan、netWorthChangeWan、financialChange 或自行计算 wealth。
 - 不要返回 netWorthWan、netWorthChangeWan 或自行计算 wealth；这些值由代码根据财务变化统一计算。
 - 收入、支出和资产变化必须与 description 一致；借款、还本金和购买资产不得重复当作净财富损益。
 - arcSignals 只能提出“发生了什么”及 evidence，禁止返回 nextPhaseId、nextPressureArcStatus、foregroundPressureArcId 或修改 checkpointCount。
-- 返回 age、ageInMonths、stage、title、description、choices、attributes、isEndingNode、narrativeMeta。
+- 返回 age、ageInMonths、stage、title、description、choices、attributes、financialEventProposals、isEndingNode、narrativeMeta。
+
+financialEventProposals 示例（仅在正文确实发生对应事实时使用；否则返回 []）：
+[
+  {
+    "id": "income_start_current_node",
+    "kind": "income_source_started",
+    "effectiveAtAgeInMonths": ${targetAgeInMonths},
+    "payload": {
+      "id": "income_current_node",
+      "type": "salary",
+      "displayName": "当前工作税后工资",
+      "monthlyNetAmountWan": 2.5,
+      "accrualPolicy": "monthly",
+      "activeFromAgeInMonths": ${targetAgeInMonths},
+      "status": "active",
+      "factStatus": "estimated",
+      "evidence": []
+    },
+    "sourceOutcomeId": ${selectedOutcomeId ? `"${selectedOutcomeId}"` : "null"},
+    "evidence": "你正式入职，税后月薪为2.5万元。",
+    "confidence": 0.9
+  }
+]
 
 ${formatAttributeChangeRules()}
 

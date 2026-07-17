@@ -41,6 +41,9 @@ jobs:
       - name: Financial M5 seven-problem coverage gate
         run: pnpm test:financial-m5
 
+      - name: Financial M7 authoritative-writer gate
+        run: pnpm test:financial-m7
+
       - name: Full unit regression
         run: pnpm test
 
