@@ -1,55 +1,41 @@
-# Design QA — Preset input confirmation UI
+# Design QA
 
-## Evidence
+- Source visual truth: `/Users/zz/.codex/generated_images/019f70ec-bc69-7fd2-b3d5-14d1b844a8f2/exec-7cd9ed27-915d-4451-9c1c-693a911f3ddd.png`
+- Implementation screenshot: `/Users/zz/Documents/new life/test---main-phase1/artifacts/progressive-generation-design-qa/loading-state-final-390x844.png`
+- Full-view comparison: `/Users/zz/Documents/new life/test---main-phase1/artifacts/progressive-generation-design-qa/source-vs-implementation.png`
+- Focused loading-region comparison: `/Users/zz/Documents/new life/test---main-phase1/artifacts/progressive-generation-design-qa/loading-region-comparison.png`
+- Viewport: `390 x 844`
+- State: next chapter generation in progress after selecting a preset choice
 
-- Source visual truth: `/Users/zz/.codex/generated_images/019f5b44-f5c5-7883-a16a-01fb18f3e988/exec-6276b628-58ae-4071-8f76-5194d970f54a.png`
-- Browser-rendered implementation screenshot: `audit/preset-input-ui-390x844.png`
-- Viewport: 390 × 844 CSS pixels
-- State: onboarding step 03/03, education return point, untouched system presets
-- Full-view comparison evidence: the source and implementation were opened together at original resolution after the final browser capture.
-- Focused comparison: not required; the full-view pair kept the labels, preset copy, borders, and input affordances legible enough to judge directly.
+**Findings**
 
-## Findings
+- No actionable P0, P1, or P2 differences remain.
+- Typography: the implementation keeps the product's existing serif chapter heading and compact sans-serif loading copy; hierarchy matches the selected direction.
+- Spacing and layout: the receipt card is gone, the interaction dock is absent during generation, and the skeleton plus status now read as one compact group.
+- Colors and tokens: skeleton surfaces use the selected warm charcoal and antique-gold contrast, with restrained borders and shimmer.
+- Image quality: no raster assets are required for this loading UI; all visible elements are native interface states.
+- Copy: generation-stage titles and explanations remain dynamic, with the selected mock's wording shown in the generating stage.
 
-No actionable P0, P1, or P2 differences remain.
+**Open Questions**
 
-- Fonts and typography: the existing serif display hierarchy and compact tracked utility text are preserved. The implementation scales the generated concept to the real 390 × 844 product frame without clipped copy or altered wrapping that changes meaning.
-- Spacing and layout rhythm: the open age row, divider, standalone summary field, individually bordered A/B/C rows, and persistent bottom actions match the selected direction. The app surface is 390 px wide with no horizontal overflow; both bottom actions remain fully visible.
-- Colors and visual tokens: untouched preset content renders at `rgb(119, 115, 108)` (`#77736c`), while user-edited content switches to the brighter product body-text token. Near-black surfaces, warm-gray borders, ivory headings, and champagne primary action remain consistent with the source.
-- Image quality and asset fidelity: this screen is interface-led and contains no photographic or illustrative assets. Existing Lucide icons and the supplied brand treatment are preserved; no placeholder or approximate custom asset was introduced.
-- Copy and content: the event summary and all three education choices match the selected mock. Both sections show `系统预置 · 可直接输入替换`, and the label changes to `你的输入` after the summary is edited.
-- Interaction and accessibility: the preset summary and every branch are semantic labelled textareas. Clicking an untouched preset clears it immediately, shows an input hint, and enters the brighter user-content state for direct typing. The return action and primary confirmation remain reachable.
+- None.
 
-## Comparison history
+**Implementation Checklist**
 
-### Iteration 1
+- [x] Remove the selected-choice receipt.
+- [x] Move the live generation status below the skeleton card.
+- [x] Hide the interaction dock while the next chapter is generating.
+- [x] Increase skeleton contrast and add a restrained shimmer.
+- [x] Preserve reduced-motion behavior.
+- [x] Verify no horizontal overflow at 390 x 844.
+- [x] Verify the loading preview, status, and absence of the old receipt in the browser.
 
-- Earlier finding: [P2] The first implementation kept the age and summary inside one large card and the branches inside one grouped container, which did not match the selected mock's more open hierarchy.
-- Fix made: separated the age row with a divider, moved the summary into its own bordered field, and rendered A/B/C as individually bordered rows.
-- Post-fix visual evidence: `audit/preset-input-ui-390x844.png` shows the corrected structure at 390 × 844 with all content and persistent actions visible.
+**Comparison History**
 
-### Iteration 2
+- Initial comparison: passed. No P0, P1, or P2 issues were identified, so no visual correction loop was required.
 
-- No remaining actionable P0/P1/P2 findings in the final full-view comparison.
+**Follow-up Polish**
 
-## Primary interactions tested
-
-- Completed onboarding steps 01 and 02 and opened the education confirmation state.
-- Verified untouched summary and A/B/C preset values render in muted gray.
-- Clicked the event summary and branch A, verified each preset cleared immediately, then entered replacement text through the labelled textareas.
-- Verified edited text switches to the brighter user-content state and the summary label changes to `你的输入`.
-- Returned to step 02 and reopened the education choice to verify presets reset correctly.
-- Confirmed the 390 × 844 screen has no horizontal overflow and no vertical clipping of the persistent actions.
-
-## Console and build checks
-
-- Application console errors: none.
-- TypeScript check: passed.
-- Production build: passed. Vite reports only the existing bundle-size advisory.
-- `git diff --check`: passed.
-
-## Follow-up polish
-
-- [P3] The generated concept uses a slightly larger visual scale than the production 390 × 844 frame; the implementation intentionally keeps the app's existing mobile type scale so all controls fit without scrolling.
+- P3: the title skeleton width could later respond to estimated title length, but the fixed 60% width is faithful to the selected design and keeps the current implementation simple.
 
 final result: passed

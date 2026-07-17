@@ -15,7 +15,6 @@ interface SimulationEngineProps {
   onAcceptReportInvitation: (invitation: ReportInvitationMeta) => void;
   onContinueReportInvitation: (invitationId: string) => void;
   isLoadingNext: boolean;
-  pendingChoice: string | null;
   generationStage: NextGenerationStage;
   isLoadingReport: boolean;
   onTimeTravel: (targetIndex: number) => void;
@@ -36,7 +35,7 @@ const GENERATION_COPY: Record<NextGenerationStage, { title: string; detail: stri
   finalizing: { title: "下一章即将展开", detail: "本段已经通过校准，正在写入你的生平纪事。" }
 };
 
-export default function SimulationEngine({ currentNode, history, nodeCount, onSelectChoice, onAcceptReportInvitation, onContinueReportInvitation, isLoadingNext, pendingChoice, generationStage, isLoadingReport, onTimeTravel }: SimulationEngineProps) {
+export default function SimulationEngine({ currentNode, history, nodeCount, onSelectChoice, onAcceptReportInvitation, onContinueReportInvitation, isLoadingNext, generationStage, isLoadingReport, onTimeTravel }: SimulationEngineProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customText, setCustomText] = useState("");
@@ -146,35 +145,34 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
         </motion.article>
 
         {isLoadingNext && (
-          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 space-y-4 border-t border-[#25221d] pt-6" id="next-chapter-preview">
-            <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.16em] text-[#82775d]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#b6a778]" />NEXT CHAPTER</div>
-            <div className="h-7 w-3/5 animate-pulse rounded-md bg-[#171510]" />
-            <div className="space-y-3 rounded-[17px] border border-[#2a2721] bg-[#090908] p-4">
-              <div className="h-3 w-full animate-pulse rounded bg-[#1b1915]" />
-              <div className="h-3 w-11/12 animate-pulse rounded bg-[#171612]" />
-              <div className="h-3 w-4/5 animate-pulse rounded bg-[#14130f]" />
+          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 border-t border-[#25221d] pt-6" id="next-chapter-preview" aria-live="polite" aria-busy="true">
+            <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] text-[#a49368]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#c8b77d] shadow-[0_0_8px_rgba(200,183,125,0.3)]" />NEXT CHAPTER</div>
+            <div className="generation-shimmer mt-4 h-7 w-3/5 rounded-[8px] border border-[#4a402c]" />
+            <div className="mt-5 space-y-3 rounded-[17px] border border-[#4a402c] bg-[#0d0c09] p-4 shadow-[inset_0_0_24px_rgba(111,96,64,0.08)]">
+              <div className="generation-shimmer h-3 w-full rounded-md" />
+              <div className="generation-shimmer h-3 w-[82%] rounded-md [animation-delay:120ms]" />
+              <div className="generation-shimmer h-3 w-[66%] rounded-md [animation-delay:240ms]" />
+            </div>
+            <div className="mt-5 border-t border-[#211d15] pt-5" id="loading-next-progress">
+              <div className="flex items-start gap-3 px-1">
+                <div className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border border-[#5c5138] border-t-[#d1bf82] shadow-[0_0_10px_rgba(200,183,125,0.12)]" />
+                <div>
+                  <p className="text-[11px] font-medium text-[#cdbd88]">{GENERATION_COPY[generationStage].title}</p>
+                  <p className="mt-1 text-[9px] leading-5 text-[#625e58]">{GENERATION_COPY[generationStage].detail}</p>
+                </div>
+              </div>
             </div>
           </motion.section>
         )}
       </main>
 
-      <section className="border-t border-[#211f1c] bg-[#070707] px-4 pb-5 pt-4" id="interaction-dock">
-        {isLoadingNext || isLoadingReport ? (
-          isLoadingNext ? (
-            <div className="min-h-36 space-y-3" id="loading-next-progress">
-              {pendingChoice && <div className="rounded-[12px] border border-[#403929] bg-[#0e0d0a] px-3 py-2 text-[10px] leading-5 text-[#a9a093]" id="pending-choice-receipt"><span className="text-[#c7b77f]">你选择了：</span>{pendingChoice.replace(/^自定义抉择:\s*/, "")}</div>}
-              <div className="flex items-start gap-3 px-1 py-1">
-                <div className="mt-1 h-4 w-4 shrink-0 animate-spin rounded-full border border-[#4a4435] border-t-[#c8b77d]" />
-                <div><p className="text-[11px] text-[#c2b487]">{GENERATION_COPY[generationStage].title}</p><p className="mt-1 text-[9px] leading-5 text-[#625e58]">{GENERATION_COPY[generationStage].detail}</p></div>
-              </div>
-            </div>
-          ) : (
+      {!isLoadingNext && <section className="border-t border-[#211f1c] bg-[#070707] px-4 pb-5 pt-4" id="interaction-dock">
+        {isLoadingReport ? (
             <div className="flex min-h-36 flex-col items-center justify-center gap-3 text-center" id="loading-report-spinner">
               <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#4a4435] border-t-[#c8b77d]" />
               <p className="text-[11px] uppercase tracking-[0.16em] text-[#b6a778]">{pendingInvitation ? "这段人生的报告生成中" : "完整人生报告生成中"}</p>
               <p className="max-w-[280px] text-[10px] leading-5 text-[#625e58]">正在整理你的人生轨迹与关键选择。</p>
             </div>
-          )
         ) : (
           <AnimatePresence mode="wait">
             {pendingInvitation ? (
@@ -221,7 +219,7 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
             )}
           </AnimatePresence>
         )}
-      </section>
+      </section>}
 
       <AnimatePresence>
         {isHistoryOpen && (
