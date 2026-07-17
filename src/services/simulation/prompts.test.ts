@@ -46,6 +46,8 @@ const history: HistoryItem[] = [
 const healthWarningEvent: LifeEventSeed = {
   id: "health_system_warning",
   category: "health",
+  narrativeMode: "pressure_crisis",
+  semanticFamily: "health_system_warning",
   title: "健康系统预警",
   minAge: 22,
   maxAge: 60,
@@ -82,7 +84,8 @@ assert.doesNotMatch(prompt, /选择高薪项目可以提高财富/);
 assert.doesNotMatch(prompt, /健康是否下降要看工作强度、当前健康、是否有恢复策略/);
 assert.match(prompt, /年龄约束执行条件，不约束人生愿望/);
 assert.match(prompt, /55岁创业/);
-assert.match(prompt, /temporalHint、decisionIntent、expectedWorldDeltaTypes/);
+assert.match(prompt, /temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId/);
+assert.match(prompt, /每个 choice 必须返回 eventOutcomeId/);
 assert.match(prompt, /decisionIntent 是代码识别行动方向的稳定指纹/);
 assert.match(prompt, /领域:动作:对象/);
 assert.match(prompt, /语义相同的行动必须复用已有 decisionIntent/);

@@ -98,6 +98,7 @@ export interface SimulationChoice {
   impactSummary: string;    // 选项潜在线索提示或意味
   temporalHint?: ChoiceTemporalHint;
   decisionIntent?: string;   // 稳定的“领域:动作:对象”语义指纹；旧历史可缺失并回退到选项文本
+  eventOutcomeId?: string;   // 当前事件允许的结果原语；旧节点和 null 事件节点可缺失
   expectedWorldDeltaTypes?: WorldDelta["type"][];
 }
 
@@ -146,12 +147,15 @@ export interface ChoiceTemporalHint extends TemporalProfile {
 }
 
 export type LifeEventCategory = "career" | "relationship" | "health" | "financial" | "growth" | "opportunity" | "community";
+export type NarrativeMode = "pressure_crisis" | "crossroads_opportunity" | "recovery_growth" | "stability_meaning";
 
 export interface EventMeta {
   eventId?: string;
   eventCategory?: LifeEventCategory;
   eventTags: string[];
   eventIntensity?: "minor" | "major";
+  eventMode?: NarrativeMode;
+  eventSemanticFamily?: string;
   phasePolicyId?: string;
 }
 
@@ -303,6 +307,7 @@ export interface HistoryItem {
   stage: string;
   description: string;
   selectedChoice: string;
+  selectedDecisionIntent?: string;
   attributes: LifeAttributes;   // 存储该历史节点当时的属性状态，支持高保真时光回溯
   financialState?: FinancialState;
   financialSignals?: FinancialSignals;

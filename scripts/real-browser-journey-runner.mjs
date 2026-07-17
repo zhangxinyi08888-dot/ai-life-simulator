@@ -31,10 +31,12 @@ function chooseId(state, strategy, offset = 0) {
 export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }) {
   const workingDir = path.join(recordRoot, "working");
   const casesDir = path.join(recordRoot, "cases");
+  const imagesDir = path.join(recordRoot, "images", config.slug);
   const workingPath = path.join(workingDir, `${config.slug}.json`);
   const casePath = path.join(casesDir, `${config.slug}.json`);
   await mkdir(workingDir, { recursive: true });
   await mkdir(casesDir, { recursive: true });
+  await mkdir(imagesDir, { recursive: true });
 
   let trace = [{ type: "case_started", caseSlug: config.slug, scenario: config.scenario, at: now() }];
   try {
@@ -277,7 +279,56 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     return { before, after };
   }
 
-  async function complete(finalState, { firstInvitation, secondInvitation, extraInvitations = [] }) {
+  async function captureFinalImages() {
+    const state = await readState();
+    if (state.step !== "insight" || !state.outcome) {
+      throw new Error("Final report is not visible");
+    }
+
+    await snapshot();
+    const poster = tab.playwright.locator("#share-ending-poster");
+    const posterCount = await poster.count();
+    let posterRect;
+    if (posterCount === 1) try {
+      posterRect = await poster.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          x: Math.max(0, rect.x),
+          y: Math.max(0, rect.y),
+          width: rect.width,
+          height: rect.height
+        };
+      });
+    } catch {
+      // Fall through to the centered report-card crop below.
+    }
+    if (!posterRect) {
+      const viewport = await tab.playwright.evaluate(() => ({
+        width: window.innerWidth,
+        height: window.innerHeight
+      }));
+      const width = Math.min(356, viewport.width - 32);
+      posterRect = {
+        x: Math.max(0, (viewport.width - width) / 2),
+        y: 20,
+        width,
+        height: Math.min(632, viewport.height - 40)
+      };
+    }
+    if (posterRect.width <= 0 || posterRect.height <= 0) {
+      throw new Error("Final report poster has no visible bounds");
+    }
+
+    const posterPath = path.join(imagesDir, "poster.jpg");
+    const pagePath = path.join(imagesDir, "report-page.jpg");
+    await writeFile(posterPath, await tab.screenshot({ clip: posterRect }));
+    await writeFile(pagePath, await tab.screenshot({ fullPage: true }));
+    trace.push({ type: "final_images_saved", posterPath, pagePath, at: now() });
+    await persist(state, false, { imagePaths: { posterPath, pagePath } });
+    return { posterPath, pagePath };
+  }
+
+  async function complete(finalState, { firstInvitation, secondInvitation, extraInvitations = [], imagePaths }) {
     const history = finalState.history || [];
     const invitations = finalState.invitations || [];
     const expectedClosure = config.scenario === "natural_lifespan" ? "mortality" : "user_reflection";
@@ -293,7 +344,8 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       allFinancialStatesPreserved: history.every((item) => item.financialState && Number.isFinite(item.financialState.netWorthWan)),
       allInvitationsPreserved: invitations.length >= [firstInvitation, secondInvitation, ...extraInvitations].filter(Boolean).length,
       expectedClosureType: finalState.outcome?.meta?.closureType === expectedClosure,
-      finalReportPresent: Boolean(finalState.outcome?.share && finalState.outcome?.report)
+      finalReportPresent: Boolean(finalState.outcome?.share && finalState.outcome?.report),
+      finalImagesPresent: Boolean(imagePaths?.posterPath && imagePaths?.pagePath)
     };
     const record = {
       schemaVersion: 2,
@@ -308,6 +360,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       secondInvitation,
       extraInvitations,
       interactionLog: trace,
+      imagePaths,
       validation,
       passed: Object.values(validation).every(Boolean),
       finalState
@@ -345,6 +398,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     declineInvitation,
     acceptInvitation,
     openMortalityReport,
+    captureFinalImages,
     complete
   };
 }

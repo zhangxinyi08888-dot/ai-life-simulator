@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, RecoveryState } from "../types";
-import { buildEventMeta, calculateAgeAffinityMultiplier, calculateEventSelectionWeight, getEventTemporalProfile, isEventAgeEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "./lifeEvents";
+import { buildEventMeta, calculateAgeAffinityMultiplier, calculateEventSelectionWeight, getEventTemporalProfile, getLastEventSelectionTrace, isEventAgeEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "./lifeEvents";
 
 const lowHealth: LifeAttributes = {
   happiness: 45,
@@ -69,6 +69,27 @@ assert.notEqual(
 
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.intent));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.trigger?.eligibility));
+assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.narrativeMode));
+assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.semanticFamily));
+assert.deepEqual(
+  Object.fromEntries(LIFE_EVENTS_DATABASE.slice(0, 14).map((event) => [event.id, [event.narrativeMode, event.semanticFamily]])),
+  {
+    career_venture_pressure: ["crossroads_opportunity", "career_transition"],
+    career_responsibility_shift: ["pressure_crisis", "career_scope_change"],
+    career_structural_instability: ["pressure_crisis", "career_structural_instability"],
+    career_credit_ownership_conflict: ["pressure_crisis", "career_credit_ownership"],
+    relationship_material_commitment_test: ["crossroads_opportunity", "relationship_commitment"],
+    relationship_family_obligation_pull: ["pressure_crisis", "family_responsibility"],
+    relationship_trust_interest_fracture: ["pressure_crisis", "relationship_trust_fracture"],
+    health_system_warning: ["pressure_crisis", "health_system_warning"],
+    health_forced_pause: ["pressure_crisis", "health_acute_crisis"],
+    health_recovery_observation: ["recovery_growth", "health_recovery_observation"],
+    opportunity_unstable_alliance: ["crossroads_opportunity", "career_alliance_opportunity"],
+    opportunity_escape_route: ["crossroads_opportunity", "self_escape_route"],
+    financial_side_path_conflict: ["crossroads_opportunity", "financial_side_path"],
+    life_normal_transition: ["stability_meaning", "life_normal_accumulation"]
+  }
+);
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("conceptPrompt" in event)));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("promptSeed" in event)));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => !("check" in event)));
@@ -77,7 +98,8 @@ const randomHealthEvents = LIFE_EVENTS_DATABASE.filter((event) => event.category
 const forcedPauseEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_forced_pause");
 const healthRecoveryEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_recovery_observation");
 const healthWarningEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_system_warning");
-assert.deepEqual(randomHealthEvents.map((event) => event.id), ["health_system_warning"]);
+assert.equal(randomHealthEvents[0]?.id, "health_system_warning");
+assert.equal(randomHealthEvents.length, 7);
 assert.equal(forcedPauseEvent?.dispatchMode, "arc_only");
 assert.equal(forcedPauseEvent?.intent.phasePolicyId, "health_crisis_v1");
 assert.equal(healthRecoveryEvent?.dispatchMode, "arc_only");
@@ -164,8 +186,7 @@ assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], mini
 assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], minimumMultiplier: 0.4, outsideRangeAdaptations: [] }, true), 1);
 
 const selected = queryDynamicLifeEvent(lowHealth, {}, 55, []);
-assert.notEqual(selected?.id, "life_normal_transition");
-assert.ok(selected === null || selected.intent);
+assert.ok(selected?.intent);
 assert.notEqual(selected?.id, "health_forced_pause");
 
 const similarBlocked = queryDynamicLifeEvent(lowHealth, {}, 55, [
@@ -192,7 +213,7 @@ assert.ok(
 );
 
 const originalRandom = Math.random;
-Math.random = () => 0.99;
+Math.random = () => 0.3;
 try {
   const romanceFallbackEvent = queryDynamicLifeEvent(
     { happiness: 43, intelligence: 40, wealth: 30, relation: 45, health: 60 },
@@ -203,12 +224,12 @@ try {
     28,
     []
   );
-  assert.equal(romanceFallbackEvent?.category, "relationship");
+  assert.notEqual(romanceFallbackEvent?.category, "relationship");
 } finally {
   Math.random = originalRandom;
 }
 
-Math.random = () => 0.99;
+Math.random = () => 0.3;
 try {
   const answerRelationshipEvent = queryDynamicLifeEvent(
     { happiness: 43, intelligence: 40, wealth: 30, relation: 45, health: 60 },
@@ -223,7 +244,7 @@ try {
       }
     ]
   );
-  assert.equal(answerRelationshipEvent?.category, "relationship");
+  assert.notEqual(answerRelationshipEvent?.category, "relationship");
 } finally {
   Math.random = originalRandom;
 }
@@ -246,4 +267,120 @@ const stableEvent = queryDynamicLifeEvent(stableAttributes, {}, 45, [
     eventTags: ["career", "major_crisis"]
   })
 ]);
-assert.ok(stableEvent === null || stableEvent.id === "life_normal_transition");
+assert.ok(stableEvent === null || stableEvent.narrativeMode === "stability_meaning");
+
+let normalRandomCall = 0;
+Math.random = () => normalRandomCall++ === 0 ? 0.99 : 0;
+try {
+  const normalAlongsideDramatic = queryDynamicLifeEvent(stableAttributes, {}, 45, []);
+  assert.equal(normalAlongsideDramatic?.id, "life_normal_transition");
+} finally {
+  Math.random = originalRandom;
+}
+
+const cooldownExhausted = queryDynamicLifeEvent(stableAttributes, {}, 45, [
+  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_material_commitment_test")!)),
+  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_family_obligation_pull")!)),
+  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_trust_interest_fracture")!)),
+  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "health_sustainable_routine")!)),
+  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "life_normal_transition")!))
+]);
+assert.equal(cooldownExhausted, null);
+
+const tagExhausted = queryDynamicLifeEvent(
+  { happiness: 20, intelligence: 50, wealth: 50, relation: 0, health: 40 },
+  {},
+  45,
+  [
+    historyItem({ eventId: "past_health", eventCategory: "health", eventTags: ["health", "burnout", "instability"] }),
+    historyItem({ eventId: "past_escape", eventCategory: "opportunity", eventTags: ["opportunity", "escape_route", "isolation"] }),
+    historyItem({ eventId: "past_normal", eventCategory: "growth", eventTags: ["normal_life", "transition", "breathing_room"] })
+  ]
+);
+assert.equal(tagExhausted, null);
+
+const categoryExhausted = queryDynamicLifeEvent(
+  { happiness: 52, intelligence: 40, wealth: 50, relation: 50, health: 60 },
+  {},
+  45,
+  [
+    historyItem({ eventId: "past_relationship_a", eventCategory: "relationship", eventTags: ["normal_life", "transition", "health", "routine", "maintenance"] }),
+    historyItem({ eventId: "past_relationship_b", eventCategory: "relationship", eventTags: ["unrelated"] })
+  ]
+);
+assert.equal(categoryExhausted, null);
+
+Math.random = () => 0.99;
+try {
+  const pressureOnly = queryDynamicLifeEvent(
+    { happiness: 44, intelligence: 40, wealth: 30, relation: 0, health: 40 },
+    {},
+    45,
+    [historyItem({ eventId: "past_normal", eventCategory: "growth", eventTags: ["normal_life", "transition"] })]
+  );
+  assert.equal(pressureOnly?.id, "health_system_warning");
+} finally {
+  Math.random = originalRandom;
+}
+
+for (const randomValue of [0, 0.1, 0.3, 0.55, 0.8, 0.999]) {
+  Math.random = () => randomValue;
+  try {
+    assert.ok(queryDynamicLifeEvent(stableAttributes, {}, 45, []));
+  } finally {
+    Math.random = originalRandom;
+  }
+}
+
+assert.deepEqual(
+  healthWarningEvent && buildEventMeta(healthWarningEvent),
+  {
+    eventId: "health_system_warning",
+    eventCategory: "health",
+    eventTags: ["health", "burnout", "instability", "system_warning"],
+    eventIntensity: "minor",
+    eventMode: "pressure_crisis",
+    eventSemanticFamily: "health_system_warning",
+    phasePolicyId: "generic_pressure_v1"
+  }
+);
+
+function createSeededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
+function sampleStableModes(seed: number, sampleSize: number): string[] {
+  const modes: string[] = [];
+  Math.random = createSeededRandom(seed);
+  try {
+    for (let index = 0; index < sampleSize; index += 1) {
+      const event = queryDynamicLifeEvent(stableAttributes, {
+        coreStoryFocus: "career",
+        currentSituation: "目前从事产品工作，希望逐步转向独立创作。"
+      }, 45, []);
+      assert.ok(event);
+      modes.push(event.narrativeMode);
+      assert.notEqual(buildEventMeta(event).eventIntensity, "major");
+    }
+  } finally {
+    Math.random = originalRandom;
+  }
+  return modes;
+}
+
+const firstDeterministicRun = sampleStableModes(20260717, 10_000);
+const secondDeterministicRun = sampleStableModes(20260717, 10_000);
+assert.deepEqual(secondDeterministicRun, firstDeterministicRun);
+const stabilityShare = firstDeterministicRun.filter((mode) => mode === "stability_meaning").length
+  / firstDeterministicRun.length;
+assert.ok(stabilityShare >= 0.45 && stabilityShare <= 0.65);
+const trace = getLastEventSelectionTrace();
+assert.ok(trace?.candidateIdsBeforeFilters.length);
+assert.ok(trace?.candidateIdsAfterFilters.length);
+assert.ok(trace?.availableModes.length);
+assert.ok(trace?.selectedEventId);
+assert.equal(trace?.selectionReason, "weighted_mode_selection");

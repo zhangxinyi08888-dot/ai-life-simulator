@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { LIFE_EVENTS_DATABASE } from "../data/lifeEvents";
 import { buildEventIntentPrompt, buildNullEventPrompt } from "./eventPrompt";
 import { buildStoryContextPack } from "./storyContext";
 
@@ -22,6 +23,8 @@ const storyContext = buildStoryContextPack(
 const intentPrompt = buildEventIntentPrompt({
   id: "health_system_warning",
   category: "health",
+  narrativeMode: "pressure_crisis",
+  semanticFamily: "health_system_warning",
   title: "健康系统预警",
   minAge: 18,
   maxAge: 70,
@@ -48,6 +51,21 @@ assert.match(intentPrompt, /Story Context Pack/);
 assert.match(intentPrompt, /health_system_warning/);
 assert.match(intentPrompt, /我爸妈希望我稳定/);
 assert.match(intentPrompt, /至少显性使用 1 条追问答案/);
+assert.match(intentPrompt, /eventOutcomeId/);
+assert.match(intentPrompt, /只能取自本事件 allowedOutcomes/);
+assert.match(intentPrompt, /不得临时增加第二个无关危机/);
+assert.doesNotMatch(intentPrompt, /必须体现真实生活代价与选择/);
+
+const modePromptCases = [
+  ["career_gradual_transition_window", /小规模试点/],
+  ["health_recovery_progress", /历史选择、经过时间、属性趋势或支持条件/],
+  ["self_daily_meaning", /所有年龄都必须保持未来导向/]
+] as const;
+for (const [eventId, pattern] of modePromptCases) {
+  const event = LIFE_EVENTS_DATABASE.find((candidate) => candidate.id === eventId);
+  assert.ok(event);
+  assert.match(buildEventIntentPrompt(event), pattern);
+}
 assert.match(intentPrompt, /allowedOutcomes 是行动原语/);
 assert.match(intentPrompt, /不得把继续事业目标等同于维持原有负荷/);
 assert.match(intentPrompt, /也允许暂停、离职或退出当前工作进行调养/);

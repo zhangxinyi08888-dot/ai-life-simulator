@@ -72,3 +72,57 @@ assert.ok(cooledResult.reasonCodes.includes("repeats-recently-passed-option"));
 const selectedLater = [...passedTwice, cityHistoryItem(41, cityChoices[1].text)];
 const restoredResult = evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: selectedLater, targetAgeInMonths: 504 });
 assert.equal(restoredResult.repeatsRecentlyPassedOption, false);
+
+const allowedOutcomeIds = ["consolidate_recovery_plan", "resume_activity_gradually", "adjust_plan_based_on_remaining_limits"];
+const validEventNode: SimulationNode = {
+  ...base,
+  choices: [
+    { ...base.choices[0], eventOutcomeId: allowedOutcomeIds[0] },
+    { ...base.choices[1], eventOutcomeId: allowedOutcomeIds[1] },
+    { ...base.choices[2], eventOutcomeId: allowedOutcomeIds[2] }
+  ]
+};
+assert.equal(evaluateDecisionGate({
+  candidateNode: validEventNode,
+  recentHistory: [],
+  targetAgeInMonths: 420,
+  allowedOutcomeIds,
+  narrativeMode: "recovery_growth"
+}).isDecisionCheckpoint, true);
+
+const invalidOutcome = evaluateDecisionGate({
+  candidateNode: { ...validEventNode, choices: validEventNode.choices.map((choice) => ({ ...choice, eventOutcomeId: "invented_outcome" })) },
+  recentHistory: [], targetAgeInMonths: 420, allowedOutcomeIds, narrativeMode: "recovery_growth"
+});
+assert.ok(invalidOutcome.reasonCodes.includes("event-outcome-not-allowed"));
+assert.ok(invalidOutcome.reasonCodes.includes("insufficient-event-strategy-coverage"));
+
+const recoveryOnlyMaintain = evaluateDecisionGate({
+  candidateNode: {
+    ...validEventNode,
+    choices: [
+      { ...base.choices[0], eventOutcomeId: "continue_recovery" },
+      { ...base.choices[1], eventOutcomeId: "continue_observation" },
+      { ...base.choices[2], eventOutcomeId: "maintain_recovery" }
+    ]
+  },
+  recentHistory: [], targetAgeInMonths: 420,
+  allowedOutcomeIds: ["continue_recovery", "continue_observation", "maintain_recovery"],
+  narrativeMode: "recovery_growth"
+});
+assert.ok(recoveryOnlyMaintain.reasonCodes.includes("recovery-options-only-maintain"));
+
+const stabilityOnlyMaintain = evaluateDecisionGate({
+  candidateNode: {
+    ...validEventNode,
+    choices: [
+      { ...base.choices[0], eventOutcomeId: "maintain_current_rhythm" },
+      { ...base.choices[1], eventOutcomeId: "maintain_current_order" },
+      { ...base.choices[2], eventOutcomeId: "keep_current_arrangement" }
+    ]
+  },
+  recentHistory: [], targetAgeInMonths: 420,
+  allowedOutcomeIds: ["maintain_current_rhythm", "maintain_current_order", "keep_current_arrangement"],
+  narrativeMode: "stability_meaning"
+});
+assert.ok(stabilityOnlyMaintain.reasonCodes.includes("stability-options-no-concrete-progression"));

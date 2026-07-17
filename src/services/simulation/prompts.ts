@@ -72,9 +72,14 @@ export function buildNodePromptWithRetryNotice(prompt: string, previousIssues: s
   const issueLabels: Record<string, string> = {
     description: "description 剧情正文",
     attributes: "attributes 五维数值",
-    choices: "choices 选项"
+    choices: "choices 选项",
+    eventOutcomeId: "choice.eventOutcomeId 缺失或不在本事件 allowedOutcomes 中",
+    eventOutcomeCoverage: "三个 choice 没有覆盖至少两个不同的 eventOutcomeId"
   };
   const missingFields = previousIssues.map((issue) => issueLabels[issue] || issue).join("、");
+  const outcomeRetryRule = previousIssues.some((issue) => issue === "eventOutcomeId" || issue === "eventOutcomeCoverage")
+    ? "\n- eventOutcomeId：每个 choice 都必须从当前事件 allowedOutcomes 中原样选择；三个 choice 至少覆盖两个不同值。"
+    : "";
 
   return `${prompt}
 
@@ -83,7 +88,7 @@ export function buildNodePromptWithRetryNotice(prompt: string, previousIssues: s
 请重新返回完整 JSON，不要解释，不要省略字段。必须包含：
 - description：150-250 字、具体写实的剧情正文；
 - attributes：happiness、intelligence、wealth、relation、health 五个数字；
-- choices：非结局节点必须正好 3 个选项，结局节点必须 1 个选项。`;
+- choices：非结局节点必须正好 3 个选项，结局节点必须 1 个选项。${outcomeRetryRule}`;
 }
 
 export function buildStartSimulationPrompt(userData: UserInitialData, answers: QuestionTurn[]): string {
@@ -339,7 +344,7 @@ ${FINANCIAL_NARRATIVE_RULE}
 - 年龄约束执行条件，不约束人生愿望。45岁读书、55岁创业、70岁写书、80岁旅行、90岁研究均可成立。
 - 每个非终章节点至少一个选项继续推进用户当前方向；禁止三个选项共同导向退休、照护、退出或回忆。
 - 只有真正改变未来的选择才能成为节点；复查、等待、恢复等无新分歧过程放入 storyEpisode.internalTransitions。
-- 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes。
+- 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId。
 ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
 - financialSignals 必须放在返回 JSON 顶层，返回 employmentStatus、monthlyNetIncomeWan、incomeMonths、monthlyLivingExpenseWan、oneOffIncomeWan、oneOffExpenseWan、assetValueChangeWan、propertyMarketValueChangeWan、personalDebtChangeWan、incomeStability、confidence、reasons。

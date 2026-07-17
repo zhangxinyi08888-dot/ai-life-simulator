@@ -588,7 +588,8 @@ export async function generateNextNode(
     previousAgeInMonths: currentAgeInMonths,
     elapsedMonths: timelineAdvance.elapsedMonths,
     lifeIntensity: timelineAdvance.lifeIntensity,
-    pressureArcId: workingPressureArc?.id
+    pressureArcId: workingPressureArc?.id,
+    allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes
   });
   latestRawNode = await repairFinancialChangeIfNeeded({
     rawNode: latestRawNode,
@@ -738,7 +739,15 @@ export async function generateNextNode(
     }).node;
   }
 
-  let decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+  let decisionGate = evaluateDecisionGate({
+    candidateNode: node,
+    previousNode: lastNode,
+    pressureArc: workingPressureArc,
+    recentHistory: input.history,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
+    narrativeMode: nodeEvent?.narrativeMode
+  });
   if (!decisionGate.isDecisionCheckpoint) {
     const blockedChoicePrompt = decisionGate.blockedDecisionIntents.length > 0
       ? `\n以下 decisionIntent 近期已被用户重复未采纳，处于冷却中：${decisionGate.blockedDecisionIntents.join("、")}。保留相关真实事实或人物关系，但不得改写文案后再次提供同一行动。`
@@ -787,7 +796,15 @@ export async function generateNextNode(
           : consistencyIssues.map((issue) => issue.message).join("；")
       );
     }
-    decisionGate = evaluateDecisionGate({ candidateNode: node, previousNode: lastNode, pressureArc: workingPressureArc, recentHistory: input.history, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+    decisionGate = evaluateDecisionGate({
+      candidateNode: node,
+      previousNode: lastNode,
+      pressureArc: workingPressureArc,
+      recentHistory: input.history,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
+      narrativeMode: nodeEvent?.narrativeMode
+    });
     if (!decisionGate.isDecisionCheckpoint) throw new AiClientError("AI_RESPONSE_INVALID", "生成结果没有形成真正不同的人生选择，请重试。");
   }
 
@@ -869,7 +886,9 @@ export async function generateNextNode(
         previousNode: lastNode,
         pressureArc: workingPressureArc,
         recentHistory: input.history,
-        targetAgeInMonths: timelineAdvance.targetAgeInMonths
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
+        narrativeMode: nodeEvent?.narrativeMode
       });
       if (
         repairedConsistencyIssues.every((issue) => issue.severity !== "error")

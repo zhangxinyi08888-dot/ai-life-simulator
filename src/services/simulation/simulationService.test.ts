@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
-import { generateNextNode, generateQuestions, startSimulation } from "./simulationService";
+import { generateNextNode as generateNextNodeProduction, generateQuestions, startSimulation } from "./simulationService";
+import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 
 const userData: UserInitialData = {
@@ -900,8 +901,7 @@ function genericArcRawNode(input: { arcId: string; includeResolvedSignal?: boole
 }
 
 const originalMathRandom = Math.random;
-// Keep the selector above NULL_EVENT_CHANCE while choosing a safe candidate
-// deterministically for this fixture.
+// Choose a safe candidate deterministically for this fixture.
 Math.random = () => 0.7;
 try {
   let genericGrowthPrompt = "";
@@ -972,3 +972,46 @@ const legacyHealthNode = await generateNextNode({
 
 assert.equal(legacyHealthNode.eventMeta?.eventId, "health_recovery_observation");
 assert.match(legacyHealthPrompt, /身体状态迫使原有生活节奏暂停/);
+
+const missingOutcomeRandom = Math.random;
+Math.random = () => 0.9;
+try {
+  let missingOutcomeAttempts = 0;
+  let missingOutcomeRetryPrompt = "";
+  const repairedMissingOutcomeNode = await generateNextNodeProduction({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    selectedDecision: "继续推进但要求选项形成不同结果",
+    nodeIndex: history.length,
+    simulationSeed: "missing-event-outcome-contract"
+  }, {
+    callAiJson: async (prompt) => {
+      missingOutcomeAttempts += 1;
+      if (missingOutcomeAttempts > 1) missingOutcomeRetryPrompt = prompt;
+      const allowedOutcomes = [...prompt.matchAll(/^\s*\d+\.\s*(\S+)\s*$/gm)].map((match) => match[1]).slice(0, 3);
+      return {
+        text: JSON.stringify({
+          age: 23,
+          stage: "现实选择",
+          title: "下一步安排",
+          description: "现有方向进入需要明确安排的阶段，三个方案会产生不同的现实后果。",
+          choices: [
+            { id: "A", text: "缩小范围继续推进", impactSummary: "收缩推进", decisionIntent: "career:narrow_scope:project", expectedWorldDeltaTypes: ["career_state"], eventOutcomeId: missingOutcomeAttempts > 1 ? allowedOutcomes[0] : undefined },
+            { id: "B", text: "重新分配责任", impactSummary: "重组责任", decisionIntent: "career:delegate:project", expectedWorldDeltaTypes: ["career_state", "relationship_change"], eventOutcomeId: missingOutcomeAttempts > 1 ? allowedOutcomes[1] : undefined },
+            { id: "C", text: "暂停并调整方向", impactSummary: "暂停调整", decisionIntent: "career:pause:project", expectedWorldDeltaTypes: ["career_state"], eventOutcomeId: missingOutcomeAttempts > 1 ? allowedOutcomes[2] : undefined }
+          ],
+          attributes,
+          isEndingNode: false
+        })
+      };
+    }
+  });
+  assert.equal(missingOutcomeAttempts, 2);
+  assert.match(missingOutcomeRetryPrompt, /choice\.eventOutcomeId 缺失或不在本事件 allowedOutcomes 中/);
+  assert.match(missingOutcomeRetryPrompt, /每个 choice 都必须从当前事件 allowedOutcomes 中原样选择/);
+  assert.ok(repairedMissingOutcomeNode.choices.every((choice) => choice.eventOutcomeId));
+} finally {
+  Math.random = missingOutcomeRandom;
+}

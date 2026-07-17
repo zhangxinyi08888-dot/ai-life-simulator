@@ -49,7 +49,19 @@ const item = createHistoryItemFromNode(node, "去外地接受新机会");
 assert.deepEqual(item.choices, choices);
 assert.equal(item.isEndingNode, false);
 assert.equal(item.selectedChoice, "去外地接受新机会");
+assert.equal(item.selectedDecisionIntent, "去外地接受新机会");
 assert.equal(item.financialState?.netWorthWan, 90);
+
+const explicitIntentItem = createHistoryItemFromNode({
+  ...node,
+  choices: node.choices.map((choice) => choice.id === "B"
+    ? { ...choice, decisionIntent: "location:relocate_to:another_city" }
+    : choice)
+}, "去外地接受新机会");
+assert.equal(explicitIntentItem.selectedDecisionIntent, "location:relocate_to:another_city");
+
+const customIntentItem = createHistoryItemFromNode(node, "先远程试住三个月");
+assert.equal(customIntentItem.selectedDecisionIntent, "先远程试住三个月");
 
 const earlier: HistoryItem = createHistoryItemFromNode(
   { ...node, age: 23, title: "前一个节点" },

@@ -11,6 +11,7 @@ interface GenerateCompleteNodeOptions {
   elapsedMonths?: number;
   lifeIntensity?: LifeIntensity;
   pressureArcId?: string;
+  allowedOutcomeIds?: string[];
 }
 
 export async function generateCompleteSimulationNode(
@@ -23,7 +24,9 @@ export async function generateCompleteSimulationNode(
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     lastNode = await generateRawNode(attempt, issues);
-    issues = getSimulationNodeValidationIssues(lastNode);
+    issues = getSimulationNodeValidationIssues(lastNode, {
+      allowedOutcomeIds: options.allowedOutcomeIds
+    });
     if (issues.length === 0) {
       return normalizeSimulationNode(lastNode, options);
     }

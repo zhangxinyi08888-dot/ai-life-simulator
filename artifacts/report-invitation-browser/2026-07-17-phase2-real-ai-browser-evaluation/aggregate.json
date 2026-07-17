@@ -1,0 +1,451 @@
+{
+  "generatedAt": "2026-07-17T12:20:44.453Z",
+  "recordRoot": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-17-phase2-real-ai-browser-evaluation",
+  "caseCount": 10,
+  "passedCaseCount": 9,
+  "allArtifactsPresent": true,
+  "scenarioCounts": {
+    "accept_second": 3,
+    "accept_first": 2,
+    "natural_lifespan": 5
+  },
+  "totalNodes": 296,
+  "classifiedNodeCount": 286,
+  "modeCounts": {
+    "missing": 10,
+    "crossroads_opportunity": 92,
+    "stability_meaning": 127,
+    "recovery_growth": 14,
+    "pressure_crisis": 53
+  },
+  "modeShares": {
+    "crossroads_opportunity": 32.2,
+    "stability_meaning": 44.4,
+    "recovery_growth": 4.9,
+    "pressure_crisis": 18.5
+  },
+  "totalInvitations": 15,
+  "invitationReasons": {
+    "stable_window": 14,
+    "arc_resolved": 1
+  },
+  "invitationStatuses": {
+    "declined": 11,
+    "accepted": 4
+  },
+  "closureTypes": {
+    "mortality": 6,
+    "user_reflection": 4
+  },
+  "financialAnomalies": {
+    "studentNodes": 46,
+    "retiredNodes": 28,
+    "coreExpense1_2Nodes": 109,
+    "negativeDisposableNodes": 21
+  },
+  "recordedAiErrors": 3,
+  "topEventIds": [
+    [
+      "career_structural_instability",
+      33
+    ],
+    [
+      "financial_long_term_order",
+      28
+    ],
+    [
+      "health_sustainable_routine",
+      19
+    ],
+    [
+      "self_new_direction_choice",
+      18
+    ],
+    [
+      "career_sustainable_work_rhythm",
+      18
+    ],
+    [
+      "life_normal_transition",
+      18
+    ],
+    [
+      "career_gradual_transition_window",
+      17
+    ],
+    [
+      "self_daily_meaning",
+      16
+    ],
+    [
+      "career_responsibility_shift",
+      15
+    ],
+    [
+      "career_long_project_completion",
+      13
+    ],
+    [
+      "opportunity_escape_route",
+      13
+    ],
+    [
+      "relationship_daily_companionship",
+      13
+    ],
+    [
+      "career_craft_meaning",
+      12
+    ],
+    [
+      "missing",
+      10
+    ],
+    [
+      "financial_resource_priority_choice",
+      10
+    ]
+  ],
+  "cases": [
+    {
+      "caseSlug": "real-balance-second",
+      "scenario": "accept_second",
+      "historyNodeCount": 33,
+      "invitations": [
+        {
+          "completedChoiceCount": 21,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_637754da"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 1039,
+      "imagesPresent": true,
+      "passed": false,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": false,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "historyNodeCount": 16,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "accepted",
+          "triggerKey": "arc:pressure_4c4d5c4e"
+        }
+      ],
+      "closureType": "user_reflection",
+      "finalAgeInMonths": 582,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-career-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 45,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_d64db3f2"
+        },
+        {
+          "completedChoiceCount": 25,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_c49a2f59"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 1163,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 28,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_5684e5c4"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 967,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-education-second",
+      "scenario": "accept_second",
+      "historyNodeCount": 20,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_d5f39c5c"
+        },
+        {
+          "completedChoiceCount": 19,
+          "reason": "arc_resolved",
+          "status": "accepted",
+          "triggerKey": "arc:pressure_a9ca0de4"
+        }
+      ],
+      "closureType": "user_reflection",
+      "finalAgeInMonths": 558,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "historyNodeCount": 17,
+      "invitations": [
+        {
+          "completedChoiceCount": 16,
+          "reason": "stable_window",
+          "status": "accepted",
+          "triggerKey": "stable:15"
+        }
+      ],
+      "closureType": "user_reflection",
+      "finalAgeInMonths": 667,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-relationship-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 44,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_92c843e9"
+        },
+        {
+          "completedChoiceCount": 25,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_8062ee2f"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 1129,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "scenario": "accept_second",
+      "historyNodeCount": 28,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "stable:14"
+        },
+        {
+          "completedChoiceCount": 27,
+          "reason": "stable_window",
+          "status": "accepted",
+          "triggerKey": "stable:26"
+        }
+      ],
+      "closureType": "user_reflection",
+      "finalAgeInMonths": 848,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-wealth-first",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 29,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "stable:13"
+        },
+        {
+          "completedChoiceCount": 27,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_f5c1939a"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 989,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-wealth-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 36,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "stable:8"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 1125,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    }
+  ]
+}
