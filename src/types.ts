@@ -2,6 +2,8 @@
  * Shared Type Definitions for AI Life Simulator
  */
 
+import type { FinancialLedger, FinancialPeriodSummary } from "./domain/finance/types";
+
 export interface LifeAttributes {
   happiness: number;   // 幸福度 (0 - 100)
   intelligence: number; // 智商/才干 (0 - 100)
@@ -295,7 +297,9 @@ export interface SimulationNode {
   description: string;      // 描述性互动小说正文
   choices: SimulationChoice[]; // 三个预设选项 + 支持自定义
   attributes: LifeAttributes;  // 更新后的五维属性值
+  financialLedger?: FinancialLedger;
   financialState?: FinancialState;
+  financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
   isEndingNode: boolean;       // 是否已到达人生终点
@@ -320,7 +324,9 @@ export interface HistoryItem {
   selectedChoice: string;
   selectedDecisionIntent?: string;
   attributes: LifeAttributes;   // 存储该历史节点当时的属性状态，支持高保真时光回溯
+  financialLedger?: FinancialLedger;
   financialState?: FinancialState;
+  financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
   choices: SimulationChoice[];   // 存储该节点当时的选项，支持回到历史节点重新选择
