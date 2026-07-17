@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, Compass, AlertCircle, X, Orbit } from "lucide-react";
 
@@ -16,6 +16,7 @@ import {
 } from "./services/simulation/simulationService";
 import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeService";
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
+import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 
 type AppStep = "initial" | "questioning" | "simulating" | "insight";
 
@@ -52,6 +53,9 @@ function readDevRecordedAppState(): DevRecordedAppState | null {
 }
 
 function getSimulationErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return "生成已暂停，当前已经出现的内容会继续保留。";
+  }
   if (!isAiClientError(error)) return fallback;
 
   if (error.code === "API_KEY_MISSING") {
@@ -63,6 +67,9 @@ function getSimulationErrorMessage(error: unknown, fallback: string): string {
   if (error.code === "AI_RATE_LIMITED") {
     return "DeepSeek 请求过于频繁，请稍后再试。";
   }
+  if (error.code === "AI_REQUEST_ABORTED") {
+    return "生成已暂停，当前已经出现的内容会继续保留。";
+  }
   if (error.code === "AI_RESPONSE_INVALID") {
     return "AI 返回内容格式异常，请重新生成。";
   }
@@ -71,6 +78,11 @@ function getSimulationErrorMessage(error: unknown, fallback: string): string {
   }
 
   return error.message || fallback;
+}
+
+function isGenerationAbort(error: unknown): boolean {
+  return (error instanceof DOMException && error.name === "AbortError")
+    || (isAiClientError(error) && error.code === "AI_REQUEST_ABORTED");
 }
 
 export default function App() {
@@ -99,6 +111,10 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
   const [nextGenerationStage, setNextGenerationStage] = useState<NextGenerationStage>("preparing");
+  const [nextNarrativePreview, setNextNarrativePreview] = useState<StreamedNodePreview | null>(null);
+  const [nextGenerationError, setNextGenerationError] = useState<string | null>(null);
+  const [pendingNextChoice, setPendingNextChoice] = useState<string | null>(null);
+  const nextGenerationAbortRef = useRef<AbortController | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const testStateImportEnabled = import.meta.env.DEV
     && typeof window !== "undefined"
@@ -126,6 +142,9 @@ export default function App() {
       setOutcome(restored.outcome ?? null);
       setIsLoading(false);
       setIsLoadingNext(false);
+      setNextNarrativePreview(null);
+      setNextGenerationError(null);
+      setPendingNextChoice(null);
       setErrorMsg(null);
       setShowTestStateImporter(false);
     } catch (error) {
@@ -157,6 +176,8 @@ export default function App() {
       outcome,
       isLoading,
       isLoadingNext,
+      nextNarrativePreview,
+      nextGenerationError,
       errorMsg,
       invitations: history.flatMap((item, index) => item.reportInvitation ? [{ nodeIndex: index, ...item.reportInvitation, terminalAction: item.selectedChoice }] : [])
     };
@@ -176,7 +197,7 @@ export default function App() {
         // The filesystem record remains the source of truth if browser storage is unavailable.
       }
     }
-  }, [answers, attributes, currentNode, errorMsg, history, isLoading, isLoadingNext, name, nodeCount, outcome, questions, simulationSeed, step, userData]);
+  }, [answers, attributes, currentNode, errorMsg, history, isLoading, isLoadingNext, name, nextGenerationError, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
 
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
@@ -280,25 +301,22 @@ export default function App() {
     });
   };
 
-  // Make selected / custom choice -> Advance details
-  const handleChoiceSelect = async (choiceText: string) => {
+  const runNextGeneration = async (choiceText: string, options: { preservePreview?: boolean } = {}) => {
     if (!currentNode || !userData) return;
 
     setErrorMsg(null);
-
-    // If we've reached ending and clicked final report button
-    if (currentNode.isEndingNode || choiceText === "安详落幕，查看一生洞察") {
-      await handleGenerateFinalOutcome({ closureType: "mortality" }, choiceText);
-      return;
-    }
-
-    // Regular progression to next-node
+    setNextGenerationError(null);
+    setPendingNextChoice(choiceText);
+    if (!options.preservePreview) setNextNarrativePreview(null);
     setNextGenerationStage("preparing");
     setIsLoadingNext(true);
 
+    const previousHistory = history;
     const newHistoryItem = createHistoryItemFromNode(currentNode, choiceText);
     const updatedHistory = [...history, newHistoryItem];
     setHistory(updatedHistory);
+    const abortController = new AbortController();
+    nextGenerationAbortRef.current = abortController;
 
     try {
       const body = await generateNextNode(
@@ -311,20 +329,59 @@ export default function App() {
           nodeIndex: updatedHistory.length,
           simulationSeed
         },
-        { onGenerationStage: setNextGenerationStage }
+        {
+          onGenerationStage: setNextGenerationStage,
+          onNarrativeProgress: (preview) => setNextNarrativePreview((previous) => (
+            mergeStreamedNodePreview(previous, preview, Boolean(options.preservePreview))
+          )),
+          signal: abortController.signal
+        }
       );
 
       setAttributes(body.attributes);
       setCurrentNode(body);
       setNodeCount(prev => prev + 1);
+      setNextNarrativePreview(null);
+      setNextGenerationError(null);
+      setPendingNextChoice(null);
 
     } catch (err: any) {
-      console.error(err);
-      setErrorMsg(getSimulationErrorMessage(err, "时空穿梭有些颠簸，没能顺利着陆，请重试该选项。"));
-      setHistory(history);
+      if (!isGenerationAbort(err)) console.error(err);
+      setNextGenerationError(getSimulationErrorMessage(err, "时空穿梭有些颠簸，已保留当前内容，可以继续生成。"));
+      setHistory(previousHistory);
     } finally {
       setIsLoadingNext(false);
+      if (nextGenerationAbortRef.current === abortController) nextGenerationAbortRef.current = null;
     }
+  };
+
+  // Make selected / custom choice -> Advance details
+  const handleChoiceSelect = async (choiceText: string) => {
+    if (!currentNode || !userData) return;
+
+    // If we've reached ending and clicked final report button
+    if (currentNode.isEndingNode || choiceText === "安详落幕，查看一生洞察") {
+      await handleGenerateFinalOutcome({ closureType: "mortality" }, choiceText);
+      return;
+    }
+
+    await runNextGeneration(choiceText);
+  };
+
+  const handleStopNextGeneration = () => {
+    nextGenerationAbortRef.current?.abort();
+  };
+
+  const handleRetryNextGeneration = () => {
+    if (!pendingNextChoice) return;
+    void runNextGeneration(pendingNextChoice, { preservePreview: true });
+  };
+
+  const handleDiscardNextGeneration = () => {
+    setNextNarrativePreview(null);
+    setNextGenerationError(null);
+    setPendingNextChoice(null);
+    setNextGenerationStage("preparing");
   };
 
   // 4. Restore a specific historical node so the user can choose again
@@ -338,6 +395,9 @@ export default function App() {
       setHistory(restored.historyBefore);
       setNodeCount(restored.nodeCount);
       setStep("simulating");
+      setNextNarrativePreview(null);
+      setNextGenerationError(null);
+      setPendingNextChoice(null);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(getSimulationErrorMessage(err, "逆转星轨失败，未能顺利重装这段尘封记忆。"));
@@ -356,6 +416,9 @@ export default function App() {
     setSimulationSeed(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
     setOutcome(null);
     setErrorMsg(null);
+    setNextNarrativePreview(null);
+    setNextGenerationError(null);
+    setPendingNextChoice(null);
   };
 
   return (
@@ -421,6 +484,11 @@ export default function App() {
                   onContinueReportInvitation={handleContinueReportInvitation}
                   isLoadingNext={isLoadingNext}
                   generationStage={nextGenerationStage}
+                  narrativePreview={nextNarrativePreview}
+                  generationError={nextGenerationError}
+                  onStopGeneration={handleStopNextGeneration}
+                  onRetryGeneration={handleRetryNextGeneration}
+                  onDiscardGeneration={handleDiscardNextGeneration}
                   isLoadingReport={isLoading}
                   onTimeTravel={handleTimeTravel}
                 />

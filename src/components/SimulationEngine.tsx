@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Activity, BookOpen, Compass, DollarSign, Heart, History, MessageSquarePlus, Send, Sparkles, Users } from "lucide-react";
+import { Activity, AlertCircle, BookOpen, Compass, DollarSign, Heart, History, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Users } from "lucide-react";
 import { HistoryItem, LifeAttributes, ReportInvitationMeta, SimulationNode } from "../types";
 import { formatAgeInMonths } from "../utils/timelineAdvance";
 import { formatNetWorthWan } from "../utils/financialState";
 import { splitNarrativeParagraphs } from "../utils/narrativePresentation";
 import type { NextGenerationStage } from "../services/simulation/simulationService";
+import type { StreamedNodePreview } from "../utils/streamingJsonPreview";
 
 interface SimulationEngineProps {
   currentNode: SimulationNode;
@@ -16,6 +17,11 @@ interface SimulationEngineProps {
   onContinueReportInvitation: (invitationId: string) => void;
   isLoadingNext: boolean;
   generationStage: NextGenerationStage;
+  narrativePreview: StreamedNodePreview | null;
+  generationError: string | null;
+  onStopGeneration: () => void;
+  onRetryGeneration: () => void;
+  onDiscardGeneration: () => void;
   isLoadingReport: boolean;
   onTimeTravel: (targetIndex: number) => void;
 }
@@ -35,7 +41,7 @@ const GENERATION_COPY: Record<NextGenerationStage, { title: string; detail: stri
   finalizing: { title: "下一章即将展开", detail: "本段已经通过校准，正在写入你的生平纪事。" }
 };
 
-export default function SimulationEngine({ currentNode, history, nodeCount, onSelectChoice, onAcceptReportInvitation, onContinueReportInvitation, isLoadingNext, generationStage, isLoadingReport, onTimeTravel }: SimulationEngineProps) {
+export default function SimulationEngine({ currentNode, history, nodeCount, onSelectChoice, onAcceptReportInvitation, onContinueReportInvitation, isLoadingNext, generationStage, narrativePreview, generationError, onStopGeneration, onRetryGeneration, onDiscardGeneration, isLoadingReport, onTimeTravel }: SimulationEngineProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customText, setCustomText] = useState("");
@@ -45,6 +51,7 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
   const pendingInvitation = currentNode.reportInvitation?.status === "pending"
     ? currentNode.reportInvitation
     : undefined;
+  const hasNextChapterPreview = isLoadingNext || Boolean(generationError) || Boolean(narrativePreview);
 
   useEffect(() => {
     storyRef.current?.scrollTo({ top: 0, behavior: "auto" });
@@ -57,7 +64,7 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
       storyElement?.scrollTo({ top: storyElement.scrollHeight, behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [isLoadingNext]);
+  }, [isLoadingNext, narrativePreview?.paragraphs.length]);
 
   useEffect(() => {
     setVisibleParagraphCount(1);
@@ -144,29 +151,61 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
           </div>
         </motion.article>
 
-        {isLoadingNext && (
-          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 border-t border-[#25221d] pt-6" id="next-chapter-preview" aria-live="polite" aria-busy="true">
+        {hasNextChapterPreview && (
+          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 border-t border-[#25221d] pt-6" id="next-chapter-preview" aria-live="polite" aria-busy={isLoadingNext}>
             <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] text-[#a49368]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#c8b77d] shadow-[0_0_8px_rgba(200,183,125,0.3)]" />NEXT CHAPTER</div>
-            <div className="generation-shimmer mt-4 h-7 w-3/5 rounded-[8px] border border-[#4a402c]" />
-            <div className="mt-5 space-y-3 rounded-[17px] border border-[#4a402c] bg-[#0d0c09] p-4 shadow-[inset_0_0_24px_rgba(111,96,64,0.08)]">
-              <div className="generation-shimmer h-3 w-full rounded-md" />
-              <div className="generation-shimmer h-3 w-[82%] rounded-md [animation-delay:120ms]" />
-              <div className="generation-shimmer h-3 w-[66%] rounded-md [animation-delay:240ms]" />
+            {narrativePreview?.title ? (
+              <h3 className="mt-4 font-serif text-[22px] leading-8 text-[#e5ddcf]" id="next-chapter-draft-title">{narrativePreview.title}</h3>
+            ) : (
+              <div className="generation-shimmer mt-4 h-7 w-3/5 rounded-[8px] border border-[#4a402c]" />
+            )}
+            <div className="mt-5 space-y-3 rounded-[17px] border border-[#4a402c] bg-[#0d0c09] p-4 shadow-[inset_0_0_24px_rgba(111,96,64,0.08)]" id="next-chapter-draft-body">
+              {narrativePreview?.paragraphs.length ? (
+                <AnimatePresence initial={false}>
+                  {narrativePreview.paragraphs.map((paragraph, index) => (
+                    <motion.p key={`${index}-${paragraph.slice(0, 12)}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="text-[12px] leading-6 text-[#bdb6ab]">{paragraph}</motion.p>
+                  ))}
+                  {!narrativePreview.descriptionComplete && <motion.div key="streaming-tail" className="generation-shimmer h-2.5 w-2/5 rounded-md" />}
+                </AnimatePresence>
+              ) : (
+                <>
+                  <div className="generation-shimmer h-3 w-full rounded-md" />
+                  <div className="generation-shimmer h-3 w-[82%] rounded-md [animation-delay:120ms]" />
+                  <div className="generation-shimmer h-3 w-[66%] rounded-md [animation-delay:240ms]" />
+                </>
+              )}
             </div>
             <div className="mt-5 border-t border-[#211d15] pt-5" id="loading-next-progress">
-              <div className="flex items-start gap-3 px-1">
-                <div className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border border-[#5c5138] border-t-[#d1bf82] shadow-[0_0_10px_rgba(200,183,125,0.12)]" />
-                <div>
-                  <p className="text-[11px] font-medium text-[#cdbd88]">{GENERATION_COPY[generationStage].title}</p>
-                  <p className="mt-1 text-[9px] leading-5 text-[#625e58]">{GENERATION_COPY[generationStage].detail}</p>
+              {generationError ? (
+                <div className="px-1" id="next-generation-error-state">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#b98276]" />
+                    <div>
+                      <p className="text-[11px] font-medium text-[#d0b094]">生成暂时停在这里</p>
+                      <p className="mt-1 text-[9px] leading-5 text-[#756d64]">{generationError}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex gap-2 pl-8">
+                    <button type="button" onClick={onRetryGeneration} className="flex h-9 items-center justify-center gap-1.5 rounded-[10px] border border-[#746545] bg-[#1a1710] px-3 text-[10px] text-[#cdbd88] transition hover:bg-[#211d14]" id="retry-next-generation-btn"><RotateCcw className="h-3 w-3" />继续生成</button>
+                    <button type="button" onClick={onDiscardGeneration} className="h-9 px-3 text-[10px] text-[#77716a] transition hover:text-[#bdb6ab]" id="discard-next-generation-btn">返回选择</button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-start gap-3 px-1">
+                  <div className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border border-[#5c5138] border-t-[#d1bf82] shadow-[0_0_10px_rgba(200,183,125,0.12)]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium text-[#cdbd88]">{GENERATION_COPY[generationStage].title}</p>
+                    <p className="mt-1 text-[9px] leading-5 text-[#625e58]">{GENERATION_COPY[generationStage].detail}</p>
+                  </div>
+                  <button type="button" onClick={onStopGeneration} className="flex h-8 shrink-0 items-center gap-1 rounded-[9px] border border-[#343028] px-2 text-[9px] text-[#756f66] transition hover:border-[#625945] hover:text-[#b8aa7c]" id="stop-next-generation-btn"><Square className="h-2.5 w-2.5" />暂停</button>
+                </div>
+              )}
             </div>
           </motion.section>
         )}
       </main>
 
-      {!isLoadingNext && <section className="border-t border-[#211f1c] bg-[#070707] px-4 pb-5 pt-4" id="interaction-dock">
+      {!hasNextChapterPreview && <section className="border-t border-[#211f1c] bg-[#070707] px-4 pb-5 pt-4" id="interaction-dock">
         {isLoadingReport ? (
             <div className="flex min-h-36 flex-col items-center justify-center gap-3 text-center" id="loading-report-spinner">
               <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#4a4435] border-t-[#c8b77d]" />

@@ -33,6 +33,11 @@ function renderLoadingState(isLoadingNext: boolean): string {
       onContinueReportInvitation={() => undefined}
       isLoadingNext={isLoadingNext}
       generationStage="generating"
+      narrativePreview={null}
+      generationError={null}
+      onStopGeneration={() => undefined}
+      onRetryGeneration={() => undefined}
+      onDiscardGeneration={() => undefined}
       isLoadingReport={false}
       onTimeTravel={() => undefined}
     />
@@ -53,3 +58,62 @@ const idleMarkup = renderLoadingState(false);
 
 assert.match(idleMarkup, /id="interaction-dock"/);
 assert.doesNotMatch(idleMarkup, /id="next-chapter-preview"/);
+
+const streamingMarkup = renderToStaticMarkup(
+  <SimulationEngine
+    currentNode={currentNode}
+    history={[]}
+    nodeCount={1}
+    onSelectChoice={() => undefined}
+    onAcceptReportInvitation={() => undefined}
+    onContinueReportInvitation={() => undefined}
+    isLoadingNext
+    generationStage="generating"
+    narrativePreview={{
+      title: "正在形成的新章节",
+      paragraphs: ["第一段已经抵达。", "第二段正在继续。"],
+      descriptionComplete: false
+    }}
+    generationError={null}
+    onStopGeneration={() => undefined}
+    onRetryGeneration={() => undefined}
+    onDiscardGeneration={() => undefined}
+    isLoadingReport={false}
+    onTimeTravel={() => undefined}
+  />
+);
+
+assert.match(streamingMarkup, /id="next-chapter-draft-title"/);
+assert.match(streamingMarkup, /正在形成的新章节/);
+assert.match(streamingMarkup, /第一段已经抵达/);
+assert.match(streamingMarkup, /第二段正在继续/);
+
+const interruptedMarkup = renderToStaticMarkup(
+  <SimulationEngine
+    currentNode={currentNode}
+    history={[]}
+    nodeCount={1}
+    onSelectChoice={() => undefined}
+    onAcceptReportInvitation={() => undefined}
+    onContinueReportInvitation={() => undefined}
+    isLoadingNext={false}
+    generationStage="generating"
+    narrativePreview={{
+      title: "保留下来的章节",
+      paragraphs: ["这段已经生成，因此中断后仍然可见。"],
+      descriptionComplete: false
+    }}
+    generationError="生成已暂停，当前已经出现的内容会继续保留。"
+    onStopGeneration={() => undefined}
+    onRetryGeneration={() => undefined}
+    onDiscardGeneration={() => undefined}
+    isLoadingReport={false}
+    onTimeTravel={() => undefined}
+  />
+);
+
+assert.match(interruptedMarkup, /id="next-generation-error-state"/);
+assert.match(interruptedMarkup, /这段已经生成，因此中断后仍然可见/);
+assert.match(interruptedMarkup, /id="retry-next-generation-btn"/);
+assert.match(interruptedMarkup, /id="discard-next-generation-btn"/);
+assert.doesNotMatch(interruptedMarkup, /id="interaction-dock"/);

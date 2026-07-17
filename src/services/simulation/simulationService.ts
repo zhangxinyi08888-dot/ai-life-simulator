@@ -20,10 +20,11 @@ import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFrom
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
-import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
+import { callDeepSeekJsonFromBrowser, callDeepSeekJsonStreamFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
-import { getBrowserE2eAiJsonCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
+import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
+import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
 import {
   buildNextNodePrompt,
   buildFinancialSignalsRepairPrompt,
@@ -35,13 +36,20 @@ import {
 } from "./prompts";
 
 type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
+type AiJsonStreamCaller = (
+  prompt: string,
+  options?: { signal?: AbortSignal; onContent?: (content: string) => void }
+) => Promise<{ text: string }>;
 
 export type NextGenerationStage = "preparing" | "generating" | "validating" | "finalizing";
 
 export interface SimulationServiceDeps {
   callAiJson?: AiJsonCaller;
+  callAiJsonStream?: AiJsonStreamCaller;
   enableFinancialRepair?: boolean;
   onGenerationStage?: (stage: NextGenerationStage) => void;
+  onNarrativeProgress?: (preview: StreamedNodePreview) => void;
+  signal?: AbortSignal;
 }
 
 export interface GenerateQuestionsResult {
@@ -202,11 +210,38 @@ async function repairFinancialChangeIfNeeded(input: {
 }
 
 function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
-  if (deps.callAiJson) return deps.callAiJson;
-  const e2eCaller = getBrowserE2eAiJsonCaller();
-  if (e2eCaller) return e2eCaller;
+  const caller = deps.callAiJson || getBrowserE2eAiJsonCaller();
+  if (caller) {
+    return async (prompt) => {
+      if (deps.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
+      const response = await caller(prompt);
+      if (deps.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
+      return response;
+    };
+  }
 
-  return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt);
+  return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt, fetch, deps.signal);
+}
+
+function getAiJsonStreamCaller(deps: SimulationServiceDeps, fallbackCaller: AiJsonCaller): AiJsonStreamCaller {
+  if (deps.callAiJsonStream) return deps.callAiJsonStream;
+  if (deps.callAiJson) {
+    return async (prompt, options = {}) => {
+      if (options.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
+      const response = await fallbackCaller(prompt);
+      options.onContent?.(response.text);
+      return response;
+    };
+  }
+
+  const e2eStreamCaller = getBrowserE2eAiJsonStreamCaller();
+  if (e2eStreamCaller) return e2eStreamCaller;
+
+  return (prompt, options = {}) => callDeepSeekJsonStreamFromBrowser(
+    getBrowserAiEnv(),
+    prompt,
+    options
+  );
 }
 
 function parseAiJsonResponse(response: { text?: string }): any {
@@ -502,6 +537,7 @@ export async function generateNextNode(
 ): Promise<SimulationNode> {
   deps.onGenerationStage?.("preparing");
   const callAiJson = getAiJsonCaller(deps);
+  const callAiJsonStream = getAiJsonStreamCaller(deps, callAiJson);
   const shouldRepairFinancialChange = deps.enableFinancialRepair
     ?? (!deps.callAiJson && !getBrowserE2eAiJsonCaller());
   const lastNode = input.history[input.history.length - 1];
@@ -582,7 +618,20 @@ export async function generateNextNode(
   let latestRawNode: any = {};
   deps.onGenerationStage?.("generating");
   let node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
-    const response = await callAiJson(buildNodePromptWithRetryNotice(prompt, previousIssues));
+    let lastPreviewSignature = "";
+    const response = await callAiJsonStream(
+      buildNodePromptWithRetryNotice(prompt, previousIssues),
+      {
+        signal: deps.signal,
+        onContent: (content) => {
+          const preview = extractStreamedNodePreview(content);
+          const signature = JSON.stringify(preview);
+          if (signature === lastPreviewSignature) return;
+          lastPreviewSignature = signature;
+          deps.onNarrativeProgress?.(preview);
+        }
+      }
+    );
     latestRawNode = parseAiJsonResponse(response);
     return latestRawNode;
   }, {

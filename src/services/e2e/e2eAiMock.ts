@@ -1,6 +1,10 @@
 import { FinalLifeOutcome, LifeAttributes, SimulationNode } from "../../types";
 
 type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
+type AiJsonStreamCaller = (
+  prompt: string,
+  options?: { signal?: AbortSignal; onContent?: (content: string) => void }
+) => Promise<{ text: string }>;
 
 interface E2eCase {
   slug: string;
@@ -380,6 +384,7 @@ const journeyCases = journeyDefinitions.map(createJourneyCase);
 const cases: E2eCase[] = [...legacyCases, ...journeyCases];
 const casesBySlug = new Map(cases.map((item) => [item.slug, item]));
 const cachedCallers = new Map<string, AiJsonCaller>();
+const cachedStreamCallers = new Map<string, AiJsonStreamCaller>();
 
 export function getE2eCaseSlugs(): string[] {
   return cases.map((item) => item.slug);
@@ -482,6 +487,38 @@ export function getBrowserE2eAiJsonCaller(): AiJsonCaller | undefined {
   if (!slug) return undefined;
 
   return getCachedE2eAiJsonCaller(slug);
+}
+
+export function getBrowserE2eAiJsonStreamCaller(): AiJsonStreamCaller | undefined {
+  const env = (import.meta as unknown as { env?: { DEV?: boolean } }).env;
+  if (!env?.DEV || typeof window === "undefined") return undefined;
+  const slug = new URLSearchParams(window.location.search).get("e2eCase");
+  if (!slug || !casesBySlug.has(slug)) return undefined;
+  const cached = cachedStreamCallers.get(slug);
+  if (cached) return cached;
+
+  const caller = getCachedE2eAiJsonCaller(slug);
+  let pending: { text: string } | null = null;
+
+  const streamCaller: AiJsonStreamCaller = async (prompt, options = {}) => {
+    const response = pending || await caller(prompt);
+    pending = response;
+    const chunkSize = 48;
+    const delayMs = typeof window === "undefined"
+      ? 0
+      : Math.max(0, Number(new URLSearchParams(window.location.search).get("e2eStreamDelayMs")) || 0);
+    for (let end = chunkSize; end < response.text.length; end += chunkSize) {
+      if (options.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
+      options.onContent?.(response.text.slice(0, end));
+      if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    if (options.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
+    options.onContent?.(response.text);
+    pending = null;
+    return response;
+  };
+  cachedStreamCallers.set(slug, streamCaller);
+  return streamCaller;
 }
 
 export function getBrowserE2eEventOverride(completedChoiceCount: number): string | null | undefined {
