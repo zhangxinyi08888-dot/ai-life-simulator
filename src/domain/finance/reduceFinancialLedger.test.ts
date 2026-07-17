@@ -57,7 +57,8 @@ function ledgerAt(ageInMonths = 240, cashWan = 20): FinancialLedger {
   });
 }
 
-function debt(id: string, principalWan: number, type: DebtAccount["type"] = "consumer_loan"): DebtAccount {
+function debt(id: string, principalWan: number, type: DebtAccount["type"] = "family_or_personal_loan"): DebtAccount {
+  const requiresAmortization = ["mortgage", "consumer_loan", "student_loan", "credit_balance"].includes(type);
   return {
     id,
     type,
@@ -65,7 +66,9 @@ function debt(id: string, principalWan: number, type: DebtAccount["type"] = "con
     principalWan,
     openedAtAgeInMonths: 240,
     status: "active",
-    repaymentPolicy: { mode: "event_driven" },
+    repaymentPolicy: requiresAmortization
+      ? { mode: "estimated_amortizing", monthlyPrincipalWan: 1, monthlyInterestWan: 0.1, remainingTermMonths: Math.ceil(principalWan) }
+      : { mode: "event_driven" },
     factStatus: "known",
     evidence
   };

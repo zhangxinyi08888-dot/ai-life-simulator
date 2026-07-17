@@ -122,6 +122,16 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
     if ((account.status === "repaid" || account.status === "restructured") && account.principalWan !== 0) {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `已偿清或重组债务 ${account.id} 的本金必须归零`);
     }
+    if (["mortgage", "consumer_loan", "student_loan", "credit_balance"].includes(account.type)
+      && account.status === "active"
+      && account.repaymentPolicy.mode === "event_driven") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `标准债务 ${account.id} 必须使用已知或保守估算的摊还策略`);
+    }
+    for (const [key, value] of Object.entries(account.repaymentPolicy)) {
+      if (key !== "mode" && value !== undefined && (!Number.isFinite(value) || value < 0)) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", `债务 ${account.id} 的还款字段 ${key} 无效`);
+      }
+    }
   });
   ledger.incomeSources.forEach((source) => {
     if (source.monthlyNetAmountWan !== undefined) assertFiniteNonNegative(source.monthlyNetAmountWan, `收入来源 ${source.id}.monthlyNetAmountWan`);

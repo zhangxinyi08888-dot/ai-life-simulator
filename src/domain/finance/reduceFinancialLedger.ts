@@ -23,8 +23,10 @@ import type {
   FinancialTransaction,
   IncomeSource
 } from "./types";
+import { assertSufficientLiquidity } from "./reconcileLiquidity";
 
 const RECENT_TRANSACTION_LIMIT = 20;
+const EVENT_DRIVEN_DEBT_REVIEW_MONTHS = 24;
 
 export type ReduceFinancialLedgerResult =
   | {
@@ -76,16 +78,6 @@ function changeCash(ledger: FinancialLedger, accountId: string, deltaWan: number
   account.balanceWan = roundWan(account.balanceWan + deltaWan);
 }
 
-function assertNoNegativeCash(ledger: FinancialLedger, atAgeInMonths: number): void {
-  const negativeCash = ledger.cashAccounts.find((account) => account.balanceWan < 0);
-  if (negativeCash) {
-    throw new FinancialLedgerInvariantError(
-      "MISSING_FUNDING_SOURCE",
-      `现金账户 ${negativeCash.id} 在 ${atAgeInMonths} 月龄仍有缺口 ${roundWan(-negativeCash.balanceWan)} 万元；需在同一时间点补充有方向资金来源`
-    );
-  }
-}
-
 function validateIncomeSource(source: IncomeSource): void {
   if (source.accrualPolicy === "monthly" && (!Number.isFinite(source.monthlyNetAmountWan) || (source.monthlyNetAmountWan || 0) < 0)) {
     throw new FinancialLedgerInvariantError("INVALID_LEDGER", `月度收入来源 ${source.id} 缺少有效月净额`);
@@ -107,6 +99,35 @@ interface EventTotals {
   assetPurchaseWan: number;
   assetSaleProceedsWan: number;
   valuationChangeWan: number;
+}
+
+function accumulatePeriodAccrual(
+  accrual: ReturnType<typeof accruePeriodSlice>,
+  totals: EventTotals
+): { incomeWan: number; coreExpenseWan: number } {
+  totals.debtPrincipalPaidWan = roundWan(totals.debtPrincipalPaidWan + accrual.debtPrincipalPaidWan);
+  totals.debtInterestPaidWan = roundWan(totals.debtInterestPaidWan + accrual.debtInterestPaidWan);
+  totals.otherExpenseWan = roundWan(totals.otherExpenseWan + accrual.debtInterestPaidWan);
+  return { incomeWan: accrual.incomeWan, coreExpenseWan: accrual.coreExpenseWan };
+}
+
+function addDebtScheduleReviewIssues(ledger: FinancialLedger): void {
+  for (const debt of ledger.debtAccounts) {
+    if (debt.status !== "active"
+      || debt.repaymentPolicy.mode !== "event_driven"
+      || ledger.asOfAgeInMonths - debt.openedAtAgeInMonths < EVENT_DRIVEN_DEBT_REVIEW_MONTHS) continue;
+    const issueId = `unknown_debt_schedule_${debt.id}`;
+    if (ledger.unresolvedIssues.some((issue) => issue.id === issueId)) continue;
+    debt.factStatus = "needs_review";
+    ledger.unresolvedIssues.push({
+      id: issueId,
+      code: "UNKNOWN_DEBT_SCHEDULE",
+      severity: "warning",
+      relatedProposalIds: [],
+      summary: `债务 ${debt.displayName} 已长期缺少明确还款计划`,
+      createdAtAgeInMonths: ledger.asOfAgeInMonths
+    });
+  }
 }
 
 function applyEvent(
@@ -409,23 +430,24 @@ export function reduceFinancialLedger(input: {
 
   for (let index = 0; index < events.length;) {
     const boundary = events[index].effectiveAtAgeInMonths;
-    const accrual = accruePeriodSlice(next, cursor, boundary);
+    const accrual = accumulatePeriodAccrual(accruePeriodSlice(next, cursor, boundary), totals);
     recurringIncomeWan = roundWan(recurringIncomeWan + accrual.incomeWan);
     coreExpenseWan = roundWan(coreExpenseWan + accrual.coreExpenseWan);
     while (index < events.length && events[index].effectiveAtAgeInMonths === boundary) {
       applyEvent(next, events[index], allEventIds, totals);
       index += 1;
     }
-    assertNoNegativeCash(next, boundary);
+    assertSufficientLiquidity(next, boundary);
     cursor = boundary;
   }
-  const finalAccrual = accruePeriodSlice(next, cursor, input.periodEndAgeInMonths);
+  const finalAccrual = accumulatePeriodAccrual(accruePeriodSlice(next, cursor, input.periodEndAgeInMonths), totals);
   recurringIncomeWan = roundWan(recurringIncomeWan + finalAccrual.incomeWan);
   coreExpenseWan = roundWan(coreExpenseWan + finalAccrual.coreExpenseWan);
 
-  assertNoNegativeCash(next, input.periodEndAgeInMonths);
+  assertSufficientLiquidity(next, input.periodEndAgeInMonths);
 
   next.asOfAgeInMonths = input.periodEndAgeInMonths;
+  addDebtScheduleReviewIssues(next);
   next.revision += 1;
   next.committedTransactionIds.push(input.transactionId);
 

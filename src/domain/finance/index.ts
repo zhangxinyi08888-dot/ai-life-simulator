@@ -6,3 +6,4 @@ export * from "./reduceFinancialLedger";
 export * from "./deriveFinancialState";
 export * from "./migrateLegacyFinancialState";
 export * from "./ledgerMath";
+export * from "./reconcileLiquidity";
