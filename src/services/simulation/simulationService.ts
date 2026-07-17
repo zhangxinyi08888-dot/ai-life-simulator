@@ -22,6 +22,11 @@ import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
 import { currentCareerState, initializeCareerState } from "../../domain/career/careerState";
+import {
+  migrateLegacyFinancialState,
+  runFinancialShadowTransition,
+  type FinancialEventProposal
+} from "../../domain/finance";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
@@ -54,6 +59,52 @@ export interface StartSimulationResult {
 
 function hasFinancialObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function rawFinancialEventProposals(rawNode: any): FinancialEventProposal[] {
+  return Array.isArray(rawNode?.financialEventProposals)
+    ? rawNode.financialEventProposals as FinancialEventProposal[]
+    : [];
+}
+
+function hasStructuredBusinessActivity(node: SimulationNode): boolean {
+  const tags = new Set(node.eventMeta?.eventTags || []);
+  return ["business", "startup", "financing", "founder_equity", "company_exit"]
+    .some((tag) => tags.has(tag));
+}
+
+function attachFinancialShadow(input: {
+  node: SimulationNode;
+  rawNode: any;
+  previousState: FinancialState;
+  currentLedger?: SimulationNode["financialLedger"];
+  currentCareerState: NonNullable<ReturnType<typeof currentCareerState>>;
+  acceptedOutcomeId?: string;
+  periodStartAgeInMonths: number;
+  periodEndAgeInMonths: number;
+  transactionId: string;
+}): SimulationNode {
+  const shadow = runFinancialShadowTransition({
+    previousLegacyState: input.previousState,
+    nextLegacyState: input.node.financialState!,
+    currentLedger: input.currentLedger,
+    currentCareerState: input.currentCareerState,
+    legacySignals: input.node.financialSignals,
+    directProposals: rawFinancialEventProposals(input.rawNode),
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    narrativeText: input.node.description,
+    periodStartAgeInMonths: input.periodStartAgeInMonths,
+    periodEndAgeInMonths: input.periodEndAgeInMonths,
+    simulationTransactionId: `financial_shadow_${input.transactionId}`,
+    hasStructuredBusinessActivity: hasStructuredBusinessActivity(input.node)
+  });
+  return {
+    ...input.node,
+    financialLedger: shadow.ledger,
+    financialLedgerMode: "shadow",
+    financialShadowComparison: shadow.comparison,
+    financialPeriodSummary: shadow.periodSummary
+  };
 }
 
 function attachFinancialProgress(input: {
@@ -353,6 +404,12 @@ export async function startSimulation(
     ...startNode,
     description: sanitizeFinancialNarrative(startNode.description, financialState),
     attributes: startAttributes,
+    financialLedger: migrateLegacyFinancialState({
+      id: `financial_opening_${startAgeInMonths}`,
+      legacyState: financialState,
+      linkedCareerStateId: openingCareerState.id
+    }),
+    financialLedgerMode: "shadow" as const,
     financialState,
     worldStateSnapshot: startWorldState
   };
@@ -792,7 +849,7 @@ export async function generateNextNode(
       lifeIntensity: timelineAdvance.lifeIntensity,
       pressureArcId: workingPressureArc?.id
     });
-    const endingNode: SimulationNode = {
+    let endingNode: SimulationNode = {
       ...normalizedEnding,
       description: sanitizeFinancialNarrative(normalizedEnding.description, node.financialState!),
       attributes: node.attributes,
@@ -812,8 +869,20 @@ export async function generateNextNode(
     const terminalTransition = workingPressureArc
       ? { action: "resolve" as const, previousPhaseId: workingPressureArc.phaseId, nextArcState: { ...workingPressureArc, status: "resolved" as const }, reasonCodes: ["life-ending"] }
       : { action: "stay" as const, reasonCodes: ["no-pressure-arc"] };
+    const endingTransactionId = stableHash({ namespace: "ending-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+    endingNode = attachFinancialShadow({
+      node: endingNode,
+      rawNode: latestRawNode,
+      previousState: currentFinancialState,
+      currentLedger: lastNode?.financialLedger,
+      currentCareerState: currentCareerState(worldState)!,
+      acceptedOutcomeId: selectedOutcomeId,
+      periodStartAgeInMonths: currentAgeInMonths,
+      periodEndAgeInMonths: timelineAdvance.targetAgeInMonths,
+      transactionId: endingTransactionId
+    });
     return commitSimulationTransaction({
-      transactionId: stableHash({ namespace: "ending-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths }),
+      transactionId: endingTransactionId,
       node: endingNode,
       storyEpisode: endingNode.narrativeMeta!.storyEpisode,
       acceptedOutcome: endingOutcome,
@@ -1015,6 +1084,17 @@ export async function generateNextNode(
     timelineAdvance
   });
   const transactionId = stableHash({ namespace: "simulation-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+  node = attachFinancialShadow({
+    node,
+    rawNode: latestRawNode,
+    previousState: currentFinancialState,
+    currentLedger: lastNode?.financialLedger,
+    currentCareerState: currentCareerState(worldState)!,
+    acceptedOutcomeId: selectedOutcomeId,
+    periodStartAgeInMonths: currentAgeInMonths,
+    periodEndAgeInMonths: timelineAdvance.targetAgeInMonths,
+    transactionId
+  });
   const committed = commitSimulationTransaction({
     transactionId,
     node,

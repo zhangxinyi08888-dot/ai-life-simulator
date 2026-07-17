@@ -14,6 +14,7 @@ function legacyEvidence(reasonCode: string): FinancialEvidence[] {
 export function migrateLegacyFinancialState(input: {
   id: string;
   legacyState: FinancialState;
+  linkedCareerStateId?: string;
 }): FinancialLedger {
   const state = input.legacyState;
   const evidence = legacyEvidence("LEGACY_FINANCIAL_STATE_MIGRATION");
@@ -84,6 +85,7 @@ export function migrateLegacyFinancialState(input: {
     accrualPolicy: "annual" as const,
     activeFromAgeInMonths: state.asOfAgeInMonths,
     status: "active" as const,
+    linkedCareerStateId: input.linkedCareerStateId,
     factStatus: "estimated" as const,
     evidence
   }] : [];

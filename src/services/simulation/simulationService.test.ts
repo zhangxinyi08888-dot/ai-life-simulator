@@ -130,6 +130,9 @@ assert.equal(startAttempts, 2);
 assert.equal(started.initialAttributes.wealth, 38);
 assert.equal(started.startNode.choices.length, 3);
 assert.equal(started.startNode.age, 22);
+assert.equal(started.startNode.financialLedgerMode, "shadow");
+assert.equal(started.startNode.financialLedger?.asOfAgeInMonths, 22 * 12);
+assert.equal(started.startNode.financialLedger?.incomeSources[0]?.linkedCareerStateId, started.startNode.worldStateSnapshot?.currentCareerStateId);
 
 const attributes: LifeAttributes = { happiness: 50, intelligence: 70, wealth: 42, relation: 55, health: 64 };
 const history: HistoryItem[] = [
@@ -196,6 +199,10 @@ assert.match(capturedNextPrompt, /当前财务快照/);
 assert.equal(nextNode.financialSignals?.employmentStatus, "student");
 assert.ok(nextNode.financialChange);
 assert.ok(nextNode.financialState);
+assert.equal(nextNode.financialLedgerMode, "shadow");
+assert.equal(nextNode.financialLedger?.asOfAgeInMonths, nextNode.ageInMonths);
+assert.ok(nextNode.financialShadowComparison);
+assert.equal(nextNode.financialShadowComparison?.transactionId.startsWith("financial_shadow_"), true);
 assert.doesNotMatch(nextNode.description, /存款约90万/);
 assert.match(nextNode.description, /现金流|现金缓冲|储蓄|负债状态/);
 assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, deriveWealthScore(nextNode.financialState!)));
