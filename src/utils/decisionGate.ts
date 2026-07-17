@@ -1,4 +1,4 @@
-import { HistoryItem, LifeIntensity, PressureArcState, SimulationChoice, SimulationNode } from "../types";
+import { HistoryItem, LifeIntensity, NarrativeMode, PressureArcState, SimulationChoice, SimulationNode } from "../types";
 import { blockedDecisionIntents, normalizeDecisionIntent } from "./choicePreference";
 
 export interface DecisionGateResult {
@@ -49,6 +49,8 @@ export function evaluateDecisionGate(input: {
   recentHistory: HistoryItem[];
   targetAgeInMonths: number;
   independentCriticalEvent?: boolean;
+  allowedOutcomeIds?: string[];
+  narrativeMode?: NarrativeMode;
 }): DecisionGateResult {
   const choices = input.candidateNode.choices;
   const distinctActionCount = new Set(choices.map(normalizedIntent).filter(Boolean)).size;
@@ -74,6 +76,27 @@ export function evaluateDecisionGate(input: {
   if (repeatsPreviousDecision) reasonCodes.push("repeats-previous-decision");
   if (repeatsRecentlyPassedOption) reasonCodes.push("repeats-recently-passed-option");
   if (densityExceeded) reasonCodes.push("node-density-exceeded");
+
+  if (input.allowedOutcomeIds) {
+    const allowed = new Set(input.allowedOutcomeIds);
+    const outcomeIds = choices.map((choice) => choice.eventOutcomeId || "");
+    if (outcomeIds.some((outcomeId) => !outcomeId || !allowed.has(outcomeId))) {
+      reasonCodes.push("event-outcome-not-allowed");
+    }
+    if (new Set(outcomeIds.filter(Boolean)).size < 2 || distinctActionCount < 2) {
+      reasonCodes.push("insufficient-event-strategy-coverage");
+    }
+    if (input.narrativeMode === "recovery_growth") {
+      const onlyMaintainRecovery = outcomeIds.every((outcomeId) => (
+        /^(?:continue_recovery|continue_observation|maintain_recovery|maintain_current|keep_recovery|rest|observe|pause)/.test(outcomeId)
+      ));
+      if (onlyMaintainRecovery) reasonCodes.push("recovery-options-only-maintain");
+    }
+    if (input.narrativeMode === "stability_meaning") {
+      const noConcreteProgression = outcomeIds.every((outcomeId) => /^(?:maintain_|keep_current|wait|observe)/.test(outcomeId));
+      if (noConcreteProgression) reasonCodes.push("stability-options-no-concrete-progression");
+    }
+  }
 
   return {
     isDecisionCheckpoint: reasonCodes.length === 0,

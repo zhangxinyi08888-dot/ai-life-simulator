@@ -1,0 +1,5648 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-07-17-phase2-real-ai-browser-evaluation",
+  "dataSource": "real_ai_browser",
+  "caseSlug": "real-career-first",
+  "scenario": "accept_first",
+  "config": {
+    "slug": "real-career-first",
+    "scenario": "accept_first",
+    "birthday": "1992-03-18",
+    "birthtime": "09:00",
+    "returnPointName": "重选职业方向 回到那次工作转折，走向另一条职业道路 约 24 岁",
+    "anchorText": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。",
+    "branches": [
+      "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品",
+      "保留现有工作，利用晚上和周末参与创业项目",
+      "拒绝创业机会，留在大公司争取管理岗位"
+    ],
+    "answers": [
+      "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。",
+      "面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。",
+      "我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。"
+    ]
+  },
+  "updatedAt": "2026-07-17T09:09:56.909Z",
+  "complete": false,
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "at": "2026-07-17T09:02:21.383Z"
+    },
+    {
+      "type": "questions_generated",
+      "questions": [
+        {
+          "question": "当时真实发生了什么？",
+          "suggestions": [
+            "我在一家中大型互联网公司做产品经理，已经工作2年，负责一个成熟业务模块的优化，绩效中上。创业公司是我前同事参与创办的，做AI+教育方向，拿到了天使轮，他们邀请我去做产品负责人，但工资比现在低30%。",
+            "我当时在大公司做AI方向的算法工程师，薪资在同龄人中算高的，但感觉技术发展遇到瓶颈。创业公司是做AI医疗影像的，团队来自顶级高校，我很感兴趣，但担心公司撑不过2年。",
+            "我24岁刚硕士毕业进入这家大公司半年，还在试用期。创业公司是实验室师兄创立的，做NLP工具，他们希望我负责产品化落地，但我觉得自己经验不足，而且大公司平台更稳定。",
+            "我24岁已经在大公司工作1年，项目组氛围好，但晋升慢。创业公司是做智能客服的，创始人很认可我，承诺期权，但我没太多积蓄，害怕试用期后过不了。"
+          ]
+        },
+        {
+          "question": "当时的你是什么状态、什么性格、怎么反应？",
+          "suggestions": [
+            "我当时比较谨慎，遇到重大决定会反复权衡利弊，尤其在意经济安全和家人看法。压力大时会自己消化，很少找人聊，失眠是常事。",
+            "我当时很焦虑，总觉得自己能力不够，既想抓住机会又怕失败。面对选择时容易拖延，直到最后一刻才做决定。",
+            "我当时比较冲动，做决定快，但容易后悔。我重视朋友义气，如果有人力挺，我可能会选更冒险的那条路。",
+            "我当时很理性，会做详细的SWOT分析，列出优缺点，但往往因为追求完美而纠结。我更看重长期发展，但短期收入下降会让我不安。"
+          ]
+        },
+        {
+          "question": "你有什么兴趣、能力、资源、限制？",
+          "suggestions": [
+            "我擅长逻辑分析和用户研究，但技术能力一般，不懂编程。我存了大概5万积蓄，家里条件一般，不能给我经济支持。我朋友不多，但有一个大学室友在创业公司，可以咨询。",
+            "我有机器学习基础，但工程能力弱。我认识几个行业前辈，可以给我建议。我时间上比较自由，但当时正在准备CFA考试，精力分散。",
+            "我沟通能力强，擅长团队协调，但不懂技术。我有一些技术朋友可以帮忙把关。当时我刚买房，有房贷压力，所以对收入下降特别敏感。",
+            "我编程能力不错，但对商业一窍不通。我有个亲戚是连续创业者，可以取经。当时我女朋友在另一个城市，我想两年内稳定下来，所以不想换城市。"
+          ]
+        }
+      ],
+      "at": "2026-07-17T09:02:31.653Z"
+    },
+    {
+      "type": "simulation_started",
+      "node": {
+        "age": 24,
+        "stage": "选择前夜",
+        "title": "大公司与创业公司的岔路口",
+        "description": "你在一家上市软件公司做产品经理两年，月薪税后2万，每月房租5000、给父母2000、日常开销4500，还能存8500。现在一家A轮AI创业公司找到你，产品方向是面向中小企业的智能客服，创始人是技术出身，已有天使轮融资。你犹豫了：去创业公司月薪只有1.5万，但有期权；留在大公司明年可能升高级PM，薪资涨幅10%。父母身体尚可但医疗支出不定，你手头有18万存款，够支撑一年失业。",
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品",
+            "impactSummary": "风险入局",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "风险入局"
+            },
+            "decisionIntent": "career:switch_to:ai_startup_product_lead",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "保留现有工作，利用晚上和周末参与创业项目",
+            "impactSummary": "折中并行",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "折中并行"
+            },
+            "decisionIntent": "career:side_project:ai_startup_parttime",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "拒绝创业机会，留在大公司争取管理岗位",
+            "impactSummary": "稳守晋升",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "稳守晋升"
+            },
+            "decisionIntent": "career:stay_and_promote:corporate_management",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 70,
+          "wealth": 55,
+          "relation": 50,
+          "health": 60
+        },
+        "isEndingNode": false,
+        "ageInMonths": 288,
+        "lifeStage": "emerging_adulthood",
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_56abdf0a",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 288,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_5625cc48",
+            "summary": "你在一家上市软件公司做产品经理两年，月薪税后2万，每月房租5000、给父母2000、日常开销4500，还能存8500。现在一家A轮AI创业公司找到你，产品方向是"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashWan": 18,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 18,
+          "annualAfterTaxIncomeWan": 24,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": false
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      "at": "2026-07-17T09:02:39.620Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "大公司与创业公司的岔路口",
+      "sourceAgeInMonths": 288,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品",
+          "impactSummary": "风险入局",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "风险入局"
+          },
+          "decisionIntent": "career:switch_to:ai_startup_product_lead",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "保留现有工作，利用晚上和周末参与创业项目",
+          "impactSummary": "折中并行",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "折中并行"
+          },
+          "decisionIntent": "career:side_project:ai_startup_parttime",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "拒绝创业机会，留在大公司争取管理岗位",
+          "impactSummary": "稳守晋升",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "稳守晋升"
+          },
+          "decisionIntent": "career:stay_and_promote:corporate_management",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品",
+      "resultingNodeTitle": "创业公司的头六个月：从兴奋到现实",
+      "resultingAgeInMonths": 294,
+      "resultingAttributes": {
+        "happiness": 48,
+        "intelligence": 75,
+        "wealth": 48,
+        "relation": 52,
+        "health": 55
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 294,
+        "cashWan": 19.8,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 19.8,
+        "annualAfterTaxIncomeWan": 18,
+        "annualDisposableIncomeWan": 3.6,
+        "annualCoreExpenseWan": 14.4,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:03:01.116Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "创业公司的头六个月：从兴奋到现实",
+      "sourceAgeInMonths": 294,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受挑战，全面负责产品线，把业余时间也搭进去，争取半年内拿出成绩",
+          "impactSummary": "全力冲刺",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "全力冲刺"
+          },
+          "decisionIntent": "career:lead:full_product_line",
+          "eventOutcomeId": "protect_meaningful_daily_element",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "跟创始人坦诚沟通，要求明确加薪时间表或期权兑现条件，同时开始留意其他机会",
+          "impactSummary": "谈判观望",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "谈判观望"
+          },
+          "decisionIntent": "career:negotiate:equity_and_salary",
+          "eventOutcomeId": "simplify_life_around_core_values",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "利用现有产品经验，周末接一个企业软件咨询项目，每月多赚5000-8000元，缓解现金流压力",
+          "impactSummary": "副业补血",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "副业补血"
+          },
+          "decisionIntent": "career:side_project:consulting",
+          "eventOutcomeId": "add_one_small_source_of_aliveness",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "跟创始人坦诚沟通，要求明确加薪时间表或期权兑现条件，同时开始留意其他机会",
+      "resultingNodeTitle": "产品线负责人的现实锤炼",
+      "resultingAgeInMonths": 308,
+      "resultingAttributes": {
+        "happiness": 44,
+        "intelligence": 78,
+        "wealth": 50,
+        "relation": 50,
+        "health": 49
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 308,
+        "cashWan": 24.7,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 24.7,
+        "annualAfterTaxIncomeWan": 18,
+        "annualDisposableIncomeWan": 4.2,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:03:16.143Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "产品线负责人的现实锤炼",
+      "sourceAgeInMonths": 308,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "全力冲刺融资，主动帮创始人整理BP、对接投资人，争取半年内完成Pre-A轮，以此换取正式产品VP头衔和薪资涨幅",
+          "impactSummary": "押注融资，搏VP",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "押注融资，搏VP"
+          },
+          "decisionIntent": "career:lead:fundraising_for_promotion",
+          "eventOutcomeId": "commit_regular_time_to_direction",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "开始低调接企业软件咨询项目，利用周末每月多赚5000-8000元，同时维持现有工作，用副业现金流降低对创业公司收入的依赖",
+          "impactSummary": "副业缓冲，稳现金流",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "副业缓冲，稳现金流"
+          },
+          "decisionIntent": "career:side_project:consulting",
+          "eventOutcomeId": "run_small_self_direction_experiment",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "与创始人协商转为兼职产品顾问，每周工作3天，同时开始系统投递大厂或成熟SaaS公司的产品经理岗位，回归稳定收入",
+          "impactSummary": "降风险，回大厂",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "降风险，回大厂"
+          },
+          "decisionIntent": "career:switch_to:corporate_product_manager",
+          "eventOutcomeId": "keep_direction_as_background_for_now",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "与创始人协商转为兼职产品顾问，每周工作3天，同时开始系统投递大厂或成熟SaaS公司的产品经理岗位，回归稳定收入",
+      "resultingNodeTitle": "兼职顾问与求职并行：从创业战场到稳定回归",
+      "resultingAgeInMonths": 322,
+      "resultingAttributes": {
+        "happiness": 48,
+        "intelligence": 82,
+        "wealth": 46,
+        "relation": 53,
+        "health": 55
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 322,
+        "cashWan": 21.2,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 21.2,
+        "annualAfterTaxIncomeWan": 10.8,
+        "annualDisposableIncomeWan": -3,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:03:31.917Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "兼职顾问与求职并行：从创业战场到稳定回归",
+      "sourceAgeInMonths": 322,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "安心在大公司沉淀，争取在一年内晋升高级产品经理，用稳定收入重建财务安全垫，同时利用业余时间学习AI产品管理知识，为未来可能的内部创新项目做准备。",
+          "impactSummary": "稳扎稳打，积累资历",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳扎稳打，积累资历"
+          },
+          "decisionIntent": "career:promote:corporate_senior_pm",
+          "eventOutcomeId": "narrow_scope_keep_core",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "保留大公司工作，但利用晚上和周末重新启动一个轻量级AI产品项目，与之前的技术合伙人合作，尝试将智能客服的某个细分功能做成独立SaaS工具，以副业形式验证市场。",
+          "impactSummary": "主业保底，副业试水",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "主业保底，副业试水"
+          },
+          "decisionIntent": "career:side_project:ai_tool_startup",
+          "eventOutcomeId": "maintain_scope_with_explicit_limits",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "主动向公司提出内部转岗，申请加入公司的AI创新事业部，利用你的创业经验和对AI产品的理解，参与内部孵化项目，争取成为内部创业者。",
+          "impactSummary": "内部创业，借力平台",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "内部创业，借力平台"
+          },
+          "decisionIntent": "career:internal_transfer:ai_innovation_lab",
+          "eventOutcomeId": "delegate_and_share_responsibility",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "安心在大公司沉淀，争取在一年内晋升高级产品经理，用稳定收入重建财务安全垫，同时利用业余时间学习AI产品管理知识，为未来可能的内部创新项目做准备。",
+      "resultingNodeTitle": "大公司的沉淀与内部创新萌芽",
+      "resultingAgeInMonths": 358,
+      "resultingAttributes": {
+        "happiness": 55,
+        "intelligence": 85,
+        "wealth": 58,
+        "relation": 58,
+        "health": 60
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 358,
+        "cashWan": 73.4,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 73.4,
+        "annualAfterTaxIncomeWan": 31.2,
+        "annualDisposableIncomeWan": 17.4,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:04:00.217Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "大公司的沉淀与内部创新萌芽",
+      "sourceAgeInMonths": 358,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "全力投入AI实验室，争取在一年内让原型产品落地并拿到内部种子资金，继续探索内部创业路径",
+          "impactSummary": "内部创业加速",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "内部创业加速"
+          },
+          "decisionIntent": "career:internal_innovation:ai_lab_seed",
+          "eventOutcomeId": "extend_project_into_next_stage",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "在实验室工作中稳扎稳打，同时利用业余时间与之前的技术合伙人重启一个轻量级AI副业项目，作为外部验证",
+          "impactSummary": "主业副业并行",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "主业副业并行"
+          },
+          "decisionIntent": "career:side_project:ai_tool_startup",
+          "eventOutcomeId": "extend_project_into_next_stage",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "专注当前高级产品经理角色，将实验室经历作为履历亮点，争取两年内晋升产品总监，走纯管理路线",
+          "impactSummary": "管理晋升路线",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "管理晋升路线"
+          },
+          "decisionIntent": "career:promote:product_director",
+          "eventOutcomeId": "close_project_and_integrate_learning",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "全力投入AI实验室，争取在一年内让原型产品落地并拿到内部种子资金，继续探索内部创业路径",
+      "resultingNodeTitle": "实验室突破与副业萌芽",
+      "resultingAgeInMonths": 369,
+      "resultingAttributes": {
+        "happiness": 58,
+        "intelligence": 86,
+        "wealth": 59,
+        "relation": 60,
+        "health": 58
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 369,
+        "cashWan": 89.4,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 89.4,
+        "annualAfterTaxIncomeWan": 31.2,
+        "annualDisposableIncomeWan": 17.4,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:04:13.184Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "实验室突破与副业萌芽",
+      "sourceAgeInMonths": 369,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "集中精力冲刺内部项目目标，争取在6个月内达到200付费用户，推动实验室独立，同时将副业交给合伙人管理",
+          "impactSummary": "冲刺独立",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "冲刺独立"
+          },
+          "decisionIntent": "career:internal_innovation:ai_lab_scale_to_subsidiary",
+          "eventOutcomeId": "support_one_long_term_commitment",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "保持内部项目稳定推进，同时加大副业投入，争取将副业发展成独立收入来源，实现收入多元化",
+          "impactSummary": "多元收入",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "多元收入"
+          },
+          "decisionIntent": "career:side_project:ai_saas_growth",
+          "eventOutcomeId": "allocate_for_quality_of_life",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "评估内部项目进度，与VP协商调整目标或争取更多资源，同时减少副业投入，优先保证健康和工作质量",
+          "impactSummary": "稳中求进",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳中求进"
+          },
+          "decisionIntent": "career:negotiate:ai_lab_resource_adjustment",
+          "eventOutcomeId": "maintain_financial_order",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "保持内部项目稳定推进，同时加大副业投入，争取将副业发展成独立收入来源，实现收入多元化",
+      "resultingNodeTitle": "副业加速与内部压力交织",
+      "resultingAgeInMonths": 374,
+      "resultingAttributes": {
+        "happiness": 50,
+        "intelligence": 88,
+        "wealth": 59,
+        "relation": 58,
+        "health": 52
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 374,
+        "cashWan": 96.6,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 96.6,
+        "annualAfterTaxIncomeWan": 31.2,
+        "annualDisposableIncomeWan": 17.4,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:04:26.267Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "副业加速与内部压力交织",
+      "sourceAgeInMonths": 374,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "跟VP谈判，申请将内部项目目标调整为150用户+50%续费率，换取更多资源；同时减少副业投入，优先保住实验室路径",
+          "impactSummary": "谈判保主业",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "谈判保主业"
+          },
+          "decisionIntent": "career:negotiate:ai_lab_resource_adjustment",
+          "eventOutcomeId": "stabilize_immediate_cashflow",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "与合伙人约定，未来三个月你每周投入20小时，若用户达到20个付费则转为全职；同时将实验室项目交付给一名优秀同事，确保不拖累团队",
+          "impactSummary": "副业加速跑",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "副业加速跑"
+          },
+          "decisionIntent": "career:side_project:ai_saas_growth",
+          "eventOutcomeId": "invest_in_gradual_transition",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "约两位技术合伙人见面，坦诚说明现状，提议将副业转为内部创业项目——向公司推荐这个SaaS工具，争取让实验室作为孵化平台",
+          "impactSummary": "整合双路径",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "整合双路径"
+          },
+          "decisionIntent": "career:internal_innovation:ai_lab_scale_to_subsidiary",
+          "eventOutcomeId": "activate_verified_network_support",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "跟VP谈判，申请将内部项目目标调整为150用户+50%续费率，换取更多资源；同时减少副业投入，优先保住实验室路径",
+      "resultingNodeTitle": "谈判之后：实验室的缓刑与副业的割舍",
+      "resultingAgeInMonths": 381,
+      "resultingAttributes": {
+        "happiness": 45,
+        "intelligence": 90,
+        "wealth": 59,
+        "relation": 55,
+        "health": 46
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 381,
+        "cashWan": 106.8,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 106.8,
+        "annualAfterTaxIncomeWan": 31.2,
+        "annualDisposableIncomeWan": 17.4,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:04:41.033Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "谈判之后：实验室的缓刑与副业的割舍",
+      "sourceAgeInMonths": 381,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "全力冲刺收入转化，主动与销售团队合作，将内部项目包装成可独立销售的SaaS产品，争取在6个月内产生20万ARR，证明实验室的商业价值。",
+          "impactSummary": "销售驱动，快速变现",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "销售驱动，快速变现"
+          },
+          "decisionIntent": "career:internal_innovation:ai_lab_revenue_pivot",
+          "eventOutcomeId": "stabilize_immediate_cashflow",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "在实验室稳定推进的同时，重新评估外部机会：开始投递成熟AI公司的产品经理岗位，用内部项目经历作为跳板，为自己准备一条退路。",
+          "impactSummary": "准备退路，降低风险",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "准备退路，降低风险"
+          },
+          "decisionIntent": "career:job_switch:ai_company_pm_application",
+          "eventOutcomeId": "invest_in_gradual_transition",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "与之前的技术合伙人重新联系，提议以顾问形式远程支持他们的AI客服项目，换取少量股权和未来合作可能，同时保持实验室聚焦。",
+          "impactSummary": "维系人脉，保留选项",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "维系人脉，保留选项"
+          },
+          "decisionIntent": "career:side_project:ai_saas_advisor_equity",
+          "eventOutcomeId": "activate_verified_network_support",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "在实验室稳定推进的同时，重新评估外部机会：开始投递成熟AI公司的产品经理岗位，用内部项目经历作为跳板，为自己准备一条退路。",
+      "resultingNodeTitle": "退路铺展：面试与实验室的双轨震荡",
+      "resultingAgeInMonths": 391,
+      "resultingAttributes": {
+        "happiness": 43,
+        "intelligence": 91,
+        "wealth": 60,
+        "relation": 53,
+        "health": 44
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 391,
+        "cashWan": 121.3,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 121.3,
+        "annualAfterTaxIncomeWan": 31.2,
+        "annualDisposableIncomeWan": 17.4,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:05:17.289Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "退路铺展：面试与实验室的双轨震荡",
+      "sourceAgeInMonths": 391,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受B轮公司面试，全力准备跳槽，用实验室经历作为谈判筹码，争取月薪3万以上",
+          "impactSummary": "外部跳槽加速",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "外部跳槽加速"
+          },
+          "decisionIntent": "career:job_switch:ai_b_round_pm",
+          "eventOutcomeId": "invest_in_gradual_transition",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "暂缓跳槽，集中精力说服销售团队，推动内部项目作为独立SaaS产品试水，争取公司正式立项",
+          "impactSummary": "内部创业突破",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "内部创业突破"
+          },
+          "decisionIntent": "career:internal_innovation:ai_lab_saas_pilot",
+          "eventOutcomeId": "stabilize_immediate_cashflow",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "同时推进两条线：参加B轮公司面试，并在内部推动销售合作；同时找之前的技术合伙人商议，看能否以顾问形式合作，拓宽外部机会",
+          "impactSummary": "双轨并行试探",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "双轨并行试探"
+          },
+          "decisionIntent": "career:dual_track:interview_and_internal_sales",
+          "eventOutcomeId": "activate_verified_network_support",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "接受B轮公司面试，全力准备跳槽，用实验室经历作为谈判筹码，争取月薪3万以上",
+      "resultingNodeTitle": "跳槽B轮AI公司：新平台与旧羁绊",
+      "resultingAgeInMonths": 414,
+      "resultingAttributes": {
+        "happiness": 41,
+        "intelligence": 93,
+        "wealth": 61,
+        "relation": 52,
+        "health": 38
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 414,
+        "cashWan": 161.5,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 161.5,
+        "annualAfterTaxIncomeWan": 34.8,
+        "annualDisposableIncomeWan": 21,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:05:29.710Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "跳槽B轮AI公司：新平台与旧羁绊",
+      "sourceAgeInMonths": 414,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "拒绝合伙人邀请，留在B轮公司争取产品总监晋升机会，同时开始严格管理健康——每周运动三次、减少加班、定期体检。",
+          "impactSummary": "稳中求健康",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳中求健康"
+          },
+          "decisionIntent": "career:stay_b_round_company_health_pivot",
+          "eventOutcomeId": "protect_one_new_priority",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "接受合伙人邀请，以CTO身份加入创业公司，但要求前6个月远程工作，并约定股权和薪资结构，同时保留B轮公司的人脉关系。",
+          "impactSummary": "冒险试新路",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "冒险试新路"
+          },
+          "decisionIntent": "career:join_startup_as_cto_remote",
+          "eventOutcomeId": "test_new_values_before_full_commitment",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "两边都不放弃：向B轮公司申请转为兼职或顾问，以灵活时间支持创业项目，用两份收入降低风险，但接受精力分散和晋升放缓。",
+          "impactSummary": "双轨降风险",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "双轨降风险"
+          },
+          "decisionIntent": "career:dual_track_b_round_and_startup",
+          "eventOutcomeId": "redefine_success_criteria",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "拒绝合伙人邀请，留在B轮公司争取产品总监晋升机会，同时开始严格管理健康——每周运动三次、减少加班、定期体检。",
+      "resultingNodeTitle": "产品总监之路：在健康与专业之间找到锚点",
+      "resultingAgeInMonths": 438,
+      "resultingAttributes": {
+        "happiness": 48,
+        "intelligence": 96,
+        "wealth": 70,
+        "relation": 55,
+        "health": 44
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 438,
+        "cashWan": 220.3,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 220.3,
+        "annualAfterTaxIncomeWan": 43.2,
+        "annualDisposableIncomeWan": 29.4,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:05:48.398Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "产品总监之路：在健康与专业之间找到锚点",
+      "sourceAgeInMonths": 438,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受合伙人邀请，以产品合伙人身份加入创业公司，用两年时间打造一款真正从用户需求出发的AI产品，同时约定远程工作40%的时间以维持健康",
+          "impactSummary": "创业新征程",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "创业新征程"
+          },
+          "decisionIntent": "career:join_startup_as_product_partner_remote",
+          "eventOutcomeId": "open_craft_to_new_context",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "继续留在B轮公司，深化产品总监角色，组建独立的产品创新小组，探索将情感识别模块孵化成新的产品线，同时坚持健康管理计划",
+          "impactSummary": "内部创新孵化",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "内部创新孵化"
+          },
+          "decisionIntent": "career:deepen_pm_director_internal_innovation",
+          "eventOutcomeId": "deepen_personal_standard",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "保持现有岗位，但利用业余时间以顾问形式与前合伙人合作，每月投入20小时，同时探索将AI产品的经验转化为线上课程或写作，构建个人品牌",
+          "impactSummary": "顾问与知识输出",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "顾问与知识输出"
+          },
+          "decisionIntent": "career:dual_track_advisor_and_content",
+          "eventOutcomeId": "connect_craft_to_daily_life",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "继续留在B轮公司，深化产品总监角色，组建独立的产品创新小组，探索将情感识别模块孵化成新的产品线，同时坚持健康管理计划",
+      "resultingNodeTitle": "产品创新小组的深耕与职业锚点的确立",
+      "resultingAgeInMonths": 476,
+      "resultingAttributes": {
+        "happiness": 55,
+        "intelligence": 98,
+        "wealth": 77,
+        "relation": 58,
+        "health": 50
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 476,
+        "cashWan": 336.2,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 336.2,
+        "annualAfterTaxIncomeWan": 50.4,
+        "annualDisposableIncomeWan": 36.6,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:06:21.526Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "产品创新小组的深耕与职业锚点的确立",
+      "sourceAgeInMonths": 476,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "推动情感识别模块独立成子公司，以CEO身份运营，接受更高风险但追求更大自主权",
+          "impactSummary": "创业自主权",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "创业自主权"
+          },
+          "decisionIntent": "career:spin_off_emotion_module_as_ceo",
+          "eventOutcomeId": "create_one_new_shared_practice",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "留在公司，将情感识别模块升级为战略业务单元，同时开始培养接班人，为未来可能的转型做准备",
+          "impactSummary": "深耕与传承",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "深耕与传承"
+          },
+          "decisionIntent": "career:deepen_sbu_and_mentor",
+          "eventOutcomeId": "strengthen_shared_routine",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "维持现状，继续负责情感识别模块的产品迭代，同时每周减少5小时工作，将时间用于写作或行业分享，建立个人品牌",
+          "impactSummary": "平衡与输出",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "平衡与输出"
+          },
+          "decisionIntent": "career:maintain_and_side_content",
+          "eventOutcomeId": "protect_individual_space",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "C",
+      "selectedChoice": "维持现状，继续负责情感识别模块的产品迭代，同时每周减少5小时工作，将时间用于写作或行业分享，建立个人品牌",
+      "resultingNodeTitle": "写作带来的新连接：在深度与广度之间校准节奏",
+      "resultingAgeInMonths": 503,
+      "resultingAttributes": {
+        "happiness": 58,
+        "intelligence": 100,
+        "wealth": 79,
+        "relation": 62,
+        "health": 48
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 503,
+        "cashWan": 418.5,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 418.5,
+        "annualAfterTaxIncomeWan": 50.4,
+        "annualDisposableIncomeWan": 36.6,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:06:53.313Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "写作带来的新连接：在深度与广度之间校准节奏",
+      "sourceAgeInMonths": 503,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "接受子公司总经理角色，将写作转化为公司品牌内容渠道，用管理杠杆换取个人时间",
+          "impactSummary": "管理扩张",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "管理扩张"
+          },
+          "decisionIntent": "career:spin_off_subsidiary_gm",
+          "eventOutcomeId": "run_small_alliance_pilot",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "拒绝总经理职务，专注写作和行业分享，将情感识别模块经验转化为付费课程和咨询，维持现有健康节奏",
+          "impactSummary": "内容深耕",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "内容深耕"
+          },
+          "decisionIntent": "career:content_monetization_independent",
+          "eventOutcomeId": "decline_for_current_stability",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "接受总经理角色但争取弹性工作制，同时将写作外包给编辑助手，用部分收入换取健康管理时间",
+          "impactSummary": "弹性平衡",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "弹性平衡"
+          },
+          "decisionIntent": "career:subsidiary_gm_remote_hybrid",
+          "eventOutcomeId": "join_with_explicit_exit_conditions",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "拒绝总经理职务，专注写作和行业分享，将情感识别模块经验转化为付费课程和咨询，维持现有健康节奏",
+      "resultingNodeTitle": "写作与咨询的收获期：在个人品牌与作品之间找到新平衡",
+      "resultingAgeInMonths": 539,
+      "resultingAttributes": {
+        "happiness": 62,
+        "intelligence": 100,
+        "wealth": 80,
+        "relation": 68,
+        "health": 54
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 539,
+        "cashWan": 528.3,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 528.3,
+        "annualAfterTaxIncomeWan": 50.4,
+        "annualDisposableIncomeWan": 36.6,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:07:08.054Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "写作与咨询的收获期：在个人品牌与作品之间找到新平衡",
+      "sourceAgeInMonths": 539,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "全职投入知识付费，成立个人工作室，将课程体系化并与企业培训合作，同时保持每月一次产品顾问咨询以维持一线触感",
+          "impactSummary": "扩大知识变现",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "扩大知识变现"
+          },
+          "decisionIntent": "career:fulltime_knowledge_entrepreneurship",
+          "eventOutcomeId": "extend_project_into_next_stage",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "回归产品实践，与之前的技术合伙人联系，以产品合伙人身份加入其已获A轮融资的AI创业公司，用两年时间打造一款新AI产品",
+          "impactSummary": "重回一线创业",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "重回一线创业"
+          },
+          "decisionIntent": "career:return_to_product_leadership",
+          "eventOutcomeId": "extend_project_into_next_stage",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "保留当前写作和咨询业务，同时每周花一天时间回原公司担任产品顾问，参与情感识别模块的迭代，保持理论与实践的双向滋养",
+          "impactSummary": "平衡多元角色",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "平衡多元角色"
+          },
+          "decisionIntent": "career:hybrid_consultant_writer",
+          "eventOutcomeId": "share_or_publish_completed_work",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "全职投入知识付费，成立个人工作室，将课程体系化并与企业培训合作，同时保持每月一次产品顾问咨询以维持一线触感",
+      "resultingNodeTitle": "工作室满负荷运转：收入增长与精力分散的权衡",
+      "resultingAgeInMonths": 561,
+      "resultingAttributes": {
+        "happiness": 58,
+        "intelligence": 100,
+        "wealth": 81,
+        "relation": 66,
+        "health": 52
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 561,
+        "cashWan": 595.4,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 595.4,
+        "annualAfterTaxIncomeWan": 50.4,
+        "annualDisposableIncomeWan": 36.6,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-17T09:07:24.107Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "工作室满负荷运转：收入增长与精力分散的权衡",
+      "sourceAgeInMonths": 561,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "A. 收入跃升，健康承压",
+          "impactSummary": "收入跃升，健康承压",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "收入跃升，健康承压"
+          },
+          "decisionIntent": "career:accept_corp_advisor_role",
+          "eventOutcomeId": "commit_to_high_risk_leap",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "B. 巩固根基，提升健康",
+          "impactSummary": "巩固根基，提升健康",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "巩固根基，提升健康"
+          },
+          "decisionIntent": "career:optimize_studio_operations",
+          "eventOutcomeId": "stay_lean_and_preserve_optionality",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "C. 平衡尝试，适度增长",
+          "impactSummary": "平衡尝试，适度增长",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "平衡尝试，适度增长"
+          },
+          "decisionIntent": "career:pilot_advisor_with_outsource",
+          "eventOutcomeId": "run_limited_venture_pilot",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "A. 收入跃升，健康承压",
+      "resultingNodeTitle": "顾问角色与工作室并行的平衡期",
+      "resultingAgeInMonths": 582,
+      "resultingAttributes": {
+        "happiness": 55,
+        "intelligence": 100,
+        "wealth": 81,
+        "relation": 64,
+        "health": 48
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 582,
+        "cashWan": 659.4,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 659.4,
+        "annualAfterTaxIncomeWan": 50.4,
+        "annualDisposableIncomeWan": 36.6,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "invitation": {
+        "id": "492a7cd7",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "arc:pressure_4c4d5c4e",
+        "completedChoiceCount": 15,
+        "pressureArcId": "pressure_4c4d5c4e"
+      },
+      "at": "2026-07-17T09:07:38.591Z"
+    },
+    {
+      "type": "invitation_shown",
+      "invitation": {
+        "id": "492a7cd7",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "arc:pressure_4c4d5c4e",
+        "completedChoiceCount": 15,
+        "pressureArcId": "pressure_4c4d5c4e"
+      },
+      "nodeTitle": "顾问角色与工作室并行的平衡期",
+      "historyLength": 15,
+      "at": "2026-07-17T09:07:48.206Z"
+    },
+    {
+      "type": "invitation_accepted",
+      "invitation": {
+        "id": "492a7cd7",
+        "status": "pending",
+        "reason": "stable_window",
+        "triggerKey": "arc:pressure_4c4d5c4e",
+        "completedChoiceCount": 15,
+        "pressureArcId": "pressure_4c4d5c4e"
+      },
+      "historyLength": 16,
+      "closureType": "user_reflection",
+      "at": "2026-07-17T09:08:20.687Z"
+    },
+    {
+      "type": "final_images_saved",
+      "posterPath": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-17-phase2-real-ai-browser-evaluation/images/real-career-first/poster.png",
+      "pagePath": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-17-phase2-real-ai-browser-evaluation/images/real-career-first/report-page.png",
+      "at": "2026-07-17T09:08:21.685Z"
+    },
+    {
+      "type": "final_images_saved",
+      "posterPath": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-17-phase2-real-ai-browser-evaluation/images/real-career-first/poster.jpg",
+      "pagePath": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-17-phase2-real-ai-browser-evaluation/images/real-career-first/report-page.jpg",
+      "at": "2026-07-17T09:09:56.909Z"
+    }
+  ],
+  "latestState": {
+    "capturedAt": "2026-07-17T09:09:46.383Z",
+    "e2eCase": null,
+    "recordTestRun": "phase2-real-career-first",
+    "testDataSource": "real_ai_browser",
+    "step": "insight",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "09:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "24 岁 · 工作与转折",
+      "milestones": [
+        {
+          "id": "career",
+          "title": "工作与转折",
+          "content": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。",
+      "milestoneRelationship": "",
+      "milestoneOther": "",
+      "regressionNodeKey": "career",
+      "regressionAge": 24,
+      "regressionSituation": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+      "coreStoryFocus": "career"
+    },
+    "questions": [
+      {
+        "question": "当时真实发生了什么？",
+        "suggestions": [
+          "我在一家中大型互联网公司做产品经理，已经工作2年，负责一个成熟业务模块的优化，绩效中上。创业公司是我前同事参与创办的，做AI+教育方向，拿到了天使轮，他们邀请我去做产品负责人，但工资比现在低30%。",
+          "我当时在大公司做AI方向的算法工程师，薪资在同龄人中算高的，但感觉技术发展遇到瓶颈。创业公司是做AI医疗影像的，团队来自顶级高校，我很感兴趣，但担心公司撑不过2年。",
+          "我24岁刚硕士毕业进入这家大公司半年，还在试用期。创业公司是实验室师兄创立的，做NLP工具，他们希望我负责产品化落地，但我觉得自己经验不足，而且大公司平台更稳定。",
+          "我24岁已经在大公司工作1年，项目组氛围好，但晋升慢。创业公司是做智能客服的，创始人很认可我，承诺期权，但我没太多积蓄，害怕试用期后过不了。"
+        ]
+      },
+      {
+        "question": "当时的你是什么状态、什么性格、怎么反应？",
+        "suggestions": [
+          "我当时比较谨慎，遇到重大决定会反复权衡利弊，尤其在意经济安全和家人看法。压力大时会自己消化，很少找人聊，失眠是常事。",
+          "我当时很焦虑，总觉得自己能力不够，既想抓住机会又怕失败。面对选择时容易拖延，直到最后一刻才做决定。",
+          "我当时比较冲动，做决定快，但容易后悔。我重视朋友义气，如果有人力挺，我可能会选更冒险的那条路。",
+          "我当时很理性，会做详细的SWOT分析，列出优缺点，但往往因为追求完美而纠结。我更看重长期发展，但短期收入下降会让我不安。"
+        ]
+      },
+      {
+        "question": "你有什么兴趣、能力、资源、限制？",
+        "suggestions": [
+          "我擅长逻辑分析和用户研究，但技术能力一般，不懂编程。我存了大概5万积蓄，家里条件一般，不能给我经济支持。我朋友不多，但有一个大学室友在创业公司，可以咨询。",
+          "我有机器学习基础，但工程能力弱。我认识几个行业前辈，可以给我建议。我时间上比较自由，但当时正在准备CFA考试，精力分散。",
+          "我沟通能力强，擅长团队协调，但不懂技术。我有一些技术朋友可以帮忙把关。当时我刚买房，有房贷压力，所以对收入下降特别敏感。",
+          "我编程能力不错，但对商业一窍不通。我有个亲戚是连续创业者，可以取经。当时我女朋友在另一个城市，我想两年内稳定下来，所以不想换城市。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "当时真实发生了什么？",
+        "answer": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。"
+      },
+      {
+        "id": 2,
+        "question": "当时的你是什么状态、什么性格、怎么反应？",
+        "answer": "面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。"
+      },
+      {
+        "id": 3,
+        "question": "你有什么兴趣、能力、资源、限制？",
+        "answer": "我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。"
+      }
+    ],
+    "history": [
+      {
+        "age": 24,
+        "ageInMonths": 288,
+        "lifeStage": "emerging_adulthood",
+        "title": "大公司与创业公司的岔路口",
+        "stage": "选择前夜",
+        "description": "你在一家上市软件公司做产品经理两年，月薪税后2万，每月房租5000、给父母2000、日常开销4500，还能存8500。现在一家A轮AI创业公司找到你，产品方向是面向中小企业的智能客服，创始人是技术出身，已有天使轮融资。你犹豫了：去创业公司月薪只有1.5万，但有期权；留在大公司明年可能升高级PM，薪资涨幅10%。父母身体尚可但医疗支出不定，你手头有18万存款，够支撑一年失业。",
+        "selectedChoice": "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品",
+        "selectedDecisionIntent": "career:switch_to:ai_startup_product_lead",
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 70,
+          "wealth": 55,
+          "relation": 50,
+          "health": 60
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashWan": 18,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 18,
+          "annualAfterTaxIncomeWan": 24,
+          "annualDisposableIncomeWan": 9.6,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": false
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品",
+            "impactSummary": "风险入局",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "风险入局"
+            },
+            "decisionIntent": "career:switch_to:ai_startup_product_lead",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "保留现有工作，利用晚上和周末参与创业项目",
+            "impactSummary": "折中并行",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "折中并行"
+            },
+            "decisionIntent": "career:side_project:ai_startup_parttime",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "拒绝创业机会，留在大公司争取管理岗位",
+            "impactSummary": "稳守晋升",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "稳守晋升"
+            },
+            "decisionIntent": "career:stay_and_promote:corporate_management",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_56abdf0a",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 288,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_5625cc48",
+            "summary": "你在一家上市软件公司做产品经理两年，月薪税后2万，每月房租5000、给父母2000、日常开销4500，还能存8500。现在一家A轮AI创业公司找到你，产品方向是"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 1
+        }
+      },
+      {
+        "age": 24,
+        "ageInMonths": 294,
+        "lifeStage": "emerging_adulthood",
+        "title": "创业公司的头六个月：从兴奋到现实",
+        "stage": "创业初期",
+        "description": "你辞去上市公司的职位，加入了那家A轮AI创业公司。前三个月你如鱼得水，主导了智能客服产品的MVP设计，带领3人团队快速迭代。创始人很欣赏你的产品直觉，公司也在第四个月拿到了一笔新的种子轮追加投资。但后三个月，现实开始显露：产品首批客户反馈一般，付费意愿不高；团队内部因为技术路线产生分歧，一名后端工程师离职。你的月薪降到1.5万，房租和父母医疗支出让持续支出正在消耗现金缓冲降到约15万。你开始怀疑这个选择是否明智，但同时也学到了如何从零搭建产品、如何与工程师争论优先级，还积累了一个小型行业人脉圈。第六个月末，创始人找你谈话，希望你能接下更重的担子——负责整个产品线，但短期内没有加薪预期。",
+        "selectedChoice": "跟创始人坦诚沟通，要求明确加薪时间表或期权兑现条件，同时开始留意其他机会",
+        "selectedDecisionIntent": "career:negotiate:equity_and_salary",
+        "attributes": {
+          "happiness": 48,
+          "intelligence": 75,
+          "wealth": 48,
+          "relation": 52,
+          "health": 55
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 294,
+          "cashWan": 19.8,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 19.8,
+          "annualAfterTaxIncomeWan": 18,
+          "annualDisposableIncomeWan": 3.6,
+          "annualCoreExpenseWan": 14.4,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.5,
+          "incomeMonths": 6,
+          "monthlyLivingExpenseWan": 1.2,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 6,
+          "afterTaxIncomeWan": 9,
+          "livingExpenseWan": 7.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 1.8,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受挑战，全面负责产品线，把业余时间也搭进去，争取半年内拿出成绩",
+            "impactSummary": "全力冲刺",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "全力冲刺"
+            },
+            "decisionIntent": "career:lead:full_product_line",
+            "eventOutcomeId": "protect_meaningful_daily_element",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "跟创始人坦诚沟通，要求明确加薪时间表或期权兑现条件，同时开始留意其他机会",
+            "impactSummary": "谈判观望",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "谈判观望"
+            },
+            "decisionIntent": "career:negotiate:equity_and_salary",
+            "eventOutcomeId": "simplify_life_around_core_values",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "利用现有产品经验，周末接一个企业软件咨询项目，每月多赚5000-8000元，缓解现金流压力",
+            "impactSummary": "副业补血",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "副业补血"
+            },
+            "decisionIntent": "career:side_project:consulting",
+            "eventOutcomeId": "add_one_small_source_of_aliveness",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "self_daily_meaning",
+          "eventCategory": "growth",
+          "eventTags": [
+            "growth",
+            "daily_meaning",
+            "stability",
+            "reflection"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "stability_meaning",
+          "eventSemanticFamily": "self_daily_meaning",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 6,
+          "elapsedYears": 0.5,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_48bcc456",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 294,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_263ec963",
+            "summary": "你辞去上市公司的职位，加入了那家A轮AI创业公司。前三个月你如鱼得水，主导了智能客服产品的MVP设计，带领3人团队快速迭代。创始人很欣赏你的产品直觉，公司也在第"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "name": "创始人（技术出身）",
+              "relationship": "老板，信任你的产品能力",
+              "change": "从最初欣赏到如今施加更大压力"
+            },
+            {
+              "name": "前端工程师小李",
+              "relationship": "同事，配合默契",
+              "change": "成为团队中你最依赖的伙伴"
+            }
+          ],
+          "primaryActivity": "产品负责人，主导智能客服MVP迭代",
+          "worldDeltas": [
+            "加入AI创业公司，担任产品负责人",
+            "MVP在第三个月上线，但客户付费意愿低",
+            "一名后端工程师因技术分歧离职",
+            "创始人提出扩大职责范围",
+            "存款消耗约3万元"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                42,
+                69
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 294,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "919fc1a6"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 25,
+        "ageInMonths": 308,
+        "lifeStage": "early_adulthood",
+        "title": "产品线负责人的现实锤炼",
+        "stage": "early_adulthood",
+        "description": "与创始人坦诚沟通后，他承诺六个月后评估加薪，并书面明确了期权兑现条件（四年归属，一年悬崖）。你接受了产品线负责人的角色，开始全面管理智能客服产品的迭代路线图。这14个月里，你带领团队完成了两次大版本更新，客户从3家扩展到12家，其中两家付费意愿较高，ARR达到约30万元。但公司已经积累了一些储蓄，房租5000、给父母2000、日常开销4500，每月储蓄约3500元。你结识了两位靠谱的技术合伙人，也学会了在资源匮乏时做优先级决策。不过，持续的加班让你偶尔失眠，健康有所下滑。父母医疗支出稳定，存款因前期消耗和缓慢积累，目前略有积蓄。第14个月，创始人告诉你下一轮融资不确定性很大，建议团队开始考虑备选方案。",
+        "selectedChoice": "与创始人协商转为兼职产品顾问，每周工作3天，同时开始系统投递大厂或成熟SaaS公司的产品经理岗位，回归稳定收入",
+        "selectedDecisionIntent": "career:switch_to:corporate_product_manager",
+        "attributes": {
+          "happiness": 44,
+          "intelligence": 78,
+          "wealth": 50,
+          "relation": 50,
+          "health": 49
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 308,
+          "cashWan": 24.7,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 24.7,
+          "annualAfterTaxIncomeWan": 18,
+          "annualDisposableIncomeWan": 4.2,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 1.5,
+          "incomeMonths": 14,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.95,
+          "reasons": [
+            "月薪1.5万，持续14个月",
+            "每月固定支出：房租0.5万、给父母0.2万、日常开销0.45万",
+            "存款从19.8万增加到约24.7万（19.8+1.5*14-1.15*14）"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 14,
+          "afterTaxIncomeWan": 21,
+          "livingExpenseWan": 16.1,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 4.9,
+          "incomeStability": "volatile",
+          "reasons": [
+            "月薪1.5万，持续14个月",
+            "每月固定支出：房租0.5万、给父母0.2万、日常开销0.45万",
+            "存款从19.8万增加到约24.7万（19.8+1.5*14-1.15*14）"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "全力冲刺融资，主动帮创始人整理BP、对接投资人，争取半年内完成Pre-A轮，以此换取正式产品VP头衔和薪资涨幅",
+            "impactSummary": "押注融资，搏VP",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "押注融资，搏VP"
+            },
+            "decisionIntent": "career:lead:fundraising_for_promotion",
+            "eventOutcomeId": "commit_regular_time_to_direction",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "开始低调接企业软件咨询项目，利用周末每月多赚5000-8000元，同时维持现有工作，用副业现金流降低对创业公司收入的依赖",
+            "impactSummary": "副业缓冲，稳现金流",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "副业缓冲，稳现金流"
+            },
+            "decisionIntent": "career:side_project:consulting",
+            "eventOutcomeId": "run_small_self_direction_experiment",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "与创始人协商转为兼职产品顾问，每周工作3天，同时开始系统投递大厂或成熟SaaS公司的产品经理岗位，回归稳定收入",
+            "impactSummary": "降风险，回大厂",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "降风险，回大厂"
+            },
+            "decisionIntent": "career:switch_to:corporate_product_manager",
+            "eventOutcomeId": "keep_direction_as_background_for_now",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "self_new_direction_choice",
+          "eventCategory": "growth",
+          "eventTags": [
+            "growth",
+            "direction",
+            "crossroads",
+            "experiment"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "crossroads_opportunity",
+          "eventSemanticFamily": "self_direction_choice",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 14,
+          "elapsedYears": 1.1666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_9be46cd4",
+            "startAgeInMonths": 294,
+            "endAgeInMonths": 308,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_566096df",
+            "summary": "与创始人坦诚沟通后，他承诺六个月后评估加薪，并书面明确了期权兑现条件（四年归属，一年悬崖）。你接受了产品线负责人的角色，开始全面管理智能客服产品的迭代路线图。这"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                43.166666666666664,
+                70.16666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 308,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 26,
+        "ageInMonths": 322,
+        "lifeStage": "early_adulthood",
+        "title": "兼职顾问与求职并行：从创业战场到稳定回归",
+        "stage": "career_transition",
+        "description": "与创始人协商后，你转为每周3天的兼职产品顾问，月薪降至0.9万，但保留了期权。你开始系统投递大厂和成熟SaaS公司的产品经理岗位。前3个月，你收到一些面试邀请，但进展缓慢——招聘市场偏冷，你的创业经历虽亮眼，但大厂HR对创业公司产品负责人的估值偏保守。你调整策略，利用之前结识的技术合伙人，开始接一个企业软件咨询项目，每月多赚0.6万，缓解现金流压力。第6个月，你通过内推获得一家中型SaaS公司的产品总监面试，进入终面但最终因“管理经验不足”被拒。你有些沮丧，但继续投递。第10个月，一家上市软件公司（类似你之前离开的那家）的资深产品经理岗位向你伸出橄榄枝，月薪2.2万，你接受了。第14个月，你已在新岗位工作4个月，负责一条成熟产品线的迭代。兼职顾问工作已结束，期权未兑现但保留。你重新拥有了稳定收入和规律作息，健康有所恢复。父母医疗支出稳定，存款略有积蓄。这段经历让你深刻理解了创业公司的真实面貌，也让你在简历上增加了从零到一的产品经验，但你也付出了收入波动和职业路径延长的代价。你有时会想，如果当初选择另一条路会怎样？但现在，你站在了一个新的起点：大公司的稳定岗位，但内心仍对创业的自主性有所怀念。",
+        "selectedChoice": "安心在大公司沉淀，争取在一年内晋升高级产品经理，用稳定收入重建财务安全垫，同时利用业余时间学习AI产品管理知识，为未来可能的内部创新项目做准备。",
+        "selectedDecisionIntent": "career:promote:corporate_senior_pm",
+        "attributes": {
+          "happiness": 48,
+          "intelligence": 82,
+          "wealth": 46,
+          "relation": 53,
+          "health": 55
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 322,
+          "cashWan": 21.2,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 21.2,
+          "annualAfterTaxIncomeWan": 10.8,
+          "annualDisposableIncomeWan": -3,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 0.9,
+          "incomeMonths": 14,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 14,
+          "afterTaxIncomeWan": 12.6,
+          "livingExpenseWan": 16.1,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": -3.5,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "安心在大公司沉淀，争取在一年内晋升高级产品经理，用稳定收入重建财务安全垫，同时利用业余时间学习AI产品管理知识，为未来可能的内部创新项目做准备。",
+            "impactSummary": "稳扎稳打，积累资历",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳扎稳打，积累资历"
+            },
+            "decisionIntent": "career:promote:corporate_senior_pm",
+            "eventOutcomeId": "narrow_scope_keep_core",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "保留大公司工作，但利用晚上和周末重新启动一个轻量级AI产品项目，与之前的技术合伙人合作，尝试将智能客服的某个细分功能做成独立SaaS工具，以副业形式验证市场。",
+            "impactSummary": "主业保底，副业试水",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "主业保底，副业试水"
+            },
+            "decisionIntent": "career:side_project:ai_tool_startup",
+            "eventOutcomeId": "maintain_scope_with_explicit_limits",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "主动向公司提出内部转岗，申请加入公司的AI创新事业部，利用你的创业经验和对AI产品的理解，参与内部孵化项目，争取成为内部创业者。",
+            "impactSummary": "内部创业，借力平台",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "内部创业，借力平台"
+            },
+            "decisionIntent": "career:internal_transfer:ai_innovation_lab",
+            "eventOutcomeId": "delegate_and_share_responsibility",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_scope_redefinition",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "scope_change",
+            "boundary",
+            "responsibility"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "crossroads_opportunity",
+          "eventSemanticFamily": "career_scope_change",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 14,
+          "elapsedYears": 1.1666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_a5045d45",
+            "startAgeInMonths": 308,
+            "endAgeInMonths": 322,
+            "internalTransitions": [
+              "前3个月求职不顺，调整策略接咨询项目",
+              "第6个月面试中型SaaS公司产品总监被拒",
+              "第10个月接受上市软件公司资深产品经理offer",
+              "第14个月在新岗位稳定工作4个月，兼职顾问结束"
+            ],
+            "decisionCheckpointId": "checkpoint_c88589b7",
+            "summary": "与创始人协商后，你转为每周3天的兼职产品顾问，月薪降至0.9万，但保留了期权。你开始系统投递大厂和成熟SaaS公司的产品经理岗位。前3个月，你收到一些面试邀请，"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "创始人（兼职顾问结束，关系冷淡）",
+            "技术合伙人（保持联系，可能合作副业）",
+            "新公司产品团队（正在融入）"
+          ],
+          "primaryActivity": "大公司产品经理工作，兼顾生活恢复",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                44.33333333333333,
+                71.33333333333334
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 322,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 29,
+        "ageInMonths": 358,
+        "lifeStage": "early_adulthood",
+        "title": "大公司的沉淀与内部创新萌芽",
+        "stage": "27岁0个月 - 29岁10个月",
+        "description": "你回到上市软件公司后，开始按计划沉淀。前6个月，你专注于熟悉新团队和产品线，利用过去创业时积累的AI产品理解，主动承担了一个智能客服模块的优化项目，获得上级认可。随后一年，你通过两次成功的版本迭代，将产品续费率提升了18%，并在团队中树立了专家形象。第18个月，你顺利晋升为高级产品经理，月薪涨至2.6万。你利用业余时间系统学习AI产品管理，并考取了AWS机器学习认证。第24个月，公司成立AI创新实验室，你凭借创业经验和内部影响力成功转岗，成为实验室早期核心成员，负责将AI能力嵌入现有产品线。期间，父母医疗支出稳定，你每月能存下1.2万左右，存款缓慢回升。到29岁10个月时，你在实验室已工作近半年，主导了一个内部AI工具的原型，获得了VP的关注。你感到自己既拥有了大公司的平台资源，又保留了创业时的技术敏感度。偶尔你还会怀念完全自主的创业状态，但当前路径让你看到了在公司内部孵化的可能性。",
+        "selectedChoice": "全力投入AI实验室，争取在一年内让原型产品落地并拿到内部种子资金，继续探索内部创业路径",
+        "selectedDecisionIntent": "career:internal_innovation:ai_lab_seed",
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 85,
+          "wealth": 58,
+          "relation": 58,
+          "health": 60
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 358,
+          "cashWan": 73.4,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 73.4,
+          "annualAfterTaxIncomeWan": 31.2,
+          "annualDisposableIncomeWan": 17.4,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 2.6,
+          "incomeMonths": 36,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 36,
+          "afterTaxIncomeWan": 93.6,
+          "livingExpenseWan": 41.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 52.2,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "全力投入AI实验室，争取在一年内让原型产品落地并拿到内部种子资金，继续探索内部创业路径",
+            "impactSummary": "内部创业加速",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "内部创业加速"
+            },
+            "decisionIntent": "career:internal_innovation:ai_lab_seed",
+            "eventOutcomeId": "extend_project_into_next_stage",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在实验室工作中稳扎稳打，同时利用业余时间与之前的技术合伙人重启一个轻量级AI副业项目，作为外部验证",
+            "impactSummary": "主业副业并行",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "主业副业并行"
+            },
+            "decisionIntent": "career:side_project:ai_tool_startup",
+            "eventOutcomeId": "extend_project_into_next_stage",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "专注当前高级产品经理角色，将实验室经历作为履历亮点，争取两年内晋升产品总监，走纯管理路线",
+            "impactSummary": "管理晋升路线",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "管理晋升路线"
+            },
+            "decisionIntent": "career:promote:product_director",
+            "eventOutcomeId": "close_project_and_integrate_learning",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_long_project_completion",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "project_completion",
+            "reflection",
+            "closure"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "recovery_growth",
+          "eventSemanticFamily": "career_completion",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 36,
+          "elapsedYears": 3,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_90067861",
+            "startAgeInMonths": 322,
+            "endAgeInMonths": 358,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_9fe08f15",
+            "summary": "你回到上市软件公司后，开始按计划沉淀。前6个月，你专注于熟悉新团队和产品线，利用过去创业时积累的AI产品理解，主动承担了一个智能客服模块的优化项目，获得上级认可"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "创始人（前创业公司）",
+            "技术合伙人（创业期间结识）",
+            "现任VP"
+          ],
+          "primaryActivity": "在上市软件公司AI创新实验室工作，主导内部AI工具原型",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                47.33333333333333,
+                74.33333333333334
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 358,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 30,
+        "ageInMonths": 369,
+        "lifeStage": "early_adulthood",
+        "title": "实验室突破与副业萌芽",
+        "stage": "early_adulthood",
+        "description": "你全力投入AI实验室，前两个月主导的原型获得了VP的认可，拿到了10万元内部种子资金，开始组建一个4人小团队。产品进入封闭测试阶段，客户反馈积极，但有3个关键功能需要重写。你与之前的技术合伙人重新联系，他们正在做一个轻量级AI客服SaaS工具，你以顾问身份加入，每月投入周末，获得0.3万元分红。第7个月，你向VP汇报了内部项目的初步成果，他承诺如果年底达到200个付费用户，可以将实验室独立为子公司，并给你产品总监头衔。年底时，内部项目用户达到150个，但距离目标还有差距。你的月薪维持在2.6万，每月房租5000、给父母2000、日常开销4500，存款稳步增长。父母医疗支出稳定，你的健康因加班有所下滑，但仍在可控范围。",
+        "selectedChoice": "保持内部项目稳定推进，同时加大副业投入，争取将副业发展成独立收入来源，实现收入多元化",
+        "selectedDecisionIntent": "career:side_project:ai_saas_growth",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 86,
+          "wealth": 59,
+          "relation": 60,
+          "health": 58
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 369,
+          "cashWan": 89.4,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 89.4,
+          "annualAfterTaxIncomeWan": 31.2,
+          "annualDisposableIncomeWan": 17.4,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.6,
+          "incomeMonths": 11,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 11,
+          "afterTaxIncomeWan": 28.6,
+          "livingExpenseWan": 12.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 16,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "集中精力冲刺内部项目目标，争取在6个月内达到200付费用户，推动实验室独立，同时将副业交给合伙人管理",
+            "impactSummary": "冲刺独立",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "冲刺独立"
+            },
+            "decisionIntent": "career:internal_innovation:ai_lab_scale_to_subsidiary",
+            "eventOutcomeId": "support_one_long_term_commitment",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "保持内部项目稳定推进，同时加大副业投入，争取将副业发展成独立收入来源，实现收入多元化",
+            "impactSummary": "多元收入",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "多元收入"
+            },
+            "decisionIntent": "career:side_project:ai_saas_growth",
+            "eventOutcomeId": "allocate_for_quality_of_life",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "评估内部项目进度，与VP协商调整目标或争取更多资源，同时减少副业投入，优先保证健康和工作质量",
+            "impactSummary": "稳中求进",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳中求进"
+            },
+            "decisionIntent": "career:negotiate:ai_lab_resource_adjustment",
+            "eventOutcomeId": "maintain_financial_order",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "financial_long_term_order",
+          "eventCategory": "financial",
+          "eventTags": [
+            "financial",
+            "order",
+            "stability",
+            "meaning"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "stability_meaning",
+          "eventSemanticFamily": "financial_long_term_order",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 11,
+          "elapsedYears": 0.9166666666666666,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_600a41eb",
+            "startAgeInMonths": 358,
+            "endAgeInMonths": 369,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_f1012ec7",
+            "summary": "你全力投入AI实验室，前两个月主导的原型获得了VP的认可，拿到了10万元内部种子资金，开始组建一个4人小团队。产品进入封闭测试阶段，客户反馈积极，但有3个关键功"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "name": "VP",
+              "role": "上司",
+              "relationship": "支持"
+            },
+            {
+              "name": "技术合伙人A",
+              "role": "副业合伙人",
+              "relationship": "合作"
+            },
+            {
+              "name": "技术合伙人B",
+              "role": "副业合伙人",
+              "relationship": "合作"
+            }
+          ],
+          "primaryActivity": "内部创新项目推进与副业并行",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                48.24999999999999,
+                75.25000000000001
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 369,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 31,
+        "ageInMonths": 374,
+        "lifeStage": "early_adulthood",
+        "title": "副业加速与内部压力交织",
+        "stage": "early_adulthood",
+        "description": "你选择加大副业投入后，与技术合伙人每周通话三次，周末几乎全搭在AI客服SaaS工具上。产品进入beta测试，有3家小企业愿意试用，但反馈说功能太简单，需要至少两个月开发才能形成付费点。与此同时，内部实验室项目用户数卡在150附近，VP暗示如果下季度达不到200，种子资金可能被收回。你开始感到分身乏术，白天在实验室加班到九点，周末写副业代码到凌晨。一次深夜会议后，合伙人提出要么你全职加入，要么他们另找技术合伙人。你既不想放弃内部项目的可能性，又怕副业错过窗口期。父母医疗支出稳定，但每月固定支出1.15万，月薪2.6万加上副业分红0.3万，略有盈余，但时间几乎被榨干。",
+        "selectedChoice": "跟VP谈判，申请将内部项目目标调整为150用户+50%续费率，换取更多资源；同时减少副业投入，优先保住实验室路径",
+        "selectedDecisionIntent": "career:negotiate:ai_lab_resource_adjustment",
+        "attributes": {
+          "happiness": 50,
+          "intelligence": 88,
+          "wealth": 59,
+          "relation": 58,
+          "health": 52
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 374,
+          "cashWan": 96.6,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 96.6,
+          "annualAfterTaxIncomeWan": 31.2,
+          "annualDisposableIncomeWan": 17.4,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.6,
+          "incomeMonths": 5,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 5,
+          "afterTaxIncomeWan": 13,
+          "livingExpenseWan": 5.8,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 7.2,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "跟VP谈判，申请将内部项目目标调整为150用户+50%续费率，换取更多资源；同时减少副业投入，优先保住实验室路径",
+            "impactSummary": "谈判保主业",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "谈判保主业"
+            },
+            "decisionIntent": "career:negotiate:ai_lab_resource_adjustment",
+            "eventOutcomeId": "stabilize_immediate_cashflow",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "与合伙人约定，未来三个月你每周投入20小时，若用户达到20个付费则转为全职；同时将实验室项目交付给一名优秀同事，确保不拖累团队",
+            "impactSummary": "副业加速跑",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "副业加速跑"
+            },
+            "decisionIntent": "career:side_project:ai_saas_growth",
+            "eventOutcomeId": "invest_in_gradual_transition",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "约两位技术合伙人见面，坦诚说明现状，提议将副业转为内部创业项目——向公司推荐这个SaaS工具，争取让实验室作为孵化平台",
+            "impactSummary": "整合双路径",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "整合双路径"
+            },
+            "decisionIntent": "career:internal_innovation:ai_lab_scale_to_subsidiary",
+            "eventOutcomeId": "activate_verified_network_support",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "eventMode": "pressure_crisis",
+          "eventSemanticFamily": "career_structural_instability",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 5,
+          "elapsedYears": 0.4166666666666667,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_cee5da2a",
+            "pressureArcId": "pressure_4c4d5c4e",
+            "startAgeInMonths": 369,
+            "endAgeInMonths": 374,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_124457bd",
+            "summary": "你选择加大副业投入后，与技术合伙人每周通话三次，周末几乎全搭在AI客服SaaS工具上。产品进入beta测试，有3家小企业愿意试用，但反馈说功能太简单，需要至少两"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "signal": "副业进入验证阶段，但时间冲突加剧",
+              "evidence": "合伙人要求全职投入，内部项目目标压力未减"
+            },
+            {
+              "signal": "内部项目种子资金面临回收风险",
+              "evidence": "VP明确下季度200用户门槛"
+            }
+          ],
+          "activeCharacters": [
+            "技术合伙人（两位）",
+            "VP"
+          ],
+          "primaryActivity": "内部项目推进与副业开发并行",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                48.66666666666666,
+                75.66666666666669
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 374,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 374,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 1,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4c4d5c4e"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4c4d5c4e",
+          "phaseId": "response",
+          "transitionAction": "advance"
+        }
+      },
+      {
+        "age": 31,
+        "ageInMonths": 381,
+        "lifeStage": "early_adulthood",
+        "title": "谈判之后：实验室的缓刑与副业的割舍",
+        "stage": "early_adulthood",
+        "description": "你与VP的谈判有了结果：他同意将内部项目的考核指标调整为150用户+50%续费率，但要求你必须在4个月内达成，且不再提供额外开发资源。你松了口气，但也清楚这不过是缓刑。你开始减少副业投入，与技术合伙人坦诚沟通后，他们表示理解，但决定另寻全职技术合伙人。你感到一阵失落，但内心清楚这是为了保住实验室路径的必要牺牲。接下来的几个月，你聚焦于优化产品体验和客户续费，通过引入自动化客服流程，续费率逐渐攀升至48%。同时，你利用实验室的资源，将副业中积累的轻量级AI工具思路融入内部项目，开发了一个简易版智能工单分配模块，客户反馈不错。然而，健康因之前的透支开始亮起红灯——你出现持续头痛和失眠，体检显示血压偏高。父母医疗支出稳定，但每月1.15万的固定支出让你不敢松懈。第7个月，续费率终于达到50%，用户数稳定在152。VP认可了进展，但警告说集团正在收紧创新预算，下一财年的实验室存活取决于能否证明明确的收入转化路径。你站在31岁9个月的节点上，感到职业路径虽有进展，但外部结构的不稳定性如影随形。",
+        "selectedChoice": "在实验室稳定推进的同时，重新评估外部机会：开始投递成熟AI公司的产品经理岗位，用内部项目经历作为跳板，为自己准备一条退路。",
+        "selectedDecisionIntent": "career:job_switch:ai_company_pm_application",
+        "attributes": {
+          "happiness": 45,
+          "intelligence": 90,
+          "wealth": 59,
+          "relation": 55,
+          "health": 46
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 381,
+          "cashWan": 106.8,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 106.8,
+          "annualAfterTaxIncomeWan": 31.2,
+          "annualDisposableIncomeWan": 17.4,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.6,
+          "incomeMonths": 7,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 7,
+          "afterTaxIncomeWan": 18.2,
+          "livingExpenseWan": 8,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 10.2,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "全力冲刺收入转化，主动与销售团队合作，将内部项目包装成可独立销售的SaaS产品，争取在6个月内产生20万ARR，证明实验室的商业价值。",
+            "impactSummary": "销售驱动，快速变现",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "销售驱动，快速变现"
+            },
+            "decisionIntent": "career:internal_innovation:ai_lab_revenue_pivot",
+            "eventOutcomeId": "stabilize_immediate_cashflow",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "在实验室稳定推进的同时，重新评估外部机会：开始投递成熟AI公司的产品经理岗位，用内部项目经历作为跳板，为自己准备一条退路。",
+            "impactSummary": "准备退路，降低风险",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "准备退路，降低风险"
+            },
+            "decisionIntent": "career:job_switch:ai_company_pm_application",
+            "eventOutcomeId": "invest_in_gradual_transition",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "与之前的技术合伙人重新联系，提议以顾问形式远程支持他们的AI客服项目，换取少量股权和未来合作可能，同时保持实验室聚焦。",
+            "impactSummary": "维系人脉，保留选项",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "维系人脉，保留选项"
+            },
+            "decisionIntent": "career:side_project:ai_saas_advisor_equity",
+            "eventOutcomeId": "activate_verified_network_support",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "eventMode": "pressure_crisis",
+          "eventSemanticFamily": "career_structural_instability",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 7,
+          "elapsedYears": 0.5833333333333334,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_469c05b9",
+            "pressureArcId": "pressure_4c4d5c4e",
+            "startAgeInMonths": 374,
+            "endAgeInMonths": 381,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_d6d0ecca",
+            "summary": "你与VP的谈判有了结果：他同意将内部项目的考核指标调整为150用户+50%续费率，但要求你必须在4个月内达成，且不再提供额外开发资源。你松了口气，但也清楚这不过"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "VP",
+            "技术合伙人"
+          ],
+          "primaryActivity": "内部AI实验室产品优化与续费率提升",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                49.24999999999999,
+                76.25000000000001
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 381,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "response",
+              "status": "active",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 374,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 2,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4c4d5c4e"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4c4d5c4e",
+          "phaseId": "response",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 32,
+        "ageInMonths": 391,
+        "lifeStage": "early_adulthood",
+        "title": "退路铺展：面试与实验室的双轨震荡",
+        "stage": "checkpoint",
+        "description": "你开始系统投递成熟AI公司的产品经理岗位。前两个月，你利用晚上修改简历，突出实验室的AI落地经验和用户增长数据，并联系了之前内推你的同事。第三个月，一家头部AI平台公司（估值约50亿）的产品经理岗位给了面试机会。你请假去面试，第一轮与HR聊得很顺，但第二轮业务面时，面试官质疑你在实验室的项目只是“内部工具”，缺乏独立SaaS的商业闭环。你虽据理力争，但能感到对方不以为然。同期，实验室这边，VP要求你下季度必须证明明确的收入转化路径——至少30万ARR。你试图推动将智能工单模块打包成独立插件销售，但销售团队不积极，认为优先级不高。健康方面，持续头痛和失眠让你效率下降，你开始每周两次去推拿，并尝试调整作息。父母医疗支出稳定，每月1.15万的固定支出仍在。第5个月，你再次收到那家AI公司的拒信，感到挫败。但你同时也收到另一家B轮AI公司的面试邀请，岗位是高级产品经理，薪资预估2.8万左右。你开始犹豫：是继续在大公司内部挣扎，还是跳出去重新开始？",
+        "selectedChoice": "接受B轮公司面试，全力准备跳槽，用实验室经历作为谈判筹码，争取月薪3万以上",
+        "selectedDecisionIntent": "career:job_switch:ai_b_round_pm",
+        "attributes": {
+          "happiness": 43,
+          "intelligence": 91,
+          "wealth": 60,
+          "relation": 53,
+          "health": 44
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 391,
+          "cashWan": 121.3,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 121.3,
+          "annualAfterTaxIncomeWan": 31.2,
+          "annualDisposableIncomeWan": 17.4,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 2.6,
+          "incomeMonths": 10,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 10,
+          "afterTaxIncomeWan": 26,
+          "livingExpenseWan": 11.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 14.5,
+          "incomeStability": "volatile",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受B轮公司面试，全力准备跳槽，用实验室经历作为谈判筹码，争取月薪3万以上",
+            "impactSummary": "外部跳槽加速",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "外部跳槽加速"
+            },
+            "decisionIntent": "career:job_switch:ai_b_round_pm",
+            "eventOutcomeId": "invest_in_gradual_transition",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "暂缓跳槽，集中精力说服销售团队，推动内部项目作为独立SaaS产品试水，争取公司正式立项",
+            "impactSummary": "内部创业突破",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "内部创业突破"
+            },
+            "decisionIntent": "career:internal_innovation:ai_lab_saas_pilot",
+            "eventOutcomeId": "stabilize_immediate_cashflow",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "同时推进两条线：参加B轮公司面试，并在内部推动销售合作；同时找之前的技术合伙人商议，看能否以顾问形式合作，拓宽外部机会",
+            "impactSummary": "双轨并行试探",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "双轨并行试探"
+            },
+            "decisionIntent": "career:dual_track:interview_and_internal_sales",
+            "eventOutcomeId": "activate_verified_network_support",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_structural_instability",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "instability",
+            "survival_pressure",
+            "transition"
+          ],
+          "eventIntensity": "major",
+          "eventMode": "pressure_crisis",
+          "eventSemanticFamily": "career_structural_instability",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 10,
+          "elapsedYears": 0.8333333333333334,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_cc88c4f4",
+            "pressureArcId": "pressure_4c4d5c4e",
+            "startAgeInMonths": 381,
+            "endAgeInMonths": 391,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_10c40efd",
+            "summary": "你开始系统投递成熟AI公司的产品经理岗位。前两个月，你利用晚上修改简历，突出实验室的AI落地经验和用户增长数据，并联系了之前内推你的同事。第三个月，一家头部AI"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "VP",
+            "前技术合伙人",
+            "B轮公司面试官"
+          ],
+          "primaryActivity": "求职与内部项目推进并行",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                50.08333333333333,
+                77.08333333333334
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 391,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 391,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 3,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6",
+            "5d106dcd"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4c4d5c4e"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4c4d5c4e",
+          "phaseId": "growth",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 34,
+        "ageInMonths": 414,
+        "lifeStage": "early_adulthood",
+        "title": "跳槽B轮AI公司：新平台与旧羁绊",
+        "stage": "职业转型与价值观重塑",
+        "description": "你全力准备B轮AI公司的面试，用实验室的AI落地经验和用户增长数据作为核心卖点。经过三轮面试，你成功拿到高级产品经理offer，月薪2.9万，并争取到3万元签字费。你向VP提出离职，VP虽表示惋惜，但理解你的选择。交接期间，你花了三周整理文档，并向VP推荐了接替者。离职后，你入职新公司，发现这是一家专注于AI客服的SaaS公司，产品成熟度远高于实验室项目。前两个月，你负责一个核心模块的优化，通过与工程团队紧密合作，将工单解决率提升了15%，获得了CEO的认可。然而，新公司文化强调快速迭代和加班，每周工作60小时成为常态。你的健康问题加剧，头痛频率增加，血压持续偏高。父母医疗支出稳定，每月固定支出1.15万，月薪2.9万加上签字费分摊，略有积蓄。第5个月，你接到前技术合伙人的电话，他们的AI客服SaaS工具拿到了天使投资，希望以CTO身份邀请你加入。你陷入两难：新公司平台稳定但消耗健康，创业公司有潜力但风险更高。你开始重新思考成功和健康的平衡。",
+        "selectedChoice": "拒绝合伙人邀请，留在B轮公司争取产品总监晋升机会，同时开始严格管理健康——每周运动三次、减少加班、定期体检。",
+        "selectedDecisionIntent": "career:stay_b_round_company_health_pivot",
+        "attributes": {
+          "happiness": 41,
+          "intelligence": 93,
+          "wealth": 61,
+          "relation": 52,
+          "health": 38
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 414,
+          "cashWan": 161.5,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 161.5,
+          "annualAfterTaxIncomeWan": 34.8,
+          "annualDisposableIncomeWan": 21,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "self_employed",
+          "incomeStability": "volatile",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "self_employed",
+          "monthlyNetIncomeWan": 2.9,
+          "incomeMonths": 23,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "volatile",
+          "confidence": 0.65,
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 23,
+          "afterTaxIncomeWan": 66.7,
+          "livingExpenseWan": 26.5,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 40.2,
+          "incomeStability": "volatile",
+          "reasons": [
+            "根据正文明确月收入估算",
+            "按阶段月份累计收入并参考上期生活成本"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "拒绝合伙人邀请，留在B轮公司争取产品总监晋升机会，同时开始严格管理健康——每周运动三次、减少加班、定期体检。",
+            "impactSummary": "稳中求健康",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳中求健康"
+            },
+            "decisionIntent": "career:stay_b_round_company_health_pivot",
+            "eventOutcomeId": "protect_one_new_priority",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "接受合伙人邀请，以CTO身份加入创业公司，但要求前6个月远程工作，并约定股权和薪资结构，同时保留B轮公司的人脉关系。",
+            "impactSummary": "冒险试新路",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "冒险试新路"
+            },
+            "decisionIntent": "career:join_startup_as_cto_remote",
+            "eventOutcomeId": "test_new_values_before_full_commitment",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "两边都不放弃：向B轮公司申请转为兼职或顾问，以灵活时间支持创业项目，用两份收入降低风险，但接受精力分散和晋升放缓。",
+            "impactSummary": "双轨降风险",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "双轨降风险"
+            },
+            "decisionIntent": "career:dual_track_b_round_and_startup",
+            "eventOutcomeId": "redefine_success_criteria",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "self_value_reorientation",
+          "eventCategory": "growth",
+          "eventTags": [
+            "growth",
+            "values",
+            "reflection",
+            "reorientation"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "crossroads_opportunity",
+          "eventSemanticFamily": "self_value_reorientation",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 23,
+          "elapsedYears": 1.9166666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_de01a614",
+            "pressureArcId": "pressure_4c4d5c4e",
+            "startAgeInMonths": 391,
+            "endAgeInMonths": 414,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_21c1eb2c",
+            "summary": "你全力准备B轮AI公司的面试，用实验室的AI落地经验和用户增长数据作为核心卖点。经过三轮面试，你成功拿到高级产品经理offer，月薪2.9万，并争取到3万元签字"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "signal": "外部结构变化让收入或职业路径不稳定",
+              "evidence": "B轮公司虽入职但健康恶化，创业机会再次出现，原有实验室路径已关闭"
+            }
+          ],
+          "activeCharacters": [
+            "前技术合伙人",
+            "B轮公司CEO",
+            "实验室VP"
+          ],
+          "primaryActivity": "跳槽后适应新公司并应对健康危机",
+          "worldDeltas": [
+            "job_change_to_b_round",
+            "health_deterioration",
+            "startup_offer_received"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                51.99999999999999,
+                79.00000000000001
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 414,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "growth",
+              "status": "active",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 391,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 4,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6",
+            "5d106dcd",
+            "cf674bb7"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4c4d5c4e"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4c4d5c4e",
+          "phaseId": "growth",
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 36,
+        "ageInMonths": 438,
+        "lifeStage": "midlife",
+        "title": "产品总监之路：在健康与专业之间找到锚点",
+        "stage": "健康平衡与深度专业",
+        "description": "你拒绝了前合伙人的CTO邀请，留在B轮公司，将重心放在产品总监晋升和健康管理上。你开始每周三次晨跑，减少加班，并定期体检。前半年，你主导的智能工单模块成为公司核心产品线的一部分，客户续费率提升至65%，CEO在季度会上公开表扬了你。你开始带一位初级产品经理，传授系统化的产品方法论，这让你重新感受到“做产品”本身的乐趣，而不仅仅是职位和收入。第8个月，你获得产品总监的正式任命，月薪涨至3.6万，团队扩大到6人。但晋升也带来更多跨部门协调和战略汇报，你偶尔需要参加晚间的客户会议，健康管理计划受到挑战。你坚持每周至少运动两次，并开始学习冥想以缓解压力。第15个月，你主动向CEO提出将产品路线图与用户研究更紧密地结合，推动公司成立了用户研究小组。你亲自参与深度访谈，发现客户对AI客服的“人性化程度”有隐性需求，于是主导开发了情感识别模块，成为行业内的差异化亮点。第20个月，前技术合伙人再次联系你，他们的产品已获得A轮融资，估值1.2亿，希望你能以产品合伙人的身份加入，并给予可观股份。你陷入沉思：留在B轮公司，你有稳定的晋升路径和健康节奏；加入创业公司，可能有机会打造从0到1的产品，但风险更高，且健康可能再次受损。你开始反思自己十年来的职业选择：从最初因害怕收入下降而留在大厂，到如今拥有了选择权，但内心的标准已悄然变化——你不再仅仅追求职位或金钱，而是渴望在长期的产品实践中形成自己的专业判断和手艺。你站在36岁6个月的节点上，需要决定是深化当前的道路，还是在新的语境中重新开始。",
+        "selectedChoice": "继续留在B轮公司，深化产品总监角色，组建独立的产品创新小组，探索将情感识别模块孵化成新的产品线，同时坚持健康管理计划",
+        "selectedDecisionIntent": "career:deepen_pm_director_internal_innovation",
+        "attributes": {
+          "happiness": 48,
+          "intelligence": 96,
+          "wealth": 70,
+          "relation": 55,
+          "health": 44
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 438,
+          "cashWan": 220.3,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 220.3,
+          "annualAfterTaxIncomeWan": 43.2,
+          "annualDisposableIncomeWan": 29.4,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 3.6,
+          "incomeMonths": 24,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "stable",
+          "confidence": 0.9,
+          "reasons": [
+            "第8个月获得产品总监任命，月薪涨至3.6万，持续至本阶段结束",
+            "父母医疗支出每月1.15万，与前期一致，未提及其他大额支出",
+            "本阶段未发生一次性大额收支，净财富变化主要来自收入减去生活支出"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 24,
+          "afterTaxIncomeWan": 86.4,
+          "livingExpenseWan": 27.6,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 58.8,
+          "incomeStability": "stable",
+          "reasons": [
+            "第8个月获得产品总监任命，月薪涨至3.6万，持续至本阶段结束",
+            "父母医疗支出每月1.15万，与前期一致，未提及其他大额支出",
+            "本阶段未发生一次性大额收支，净财富变化主要来自收入减去生活支出"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受合伙人邀请，以产品合伙人身份加入创业公司，用两年时间打造一款真正从用户需求出发的AI产品，同时约定远程工作40%的时间以维持健康",
+            "impactSummary": "创业新征程",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "创业新征程"
+            },
+            "decisionIntent": "career:join_startup_as_product_partner_remote",
+            "eventOutcomeId": "open_craft_to_new_context",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "继续留在B轮公司，深化产品总监角色，组建独立的产品创新小组，探索将情感识别模块孵化成新的产品线，同时坚持健康管理计划",
+            "impactSummary": "内部创新孵化",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "内部创新孵化"
+            },
+            "decisionIntent": "career:deepen_pm_director_internal_innovation",
+            "eventOutcomeId": "deepen_personal_standard",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "保持现有岗位，但利用业余时间以顾问形式与前合伙人合作，每月投入20小时，同时探索将AI产品的经验转化为线上课程或写作，构建个人品牌",
+            "impactSummary": "顾问与知识输出",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "顾问与知识输出"
+            },
+            "decisionIntent": "career:dual_track_advisor_and_content",
+            "eventOutcomeId": "connect_craft_to_daily_life",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_craft_meaning",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "craft",
+            "meaning",
+            "stability"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "stability_meaning",
+          "eventSemanticFamily": "career_craft_meaning",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 24,
+          "elapsedYears": 2,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_29efdf5e",
+            "pressureArcId": "pressure_4c4d5c4e",
+            "startAgeInMonths": 414,
+            "endAgeInMonths": 438,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_2e267c40",
+            "summary": "你拒绝了前合伙人的CTO邀请，留在B轮公司，将重心放在产品总监晋升和健康管理上。你开始每周三次晨跑，减少加班，并定期体检。前半年，你主导的智能工单模块成为公司核"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "前技术合伙人（创业者，A轮融资成功）",
+            "CEO（B轮公司，认可你的专业能力）",
+            "初级产品经理（你带的徒弟）"
+          ],
+          "primaryActivity": "产品管理、跨部门协调、用户研究、健康管理",
+          "worldDeltas": [
+            "晋升产品总监，月薪3.6万",
+            "主导情感识别模块成为产品差异化亮点",
+            "成立用户研究小组",
+            "健康管理初见成效，血压从偏高降至临界值，头痛频率减少",
+            "与父母关系稳定，每月提供2000元医疗支持"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                53.99999999999999,
+                81.00000000000001
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 438,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "active",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 438,
+              "phaseCheckpointCount": 0,
+              "totalCheckpointCount": 5,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6",
+            "5d106dcd",
+            "cf674bb7",
+            "86297fe8"
+          ],
+          "version": 1,
+          "foregroundPressureArcId": "pressure_4c4d5c4e"
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4c4d5c4e",
+          "phaseId": "operation",
+          "transitionAction": "fallback"
+        }
+      },
+      {
+        "age": 39,
+        "ageInMonths": 476,
+        "lifeStage": "midlife",
+        "title": "产品创新小组的深耕与职业锚点的确立",
+        "stage": "现实转折",
+        "description": "你选择了留在B轮公司，深化产品总监角色，并组建独立的产品创新小组。前三个月，你从现有团队中挑选了两名工程师和一名设计师，正式成立了情感识别模块孵化小组。你与CEO敲定了6个月的孵化期，目标是将情感识别模块作为独立插件推向市场，首年ARR达到50万。你投入大量时间进行用户访谈，发现中小型电商客服对“客户情绪预警”有强烈需求，于是调整方向，专注开发实时情绪预警功能。第6个月，产品MVP上线，获得3家付费试点客户，月经常性收入（MRR）达到1.2万。与此同时，你严格坚持健康管理计划：每周三次晨跑，每季度体检，血压从偏高逐渐恢复正常，头痛频率大幅降低。第12个月，情感识别模块正式发布，凭借差异化价值，在行业内获得一定口碑，客户数增至15家，MRR达到4.5万。第18个月，公司获得C轮融资，估值翻倍，你的创新小组被正式纳入公司核心产品线，你获得额外期权激励。父母医疗支出稳定，每月固定支出1.15万，月薪已涨至4.2万，加上项目分红，年收入约60万。第30个月，情感识别模块MRR突破15万，成为公司增长最快的产品线。你开始思考是否要将这个模块独立成子公司，但考虑到健康和生活节奏，你决定先在公司内部将其做深做透。第38个月，你站在39岁8个月的节点上，回顾这三年：你不仅成功孵化了一条新业务线，还建立了可持续的健康习惯，在专业能力和生活品质之间找到了平衡。外部结构不稳定的压力因公司融资成功和产品线多元化而缓解，你在职业道路上有了更深的锚点。",
+        "selectedChoice": "维持现状，继续负责情感识别模块的产品迭代，同时每周减少5小时工作，将时间用于写作或行业分享，建立个人品牌",
+        "selectedDecisionIntent": "career:maintain_and_side_content",
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 98,
+          "wealth": 77,
+          "relation": 58,
+          "health": 50
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 476,
+          "cashWan": 336.2,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 336.2,
+          "annualAfterTaxIncomeWan": 50.4,
+          "annualDisposableIncomeWan": 36.6,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "very_stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 4.2,
+          "incomeMonths": 38,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "very_stable",
+          "confidence": 0.9,
+          "reasons": [
+            "月薪涨至4.2万，持续38个月",
+            "每月固定支出1.15万（父母医疗）",
+            "公司获得C轮融资，收入稳定性高"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 38,
+          "afterTaxIncomeWan": 159.6,
+          "livingExpenseWan": 43.7,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 115.9,
+          "incomeStability": "very_stable",
+          "reasons": [
+            "月薪涨至4.2万，持续38个月",
+            "每月固定支出1.15万（父母医疗）",
+            "公司获得C轮融资，收入稳定性高"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "推动情感识别模块独立成子公司，以CEO身份运营，接受更高风险但追求更大自主权",
+            "impactSummary": "创业自主权",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "创业自主权"
+            },
+            "decisionIntent": "career:spin_off_emotion_module_as_ceo",
+            "eventOutcomeId": "create_one_new_shared_practice",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "留在公司，将情感识别模块升级为战略业务单元，同时开始培养接班人，为未来可能的转型做准备",
+            "impactSummary": "深耕与传承",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "深耕与传承"
+            },
+            "decisionIntent": "career:deepen_sbu_and_mentor",
+            "eventOutcomeId": "strengthen_shared_routine",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "维持现状，继续负责情感识别模块的产品迭代，同时每周减少5小时工作，将时间用于写作或行业分享，建立个人品牌",
+            "impactSummary": "平衡与输出",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "平衡与输出"
+            },
+            "decisionIntent": "career:maintain_and_side_content",
+            "eventOutcomeId": "protect_individual_space",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "relationship_daily_companionship",
+          "eventCategory": "relationship",
+          "eventTags": [
+            "relationship",
+            "companionship",
+            "routine",
+            "connection"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "stability_meaning",
+          "eventSemanticFamily": "relationship_companionship",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 38,
+          "elapsedYears": 3.1666666666666665,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_fa332d61",
+            "pressureArcId": "pressure_4c4d5c4e",
+            "startAgeInMonths": 438,
+            "endAgeInMonths": 476,
+            "internalTransitions": [
+              "前三个月组建团队、调整方向",
+              "第6个月MVP上线并获试点客户",
+              "第12个月正式发布并获口碑",
+              "第18个月公司C轮融资，模块纳入核心产品线",
+              "第30个月MRR突破15万"
+            ],
+            "decisionCheckpointId": "checkpoint_59a51efb",
+            "summary": "你选择了留在B轮公司，深化产品总监角色，并组建独立的产品创新小组。前三个月，你从现有团队中挑选了两名工程师和一名设计师，正式成立了情感识别模块孵化小组。你与CE"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            {
+              "name": "CEO",
+              "role": "支持者",
+              "relationship": "上下级，关系良好"
+            },
+            {
+              "name": "创新小组成员",
+              "role": "核心团队",
+              "relationship": "合作紧密"
+            },
+            {
+              "name": "父母",
+              "role": "家庭支持对象",
+              "relationship": "稳定照护"
+            }
+          ],
+          "primaryActivity": "孵化情感识别模块并推动其成为核心产品线",
+          "worldDeltas": [
+            "情感识别模块成功孵化，MRR突破15万",
+            "公司获得C轮融资，估值翻倍",
+            "月薪涨至4.2万，年收入约60万",
+            "健康显著改善，血压正常"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                57.16666666666666,
+                84.16666666666669
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 476,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 438,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6",
+            "5d106dcd",
+            "cf674bb7",
+            "86297fe8",
+            "39be597d"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "pressureArcId": "pressure_4c4d5c4e",
+          "phaseId": "operation",
+          "transitionAction": "resolve"
+        }
+      },
+      {
+        "age": 41,
+        "ageInMonths": 503,
+        "lifeStage": "midlife",
+        "title": "写作带来的新连接：在深度与广度之间校准节奏",
+        "stage": "现实转折",
+        "description": "你开始每周减少5小时工作，将省下的时间用于写作和行业分享。最初两个月，你在知乎和公众号上发布关于情感识别落地实践的文章，反响平平。第三个月，一篇题为《从内部工具到独立产品线：一个AI产品经理的四年复盘》的文章被多个科技媒体转载，引流来大量读者。你开始收到一些付费咨询邀请和线上分享邀约。第5个月，一家AI培训平台联系你，希望合作开发一门面向产品经理的AI落地课程，你同意了，利用周末录制了8节课，获得一次性课酬6万元。与此同时，公司内部情感识别模块的MRR稳定在18万，年化ARR突破216万。CEO在一次战略会上提出，希望将这个模块独立成子公司，由你担任总经理，但需要你投入更多时间。你感到矛盾：写作和分享为你带来了新的专业满足感和外部连接，但也挤占了原本留给健康的时间。第10个月，你坚持的每周三次晨跑因频繁出差而中断，血压再次轻微升高。你开始意识到，外部机会的增多反而可能破坏你辛苦建立的生活节奏。第27个月，你站在41岁11个月的节点上，情感识别模块的MRR已达25万，公司已启动子公司筹备。写作带来的个人品牌让你收到了一家头部科技媒体年度专栏作者的邀请，但你也需要在新机会与已有节奏之间做出选择。",
+        "selectedChoice": "拒绝总经理职务，专注写作和行业分享，将情感识别模块经验转化为付费课程和咨询，维持现有健康节奏",
+        "selectedDecisionIntent": "career:content_monetization_independent",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 100,
+          "wealth": 79,
+          "relation": 62,
+          "health": 48
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 503,
+          "cashWan": 418.5,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 418.5,
+          "annualAfterTaxIncomeWan": 50.4,
+          "annualDisposableIncomeWan": 36.6,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "very_stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 4.2,
+          "incomeMonths": 27,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "very_stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 27,
+          "afterTaxIncomeWan": 113.4,
+          "livingExpenseWan": 31.1,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 82.3,
+          "incomeStability": "very_stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受子公司总经理角色，将写作转化为公司品牌内容渠道，用管理杠杆换取个人时间",
+            "impactSummary": "管理扩张",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "管理扩张"
+            },
+            "decisionIntent": "career:spin_off_subsidiary_gm",
+            "eventOutcomeId": "run_small_alliance_pilot",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "拒绝总经理职务，专注写作和行业分享，将情感识别模块经验转化为付费课程和咨询，维持现有健康节奏",
+            "impactSummary": "内容深耕",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "内容深耕"
+            },
+            "decisionIntent": "career:content_monetization_independent",
+            "eventOutcomeId": "decline_for_current_stability",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "接受总经理角色但争取弹性工作制，同时将写作外包给编辑助手，用部分收入换取健康管理时间",
+            "impactSummary": "弹性平衡",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "弹性平衡"
+            },
+            "decisionIntent": "career:subsidiary_gm_remote_hybrid",
+            "eventOutcomeId": "join_with_explicit_exit_conditions",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "opportunity_unstable_alliance",
+          "eventCategory": "opportunity",
+          "eventTags": [
+            "opportunity",
+            "alliance",
+            "uncertainty",
+            "resource_gap"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "crossroads_opportunity",
+          "eventSemanticFamily": "career_alliance_opportunity",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 27,
+          "elapsedYears": 2.25,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_dfd5b7d6",
+            "startAgeInMonths": 476,
+            "endAgeInMonths": 503,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_7370ba25",
+            "summary": "你开始每周减少5小时工作，将省下的时间用于写作和行业分享。最初两个月，你在知乎和公众号上发布关于情感识别落地实践的文章，反响平平。第三个月，一篇题为《从内部工具"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "CEO",
+            "编辑助手候选人"
+          ],
+          "primaryActivity": "产品总监兼内容创作者",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                59.41666666666666,
+                86.41666666666669
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 503,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 438,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6",
+            "5d106dcd",
+            "cf674bb7",
+            "86297fe8",
+            "39be597d",
+            "d6741147"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 44,
+        "ageInMonths": 539,
+        "lifeStage": "midlife",
+        "title": "写作与咨询的收获期：在个人品牌与作品之间找到新平衡",
+        "stage": "现实转折",
+        "description": "你拒绝了总经理职务，决定将情感识别模块的经验转化为付费课程和咨询业务，同时维持健康节奏。前六个月，你利用每周减少的工时，系统整理了情感识别模块从0到1的全过程，包括用户调研、产品设计、技术选型、市场推广等关键决策。你与之前的AI培训平台合作，将课程升级为系列，定价1999元，第一年卖出400份，带来80万元收入。同时，你开始承接企业内训和产品顾问咨询，单次收费1-2万元，第一年接单15次，总收入约22万元。写作方面，你的专栏文章在科技媒体上持续发表，读者稳步增长，公众号粉丝突破5万。第12个月，一家出版社联系你，希望将你的文章结集出版，你同意了，并利用业余时间整理书稿。第18个月，书稿完成，预计版税收入约10万元。公司内部，情感识别模块的MRR稳定在28万，年化ARR突破336万，子公司筹备由另一位总监接手，你保留了部分期权。健康方面，你坚持每周三次晨跑和定期体检，血压恢复正常，头痛几乎消失。第24个月，你的第一本书《AI产品落地实战》出版，在业内获得不错反响，你受邀在多个行业大会演讲，个人品牌进一步提升。第30个月，课程和咨询业务年收入稳定在100万元以上，你开始考虑是否要全职投入知识付费领域。但你也意识到，脱离一线产品实践后，课程内容可能逐渐失去时效性。第36个月，你站在44岁11个月的节点上，回顾这三年：你成功将多年实战经验转化为个人品牌和被动收入，但内心也隐约感到，自己更怀念亲手做产品、看到用户反馈的即时满足感。写作和咨询带来了自由和健康，却也让你与产品一线渐行渐远。你需要在继续深化知识付费模式、回归产品实践、或者将两者结合之间做出新的选择。",
+        "selectedChoice": "全职投入知识付费，成立个人工作室，将课程体系化并与企业培训合作，同时保持每月一次产品顾问咨询以维持一线触感",
+        "selectedDecisionIntent": "career:fulltime_knowledge_entrepreneurship",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 100,
+          "wealth": 80,
+          "relation": 68,
+          "health": 54
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 539,
+          "cashWan": 528.3,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 528.3,
+          "annualAfterTaxIncomeWan": 50.4,
+          "annualDisposableIncomeWan": 36.6,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "very_stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 4.2,
+          "incomeMonths": 36,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "very_stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 36,
+          "afterTaxIncomeWan": 151.2,
+          "livingExpenseWan": 41.4,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 109.8,
+          "incomeStability": "very_stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "全职投入知识付费，成立个人工作室，将课程体系化并与企业培训合作，同时保持每月一次产品顾问咨询以维持一线触感",
+            "impactSummary": "扩大知识变现",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "扩大知识变现"
+            },
+            "decisionIntent": "career:fulltime_knowledge_entrepreneurship",
+            "eventOutcomeId": "extend_project_into_next_stage",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "回归产品实践，与之前的技术合伙人联系，以产品合伙人身份加入其已获A轮融资的AI创业公司，用两年时间打造一款新AI产品",
+            "impactSummary": "重回一线创业",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "重回一线创业"
+            },
+            "decisionIntent": "career:return_to_product_leadership",
+            "eventOutcomeId": "extend_project_into_next_stage",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "保留当前写作和咨询业务，同时每周花一天时间回原公司担任产品顾问，参与情感识别模块的迭代，保持理论与实践的双向滋养",
+            "impactSummary": "平衡多元角色",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "平衡多元角色"
+            },
+            "decisionIntent": "career:hybrid_consultant_writer",
+            "eventOutcomeId": "share_or_publish_completed_work",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_long_project_completion",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "project_completion",
+            "reflection",
+            "closure"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "recovery_growth",
+          "eventSemanticFamily": "career_completion",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 36,
+          "elapsedYears": 3,
+          "lifeIntensity": "stable",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d83013b9",
+            "startAgeInMonths": 503,
+            "endAgeInMonths": 539,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_4ae3c367",
+            "summary": "你拒绝了总经理职务，决定将情感识别模块的经验转化为付费课程和咨询业务，同时维持健康节奏。前六个月，你利用每周减少的工时，系统整理了情感识别模块从0到1的全过程，"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": "写作、课程开发、顾问咨询",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                62.41666666666666,
+                89.41666666666669
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 539,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 438,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6",
+            "5d106dcd",
+            "cf674bb7",
+            "86297fe8",
+            "39be597d",
+            "d6741147",
+            "8ec34a60"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 46,
+        "ageInMonths": 561,
+        "lifeStage": "midlife",
+        "title": "工作室满负荷运转：收入增长与精力分散的权衡",
+        "stage": "知识付费工作室的扩展与拐点",
+        "description": "你成立个人工作室后，将课程体系化并与企业培训合作。前6个月，你集中精力将《AI产品落地实战》升级为包含5门子课程的系列，定价3999元，通过与AI培训平台分成推广，第一年售出600份，收入约180万元（平台分走30%后净得126万）。同时，你承接了8次企业内训，单次3-5万元，总收入约32万元。每月一次的产品顾问咨询让你与一线保持连接，但客户分散在不同行业，每次切换成本很高。第10个月，你发现课程复购率下降，学员反馈缺少实操项目。于是你开发了线上工作坊，每月一期，定价999元，每期约50人参加，年收入增加约60万元。工作室年收入突破200万元，你雇佣了一名课程运营和一名兼职编辑。然而，运营压力和内容迭代让你每周工作时间重新超过50小时，晨跑从每周三次减少到一次，血压再次轻微升高。第18个月，你收到一家头部AI公司的顾问邀请，希望你每周投入两天参与其产品战略，年顾问费80万元。你陷入两难：接受则收入大幅提升，但会挤压工作室内容创作时间；拒绝则保持当前节奏，但可能错过一次重要的行业影响力建设机会。",
+        "selectedChoice": "A. 收入跃升，健康承压",
+        "selectedDecisionIntent": "career:accept_corp_advisor_role",
+        "attributes": {
+          "happiness": 58,
+          "intelligence": 100,
+          "wealth": 81,
+          "relation": 66,
+          "health": 52
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 561,
+          "cashWan": 595.4,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 595.4,
+          "annualAfterTaxIncomeWan": 50.4,
+          "annualDisposableIncomeWan": 36.6,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "very_stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 4.2,
+          "incomeMonths": 22,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "very_stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 22,
+          "afterTaxIncomeWan": 92.4,
+          "livingExpenseWan": 25.3,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 67.1,
+          "incomeStability": "very_stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "A. 收入跃升，健康承压",
+            "impactSummary": "收入跃升，健康承压",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "收入跃升，健康承压"
+            },
+            "decisionIntent": "career:accept_corp_advisor_role",
+            "eventOutcomeId": "commit_to_high_risk_leap",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "B. 巩固根基，提升健康",
+            "impactSummary": "巩固根基，提升健康",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "巩固根基，提升健康"
+            },
+            "decisionIntent": "career:optimize_studio_operations",
+            "eventOutcomeId": "stay_lean_and_preserve_optionality",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "C. 平衡尝试，适度增长",
+            "impactSummary": "平衡尝试，适度增长",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "平衡尝试，适度增长"
+            },
+            "decisionIntent": "career:pilot_advisor_with_outsource",
+            "eventOutcomeId": "run_limited_venture_pilot",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_venture_pressure",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "opportunity",
+            "instability",
+            "ambition"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "crossroads_opportunity",
+          "eventSemanticFamily": "career_transition",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 22,
+          "elapsedYears": 1.8333333333333333,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_defd3010",
+            "startAgeInMonths": 539,
+            "endAgeInMonths": 561,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_513e285c",
+            "summary": "你成立个人工作室后，将课程体系化并与企业培训合作。前6个月，你集中精力将《AI产品落地实战》升级为包含5门子课程的系列，定价3999元，通过与AI培训平台分成推"
+          },
+          "recoveryState": "protected",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "课程运营（员工）",
+            "兼职编辑",
+            "AI公司高管"
+          ],
+          "primaryActivity": "运营知识付费工作室，开发课程与企业培训",
+          "worldDeltas": [
+            "工作室扩展，雇佣员工",
+            "收到头部AI公司顾问邀请",
+            "健康出现轻微下滑"
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                64.24999999999999,
+                91.25000000000001
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 561,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 438,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6",
+            "5d106dcd",
+            "cf674bb7",
+            "86297fe8",
+            "39be597d",
+            "d6741147",
+            "8ec34a60",
+            "4268310a"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 48,
+        "ageInMonths": 582,
+        "lifeStage": "midlife",
+        "title": "顾问角色与工作室并行的平衡期",
+        "stage": "顾问角色与工作室并行的平衡期",
+        "description": "你接受了头部AI公司的顾问邀请，每周投入两天参与其产品战略，年顾问费80万元。前三个月，你一边适应新公司的流程和团队，一边调整工作室的运营节奏。你将课程日常运营交给雇佣的课程运营，自己专注于内容迭代和关键客户沟通。顾问工作让你接触到更前沿的AI应用场景和更大规模的产品挑战，激发了新的创作灵感。第6个月，你利用顾问工作中积累的案例，更新了课程中的实战模块，学员反馈提升，复购率回升至15%。同时，你坚持每月一次的产品顾问咨询，以维持一线触感。第12个月，工作室年收入稳定在180万元左右（包含课程、工作坊和少量内训），顾问费80万元，总收入约260万元。但健康开始亮起红灯：每周顾问工作两天加上工作室事务，实际工作时间仍超过45小时/周，晨跑难以坚持，体重增加5公斤，血压从120/80升至135/88。父母医疗支出稳定在每月0.3万元，由于你收入增加，可以请更好的护工，但陪伴时间减少。第18个月，你意识到工作室的课程运营已相对成熟，但个人品牌需要更多原创内容支撑，而顾问角色提供了丰富的素材。你开始尝试将顾问工作中的洞察写成系列文章，发表在专栏上，读者反响热烈。第21个月，你站在48岁6个月的节点上，面临新的抉择：是继续维持顾问+工作室的双轨模式，还是将工作室转型为更轻量的内容品牌，或者接受顾问公司提供的更深入的合作邀请。",
+        "selectedChoice": "查看这段人生的报告",
+        "selectedDecisionIntent": "查看这段人生的报告",
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 100,
+          "wealth": 81,
+          "relation": 64,
+          "health": 48
+        },
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 582,
+          "cashWan": 659.4,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 659.4,
+          "annualAfterTaxIncomeWan": 50.4,
+          "annualDisposableIncomeWan": 36.6,
+          "annualCoreExpenseWan": 13.8,
+          "employmentStatus": "employed",
+          "incomeStability": "very_stable",
+          "isEstimated": true
+        },
+        "financialSignals": {
+          "employmentStatus": "employed",
+          "monthlyNetIncomeWan": 4.2,
+          "incomeMonths": 21,
+          "monthlyLivingExpenseWan": 1.15,
+          "oneOffIncomeWan": 0,
+          "oneOffExpenseWan": 0,
+          "assetValueChangeWan": 0,
+          "propertyMarketValueChangeWan": 0,
+          "personalDebtChangeWan": 0,
+          "incomeStability": "very_stable",
+          "confidence": 0.35,
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "financialChange": {
+          "periodMonths": 21,
+          "afterTaxIncomeWan": 88.2,
+          "livingExpenseWan": 24.2,
+          "medicalEducationExpenseWan": 0,
+          "interestAndFeesWan": 0,
+          "assetValueChangeWan": 0,
+          "otherNetChangeWan": 0,
+          "netWorthChangeWan": 64,
+          "incomeStability": "very_stable",
+          "reasons": [
+            "正文未给出新薪资，沿用上一阶段收入和生活水平"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "维持双轨模式，调整节奏以改善健康：每周顾问工作压缩至1.5天，工作室减少一门低利润课程，将省下的时间用于恢复每周三次晨跑和健康饮食，保持收入稳定但降低身心负荷。",
+            "impactSummary": "收入略降，健康回升",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "收入略降，健康回升"
+            },
+            "decisionIntent": "career:maintain_dual_track_with_health_focus",
+            "eventOutcomeId": "allocate_for_quality_of_life",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "将工作室转型为轻量内容品牌：关闭低利润课程，专注高质量专栏和出版，与顾问公司合作推出联合研究报告，扩大行业影响力，同时减少日常运营负担。",
+            "impactSummary": "品牌升级，运营精简",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "品牌升级，运营精简"
+            },
+            "decisionIntent": "career:transform_studio_into_brand",
+            "eventOutcomeId": "maintain_financial_order",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "接受顾问公司的深入合作邀请：成为其产品战略顾问委员会成员，每周投入三天，年顾问费提升至150万元，工作室逐步交由团队管理，你只负责季度内容审核和年度大课。",
+            "impactSummary": "收入跃升，角色转变",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "收入跃升，角色转变"
+            },
+            "decisionIntent": "career:deepen_advisor_role",
+            "eventOutcomeId": "support_one_long_term_commitment",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "financial_long_term_order",
+          "eventCategory": "financial",
+          "eventTags": [
+            "financial",
+            "order",
+            "stability",
+            "meaning"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "stability_meaning",
+          "eventSemanticFamily": "financial_long_term_order",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 21,
+          "elapsedYears": 1.75,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_1c2adef5",
+            "startAgeInMonths": 561,
+            "endAgeInMonths": 582,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_a01dd0be",
+            "summary": "你接受了头部AI公司的顾问邀请，每周投入两天参与其产品战略，年顾问费80万元。前三个月，你一边适应新公司的流程和团队，一边调整工作室的运营节奏。你将课程日常运营"
+          },
+          "recoveryState": "depleted",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [
+            "课程运营",
+            "兼职编辑",
+            "头部AI公司团队",
+            "父母"
+          ],
+          "primaryActivity": "顾问工作与工作室运营并行",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                65.99999999999999,
+                93.00000000000001
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 582,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [
+            {
+              "id": "pressure_4c4d5c4e",
+              "eventId": "career_structural_instability",
+              "eventIntentType": "career_structural_instability",
+              "phasePolicyId": "generic_pressure_v1",
+              "phaseId": "operation",
+              "status": "resolved",
+              "startedAtAgeInMonths": 369,
+              "phaseStartedAtAgeInMonths": 438,
+              "phaseCheckpointCount": 1,
+              "totalCheckpointCount": 6,
+              "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+            }
+          ],
+          "committedTransactionIds": [
+            "919fc1a6",
+            "285c61d8",
+            "6d8f3cfe",
+            "0df129a6",
+            "b9f5e431",
+            "1ff06763",
+            "030102e6",
+            "5d106dcd",
+            "cf674bb7",
+            "86297fe8",
+            "39be597d",
+            "d6741147",
+            "8ec34a60",
+            "4268310a",
+            "93048cac"
+          ],
+          "version": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        },
+        "reportInvitation": {
+          "id": "492a7cd7",
+          "status": "accepted",
+          "reason": "stable_window",
+          "triggerKey": "arc:pressure_4c4d5c4e",
+          "completedChoiceCount": 15,
+          "pressureArcId": "pressure_4c4d5c4e",
+          "acceptedAtChoiceCount": 15
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 48,
+      "ageInMonths": 582,
+      "stage": "顾问角色与工作室并行的平衡期",
+      "title": "顾问角色与工作室并行的平衡期",
+      "description": "你接受了头部AI公司的顾问邀请，每周投入两天参与其产品战略，年顾问费80万元。前三个月，你一边适应新公司的流程和团队，一边调整工作室的运营节奏。你将课程日常运营交给雇佣的课程运营，自己专注于内容迭代和关键客户沟通。顾问工作让你接触到更前沿的AI应用场景和更大规模的产品挑战，激发了新的创作灵感。第6个月，你利用顾问工作中积累的案例，更新了课程中的实战模块，学员反馈提升，复购率回升至15%。同时，你坚持每月一次的产品顾问咨询，以维持一线触感。第12个月，工作室年收入稳定在180万元左右（包含课程、工作坊和少量内训），顾问费80万元，总收入约260万元。但健康开始亮起红灯：每周顾问工作两天加上工作室事务，实际工作时间仍超过45小时/周，晨跑难以坚持，体重增加5公斤，血压从120/80升至135/88。父母医疗支出稳定在每月0.3万元，由于你收入增加，可以请更好的护工，但陪伴时间减少。第18个月，你意识到工作室的课程运营已相对成熟，但个人品牌需要更多原创内容支撑，而顾问角色提供了丰富的素材。你开始尝试将顾问工作中的洞察写成系列文章，发表在专栏上，读者反响热烈。第21个月，你站在48岁6个月的节点上，面临新的抉择：是继续维持顾问+工作室的双轨模式，还是将工作室转型为更轻量的内容品牌，或者接受顾问公司提供的更深入的合作邀请。",
+      "choices": [
+        {
+          "id": "A",
+          "text": "维持双轨模式，调整节奏以改善健康：每周顾问工作压缩至1.5天，工作室减少一门低利润课程，将省下的时间用于恢复每周三次晨跑和健康饮食，保持收入稳定但降低身心负荷。",
+          "impactSummary": "收入略降，健康回升",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "收入略降，健康回升"
+          },
+          "decisionIntent": "career:maintain_dual_track_with_health_focus",
+          "eventOutcomeId": "allocate_for_quality_of_life",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "将工作室转型为轻量内容品牌：关闭低利润课程，专注高质量专栏和出版，与顾问公司合作推出联合研究报告，扩大行业影响力，同时减少日常运营负担。",
+          "impactSummary": "品牌升级，运营精简",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "品牌升级，运营精简"
+          },
+          "decisionIntent": "career:transform_studio_into_brand",
+          "eventOutcomeId": "maintain_financial_order",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "接受顾问公司的深入合作邀请：成为其产品战略顾问委员会成员，每周投入三天，年顾问费提升至150万元，工作室逐步交由团队管理，你只负责季度内容审核和年度大课。",
+          "impactSummary": "收入跃升，角色转变",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "收入跃升，角色转变"
+          },
+          "decisionIntent": "career:deepen_advisor_role",
+          "eventOutcomeId": "support_one_long_term_commitment",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "attributes": {
+        "happiness": 55,
+        "intelligence": 100,
+        "wealth": 81,
+        "relation": 64,
+        "health": 48
+      },
+      "isEndingNode": false,
+      "narrativeMeta": {
+        "elapsedMonths": 21,
+        "elapsedYears": 1.75,
+        "lifeIntensity": "normal",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_1c2adef5",
+          "startAgeInMonths": 561,
+          "endAgeInMonths": 582,
+          "internalTransitions": [],
+          "decisionCheckpointId": "checkpoint_a01dd0be",
+          "summary": "你接受了头部AI公司的顾问邀请，每周投入两天参与其产品战略，年顾问费80万元。前三个月，你一边适应新公司的流程和团队，一边调整工作室的运营节奏。你将课程日常运营"
+        },
+        "recoveryState": "depleted",
+        "recoveryEvidence": [],
+        "arcSignals": [],
+        "activeCharacters": [
+          "课程运营",
+          "兼职编辑",
+          "头部AI公司团队",
+          "父母"
+        ],
+        "primaryActivity": "顾问工作与工作室运营并行",
+        "worldDeltas": []
+      },
+      "financialSignals": {
+        "employmentStatus": "employed",
+        "monthlyNetIncomeWan": 4.2,
+        "incomeMonths": 21,
+        "monthlyLivingExpenseWan": 1.15,
+        "oneOffIncomeWan": 0,
+        "oneOffExpenseWan": 0,
+        "assetValueChangeWan": 0,
+        "propertyMarketValueChangeWan": 0,
+        "personalDebtChangeWan": 0,
+        "incomeStability": "very_stable",
+        "confidence": 0.35,
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "lifeStage": "midlife",
+      "eventMeta": {
+        "eventId": "financial_long_term_order",
+        "eventCategory": "financial",
+        "eventTags": [
+          "financial",
+          "order",
+          "stability",
+          "meaning"
+        ],
+        "eventIntensity": "minor",
+        "eventMode": "stability_meaning",
+        "eventSemanticFamily": "financial_long_term_order",
+        "phasePolicyId": "generic_pressure_v1"
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 582,
+        "cashWan": 659.4,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 659.4,
+        "annualAfterTaxIncomeWan": 50.4,
+        "annualDisposableIncomeWan": 36.6,
+        "annualCoreExpenseWan": 13.8,
+        "employmentStatus": "employed",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "financialChange": {
+        "periodMonths": 21,
+        "afterTaxIncomeWan": 88.2,
+        "livingExpenseWan": 24.2,
+        "medicalEducationExpenseWan": 0,
+        "interestAndFeesWan": 0,
+        "assetValueChangeWan": 0,
+        "otherNetChangeWan": 0,
+        "netWorthChangeWan": 64,
+        "incomeStability": "very_stable",
+        "reasons": [
+          "正文未给出新薪资，沿用上一阶段收入和生活水平"
+        ]
+      },
+      "committedArcMeta": {
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "family_parent",
+            "relation": "parent",
+            "estimatedAgeRange": [
+              65.99999999999999,
+              93.00000000000001
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 582,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "父母",
+            "source": "model_inferred",
+            "confidence": 0.55
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_efb88fbf",
+            "directionType": "career",
+            "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+            "status": "active",
+            "startedAtAgeInMonths": 288,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [
+          {
+            "id": "pressure_4c4d5c4e",
+            "eventId": "career_structural_instability",
+            "eventIntentType": "career_structural_instability",
+            "phasePolicyId": "generic_pressure_v1",
+            "phaseId": "operation",
+            "status": "resolved",
+            "startedAtAgeInMonths": 369,
+            "phaseStartedAtAgeInMonths": 438,
+            "phaseCheckpointCount": 1,
+            "totalCheckpointCount": 6,
+            "unresolvedSummary": "外部结构变化让原本的收入或职业路径变得不稳定。"
+          }
+        ],
+        "committedTransactionIds": [
+          "919fc1a6",
+          "285c61d8",
+          "6d8f3cfe",
+          "0df129a6",
+          "b9f5e431",
+          "1ff06763",
+          "030102e6",
+          "5d106dcd",
+          "cf674bb7",
+          "86297fe8",
+          "39be597d",
+          "d6741147",
+          "8ec34a60",
+          "4268310a",
+          "93048cac"
+        ],
+        "version": 1
+      },
+      "reportInvitation": {
+        "id": "492a7cd7",
+        "status": "accepted",
+        "reason": "stable_window",
+        "triggerKey": "arc:pressure_4c4d5c4e",
+        "completedChoiceCount": 15,
+        "pressureArcId": "pressure_4c4d5c4e",
+        "acceptedAtChoiceCount": 15
+      }
+    },
+    "currentAttributes": {
+      "happiness": 55,
+      "intelligence": 100,
+      "wealth": 81,
+      "relation": 64,
+      "health": 48
+    },
+    "nodeCount": 16,
+    "simulationSeed": "3af599c3-2974-466a-a53f-6fe2f930dbb5",
+    "outcome": {
+      "share": {
+        "viralTitle": "我的AI产品经：从怕穷错失风口，到用10年孵化一条产品线",
+        "covenantTitle": "AI产品孵化师",
+        "oneLineSummary": "你从26岁因恐惧收入下降而放弃创业，却在之后的人生中不断用行动弥补那个决定，最终在专业…",
+        "timeline": [
+          {
+            "ageLabel": "24岁",
+            "icon": "🎓",
+            "title": "岔路口的冒险",
+            "choiceSummary": "辞去上市PM，加入AI创业公司",
+            "keyMomentIndexes": [
+              0
+            ]
+          },
+          {
+            "ageLabel": "29岁",
+            "icon": "💼",
+            "title": "回归大厂，内部创新",
+            "choiceSummary": "沉淀后转岗AI实验室",
+            "keyMomentIndexes": [
+              4
+            ]
+          },
+          {
+            "ageLabel": "34岁",
+            "icon": "🚀",
+            "title": "跳槽B轮AI公司",
+            "choiceSummary": "用实验室经历换取新平台",
+            "keyMomentIndexes": [
+              9
+            ]
+          },
+          {
+            "ageLabel": "39岁",
+            "icon": "🌈",
+            "title": "孵化情感识别模块",
+            "choiceSummary": "组建创新小组，年入60万",
+            "keyMomentIndexes": [
+              11
+            ]
+          },
+          {
+            "ageLabel": "44岁",
+            "icon": "📖",
+            "title": "从产品到知识付费",
+            "choiceSummary": "出版书籍，工作室年入百万",
+            "keyMomentIndexes": [
+              13
+            ]
+          }
+        ],
+        "closingLine": "人生不是由成功组成，而是由一次次选择组成。",
+        "posterTheme": "warm_realistic",
+        "downloadFileName": "这段人生的报告.png",
+        "imageAlt": "我的AI产品经：从怕穷错失风口，到用10年孵化一条产品线 阶段人生报告海报"
+      },
+      "report": {
+        "executiveSummary": {
+          "headline": "你的人生是一部关于选择的复利机器：每一次看似保守或冒险的决定，都在为十年后的你积累独特的筹码。",
+          "patterns": [
+            {
+              "name": "风险对冲型决策",
+              "shortDescription": "你总是在面临不确定性时，先确保财务安全，再局部尝试高风险选项。",
+              "keyMomentIndexes": [
+                0,
+                2,
+                6
+              ]
+            },
+            {
+              "name": "从实践到知识的内化循环",
+              "shortDescription": "每进入一个新领域，你都会将其系统化整理，最终转化为课程、书籍或个人品牌。",
+              "keyMomentIndexes": [
+                11,
+                13,
+                14
+              ]
+            },
+            {
+              "name": "健康与职业的跷跷板",
+              "shortDescription": "你不断在专业成就与身体健康之间调整平衡，每次倾斜后都会主动回调。",
+              "keyMomentIndexes": [
+                8,
+                10,
+                12,
+                14
+              ]
+            }
+          ],
+          "closingLine": "这些模式让你获得了今天的优势，也带来了今天的代价。"
+        },
+        "repeatedPatterns": [
+          {
+            "name": "风险对冲型决策",
+            "title": "先筑安全垫，再走独木桥",
+            "paragraphs": [
+              "26岁那年，你因为害怕收入下降而放弃AI创业机会，但随后你用了十年来弥补那个决定。你从24岁开始就表现出这种模式：当面临重大选择时，你总是先计算最坏情况——存款够撑多久、固定支出多少——然后才会迈出一步。在创业公司的第六个月，当创始人要求你承担更多责任但无加薪时，你没有直接拒绝，而是要求明确加薪时间表和期权条款。后来在实验室与副业的冲突中，你选择跟VP谈判降低目标，保住了内部路径。这种模式让你避免了一次性崩溃，但也让你永远在两条路之间摇摆，无法全力冲刺。",
+              "直到44岁，你终于将这种模式转化为优势：你同时运营工作室和顾问角色，用后者为前者提供稳定现金流。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              2,
+              6
+            ],
+            "closingLine": "你的人生不是赌徒，而是精算师——但精算师也常常错过全垒打。"
+          },
+          {
+            "name": "从实践到知识的内化循环",
+            "title": "一边做，一边写，一边教",
+            "paragraphs": [
+              "你在创业公司学到从零搭建产品，后来在实验室将其提炼为方法论。当你从B轮公司跳槽时，你用实验室经历作为谈判筹码。32岁，你开始面试时，已经能把内部工具经验包装成商业闭环叙事。39岁，你孵化情感识别模块后，立刻开始写作和分享，将实战经验转化为课程和书籍。这种模式让你在每个阶段都留下可复用的资产——不只是产品，还有知识体系。但代价是，你总是向前看，很少沉浸在当下的成就感中。",
+              "44岁后，你甚至将这种模式变成了主业：工作室年入百万，但你也意识到，脱离一线后，内容会逐渐失去时效性。"
+            ],
+            "keyMomentIndexes": [
+              4,
+              9,
+              11,
+              13
+            ],
+            "closingLine": "你的人生像一台知识榨汁机，每段经历都被榨成可传播的养分。"
+          },
+          {
+            "name": "健康与职业的跷跷板",
+            "title": "用身体换进度，再用智慧换回身体",
+            "paragraphs": [
+              "25岁在创业公司加班导致失眠，31岁因双重压力出现头痛和血压偏高，34岁跳槽后每周60小时工作让健康再次亮红灯。但你每次都会主动调整：36岁开始坚持晨跑和冥想，39岁减少工作时间，44岁拒绝总经理职务以维持健康节奏。这种模式让你在职业上升期总伴随着健康下滑，但你也总能在到达临界点前踩刹车。",
+              "48岁时，你虽然收入丰厚，但血压仍偏高，健康成为你所有决策中的隐形天花板。"
+            ],
+            "keyMomentIndexes": [
+              8,
+              10,
+              12,
+              14
+            ],
+            "closingLine": "你学会了在崩溃前调整，但从未真正解决透支的根源。"
+          }
+        ],
+        "patternEffects": [
+          {
+            "patternName": "风险对冲型决策",
+            "compoundReturn": "你从没输光过，每次选择都留下了东山再起的资本。存款从18万增长到659万，职业路径虽曲折但从未断档。",
+            "hiddenCost": "你错过了几次可能翻倍的机会：26岁放弃创业公司、36岁拒绝合伙人邀请、44岁拒绝总经理职务。每一步都安全，但也每一步都少了一份爆发力。",
+            "paragraphs": [
+              "这种模式让你在24岁到48岁之间，从未经历失业或财务危机。但你也因此从未体验过all-in的快感。你的财富增长曲线是平滑的，没有陡峭的峰值。"
+            ],
+            "keyMomentIndexes": [
+              0,
+              2,
+              6
+            ],
+            "closingLine": "你避免了断崖，却也错过了瀑布。"
+          },
+          {
+            "patternName": "从实践到知识的内化循环",
+            "compoundReturn": "你将每一段经历都变成了可复用的资产：课程、书籍、个人品牌。年收入从2万月薪到200万工作室收入，知识变现放大了你的职业产出。",
+            "hiddenCost": "你总是急于将经验知识化，可能错过了深入体验的乐趣。在创业公司时，你更多关注方法论而非产品本身；在实验室，你更关注可写性而非用户痛点。",
+            "paragraphs": [
+              "这种模式让你在44岁后成为行业意见领袖，但也让你与产品一线渐行渐远。你怀念亲手做产品的即时反馈，但知识付费的惯性让你难以回头。"
+            ],
+            "keyMomentIndexes": [
+              13,
+              14
+            ],
+            "closingLine": "你建造了一座知识堡垒，却很少在堡垒外散步。"
+          }
+        ],
+        "futureTrends": [
+          {
+            "title": "个人品牌变现的黄金期",
+            "trend": "未来十年，你的知识付费业务将持续增长，年收入有望达到500万以上。你可能会出版第二本书，开发线上课程平台，甚至成为AI产品领域的顶级顾问。",
+            "reason": "你已经建立了系统化的内容生产和分发能力，且行业对AI落地实践的需求只会增加。这是一个模式延续的自然结果。",
+            "keyMomentIndexes": [
+              13,
+              14
+            ]
+          },
+          {
+            "title": "健康成为硬约束",
+            "trend": "如果你继续当前的工作强度，血压和头痛问题将加重，可能在55岁前出现更严重的健康问题。你需要主动减少工作时长，否则身体会强迫你停下来。",
+            "reason": "过去20年，你每次在健康与职业的冲突中都选择了后者，直到身体发出警告才调整。模式重复下去，健康将不可逆转。",
+            "keyMomentIndexes": [
+              8,
+              10,
+              12,
+              14
+            ]
+          }
+        ],
+        "patternsToKeep": [
+          {
+            "title": "保留风险对冲型决策",
+            "why": "这个模式让你在20年里从未陷入绝境，财务安全垫让你有底气尝试新事物。你的存款从18万到659万，证明了它的有效性。",
+            "paragraphs": [
+              "继续在重大决策前留足缓冲资金，但可以适当提高风险容忍度。比如，将存款中5%用于高风险投资或创业尝试。"
+            ],
+            "keyMomentIndexes": [
+              0
+            ],
+            "closingLine": "安全垫保你活着，但别让它成为天花板。"
+          },
+          {
+            "title": "保留从实践到知识的内化循环",
+            "why": "这是你创造被动收入的核心能力。你已经证明，经验可以转化为课程、书籍和咨询，带来远超工资的收入。",
+            "paragraphs": [
+              "继续将新项目、新洞察系统化输出，但可以放慢节奏，确保内容深度而非数量。"
+            ],
+            "keyMomentIndexes": [
+              13
+            ],
+            "closingLine": "你的知识就是你的矿脉，别挖得太急。"
+          }
+        ],
+        "patternsToAdjust": [
+          {
+            "title": "升级健康与职业的跷跷板",
+            "why": "过去你总是在健康受损后才调整，但从未建立预防机制。随着收入增长，健康的机会成本越来越高。",
+            "paragraphs": [
+              "将健康管理从“反应式”升级为“预防式”：固定每周三次运动，设置工作时间的硬上限，每季度体检并跟踪指标。你可以将顾问角色缩减为每月一次，或雇佣更多助手。"
+            ],
+            "keyMomentIndexes": [
+              8
+            ],
+            "closingLine": "别等到身体替你按下暂停键。"
+          },
+          {
+            "title": "升级知识变现的深度",
+            "why": "你的课程和书籍覆盖广泛，但缺乏长期深度迭代。学员复购率下降说明内容需要更贴近一线实践。",
+            "paragraphs": [
+              "考虑回归产品一线，每周投入一天参与创业公司或内部项目，保持实战敏感度。将课程升级为“实战工作坊+长期辅导”模式，提高客单价和续费率。"
+            ],
+            "keyMomentIndexes": [
+              13
+            ],
+            "closingLine": "最值钱的知识，永远来自最前线。"
+          }
+        ],
+        "finalLifeReading": {
+          "title": "如果我是十年后的你",
+          "paragraphs": [
+            "AI看到的是：一个始终在安全与冒险之间走钢丝的人。你从未真正失控，但也从未全力燃烧。你的人生像一本精心计算过的账本，每一笔支出都有对应收入，但缺少几笔冲动消费。",
+            "你从24岁到48岁，完成了从执行者到知识布道者的转变，但内心深处，你仍渴望亲手打造一个从0到1的产品——就像当年在创业公司那样。",
+            "你的模式让你在48岁拥有659万存款和百万年收入，但健康指标和内心满足感是两份未完成的作业。"
+          ],
+          "finalSentence": "你的人生是一场精密的复利实验，但复利也需要偶尔取出利息来犒赏自己。"
+        }
+      },
+      "meta": {
+        "generatedAt": "2026-07-17T09:08:19.882Z",
+        "modelProvider": "deepseek",
+        "posterVersion": "web-v1",
+        "reportVersion": "life-pattern-v2",
+        "closureType": "user_reflection"
+      }
+    },
+    "isLoading": false,
+    "isLoadingNext": false,
+    "errorMsg": null,
+    "invitations": [
+      {
+        "nodeIndex": 15,
+        "id": "492a7cd7",
+        "status": "accepted",
+        "reason": "stable_window",
+        "triggerKey": "arc:pressure_4c4d5c4e",
+        "completedChoiceCount": 15,
+        "pressureArcId": "pressure_4c4d5c4e",
+        "acceptedAtChoiceCount": 15,
+        "terminalAction": "查看这段人生的报告"
+      }
+    ]
+  },
+  "imagePaths": {
+    "posterPath": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-17-phase2-real-ai-browser-evaluation/images/real-career-first/poster.jpg",
+    "pagePath": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-17-phase2-real-ai-browser-evaluation/images/real-career-first/report-page.jpg"
+  }
+}

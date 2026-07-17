@@ -1,4 +1,5 @@
 import { HistoryItem, SimulationNode } from "../types";
+import { normalizeDecisionIntent } from "./choicePreference";
 
 function cloneValue<T>(value: T): T {
   return value == null ? value : structuredClone(value);
@@ -12,6 +13,9 @@ export interface RestoredHistoryNode {
 }
 
 export function createHistoryItemFromNode(node: SimulationNode, selectedChoice: string): HistoryItem {
+  const selectedOption = node.choices.find((choice) => (
+    choice.text === selectedChoice || selectedChoice.includes(choice.text)
+  ));
   return {
     age: node.age,
     ageInMonths: node.ageInMonths,
@@ -20,6 +24,9 @@ export function createHistoryItemFromNode(node: SimulationNode, selectedChoice: 
     stage: node.stage,
     description: node.description,
     selectedChoice,
+    selectedDecisionIntent: selectedOption
+      ? normalizeDecisionIntent(selectedOption)
+      : normalizeDecisionIntent({ id: "custom", text: selectedChoice, impactSummary: "自定义选择" }),
     attributes: { ...node.attributes },
     financialState: cloneValue(node.financialState),
     financialSignals: cloneValue(node.financialSignals),

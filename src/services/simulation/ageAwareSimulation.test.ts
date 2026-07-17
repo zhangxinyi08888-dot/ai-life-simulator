@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, SimulationChoice, UserInitialData, WorldStateSnapshot } from "../../types";
-import { generateNextNode, startSimulation } from "./simulationService";
+import { startSimulation } from "./simulationService";
+import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 
 const attributes: LifeAttributes = { happiness: 60, intelligence: 75, wealth: 60, relation: 60, health: 70 };
 const userData: UserInitialData = {
@@ -123,7 +124,7 @@ function healthHistory(healthValues: number[]): HistoryItem[] {
 const warningAttributes: LifeAttributes = { happiness: 40, intelligence: 40, wealth: 50, relation: 30, health: 41 };
 let warningPrompt = "";
 const warningRandom = Math.random;
-Math.random = () => 0.5;
+Math.random = () => 0.1;
 try {
   const warningNode = await generateNextNode({
     userData,

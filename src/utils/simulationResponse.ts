@@ -102,6 +102,7 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
         reason: readString(choice?.temporalHint?.reason) || impactSummary
       },
       decisionIntent: readString(choice?.decisionIntent) || text,
+      eventOutcomeId: readString(choice?.eventOutcomeId) || undefined,
       expectedWorldDeltaTypes
     } satisfies SimulationChoice;
   });
@@ -112,7 +113,10 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
   };
 }
 
-export function getSimulationNodeValidationIssues(node: Record<string, any>): string[] {
+export function getSimulationNodeValidationIssues(
+  node: Record<string, any>,
+  options: { allowedOutcomeIds?: string[] } = {}
+): string[] {
   const issues: string[] = [];
   const choices = normalizeSimulationNodeChoices(node).choices;
   const requiredChoiceCount = node?.isEndingNode ? 1 : 3;
@@ -120,6 +124,17 @@ export function getSimulationNodeValidationIssues(node: Record<string, any>): st
   if (!readNodeDescription(node)) issues.push("description");
   if (!hasCompleteAttributes(node?.attributes)) issues.push("attributes");
   if (choices.length !== requiredChoiceCount) issues.push("choices");
+
+  if (options.allowedOutcomeIds?.length && choices.length === requiredChoiceCount) {
+    const allowed = new Set(options.allowedOutcomeIds);
+    const outcomeIds = choices.map((choice) => choice.eventOutcomeId || "");
+    if (outcomeIds.some((outcomeId) => !outcomeId || !allowed.has(outcomeId))) {
+      issues.push("eventOutcomeId");
+    }
+    if (new Set(outcomeIds.filter((outcomeId) => allowed.has(outcomeId))).size < 2) {
+      issues.push("eventOutcomeCoverage");
+    }
+  }
 
   return issues;
 }

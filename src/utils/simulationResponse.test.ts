@@ -25,6 +25,11 @@ assert.equal(node.choices[1].text, "听从家里安排");
 assert.equal(node.choices[2].id, "C");
 assert.equal(node.choices[2].impactSummary, "继续探索");
 
+const outcomeNode = normalizeSimulationNode({
+  choices: [{ id: "A", text: "逐步恢复活动", impactSummary: "恢复参与", eventOutcomeId: "resume_activity_gradually" }]
+});
+assert.equal(outcomeNode.choices[0].eventOutcomeId, "resume_activity_gradually");
+
 const clamped = normalizeSimulationNode({ age: 28, choices: [] }, { fallbackAge: 19, minAge: 19, maxAge: 20 });
 assert.equal(clamped.age, 20);
 
@@ -72,3 +77,32 @@ assert.deepEqual(getSimulationNodeValidationIssues({
   attributes: { happiness: 43, intelligence: 62, wealth: 58, relation: 46, health: 38 },
   isEndingNode: false
 }), []);
+
+const eventContractNode = {
+  age: 42,
+  stage: "恢复阶段",
+  title: "重新安排生活",
+  description: "此前的调整开始产生效果，现在需要决定如何巩固恢复并重新参与原有生活。",
+  choices: [
+    { id: "A", text: "继续巩固恢复安排", impactSummary: "巩固恢复", eventOutcomeId: "consolidate_recovery_plan" },
+    { id: "B", text: "逐步恢复重要活动", impactSummary: "恢复参与", eventOutcomeId: "resume_activity_gradually" },
+    { id: "C", text: "按剩余限制调整方案", impactSummary: "动态调整", eventOutcomeId: "adjust_plan_based_on_remaining_limits" }
+  ],
+  attributes: { happiness: 55, intelligence: 62, wealth: 50, relation: 58, health: 48 },
+  isEndingNode: false
+};
+const recoveryOutcomes = [
+  "consolidate_recovery_plan",
+  "resume_activity_gradually",
+  "adjust_plan_based_on_remaining_limits"
+];
+
+assert.deepEqual(getSimulationNodeValidationIssues(eventContractNode, { allowedOutcomeIds: recoveryOutcomes }), []);
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  choices: eventContractNode.choices.map(({ eventOutcomeId: _eventOutcomeId, ...choice }) => choice)
+}, { allowedOutcomeIds: recoveryOutcomes }), ["eventOutcomeId", "eventOutcomeCoverage"]);
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  choices: eventContractNode.choices.map((choice) => ({ ...choice, eventOutcomeId: "consolidate_recovery_plan" }))
+}, { allowedOutcomeIds: recoveryOutcomes }), ["eventOutcomeCoverage"]);

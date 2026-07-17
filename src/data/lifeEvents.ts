@@ -1,4 +1,17 @@
-import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory, TemporalProfile, UserInitialData } from "../types";
+import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory, NarrativeMode, TemporalProfile, UserInitialData } from "../types";
+import {
+  NARRATIVE_MODES,
+  applyModeFatigue,
+  computeModeWeights,
+  pickModeByWeight,
+  zeroUnavailableModeWeights
+} from "../config/narrativeModePolicy";
+import {
+  evaluateEventEligibility,
+  type EventHistoryCondition,
+  type RequiredContextKey
+} from "../utils/eventEligibility";
+import { PHASE2_LIFE_EVENTS } from "./phase2LifeEvents";
 
 type UserEventData = Partial<UserInitialData> & { birthday?: string; gender?: string; currentSituation?: string };
 
@@ -16,7 +29,13 @@ export type ActionPrimitive = string;
 export interface EventTrigger {
   // Eligibility only determines whether the event enters the candidate pool.
   // It must not be treated as a deterministic trigger.
-  eligibility: (attribs: LifeAttributes, userData: UserEventData, age: number) => boolean;
+  eligibility: (
+    attribs: LifeAttributes,
+    userData: UserEventData,
+    age: number,
+    history?: HistoryItem[],
+    answers?: unknown
+  ) => boolean;
 }
 
 export interface EventIntent {
@@ -51,6 +70,8 @@ export interface EventFingerprint {
 export interface LifeEventSeed {
   id: string;
   category: LifeEventCategory;
+  narrativeMode: NarrativeMode;
+  semanticFamily: string;
   dispatchMode?: "random" | "arc_only";
   title: string;
   minAge: number;
@@ -64,12 +85,35 @@ export interface LifeEventSeed {
   fingerprint?: EventFingerprint;
   hardAgeConstraint?: HardAgeConstraint;
   ageAffinity?: AgeAffinity;
+  historyConditionGroups?: EventHistoryCondition[][];
+  requiredContextGroups?: RequiredContextKey[][];
+}
+
+export interface EventSelectionTrace {
+  selectedMode?: NarrativeMode;
+  availableModes: NarrativeMode[];
+  modeWeightsBeforeFatigue?: Record<NarrativeMode, number>;
+  modeWeightsAfterFatigue?: Record<NarrativeMode, number>;
+  candidateIdsBeforeFilters: string[];
+  candidateIdsAfterFilters: string[];
+  selectedEventId?: string;
+  selectionReason: string;
+}
+
+let lastEventSelectionTrace: EventSelectionTrace | undefined;
+
+export function getLastEventSelectionTrace(): EventSelectionTrace | undefined {
+  return lastEventSelectionTrace ? structuredClone(lastEventSelectionTrace) : undefined;
 }
 
 export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "career_venture_pressure",
     category: "career",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "career_transition",
+    requiredContextGroups: [["career_or_creation_direction"]],
+    historyConditionGroups: [[{ type: "event_absent", semanticFamilies: ["career_transition"], withinNodes: 6 }]],
     title: "事业机会与承压跃迁",
     minAge: 22,
     maxAge: 45,
@@ -78,19 +122,22 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.65,
     tags: ["career", "opportunity", "instability", "ambition"],
     trigger: {
-      eligibility: (attribs) => attribs.intelligence >= 65 && attribs.wealth >= 55
+      eligibility: (attribs) => attribs.intelligence >= 60
     },
     intent: {
       type: "career_venture_pressure",
       meaning: "事业上出现一次更高收益但更高不确定性的跃迁机会。",
       tensionAxes: ["野心 vs 稳定", "机会窗口 vs 现金流风险", "自我证明 vs 可承受代价"],
-      allowedOutcomes: ["take_high_risk_leap", "stay_lean_and_cautious", "convert_position_to_cash"],
+      allowedOutcomes: ["run_limited_venture_pilot", "stay_lean_and_preserve_optionality", "commit_to_high_risk_leap"],
       emotionalTone: "opportunity"
     }
   },
   {
     id: "career_responsibility_shift",
     category: "career",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "career_scope_change",
+    requiredContextGroups: [["career_active"]],
     title: "责任转移与利益不对等",
     minAge: 23,
     maxAge: 55,
@@ -99,19 +146,22 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.7,
     tags: ["career", "responsibility_shift", "interest_conflict", "reputation_risk"],
     trigger: {
-      eligibility: (attribs) => attribs.relation >= 58 && attribs.wealth >= 35 && attribs.wealth <= 78
+      eligibility: (_attribs, _userData, _age, history = []) => /责任|团队|协作|组织变化|扩张|分工/.test(history.slice(-6).map((item) => `${item.description} ${item.selectedChoice}`).join(" "))
     },
     intent: {
       type: "career_responsibility_shift",
       meaning: "你被卷入一次责任与利益不对等的局面，需要判断是否承担不属于自己的代价。",
       tensionAxes: ["责任 vs 自保", "关系 vs 原则", "短期机会 vs 长期名声"],
-      allowedOutcomes: ["absorb_partial_responsibility", "publicly_draw_boundary", "seek_rule_based_mediation"],
+      allowedOutcomes: ["accept_limited_responsibility", "draw_explicit_responsibility_boundary", "seek_rule_based_mediation"],
       emotionalTone: "pressure"
     }
   },
   {
     id: "career_structural_instability",
     category: "career",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "career_structural_instability",
+    requiredContextGroups: [["career_active"]],
     title: "结构变化与生计压力",
     minAge: 22,
     maxAge: 58,
@@ -120,19 +170,26 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.75,
     tags: ["career", "instability", "survival_pressure", "transition"],
     trigger: {
-      eligibility: (attribs) => attribs.wealth < 45
+      eligibility: (_attribs, _userData, _age, history = []) => {
+        const financial = [...history].reverse().find((item) => item.financialState)?.financialState;
+        return financial?.incomeStability === "unstable" || financial?.incomeStability === "volatile"
+          || /裁员|降薪|岗位变化|行业变化|组织调整|收入不稳/.test(history.slice(-8).map((item) => `${item.description} ${item.selectedChoice}`).join(" "));
+      }
     },
     intent: {
       type: "career_structural_instability",
       meaning: "外部结构变化让原本的收入或职业路径变得不稳定。",
       tensionAxes: ["生存现金流 vs 职业尊严", "快速止损 vs 长期转型", "被动适应 vs 主动重组"],
-      allowedOutcomes: ["accept_lower_quality_stability", "invest_in_transition", "activate_network_resources"],
+      allowedOutcomes: ["stabilize_immediate_cashflow", "invest_in_gradual_transition", "activate_verified_network_support"],
       emotionalTone: "crisis"
     }
   },
   {
     id: "career_credit_ownership_conflict",
     category: "career",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "career_credit_ownership",
+    requiredContextGroups: [["active_project_context"]],
     title: "成果归属与边界争夺",
     minAge: 20,
     maxAge: 50,
@@ -141,19 +198,22 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.62,
     tags: ["career", "credit_ownership", "boundary", "reputation_risk"],
     trigger: {
-      eligibility: (attribs) => attribs.intelligence >= 72
+      eligibility: (_attribs, _userData, _age, history = []) => /协作者|合作方|组织|团队|署名|归属|成果|版权|功劳/.test(history.slice(-8).map((item) => `${item.description} ${item.selectedChoice}`).join(" "))
     },
     intent: {
       type: "career_credit_ownership_conflict",
       meaning: "你创造的关键价值面临被他人、组织或合作关系重新分配。",
       tensionAxes: ["体面合作 vs 自我主张", "眼前安全 vs 长期权益", "规则内争取 vs 关系破裂风险"],
-      allowedOutcomes: ["quietly_trade_credit_for_security", "challenge_credit_capture", "preserve_core_value_and_exit"],
+      allowedOutcomes: ["document_and_negotiate_ownership", "challenge_credit_capture_formally", "preserve_core_work_and_exit"],
       emotionalTone: "pressure"
     }
   },
   {
     id: "relationship_material_commitment_test",
     category: "relationship",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "relationship_commitment",
+    requiredContextGroups: [["confirmed_partner"]],
     title: "关系承诺与现实成本",
     minAge: 24,
     maxAge: 42,
@@ -162,19 +222,22 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.65,
     tags: ["relationship", "commitment", "financial_pressure", "family_expectation"],
     trigger: {
-      eligibility: (attribs) => attribs.happiness >= 45
+      eligibility: (_attribs, _userData, _age, history = []) => /共同计划|关系推进|同居|承诺|生活安排|长期计划/.test(history.slice(-8).map((item) => `${item.description} ${item.selectedChoice}`).join(" "))
     },
     intent: {
       type: "relationship_material_commitment_test",
       meaning: "亲密关系进入现实承诺阶段，情感愿望需要面对资源、家庭和长期责任。",
       tensionAxes: ["感情 vs 物质基础", "两人共识 vs 家庭期待", "自由感 vs 稳定承诺"],
-      allowedOutcomes: ["commit_with_heavy_cost", "delay_commitment_for_autonomy", "reassess_relationship_fit"],
+      allowedOutcomes: ["make_shared_commitment_plan", "delay_with_clear_conditions", "reassess_relationship_fit"],
       emotionalTone: "pressure"
     }
   },
   {
     id: "relationship_family_obligation_pull",
     category: "relationship",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "family_responsibility",
+    requiredContextGroups: [["confirmed_family"]],
     title: "亲缘责任与自我边界",
     minAge: 22,
     maxAge: 60,
@@ -183,19 +246,22 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.68,
     tags: ["relationship", "family_obligation", "boundary", "sacrifice"],
     trigger: {
-      eligibility: (attribs) => attribs.relation >= 50 && attribs.happiness < 62
+      eligibility: (_attribs, _userData, _age, history = []) => /家庭请求|家人.*请求|照护|赡养|家庭责任|家庭支出|资源压力/.test(history.slice(-8).map((item) => `${item.description} ${item.selectedChoice}`).join(" "))
     },
     intent: {
       type: "relationship_family_obligation_pull",
       meaning: "亲缘或熟人关系向你提出现实责任要求，你需要重新划定自我边界。",
       tensionAxes: ["亲情责任 vs 自我保护", "道义评价 vs 现实承受力", "回馈家庭 vs 保留人生主动权"],
-      allowedOutcomes: ["sacrifice_resources_for_family", "set_firm_boundary", "renegotiate_support_terms"],
+      allowedOutcomes: ["offer_bounded_family_support", "set_firm_family_boundary", "renegotiate_family_support_terms"],
       emotionalTone: "pressure"
     }
   },
   {
     id: "relationship_trust_interest_fracture",
     category: "relationship",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "relationship_trust_fracture",
+    requiredContextGroups: [["confirmed_partner"], ["confirmed_friend_or_colleague"]],
     title: "信任裂纹与利益考验",
     minAge: 20,
     maxAge: 55,
@@ -204,19 +270,21 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.58,
     tags: ["relationship", "betrayal", "interest_conflict", "trust"],
     trigger: {
-      eligibility: (attribs) => attribs.relation >= 40 && attribs.wealth >= 50
+      eligibility: (_attribs, _userData, _age, history = []) => /共同资源|共同利益|合作|信任矛盾|利益冲突|账目|承诺不一致/.test(history.slice(-8).map((item) => `${item.description} ${item.selectedChoice}`).join(" "))
     },
     intent: {
       type: "relationship_trust_interest_fracture",
       meaning: "一段重要关系在现实利益面前出现信任裂纹。",
       tensionAxes: ["情分 vs 利益", "和解 vs 切割", "继续合作 vs 建立防线"],
-      allowedOutcomes: ["preserve_relationship_with_boundaries", "cut_and_confront", "renegotiate_mutual_interest"],
+      allowedOutcomes: ["verify_issue_and_set_safeguards", "attempt_bounded_trust_repair", "end_shared_interest_arrangement"],
       emotionalTone: "pressure"
     }
   },
   {
     id: "health_system_warning",
     category: "health",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "health_system_warning",
     title: "健康系统预警",
     minAge: 22,
     maxAge: 60,
@@ -252,6 +320,8 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "health_forced_pause",
     category: "health",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "health_acute_crisis",
     dispatchMode: "arc_only",
     title: "身体停摆与节奏重排",
     minAge: 18,
@@ -284,6 +354,8 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "health_recovery_observation",
     category: "health",
+    narrativeMode: "recovery_growth",
+    semanticFamily: "health_recovery_observation",
     dispatchMode: "arc_only",
     title: "治疗与负荷观察",
     minAge: 0,
@@ -321,6 +393,9 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "opportunity_unstable_alliance",
     category: "opportunity",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "career_alliance_opportunity",
+    requiredContextGroups: [["career_or_creation_direction"]],
     title: "不稳定联盟与未来押注",
     minAge: 21,
     maxAge: 50,
@@ -329,19 +404,22 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.65,
     tags: ["opportunity", "alliance", "uncertainty", "resource_gap"],
     trigger: {
-      eligibility: (attribs) => attribs.intelligence >= 60 && attribs.wealth < 48
+      eligibility: () => true
     },
     intent: {
       type: "opportunity_unstable_alliance",
       meaning: "一个外部合作机会打开了新的上升通道，但收益和风险都不稳定。",
       tensionAxes: ["低保障机会 vs 稳定现金流", "跟随他人 vs 保持自主", "未来想象 vs 当前生活成本"],
-      allowedOutcomes: ["join_full_commitment", "decline_for_stability", "support_part_time"],
+      allowedOutcomes: ["run_small_alliance_pilot", "decline_for_current_stability", "join_with_explicit_exit_conditions"],
       emotionalTone: "opportunity"
     }
   },
   {
     id: "opportunity_escape_route",
     category: "opportunity",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "self_escape_route",
+    requiredContextGroups: [["identified_life_constraint"]],
     title: "逃离路径与代价交换",
     minAge: 22,
     maxAge: 48,
@@ -350,19 +428,22 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.6,
     tags: ["opportunity", "escape_route", "isolation", "high_reward"],
     trigger: {
-      eligibility: (attribs) => attribs.happiness < 40
+      eligibility: () => true
     },
     intent: {
       type: "opportunity_escape_route",
       meaning: "一个能离开当前困局的机会出现，但它要求你付出孤独、风险或关系成本。",
       tensionAxes: ["逃离困局 vs 承受孤独", "高收益 vs 高不确定", "个人突破 vs 关系断裂"],
-      allowedOutcomes: ["accept_escape_route", "stay_and_endure", "use_offer_as_leverage"],
+      allowedOutcomes: ["test_escape_route_temporarily", "stay_and_repair_current_structure", "decline_route_and_seek_another_option"],
       emotionalTone: "opportunity"
     }
   },
   {
     id: "financial_side_path_conflict",
     category: "financial",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "financial_side_path",
+    requiredContextGroups: [["financial_state_available", "career_or_creation_direction"]],
     title: "副线收入与合规边界",
     minAge: 20,
     maxAge: 55,
@@ -371,19 +452,21 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.68,
     tags: ["financial", "side_income", "compliance_risk", "opportunity"],
     trigger: {
-      eligibility: (attribs) => attribs.intelligence >= 60 && attribs.wealth < 60
+      eligibility: (_attribs, _userData, _age, history = []) => (latestFinancialStateFromHistory(history)?.cashWan ?? 0) >= 0
     },
     intent: {
       type: "financial_side_path_conflict",
       meaning: "一条新的收入路径开始出现，但它与现有身份、规则或稳定性产生冲突。",
       tensionAxes: ["增收机会 vs 合规风险", "短期现金 vs 长期信用", "自由探索 vs 稳定身份"],
-      allowedOutcomes: ["go_independent_fast", "reduce_and_hide_exposure", "continue_dual_track_risk"],
+      allowedOutcomes: ["run_compliant_side_income_pilot", "clarify_rules_before_committing", "decline_and_protect_core_income"],
       emotionalTone: "opportunity"
     }
   },
   {
     id: "life_normal_transition",
     category: "growth",
+    narrativeMode: "stability_meaning",
+    semanticFamily: "life_normal_accumulation",
     title: "平稳生活与长期积累",
     minAge: 18,
     maxAge: 80,
@@ -403,16 +486,16 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
       type: "life_normal_transition",
       meaning: "没有强烈突发事件，生活进入一段平稳但仍有细小取舍的长期积累阶段。",
       tensionAxes: ["维持节奏 vs 微调方向", "日常责任 vs 自我修复", "平淡积累 vs 新的可能"],
-      allowedOutcomes: ["maintain_current_rhythm", "make_small_adjustment", "repair_health_or_relationship"],
+      allowedOutcomes: ["maintain_current_rhythm", "make_one_small_adjustment", "strengthen_one_existing_direction_or_relationship"],
       emotionalTone: "everyday"
     }
-  }
+  },
+  ...PHASE2_LIFE_EVENTS
 ];
 
 const DEFAULT_COOLDOWN = 4;
 const TAG_SIMILARITY_THRESHOLD = 0.5;
 const NORMAL_EVENT_ID = "life_normal_transition";
-const NULL_EVENT_CHANCE = 0.2;
 const FOCUS_CATEGORY_BOOST: Record<string, Partial<Record<LifeEventCategory, number>>> = {
   career: { career: 1.6, financial: 1.2, growth: 1.1 },
   romance: { relationship: 1.7, growth: 1.1 },
@@ -421,10 +504,12 @@ const FOCUS_CATEGORY_BOOST: Record<string, Partial<Record<LifeEventCategory, num
   innerpeace: { growth: 1.5, health: 1.3, relationship: 1.1 }
 };
 
-const RELATIONSHIP_KEYWORDS = ["恋", "婚", "伴侣", "前任", "异地恋", "分手", "相亲", "暧昧", "对象", "父母", "家庭阻力"];
-
 function eventTags(event: LifeEventSeed): string[] {
   return event.fingerprint?.tags || event.tags;
+}
+
+function latestFinancialStateFromHistory(history: HistoryItem[]) {
+  return [...history].reverse().find((item) => item.financialState)?.financialState;
 }
 
 function sharedTagCount(left: string[], right: string[]): number {
@@ -441,6 +526,35 @@ function eventMeta(item: HistoryItem): EventMeta | undefined {
   return item.eventMeta;
 }
 
+function findEventById(eventId?: string): LifeEventSeed | undefined {
+  return eventId ? LIFE_EVENTS_DATABASE.find((event) => event.id === eventId) : undefined;
+}
+
+function eventModeFromHistory(item: HistoryItem): NarrativeMode | undefined {
+  return item.eventMeta?.eventMode || findEventById(item.eventMeta?.eventId)?.narrativeMode;
+}
+
+function semanticFamilyFromHistory(item: HistoryItem): string | undefined {
+  return item.eventMeta?.eventSemanticFamily || findEventById(item.eventMeta?.eventId)?.semanticFamily;
+}
+
+function historyWithEventClassification(history: HistoryItem[]): HistoryItem[] {
+  return history.map((item) => {
+    if (!item.eventMeta) return item;
+    const eventMode = eventModeFromHistory(item);
+    const eventSemanticFamily = semanticFamilyFromHistory(item);
+    if (item.eventMeta.eventMode === eventMode && item.eventMeta.eventSemanticFamily === eventSemanticFamily) return item;
+    return {
+      ...item,
+      eventMeta: {
+        ...item.eventMeta,
+        eventMode,
+        eventSemanticFamily
+      }
+    };
+  });
+}
+
 function isEventInCooldown(event: LifeEventSeed, history: HistoryItem[]): boolean {
   const cooldown = event.cooldown ?? DEFAULT_COOLDOWN;
   const recent = history.slice(-cooldown);
@@ -454,6 +568,7 @@ function isEventInCooldown(event: LifeEventSeed, history: HistoryItem[]): boolea
 function isTagSimilarToRecent(event: LifeEventSeed, history: HistoryItem[]): boolean {
   const tags = eventTags(event);
   return history.slice(-3).some((item) => {
+    if (semanticFamilyFromHistory(item) === event.semanticFamily) return true;
     const recentTags = item.eventMeta?.eventTags || [];
     const shared = sharedTagCount(tags, recentTags);
     return shared >= 2 && tagSimilarity(tags, recentTags) >= TAG_SIMILARITY_THRESHOLD;
@@ -471,40 +586,26 @@ function isCategoryLimited(event: LifeEventSeed, history: HistoryItem[]): boolea
 }
 
 function hasRecentMajorEvent(history: HistoryItem[]): boolean {
-  return history.slice(-2).some((item) => item.eventMeta?.eventTags?.includes("major_crisis"));
+  return history.slice(-2).some((item) => (
+    item.eventMeta?.eventIntensity === "major" || item.eventMeta?.eventTags?.includes("major_crisis")
+  ));
 }
 
 function hasStableBreathingRoom(attribs: LifeAttributes): boolean {
   return attribs.health >= 50 && attribs.wealth >= 50 && attribs.happiness >= 50;
 }
 
-function stringifyUnknown(value: unknown): string {
-  if (!value) return "";
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.map(stringifyUnknown).join("\n");
-  if (typeof value === "object") return Object.values(value as Record<string, unknown>).map(stringifyUnknown).join("\n");
-  return String(value);
-}
-
-function hasRelationshipContext(userData: UserEventData, answers?: unknown): boolean {
-  if (userData.coreStoryFocus === "romance") return true;
-
-  const text = [
-    userData.regressionSituation,
-    userData.regressionChoices,
-    userData.milestoneRelationship,
-    userData.milestoneOther,
-    ...(Array.isArray(userData.milestones) ? userData.milestones.map((item) => `${item.title} ${item.content}`) : []),
-    stringifyUnknown(answers)
-  ].filter(Boolean).join("\n");
-
-  return RELATIONSHIP_KEYWORDS.some((keyword) => text.includes(keyword));
-}
-
-function isEligibleForCandidatePool(event: LifeEventSeed, attribs: LifeAttributes, userData: UserEventData, age: number, answers?: unknown): boolean {
+function isEligibleForCandidatePool(
+  event: LifeEventSeed,
+  attribs: LifeAttributes,
+  userData: UserEventData,
+  age: number,
+  history: HistoryItem[],
+  answers?: unknown
+): boolean {
   if (event.dispatchMode === "arc_only") return false;
-  if (event.trigger.eligibility(attribs, userData, age)) return true;
-  return event.category === "relationship" && hasRelationshipContext(userData, answers);
+  if (!event.trigger.eligibility(attribs, userData, age, history, answers)) return false;
+  return evaluateEventEligibility({ event, attribs, userData, age, history, answers });
 }
 
 function defaultAgeAffinity(event: LifeEventSeed): AgeAffinity {
@@ -542,6 +643,19 @@ function satisfiesHardAgeConstraint(event: LifeEventSeed, age: number): boolean 
 
 export function isEventAgeEligible(event: LifeEventSeed, age: number): boolean {
   return satisfiesHardAgeConstraint(event, age);
+}
+
+export function isLifeEventCandidateEligible(
+  event: LifeEventSeed,
+  attribs: LifeAttributes,
+  userData: UserEventData,
+  age: number,
+  history: HistoryItem[] = [],
+  answers?: unknown
+): boolean {
+  const classifiedHistory = historyWithEventClassification(history);
+  return satisfiesHardAgeConstraint(event, age)
+    && isEligibleForCandidatePool(event, attribs, userData, age, classifiedHistory, answers);
 }
 
 function isUserDirected(event: LifeEventSeed, userData: UserEventData, history: HistoryItem[]): boolean {
@@ -588,32 +702,75 @@ export function queryDynamicLifeEvent(
   history: HistoryItem[] = [],
   answers?: unknown
 ): LifeEventSeed | null {
+  const classifiedHistory = historyWithEventClassification(history);
   const candidates = LIFE_EVENTS_DATABASE.filter((event) => {
-    return satisfiesHardAgeConstraint(event, age) && isEligibleForCandidatePool(event, attribs, userData, age, answers);
+    return satisfiesHardAgeConstraint(event, age)
+      && isEligibleForCandidatePool(event, attribs, userData, age, classifiedHistory, answers);
   });
+
+  lastEventSelectionTrace = {
+    availableModes: [],
+    candidateIdsBeforeFilters: candidates.map((event) => event.id),
+    candidateIdsAfterFilters: [],
+    selectionReason: "no_eligible_candidates"
+  };
 
   if (candidates.length === 0) return null;
 
-  const nonCooledCandidates = candidates.filter((event) => !isEventInCooldown(event, history));
-  if (nonCooledCandidates.length === 0) return null;
-
-  const tagAllowedCandidates = nonCooledCandidates.filter((event) => !isTagSimilarToRecent(event, history));
-  const similaritySafeCandidates = tagAllowedCandidates.length > 0 ? tagAllowedCandidates : nonCooledCandidates;
-
-  const categoryAllowedCandidates = similaritySafeCandidates.filter((event) => !isCategoryLimited(event, history));
-  const pressureSafeCandidates = categoryAllowedCandidates.length > 0 ? categoryAllowedCandidates : similaritySafeCandidates;
-  const normalTransition = pressureSafeCandidates.find((event) => event.id === NORMAL_EVENT_ID);
-
-  if (normalTransition && hasRecentMajorEvent(history) && hasStableBreathingRoom(attribs)) {
-    return normalTransition;
+  const nonCooledCandidates = candidates.filter((event) => !isEventInCooldown(event, classifiedHistory));
+  if (nonCooledCandidates.length === 0) {
+    lastEventSelectionTrace.selectionReason = "all_candidates_in_cooldown";
+    return null;
   }
 
-  const dramaticCandidates = pressureSafeCandidates.filter((event) => event.id !== NORMAL_EVENT_ID);
-  if (dramaticCandidates.length === 0) return normalTransition || null;
+  const tagAllowedCandidates = nonCooledCandidates.filter((event) => !isTagSimilarToRecent(event, classifiedHistory));
+  if (tagAllowedCandidates.length === 0) {
+    lastEventSelectionTrace.selectionReason = "all_candidates_semantically_similar";
+    return null;
+  }
 
-  if (Math.random() < NULL_EVENT_CHANCE) return null;
+  const categoryAllowedCandidates = tagAllowedCandidates.filter((event) => !isCategoryLimited(event, classifiedHistory));
+  if (categoryAllowedCandidates.length === 0) {
+    lastEventSelectionTrace.selectionReason = "all_candidates_category_limited";
+    return null;
+  }
+  lastEventSelectionTrace.candidateIdsAfterFilters = categoryAllowedCandidates.map((event) => event.id);
 
-  return pickWeighted(dramaticCandidates, userData, age, history);
+  const candidatesByMode = new Map<NarrativeMode, LifeEventSeed[]>(
+    NARRATIVE_MODES.map((mode) => [mode, categoryAllowedCandidates.filter((event) => event.narrativeMode === mode)])
+  );
+  const stabilityCandidates = candidatesByMode.get("stability_meaning") || [];
+  lastEventSelectionTrace.availableModes = NARRATIVE_MODES.filter((mode) => (candidatesByMode.get(mode)?.length || 0) > 0);
+
+  if (hasRecentMajorEvent(classifiedHistory) && hasStableBreathingRoom(attribs)) {
+    const selected = pickWeighted(stabilityCandidates, userData, age, classifiedHistory);
+    lastEventSelectionTrace.selectedMode = selected?.narrativeMode;
+    lastEventSelectionTrace.selectedEventId = selected?.id;
+    lastEventSelectionTrace.selectionReason = selected ? "post_major_breathing_room" : "post_major_no_stability_candidate";
+    return selected;
+  }
+
+  const availableModes = new Set(
+    NARRATIVE_MODES.filter((mode) => (candidatesByMode.get(mode)?.length || 0) > 0)
+  );
+  const availableWeights = zeroUnavailableModeWeights(
+    computeModeWeights(attribs, classifiedHistory, userData),
+    availableModes
+  );
+  const fatiguedWeights = applyModeFatigue(availableWeights, classifiedHistory);
+  lastEventSelectionTrace.modeWeightsBeforeFatigue = { ...availableWeights };
+  lastEventSelectionTrace.modeWeightsAfterFatigue = { ...fatiguedWeights };
+  const selectedMode = pickModeByWeight(fatiguedWeights);
+  if (!selectedMode) {
+    lastEventSelectionTrace.selectionReason = "no_weighted_mode";
+    return null;
+  }
+
+  const selected = pickWeighted(candidatesByMode.get(selectedMode) || [], userData, age, classifiedHistory);
+  lastEventSelectionTrace.selectedMode = selectedMode;
+  lastEventSelectionTrace.selectedEventId = selected?.id;
+  lastEventSelectionTrace.selectionReason = selected ? "weighted_mode_selection" : "selected_mode_without_candidate";
+  return selected;
 }
 
 export function queryHealthEscalationEvent(
@@ -648,6 +805,8 @@ export function buildEventMeta(event: LifeEventSeed): EventMeta {
     eventCategory: event.category,
     eventTags: eventTags(event),
     eventIntensity: event.fingerprint?.intensity || (event.intent.emotionalTone === "crisis" ? "major" : "minor"),
+    eventMode: event.narrativeMode,
+    eventSemanticFamily: event.semanticFamily,
     phasePolicyId: event.intent.phasePolicyId || "generic_pressure_v1"
   };
 }
