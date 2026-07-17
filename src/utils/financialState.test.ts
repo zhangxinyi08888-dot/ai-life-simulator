@@ -12,7 +12,9 @@ import {
   getPropertyTransactionSignalIssues,
   inferFinancialSignalsFromNarrative,
   normalizeInitialFinancialState,
-  reconcileStudentFinancialSignals
+  reconcileFinancialSignals,
+  reconcileStudentFinancialSignals,
+  reconcileWorkingFinancialSignals
 } from "./financialState";
 
 test("calculates cumulative net worth from assets minus debt", () => {
@@ -576,4 +578,95 @@ test("uses monthly family support to offset student living costs without creatin
   assert.equal(signals.monthlyLivingExpenseWan, 0);
   assert.equal(result.financialChange.netWorthChangeWan, 0);
   assert.equal(result.financialState.netWorthWan, 0.5);
+});
+
+test("reconciles endpoint salary, recurring costs, and explicit stage savings", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 112.8,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 9.6,
+    annualDisposableIncomeWan: 4.8,
+    annualCoreExpenseWan: 4.8,
+    employmentStatus: "employed",
+    incomeStability: "stable",
+    isEstimated: true
+  }, 32 * 12 + 4, 70);
+  const description = "导师批评代码不像有两年经验的人。这22个月里，你月薪涨到13k，但积蓄几乎没增加——每月给父母转2000，房租涨到1200，加上课程和硬件开销，仅攒了2万。";
+  const signals = reconcileFinancialSignals({
+    employmentStatus: "employed",
+    monthlyNetIncomeWan: 1.3,
+    incomeMonths: 22,
+    monthlyLivingExpenseWan: 0.2,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "stable",
+    confidence: 0.8,
+    reasons: ["月薪1.3万元，持续22个月"]
+  }, description, 22, previous);
+  const result = applyFinancialSignals(previous, signals, 22, 34 * 12 + 2);
+
+  assert.equal(signals.monthlyNetIncomeWan, 1.05);
+  assert.equal(signals.monthlyLivingExpenseWan, 0.57);
+  assert.equal(signals.reportedStageSavingsWan, 2);
+  assert.equal(result.financialChange.netWorthChangeWan, 2);
+  assert.equal(result.financialState.netWorthWan, 114.8);
+});
+
+test("does not multiply an ending salary across the entire working stage", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 10,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 7.2,
+    annualDisposableIncomeWan: 3,
+    annualCoreExpenseWan: 4.2,
+    employmentStatus: "employed",
+    incomeStability: "stable",
+    isEstimated: true
+  }, 25 * 12, 50);
+  const signals = reconcileWorkingFinancialSignals({
+    employmentStatus: "employed",
+    monthlyNetIncomeWan: 1.3,
+    incomeMonths: 12,
+    monthlyLivingExpenseWan: 0.35,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "stable",
+    confidence: 0.8,
+    reasons: ["月薪涨到13k"]
+  }, "一年后月薪涨到13k。", 12, previous);
+
+  assert.equal(signals.monthlyNetIncomeWan, 0.95);
+  assert.equal(signals.reportedStageSavingsWan, undefined);
+});
+
+test("keeps a stable stated salary instead of treating it as an endpoint", () => {
+  const signals = reconcileWorkingFinancialSignals({
+    employmentStatus: "employed",
+    monthlyNetIncomeWan: 1.3,
+    incomeMonths: 12,
+    monthlyLivingExpenseWan: 0.4,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    propertyMarketValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "stable",
+    confidence: 0.8,
+    reasons: ["正文明确月薪"]
+  }, "你入职后月薪1.3万，全年保持稳定。", 12);
+
+  assert.equal(signals.monthlyNetIncomeWan, 1.3);
+  assert.equal(signals.reportedStageSavingsWan, undefined);
 });

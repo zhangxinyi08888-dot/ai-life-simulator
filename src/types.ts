@@ -23,6 +23,8 @@ export interface FinancialSignals {
   assetValueChangeWan: number;
   propertyMarketValueChangeWan: number;
   personalDebtChangeWan: number;
+  /** Local-only reconciliation target when the narrative explicitly states this stage's savings. */
+  reportedStageSavingsWan?: number;
   incomeStability: IncomeStability;
   confidence: number;
   reasons: string[];

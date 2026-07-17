@@ -98,6 +98,9 @@ export function normalizeFinancialSignals(raw: Partial<FinancialSignals>, period
     assetValueChangeWan: roundSignalMoney(finite(raw.assetValueChangeWan)),
     propertyMarketValueChangeWan: roundSignalMoney(finite(raw.propertyMarketValueChangeWan)),
     personalDebtChangeWan: roundSignalMoney(finite(raw.personalDebtChangeWan)),
+    reportedStageSavingsWan: typeof raw.reportedStageSavingsWan === "number" && Number.isFinite(raw.reportedStageSavingsWan)
+      ? roundSignalMoney(raw.reportedStageSavingsWan)
+      : undefined,
     incomeStability: stability(raw.incomeStability),
     confidence: clamp(finite(raw.confidence, 0.3), 0, 1),
     reasons: Array.isArray(raw.reasons)
@@ -109,7 +112,9 @@ export function normalizeFinancialSignals(raw: Partial<FinancialSignals>, period
 function moneyToWan(value: string, unit: string): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 0;
-  return unit === "万" || unit === "万元" ? parsed : parsed / 10000;
+  if (unit === "万" || unit === "万元") return parsed;
+  if (unit === "k" || unit === "K" || unit === "千" || unit === "千元") return parsed / 10;
+  return parsed / 10000;
 }
 
 function firstMoneyMatch(text: string, patterns: RegExp[]): number | undefined {
@@ -224,6 +229,111 @@ export function reconcileStudentFinancialSignals(
     monthlyLivingExpenseWan: roundSignalMoney(Math.min(reconciled.monthlyLivingExpenseWan, fundedMonthlyExpense)),
     reasons: [...reconciled.reasons, "无新增个人债务时学生支出不生成隐含负现金"].slice(0, 4)
   };
+}
+
+const MONEY_UNIT = "(万元|万|千元|千|[kK]|元)";
+const OPTIONAL_MONEY_UNIT = "(万元|万|千元|千|[kK]|元)?";
+
+function endpointMonthlyIncome(description: string): number | undefined {
+  return firstMoneyMatch(description, [
+    new RegExp(`(?:月薪|月工资|月收入|月入)[^。；，]{0,10}(?:涨到|涨至|升到|升至|提高到|提高至|降到|降至|跌到|跌至|变成|变为)\\s*(\\d+(?:\\.\\d+)?)\\s*${MONEY_UNIT}`),
+    new RegExp(`(?:涨到|涨至|升到|升至|降到|降至)\\s*(\\d+(?:\\.\\d+)?)\\s*${MONEY_UNIT}[^。；，]{0,8}(?:月薪|月工资|月收入|月入)`)
+  ]);
+}
+
+function explicitMonthlyRent(description: string): number {
+  return firstMoneyMatch(description, [
+    new RegExp(`(?:房租|月租)\\s*(?:涨到|涨至|降到|降至|为|是)?\\s*(\\d+(?:\\.\\d+)?)\\s*${OPTIONAL_MONEY_UNIT}`),
+    new RegExp(`(?:房租|月租)[^。；，]{0,12}(?:涨到|涨至|降到|降至|为|是|每月|月付)?[^\\d]{0,5}(\\d+(?:\\.\\d+)?)\\s*${OPTIONAL_MONEY_UNIT}`),
+    new RegExp(`(?:每月|月付)\\s*(\\d+(?:\\.\\d+)?)\\s*${OPTIONAL_MONEY_UNIT}[^。；，]{0,8}(?:房租|月租)`)
+  ]) || 0;
+}
+
+function explicitMonthlyFamilyTransfer(description: string): number {
+  return firstMoneyMatch(description, [
+    new RegExp(`(?:每月|每个月)[^。；，]{0,12}(?:给|向|寄给|汇给|转给)[^。；，]{0,8}(?:父母|家里|家人|母亲|父亲)[^\\d]{0,6}(\\d+(?:\\.\\d+)?)\\s*${OPTIONAL_MONEY_UNIT}`),
+    new RegExp(`(?:每月|每个月)[^。；，]{0,12}(?:给|向|寄|汇|转)[^\\d]{0,8}(\\d+(?:\\.\\d+)?)\\s*${OPTIONAL_MONEY_UNIT}[^。；，]{0,8}(?:父母|家里|家人|母亲|父亲)`),
+    new RegExp(`(?:父母|家里|家人|母亲|父亲)[^。；，]{0,12}(?:每月|每个月)[^。；，]{0,8}(?:给|寄|汇|转)[^\\d]{0,6}(\\d+(?:\\.\\d+)?)\\s*${OPTIONAL_MONEY_UNIT}`)
+  ]) || 0;
+}
+
+function explicitStageSavings(description: string): number | undefined {
+  return firstMoneyMatch(description, [
+    new RegExp(`(?:本阶段|这段时间|这些年|这\\d+个月|这[一二三四五六七八九十]+个月)?[^。；]{0,12}(?:仅|只|总共|一共)?(?:攒下|攒了|存下|结余|净存|积蓄增加)[^\\d]{0,6}(\\d+(?:\\.\\d+)?)\\s*${MONEY_UNIT}`),
+    new RegExp(`(?:积蓄|存款)[^。；]{0,10}(?:只增加|仅增加|增加了)[^\\d]{0,6}(\\d+(?:\\.\\d+)?)\\s*${MONEY_UNIT}`)
+  ]);
+}
+
+export function hasWorkingFinancialReconciliationFacts(description: string): boolean {
+  return endpointMonthlyIncome(description) !== undefined
+    || explicitStageSavings(description) !== undefined;
+}
+
+/** Reconcile common working-stage narrative facts without another model request. */
+export function reconcileWorkingFinancialSignals(
+  raw: Partial<FinancialSignals>,
+  description: string,
+  periodMonths: number,
+  previousState?: FinancialState
+): FinancialSignals {
+  const normalized = normalizeFinancialSignals(raw, periodMonths);
+  if (
+    normalized.employmentStatus === "student"
+    || normalized.employmentStatus === "part_time"
+  ) return normalized;
+
+  const endingIncome = endpointMonthlyIncome(description);
+  const previousMonthlyIncome = Math.max(0, (previousState?.annualAfterTaxIncomeWan || 0) / 12);
+  const averageMonthlyIncome = endingIncome === undefined
+    ? normalized.monthlyNetIncomeWan
+    : previousMonthlyIncome > 0
+      ? (previousMonthlyIncome + endingIncome) / 2
+      : endingIncome / 2;
+  const rent = explicitMonthlyRent(description);
+  const familyTransfer = explicitMonthlyFamilyTransfer(description);
+  const nonHousingLivingFloor = normalized.employmentStatus === "not_working" ? 0.2 : 0.25;
+  const expenseFloor = rent + familyTransfer > 0
+    ? rent + familyTransfer + nonHousingLivingFloor
+    : 0;
+  const reportedSavings = explicitStageSavings(description);
+  const hasMajorAssetActivity = /买房|购房|卖房|房产|首付|按揭|投资|股权|创业出资|债务|贷款/.test(description)
+    || normalized.assetValueChangeWan !== 0
+    || normalized.propertyMarketValueChangeWan !== 0
+    || normalized.personalDebtChangeWan !== 0;
+
+  return {
+    ...normalized,
+    monthlyNetIncomeWan: roundSignalMoney(averageMonthlyIncome),
+    monthlyLivingExpenseWan: roundSignalMoney(Math.max(normalized.monthlyLivingExpenseWan, expenseFloor)),
+    reportedStageSavingsWan: reportedSavings !== undefined && !hasMajorAssetActivity
+      ? roundSignalMoney(reportedSavings)
+      : normalized.reportedStageSavingsWan,
+    reasons: [
+      ...normalized.reasons,
+      ...(endingIncome !== undefined ? ["工资涨跌终值按上期收入与期末工资取阶段均值"] : []),
+      ...(expenseFloor > normalized.monthlyLivingExpenseWan ? ["计入正文房租、家庭转账和基本生活支出"] : []),
+      ...(reportedSavings !== undefined && !hasMajorAssetActivity ? ["按正文明确的本阶段净结余校准"] : [])
+    ].slice(-4)
+  };
+}
+
+export function reconcileFinancialSignals(
+  raw: Partial<FinancialSignals>,
+  description: string,
+  periodMonths: number,
+  previousState?: FinancialState
+): FinancialSignals {
+  const normalized = normalizeFinancialSignals(raw, periodMonths);
+  const explicitlyWorking = normalized.employmentStatus === "employed"
+    || normalized.employmentStatus === "self_employed";
+  if (!explicitlyWorking && (
+    normalized.employmentStatus === "student"
+    || normalized.employmentStatus === "part_time"
+    || isStudentFinancialNarrative(description)
+  )) {
+    return reconcileStudentFinancialSignals(normalized, description, periodMonths, previousState);
+  }
+  return reconcileWorkingFinancialSignals(normalized, description, periodMonths, previousState);
 }
 
 function inferEmploymentStatus(description: string, hasMonthlyIncome: boolean, previous?: EmploymentStatus): EmploymentStatus {
@@ -452,6 +562,17 @@ export function applyFinancialSignals(
   const recurringIncome = roundMoney(financialSignals.monthlyNetIncomeWan * financialSignals.incomeMonths);
   const livingExpense = roundMoney(financialSignals.monthlyLivingExpenseWan * periodMonths);
   const afterTaxIncome = roundMoney(recurringIncome + financialSignals.oneOffIncomeWan);
+  const baseNetWorthChange = roundMoney(
+    afterTaxIncome
+      - livingExpense
+      - financialSignals.oneOffExpenseWan
+      + financialSignals.assetValueChangeWan
+      + financialSignals.propertyMarketValueChangeWan
+      - financialSignals.personalDebtChangeWan
+  );
+  const reconciliationAdjustment = financialSignals.reportedStageSavingsWan === undefined
+    ? 0
+    : roundMoney(financialSignals.reportedStageSavingsWan - baseNetWorthChange);
   const financialChange = calculateFinancialChange({
     afterTaxIncomeWan: afterTaxIncome,
     livingExpenseWan: livingExpense,
@@ -461,7 +582,7 @@ export function applyFinancialSignals(
       financialSignals.assetValueChangeWan
       + financialSignals.propertyMarketValueChangeWan
     ),
-    otherNetChangeWan: -financialSignals.personalDebtChangeWan,
+    otherNetChangeWan: -financialSignals.personalDebtChangeWan + reconciliationAdjustment,
     incomeStability: financialSignals.incomeStability,
     reasons: financialSignals.reasons
   }, periodMonths);
@@ -473,6 +594,7 @@ export function applyFinancialSignals(
       + afterTaxIncome
       - livingExpense
       - financialSignals.oneOffExpenseWan
+      + reconciliationAdjustment
     ),
     investmentAssetsWan: roundMoney(previous.investmentAssetsWan + financialSignals.assetValueChangeWan),
     propertyMarketValueWan: roundMoney(Math.max(

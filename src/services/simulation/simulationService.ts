@@ -16,7 +16,7 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
-import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, isStudentFinancialNarrative, normalizeInitialFinancialState, reconcileStudentFinancialSignals, withCalculatedWealth } from "../../utils/financialState";
+import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, hasWorkingFinancialReconciliationFacts, inferFinancialSignalsFromNarrative, isStudentFinancialNarrative, normalizeInitialFinancialState, reconcileFinancialSignals, withCalculatedWealth } from "../../utils/financialState";
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
@@ -69,7 +69,7 @@ function attachFinancialProgress(input: {
     ? getFinancialSignalsInputIssues(rawSignals, input.elapsedMonths)
     : ["financialSignals 缺失"];
   if (rawSignals && signalIssues.length === 0) {
-    const reconciledSignals = reconcileStudentFinancialSignals(
+    const reconciledSignals = reconcileFinancialSignals(
       rawSignals,
       input.node.description,
       input.elapsedMonths,
@@ -97,7 +97,12 @@ function attachFinancialProgress(input: {
   const financialIssues = rawChange
     ? getFinancialChangeInputIssues(rawChange, input.elapsedMonths)
     : ["financialChange 缺失"];
-  if (rawChange && financialIssues.length === 0 && !isStudentFinancialNarrative(input.node.description)) {
+  if (
+    rawChange
+    && financialIssues.length === 0
+    && !isStudentFinancialNarrative(input.node.description)
+    && !hasWorkingFinancialReconciliationFacts(input.node.description)
+  ) {
     const calculated = applyFinancialChange(
       input.previousState,
       rawChange,
@@ -119,7 +124,7 @@ function attachFinancialProgress(input: {
     periodMonths: input.elapsedMonths,
     targetAgeInMonths: input.targetAgeInMonths
   });
-  const reconciledInferredSignals = reconcileStudentFinancialSignals(
+  const reconciledInferredSignals = reconcileFinancialSignals(
     inferredSignals,
     input.node.description,
     input.elapsedMonths,
