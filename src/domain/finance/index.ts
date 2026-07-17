@@ -7,7 +7,5 @@ export * from "./deriveFinancialState";
 export * from "./migrateLegacyFinancialState";
 export * from "./ledgerMath";
 export * from "./reconcileLiquidity";
-export * from "./adaptLegacyFinancialSignals";
 export * from "./validateFinancialProposals";
 export * from "./commitFinancialDomainTransaction";
-export * from "./runFinancialShadow";

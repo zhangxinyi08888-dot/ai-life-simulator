@@ -3,7 +3,6 @@
  */
 
 import type { FinancialLedger, FinancialPeriodSummary } from "./domain/finance/types";
-import type { FinancialShadowComparison } from "./domain/finance/runFinancialShadow";
 import type { CareerState } from "./domain/career/types";
 
 export interface LifeAttributes {
@@ -308,7 +307,6 @@ export interface SimulationNode {
   attributes: LifeAttributes;  // 更新后的五维属性值
   financialLedger?: FinancialLedger;
   financialLedgerMode?: "shadow" | "authoritative";
-  financialShadowComparison?: FinancialShadowComparison;
   financialState?: FinancialState;
   financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
@@ -337,7 +335,6 @@ export interface HistoryItem {
   attributes: LifeAttributes;   // 存储该历史节点当时的属性状态，支持高保真时光回溯
   financialLedger?: FinancialLedger;
   financialLedgerMode?: "shadow" | "authoritative";
-  financialShadowComparison?: FinancialShadowComparison;
   financialState?: FinancialState;
   financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;

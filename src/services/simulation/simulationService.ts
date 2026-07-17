@@ -1,5 +1,5 @@
 import { buildEventMeta, getEventTemporalProfile, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent, type LifeEventSeed } from "../../data/lifeEvents";
-import { ChoiceTemporalHint, FinancialChange, FinancialSignals, FinancialState, HistoryItem, LifeAttributes, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
+import { ChoiceTemporalHint, FinancialState, HistoryItem, LifeAttributes, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
 import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
 import { DEFAULT_REPORT_INVITATION_POLICY } from "../../config/reportInvitationPolicy";
 import { buildQuestionPrompt } from "../../utils/questionPrompt";
@@ -16,17 +16,15 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
-import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, reconcileStudentFinancialSignals, withCalculatedWealth } from "../../utils/financialState";
-import { resolveAuthoritativeEmploymentStatus, resolveEmploymentStatusForNode } from "../../utils/employmentState";
+import { estimateFinancialStateFromWealth, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
+import { resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
 import { adaptTransitionalEmploymentProposal, currentCareerState, initializeCareerState, validateAndAcceptCareerTransition } from "../../domain/career/careerState";
 import {
-  adaptLegacyFinancialSignalsToProposals,
   commitFinancialDomainTransaction,
   migrateLegacyFinancialState,
-  runFinancialShadowTransition,
   validateFinancialProposals,
   type FinancialEventProposal
 } from "../../domain/finance";
@@ -36,7 +34,6 @@ import { AiClientError } from "../ai/errors";
 import { getBrowserE2eAiJsonCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import {
   buildNextNodePrompt,
-  buildFinancialSignalsRepairPrompt,
   buildEndingNodePrompt,
   buildNodePromptWithRetryNotice,
   buildPersonalityPrompt,
@@ -48,7 +45,6 @@ type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
 
 export interface SimulationServiceDeps {
   callAiJson?: AiJsonCaller;
-  enableFinancialRepair?: boolean;
 }
 
 export interface GenerateQuestionsResult {
@@ -70,144 +66,10 @@ function rawFinancialEventProposals(rawNode: any): FinancialEventProposal[] {
     : [];
 }
 
-function hasStructuredBusinessActivity(node: SimulationNode): boolean {
-  const tags = new Set(node.eventMeta?.eventTags || []);
-  return ["business", "startup", "financing", "founder_equity", "company_exit"]
-    .some((tag) => tags.has(tag));
-}
-
-function attachFinancialShadow(input: {
-  node: SimulationNode;
-  rawNode: any;
-  previousState: FinancialState;
-  currentLedger?: SimulationNode["financialLedger"];
-  currentCareerState: NonNullable<ReturnType<typeof currentCareerState>>;
-  acceptedOutcomeId?: string;
-  periodStartAgeInMonths: number;
-  periodEndAgeInMonths: number;
-  transactionId: string;
-}): SimulationNode {
-  const shadow = runFinancialShadowTransition({
-    previousLegacyState: input.previousState,
-    nextLegacyState: input.node.financialState!,
-    currentLedger: input.currentLedger,
-    currentCareerState: input.currentCareerState,
-    legacySignals: input.node.financialSignals,
-    directProposals: rawFinancialEventProposals(input.rawNode),
-    acceptedOutcomeId: input.acceptedOutcomeId,
-    narrativeText: input.node.description,
-    periodStartAgeInMonths: input.periodStartAgeInMonths,
-    periodEndAgeInMonths: input.periodEndAgeInMonths,
-    simulationTransactionId: `financial_shadow_${input.transactionId}`,
-    hasStructuredBusinessActivity: hasStructuredBusinessActivity(input.node)
-  });
-  return {
-    ...input.node,
-    financialLedger: shadow.ledger,
-    financialLedgerMode: "shadow",
-    financialShadowComparison: shadow.comparison,
-    financialPeriodSummary: shadow.periodSummary
-  };
-}
-
-function attachFinancialProgress(input: {
-  node: SimulationNode;
-  rawNode: any;
-  previousState: FinancialState;
-  previousWealth: number;
-  elapsedMonths: number;
-  targetAgeInMonths: number;
-  employmentStatus: NonNullable<FinancialState["employmentStatus"]>;
-}): SimulationNode {
-  const rawSignals = hasFinancialObject(input.rawNode?.financialSignals)
-    ? input.rawNode.financialSignals as Partial<FinancialSignals>
-    : undefined;
-  const signalIssues = rawSignals
-    ? getFinancialSignalsInputIssues(rawSignals, input.elapsedMonths)
-    : ["financialSignals 缺失"];
-  if (rawSignals && signalIssues.length === 0) {
-    const reconciledSignals = reconcileStudentFinancialSignals(
-      rawSignals,
-      input.node.description,
-      input.elapsedMonths,
-      input.previousState,
-      input.employmentStatus
-    );
-    const calculated = applyFinancialSignals(
-      input.previousState,
-      reconciledSignals,
-      input.elapsedMonths,
-      input.targetAgeInMonths,
-      input.employmentStatus
-    );
-    return {
-      ...input.node,
-      description: sanitizeFinancialNarrative(input.node.description, calculated.financialState),
-      attributes: withCalculatedWealth(input.node.attributes, calculated.financialState, input.previousWealth),
-      financialState: calculated.financialState,
-      financialSignals: calculated.financialSignals,
-      financialChange: calculated.financialChange
-    };
-  }
-
-  const rawChange = hasFinancialObject(input.rawNode?.financialChange)
-    ? input.rawNode.financialChange as Partial<FinancialChange>
-    : undefined;
-  const financialIssues = rawChange
-    ? getFinancialChangeInputIssues(rawChange, input.elapsedMonths)
-    : ["financialChange 缺失"];
-  if (rawChange && financialIssues.length === 0 && input.employmentStatus !== "student") {
-    const calculated = applyFinancialChange(
-      input.previousState,
-      rawChange,
-      input.elapsedMonths,
-      input.targetAgeInMonths,
-      input.employmentStatus
-    );
-    return {
-      ...input.node,
-      description: sanitizeFinancialNarrative(input.node.description, calculated.financialState),
-      attributes: withCalculatedWealth(input.node.attributes, calculated.financialState, input.previousWealth),
-      financialState: calculated.financialState,
-      financialChange: calculated.financialChange
-    };
-  }
-
-  const inferredSignals = inferFinancialSignalsFromNarrative({
-    description: input.node.description,
-    previousState: input.previousState,
-    periodMonths: input.elapsedMonths,
-    targetAgeInMonths: input.targetAgeInMonths,
-    employmentStatus: input.employmentStatus
-  });
-  const reconciledInferredSignals = reconcileStudentFinancialSignals(
-    inferredSignals,
-    input.node.description,
-    input.elapsedMonths,
-    input.previousState,
-    input.employmentStatus
-  );
-  const inferred = applyFinancialSignals(
-    input.previousState,
-    reconciledInferredSignals,
-    input.elapsedMonths,
-    input.targetAgeInMonths,
-    input.employmentStatus
-  );
-  return {
-    ...input.node,
-    description: sanitizeFinancialNarrative(input.node.description, inferred.financialState),
-    attributes: withCalculatedWealth(input.node.attributes, inferred.financialState, input.previousWealth),
-    financialState: inferred.financialState,
-    financialSignals: inferred.financialSignals,
-    financialChange: inferred.financialChange
-  };
-}
-
 function attachPendingFinancialContext(input: {
   node: SimulationNode;
   previousState: FinancialState;
-} & Record<string, unknown>): SimulationNode {
+}): SimulationNode {
   return {
     ...input.node,
     financialState: structuredClone(input.previousState),
@@ -260,28 +122,8 @@ function commitAuthoritativeFinancialProgress(input: {
         legacyState: input.previousState,
         linkedCareerStateId: currentCareer.id
       });
-  const rawSignals = hasFinancialObject(input.rawNode?.financialSignals)
-    && getFinancialSignalsInputIssues(input.rawNode.financialSignals, input.periodEndAgeInMonths - input.periodStartAgeInMonths).length === 0
-    ? input.rawNode.financialSignals as FinancialSignals
-    : undefined;
-  const adapted = rawSignals
-    ? adaptLegacyFinancialSignalsToProposals({
-        signals: rawSignals,
-        narrativeEvidence: input.node.description,
-        currentCareerState: currentCareer,
-        currentLedger: initialLedger,
-        periodStartAgeInMonths: input.periodStartAgeInMonths,
-        periodEndAgeInMonths: input.periodEndAgeInMonths,
-        sourceOutcomeId: input.acceptedOutcomeId,
-        simulationTransactionId: input.transactionId,
-        hasStructuredBusinessActivity: hasStructuredBusinessActivity(input.node)
-      })
-    : { proposals: [], issues: [] };
-  const proposals = [...adapted.proposals, ...rawFinancialEventProposals(input.rawNode)];
-  const validated = adapted.issues.some((issue) => issue.severity === "blocking")
-    ? { acceptedEvents: [], issues: [] }
-    : validateFinancialProposals({
-        proposals,
+  const validated = validateFinancialProposals({
+        proposals: rawFinancialEventProposals(input.rawNode),
         currentLedger: initialLedger,
         currentCareerState: currentCareer,
         acceptedOutcomeId: input.acceptedOutcomeId,
@@ -303,7 +145,7 @@ function commitAuthoritativeFinancialProgress(input: {
     currentWorldState: input.currentWorldState,
     acceptedCareerTransitions,
     acceptedFinancialEvents: validated.acceptedEvents,
-    financialIssues: [...adapted.issues, ...validated.issues],
+    financialIssues: validated.issues,
     liquidityPolicy: "auto_shortfall_debt"
   });
   const financialState = committed.derivedFinancialState.compatibilityState;
@@ -314,7 +156,6 @@ function commitAuthoritativeFinancialProgress(input: {
       attributes: withCalculatedWealth(input.node.attributes, financialState, input.previousWealth),
       financialLedger: committed.financialLedger,
       financialLedgerMode: "authoritative",
-      financialShadowComparison: undefined,
       financialState,
       financialPeriodSummary: committed.financialPeriodSummary,
       financialSignals: undefined,
@@ -322,64 +163,6 @@ function commitAuthoritativeFinancialProgress(input: {
     },
     worldState: committed.worldState
   };
-}
-
-function isMajorFinancialNarrative(text: string): boolean {
-  return /买房|卖房|房产|首付|按揭|继承|遗产|股权|融资|公司估值|企业出售|破产|债务重组|大额负债/.test(text);
-}
-
-async function repairFinancialChangeIfNeeded(input: {
-  rawNode: any;
-  node: SimulationNode;
-  currentFinancialState: FinancialState;
-  elapsedMonths: number;
-  targetAgeInMonths: number;
-  selectedDecision: string;
-  history: HistoryItem[];
-  callAiJson: AiJsonCaller;
-  enabled: boolean;
-}): Promise<any> {
-  if (Array.isArray(input.rawNode?.financialEventProposals)) return input.rawNode;
-  const rawSignals = input.rawNode?.financialSignals;
-  const signalIssues = hasFinancialObject(rawSignals)
-    ? getFinancialSignalsInputIssues(rawSignals, input.elapsedMonths)
-    : ["financialSignals 缺失"];
-  const rawChange = input.rawNode?.financialChange;
-  const legacyIssues = hasFinancialObject(rawChange)
-    ? getFinancialChangeInputIssues(rawChange, input.elapsedMonths)
-    : ["financialChange 缺失"];
-  const propertyIssues = getPropertyTransactionSignalIssues(input.node.description, rawSignals);
-  const hasValidSignals = signalIssues.length === 0 && propertyIssues.length === 0;
-  const hasValidLegacyChange = legacyIssues.length === 0 && propertyIssues.length === 0;
-  if (hasValidSignals || hasValidLegacyChange || !input.enabled || !isMajorFinancialNarrative(input.node.description)) {
-    return input.rawNode;
-  }
-
-  try {
-    const prompt = buildFinancialSignalsRepairPrompt({
-      description: input.node.description,
-      title: input.node.title,
-      ageInMonths: input.targetAgeInMonths,
-      elapsedMonths: input.elapsedMonths,
-      selectedDecision: input.selectedDecision,
-      currentFinancialState: input.currentFinancialState,
-      recentHistory: input.history
-    });
-    const repairedData = parseAiJsonResponse(await input.callAiJson(prompt));
-    const repairedSignals = hasFinancialObject(repairedData?.financialSignals)
-      ? repairedData.financialSignals
-      : repairedData;
-    if (
-      !hasFinancialObject(repairedSignals)
-      || getFinancialSignalsInputIssues(repairedSignals, input.elapsedMonths).length > 0
-      || getPropertyTransactionSignalIssues(input.node.description, repairedSignals).length > 0
-    ) {
-      return input.rawNode;
-    }
-    return { ...input.rawNode, financialSignals: repairedSignals };
-  } catch {
-    return input.rawNode;
-  }
 }
 
 function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
@@ -574,26 +357,6 @@ function resolveSelectedOutcomeId(history: HistoryItem[], selectedDecision: stri
   ))?.eventOutcomeId;
 }
 
-function employmentStatusForNode(input: {
-  worldState: ReturnType<typeof emptyWorldState>;
-  node: SimulationNode;
-  previousFinancialState: FinancialState;
-  expectedSourceOutcomeId?: string;
-}): NonNullable<FinancialState["employmentStatus"]> {
-  const currentStatus = resolveAuthoritativeEmploymentStatus({
-    currentCareerState: currentCareerState(input.worldState),
-    worldState: input.worldState,
-    legacyFinancialState: input.previousFinancialState,
-    isInitialization: input.worldState.currentEmploymentStatus === undefined
-  }) || "not_working";
-  return resolveEmploymentStatusForNode({
-    currentStatus,
-    worldDeltas: input.node.narrativeMeta?.worldDeltas,
-    narrativeText: input.node.description,
-    expectedSourceOutcomeId: input.expectedSourceOutcomeId
-  }) || currentStatus;
-}
-
 function latestWorldState(history: HistoryItem[]) {
   return history[history.length - 1]?.worldStateSnapshot || emptyWorldState();
 }
@@ -727,8 +490,6 @@ export async function generateNextNode(
   deps: SimulationServiceDeps = {}
 ): Promise<SimulationNode> {
   const callAiJson = getAiJsonCaller(deps);
-  const shouldRepairFinancialChange = deps.enableFinancialRepair
-    ?? (!deps.callAiJson && !getBrowserE2eAiJsonCaller());
   const lastNode = input.history[input.history.length - 1];
   const lastAge = lastNode ? lastNode.age : (input.userData.regressionAge || 20);
   const currentAgeInMonths = lastNode?.ageInMonths ?? lastAge * 12;
@@ -842,17 +603,6 @@ export async function generateNextNode(
     pressureArcId: workingPressureArc?.id,
     allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes
   });
-  latestRawNode = await repairFinancialChangeIfNeeded({
-    rawNode: latestRawNode,
-    node,
-    currentFinancialState,
-    elapsedMonths: timelineAdvance.elapsedMonths,
-    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-    selectedDecision: input.selectedDecision,
-    history: input.history,
-    callAiJson,
-    enabled: shouldRepairFinancialChange
-  });
   node = {
     ...node,
     isEndingNode: false,
@@ -864,17 +614,7 @@ export async function generateNextNode(
   };
   node = attachPendingFinancialContext({
     node,
-    rawNode: latestRawNode,
-    previousState: currentFinancialState,
-    previousWealth: input.currentAttributes.wealth,
-    elapsedMonths: timelineAdvance.elapsedMonths,
-    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-    employmentStatus: employmentStatusForNode({
-      worldState,
-      node,
-      previousFinancialState: currentFinancialState,
-      expectedSourceOutcomeId: selectedOutcomeId
-    })
+    previousState: currentFinancialState
   });
 
   let consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
@@ -899,30 +639,9 @@ export async function generateNextNode(
       pressureArcId: workingPressureArc?.id
     });
     node = { ...node, isEndingNode: false, eventMeta: nodeEvent ? buildEventMeta(nodeEvent) : undefined };
-    latestRawNode = await repairFinancialChangeIfNeeded({
-      rawNode: latestRawNode,
-      node,
-      currentFinancialState,
-      elapsedMonths: timelineAdvance.elapsedMonths,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-      selectedDecision: input.selectedDecision,
-      history: input.history,
-      callAiJson,
-      enabled: shouldRepairFinancialChange
-    });
     node = attachPendingFinancialContext({
       node,
-      rawNode: latestRawNode,
-      previousState: currentFinancialState,
-      previousWealth: input.currentAttributes.wealth,
-      elapsedMonths: timelineAdvance.elapsedMonths,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-      employmentStatus: employmentStatusForNode({
-        worldState,
-        node,
-        previousFinancialState: currentFinancialState,
-        expectedSourceOutcomeId: selectedOutcomeId
-      })
+      previousState: currentFinancialState
     });
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
     repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
@@ -978,7 +697,6 @@ export async function generateNextNode(
       description: sanitizeFinancialNarrative(normalizedEnding.description, node.financialState!),
       attributes: node.attributes,
       financialState: node.financialState,
-      financialChange: node.financialChange,
       isEndingNode: true,
       choices: [{ id: "ENDING", text: "安详落幕，查看一生洞察", impactSummary: "一生回望" }],
       eventMeta: node.eventMeta
@@ -1047,30 +765,9 @@ export async function generateNextNode(
       pressureArcId: workingPressureArc?.id
     });
     node = { ...node, isEndingNode: false, eventMeta: nodeEvent ? buildEventMeta(nodeEvent) : undefined };
-    latestRawNode = await repairFinancialChangeIfNeeded({
-      rawNode: latestRawNode,
-      node,
-      currentFinancialState,
-      elapsedMonths: timelineAdvance.elapsedMonths,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-      selectedDecision: input.selectedDecision,
-      history: input.history,
-      callAiJson,
-      enabled: shouldRepairFinancialChange
-    });
     node = attachPendingFinancialContext({
       node,
-      rawNode: latestRawNode,
-      previousState: currentFinancialState,
-      previousWealth: input.currentAttributes.wealth,
-      elapsedMonths: timelineAdvance.elapsedMonths,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-      employmentStatus: employmentStatusForNode({
-        worldState,
-        node,
-        previousFinancialState: currentFinancialState,
-        expectedSourceOutcomeId: selectedOutcomeId
-      })
+      previousState: currentFinancialState
     });
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
     repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
@@ -1131,30 +828,9 @@ export async function generateNextNode(
             : fallbackWorldDeltaTypes({ ...repairedNode, eventMeta: nodeEvent ? buildEventMeta(nodeEvent) : undefined })
         }))
       };
-      repairedRawNode = await repairFinancialChangeIfNeeded({
-        rawNode: repairedRawNode,
-        node: repairedNode,
-        currentFinancialState,
-        elapsedMonths: timelineAdvance.elapsedMonths,
-        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-        selectedDecision: input.selectedDecision,
-        history: input.history,
-        callAiJson,
-        enabled: shouldRepairFinancialChange
-      });
       repairedNode = attachPendingFinancialContext({
         node: repairedNode,
-        rawNode: repairedRawNode,
-        previousState: currentFinancialState,
-        previousWealth: input.currentAttributes.wealth,
-        elapsedMonths: timelineAdvance.elapsedMonths,
-        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-        employmentStatus: employmentStatusForNode({
-          worldState,
-          node: repairedNode,
-          previousFinancialState: currentFinancialState,
-          expectedSourceOutcomeId: selectedOutcomeId
-        })
+        previousState: currentFinancialState
       });
       const repairedConsistencyIssues = validateStoryConsistency({
         node: repairedNode,

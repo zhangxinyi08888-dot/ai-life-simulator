@@ -195,7 +195,6 @@ assert.match(capturedNextPrompt, /当前财务快照/);
 assert.ok(nextNode.financialState);
 assert.equal(nextNode.financialLedgerMode, "authoritative");
 assert.equal(nextNode.financialLedger?.asOfAgeInMonths, nextNode.ageInMonths);
-assert.equal(nextNode.financialShadowComparison, undefined);
 assert.equal(nextNode.financialSignals, undefined);
 assert.equal(nextNode.financialChange, undefined);
 assert.ok(nextNode.financialLedger?.recentTransactions.at(-1)?.eventIds.includes("accepted_content_bonus"));
@@ -395,7 +394,6 @@ const repairedFinancialNode = await generateNextNode({
   nodeIndex: 1,
   simulationSeed: "finance-repair"
 }, {
-  enableFinancialRepair: true,
   callAiJson: async (prompt) => {
     financialRepairCalls += 1;
     if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
@@ -437,10 +435,8 @@ const repairedFinancialNode = await generateNextNode({
   }
 });
 
-const repairPreviousState = estimateFinancialStateFromWealth(attributes.wealth, history[0].age * 12);
-assert.equal(financialRepairCalls, 2);
-assert.match(capturedFinancialRepairPrompt, /月薪、月入、年薪/);
-assert.match(capturedFinancialRepairPrompt, /生活支出不能无故为 0/);
+assert.equal(financialRepairCalls, 1);
+assert.equal(capturedFinancialRepairPrompt, "");
 assert.equal(repairedFinancialNode.financialSignals, undefined);
 assert.equal(repairedFinancialNode.financialLedgerMode, "authoritative");
 assert.ok((repairedFinancialNode.financialState?.cashWan || 0) >= 0);
@@ -462,7 +458,6 @@ const propertyRepairNode = await generateNextNode({
   nodeIndex: 1,
   simulationSeed: "property-semantic-repair"
 }, {
-  enableFinancialRepair: true,
   callAiJson: async (prompt) => {
     propertyRepairCalls += 1;
     if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
@@ -517,10 +512,13 @@ const propertyRepairNode = await generateNextNode({
   }
 });
 
-assert.equal(propertyRepairCalls, 2);
+assert.equal(propertyRepairCalls, 1);
 assert.equal(propertyRepairNode.financialSignals, undefined);
 assert.equal(propertyRepairNode.financialChange, undefined);
-assert.ok(propertyRepairNode.financialLedger?.unresolvedIssues.some((issue) => issue.code === "UNSUPPORTED_LARGE_VALUE_CHANGE"));
+assert.equal(
+  propertyRepairNode.financialState?.propertyMarketValueWan,
+  estimateFinancialStateFromWealth(attributes.wealth, history[0].age * 12).propertyMarketValueWan
+);
 
 let failedRepairCalls = 0;
 const failedRepairNode = await generateNextNode({
@@ -532,7 +530,6 @@ const failedRepairNode = await generateNextNode({
   nodeIndex: 1,
   simulationSeed: "finance-repair-fallback"
 }, {
-  enableFinancialRepair: true,
   callAiJson: async (prompt) => {
     failedRepairCalls += 1;
     if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
@@ -556,7 +553,7 @@ const failedRepairNode = await generateNextNode({
   }
 });
 
-assert.equal(failedRepairCalls, 2);
+assert.equal(failedRepairCalls, 1);
 assert.notEqual(failedRepairNode.attributes.wealth, 88);
 assert.equal(failedRepairNode.financialSignals, undefined);
 assert.equal(failedRepairNode.financialChange, undefined);
