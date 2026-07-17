@@ -12,6 +12,7 @@ import {
   getPropertyTransactionSignalIssues,
   inferFinancialSignalsFromNarrative,
   normalizeInitialFinancialState,
+  reconcileLiquidityShortfall,
   reconcileStudentFinancialSignals
 } from "./financialState";
 
@@ -441,7 +442,7 @@ test("reconciles yuan-denominated student income and installment expenses", () =
     incomeStability: "unstable",
     confidence: 0.8,
     reasons: ["根据正文估算"]
-  }, "你接拍宣传片，两天赚了500元。训练营分12期，每月816元；随后去公司实习，月薪800元。", 6);
+  }, "你接拍宣传片，两天赚了500元。训练营分12期，每月816元；随后去公司实习，月薪800元。", 6, undefined, "student");
 
   assert.equal(signals.monthlyNetIncomeWan, 0.08);
   assert.equal(signals.oneOffIncomeWan, 0.05);
@@ -532,7 +533,7 @@ test("recognizes a freshman narrative and caps unfunded one-off costs", () => {
     incomeStability: "unstable",
     confidence: 0.5,
     reasons: ["估算大一阶段开支"]
-  }, "大一这一年，你完成专业课并留校参加古建测绘工作坊。", 5, previous);
+  }, "大一这一年，你完成专业课并留校参加古建测绘工作坊。", 5, previous, "student");
   const result = applyFinancialSignals(previous, signals, 5, 19 * 12 + 5);
 
   assert.equal(signals.employmentStatus, "student");
@@ -576,4 +577,116 @@ test("uses monthly family support to offset student living costs without creatin
   assert.equal(signals.monthlyLivingExpenseWan, 0);
   assert.equal(result.financialChange.netWorthChangeWan, 0);
   assert.equal(result.financialState.netWorthWan, 0.5);
+});
+
+test("does not let university keywords or part-time status activate student rules", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 20,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 24,
+    annualDisposableIncomeWan: 12,
+    annualCoreExpenseWan: 12,
+    employmentStatus: "employed",
+    incomeStability: "stable",
+    isEstimated: false
+  }, 38 * 12, 50);
+  const reconciled = reconcileStudentFinancialSignals({
+    employmentStatus: "student",
+    monthlyNetIncomeWan: 2,
+    incomeMonths: 12,
+    monthlyLivingExpenseWan: 1,
+    oneOffIncomeWan: 0,
+    oneOffExpenseWan: 0,
+    assetValueChangeWan: 0,
+    personalDebtChangeWan: 0,
+    incomeStability: "stable",
+    confidence: 0.9,
+    reasons: ["在线MBA"]
+  }, "你保持全职工作，同时报名在线MBA；孩子也准备上大学。", 12, previous, "employed");
+
+  assert.equal(reconciled.employmentStatus, "employed");
+  assert.equal(reconciled.monthlyLivingExpenseWan, 1);
+});
+
+test("resets the legacy student expense floor after an authoritative adult transition", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 2,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: -1.2,
+    annualCoreExpenseWan: 1.2,
+    employmentStatus: "student",
+    incomeStability: "unstable",
+    isEstimated: true
+  }, 24 * 12, 40);
+  const signals = inferFinancialSignalsFromNarrative({
+    description: "你已经开始新的全职工作。",
+    previousState: previous,
+    periodMonths: 12,
+    targetAgeInMonths: 25 * 12,
+    employmentStatus: "employed"
+  });
+
+  assert.equal(signals.employmentStatus, "employed");
+  assert.equal(signals.monthlyLivingExpenseWan, 0.35);
+});
+
+test("floors negative cash into debt without changing net worth twice", () => {
+  const previous = normalizeInitialFinancialState({
+    cashWan: 1,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: -5,
+    annualCoreExpenseWan: 5,
+    employmentStatus: "not_working",
+    incomeStability: "unstable",
+    isEstimated: false
+  }, 30 * 12, 20);
+  const result = applyFinancialChange(previous, {
+    afterTaxIncomeWan: 0,
+    livingExpenseWan: 5,
+    medicalEducationExpenseWan: 0,
+    interestAndFeesWan: 0,
+    assetValueChangeWan: 0,
+    otherNetChangeWan: 0,
+    reasons: ["本阶段没有收入"]
+  }, 12, 31 * 12, "not_working");
+
+  assert.equal(result.financialState.cashWan, 0);
+  assert.equal(result.financialState.totalDebtWan, 4);
+  assert.equal(result.financialState.netWorthWan, -4);
+  assert.equal(result.financialChange.netWorthChangeWan, -5);
+  assert.equal(result.financialChange.liquidityShortfallWan, 4);
+  assert.equal(result.financialState.netWorthWan - previous.netWorthWan, -5);
+});
+
+test("liquidity reconciliation is idempotent", () => {
+  const state = normalizeInitialFinancialState({
+    cashWan: -3,
+    investmentAssetsWan: 1,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 2,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: 0,
+    annualCoreExpenseWan: 0,
+    employmentStatus: "not_working",
+    incomeStability: "unstable",
+    isEstimated: false
+  }, 30 * 12, 20);
+  const repeated = reconcileLiquidityShortfall(state);
+
+  assert.equal(state.cashWan, 0);
+  assert.equal(state.totalDebtWan, 5);
+  assert.equal(repeated.liquidityShortfallWan, 0);
+  assert.equal(repeated.financialState.totalDebtWan, 5);
 });

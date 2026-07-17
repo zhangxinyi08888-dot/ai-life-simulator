@@ -249,6 +249,9 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
   const { userData, answers, history, currentAttributes, currentFinancialState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc } = input;
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
+  const selectedOutcomeId = lastNode?.choices.find((choice) => (
+    choice.text === selectedDecision || selectedDecision.includes(choice.text)
+  ))?.eventOutcomeId;
   const eventSeedPrompt = eventSeed
     ? buildEventIntentPrompt(eventSeed, storyContext)
     : buildNullEventPrompt(storyContext);
@@ -333,6 +336,7 @@ ${healthPhaseRule}
 
 【上一步做出的命运裁决】
 用户在刚才的十字路口选择了：【${selectedDecision}】
+${selectedOutcomeId ? `该选择对应的已接受 outcome id：【${selectedOutcomeId}】` : "该选择没有结构化 outcome id；不得凭空提交就业状态转换。"}
 ${eventSeedPrompt}
 
 【本次推演任务】
@@ -347,6 +351,8 @@ ${FINANCIAL_NARRATIVE_RULE}
 - 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId。
 ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
+- 只有主角在本阶段已经明确入职、离职、创业、停工休养或退休时，career_state worldDelta 才能增加 employmentTransition；必须返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、正文原句 evidence 和 confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时不得返回 employmentTransition。
+- 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。
 - financialSignals 必须放在返回 JSON 顶层，返回 employmentStatus、monthlyNetIncomeWan、incomeMonths、monthlyLivingExpenseWan、oneOffIncomeWan、oneOffExpenseWan、assetValueChangeWan、propertyMarketValueChangeWan、personalDebtChangeWan、incomeStability、confidence、reasons。
 - incomeMonths 必须在 0-${elapsedMonths} 之间。正文出现月薪、年薪、兼职、项目收入、房租、医疗、教育、汇款或债务时，必须反映到对应字段。
 - 学生的 monthlyLivingExpenseWan 只记录本人实际承担、扣除家庭代付或学校补助后的净支出；无明确金额时通常按 0.1-0.2 万元/月，不得套用在职成年人生活成本。

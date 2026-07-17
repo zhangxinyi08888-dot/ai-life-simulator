@@ -54,8 +54,18 @@ export interface FinancialChange {
   assetValueChangeWan: number;
   otherNetChangeWan: number;
   netWorthChangeWan: number;
+  liquidityShortfallWan?: number;
   incomeStability?: IncomeStability;
   reasons: string[];
+}
+
+export interface EmploymentTransitionProposal {
+  subject: "protagonist";
+  toStatus: EmploymentStatus;
+  effectiveAtAgeInMonths: number;
+  sourceOutcomeId?: string;
+  evidence: string;
+  confidence: number;
 }
 
 export interface UserInitialData {
@@ -163,7 +173,7 @@ export type WorldDelta =
   | { type: "person_status"; personId: string; status: PersonLifeStatus; reason: string }
   | { type: "person_role"; personId: string; occupationStatus: PersonState["occupationStatus"] }
   | { type: "relationship_change"; personId: string; summary: string }
-  | { type: "career_state"; summary: string }
+  | { type: "career_state"; summary: string; employmentTransition?: EmploymentTransitionProposal }
   | { type: "health_state"; summary: string }
   | { type: "location_change"; summary: string };
 
@@ -271,6 +281,7 @@ export interface WorldStateSnapshot {
   relationshipSummary?: string;
   healthSummary?: string;
   locationSummary?: string;
+  currentEmploymentStatus?: EmploymentStatus;
   committedTransactionIds?: string[];
   version: 1;
 }

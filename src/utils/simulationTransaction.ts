@@ -23,7 +23,10 @@ export function emptyWorldState(): WorldStateSnapshot {
 function applySummaries(snapshot: WorldStateSnapshot, outcome: AcceptedNodeOutcome): WorldStateSnapshot {
   const next = { ...snapshot };
   for (const delta of outcome.worldDeltas) {
-    if (delta.type === "career_state") next.careerSummary = delta.summary;
+    if (delta.type === "career_state") {
+      next.careerSummary = delta.summary;
+      if (delta.employmentTransition) next.currentEmploymentStatus = delta.employmentTransition.toStatus;
+    }
     if (delta.type === "relationship_change") next.relationshipSummary = delta.summary;
     if (delta.type === "health_state") next.healthSummary = delta.summary;
     if (delta.type === "location_change") next.locationSummary = delta.summary;

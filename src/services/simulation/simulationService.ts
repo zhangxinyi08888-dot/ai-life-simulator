@@ -16,7 +16,8 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
-import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, isStudentFinancialNarrative, normalizeInitialFinancialState, reconcileStudentFinancialSignals, withCalculatedWealth } from "../../utils/financialState";
+import { applyFinancialChange, applyFinancialSignals, estimateFinancialStateFromWealth, getFinancialChangeInputIssues, getFinancialSignalsInputIssues, getPropertyTransactionSignalIssues, inferFinancialSignalsFromNarrative, normalizeInitialFinancialState, reconcileStudentFinancialSignals, withCalculatedWealth } from "../../utils/financialState";
+import { resolveAuthoritativeEmploymentStatus, resolveEmploymentStatusForNode } from "../../utils/employmentState";
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
@@ -61,6 +62,7 @@ function attachFinancialProgress(input: {
   previousWealth: number;
   elapsedMonths: number;
   targetAgeInMonths: number;
+  employmentStatus: NonNullable<FinancialState["employmentStatus"]>;
 }): SimulationNode {
   const rawSignals = hasFinancialObject(input.rawNode?.financialSignals)
     ? input.rawNode.financialSignals as Partial<FinancialSignals>
@@ -73,13 +75,15 @@ function attachFinancialProgress(input: {
       rawSignals,
       input.node.description,
       input.elapsedMonths,
-      input.previousState
+      input.previousState,
+      input.employmentStatus
     );
     const calculated = applyFinancialSignals(
       input.previousState,
       reconciledSignals,
       input.elapsedMonths,
-      input.targetAgeInMonths
+      input.targetAgeInMonths,
+      input.employmentStatus
     );
     return {
       ...input.node,
@@ -97,12 +101,13 @@ function attachFinancialProgress(input: {
   const financialIssues = rawChange
     ? getFinancialChangeInputIssues(rawChange, input.elapsedMonths)
     : ["financialChange 缺失"];
-  if (rawChange && financialIssues.length === 0 && !isStudentFinancialNarrative(input.node.description)) {
+  if (rawChange && financialIssues.length === 0 && input.employmentStatus !== "student") {
     const calculated = applyFinancialChange(
       input.previousState,
       rawChange,
       input.elapsedMonths,
-      input.targetAgeInMonths
+      input.targetAgeInMonths,
+      input.employmentStatus
     );
     return {
       ...input.node,
@@ -117,19 +122,22 @@ function attachFinancialProgress(input: {
     description: input.node.description,
     previousState: input.previousState,
     periodMonths: input.elapsedMonths,
-    targetAgeInMonths: input.targetAgeInMonths
+    targetAgeInMonths: input.targetAgeInMonths,
+    employmentStatus: input.employmentStatus
   });
   const reconciledInferredSignals = reconcileStudentFinancialSignals(
     inferredSignals,
     input.node.description,
     input.elapsedMonths,
-    input.previousState
+    input.previousState,
+    input.employmentStatus
   );
   const inferred = applyFinancialSignals(
     input.previousState,
     reconciledInferredSignals,
     input.elapsedMonths,
-    input.targetAgeInMonths
+    input.targetAgeInMonths,
+    input.employmentStatus
   );
   return {
     ...input.node,
@@ -327,6 +335,7 @@ export async function startSimulation(
     ? withCalculatedWealth(startNode.attributes, financialState)
     : startNode.attributes;
   const startWorldState = emptyWorldState();
+  startWorldState.currentEmploymentStatus = financialState.employmentStatus;
   startWorldState.directionArcs = ensureDirectionArcs(startWorldState, userData, startNode.ageInMonths ?? startNode.age * 12);
   startWorldState.people = rebuildPersonStates(userData, [], startNode.ageInMonths ?? startNode.age * 12);
   const initializedStartNodeWithFinance = {
@@ -363,6 +372,33 @@ function resolveChoiceTemporalHint(history: HistoryItem[], selectedDecision: str
   if (/创业|融资|辞职|转型|扩张|冲突/.test(text)) return { lifeIntensity: "high_tension", durationMonths: [6, 12], requiresFollowUp: true, reason: "自定义选择开启高张力行动" };
   if (/稳定|维持|长期|退休/.test(text)) return { lifeIntensity: "stable", durationMonths: [36, 60], requiresFollowUp: false, reason: "自定义选择强调长期稳定" };
   return undefined;
+}
+
+function resolveSelectedOutcomeId(history: HistoryItem[], selectedDecision: string): string | undefined {
+  const latest = history[history.length - 1];
+  return latest?.choices.find((choice) => (
+    choice.text === selectedDecision
+    || selectedDecision.includes(choice.text)
+  ))?.eventOutcomeId;
+}
+
+function employmentStatusForNode(input: {
+  worldState: ReturnType<typeof emptyWorldState>;
+  node: SimulationNode;
+  previousFinancialState: FinancialState;
+  expectedSourceOutcomeId?: string;
+}): NonNullable<FinancialState["employmentStatus"]> {
+  const currentStatus = resolveAuthoritativeEmploymentStatus({
+    worldState: input.worldState,
+    legacyFinancialState: input.previousFinancialState,
+    isInitialization: input.worldState.currentEmploymentStatus === undefined
+  }) || "not_working";
+  return resolveEmploymentStatusForNode({
+    currentStatus,
+    worldDeltas: input.node.narrativeMeta?.worldDeltas,
+    narrativeText: input.node.description,
+    expectedSourceOutcomeId: input.expectedSourceOutcomeId
+  }) || currentStatus;
 }
 
 function latestWorldState(history: HistoryItem[]) {
@@ -508,8 +544,17 @@ export async function generateNextNode(
   const nodeIndex = input.nodeIndex ?? input.history.length;
   const simulationSeed = input.simulationSeed || stableHash({ user: input.userData.birthday, regressionAge: input.userData.regressionAge });
   const branchFingerprint = buildBranchFingerprint(input.history, input.selectedDecision, nodeIndex);
+  const selectedOutcomeId = resolveSelectedOutcomeId(input.history, input.selectedDecision);
   const baseWorldState = latestWorldState(input.history);
-  const currentWorldState = { ...baseWorldState, directionArcs: ensureDirectionArcs(baseWorldState, input.userData, currentAgeInMonths) };
+  const currentWorldState = {
+    ...baseWorldState,
+    directionArcs: ensureDirectionArcs(baseWorldState, input.userData, currentAgeInMonths),
+    currentEmploymentStatus: resolveAuthoritativeEmploymentStatus({
+      worldState: baseWorldState,
+      legacyFinancialState: currentFinancialState,
+      isInitialization: baseWorldState.currentEmploymentStatus === undefined
+    })
+  };
   const existingPressureArc = foregroundPressureArc(input.history);
   const e2eEventOverride = existingPressureArc ? undefined : getBrowserE2eEventOverride(input.history.length);
   const healthEscalationEvent = existingPressureArc
@@ -617,7 +662,13 @@ export async function generateNextNode(
     previousState: currentFinancialState,
     previousWealth: input.currentAttributes.wealth,
     elapsedMonths: timelineAdvance.elapsedMonths,
-    targetAgeInMonths: timelineAdvance.targetAgeInMonths
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    employmentStatus: employmentStatusForNode({
+      worldState,
+      node,
+      previousFinancialState: currentFinancialState,
+      expectedSourceOutcomeId: selectedOutcomeId
+    })
   });
 
   let consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
@@ -659,7 +710,13 @@ export async function generateNextNode(
       previousState: currentFinancialState,
       previousWealth: input.currentAttributes.wealth,
       elapsedMonths: timelineAdvance.elapsedMonths,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      employmentStatus: employmentStatusForNode({
+        worldState,
+        node,
+        previousFinancialState: currentFinancialState,
+        expectedSourceOutcomeId: selectedOutcomeId
+      })
     });
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
     repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
@@ -724,7 +781,8 @@ export async function generateNextNode(
       worldDeltas: endingNode.narrativeMeta?.worldDeltas,
       arcSignals: endingNode.narrativeMeta?.arcSignals,
       policy: pressureArcPolicy,
-      narrativeText: endingNode.description
+      narrativeText: endingNode.description,
+      expectedSourceOutcomeId: selectedOutcomeId
     });
     const terminalTransition = workingPressureArc
       ? { action: "resolve" as const, previousPhaseId: workingPressureArc.phaseId, nextArcState: { ...workingPressureArc, status: "resolved" as const }, reasonCodes: ["life-ending"] }
@@ -784,7 +842,13 @@ export async function generateNextNode(
       previousState: currentFinancialState,
       previousWealth: input.currentAttributes.wealth,
       elapsedMonths: timelineAdvance.elapsedMonths,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      employmentStatus: employmentStatusForNode({
+        worldState,
+        node,
+        previousFinancialState: currentFinancialState,
+        expectedSourceOutcomeId: selectedOutcomeId
+      })
     });
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people });
     repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
@@ -862,7 +926,13 @@ export async function generateNextNode(
         previousState: currentFinancialState,
         previousWealth: input.currentAttributes.wealth,
         elapsedMonths: timelineAdvance.elapsedMonths,
-        targetAgeInMonths: timelineAdvance.targetAgeInMonths
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        employmentStatus: employmentStatusForNode({
+          worldState,
+          node: repairedNode,
+          previousFinancialState: currentFinancialState,
+          expectedSourceOutcomeId: selectedOutcomeId
+        })
       });
       const repairedConsistencyIssues = validateStoryConsistency({
         node: repairedNode,
@@ -908,7 +978,8 @@ export async function generateNextNode(
     worldDeltas: node.narrativeMeta?.worldDeltas,
     arcSignals: node.narrativeMeta?.arcSignals,
     policy: pressureArcPolicy,
-    narrativeText: node.description
+    narrativeText: node.description,
+    expectedSourceOutcomeId: selectedOutcomeId
   });
   const pressureArcTransition = reducePressureArc({
     currentArc: workingPressureArc,

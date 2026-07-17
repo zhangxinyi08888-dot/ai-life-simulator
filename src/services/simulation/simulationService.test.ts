@@ -193,7 +193,7 @@ assert.match(capturedNextPrompt, /追问补全事实/);
 assert.match(capturedNextPrompt, /最近 5 个历史节点/);
 assert.match(capturedNextPrompt, /至少显性使用 1 条追问答案/);
 assert.match(capturedNextPrompt, /当前财务快照/);
-assert.equal(nextNode.financialSignals?.employmentStatus, "part_time");
+assert.equal(nextNode.financialSignals?.employmentStatus, "student");
 assert.ok(nextNode.financialChange);
 assert.ok(nextNode.financialState);
 assert.doesNotMatch(nextNode.description, /存款约90万/);
@@ -300,7 +300,7 @@ for (const testCase of degradedFinanceCases) {
   const previousFinancialState = estimateFinancialStateFromWealth(attributes.wealth, history[0].age * 12);
   assert.equal(callCount, 1);
   assert.notEqual(degradedNode.attributes.wealth, 88);
-  assert.notEqual(degradedNode.financialState?.netWorthWan, previousFinancialState.netWorthWan);
+  assert.equal(degradedNode.financialState?.employmentStatus, previousFinancialState.employmentStatus);
   assert.equal(degradedNode.financialState?.isEstimated, true);
   assert.ok(degradedNode.financialSignals);
   assert.ok(degradedNode.financialChange);
