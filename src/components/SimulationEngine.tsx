@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Activity, BookOpen, Compass, DollarSign, Heart, History, MessageSquarePlus, Send, Sparkles, Users } from "lucide-react";
 import { HistoryItem, LifeAttributes, ReportInvitationMeta, SimulationNode } from "../types";
 import { formatAgeInMonths } from "../utils/timelineAdvance";
 import { formatNetWorthWan } from "../utils/financialState";
+import { splitNarrativeParagraphs } from "../utils/narrativePresentation";
+import type { NextGenerationStage } from "../services/simulation/simulationService";
 
 interface SimulationEngineProps {
   currentNode: SimulationNode;
@@ -13,6 +15,8 @@ interface SimulationEngineProps {
   onAcceptReportInvitation: (invitation: ReportInvitationMeta) => void;
   onContinueReportInvitation: (invitationId: string) => void;
   isLoadingNext: boolean;
+  pendingChoice: string | null;
+  generationStage: NextGenerationStage;
   isLoadingReport: boolean;
   onTimeTravel: (targetIndex: number) => void;
 }
@@ -25,11 +29,20 @@ const ATTRIBUTES = [
   { key: "health", name: "健康", icon: Activity }
 ] as const;
 
-export default function SimulationEngine({ currentNode, history, nodeCount, onSelectChoice, onAcceptReportInvitation, onContinueReportInvitation, isLoadingNext, isLoadingReport, onTimeTravel }: SimulationEngineProps) {
+const GENERATION_COPY: Record<NextGenerationStage, { title: string; detail: string }> = {
+  preparing: { title: "正在承接你的选择", detail: "整理上一阶段的人物、时间与现实条件。" },
+  generating: { title: "正在推演现实影响", detail: "新的经历正在形成，正式状态尚未写入时间线。" },
+  validating: { title: "正在校准时间线", detail: "核对年龄、财务、人物关系与后续选项。" },
+  finalizing: { title: "下一章即将展开", detail: "本段已经通过校准，正在写入你的生平纪事。" }
+};
+
+export default function SimulationEngine({ currentNode, history, nodeCount, onSelectChoice, onAcceptReportInvitation, onContinueReportInvitation, isLoadingNext, pendingChoice, generationStage, isLoadingReport, onTimeTravel }: SimulationEngineProps) {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customText, setCustomText] = useState("");
+  const [visibleParagraphCount, setVisibleParagraphCount] = useState(1);
   const storyRef = useRef<HTMLDivElement>(null);
+  const paragraphs = useMemo(() => splitNarrativeParagraphs(currentNode.description), [currentNode.description]);
   const pendingInvitation = currentNode.reportInvitation?.status === "pending"
     ? currentNode.reportInvitation
     : undefined;
@@ -37,6 +50,30 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
   useEffect(() => {
     storyRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [currentNode.ageInMonths, currentNode.age, currentNode.title]);
+
+  useEffect(() => {
+    if (!isLoadingNext) return;
+    const frame = window.requestAnimationFrame(() => {
+      const storyElement = storyRef.current;
+      storyElement?.scrollTo({ top: storyElement.scrollHeight, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isLoadingNext]);
+
+  useEffect(() => {
+    setVisibleParagraphCount(1);
+    if (paragraphs.length <= 1) return;
+    const interval = window.setInterval(() => {
+      setVisibleParagraphCount((count) => {
+        if (count >= paragraphs.length) {
+          window.clearInterval(interval);
+          return count;
+        }
+        return count + 1;
+      });
+    }, 320);
+    return () => window.clearInterval(interval);
+  }, [currentNode.description, paragraphs.length]);
 
   const choose = (choiceText: string) => {
     onSelectChoice(choiceText);
@@ -97,18 +134,47 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
           <h2 className="font-serif text-[28px] font-medium leading-[1.25] tracking-[-0.025em] text-[#f0ebe2]" id="chapter-node-title">{currentNode.title}</h2>
           <div className="h-px w-9 bg-[#9f9066]" />
           <div className="space-y-4 rounded-[17px] border border-[#2d2b27] bg-[#0a0a0a] p-4 text-[13px] leading-7 text-[#bdb6ab]" id="chapter-node-body">
-            {currentNode.description.split("\n\n").map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+            <AnimatePresence initial={false}>
+              {paragraphs.slice(0, visibleParagraphCount).map((paragraph, index) => (
+                <motion.p key={`${index}-${paragraph.slice(0, 12)}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>{paragraph}</motion.p>
+              ))}
+            </AnimatePresence>
+            {visibleParagraphCount < paragraphs.length && (
+              <button type="button" onClick={() => setVisibleParagraphCount(paragraphs.length)} className="text-[10px] text-[#9d8e63] transition hover:text-[#d4c592]" id="reveal-full-story-btn">直接显示全文</button>
+            )}
           </div>
         </motion.article>
+
+        {isLoadingNext && (
+          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 space-y-4 border-t border-[#25221d] pt-6" id="next-chapter-preview">
+            <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.16em] text-[#82775d]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#b6a778]" />NEXT CHAPTER</div>
+            <div className="h-7 w-3/5 animate-pulse rounded-md bg-[#171510]" />
+            <div className="space-y-3 rounded-[17px] border border-[#2a2721] bg-[#090908] p-4">
+              <div className="h-3 w-full animate-pulse rounded bg-[#1b1915]" />
+              <div className="h-3 w-11/12 animate-pulse rounded bg-[#171612]" />
+              <div className="h-3 w-4/5 animate-pulse rounded bg-[#14130f]" />
+            </div>
+          </motion.section>
+        )}
       </main>
 
       <section className="border-t border-[#211f1c] bg-[#070707] px-4 pb-5 pt-4" id="interaction-dock">
         {isLoadingNext || isLoadingReport ? (
-          <div className="flex min-h-36 flex-col items-center justify-center gap-3 text-center" id="loading-next-spinner">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#4a4435] border-t-[#c8b77d]" />
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[#b6a778]">{isLoadingReport ? (pendingInvitation ? "这段人生的报告生成中" : "完整人生报告生成中") : "新的时空正在展开"}</p>
-            <p className="max-w-[280px] text-[10px] leading-5 text-[#625e58]">{isLoadingReport ? "正在整理你的人生轨迹与关键选择。" : "正在根据之前的选择，推演下一段真实人生。"}</p>
-          </div>
+          isLoadingNext ? (
+            <div className="min-h-36 space-y-3" id="loading-next-progress">
+              {pendingChoice && <div className="rounded-[12px] border border-[#403929] bg-[#0e0d0a] px-3 py-2 text-[10px] leading-5 text-[#a9a093]" id="pending-choice-receipt"><span className="text-[#c7b77f]">你选择了：</span>{pendingChoice.replace(/^自定义抉择:\s*/, "")}</div>}
+              <div className="flex items-start gap-3 px-1 py-1">
+                <div className="mt-1 h-4 w-4 shrink-0 animate-spin rounded-full border border-[#4a4435] border-t-[#c8b77d]" />
+                <div><p className="text-[11px] text-[#c2b487]">{GENERATION_COPY[generationStage].title}</p><p className="mt-1 text-[9px] leading-5 text-[#625e58]">{GENERATION_COPY[generationStage].detail}</p></div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex min-h-36 flex-col items-center justify-center gap-3 text-center" id="loading-report-spinner">
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#4a4435] border-t-[#c8b77d]" />
+              <p className="text-[11px] uppercase tracking-[0.16em] text-[#b6a778]">{pendingInvitation ? "这段人生的报告生成中" : "完整人生报告生成中"}</p>
+              <p className="max-w-[280px] text-[10px] leading-5 text-[#625e58]">正在整理你的人生轨迹与关键选择。</p>
+            </div>
+          )
         ) : (
           <AnimatePresence mode="wait">
             {pendingInvitation ? (

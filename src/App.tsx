@@ -11,7 +11,8 @@ import { isAiClientError } from "./services/ai/errors";
 import {
   generateNextNode,
   generateQuestions,
-  startSimulation
+  startSimulation,
+  type NextGenerationStage
 } from "./services/simulation/simulationService";
 import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeService";
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
@@ -97,6 +98,8 @@ export default function App() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
+  const [pendingChoice, setPendingChoice] = useState<string | null>(null);
+  const [nextGenerationStage, setNextGenerationStage] = useState<NextGenerationStage>("preparing");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const testStateImportEnabled = import.meta.env.DEV
     && typeof window !== "undefined"
@@ -124,6 +127,7 @@ export default function App() {
       setOutcome(restored.outcome ?? null);
       setIsLoading(false);
       setIsLoadingNext(false);
+      setPendingChoice(null);
       setErrorMsg(null);
       setShowTestStateImporter(false);
     } catch (error) {
@@ -291,6 +295,8 @@ export default function App() {
     }
 
     // Regular progression to next-node
+    setPendingChoice(choiceText);
+    setNextGenerationStage("preparing");
     setIsLoadingNext(true);
 
     const newHistoryItem = createHistoryItemFromNode(currentNode, choiceText);
@@ -298,15 +304,18 @@ export default function App() {
     setHistory(updatedHistory);
 
     try {
-      const body = await generateNextNode({
-        userData,
-        answers,
-        history: updatedHistory,
-        currentAttributes: attributes,
-        selectedDecision: choiceText,
-        nodeIndex: updatedHistory.length,
-        simulationSeed
-      });
+      const body = await generateNextNode(
+        {
+          userData,
+          answers,
+          history: updatedHistory,
+          currentAttributes: attributes,
+          selectedDecision: choiceText,
+          nodeIndex: updatedHistory.length,
+          simulationSeed
+        },
+        { onGenerationStage: setNextGenerationStage }
+      );
 
       setAttributes(body.attributes);
       setCurrentNode(body);
@@ -318,6 +327,7 @@ export default function App() {
       setHistory(history);
     } finally {
       setIsLoadingNext(false);
+      setPendingChoice(null);
     }
   };
 
@@ -332,6 +342,7 @@ export default function App() {
       setHistory(restored.historyBefore);
       setNodeCount(restored.nodeCount);
       setStep("simulating");
+      setPendingChoice(null);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(getSimulationErrorMessage(err, "逆转星轨失败，未能顺利重装这段尘封记忆。"));
@@ -350,6 +361,7 @@ export default function App() {
     setSimulationSeed(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
     setOutcome(null);
     setErrorMsg(null);
+    setPendingChoice(null);
   };
 
   return (
@@ -414,6 +426,8 @@ export default function App() {
                   onAcceptReportInvitation={handleAcceptReportInvitation}
                   onContinueReportInvitation={handleContinueReportInvitation}
                   isLoadingNext={isLoadingNext}
+                  pendingChoice={pendingChoice}
+                  generationStage={nextGenerationStage}
                   isLoadingReport={isLoading}
                   onTimeTravel={handleTimeTravel}
                 />

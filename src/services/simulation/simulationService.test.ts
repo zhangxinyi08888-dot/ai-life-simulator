@@ -145,6 +145,7 @@ const history: HistoryItem[] = [
   }
 ];
 let capturedNextPrompt = "";
+const nextGenerationStages: string[] = [];
 
 const nextNode = await generateNextNode({
   userData,
@@ -154,6 +155,7 @@ const nextNode = await generateNextNode({
   selectedDecision: "转向内容行业实习",
   nodeIndex: 1
 }, {
+  onGenerationStage: (stage) => nextGenerationStages.push(stage),
   callAiJson: async (prompt) => {
     capturedNextPrompt = prompt;
     return {
@@ -199,6 +201,7 @@ assert.ok(nextNode.financialState);
 assert.doesNotMatch(nextNode.description, /存款约90万/);
 assert.match(nextNode.description, /现金流|现金缓冲|储蓄|负债状态/);
 assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, deriveWealthScore(nextNode.financialState!)));
+assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating", "finalizing"]);
 
 const ordinaryHealthDrop = await generateNextNode({
   userData,

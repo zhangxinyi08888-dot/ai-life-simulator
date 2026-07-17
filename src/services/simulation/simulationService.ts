@@ -36,9 +36,12 @@ import {
 
 type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
 
+export type NextGenerationStage = "preparing" | "generating" | "validating" | "finalizing";
+
 export interface SimulationServiceDeps {
   callAiJson?: AiJsonCaller;
   enableFinancialRepair?: boolean;
+  onGenerationStage?: (stage: NextGenerationStage) => void;
 }
 
 export interface GenerateQuestionsResult {
@@ -497,6 +500,7 @@ export async function generateNextNode(
   input: GenerateNextNodeInput,
   deps: SimulationServiceDeps = {}
 ): Promise<SimulationNode> {
+  deps.onGenerationStage?.("preparing");
   const callAiJson = getAiJsonCaller(deps);
   const shouldRepairFinancialChange = deps.enableFinancialRepair
     ?? (!deps.callAiJson && !getBrowserE2eAiJsonCaller());
@@ -576,6 +580,7 @@ export async function generateNextNode(
   const prompt = buildNextNodePrompt({ ...input, currentFinancialState, eventSeed: nodeEvent, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc: workingPressureArc });
 
   let latestRawNode: any = {};
+  deps.onGenerationStage?.("generating");
   let node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
     const response = await callAiJson(buildNodePromptWithRetryNotice(prompt, previousIssues));
     latestRawNode = parseAiJsonResponse(response);
@@ -591,6 +596,7 @@ export async function generateNextNode(
     pressureArcId: workingPressureArc?.id,
     allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes
   });
+  deps.onGenerationStage?.("validating");
   latestRawNode = await repairFinancialChangeIfNeeded({
     rawNode: latestRawNode,
     node,
@@ -729,6 +735,7 @@ export async function generateNextNode(
     const terminalTransition = workingPressureArc
       ? { action: "resolve" as const, previousPhaseId: workingPressureArc.phaseId, nextArcState: { ...workingPressureArc, status: "resolved" as const }, reasonCodes: ["life-ending"] }
       : { action: "stay" as const, reasonCodes: ["no-pressure-arc"] };
+    deps.onGenerationStage?.("finalizing");
     return commitSimulationTransaction({
       transactionId: stableHash({ namespace: "ending-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths }),
       node: endingNode,
@@ -919,6 +926,7 @@ export async function generateNextNode(
     timelineAdvance
   });
   const transactionId = stableHash({ namespace: "simulation-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+  deps.onGenerationStage?.("finalizing");
   const committed = commitSimulationTransaction({
     transactionId,
     node,
