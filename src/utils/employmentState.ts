@@ -5,6 +5,7 @@ import {
   WorldDelta,
   WorldStateSnapshot
 } from "../types";
+import type { CareerState } from "../domain/career/types";
 
 const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
   "student",
@@ -17,10 +18,12 @@ const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
 ];
 
 export function resolveAuthoritativeEmploymentStatus(input: {
+  currentCareerState?: Pick<CareerState, "employmentStatus">;
   worldState: Pick<WorldStateSnapshot, "currentEmploymentStatus">;
   legacyFinancialState?: Pick<FinancialState, "employmentStatus">;
   isInitialization: boolean;
 }): EmploymentStatus | undefined {
+  if (input.currentCareerState) return input.currentCareerState.employmentStatus;
   if (input.worldState.currentEmploymentStatus) return input.worldState.currentEmploymentStatus;
   if (!input.isInitialization) return undefined;
   return input.legacyFinancialState?.employmentStatus;
@@ -38,7 +41,7 @@ export function validateEmploymentTransition(input: {
   if (!Number.isFinite(proposal.confidence) || proposal.confidence < 0.8 || proposal.confidence > 1) return undefined;
   const evidence = typeof proposal.evidence === "string" ? proposal.evidence.trim() : "";
   if (!evidence || (input.narrativeText && !input.narrativeText.includes(evidence))) return undefined;
-  if (input.expectedSourceOutcomeId && proposal.sourceOutcomeId !== input.expectedSourceOutcomeId) return undefined;
+  if (!input.expectedSourceOutcomeId || proposal.sourceOutcomeId !== input.expectedSourceOutcomeId) return undefined;
   return { ...proposal, evidence };
 }
 

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { HistoryItem, SimulationNode } from "../types";
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./historyRestore";
+import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
+
+const financialLedger = initializeFinancialLedger({ id: "ledger_history", asOfAgeInMonths: 24 * 12 });
 
 const choices = [
   { id: "A", text: "留在本城继续试错", impactSummary: "稳中求变" },
@@ -15,6 +18,7 @@ const node: SimulationNode = {
   description: "你站在是否离开的节点上。",
   choices,
   attributes: { happiness: 55, intelligence: 63, wealth: 41, relation: 58, health: 72 },
+  financialLedger,
   financialState: {
     currencyUnit: "CNY_WAN_REAL",
     asOfAgeInMonths: 24 * 12,
@@ -41,6 +45,21 @@ const node: SimulationNode = {
     netWorthChangeWan: 10,
     reasons: ["稳定工作形成结余"]
   },
+  financialPeriodSummary: {
+    periodStartAgeInMonths: 23 * 12,
+    periodEndAgeInMonths: 24 * 12,
+    incomeWan: 24,
+    coreExpenseWan: 12,
+    otherExpenseWan: 2,
+    debtPrincipalPaidWan: 0,
+    debtInterestPaidWan: 1,
+    assetPurchaseWan: 0,
+    assetSaleProceedsWan: 0,
+    valuationChangeWan: 0,
+    netCashFlowWan: 10,
+    netWorthChangeWan: 10,
+    transactionIds: ["financial_history"]
+  },
   isEndingNode: false,
   eventMeta: { eventId: "career-crossroad", eventCategory: "career", eventTags: ["job"] }
 };
@@ -51,6 +70,9 @@ assert.equal(item.isEndingNode, false);
 assert.equal(item.selectedChoice, "去外地接受新机会");
 assert.equal(item.selectedDecisionIntent, "去外地接受新机会");
 assert.equal(item.financialState?.netWorthWan, 90);
+assert.equal(item.financialLedger?.id, "ledger_history");
+assert.notEqual(item.financialLedger, node.financialLedger);
+assert.equal(item.financialPeriodSummary?.incomeWan, 24);
 
 const explicitIntentItem = createHistoryItemFromNode({
   ...node,
@@ -80,6 +102,9 @@ assert.deepEqual(restored.node.choices, choices);
 assert.deepEqual(restored.historyBefore, [earlier, item]);
 assert.equal(restored.nodeCount, 3);
 assert.equal(restored.node.financialState?.netWorthWan, 90);
+assert.equal(restored.node.financialLedger?.id, "ledger_history");
+assert.notEqual(restored.node.financialLedger, sameAgeLater.financialLedger);
+assert.equal(restored.node.financialPeriodSummary?.netWorthChangeWan, 10);
 
 assert.throws(() => restoreHistoryNodeAtIndex([earlier], -1), /HISTORY_RESTORE_INDEX_OUT_OF_RANGE/);
 assert.throws(() => restoreHistoryNodeAtIndex([earlier], 1), /HISTORY_RESTORE_INDEX_OUT_OF_RANGE/);

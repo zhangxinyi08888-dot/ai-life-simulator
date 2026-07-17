@@ -1,4 +1,5 @@
 import { SimulationNode, StoryEpisode, WorldStateSnapshot } from "../types";
+import { commitTransitionalEmploymentTransition, currentCareerState } from "../domain/career/careerState";
 import { AcceptedNodeOutcome, PressureArcTransitionDecision } from "./arcLifecycle";
 
 export interface SimulationTransactionInput {
@@ -20,12 +21,23 @@ export function emptyWorldState(): WorldStateSnapshot {
   return { people: [], directionArcs: [], pressureArcs: [], committedTransactionIds: [], version: 1 };
 }
 
-function applySummaries(snapshot: WorldStateSnapshot, outcome: AcceptedNodeOutcome): WorldStateSnapshot {
+function applySummaries(snapshot: WorldStateSnapshot, outcome: AcceptedNodeOutcome, transactionId: string): WorldStateSnapshot {
   const next = { ...snapshot };
-  for (const delta of outcome.worldDeltas) {
+  for (const [deltaIndex, delta] of outcome.worldDeltas.entries()) {
     if (delta.type === "career_state") {
       next.careerSummary = delta.summary;
-      if (delta.employmentTransition) next.currentEmploymentStatus = delta.employmentTransition.toStatus;
+      if (delta.employmentTransition) {
+        const careerState = commitTransitionalEmploymentTransition({
+          currentCareerState: currentCareerState(next),
+          proposal: delta.employmentTransition,
+          nextCareerStateId: `career_${transactionId}_${deltaIndex}`
+        });
+        next.careerStates = [...(next.careerStates || []), careerState];
+        next.currentCareerStateId = careerState.id;
+        next.currentEmploymentStatus = careerState.employmentStatus;
+        next.careerRevision = (next.careerRevision || 0) + 1;
+        next.version = 2;
+      }
     }
     if (delta.type === "relationship_change") next.relationshipSummary = delta.summary;
     if (delta.type === "health_state") next.healthSummary = delta.summary;
@@ -50,9 +62,10 @@ export function commitSimulationTransaction(input: SimulationTransactionInput): 
     directionArcs: input.currentWorldStateSnapshot.directionArcs.map((arc) => ({ ...arc })),
     pressureArcs: input.currentWorldStateSnapshot.pressureArcs.map((arc) => ({ ...arc })),
     committedTransactionIds: [...committedIds, input.transactionId],
-    version: 1
+    careerStates: input.currentWorldStateSnapshot.careerStates?.map((state) => ({ ...state, activeProjectIds: [...state.activeProjectIds] })),
+    version: input.currentWorldStateSnapshot.version
   };
-  nextSnapshot = applySummaries(nextSnapshot, input.acceptedOutcome);
+  nextSnapshot = applySummaries(nextSnapshot, input.acceptedOutcome, input.transactionId);
 
   const nextArc = input.pressureArcTransition.nextArcState;
   if (nextArc) {

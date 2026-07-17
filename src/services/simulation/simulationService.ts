@@ -21,6 +21,7 @@ import { resolveAuthoritativeEmploymentStatus, resolveEmploymentStatusForNode } 
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
+import { currentCareerState, initializeCareerState } from "../../domain/career/careerState";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
@@ -335,7 +336,17 @@ export async function startSimulation(
     ? withCalculatedWealth(startNode.attributes, financialState)
     : startNode.attributes;
   const startWorldState = emptyWorldState();
-  startWorldState.currentEmploymentStatus = financialState.employmentStatus;
+  const openingCareerState = initializeCareerState({
+    id: `career_opening_${startAgeInMonths}`,
+    employmentStatus: financialState.employmentStatus || "not_working",
+    effectiveFromAgeInMonths: startAgeInMonths,
+    confidence: financialState.isEstimated ? 0.6 : 0.9
+  });
+  startWorldState.careerStates = [openingCareerState];
+  startWorldState.currentCareerStateId = openingCareerState.id;
+  startWorldState.currentEmploymentStatus = openingCareerState.employmentStatus;
+  startWorldState.careerRevision = 0;
+  startWorldState.version = 2;
   startWorldState.directionArcs = ensureDirectionArcs(startWorldState, userData, startNode.ageInMonths ?? startNode.age * 12);
   startWorldState.people = rebuildPersonStates(userData, [], startNode.ageInMonths ?? startNode.age * 12);
   const initializedStartNodeWithFinance = {
@@ -389,6 +400,7 @@ function employmentStatusForNode(input: {
   expectedSourceOutcomeId?: string;
 }): NonNullable<FinancialState["employmentStatus"]> {
   const currentStatus = resolveAuthoritativeEmploymentStatus({
+    currentCareerState: currentCareerState(input.worldState),
     worldState: input.worldState,
     legacyFinancialState: input.previousFinancialState,
     isInitialization: input.worldState.currentEmploymentStatus === undefined
@@ -546,14 +558,27 @@ export async function generateNextNode(
   const branchFingerprint = buildBranchFingerprint(input.history, input.selectedDecision, nodeIndex);
   const selectedOutcomeId = resolveSelectedOutcomeId(input.history, input.selectedDecision);
   const baseWorldState = latestWorldState(input.history);
+  const existingCareerState = currentCareerState(baseWorldState);
+  const openingEmploymentStatus = resolveAuthoritativeEmploymentStatus({
+    currentCareerState: existingCareerState,
+    worldState: baseWorldState,
+    legacyFinancialState: currentFinancialState,
+    isInitialization: !existingCareerState && baseWorldState.currentEmploymentStatus === undefined
+  }) || "not_working";
+  const migratedCareerState = existingCareerState || initializeCareerState({
+    id: `career_migrated_${currentAgeInMonths}`,
+    employmentStatus: openingEmploymentStatus,
+    effectiveFromAgeInMonths: currentAgeInMonths,
+    confidence: currentFinancialState.isEstimated ? 0.6 : 0.8
+  });
   const currentWorldState = {
     ...baseWorldState,
     directionArcs: ensureDirectionArcs(baseWorldState, input.userData, currentAgeInMonths),
-    currentEmploymentStatus: resolveAuthoritativeEmploymentStatus({
-      worldState: baseWorldState,
-      legacyFinancialState: currentFinancialState,
-      isInitialization: baseWorldState.currentEmploymentStatus === undefined
-    })
+    careerStates: existingCareerState ? baseWorldState.careerStates : [migratedCareerState],
+    currentCareerStateId: migratedCareerState.id,
+    careerRevision: baseWorldState.careerRevision || 0,
+    currentEmploymentStatus: migratedCareerState.employmentStatus,
+    version: 2 as const
   };
   const existingPressureArc = foregroundPressureArc(input.history);
   const e2eEventOverride = existingPressureArc ? undefined : getBrowserE2eEventOverride(input.history.length);

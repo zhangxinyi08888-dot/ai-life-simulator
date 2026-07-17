@@ -3,6 +3,7 @@
  */
 
 import type { FinancialLedger, FinancialPeriodSummary } from "./domain/finance/types";
+import type { CareerState } from "./domain/career/types";
 
 export interface LifeAttributes {
   happiness: number;   // 幸福度 (0 - 100)
@@ -66,6 +67,10 @@ export interface EmploymentTransitionProposal {
   toStatus: EmploymentStatus;
   effectiveAtAgeInMonths: number;
   sourceOutcomeId?: string;
+  occupation?: string;
+  industry?: string;
+  organization?: string;
+  careerStage?: string;
   evidence: string;
   confidence: number;
 }
@@ -284,8 +289,11 @@ export interface WorldStateSnapshot {
   healthSummary?: string;
   locationSummary?: string;
   currentEmploymentStatus?: EmploymentStatus;
+  careerStates?: CareerState[];
+  currentCareerStateId?: string;
+  careerRevision?: number;
   committedTransactionIds?: string[];
-  version: 1;
+  version: 1 | 2;
 }
 
 export interface SimulationNode {

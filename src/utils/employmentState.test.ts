@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { EmploymentTransitionProposal, WorldDelta } from "../types";
+import { initializeCareerState } from "../domain/career/careerState";
 import {
   resolveAuthoritativeEmploymentStatus,
   resolveEmploymentStatusForNode,
@@ -35,6 +36,16 @@ test("initializes the temporary authority once and otherwise requires world stat
     legacyFinancialState: { employmentStatus: "employed" },
     isInitialization: false
   }), "retired");
+  assert.equal(resolveAuthoritativeEmploymentStatus({
+    currentCareerState: initializeCareerState({
+      id: "career_current",
+      employmentStatus: "self_employed",
+      effectiveFromAgeInMonths: 360
+    }),
+    worldState: { currentEmploymentStatus: "retired" },
+    legacyFinancialState: { employmentStatus: "student" },
+    isInitialization: false
+  }), "self_employed");
 });
 
 test("accepts only protagonist transitions tied to the selected outcome and narrative evidence", () => {

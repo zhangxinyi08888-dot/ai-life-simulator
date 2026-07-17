@@ -45,3 +45,6 @@ const careerCommitted = commitSimulationTransaction({
   }
 });
 assert.equal(careerCommitted.worldStateSnapshot.currentEmploymentStatus, "self_employed");
+assert.equal(careerCommitted.worldStateSnapshot.version, 2);
+assert.equal(careerCommitted.worldStateSnapshot.careerStates?.length, 1);
+assert.equal(careerCommitted.worldStateSnapshot.currentCareerStateId, "career_career-tx_0");
