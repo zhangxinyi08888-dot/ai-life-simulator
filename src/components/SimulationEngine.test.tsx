@@ -46,18 +46,21 @@ function renderLoadingState(isLoadingNext: boolean): string {
 
 const loadingMarkup = renderLoadingState(true);
 
-assert.match(loadingMarkup, /id="next-chapter-preview"/);
+assert.match(loadingMarkup, /data-chapter-state="draft"/);
+assert.match(loadingMarkup, /id="generation-dock"/);
 assert.match(loadingMarkup, /id="loading-next-progress"/);
 assert.match(loadingMarkup, /正在推演现实影响/);
 assert.match(loadingMarkup, /generation-shimmer/);
 assert.doesNotMatch(loadingMarkup, /id="interaction-dock"/);
+assert.doesNotMatch(loadingMarkup, /id="next-chapter-preview"/);
 assert.doesNotMatch(loadingMarkup, /id="pending-choice-receipt"/);
 assert.doesNotMatch(loadingMarkup, /你选择了/);
 
 const idleMarkup = renderLoadingState(false);
 
 assert.match(idleMarkup, /id="interaction-dock"/);
-assert.doesNotMatch(idleMarkup, /id="next-chapter-preview"/);
+assert.match(idleMarkup, /data-chapter-state="committed"/);
+assert.doesNotMatch(idleMarkup, /id="generation-dock"/);
 
 const streamingMarkup = renderToStaticMarkup(
   <SimulationEngine
@@ -83,10 +86,13 @@ const streamingMarkup = renderToStaticMarkup(
   />
 );
 
-assert.match(streamingMarkup, /id="next-chapter-draft-title"/);
+assert.match(streamingMarkup, /id="chapter-node-title"/);
+assert.match(streamingMarkup, /id="chapter-node-body"/);
 assert.match(streamingMarkup, /正在形成的新章节/);
 assert.match(streamingMarkup, /第一段已经抵达/);
 assert.match(streamingMarkup, /第二段正在继续/);
+assert.match(streamingMarkup, /id="scroll-to-latest-btn"/);
+assert.doesNotMatch(streamingMarkup, /id="next-chapter-draft-title"/);
 
 const interruptedMarkup = renderToStaticMarkup(
   <SimulationEngine

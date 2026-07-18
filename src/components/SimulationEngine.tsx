@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Activity, AlertCircle, BookOpen, Compass, DollarSign, Heart, History, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Users } from "lucide-react";
+import { Activity, AlertCircle, ArrowDown, BookOpen, Compass, DollarSign, Heart, History, MessageSquarePlus, RotateCcw, Send, Sparkles, Square, Users } from "lucide-react";
 import { HistoryItem, LifeAttributes, ReportInvitationMeta, SimulationNode } from "../types";
 import { formatAgeInMonths } from "../utils/timelineAdvance";
 import { formatNetWorthWan } from "../utils/financialState";
@@ -45,41 +45,35 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customText, setCustomText] = useState("");
-  const [visibleParagraphCount, setVisibleParagraphCount] = useState(1);
   const storyRef = useRef<HTMLDivElement>(null);
   const paragraphs = useMemo(() => splitNarrativeParagraphs(currentNode.description), [currentNode.description]);
   const pendingInvitation = currentNode.reportInvitation?.status === "pending"
     ? currentNode.reportInvitation
     : undefined;
   const hasNextChapterPreview = isLoadingNext || Boolean(generationError) || Boolean(narrativePreview);
+  const chapterIdentity = `${currentNode.ageInMonths ?? currentNode.age * 12}-${currentNode.title}`;
+  const previousChapterViewRef = useRef({ chapterIdentity, hasNextChapterPreview });
+  const displayedParagraphs = hasNextChapterPreview ? (narrativePreview?.paragraphs ?? []) : paragraphs;
+  const displayedTitle = hasNextChapterPreview ? narrativePreview?.title : currentNode.title;
 
-  useEffect(() => {
-    storyRef.current?.scrollTo({ top: 0, behavior: "auto" });
-  }, [currentNode.ageInMonths, currentNode.age, currentNode.title]);
+  useLayoutEffect(() => {
+    const previous = previousChapterViewRef.current;
+    const previewStarted = hasNextChapterPreview && !previous.hasNextChapterPreview;
+    const regularChapterChanged = chapterIdentity !== previous.chapterIdentity
+      && !hasNextChapterPreview
+      && !previous.hasNextChapterPreview;
 
-  useEffect(() => {
-    if (!isLoadingNext) return;
-    const frame = window.requestAnimationFrame(() => {
-      const storyElement = storyRef.current;
-      storyElement?.scrollTo({ top: storyElement.scrollHeight, behavior: "smooth" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [isLoadingNext, narrativePreview?.paragraphs.length]);
+    if (previewStarted || regularChapterChanged) {
+      storyRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    }
 
-  useEffect(() => {
-    setVisibleParagraphCount(1);
-    if (paragraphs.length <= 1) return;
-    const interval = window.setInterval(() => {
-      setVisibleParagraphCount((count) => {
-        if (count >= paragraphs.length) {
-          window.clearInterval(interval);
-          return count;
-        }
-        return count + 1;
-      });
-    }, 320);
-    return () => window.clearInterval(interval);
-  }, [currentNode.description, paragraphs.length]);
+    previousChapterViewRef.current = { chapterIdentity, hasNextChapterPreview };
+  }, [chapterIdentity, hasNextChapterPreview]);
+
+  const scrollToLatestParagraph = () => {
+    const storyElement = storyRef.current;
+    storyElement?.scrollTo({ top: storyElement.scrollHeight, behavior: "smooth" });
+  };
 
   const choose = (choiceText: string) => {
     onSelectChoice(choiceText);
@@ -131,81 +125,68 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
       </header>
 
       <main ref={storyRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" id="novel-scrollable-body">
-        <motion.article key={currentNode.ageInMonths ?? currentNode.age * 12} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5" id="active-chapter-head">
+        <motion.article initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5" id="active-chapter-head" data-chapter-state={hasNextChapterPreview ? "draft" : "committed"} aria-busy={hasNextChapterPreview}>
           <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-[#9c9278]">
-            <span>AGE {formatAgeInMonths(currentNode.ageInMonths ?? currentNode.age * 12)}</span>
+            <span>{hasNextChapterPreview ? "NEXT CHAPTER" : `AGE ${formatAgeInMonths(currentNode.ageInMonths ?? currentNode.age * 12)}`}</span>
             <span className="h-px flex-1 bg-[#2c2924]" />
-            <span>抉择 {String(nodeCount).padStart(2, "0")}</span>
+            <span>{hasNextChapterPreview ? (generationError ? "已暂停" : "生成中") : `抉择 ${String(nodeCount).padStart(2, "0")}`}</span>
           </div>
-          <h2 className="font-serif text-[28px] font-medium leading-[1.25] tracking-[-0.025em] text-[#f0ebe2]" id="chapter-node-title">{currentNode.title}</h2>
+          <h2 className="min-h-[35px] font-serif text-[28px] font-medium leading-[1.25] tracking-[-0.025em] text-[#f0ebe2]" id="chapter-node-title">
+            {displayedTitle || <span className="generation-shimmer block h-8 w-3/5 rounded-[8px] border border-[#4a402c]" />}
+          </h2>
           <div className="h-px w-9 bg-[#9f9066]" />
           <div className="space-y-4 rounded-[17px] border border-[#2d2b27] bg-[#0a0a0a] p-4 text-[13px] leading-7 text-[#bdb6ab]" id="chapter-node-body">
-            <AnimatePresence initial={false}>
-              {paragraphs.slice(0, visibleParagraphCount).map((paragraph, index) => (
-                <motion.p key={`${index}-${paragraph.slice(0, 12)}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>{paragraph}</motion.p>
-              ))}
-            </AnimatePresence>
-            {visibleParagraphCount < paragraphs.length && (
-              <button type="button" onClick={() => setVisibleParagraphCount(paragraphs.length)} className="text-[10px] text-[#9d8e63] transition hover:text-[#d4c592]" id="reveal-full-story-btn">直接显示全文</button>
+            {displayedParagraphs.length ? (
+              <AnimatePresence initial={false}>
+                {displayedParagraphs.map((paragraph, index) => (
+                  <motion.p key={`chapter-paragraph-${index}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>{paragraph}</motion.p>
+                ))}
+                {hasNextChapterPreview && !narrativePreview?.descriptionComplete && <motion.div key="streaming-tail" className="generation-shimmer h-2.5 w-2/5 rounded-md" />}
+              </AnimatePresence>
+            ) : (
+              <>
+                <div className="generation-shimmer h-3 w-full rounded-md" />
+                <div className="generation-shimmer h-3 w-[82%] rounded-md [animation-delay:120ms]" />
+                <div className="generation-shimmer h-3 w-[66%] rounded-md [animation-delay:240ms]" />
+              </>
             )}
           </div>
         </motion.article>
-
-        {hasNextChapterPreview && (
-          <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 border-t border-[#25221d] pt-6" id="next-chapter-preview" aria-live="polite" aria-busy={isLoadingNext}>
-            <div className="flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] text-[#a49368]"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#c8b77d] shadow-[0_0_8px_rgba(200,183,125,0.3)]" />NEXT CHAPTER</div>
-            {narrativePreview?.title ? (
-              <h3 className="mt-4 font-serif text-[22px] leading-8 text-[#e5ddcf]" id="next-chapter-draft-title">{narrativePreview.title}</h3>
-            ) : (
-              <div className="generation-shimmer mt-4 h-7 w-3/5 rounded-[8px] border border-[#4a402c]" />
-            )}
-            <div className="mt-5 space-y-3 rounded-[17px] border border-[#4a402c] bg-[#0d0c09] p-4 shadow-[inset_0_0_24px_rgba(111,96,64,0.08)]" id="next-chapter-draft-body">
-              {narrativePreview?.paragraphs.length ? (
-                <AnimatePresence initial={false}>
-                  {narrativePreview.paragraphs.map((paragraph, index) => (
-                    <motion.p key={`${index}-${paragraph.slice(0, 12)}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="text-[12px] leading-6 text-[#bdb6ab]">{paragraph}</motion.p>
-                  ))}
-                  {!narrativePreview.descriptionComplete && <motion.div key="streaming-tail" className="generation-shimmer h-2.5 w-2/5 rounded-md" />}
-                </AnimatePresence>
-              ) : (
-                <>
-                  <div className="generation-shimmer h-3 w-full rounded-md" />
-                  <div className="generation-shimmer h-3 w-[82%] rounded-md [animation-delay:120ms]" />
-                  <div className="generation-shimmer h-3 w-[66%] rounded-md [animation-delay:240ms]" />
-                </>
-              )}
-            </div>
-            <div className="mt-5 border-t border-[#211d15] pt-5" id="loading-next-progress">
-              {generationError ? (
-                <div className="px-1" id="next-generation-error-state">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#b98276]" />
-                    <div>
-                      <p className="text-[11px] font-medium text-[#d0b094]">生成暂时停在这里</p>
-                      <p className="mt-1 text-[9px] leading-5 text-[#756d64]">{generationError}</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex gap-2 pl-8">
-                    <button type="button" onClick={onRetryGeneration} className="flex h-9 items-center justify-center gap-1.5 rounded-[10px] border border-[#746545] bg-[#1a1710] px-3 text-[10px] text-[#cdbd88] transition hover:bg-[#211d14]" id="retry-next-generation-btn"><RotateCcw className="h-3 w-3" />继续生成</button>
-                    <button type="button" onClick={onDiscardGeneration} className="h-9 px-3 text-[10px] text-[#77716a] transition hover:text-[#bdb6ab]" id="discard-next-generation-btn">返回选择</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-3 px-1">
-                  <div className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border border-[#5c5138] border-t-[#d1bf82] shadow-[0_0_10px_rgba(200,183,125,0.12)]" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium text-[#cdbd88]">{GENERATION_COPY[generationStage].title}</p>
-                    <p className="mt-1 text-[9px] leading-5 text-[#625e58]">{GENERATION_COPY[generationStage].detail}</p>
-                  </div>
-                  <button type="button" onClick={onStopGeneration} className="flex h-8 shrink-0 items-center gap-1 rounded-[9px] border border-[#343028] px-2 text-[9px] text-[#756f66] transition hover:border-[#625945] hover:text-[#b8aa7c]" id="stop-next-generation-btn"><Square className="h-2.5 w-2.5" />暂停</button>
-                </div>
-              )}
-            </div>
-          </motion.section>
-        )}
       </main>
 
-      {!hasNextChapterPreview && <section className="border-t border-[#211f1c] bg-[#070707] px-4 pb-5 pt-4" id="interaction-dock">
+      {hasNextChapterPreview ? (
+        <section className="border-t border-[#211f1c] bg-[#070707] px-4 pb-4 pt-3" id="generation-dock">
+          <div id="loading-next-progress" role="status" aria-live="polite">
+            {generationError ? (
+              <div className="px-1" id="next-generation-error-state">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#b98276]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium text-[#d0b094]">生成暂时停在这里</p>
+                    <p className="mt-1 text-[9px] leading-5 text-[#756d64]">{generationError}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-2 pl-8">
+                  <button type="button" onClick={onRetryGeneration} className="flex h-9 items-center justify-center gap-1.5 rounded-[10px] border border-[#746545] bg-[#1a1710] px-3 text-[10px] text-[#cdbd88] transition hover:bg-[#211d14]" id="retry-next-generation-btn"><RotateCcw className="h-3 w-3" />继续生成</button>
+                  <button type="button" onClick={onDiscardGeneration} className="h-9 px-3 text-[10px] text-[#77716a] transition hover:text-[#bdb6ab]" id="discard-next-generation-btn">返回选择</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 px-1">
+                <div className="h-5 w-5 shrink-0 animate-spin rounded-full border border-[#5c5138] border-t-[#d1bf82] shadow-[0_0_10px_rgba(200,183,125,0.12)]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium text-[#cdbd88]">{GENERATION_COPY[generationStage].title}</p>
+                  <p className="mt-0.5 truncate text-[9px] text-[#625e58]">{GENERATION_COPY[generationStage].detail}</p>
+                </div>
+                {displayedParagraphs.length > 1 && (
+                  <button type="button" onClick={scrollToLatestParagraph} className="flex h-8 shrink-0 items-center gap-1 px-1 text-[9px] text-[#9b8e6a] transition hover:text-[#d0c08f]" id="scroll-to-latest-btn"><ArrowDown className="h-3 w-3" />查看最新</button>
+                )}
+                <button type="button" onClick={onStopGeneration} className="flex h-8 shrink-0 items-center gap-1 rounded-[9px] border border-[#343028] px-2 text-[9px] text-[#756f66] transition hover:border-[#625945] hover:text-[#b8aa7c]" id="stop-next-generation-btn"><Square className="h-2.5 w-2.5" />暂停</button>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : <section className="border-t border-[#211f1c] bg-[#070707] px-4 pb-5 pt-4" id="interaction-dock">
         {isLoadingReport ? (
             <div className="flex min-h-36 flex-col items-center justify-center gap-3 text-center" id="loading-report-spinner">
               <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#4a4435] border-t-[#c8b77d]" />

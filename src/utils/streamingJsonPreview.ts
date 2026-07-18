@@ -1,3 +1,5 @@
+import { splitNarrativeParagraphs } from "./narrativePresentation";
+
 export interface StreamedNodePreview {
   title?: string;
   paragraphs: string[];
@@ -52,10 +54,7 @@ function readJsonStringField(source: string, field: string): JsonStringField | u
 export function extractStreamedNodePreview(source: string): StreamedNodePreview {
   const title = readJsonStringField(source, "title");
   const description = readJsonStringField(source, "description");
-  const paragraphs = (description?.value || "")
-    .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
+  const paragraphs = splitNarrativeParagraphs(description?.value || "");
 
   return {
     title: title?.value.trim() || undefined,
