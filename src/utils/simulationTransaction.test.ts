@@ -23,3 +23,28 @@ assert.equal(committed.worldStateSnapshot.committedTransactionIds?.length, 1);
 const repeated = commitSimulationTransaction({ ...input, currentWorldStateSnapshot: committed.worldStateSnapshot });
 assert.equal(repeated.alreadyCommitted, true);
 assert.equal(repeated.worldStateSnapshot.committedTransactionIds?.length, 1);
+
+const careerCommitted = commitSimulationTransaction({
+  ...input,
+  transactionId: "career-tx",
+  currentWorldStateSnapshot: emptyWorldState(),
+  acceptedOutcome: {
+    worldDeltas: [{
+      type: "career_state",
+      summary: "正式开始全职创业",
+      employmentTransition: {
+        subject: "protagonist",
+        toStatus: "self_employed",
+        effectiveAtAgeInMonths: 426,
+        sourceOutcomeId: "start_business",
+        evidence: "正式开始全职创业",
+        confidence: 0.95
+      }
+    }],
+    arcSignals: []
+  }
+});
+assert.equal(careerCommitted.worldStateSnapshot.currentEmploymentStatus, "self_employed");
+assert.equal(careerCommitted.worldStateSnapshot.version, 2);
+assert.equal(careerCommitted.worldStateSnapshot.careerStates?.length, 1);
+assert.equal(careerCommitted.worldStateSnapshot.currentCareerStateId, "career_career-tx_0");

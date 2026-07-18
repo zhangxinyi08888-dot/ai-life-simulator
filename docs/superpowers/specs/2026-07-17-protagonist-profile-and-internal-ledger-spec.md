@@ -9,6 +9,7 @@
 - 内部交付：结构化主角档案、权威状态引用、来源与确认机制、摘要聚合器、编辑命令和事件事实读取接口
 - 当前基线：`WorldStateSnapshot.version=1`，已包含 `people`、`directionArcs`、`pressureArcs` 和职业/关系/健康/地点摘要；精确财务继续由节点上的 `FinancialState` 管理
 - 兼容原则：不替换 `FinancialState`、`PersonState`、`DirectionArc`、`PressureArcState`；旧历史缺失画像时必须可读取和回溯
+- 财务架构更新：`2026-07-18-authoritative-financial-ledger-architecture-spec.md` 定义 `FinancialLedger.version=2` 后，本 Spec 中涉及 `FinancialSignals`、`FinancialChange` 和可写 `FinancialState` 的旧边界以该文档为准；`CareerState` 单写就业身份，`FinancialState` 仅作为账本派生兼容快照
 
 ## 2. 背景与问题定义
 
@@ -46,7 +47,7 @@
 | 当前城市、居住状态 | `WorldStateSnapshot.locationStates/currentLocationStateId` | 结构化引用 |
 | 就业、职业、行业 | `WorldStateSnapshot.careerStates/currentCareerStateId` | 结构化引用 |
 | 伴侣、子女、重要关系 | `PersonState + RelationshipState` | relationship 引用 |
-| 金额、收入、债务、净资产 | 当前节点 `FinancialState` | 逻辑引用，不复制金额 |
+| 金额、收入、债务、净资产 | `FinancialLedger`；当前节点 `FinancialState` 为派生快照 | 逻辑引用，不复制金额 |
 | 持续健康限制 | `HealthConditionState` | health condition 引用 |
 | 当前方向 | `DirectionArc` | directionArcId 引用 |
 | 当前压力 | `PressureArcState` | 不进入画像真值，只可影响摘要语境 |
@@ -575,7 +576,7 @@ export interface ProfilePatchProposal {
 }
 ```
 
-财务继续使用现有 `financialSignals` / `financialChange` 流程；人物生命状态继续使用 `worldDeltas`。不得用 ProfilePatch 绕过现有单写者。
+财务按 `2026-07-18-authoritative-financial-ledger-architecture-spec.md` 使用 `FinancialEventProposal → AcceptedFinancialEvent → FinancialLedger reducer`；人物生命状态继续使用经过校验的 `worldDeltas` / ProfilePatch。不得用 ProfilePatch、正文或财务 Proposal 绕过对应单写者。
 
 当前 `career_state`、`health_state`、`location_change` 和 `relationship_change` 主要携带 `summary` 文本，只足以更新兼容摘要，不能单独构建完整 `CareerState`、`LocationState`、`HealthConditionState` 或 `RelationshipState`。Phase 1–3 必须采用以下之一：
 
@@ -873,12 +874,11 @@ UI 不直接修改 `WorldStateSnapshot`，只能调用 `updateProtagonistProfile
 
 ### 17.2 跨源冲突
 
-示例：CareerState 为 `employed`，FinancialState 为 `not_working`。
+示例：旧历史迁移后，CareerState 为 `employed`，兼容 FinancialState 却为 `not_working`。
 
-- 不生成确定性“工作稳定”摘要。
-- 事实 resolver 对就业硬条件返回 `unknown`。
-- 进入结构化修复或用户确认。
-- 不允许模型在摘要里自行选择一个状态。
+- V2 新节点以 CareerState 为就业身份真值，由 `deriveFinancialState()` 重建兼容字段。
+- 冲突涉及旧历史或迁移可信度时，不生成确定性“工作稳定”摘要，事实 resolver 返回 `unknown` 并记录迁移问题。
+- 不允许模型、摘要或 FinancialEventProposal 自行选择并覆盖 CareerState。
 
 ### 17.3 缺失连带事实
 

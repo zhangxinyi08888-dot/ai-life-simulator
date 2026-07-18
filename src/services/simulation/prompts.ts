@@ -2,11 +2,12 @@ import { formatAnswerTurns } from "../../utils/answerFormatting";
 import { LifeEventSeed } from "../../data/lifeEvents";
 import { buildEventIntentPrompt, buildNullEventPrompt } from "../../utils/eventPrompt";
 import { StoryContextPack } from "../../utils/storyContext";
-import { FinancialState, HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
+import { EmploymentTransitionProposal, FinancialState, HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
 import { AgeContext, formatAgeContextForPrompt } from "../../utils/ageContext";
 import { formatPersonStateForPrompt } from "../../utils/personTimeline";
 import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance";
 import { formatFinancialStateForPrompt } from "../../utils/financialState";
+import type { FinancialEventProposal, FinancialLedger, FinancialLedgerIssue } from "../../domain/finance";
 
 const FINANCIAL_NARRATIVE_RULE = `- 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
 - 允许描述本阶段实际发生的交易金额，例如月薪、房租、医疗费、首付、贷款、投资额和项目收入。`;
@@ -124,6 +125,7 @@ initialFinancialState 要求：
 - incomeStability 只能是 unstable、volatile、stable、very_stable。
 - 只使用用户明确事实或符合职业、城市、年龄的保守估算；学生缺少依据时个人净财富使用 0-3 万元，其他阶段才使用 5 万或 10 万档位，并设置 isEstimated=true。
 - 学生的 totalDebtWan 只记录助学贷款、信用卡、分期或其他明确属于用户本人的债务；家庭债务不得算到学生个人名下，没有个人借款依据时填 0。
+- 学生缺少额外财务事实时，基础学费和生活费默认由家庭基本支持覆盖，个人收支持平；只有正文明确出现兼职、奖学金、个人额外自费或个人借款时，才改变个人财富。
 - 不返回 netWorthWan，净财富和 wealth 由代码计算。
 
 startNode 要求：
@@ -168,6 +170,8 @@ interface NextNodePromptInput {
   history: HistoryItem[];
   currentAttributes: LifeAttributes;
   currentFinancialState?: FinancialState;
+  currentFinancialLedger?: FinancialLedger;
+  selectedOutcomeId?: string;
   selectedDecision: string;
   eventSeed?: LifeEventSeed | null;
   storyContext?: StoryContextPack;
@@ -177,78 +181,11 @@ interface NextNodePromptInput {
   foregroundPressureArc?: PressureArcState;
 }
 
-export function buildFinancialSignalsRepairPrompt(input: {
-  description: string;
-  title: string;
-  ageInMonths: number;
-  elapsedMonths: number;
-  selectedDecision: string;
-  currentFinancialState: FinancialState;
-  recentHistory: HistoryItem[];
-}): string {
-  const recentContext = input.recentHistory.slice(-2).map((item) =>
-    `- ${formatAgeInMonths(item.ageInMonths ?? item.age * 12)}｜${item.title}：${item.description}`
-  ).join("\n") || "- 暂无更早记录";
-
-  return `你只负责补全一段人生剧情对应的财务变化，不得改写剧情、人物、年龄、选项或五维属性。
-
-【时间范围】
-- 当前年龄：${formatAgeInMonths(input.ageInMonths)}
-- 本阶段共 ${input.elapsedMonths} 个月
-
-【上一步选择】
-${input.selectedDecision}
-
-【最近经历】
-${recentContext}
-
-【本阶段正文】
-标题：${input.title}
-${input.description}
-
-【上期财务快照，单位：万元，按当前购买力】
-- ${formatFinancialStateForPrompt(input.currentFinancialState)}
-
-【估算规则】
-- 优先使用正文明确出现的月薪、月入、年薪、兼职、项目收入、奖金、房租、生活费、学费、医疗费、汇款、债务和资产变化。
-- 月薪或稳定月入必须按实际持续月份折算为本阶段总收入；不能把月薪直接当成年收入，也不能把年薪重复乘月份。
-- 正文没有写日常生活支出时，结合年龄、学生/工作状态、是否与家人同住、所在城市和上期支出做保守估算，生活支出不能无故为 0。
-- 学生的 monthlyLivingExpenseWan 表示本人实际承担、扣除家庭代付或学校补助后的净支出；无明确金额时通常按 0.1-0.2 万元/月，不得直接套用在职成年人生活成本。
-- 所有金额字段单位都是万元：500 元=0.05 万元，800 元=0.08 万元，816 元=0.0816 万元；分期只累计本阶段已经支付的期数。
-- “家里欠债”不是用户个人负债；只有用户实际代偿、汇款或共同承担时，才计入本阶段支出。
-- 尚未支付的手术费、计划投资和候选选项中的金额不能提前计入；只计算正文已经发生的事实。
-- 普通学生或工薪阶段单期净财富变化必须写实。超过 50 万元时，正文必须有房产出售、股权变现、继承、重大负债等明确依据，否则按保守金额重估。
-- assetValueChangeWan 只填写已有投资资产的价值涨跌；工资、项目收入和房产变化不能放入该字段。
-- propertyMarketValueChangeWan 单独填写房产市值变化：买房或房产升值为正数，卖房或房产贬值为负数；不得与 assetValueChangeWan 重复。
-- oneOffIncomeWan 和 oneOffExpenseWan 只记录已经发生的一次性收支；personalDebtChangeWan 只记录用户个人债务净增加或减少。
-- 已发生购房时，oneOffExpenseWan 包含首付和税费，propertyMarketValueChangeWan 填写购入房产价值，personalDebtChangeWan 填写新增房贷。
-- employmentStatus 只能是 student、part_time、employed、self_employed、not_working、medical_leave、retired。
-- incomeStability 只能是 unstable、volatile、stable、very_stable。
-- reasons 返回 1-4 条简短依据，必须能在正文或最近经历中找到支持。
-
-只返回以下 JSON，不要 Markdown，不要附加解释：
-{
-  "financialSignals": {
-    "employmentStatus": "employed",
-    "monthlyNetIncomeWan": 0,
-    "incomeMonths": ${input.elapsedMonths},
-    "monthlyLivingExpenseWan": 0,
-    "oneOffIncomeWan": 0,
-    "oneOffExpenseWan": 0,
-    "assetValueChangeWan": 0,
-    "propertyMarketValueChangeWan": 0,
-    "personalDebtChangeWan": 0,
-    "incomeStability": "volatile",
-    "confidence": 0.8,
-    "reasons": ["估算依据"]
-  }
-}`;
-}
-
 export function buildNextNodePrompt(input: NextNodePromptInput): string {
-  const { userData, answers, history, currentAttributes, currentFinancialState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc } = input;
+  const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc } = input;
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
+  const selectedOutcomeId = input.selectedOutcomeId;
   const eventSeedPrompt = eventSeed
     ? buildEventIntentPrompt(eventSeed, storyContext)
     : buildNullEventPrompt(storyContext);
@@ -321,6 +258,9 @@ ${formatHistoryForSimulation(history) || "无更早经历"}
 【当前财务快照，单位：万元，按当前购买力】
 - ${formatFinancialStateForPrompt(currentFinancialState)}
 
+【当前权威账本受限摘要】
+${formatRestrictedFinancialLedger(currentFinancialLedger)}
+
 ${ageContextPrompt}
 
 【当前人物状态】
@@ -333,6 +273,7 @@ ${healthPhaseRule}
 
 【上一步做出的命运裁决】
 用户在刚才的十字路口选择了：【${selectedDecision}】
+${selectedOutcomeId ? `该选择对应的已接受 outcome id：【${selectedOutcomeId}】` : "该选择没有结构化 outcome id；不得凭空提交就业状态转换。"}
 ${eventSeedPrompt}
 
 【本次推演任务】
@@ -347,20 +288,158 @@ ${FINANCIAL_NARRATIVE_RULE}
 - 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId。
 ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
-- financialSignals 必须放在返回 JSON 顶层，返回 employmentStatus、monthlyNetIncomeWan、incomeMonths、monthlyLivingExpenseWan、oneOffIncomeWan、oneOffExpenseWan、assetValueChangeWan、propertyMarketValueChangeWan、personalDebtChangeWan、incomeStability、confidence、reasons。
-- incomeMonths 必须在 0-${elapsedMonths} 之间。正文出现月薪、年薪、兼职、项目收入、房租、医疗、教育、汇款或债务时，必须反映到对应字段。
-- 学生的 monthlyLivingExpenseWan 只记录本人实际承担、扣除家庭代付或学校补助后的净支出；无明确金额时通常按 0.1-0.2 万元/月，不得套用在职成年人生活成本。
-- 所有财务字段单位都是万元，例如 500 元=0.05 万元、800 元=0.08 万元、816 元=0.0816 万元；分期只累计本阶段实际支付的期数。
-- 只返回财务事实信号，不要自行返回 netWorthWan、netWorthChangeWan、financialChange 或计算 wealth；这些值由代码统一计算。
+- 只有主角在本阶段已经明确入职、离职、创业、停工休养或退休时，career_state worldDelta 才能增加 employmentTransition；必须返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、正文原句 evidence 和 confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时不得返回 employmentTransition。
+- 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。
+${targetAgeInMonths >= 55 * 12 ? "- 主角已满 55 岁：如果 description 明确写出已经退休、离职或停止工作，必须同时提交 employmentTransition，以及结束或暂停账本摘要中 linkedCareerStateId 对应当前职业的工资收入；租金、版税、年金等非职业收入不得结束。" : ""}
+${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
+${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
+- financialEventProposals 必须放在返回 JSON 顶层；没有已经发生的财务变化时返回空数组，不得重复返回全部现有余额。
+- 每项 Proposal 必须包含 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时返回空数组。
+- evidence 必须摘自 description 中已经发生的事实句；系统会做标点、空白和金额锚定匹配。confidence 在 0.8-1 时按明确事实提交，0.6-0.8 时按 estimated 提交；低于 0.6、候选选项、计划和意向不能提交。
+- 持续收入或支出分别使用 income_source_started/adjusted/paused/ended 与 expense_commitment_started/adjusted/ended；一次性收支使用 one_off_income_received/one_off_expense_paid。
+- 新工作工资不得与账本摘要里的旧职业收入叠加：同一职业内薪资变化优先用 income_source_adjusted；换工作必须同时提交旧职业收入的 income_source_ended 和带 linkedCareerStateId 的新 income_source_started。职业、组织或岗位改变时，即使 employmentStatus 仍为 employed，也要提交新的 employmentTransition。
+- 正文必须严格区分月薪和年薪：年薪 22 万不得写成月薪 22 万；Proposal 的 monthlyNetAmountWan 与正文月薪必须相同，annualNetAmountWan 与正文年薪必须相同。
+- 借款、还本、利息、资产购买、资产出售和重估必须使用各自有方向的事件；不得返回债务净变化、资产净变化或最终余额。
+- 公司融资只能用 business_financing_recorded，payload.personalCashReceivedWan 必须为 0；个人分红和出售持股分别使用 business_distribution_received、business_holding_sold。
+- employmentStatus 不属于财务 Proposal，只能通过 career_state.employmentTransition 提交。
+- 所有金额单位都是万元，例如 500 元=0.05 万元；不要返回 incomeMonths、netWorthWan、netWorthChangeWan、financialChange 或自行计算 wealth。
+- 学生阶段的估算基础生活费已有家庭基本支持对冲；不得仅因正常上学生活费提交个人负债。只有正文明确出现助学贷款、分期、信用卡或个人借款时才提交 debt_drawn。
 - 不要返回 netWorthWan、netWorthChangeWan 或自行计算 wealth；这些值由代码根据财务变化统一计算。
 - 收入、支出和资产变化必须与 descriptionParagraphs 正文一致；借款、还本金和购买资产不得重复当作净财富损益。
 - arcSignals 只能提出“发生了什么”及 evidence，禁止返回 nextPhaseId、nextPressureArcStatus、foregroundPressureArcId 或修改 checkpointCount。
 - 严格按 title、descriptionParagraphs、其余字段的顺序输出，便于逐段呈现；不要重复返回 description 字符串。
-- 返回 title、descriptionParagraphs、age、ageInMonths、stage、choices、attributes、isEndingNode、narrativeMeta。
+- 返回 title、descriptionParagraphs、age、ageInMonths、stage、choices、attributes、financialEventProposals、isEndingNode、narrativeMeta。
+
+financialEventProposals 示例（仅在正文确实发生对应事实时使用；否则返回 []）：
+[
+  {
+    "id": "income_start_current_node",
+    "kind": "income_source_started",
+    "effectiveAtAgeInMonths": ${targetAgeInMonths},
+    "payload": {
+      "id": "income_current_node",
+      "type": "salary",
+      "displayName": "当前工作税后工资",
+      "monthlyNetAmountWan": 2.5,
+      "accrualPolicy": "monthly",
+      "activeFromAgeInMonths": ${targetAgeInMonths},
+      "status": "active",
+      "factStatus": "estimated",
+      "evidence": []
+    },
+    "sourceOutcomeId": ${selectedOutcomeId ? `"${selectedOutcomeId}"` : "null"},
+    "evidence": "你正式入职，税后月薪为2.5万元。",
+    "confidence": 0.9
+  }
+]
+
+高频事件补充示例：
+- 薪资调整：{ "kind": "income_source_adjusted", "payload": { "incomeSourceId": "必须从账本摘要选择", "nextSource": { "id": "与 incomeSourceId 完全相同", "type": "salary", "monthlyNetAmountWan": 4.8, "accrualPolicy": "monthly", "activeFromAgeInMonths": ${targetAgeInMonths}, "status": "active", "factStatus": "estimated", "evidence": [] } } }
+- 房贷借入：debt_drawn 创建 mortgage 债务并把本金转入现金账户；买房另用 asset_purchased，并通过 linkedDebtDrawEventId 引用该借款 Proposal id。还本金只用 debt_principal_repaid，不能写债务净变化。
+- 持股估值：只有融资额而没有可靠估值时先提交 business_financing_recorded，personalCashReceivedWan=0；已有持股标 needs_review。只有正文同时给出估值或可验证持股价值时才提交 business_holding_revalued。
 
 ${formatAttributeChangeRules()}
 
 请严格返回 JSON。`;
+}
+
+export function formatRestrictedFinancialLedger(ledger?: FinancialLedger): string {
+  if (!ledger) return "- 暂无 V2 账本；本轮只能创建正文明确发生的新来源或账户。";
+  const cash = ledger.cashAccounts.filter((item) => item.status === "active").map((item) => (
+    `- 现金账户 ${item.id}: type=${item.type}, balance=${item.balanceWan}, factStatus=${item.factStatus}`
+  ));
+  const income = ledger.incomeSources.filter((item) => item.status !== "ended").map((item) => (
+    `- 收入来源 ${item.id}: type=${item.type}, status=${item.status}, monthly=${item.monthlyNetAmountWan ?? "-"}, annual=${item.annualNetAmountWan ?? "-"}, factStatus=${item.factStatus}, review=${item.accrualReviewStatus ?? "normal"}, lastConfirmed=${item.lastConfirmedAtAgeInMonths ?? "-"}`
+  ));
+  const expenses = ledger.expenseCommitments.filter((item) => item.status !== "ended").map((item) => (
+    `- 支出义务 ${item.id}: type=${item.type}, status=${item.status}, monthly=${item.monthlyAmountWan}, factStatus=${item.factStatus}`
+  ));
+  const debts = ledger.debtAccounts.filter((item) => item.status === "active").map((item) => (
+    `- 债务账户 ${item.id}: type=${item.type}, principal=${item.principalWan}, policy=${item.repaymentPolicy.mode}, factStatus=${item.factStatus}`
+  ));
+  const holdings = ledger.businessHoldings.filter((item) => item.status !== "sold").map((item) => (
+    `- 持股 ${item.id}: company=${item.business.displayName}, carryingValue=${item.personalCarryingValueWan}, factStatus=${item.factStatus}`
+  ));
+  const issues = ledger.unresolvedIssues.filter((item) => item.status !== "resolved").map((item) => (
+    `- open issue ${item.id}: code=${item.code}, occurrences=${item.occurrenceCount ?? 1}, age=${item.createdAtAgeInMonths}-${item.lastObservedAtAgeInMonths ?? item.createdAtAgeInMonths}, ${item.summary}`
+  ));
+  return [...cash, ...income, ...expenses, ...debts, ...holdings, ...issues].join("\n") || "- 当前没有有效收入、支出、债务、持股或 open issue。";
+}
+
+function formatMissingCareerIncomeRule(ledger: FinancialLedger | undefined, employmentStatus: FinancialState["employmentStatus"] | undefined): string {
+  if (!ledger || !["employed", "self_employed", "part_time"].includes(employmentStatus || "")) return "";
+  const hasCareerIncome = ledger.incomeSources.some((source) => source.status === "active" && Boolean(source.linkedCareerStateId) && source.accrualPolicy !== "event_only");
+  if (hasCareerIncome) return "";
+  return "- 当前身份仍为在职/自雇，但账本没有有效职业收入来源。本节点必须在 description 中明确说明当前税后月薪或年薪并提交对应职业收入 Proposal；如果确实无薪或工资延期，必须明确写出无薪事实，不得用公司合同额、融资额或营收代替个人收入。";
+}
+
+function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, targetAgeInMonths: number): string {
+  if (!ledger) return "";
+  const rules: string[] = [];
+  const hasActiveExpense = ledger.expenseCommitments.some((item) => item.status === "active");
+  if (targetAgeInMonths >= 18 * 12 && !hasActiveExpense) {
+    rules.push("- 当前是成年阶段，但账本没有任何有效生活支出。description 必须根据本阶段明确的住房、家庭和生活方式写出保守的每月核心支出，并提交 factStatus=estimated 的 expense_commitment_started；不得继续填 0，也不得把无法证明的精确金额标 known。");
+  }
+  if (targetAgeInMonths >= 55 * 12) {
+    const staleCareerSources = ledger.incomeSources.filter((source) => (
+      source.status === "active"
+      && Boolean(source.linkedCareerStateId)
+      && targetAgeInMonths - (source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths) >= 36
+    ));
+    if (staleCareerSources.length) {
+      rules.push(`- 以下晚年职业收入超过36个月未确认：${staleCareerSources.map((source) => source.id).join("、")}。description 必须明确主角是否仍实际工作；继续工作则提交收入调整/确认 Proposal，已经停止则提交 employmentTransition 与工资结束。不得仅凭年龄自动退休。`);
+    }
+  }
+  return rules.join("\n");
+}
+
+export function buildFinancialProposalRepairPrompt(input: {
+  rejectedProposals: FinancialEventProposal[];
+  rejectedEmploymentTransition?: EmploymentTransitionProposal;
+  issues: FinancialLedgerIssue[];
+  ledger: FinancialLedger;
+  acceptedOutcomeId: string;
+  narrativeText: string;
+  periodStartAgeInMonths: number;
+  periodEndAgeInMonths: number;
+}): string {
+  return `你只修复财务 Proposal，不得重写故事正文，不得返回解释。
+
+【不可修改的当前正文】
+${input.narrativeText}
+
+【本阶段范围】
+ageInMonths=${input.periodStartAgeInMonths} 到 ${input.periodEndAgeInMonths}
+
+【必须引用的 outcome id】
+${input.acceptedOutcomeId}
+
+【当前权威账本受限摘要】
+${formatRestrictedFinancialLedger(input.ledger)}
+
+【被拒 Proposal】
+${JSON.stringify(input.rejectedProposals, null, 2)}
+
+【被拒或待补齐的职业转换】
+${JSON.stringify(input.rejectedEmploymentTransition || null, null, 2)}
+
+【逐条拒绝原因】
+${JSON.stringify(input.issues.map((issue) => ({ proposalIds: issue.relatedProposalIds, code: issue.code, summary: issue.summary })), null, 2)}
+
+只返回：
+{ "employmentTransition": 修正后的职业转换或 null, "financialEventProposals": [修正后的 Proposal] }
+
+要求：
+- 只修正被拒 Proposal；不能新增正文没有发生的事实。为满足原子依赖，可以同时补充同一收入替换所必需的旧来源 income_source_ended，或同一资产购买所必需的 debt_drawn。
+- 正文明确发生退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新顾问收入（如有）一起返回；三者将作为一个原子组，要么全部提交，要么全部不提交。
+- employmentTransition 必须完整返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、occupation（如有）、evidence、confidence；证据与置信度规则和财务 Proposal 相同。
+- 每项都必须完整返回 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence；不得省略 confidence。
+- sourceOutcomeId 必须为 ${input.acceptedOutcomeId}。
+- 调整现有收入、支出、债务或持股时必须引用上方真实 ID。
+- effectiveAtAgeInMonths 必须位于本阶段范围。
+- evidence 必须逐字复制当前正文中已经发生事实的完整原句，金额、主语和事件方向一致；禁止概括或改写。
+- confidence 必须在 0.6-1 之间；正文逐字明确支持时使用 0.8-1，只能估计时使用 0.6-0.8，低于 0.6 时直接省略该 Proposal。
+- 无法可靠修正的 Proposal 直接省略。`;
 }
 
 export function buildEndingNodePrompt(input: {

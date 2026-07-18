@@ -29,7 +29,7 @@ interface SimulationEngineProps {
 const ATTRIBUTES = [
   { key: "happiness", name: "幸福", icon: Heart },
   { key: "intelligence", name: "才智", icon: BookOpen },
-  { key: "wealth", name: "累计财富", icon: DollarSign },
+  { key: "wealth", name: "财富", icon: DollarSign },
   { key: "relation", name: "关系", icon: Users },
   { key: "health", name: "健康", icon: Activity }
 ] as const;
@@ -194,17 +194,30 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
               : value;
             const wealthChange = isWealth ? currentNode.financialChange?.netWorthChangeWan : undefined;
             const wealthEstimated = isWealth && currentNode.financialState?.isEstimated;
+            const wealthChangeLabel = typeof wealthChange === "number"
+              ? `${wealthChange >= 0 ? "+" : ""}${formatNetWorthWan(wealthChange)}`
+              : undefined;
             return (
-              <div key={key} title={isWealth ? `财富资源度 ${value}` : undefined} className="rounded-[10px] border border-[#292724] bg-[#0b0b0b] px-1.5 py-2 text-center" id={`attribute-card-${key}`}>
-                <div className="flex items-center justify-center gap-1 text-[9px] text-[#77726b]" id={`attribute-label-${key}`}><Icon className="h-2.5 w-2.5 text-[#aa9b70]" />{name}</div>
-                <div className={`${isWealth ? "text-[10px]" : "text-[12px]"} mt-1 font-semibold tabular-nums text-[#d6c99f]`} id={`attribute-value-${key}`}>{displayValue}</div>
-                {(wealthEstimated || typeof wealthChange === "number") && (
-                  <div className={`mt-0.5 text-[7px] tabular-nums ${(wealthChange ?? 0) >= 0 ? "text-[#7e9875]" : "text-[#a5746f]"}`} id="wealth-change-value">
-                    {wealthEstimated ? "估算" : ""}{wealthEstimated && typeof wealthChange === "number" ? " · " : ""}
-                    {typeof wealthChange === "number" ? `本阶段 ${wealthChange >= 0 ? "+" : ""}${formatNetWorthWan(wealthChange)}` : ""}
-                  </div>
-                )}
-                <div className="mt-1.5 h-px overflow-hidden bg-[#292724]" id={`attribute-bar-bg-${key}`}>
+              <div
+                key={key}
+                title={isWealth ? `真实净财富 ${displayValue}${wealthEstimated ? "（估算）" : ""}${wealthChangeLabel ? `，本阶段 ${wealthChangeLabel}` : ""}；财富资源度 ${value}` : undefined}
+                className="flex h-20 flex-col rounded-[10px] border border-[#292724] bg-[#0b0b0b] px-1.5 py-2 text-center"
+                id={`attribute-card-${key}`}
+              >
+                <div className="flex min-h-3 items-center justify-center gap-1 text-[9px] text-[#77726b]" id={`attribute-label-${key}`}>
+                  <Icon className="h-2.5 w-2.5 shrink-0 text-[#aa9b70]" />
+                  <span>{name}</span>
+                  {wealthEstimated && (
+                    <span aria-label="估算值" title="估算值" className="flex h-3 w-3 shrink-0 items-center justify-center rounded-full border border-[#514b3d] text-[6px] leading-none text-[#8f866f]" id="wealth-estimated-badge">估</span>
+                  )}
+                </div>
+                <div className="mt-1 flex min-h-4 items-baseline justify-center gap-1 whitespace-nowrap tabular-nums" id={`attribute-value-${key}`}>
+                  <span className="text-[12px] font-semibold text-[#d6c99f]">{displayValue}</span>
+                  {wealthChangeLabel && (
+                    <span className={`text-[7px] font-medium ${(wealthChange ?? 0) >= 0 ? "text-[#7e9875]" : "text-[#a5746f]"}`} id="wealth-change-value">{wealthChangeLabel}</span>
+                  )}
+                </div>
+                <div className="mt-auto h-px overflow-hidden bg-[#292724]" id={`attribute-bar-bg-${key}`}>
                   <motion.div initial={{ width: 0 }} animate={{ width: `${value}%` }} transition={{ duration: 0.45 }} className="h-full bg-[#c4b47e]" id={`attribute-bar-fill-${key}`} />
                 </div>
               </div>

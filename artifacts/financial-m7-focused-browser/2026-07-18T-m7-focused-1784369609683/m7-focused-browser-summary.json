@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-07-18T-m7-focused-1784369609683",
+  "dataSource": "real_ai_browser",
+  "createdAt": "2026-07-18T10:23:30.580Z",
+  "purpose": "M7 focused re-certification without repeating full 2/2/1",
+  "validCases": [
+    {
+      "slug": "m7-opening-mortgage",
+      "path": "/Users/zz/Documents/new life/test---main/artifacts/financial-m7-focused-browser/2026-07-18T-m7-focused-1784369609683/cases/m7-opening-mortgage.json",
+      "historyLength": 0,
+      "currentTitle": "创业念头与房贷压力",
+      "currentAgeInMonths": 288,
+      "assessment": {
+        "scopePassed": true,
+        "openingMortgageCaptured": true,
+        "monthlyPaymentCaptured": true,
+        "note": "用户明确的210万元房贷、1.3万元月供和35万元现金均进入权威账本。"
+      },
+      "imagePath": "/Users/zz/Documents/new life/test---main/artifacts/financial-m7-focused-browser/2026-07-18T-m7-focused-1784369609683/images/m7-opening-mortgage/focused-final.jpg"
+    },
+    {
+      "slug": "m7-student-to-job",
+      "path": "/Users/zz/Documents/new life/test---main/artifacts/financial-m7-focused-browser/2026-07-18T-m7-focused-1784369609683/cases/m7-student-to-job.json",
+      "historyLength": 3,
+      "currentTitle": "界面改版后的余波：责任与边界的代价",
+      "currentAgeInMonths": 277,
+      "assessment": {
+        "scopePassed": true,
+        "adultExpenseProtected": true,
+        "negativeCashFailures": 0,
+        "employmentReached": false,
+        "note": "有效生活支出存在，现金下限闭环生效；短路线尚未进入正式就业。"
+      },
+      "imagePath": "/Users/zz/Documents/new life/test---main/artifacts/financial-m7-focused-browser/2026-07-18T-m7-focused-1784369609683/images/m7-student-to-job/focused-final.jpg"
+    },
+    {
+      "slug": "m7-late-career-repair",
+      "path": "/Users/zz/Documents/new life/test---main/artifacts/financial-m7-focused-browser/2026-07-18T-m7-focused-1784369609683/cases/m7-late-career-repair.json",
+      "historyLength": 3,
+      "currentTitle": "回忆录与社交圈的三年沉淀",
+      "currentAgeInMonths": 759,
+      "assessment": {
+        "scopePassed": false,
+        "staleIncomeQuarantined": true,
+        "factIngestionRecovered": false,
+        "narrativeLedgerAligned": false,
+        "note": "陈旧45万元工资在超期后被隔离，但退休/顾问事实的Proposal重试仍未成功，正文与账本收入不一致。"
+      },
+      "imagePath": "/Users/zz/Documents/new life/test---main/artifacts/financial-m7-focused-browser/2026-07-18T-m7-focused-1784369609683/images/m7-late-career-repair/focused-final.jpg"
+    }
+  ],
+  "excludedDiagnostics": [
+    {
+      "slug": "m7-late-career",
+      "reason": "collector did not set regression age; actual start age was 25, so excluded"
+    },
+    {
+      "slug": "m7-late-career-valid",
+      "reason": "pre-repair-prompt diagnostic retained only for root-cause comparison"
+    }
+  ],
+  "replay": {
+    "nodes": 120,
+    "missingExpensePolicyFailures": 0,
+    "staleLateCareerPolicyFailures": 0,
+    "openingMortgageCaptured": 1,
+    "openingMortgageFacts": 1
+  },
+  "decision": {
+    "m7": "blocked",
+    "reason": "Safety fallback prevents stale-income overstatement, but real AI still fails to deliver valid retirement/consultant proposals after one repair, leaving narrative and ledger misaligned."
+  },
+  "latency": {
+    "noRepairFinancialProcessingMs": "1-2",
+    "repairFinancialProcessingMsObserved": "2060-3072",
+    "interpretation": "No material cost on normal nodes; blocking nodes add one model repair call of roughly 2-3 seconds in this sample."
+  }
+}

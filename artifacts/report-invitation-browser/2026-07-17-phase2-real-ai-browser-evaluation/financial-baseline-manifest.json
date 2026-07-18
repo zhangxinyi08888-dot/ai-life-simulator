@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "phase2-real-ai-browser-2026-07-17",
+  "sourceRevision": "1027dc336f65c49f6b13c90762a57bdc24e7a20a",
+  "sourceFiles": [
+    {
+      "file": "cases/real-balance-second.json",
+      "sha256": "7e0aa5a4864e15db049ec478fac5dceb04244d57390c008df1714fdb552d7541",
+      "historyNodeCount": 33
+    },
+    {
+      "file": "cases/real-career-first.json",
+      "sha256": "691a536039a1caa936bdf010d2ae954f77493909b17f76fc24572cd5173755da",
+      "historyNodeCount": 16
+    },
+    {
+      "file": "cases/real-career-lifespan.json",
+      "sha256": "8973cea4f4e6e52d3ff9b252ac6de62e725570e4bf5ff7233ab96e24c0f5e4ba",
+      "historyNodeCount": 45
+    },
+    {
+      "file": "cases/real-custom-lifespan.json",
+      "sha256": "8337d8aa34fbeba1cc15c441c0734a0bc64481e0348daf0cf669841a2fff39ba",
+      "historyNodeCount": 28
+    },
+    {
+      "file": "cases/real-education-second.json",
+      "sha256": "7c59b9824078e73d6358b2e7a469b0acac45b7d8c72c17b05bd1359b9aa13d0b",
+      "historyNodeCount": 20
+    },
+    {
+      "file": "cases/real-relationship-first.json",
+      "sha256": "9bddbf20c4b643de928191f6a96215ee5e3ddb60089ff76c9625961c17aab90d",
+      "historyNodeCount": 17
+    },
+    {
+      "file": "cases/real-relationship-lifespan.json",
+      "sha256": "5426edff7d795912458822513071bc4fb4c8ee736ded3f04588e69d4b33a059e",
+      "historyNodeCount": 44
+    },
+    {
+      "file": "cases/real-venture-second.json",
+      "sha256": "39fe0c3399fa3400145f924088a5adf8ef6dbc577e4fa467c9ec0841def4e5f0",
+      "historyNodeCount": 28
+    },
+    {
+      "file": "cases/real-wealth-first.json",
+      "sha256": "5cbbc0872d1f252e2068c2b622bb5b30b5dbde6f51f1590394df1fc4894b8606",
+      "historyNodeCount": 29
+    },
+    {
+      "file": "cases/real-wealth-lifespan.json",
+      "sha256": "adbf0cea9bc519b9f4282c39b96137ac863f14a1d0d2684edfeb1f5bf4412625",
+      "historyNodeCount": 36
+    }
+  ],
+  "expectedMetrics": {
+    "caseCount": 10,
+    "totalNodes": 296,
+    "employment": {
+      "studentNodes": 46,
+      "partTimeNodes": 17,
+      "retiredUnder50Nodes": 1
+    },
+    "expenses": {
+      "annualCoreExpense1_2Nodes": 109
+    },
+    "cashFlow": {
+      "negativeDisposableNodes": 21,
+      "negativeCashNodes": 3,
+      "negativeCashWithoutDebtNodes": 3
+    },
+    "debt": {
+      "positiveDebtCases": 5,
+      "staticDebtRunCases": 5,
+      "staticDebtRuns": 6
+    },
+    "business": {
+      "narrativeCases": 6,
+      "narrativeNodes": 50,
+      "positiveBusinessAssetNodes": 0
+    },
+    "accounting": {
+      "netWorthIdentityMismatchNodes": 0
+    },
+    "reports": {
+      "highNetWorthDenialCases": 1
+    }
+  },
+  "manualReviewContext": {
+    "confirmedFullTimeStudentNodesApprox": 3,
+    "note": "46 student 状态节点中，人工复核约 3 个属于真实全日制学生；该判断用于人工验收，不由关键词自动分类。"
+  },
+  "metricPolicy": {
+    "staticDebtMinimumConsecutiveNodes": 3,
+    "highNetWorthThresholdWan": 1000,
+    "moneyToleranceWan": 0.11
+  }
+}

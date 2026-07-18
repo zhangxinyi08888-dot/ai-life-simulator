@@ -1,6 +1,8 @@
 import { ArcSignalProposal, LifeAttributes, PressureArcState, TemporalProfile, WorldDelta } from "../types";
 import { DEFAULT_TEMPORAL_PROFILES } from "./timelineAdvance";
 import { stableHash } from "./stableRandom";
+import { sanitizeEmploymentTransitions } from "./employmentState";
+import { normalizeWorldDeltas } from "./normalizeWorldDeltas";
 
 export type ArcExitCondition =
   | { type: "choice_outcome"; outcome: string }
@@ -133,13 +135,22 @@ function initializePressureArc(input: {
 }
 
 export function validateNodeOutcomeProposal(input: {
-  worldDeltas?: WorldDelta[];
+  worldDeltas?: unknown;
   arcSignals?: ArcSignalProposal[];
   policy?: PhaseTransitionPolicy;
   narrativeText?: string;
+  expectedSourceOutcomeId?: string;
 }): AcceptedNodeOutcome {
   const policy = input.policy || DEFAULT_PHASE_POLICY;
-  const worldDeltas = Array.isArray(input.worldDeltas) ? input.worldDeltas : [];
+  const normalizedWorldDeltas = normalizeWorldDeltas({
+    worldDeltas: input.worldDeltas,
+    acceptedOutcomeIds: input.expectedSourceOutcomeId ? [input.expectedSourceOutcomeId] : []
+  });
+  const worldDeltas = sanitizeEmploymentTransitions({
+    worldDeltas: normalizedWorldDeltas.worldDeltas,
+    narrativeText: input.narrativeText,
+    expectedSourceOutcomeId: input.expectedSourceOutcomeId
+  });
   const arcSignals = (Array.isArray(input.arcSignals) ? input.arcSignals : []).filter((signal) => {
     return policy.allowedSignalTypes.includes(signal.type)
       && typeof signal.evidence === "string"

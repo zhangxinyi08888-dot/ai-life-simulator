@@ -1,0 +1,1057 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-07-18T10-54-01-818Z",
+  "dataSource": "real_ai_browser",
+  "caseSlug": "m7-58-consultant-pass-2",
+  "scenario": "m7_58_role_transition",
+  "config": {
+    "scenario": "m7_58_role_transition",
+    "birthday": "1966-04-10",
+    "birthtime": "09:00",
+    "returnPointName": "写下我的时刻 填写一件只属于你的回溯事件 自定义",
+    "regressionAge": 58,
+    "anchorText": "58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。",
+    "branches": [
+      "继续全职工作两年后再退休，维持现有职责与收入。",
+      "结束运营总监的全职岗位，转为每周三天的独立顾问工作，收入相应下降。",
+      "现在就正式退休，结束工资收入，把重心转向家庭与健康。"
+    ],
+    "answers": [
+      "我当时税后年薪45万元，家庭每年生活支出18万元。",
+      "我有现金及存款160万元，没有房贷和其他个人债务。",
+      "公司确实允许转为顾问；顾问税后年收入约24万元，正式退休后不再领取工资。"
+    ],
+    "slug": "m7-58-consultant-pass-2"
+  },
+  "updatedAt": "2026-07-18T10:56:10.558Z",
+  "complete": true,
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "m7-58-consultant-pass-2",
+      "scenario": "m7_58_role_transition",
+      "at": "2026-07-18T10:55:23.359Z"
+    },
+    {
+      "type": "questions_generated",
+      "questions": [
+        {
+          "question": "事实背景追问：当时真实发生了什么？",
+          "suggestions": [
+            "我在这家制造企业做运营总监已经超过5年，团队大约30人，年收入约80万。公司最近在谈被收购，管理层有些动荡。",
+            "我的健康状况还可以，但长期高压工作让我有高血压和轻度焦虑，妻子一直劝我早点退下来。",
+            "我手头有约200万储蓄，一套房贷已还清，孩子已经工作独立，父母身体尚可。",
+            "不确定/记不清，但大概是公司业绩下滑，老板希望我留下稳定局面，但我觉得精力不如以前。"
+          ]
+        },
+        {
+          "question": "人物状态追问：当时的你是什么状态、什么性格、怎么反应？",
+          "suggestions": [
+            "我当时很矛盾，既想早点解脱又舍不得高薪和权力，通常遇到压力我会自己扛着，很少跟家人说。",
+            "我比较在意体面和稳定，怕退休后失去社会价值，但身体确实开始吃不消。",
+            "我性格偏保守，不擅长冒险，对未知的顾问市场有些顾虑，怕收入不稳。",
+            "我习惯先分析利弊再做决定，但这次迟迟下不了决心，有点拖延。"
+          ]
+        },
+        {
+          "question": "行动条件追问：你有什么兴趣、能力、资源、限制？",
+          "suggestions": [
+            "我擅长运营流程优化和供应链管理，在行业内有多年人脉，但不确定能否转化为顾问客户。",
+            "我有几个老同事已经转做顾问，他们建议我先尝试兼职，但我不确定自己是否适合。",
+            "我的妻子支持我退休，但希望我能保持一定收入，因为家庭开支不小。",
+            "我没有任何创业或独立顾问的经验，对市场营销和商务洽谈不太擅长。"
+          ]
+        }
+      ],
+      "at": "2026-07-18T10:55:31.377Z"
+    },
+    {
+      "type": "simulation_started",
+      "node": {
+        "age": 58,
+        "stage": "抉择路口",
+        "title": "运营总监的去留",
+        "description": "你在这家制造企业担任运营总监已逾十年，近期愈发感到身心疲惫。工厂的日常调度、质量纠纷和成本压力让你常常失眠。女儿在外地工作，老伴希望你多些陪伴。公司高层口头同意你转为每周三天的顾问，但正式手续未办。你手里有160万存款，无房贷，家庭年开支18万。如果继续全职，年薪45万；顾问年入24万；退休则零工资。你站在办公室窗前，看着厂区里忙碌的工人，心里反复掂量——是再拼两年攒足养老金，还是趁身体还行早点退下来？",
+        "choices": [
+          {
+            "id": "A",
+            "text": "继续全职工作两年后再退休，维持现有职责与收入。",
+            "impactSummary": "再拼两年",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "再拼两年"
+            },
+            "decisionIntent": "career:continue_fulltime:manufacturing_firm",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "转为每周三天的独立顾问，收入下降但压力减轻。",
+            "impactSummary": "退居顾问",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "退居顾问"
+            },
+            "decisionIntent": "career:switch_to:parttime_consultant",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "现在就正式退休，结束工资收入，把重心转向家庭与健康。",
+            "impactSummary": "立即退休",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "立即退休"
+            },
+            "decisionIntent": "career:retire:immediate",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 75,
+          "wealth": 68,
+          "relation": 65,
+          "health": 55
+        },
+        "isEndingNode": false,
+        "ageInMonths": 696,
+        "lifeStage": "mature_adulthood",
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d5535576",
+            "startAgeInMonths": 696,
+            "endAgeInMonths": 696,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_12a6cb18",
+            "summary": "你在这家制造企业担任运营总监已逾十年，近期愈发感到身心疲惫。工厂的日常调度、质量纠纷和成本压力让你常常失眠。女儿在外地工作，老伴希望你多些陪伴。公司高层口头同意"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "financialLedger": {
+          "id": "financial_opening_696",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 696,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 160,
+              "status": "active",
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "user",
+                  "excerpt": "【用户想重写的真实事件】\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n\n【系统生成的回溯锚点】\n回到 58 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n\n【系统生成的回溯锚点】\n回到 58 岁，在事件发生前重新做出选择。\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n我当时税后年薪45万元，家庭每年生活支出18万元。\n我有现金及存款160万元，没有房贷和其他个人债务。\n公司确实允许转为顾问；顾问税后年收入约24万元，正式退休后不再领取工资。",
+                  "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                  "confidence": 1
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [
+            {
+              "id": "legacy_recurring_income",
+              "type": "other",
+              "displayName": "旧版持续收入聚合",
+              "annualNetAmountWan": 45,
+              "accrualPolicy": "annual",
+              "activeFromAgeInMonths": 696,
+              "status": "active",
+              "linkedCareerStateId": "career_opening_696",
+              "factStatus": "estimated",
+              "lastConfirmedAtAgeInMonths": 696,
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 1.5,
+              "activeFromAgeInMonths": 696,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [],
+          "committedTransactionIds": [],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_696",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 696
+            }
+          ],
+          "revision": 0,
+          "version": 2
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 696,
+          "cashWan": 160,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 160,
+          "annualAfterTaxIncomeWan": 45,
+          "annualDisposableIncomeWan": 27,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": false
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_7edc371e",
+              "directionType": "innerpeace",
+              "summary": "A. 继续全职工作两年后再退休，维持现有职责与收入。\nB. 结束运营总监的全职岗位，转为每周三天的独立顾问工作，收入相应下降。\nC. 现在就正式退休，结束工资收入，把重心转向家庭与健康。",
+              "status": "active",
+              "startedAtAgeInMonths": 696,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_696",
+              "employmentStatus": "employed",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 696,
+              "source": "accepted_history",
+              "confidence": 0.9
+            }
+          ],
+          "currentCareerStateId": "career_opening_696",
+          "currentEmploymentStatus": "employed",
+          "careerRevision": 0
+        }
+      },
+      "at": "2026-07-18T10:55:40.046Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "运营总监的去留",
+      "sourceAgeInMonths": 696,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "继续全职工作两年后再退休，维持现有职责与收入。",
+          "impactSummary": "再拼两年",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "再拼两年"
+          },
+          "decisionIntent": "career:continue_fulltime:manufacturing_firm",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "转为每周三天的独立顾问，收入下降但压力减轻。",
+          "impactSummary": "退居顾问",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "退居顾问"
+          },
+          "decisionIntent": "career:switch_to:parttime_consultant",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "现在就正式退休，结束工资收入，把重心转向家庭与健康。",
+          "impactSummary": "立即退休",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "立即退休"
+          },
+          "decisionIntent": "career:retire:immediate",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "转为每周三天的独立顾问，收入下降但压力减轻。",
+      "resultingNodeTitle": "顾问工作的现实与平衡",
+      "resultingAgeInMonths": 713,
+      "resultingAttributes": {
+        "happiness": 62,
+        "intelligence": 73,
+        "wealth": 58,
+        "relation": 63,
+        "health": 57
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 713,
+        "cashWan": 168.5,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 168.5,
+        "annualAfterTaxIncomeWan": 24,
+        "annualDisposableIncomeWan": 6,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "at": "2026-07-18T10:56:10.556Z"
+    }
+  ],
+  "latestState": {
+    "capturedAt": "2026-07-18T10:56:09.720Z",
+    "e2eCase": null,
+    "recordTestRun": "m7-58-pass2-2-1784372123294",
+    "testDataSource": "real_ai_browser",
+    "step": "simulating",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "09:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n\n【系统生成的回溯锚点】\n回到 58 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "58 岁 · 其他经历",
+      "milestones": [
+        {
+          "id": "other",
+          "title": "其他经历",
+          "content": "58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "",
+      "milestoneRelationship": "",
+      "milestoneOther": "58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。",
+      "regressionNodeKey": "other",
+      "regressionAge": 58,
+      "regressionSituation": "【用户想重写的真实事件】\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n\n【系统生成的回溯锚点】\n回到 58 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 继续全职工作两年后再退休，维持现有职责与收入。\nB. 结束运营总监的全职岗位，转为每周三天的独立顾问工作，收入相应下降。\nC. 现在就正式退休，结束工资收入，把重心转向家庭与健康。",
+      "coreStoryFocus": "innerpeace"
+    },
+    "questions": [
+      {
+        "question": "事实背景追问：当时真实发生了什么？",
+        "suggestions": [
+          "我在这家制造企业做运营总监已经超过5年，团队大约30人，年收入约80万。公司最近在谈被收购，管理层有些动荡。",
+          "我的健康状况还可以，但长期高压工作让我有高血压和轻度焦虑，妻子一直劝我早点退下来。",
+          "我手头有约200万储蓄，一套房贷已还清，孩子已经工作独立，父母身体尚可。",
+          "不确定/记不清，但大概是公司业绩下滑，老板希望我留下稳定局面，但我觉得精力不如以前。"
+        ]
+      },
+      {
+        "question": "人物状态追问：当时的你是什么状态、什么性格、怎么反应？",
+        "suggestions": [
+          "我当时很矛盾，既想早点解脱又舍不得高薪和权力，通常遇到压力我会自己扛着，很少跟家人说。",
+          "我比较在意体面和稳定，怕退休后失去社会价值，但身体确实开始吃不消。",
+          "我性格偏保守，不擅长冒险，对未知的顾问市场有些顾虑，怕收入不稳。",
+          "我习惯先分析利弊再做决定，但这次迟迟下不了决心，有点拖延。"
+        ]
+      },
+      {
+        "question": "行动条件追问：你有什么兴趣、能力、资源、限制？",
+        "suggestions": [
+          "我擅长运营流程优化和供应链管理，在行业内有多年人脉，但不确定能否转化为顾问客户。",
+          "我有几个老同事已经转做顾问，他们建议我先尝试兼职，但我不确定自己是否适合。",
+          "我的妻子支持我退休，但希望我能保持一定收入，因为家庭开支不小。",
+          "我没有任何创业或独立顾问的经验，对市场营销和商务洽谈不太擅长。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "事实背景追问：当时真实发生了什么？",
+        "answer": "我当时税后年薪45万元，家庭每年生活支出18万元。"
+      },
+      {
+        "id": 2,
+        "question": "人物状态追问：当时的你是什么状态、什么性格、怎么反应？",
+        "answer": "我有现金及存款160万元，没有房贷和其他个人债务。"
+      },
+      {
+        "id": 3,
+        "question": "行动条件追问：你有什么兴趣、能力、资源、限制？",
+        "answer": "公司确实允许转为顾问；顾问税后年收入约24万元，正式退休后不再领取工资。"
+      }
+    ],
+    "history": [
+      {
+        "age": 58,
+        "ageInMonths": 696,
+        "lifeStage": "mature_adulthood",
+        "title": "运营总监的去留",
+        "stage": "抉择路口",
+        "description": "你在这家制造企业担任运营总监已逾十年，近期愈发感到身心疲惫。工厂的日常调度、质量纠纷和成本压力让你常常失眠。女儿在外地工作，老伴希望你多些陪伴。公司高层口头同意你转为每周三天的顾问，但正式手续未办。你手里有160万存款，无房贷，家庭年开支18万。如果继续全职，年薪45万；顾问年入24万；退休则零工资。你站在办公室窗前，看着厂区里忙碌的工人，心里反复掂量——是再拼两年攒足养老金，还是趁身体还行早点退下来？",
+        "selectedChoice": "转为每周三天的独立顾问，收入下降但压力减轻。",
+        "selectedDecisionIntent": "career:switch_to:parttime_consultant",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 75,
+          "wealth": 68,
+          "relation": 65,
+          "health": 55
+        },
+        "financialLedger": {
+          "id": "financial_opening_696",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 696,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 160,
+              "status": "active",
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "user",
+                  "excerpt": "【用户想重写的真实事件】\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n\n【系统生成的回溯锚点】\n回到 58 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n\n【系统生成的回溯锚点】\n回到 58 岁，在事件发生前重新做出选择。\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n我当时税后年薪45万元，家庭每年生活支出18万元。\n我有现金及存款160万元，没有房贷和其他个人债务。\n公司确实允许转为顾问；顾问税后年收入约24万元，正式退休后不再领取工资。",
+                  "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                  "confidence": 1
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [
+            {
+              "id": "legacy_recurring_income",
+              "type": "other",
+              "displayName": "旧版持续收入聚合",
+              "annualNetAmountWan": 45,
+              "accrualPolicy": "annual",
+              "activeFromAgeInMonths": 696,
+              "status": "active",
+              "linkedCareerStateId": "career_opening_696",
+              "factStatus": "estimated",
+              "lastConfirmedAtAgeInMonths": 696,
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 1.5,
+              "activeFromAgeInMonths": 696,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [],
+          "committedTransactionIds": [],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_696",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 696
+            }
+          ],
+          "revision": 0,
+          "version": 2
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 696,
+          "cashWan": 160,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 160,
+          "annualAfterTaxIncomeWan": 45,
+          "annualDisposableIncomeWan": 27,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": false
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "继续全职工作两年后再退休，维持现有职责与收入。",
+            "impactSummary": "再拼两年",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "再拼两年"
+            },
+            "decisionIntent": "career:continue_fulltime:manufacturing_firm",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "转为每周三天的独立顾问，收入下降但压力减轻。",
+            "impactSummary": "退居顾问",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "退居顾问"
+            },
+            "decisionIntent": "career:switch_to:parttime_consultant",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "现在就正式退休，结束工资收入，把重心转向家庭与健康。",
+            "impactSummary": "立即退休",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "立即退休"
+            },
+            "decisionIntent": "career:retire:immediate",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_d5535576",
+            "startAgeInMonths": 696,
+            "endAgeInMonths": 696,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_12a6cb18",
+            "summary": "你在这家制造企业担任运营总监已逾十年，近期愈发感到身心疲惫。工厂的日常调度、质量纠纷和成本压力让你常常失眠。女儿在外地工作，老伴希望你多些陪伴。公司高层口头同意"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_7edc371e",
+              "directionType": "innerpeace",
+              "summary": "A. 继续全职工作两年后再退休，维持现有职责与收入。\nB. 结束运营总监的全职岗位，转为每周三天的独立顾问工作，收入相应下降。\nC. 现在就正式退休，结束工资收入，把重心转向家庭与健康。",
+              "status": "active",
+              "startedAtAgeInMonths": 696,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_696",
+              "employmentStatus": "employed",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 696,
+              "source": "accepted_history",
+              "confidence": 0.9
+            }
+          ],
+          "currentCareerStateId": "career_opening_696",
+          "currentEmploymentStatus": "employed",
+          "careerRevision": 0
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 59,
+      "ageInMonths": 713,
+      "stage": "转型顾问后的生活",
+      "title": "顾问工作的现实与平衡",
+      "description": "转为顾问后，你每周三天去工厂，处理一些流程优化和紧急问题，其余时间在家。收入从45万降到24万，但家庭年支出18万，加上160万存款，经济上并不紧张。起初几个月，你感到轻松，睡眠改善，血压也降了些。但半年后，公司开始把更多复杂问题推给你，有时周末也需要远程处理。老伴希望你彻底放下，女儿也劝你多休息。你发现自己虽然不再有全职的压力，但顾问身份让你无法完全抽离，有时比全职更累，因为时间碎片化，责任边界模糊。你开始思考，是继续这种半退状态，还是彻底退休，或者再找点自己真正感兴趣的事情做。这17个月，你内心并未完全平静，始终在寻找那个平衡点。",
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 73,
+        "wealth": 58,
+        "relation": 63,
+        "health": 57
+      },
+      "choices": [
+        {
+          "id": "A",
+          "text": "继续当前顾问工作，但明确与公司协商更清晰的职责边界和沟通时间，减少碎片化干扰。",
+          "impactSummary": "明确边界",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "明确边界"
+          },
+          "decisionIntent": "career:renegotiate:consultant_boundaries",
+          "eventOutcomeId": "run_compliant_side_income_pilot",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "正式结束顾问工作，彻底退休，用存款和社保安度晚年，把时间完全留给家庭和个人兴趣。",
+          "impactSummary": "彻底退休",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "彻底退休"
+          },
+          "decisionIntent": "career:retire:full_retirement",
+          "eventOutcomeId": "clarify_rules_before_committing",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "在顾问工作之余，开始尝试一个低成本的个人爱好或学习项目，比如学习摄影或园艺，逐步找到新的生活重心。",
+          "impactSummary": "培养爱好",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "培养爱好"
+          },
+          "decisionIntent": "personal:start:new_hobby_project",
+          "eventOutcomeId": "run_compliant_side_income_pilot",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "financialEventProposals": [
+        {
+          "id": "fe_income_consultant_713",
+          "kind": "income_source_started",
+          "effectiveAtAgeInMonths": 696,
+          "payload": {
+            "id": "income_consultant",
+            "type": "consulting",
+            "displayName": "顾问工作税后收入",
+            "monthlyNetAmountWan": 2,
+            "accrualPolicy": "monthly",
+            "activeFromAgeInMonths": 696,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": []
+          },
+          "sourceOutcomeId": "choice_fallback_4ca5926f",
+          "evidence": "转为每周三天的独立顾问，税后年收入约24万元。",
+          "confidence": 0.9
+        }
+      ],
+      "isEndingNode": false,
+      "narrativeMeta": {
+        "elapsedMonths": 17,
+        "elapsedYears": 1.4166666666666667,
+        "lifeIntensity": "normal",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_58ff948e",
+          "startAgeInMonths": 696,
+          "endAgeInMonths": 713,
+          "internalTransitions": [],
+          "decisionCheckpointId": "checkpoint_0f82b5a9",
+          "summary": "转为顾问后，你每周三天去工厂，处理一些流程优化和紧急问题，其余时间在家。收入从45万降到24万，但家庭年支出18万，加上160万存款，经济上并不紧张。起初几个月"
+        },
+        "recoveryState": "protected",
+        "recoveryEvidence": [],
+        "arcSignals": [
+          {
+            "arcId": "innerpeace",
+            "signal": "ongoing_search",
+            "evidence": "内心并未完全平静，仍在寻找工作与生活的平衡。"
+          }
+        ],
+        "activeCharacters": [
+          {
+            "name": "老伴",
+            "relation": "spouse",
+            "presence": "在家时间增多，陪伴增加"
+          },
+          {
+            "name": "女儿",
+            "relation": "daughter",
+            "presence": "偶尔电话关心"
+          }
+        ],
+        "primaryActivity": "每周三天顾问工作，其余时间在家休息或处理琐事",
+        "worldDeltas": []
+      },
+      "lifeStage": "mature_adulthood",
+      "eventMeta": {
+        "eventId": "financial_side_path_conflict",
+        "eventCategory": "financial",
+        "eventTags": [
+          "financial",
+          "side_income",
+          "compliance_risk",
+          "opportunity"
+        ],
+        "eventIntensity": "minor",
+        "eventMode": "crossroads_opportunity",
+        "eventSemanticFamily": "financial_side_path",
+        "phasePolicyId": "generic_pressure_v1"
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 713,
+        "cashWan": 168.5,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 168.5,
+        "annualAfterTaxIncomeWan": 24,
+        "annualDisposableIncomeWan": 6,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "financialLedger": {
+        "id": "financial_opening_696",
+        "owner": "protagonist",
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 713,
+        "cashAccounts": [
+          {
+            "id": "primary_cash",
+            "type": "bank_deposit",
+            "balanceWan": 168.5,
+            "status": "active",
+            "factStatus": "known",
+            "evidence": [
+              {
+                "source": "user",
+                "excerpt": "【用户想重写的真实事件】\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n\n【系统生成的回溯锚点】\n回到 58 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n\n【系统生成的回溯锚点】\n回到 58 岁，在事件发生前重新做出选择。\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n58岁时，我在一家制造企业担任运营总监，开始认真考虑是否在两三年内退休，还是转为低强度顾问工作。\n我当时税后年薪45万元，家庭每年生活支出18万元。\n我有现金及存款160万元，没有房贷和其他个人债务。\n公司确实允许转为顾问；顾问税后年收入约24万元，正式退休后不再领取工资。",
+                "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                "confidence": 1
+              }
+            ]
+          }
+        ],
+        "assetAccounts": [],
+        "debtAccounts": [],
+        "incomeSources": [
+          {
+            "id": "legacy_recurring_income",
+            "type": "other",
+            "displayName": "旧版持续收入聚合",
+            "annualNetAmountWan": 45,
+            "accrualPolicy": "annual",
+            "activeFromAgeInMonths": 696,
+            "status": "ended",
+            "linkedCareerStateId": "career_opening_696",
+            "factStatus": "estimated",
+            "lastConfirmedAtAgeInMonths": 696,
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ],
+            "activeUntilAgeInMonths": 696,
+            "accrualReviewStatus": "normal"
+          },
+          {
+            "id": "income_consultant",
+            "type": "contract",
+            "displayName": "顾问工作税后收入",
+            "monthlyNetAmountWan": 2,
+            "accrualPolicy": "monthly",
+            "activeFromAgeInMonths": 696,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [],
+            "linkedCareerStateId": "career_c4d99e18_repair_career",
+            "accrualReviewStatus": "normal",
+            "lastConfirmedAtAgeInMonths": 696
+          }
+        ],
+        "expenseCommitments": [
+          {
+            "id": "legacy_core_expense",
+            "type": "basic_living",
+            "displayName": "旧版核心支出聚合",
+            "monthlyAmountWan": 1.5,
+            "activeFromAgeInMonths": 696,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ]
+          }
+        ],
+        "businessHoldings": [],
+        "recentTransactions": [
+          {
+            "id": "financial_c4d99e18",
+            "simulationTransactionId": "c4d99e18",
+            "eventIds": [
+              "accepted_fe_income_consultant_713",
+              "accepted_fe_income_old_end_713"
+            ],
+            "periodStartAgeInMonths": 696,
+            "periodEndAgeInMonths": 713,
+            "cashDeltaWan": 8.5,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": 0,
+            "incomeWan": 34,
+            "expenseWan": 25.5,
+            "valuationChangeWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": 8.5,
+            "evidence": [
+              {
+                "source": "accepted_simulation_outcome",
+                "sourceEventId": "choice_fallback_4ca5926f",
+                "excerpt": "收入从45万降到24万",
+                "reasonCode": "EVIDENCE_EXACT_MATCHED",
+                "confidence": 0.85
+              },
+              {
+                "source": "accepted_simulation_outcome",
+                "sourceEventId": "choice_fallback_4ca5926f",
+                "excerpt": "转为顾问后，你每周三天去工厂，处理一些流程优化和紧急问题，其余时间在家。收入从45万降到24万",
+                "reasonCode": "EVIDENCE_EXACT_MATCHED",
+                "confidence": 0.85
+              }
+            ]
+          }
+        ],
+        "committedTransactionIds": [
+          "c4d99e18"
+        ],
+        "unresolvedIssues": [
+          {
+            "id": "legacy_uncertainty_696",
+            "code": "LEGACY_UNCERTAINTY",
+            "severity": "warning",
+            "relatedProposalIds": [],
+            "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+            "createdAtAgeInMonths": 696
+          }
+        ],
+        "revision": 1,
+        "version": 2
+      },
+      "financialLedgerMode": "authoritative",
+      "financialPeriodSummary": {
+        "periodStartAgeInMonths": 696,
+        "periodEndAgeInMonths": 713,
+        "incomeWan": 34,
+        "coreExpenseWan": 25.5,
+        "otherExpenseWan": 0,
+        "debtPrincipalPaidWan": 0,
+        "debtInterestPaidWan": 0,
+        "assetPurchaseWan": 0,
+        "assetSaleProceedsWan": 0,
+        "valuationChangeWan": 0,
+        "netCashFlowWan": 8.5,
+        "netWorthChangeWan": 8.5,
+        "transactionIds": [
+          "financial_c4d99e18"
+        ]
+      },
+      "financialProcessingMeta": {
+        "proposalCount": 1,
+        "acceptedEventCount": 2,
+        "acceptedCareerTransitionCount": 1,
+        "blockingIssueCount": 0,
+        "repairTriggered": true,
+        "repairLatencyMs": 4100,
+        "totalProcessingLatencyMs": 4104
+      },
+      "committedArcMeta": {
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "family_child",
+            "relation": "child",
+            "estimatedAgeRange": [
+              14,
+              44
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 713,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "女儿",
+            "source": "model_inferred",
+            "confidence": 0.55
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_7edc371e",
+            "directionType": "innerpeace",
+            "summary": "A. 继续全职工作两年后再退休，维持现有职责与收入。\nB. 结束运营总监的全职岗位，转为每周三天的独立顾问工作，收入相应下降。\nC. 现在就正式退休，结束工资收入，把重心转向家庭与健康。",
+            "status": "active",
+            "startedAtAgeInMonths": 696,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [],
+        "committedTransactionIds": [
+          "c4d99e18"
+        ],
+        "version": 2,
+        "careerStates": [
+          {
+            "id": "career_opening_696",
+            "employmentStatus": "employed",
+            "activeProjectIds": [],
+            "effectiveFromAgeInMonths": 696,
+            "source": "accepted_history",
+            "confidence": 0.9
+          },
+          {
+            "id": "career_c4d99e18_repair_career",
+            "employmentStatus": "self_employed",
+            "occupation": "顾问",
+            "activeProjectIds": [],
+            "effectiveFromAgeInMonths": 696,
+            "source": "accepted_history",
+            "confidence": 0.9
+          }
+        ],
+        "currentCareerStateId": "career_c4d99e18_repair_career",
+        "currentEmploymentStatus": "self_employed",
+        "careerRevision": 1
+      }
+    },
+    "currentAttributes": {
+      "happiness": 62,
+      "intelligence": 73,
+      "wealth": 58,
+      "relation": 63,
+      "health": 57
+    },
+    "nodeCount": 2,
+    "simulationSeed": "f7343cd9-ed1a-423e-86a3-4fb2ad47e070",
+    "outcome": null,
+    "isLoading": false,
+    "isLoadingNext": false,
+    "errorMsg": null,
+    "invitations": []
+  },
+  "m7Focused": true
+}

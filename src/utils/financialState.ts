@@ -154,7 +154,8 @@ export function reconcileStudentFinancialSignals(
   raw: Partial<FinancialSignals>,
   description: string,
   periodMonths: number,
-  previousState?: FinancialState
+  previousState?: FinancialState,
+  authoritativeEmploymentStatus?: EmploymentStatus
 ): FinancialSignals {
   const explicitMonthlyIncome = firstMoneyMatch(description, [
     /(?:月薪|月工资|月收入|月入(?:能到)?|每月收入)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
@@ -165,16 +166,12 @@ export function reconcileStudentFinancialSignals(
   ]);
   const explicitMonthlyFamilySupport = monthlyFamilySupport(description);
   const normalized = normalizeFinancialSignals(raw, periodMonths);
-  const narrativeIsStudent = isStudentFinancialNarrative(description);
-  const isStudentPhase = narrativeIsStudent
-    || normalized.employmentStatus === "student"
-    || normalized.employmentStatus === "part_time";
-  if (!isStudentPhase) return normalized;
+  const employmentStatus = authoritativeEmploymentStatus ?? normalized.employmentStatus;
+  const isStudentPhase = employmentStatus === "student";
+  if (!isStudentPhase) return { ...normalized, employmentStatus };
   const signals: FinancialSignals = {
     ...normalized,
-    employmentStatus: narrativeIsStudent
-      ? explicitMonthlyIncome !== undefined ? "part_time" : "student"
-      : normalized.employmentStatus
+    employmentStatus
   };
   const expenseCeiling = studentExpenseCeiling(description);
 
@@ -226,21 +223,12 @@ export function reconcileStudentFinancialSignals(
   };
 }
 
-function inferEmploymentStatus(description: string, hasMonthlyIncome: boolean, previous?: EmploymentStatus): EmploymentStatus {
-  if (/退休|养老金/.test(description)) return "retired";
-  if (/病假|停工治疗|住院休养/.test(description)) return "medical_leave";
-  if (/失业|待业|辞职后尚未|没有工作/.test(description)) return "not_working";
-  if (/创业|个体经营|自由职业/.test(description)) return "self_employed";
-  if (/在校|大学|学生|学徒|考研|读研/.test(description)) return hasMonthlyIncome ? "part_time" : "student";
-  if (hasMonthlyIncome || /入职|工作|岗位|上班|实习|进入.{0,8}(?:公司|团队|机构)/.test(description)) return "employed";
-  return previous || "not_working";
-}
-
 export function inferFinancialSignalsFromNarrative(input: {
   description: string;
   previousState: FinancialState;
   periodMonths: number;
   targetAgeInMonths: number;
+  employmentStatus?: EmploymentStatus;
 }): FinancialSignals {
   const monthlyIncome = firstMoneyMatch(input.description, [
     /(?:月薪|月工资|月收入|月入(?:能到)?|每月收入)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
@@ -249,13 +237,15 @@ export function inferFinancialSignalsFromNarrative(input: {
   const previousMonthlyIncome = Math.max(0, input.previousState.annualAfterTaxIncomeWan / 12);
   const previousMonthlyExpense = Math.max(0, input.previousState.annualCoreExpenseWan / 12);
   const age = Math.floor(input.targetAgeInMonths / 12);
-  const employmentStatus = inferEmploymentStatus(input.description, monthlyIncome !== undefined, input.previousState.employmentStatus);
-  const defaultLivingExpense = employmentStatus === "student" || employmentStatus === "part_time"
+  const employmentStatus = input.employmentStatus ?? input.previousState.employmentStatus ?? "not_working";
+  const defaultLivingExpense = employmentStatus === "student"
     ? 0.1
     : age < 30 ? 0.35 : 0.45;
-  const monthlyLivingExpenseWan = employmentStatus === "student" || employmentStatus === "part_time"
+  const monthlyLivingExpenseWan = employmentStatus === "student"
     ? Math.min(previousMonthlyExpense || defaultLivingExpense, 0.2)
-    : previousMonthlyExpense > 0 ? previousMonthlyExpense : defaultLivingExpense;
+    : (input.previousState.employmentStatus === "student" || previousMonthlyExpense <= 0.2)
+      ? defaultLivingExpense
+      : previousMonthlyExpense > 0 ? previousMonthlyExpense : defaultLivingExpense;
   const explicitMonthlyTransfer = firstMoneyMatch(input.description, [
     /每月(?:寄|汇|转)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/
   ]) || 0;
@@ -340,6 +330,46 @@ export function calculateFinancialChange(raw: Partial<FinancialChange>, periodMo
   };
 }
 
+export function reconcileLiquidityShortfall(state: FinancialState): {
+  financialState: FinancialState;
+  liquidityShortfallWan: number;
+} {
+  if (state.cashWan >= 0) {
+    const financialState = { ...state, netWorthWan: calculateNetWorth(state) };
+    return { financialState, liquidityShortfallWan: 0 };
+  }
+
+  const liquidityShortfallWan = roundMoney(-state.cashWan);
+  const financialState: FinancialState = {
+    ...state,
+    cashWan: 0,
+    totalDebtWan: roundMoney(state.totalDebtWan + liquidityShortfallWan)
+  };
+  financialState.netWorthWan = calculateNetWorth(financialState);
+  return { financialState, liquidityShortfallWan };
+}
+
+function withLiquidityShortfall(
+  financialState: FinancialState,
+  financialChange: FinancialChange
+): { financialState: FinancialState; financialChange: FinancialChange } {
+  const reconciled = reconcileLiquidityShortfall(financialState);
+  if (reconciled.liquidityShortfallWan <= 0) {
+    return { financialState: reconciled.financialState, financialChange };
+  }
+  return {
+    financialState: reconciled.financialState,
+    financialChange: {
+      ...financialChange,
+      liquidityShortfallWan: reconciled.liquidityShortfallWan,
+      reasons: [
+        ...financialChange.reasons,
+        `现金缺口 ${reconciled.liquidityShortfallWan} 万元转为短期负债`
+      ]
+    }
+  };
+}
+
 export function normalizeInitialFinancialState(
   raw: Partial<FinancialState> | undefined,
   ageInMonths: number,
@@ -372,7 +402,7 @@ export function normalizeInitialFinancialState(
     isEstimated: raw.isEstimated !== false || isIncomplete
   };
   state.netWorthWan = calculateNetWorth(state);
-  return state;
+  return reconcileLiquidityShortfall(state).financialState;
 }
 
 export function estimateFinancialStateFromWealth(wealth: number, ageInMonths: number): FinancialState {
@@ -413,7 +443,8 @@ export function applyFinancialChange(
   previous: FinancialState,
   rawChange: Partial<FinancialChange> | undefined,
   periodMonths: number,
-  targetAgeInMonths: number
+  targetAgeInMonths: number,
+  authoritativeEmploymentStatus?: EmploymentStatus
 ): { financialState: FinancialState; financialChange: FinancialChange } {
   const financialChange = calculateFinancialChange(rawChange || {}, periodMonths);
   const cashFlowChange = financialChange.afterTaxIncomeWan
@@ -435,20 +466,26 @@ export function applyFinancialChange(
         - financialChange.medicalEducationExpenseWan
         - financialChange.interestAndFeesWan) * annualFactor
     ),
+    employmentStatus: authoritativeEmploymentStatus ?? previous.employmentStatus,
     incomeStability: financialChange.incomeStability || previous.incomeStability,
     isEstimated: previous.isEstimated || !rawChange
   };
   next.netWorthWan = calculateNetWorth(next);
-  return { financialState: next, financialChange };
+  return withLiquidityShortfall(next, financialChange);
 }
 
 export function applyFinancialSignals(
   previous: FinancialState,
   rawSignals: Partial<FinancialSignals>,
   periodMonths: number,
-  targetAgeInMonths: number
+  targetAgeInMonths: number,
+  authoritativeEmploymentStatus?: EmploymentStatus
 ): { financialState: FinancialState; financialSignals: FinancialSignals; financialChange: FinancialChange } {
-  const financialSignals = normalizeFinancialSignals(rawSignals, periodMonths);
+  const normalizedSignals = normalizeFinancialSignals(rawSignals, periodMonths);
+  const financialSignals: FinancialSignals = {
+    ...normalizedSignals,
+    employmentStatus: authoritativeEmploymentStatus ?? previous.employmentStatus ?? normalizedSignals.employmentStatus
+  };
   const recurringIncome = roundMoney(financialSignals.monthlyNetIncomeWan * financialSignals.incomeMonths);
   const livingExpense = roundMoney(financialSignals.monthlyLivingExpenseWan * periodMonths);
   const afterTaxIncome = roundMoney(recurringIncome + financialSignals.oneOffIncomeWan);
@@ -488,7 +525,8 @@ export function applyFinancialSignals(
     isEstimated: previous.isEstimated || financialSignals.confidence < 0.85
   };
   next.netWorthWan = calculateNetWorth(next);
-  return { financialState: next, financialSignals, financialChange };
+  const reconciled = withLiquidityShortfall(next, financialChange);
+  return { ...reconciled, financialSignals };
 }
 
 const COMPLETED_PROPERTY_PURCHASE = /买下|购入|购买了|支付(?:了)?.{0,12}首付|首付.{0,8}(?:支付|付清)|办理(?:了)?.{0,8}(?:按揭|房贷)/;

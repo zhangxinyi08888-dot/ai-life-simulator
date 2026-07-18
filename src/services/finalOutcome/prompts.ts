@@ -1,6 +1,7 @@
 import { formatAnswerTurns } from "../../utils/answerFormatting";
 import { formatAgeInMonths } from "../../utils/timelineAdvance";
 import { FinalOutcomeContext, HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
+import { getAuthoritativeFinalFinancialContext } from "../../utils/finalOutcomeFinancialSanitizer";
 
 function focusLabel(value: string): string {
   if (value === "career") return "事业发展与职场长征";
@@ -29,7 +30,23 @@ function formatHistory(history: HistoryItem[]): string {
 情境：${item.description}
 用户选择：${item.selectedChoice}
 累计净财富：${item.financialState ? `${item.financialState.netWorthWan} 万元${item.financialState.isEstimated ? "（估算）" : ""}` : "暂无快照"}
-本阶段财富变化：${item.financialChange ? `${item.financialChange.netWorthChangeWan >= 0 ? "+" : ""}${item.financialChange.netWorthChangeWan} 万元` : "暂无"}`).join("\n\n");
+本阶段财富变化：${item.financialPeriodSummary ? `${item.financialPeriodSummary.netWorthChangeWan >= 0 ? "+" : ""}${item.financialPeriodSummary.netWorthChangeWan} 万元（权威期间汇总）` : "暂无权威期间汇总"}`).join("\n\n");
+}
+
+function formatAuthoritativeFinance(history: HistoryItem[]): string {
+  const context = getAuthoritativeFinalFinancialContext(history);
+  if (!context.state) return "暂无权威财务账本；报告不得引用任何具体金额或回报率。";
+  const state = context.state;
+  const period = context.periodSummary;
+  return [
+    `现金 ${state.cashWan} 万元`,
+    `净资产 ${state.netWorthWan} 万元`,
+    `总债务 ${state.totalDebtWan} 万元`,
+    `年化持续收入 ${state.annualizedRecurringIncomeWan} 万元`,
+    period ? `本阶段收入 ${period.incomeWan} 万元；核心支出 ${period.coreExpenseWan} 万元；净现金流 ${period.netCashFlowWan} 万元；净资产变化 ${period.netWorthChangeWan} 万元` : "本阶段无权威期间汇总",
+    `未解决问题：${state.unresolvedIssueCodes.join("、") || "无"}`,
+    context.hasBusinessValueNeedsReview ? "企业权益价值为 needs_review：只能写持有事实和价值待确认，不得写估值、获利或回报数字。" : "企业权益不存在 needs_review 限制。"
+  ].join("\n");
 }
 
 export function buildFinalOutcomePrompt(
@@ -90,6 +107,11 @@ ${formatHistory(history)}
 
 【${reportStageLabel}累计净财富】
 ${history.at(-1)?.financialState ? `${history.at(-1)!.financialState!.netWorthWan} 万元${history.at(-1)!.financialState!.isEstimated ? "（估算）" : ""}` : "暂无结构化财务快照"}
+
+【报告唯一财务事实源】
+${formatAuthoritativeFinance(history)}
+- 报告和海报中的现金、净资产、收入、支出、债务、回报等数字只能逐项引用本区；历史正文里的财务数字不是报告事实源。
+- 本区没有提供的金额、估值、倍数或回报率必须改为定性表述，不得从叙事推算或补写。
 
 【输出要求】
 请严格返回 JSON，不要 Markdown，不要解释。返回字段：

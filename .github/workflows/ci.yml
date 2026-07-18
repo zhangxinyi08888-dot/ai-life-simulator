@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm lint
+
+      - name: Financial baseline gate
+        run: pnpm test:financial-baseline
+
+      - name: Financial M2 ledger-core gate
+        run: pnpm test:financial-m2
+
+      - name: Financial M5 seven-problem coverage gate
+        run: pnpm test:financial-m5
+
+      - name: Financial M7 authoritative-writer gate
+        run: pnpm test:financial-m7
+
+      - name: Full unit regression
+        run: pnpm test
+
+      - name: Production build
+        run: pnpm build

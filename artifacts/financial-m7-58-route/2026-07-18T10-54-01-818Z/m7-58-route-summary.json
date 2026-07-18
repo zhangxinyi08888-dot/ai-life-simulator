@@ -1,0 +1,61 @@
+{
+  "runId": "2026-07-18T10-54-01-818Z",
+  "dataSource": "real_ai_browser",
+  "route": "58岁运营总监：转顾问或直接退休",
+  "freshRuns": 3,
+  "passedRuns": 3,
+  "m7Decision": "pass",
+  "criteria": {
+    "acceptedFinancialEvents": true,
+    "acceptedCareerTransitions": true,
+    "narrativeLedgerConsistency": true,
+    "blockingIssueCountZero": true
+  },
+  "cases": [
+    {
+      "slug": "m7-58-consultant-pass-1",
+      "path": "consultant",
+      "periodMonths": 15,
+      "acceptedEventCount": 2,
+      "acceptedCareerTransitionCount": 1,
+      "blockingIssueCount": 0,
+      "employmentStatus": "self_employed",
+      "annualIncomeWan": 24,
+      "annualExpenseWan": 18,
+      "openingCashWan": 160,
+      "endingCashWan": 167.5,
+      "expectedEndingCashWan": 167.5,
+      "passed": true
+    },
+    {
+      "slug": "m7-58-consultant-pass-2",
+      "path": "consultant",
+      "periodMonths": 17,
+      "acceptedEventCount": 2,
+      "acceptedCareerTransitionCount": 1,
+      "blockingIssueCount": 0,
+      "employmentStatus": "self_employed",
+      "annualIncomeWan": 24,
+      "annualExpenseWan": 18,
+      "openingCashWan": 160,
+      "endingCashWan": 168.5,
+      "expectedEndingCashWan": 168.5,
+      "passed": true
+    },
+    {
+      "slug": "m7-58-retirement-pass-3",
+      "path": "retirement",
+      "periodMonths": 4,
+      "acceptedEventCount": 1,
+      "acceptedCareerTransitionCount": 1,
+      "blockingIssueCount": 0,
+      "employmentStatus": "retired",
+      "annualIncomeWan": 0,
+      "annualExpenseWan": 18,
+      "openingCashWan": 160,
+      "endingCashWan": 154,
+      "expectedEndingCashWan": 154,
+      "passed": true
+    }
+  ]
+}

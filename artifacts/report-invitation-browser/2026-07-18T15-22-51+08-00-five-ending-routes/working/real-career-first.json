@@ -1,0 +1,1043 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-07-18T15-22-51+08-00-five-ending-routes",
+  "dataSource": "real_ai_browser",
+  "caseSlug": "real-career-first",
+  "scenario": "accept_first",
+  "config": {
+    "slug": "real-career-first",
+    "scenario": "accept_first",
+    "birthday": "1992-03-18",
+    "birthtime": "09:00",
+    "returnPointName": "重选职业方向 回到那次工作转折，走向另一条职业道路 约 24 岁",
+    "anchorText": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。",
+    "branches": [
+      "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品",
+      "保留现有工作，利用晚上和周末参与创业项目",
+      "拒绝创业机会，留在大公司争取管理岗位"
+    ],
+    "answers": [
+      "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。",
+      "面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。",
+      "我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。"
+    ]
+  },
+  "updatedAt": "2026-07-18T07:35:31.641Z",
+  "complete": false,
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "at": "2026-07-18T07:25:04.780Z"
+    },
+    {
+      "type": "questions_generated",
+      "questions": [
+        {
+          "question": "事实背景追问：24岁时，你在那家大公司具体做什么岗位？工作内容和团队氛围如何？当时有没有接触过创业公司或AI领域的机会？",
+          "suggestions": [
+            "我在一家互联网大厂做产品经理，负责内部工具，团队稳定但创新空间有限。当时通过朋友介绍接触过一家AI创业公司，觉得方向有意思但不太了解行业。",
+            "我是大厂的算法工程师，做推荐系统，技术氛围浓厚。创业公司通过猎头找到我，说做AI+医疗，但我对医疗领域完全陌生。",
+            "我在一家传统软件公司做项目交付，出差很多。创业公司是前同事拉我入伙，做AI客服，但我担心公司活不过一年。",
+            "我是大厂运营岗，负责用户增长。创业公司给的职位是产品负责人，但我觉得自己没做过产品，不确定能否胜任。",
+            "记不清了，大概是大厂的中台岗位，工作两年已经有点厌倦。创业公司是同学介绍的，做AI教育，当时觉得教育赛道竞争激烈。"
+          ]
+        },
+        {
+          "question": "人物状态追问：当时的你，在面对高风险的职业选择时，通常是什么样的反应模式？更倾向于理性分析还是凭直觉？做决定时最在意什么？",
+          "suggestions": [
+            "我遇到重大决定会反复列表对比优缺点，但还是会犹豫很久。最在意的是收入稳定和职业安全感，怕一步走错就再也回不来了。",
+            "我比较冲动，容易被人说服，但事后会后悔。当时最在意的是能不能学到新东西，觉得年轻应该冒险，但又怕父母担心。",
+            "我习惯先收集信息，但做决定时往往跟着感觉走。最在意的是团队氛围和老板是否靠谱，当时感觉创业公司老板画饼太多。",
+            "我特别在意别人的看法，尤其是家人和导师。当时跟爸妈聊过，他们强烈建议留在大公司，我就退缩了。",
+            "我其实很矛盾，既想稳定又想折腾。每次做选择都会失眠，最后往往选择阻力最小的那条路。"
+          ]
+        },
+        {
+          "question": "行动条件追问：24岁时，你有哪些硬技能、行业人脉或经济储备？有没有业余时间做过个人项目或学习AI相关技术？当时的家庭支持或经济压力如何？",
+          "suggestions": [
+            "我技术能力一般，只会写SQL和基本Python。没有人脉，业余时间都在打游戏。有少量存款但不敢断收入，家里还需要我每月寄钱。",
+            "我编程能力不错，但没做过完整产品。有几个前同事在创业，但关系不深。存款够撑半年，但父母不支持我冒险。",
+            "我完全不懂AI技术，但擅长用户调研和画原型。业余参加过产品经理社群，认识一些创业者。经济上无压力，但对自己没信心。",
+            "我自学过机器学习，但只是入门水平。有人脉但不敢开口问。存款为0，靠工资生活，如果换工作降薪会付不起房租。",
+            "我技能偏运营，不懂技术。但业余时间做了一个小工具，有几百个用户。有大学朋友在AI公司，但没好意思联系。存款够撑一年，家里不需要我负担。"
+          ]
+        }
+      ],
+      "at": "2026-07-18T07:25:30.408Z"
+    },
+    {
+      "type": "simulation_started",
+      "node": {
+        "age": 24,
+        "stage": "职业分岔口",
+        "title": "大厂安稳与创业诱惑",
+        "description": "你在国内一家头部互联网公司做企业软件产品经理，年税后收入约22万，每月房租4500元，父母医疗支出约2000元，已存下18万现金。工作氛围稳定但晋升缓慢，团队平均年龄32岁，大家更看重保住现有薪资而非突破。前段时间通过朋友认识了一家早期AI创业公司的创始人，对方邀你以产品负责人身份加入，股份加薪资约15万/年，但未来两年可能没有分红。你面临三个选择：辞职加入、兼职参与、或留在大厂争取管理岗。",
+        "choices": [
+          {
+            "id": "A",
+            "text": "辞职加入创业公司，赌一把产品负责人经历",
+            "impactSummary": "孤注一掷",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "孤注一掷"
+            },
+            "decisionIntent": "career:switch_to:ai_startup_product_head",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "留在大厂，业余时间以顾问形式参与创业项目",
+            "impactSummary": "双线并行",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "双线并行"
+            },
+            "decisionIntent": "career:part_time_with:ai_startup_consultant",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "拒绝创业机会，全力争取大公司内部管理岗位",
+            "impactSummary": "稳扎稳打",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "稳扎稳打"
+            },
+            "decisionIntent": "career:promote_within:big_tech_management",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 65,
+          "wealth": 54,
+          "relation": 60,
+          "health": 75
+        },
+        "isEndingNode": false,
+        "ageInMonths": 288,
+        "lifeStage": "emerging_adulthood",
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_3ddfca7c",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 288,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_fe4bbc7c",
+            "summary": "你在国内一家头部互联网公司做企业软件产品经理，年税后收入约22万，每月房租4500元，父母医疗支出约2000元，已存下18万现金。工作氛围稳定但晋升缓慢，团队平"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "financialLedger": {
+          "id": "financial_opening_288",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 18,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [
+            {
+              "id": "legacy_recurring_income",
+              "type": "other",
+              "displayName": "旧版持续收入聚合",
+              "annualNetAmountWan": 22,
+              "accrualPolicy": "annual",
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "linkedCareerStateId": "career_opening_288",
+              "factStatus": "estimated",
+              "lastConfirmedAtAgeInMonths": 288,
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 1.25,
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [],
+          "committedTransactionIds": [],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_288",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 288
+            }
+          ],
+          "revision": 0,
+          "version": 2
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashWan": 18,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 18,
+          "annualAfterTaxIncomeWan": 22,
+          "annualDisposableIncomeWan": 7,
+          "annualCoreExpenseWan": 15,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_288",
+              "employmentStatus": "employed",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 288,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_288",
+          "currentEmploymentStatus": "employed",
+          "careerRevision": 0
+        }
+      },
+      "at": "2026-07-18T07:25:39.103Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "大厂安稳与创业诱惑",
+      "sourceAgeInMonths": 288,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "辞职加入创业公司，赌一把产品负责人经历",
+          "impactSummary": "孤注一掷",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "孤注一掷"
+          },
+          "decisionIntent": "career:switch_to:ai_startup_product_head",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "留在大厂，业余时间以顾问形式参与创业项目",
+          "impactSummary": "双线并行",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "双线并行"
+          },
+          "decisionIntent": "career:part_time_with:ai_startup_consultant",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "拒绝创业机会，全力争取大公司内部管理岗位",
+          "impactSummary": "稳扎稳打",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "稳扎稳打"
+          },
+          "decisionIntent": "career:promote_within:big_tech_management",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "辞职加入创业公司，赌一把产品负责人经历",
+      "resultingNodeTitle": "创业第一年：从产品经理到产品负责人",
+      "resultingAgeInMonths": 300,
+      "resultingAttributes": {
+        "happiness": 52,
+        "intelligence": 68,
+        "wealth": 66,
+        "relation": 58,
+        "health": 70
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 300,
+        "cashWan": 38.75,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 38.75,
+        "annualAfterTaxIncomeWan": 37,
+        "annualDisposableIncomeWan": 22,
+        "annualCoreExpenseWan": 15,
+        "employmentStatus": "employed",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-18T07:35:31.641Z"
+    }
+  ],
+  "latestState": {
+    "capturedAt": "2026-07-18T07:34:53.612Z",
+    "e2eCase": null,
+    "recordTestRun": "2026-07-18T15-22-51+08-00-five-ending-routes",
+    "testDataSource": "real_ai_browser",
+    "step": "simulating",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "09:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "24 岁 · 工作与转折",
+      "milestones": [
+        {
+          "id": "career",
+          "title": "工作与转折",
+          "content": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。",
+      "milestoneRelationship": "",
+      "milestoneOther": "",
+      "regressionNodeKey": "career",
+      "regressionAge": 24,
+      "regressionSituation": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+      "coreStoryFocus": "career"
+    },
+    "questions": [
+      {
+        "question": "事实背景追问：24岁时，你在那家大公司具体做什么岗位？工作内容和团队氛围如何？当时有没有接触过创业公司或AI领域的机会？",
+        "suggestions": [
+          "我在一家互联网大厂做产品经理，负责内部工具，团队稳定但创新空间有限。当时通过朋友介绍接触过一家AI创业公司，觉得方向有意思但不太了解行业。",
+          "我是大厂的算法工程师，做推荐系统，技术氛围浓厚。创业公司通过猎头找到我，说做AI+医疗，但我对医疗领域完全陌生。",
+          "我在一家传统软件公司做项目交付，出差很多。创业公司是前同事拉我入伙，做AI客服，但我担心公司活不过一年。",
+          "我是大厂运营岗，负责用户增长。创业公司给的职位是产品负责人，但我觉得自己没做过产品，不确定能否胜任。",
+          "记不清了，大概是大厂的中台岗位，工作两年已经有点厌倦。创业公司是同学介绍的，做AI教育，当时觉得教育赛道竞争激烈。"
+        ]
+      },
+      {
+        "question": "人物状态追问：当时的你，在面对高风险的职业选择时，通常是什么样的反应模式？更倾向于理性分析还是凭直觉？做决定时最在意什么？",
+        "suggestions": [
+          "我遇到重大决定会反复列表对比优缺点，但还是会犹豫很久。最在意的是收入稳定和职业安全感，怕一步走错就再也回不来了。",
+          "我比较冲动，容易被人说服，但事后会后悔。当时最在意的是能不能学到新东西，觉得年轻应该冒险，但又怕父母担心。",
+          "我习惯先收集信息，但做决定时往往跟着感觉走。最在意的是团队氛围和老板是否靠谱，当时感觉创业公司老板画饼太多。",
+          "我特别在意别人的看法，尤其是家人和导师。当时跟爸妈聊过，他们强烈建议留在大公司，我就退缩了。",
+          "我其实很矛盾，既想稳定又想折腾。每次做选择都会失眠，最后往往选择阻力最小的那条路。"
+        ]
+      },
+      {
+        "question": "行动条件追问：24岁时，你有哪些硬技能、行业人脉或经济储备？有没有业余时间做过个人项目或学习AI相关技术？当时的家庭支持或经济压力如何？",
+        "suggestions": [
+          "我技术能力一般，只会写SQL和基本Python。没有人脉，业余时间都在打游戏。有少量存款但不敢断收入，家里还需要我每月寄钱。",
+          "我编程能力不错，但没做过完整产品。有几个前同事在创业，但关系不深。存款够撑半年，但父母不支持我冒险。",
+          "我完全不懂AI技术，但擅长用户调研和画原型。业余参加过产品经理社群，认识一些创业者。经济上无压力，但对自己没信心。",
+          "我自学过机器学习，但只是入门水平。有人脉但不敢开口问。存款为0，靠工资生活，如果换工作降薪会付不起房租。",
+          "我技能偏运营，不懂技术。但业余时间做了一个小工具，有几百个用户。有大学朋友在AI公司，但没好意思联系。存款够撑一年，家里不需要我负担。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "事实背景追问：24岁时，你在那家大公司具体做什么岗位？工作内容和团队氛围如何？当时有没有接触过创业公司或AI领域的机会？",
+        "answer": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。"
+      },
+      {
+        "id": 2,
+        "question": "人物状态追问：当时的你，在面对高风险的职业选择时，通常是什么样的反应模式？更倾向于理性分析还是凭直觉？做决定时最在意什么？",
+        "answer": "面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。"
+      },
+      {
+        "id": 3,
+        "question": "行动条件追问：24岁时，你有哪些硬技能、行业人脉或经济储备？有没有业余时间做过个人项目或学习AI相关技术？当时的家庭支持或经济压力如何？",
+        "answer": "我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。"
+      }
+    ],
+    "history": [
+      {
+        "age": 24,
+        "ageInMonths": 288,
+        "lifeStage": "emerging_adulthood",
+        "title": "大厂安稳与创业诱惑",
+        "stage": "职业分岔口",
+        "description": "你在国内一家头部互联网公司做企业软件产品经理，年税后收入约22万，每月房租4500元，父母医疗支出约2000元，已存下18万现金。工作氛围稳定但晋升缓慢，团队平均年龄32岁，大家更看重保住现有薪资而非突破。前段时间通过朋友认识了一家早期AI创业公司的创始人，对方邀你以产品负责人身份加入，股份加薪资约15万/年，但未来两年可能没有分红。你面临三个选择：辞职加入、兼职参与、或留在大厂争取管理岗。",
+        "selectedChoice": "辞职加入创业公司，赌一把产品负责人经历",
+        "selectedDecisionIntent": "career:switch_to:ai_startup_product_head",
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 65,
+          "wealth": 54,
+          "relation": 60,
+          "health": 75
+        },
+        "financialLedger": {
+          "id": "financial_opening_288",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 18,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [
+            {
+              "id": "legacy_recurring_income",
+              "type": "other",
+              "displayName": "旧版持续收入聚合",
+              "annualNetAmountWan": 22,
+              "accrualPolicy": "annual",
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "linkedCareerStateId": "career_opening_288",
+              "factStatus": "estimated",
+              "lastConfirmedAtAgeInMonths": 288,
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 1.25,
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [],
+          "committedTransactionIds": [],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_288",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 288
+            }
+          ],
+          "revision": 0,
+          "version": 2
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashWan": 18,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 18,
+          "annualAfterTaxIncomeWan": 22,
+          "annualDisposableIncomeWan": 7,
+          "annualCoreExpenseWan": 15,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "辞职加入创业公司，赌一把产品负责人经历",
+            "impactSummary": "孤注一掷",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "孤注一掷"
+            },
+            "decisionIntent": "career:switch_to:ai_startup_product_head",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "留在大厂，业余时间以顾问形式参与创业项目",
+            "impactSummary": "双线并行",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "双线并行"
+            },
+            "decisionIntent": "career:part_time_with:ai_startup_consultant",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "拒绝创业机会，全力争取大公司内部管理岗位",
+            "impactSummary": "稳扎稳打",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "稳扎稳打"
+            },
+            "decisionIntent": "career:promote_within:big_tech_management",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_3ddfca7c",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 288,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_fe4bbc7c",
+            "summary": "你在国内一家头部互联网公司做企业软件产品经理，年税后收入约22万，每月房租4500元，父母医疗支出约2000元，已存下18万现金。工作氛围稳定但晋升缓慢，团队平"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_288",
+              "employmentStatus": "employed",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 288,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_288",
+          "currentEmploymentStatus": "employed",
+          "careerRevision": 0
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 25,
+      "ageInMonths": 300,
+      "stage": "early_adulthood",
+      "title": "创业第一年：从产品经理到产品负责人",
+      "description": "你辞去大厂工作，正式加入那家早期AI创业公司。团队只有8人，办公在共享空间。创始人是技术背景，对产品方向有大想法但细节模糊。你负责从零搭建产品流程，第一个月几乎都在梳理需求池和用户访谈。第三个月，你们拿到一个中型企业的POC（概念验证）合同，你主导了从需求到原型交付的全过程，虽然版本粗糙，但客户反馈积极。半年后，公司完成一轮小规模天使轮，融资200万，你的股份价值在纸面上涨，但现金流依然紧张，你的月薪从22万降到15万，加上房租和父母医疗，每月结余很少。你开始怀疑这是否值得，但每当看到产品在客户现场被使用时，又觉得成长飞快。年底，你学会了写简单的SQL分析用户数据，也能和工程师讨论模型准确率。团队氛围年轻激进，经常加班到深夜，你的健康状况从稳定转为轻度疲劳，但还没到崩溃边缘。你意识到，产品负责人的角色不仅需要设计能力，还需要融资、销售甚至客服技能。",
+      "choices": [
+        {
+          "id": "A",
+          "text": "继续全力投入创业公司，争取在第二年让产品形成稳定收入，同时开始有意识地建立行业人脉和融资经验。",
+          "impactSummary": "深度绑定创业",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "深度绑定创业"
+          },
+          "decisionIntent": "career:deepen_commitment:ai_startup_product_lead",
+          "eventOutcomeId": "maintain_health_routine",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "利用周末时间参加AI产品经理的线上课程或行业沙龙，扩充技能树，为将来可能的转型做准备，同时保持创业公司的工作节奏。",
+          "impactSummary": "技能横向拓展",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "技能横向拓展"
+          },
+          "decisionIntent": "career:upskill_part_time:ai_product_courses",
+          "eventOutcomeId": "improve_one_sustainable_habit",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "和创始人坦诚沟通当前压力，协商是否可以适当降低工作强度或调整职责，以换取更可持续的节奏。",
+          "impactSummary": "协商工作边界",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "协商工作边界"
+          },
+          "decisionIntent": "career:negotiate_workload:startup_boundaries",
+          "eventOutcomeId": "adapt_routine_to_current_life",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "attributes": {
+        "happiness": 52,
+        "intelligence": 68,
+        "wealth": 66,
+        "relation": 58,
+        "health": 70
+      },
+      "financialEventProposals": [
+        {
+          "id": "income_start_ai_startup",
+          "kind": "income_source_started",
+          "effectiveAtAgeInMonths": 289,
+          "payload": {
+            "id": "income_ai_startup",
+            "type": "salary",
+            "displayName": "AI创业公司税后薪资",
+            "monthlyNetAmountWan": 1.25,
+            "accrualPolicy": "monthly",
+            "activeFromAgeInMonths": 289,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": []
+          },
+          "sourceOutcomeId": "choice_fallback_68ee5fb8",
+          "evidence": "月薪从22万降到15万",
+          "confidence": 0.9
+        }
+      ],
+      "isEndingNode": false,
+      "narrativeMeta": {
+        "elapsedMonths": 12,
+        "elapsedYears": 1,
+        "lifeIntensity": "high_tension",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_a50d5f55",
+          "startAgeInMonths": 288,
+          "endAgeInMonths": 300,
+          "internalTransitions": [
+            "入职前三个月梳理需求池和用户访谈",
+            "第六个月完成POC合同交付",
+            "第九个月公司完成天使轮融资",
+            "年底学会SQL和基础模型讨论"
+          ],
+          "decisionCheckpointId": "checkpoint_0bf7b1cc",
+          "summary": "你辞去大厂工作，正式加入那家早期AI创业公司。团队只有8人，办公在共享空间。创始人是技术背景，对产品方向有大想法但细节模糊。你负责从零搭建产品流程，第一个月几乎"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [
+          {
+            "arc": "career",
+            "signal": "transition_to_startup",
+            "evidence": "辞职加入AI创业公司，担任产品负责人"
+          }
+        ],
+        "activeCharacters": [
+          {
+            "name": "创始人",
+            "role": "CEO",
+            "relationship": "co-founder",
+            "since": 289
+          }
+        ],
+        "primaryActivity": "product_management",
+        "worldDeltas": [
+          {
+            "type": "career_state",
+            "employmentTransition": {
+              "subject": "protagonist",
+              "fromStatus": "employed",
+              "toStatus": "employed",
+              "effectiveAtAgeInMonths": 289,
+              "sourceOutcomeId": "choice_fallback_68ee5fb8",
+              "evidence": "辞职加入创业公司",
+              "confidence": 0.9
+            }
+          }
+        ]
+      },
+      "lifeStage": "early_adulthood",
+      "eventMeta": {
+        "eventId": "health_sustainable_routine",
+        "eventCategory": "health",
+        "eventTags": [
+          "health",
+          "routine",
+          "maintenance",
+          "stability"
+        ],
+        "eventIntensity": "minor",
+        "eventMode": "stability_meaning",
+        "eventSemanticFamily": "health_sustainable_routine",
+        "phasePolicyId": "generic_pressure_v1"
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 300,
+        "cashWan": 38.75,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 38.75,
+        "annualAfterTaxIncomeWan": 37,
+        "annualDisposableIncomeWan": 22,
+        "annualCoreExpenseWan": 15,
+        "employmentStatus": "employed",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "financialLedger": {
+        "id": "financial_opening_288",
+        "owner": "protagonist",
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 300,
+        "cashAccounts": [
+          {
+            "id": "primary_cash",
+            "type": "bank_deposit",
+            "balanceWan": 38.75,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ]
+          }
+        ],
+        "assetAccounts": [],
+        "debtAccounts": [],
+        "incomeSources": [
+          {
+            "id": "legacy_recurring_income",
+            "type": "other",
+            "displayName": "旧版持续收入聚合",
+            "annualNetAmountWan": 22,
+            "accrualPolicy": "annual",
+            "activeFromAgeInMonths": 288,
+            "status": "active",
+            "linkedCareerStateId": "career_opening_288",
+            "factStatus": "estimated",
+            "lastConfirmedAtAgeInMonths": 288,
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ]
+          },
+          {
+            "id": "income_ai_startup",
+            "type": "salary",
+            "displayName": "AI创业公司税后薪资",
+            "monthlyNetAmountWan": 1.25,
+            "accrualPolicy": "monthly",
+            "activeFromAgeInMonths": 289,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [],
+            "accrualReviewStatus": "normal",
+            "lastConfirmedAtAgeInMonths": 289
+          }
+        ],
+        "expenseCommitments": [
+          {
+            "id": "legacy_core_expense",
+            "type": "basic_living",
+            "displayName": "旧版核心支出聚合",
+            "monthlyAmountWan": 1.25,
+            "activeFromAgeInMonths": 288,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ]
+          }
+        ],
+        "businessHoldings": [],
+        "recentTransactions": [
+          {
+            "id": "financial_c56efd7e",
+            "simulationTransactionId": "c56efd7e",
+            "eventIds": [
+              "accepted_income_start_ai_startup"
+            ],
+            "periodStartAgeInMonths": 288,
+            "periodEndAgeInMonths": 300,
+            "cashDeltaWan": 20.75,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": 0,
+            "incomeWan": 35.75,
+            "expenseWan": 15,
+            "valuationChangeWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": 20.75,
+            "evidence": [
+              {
+                "source": "accepted_simulation_outcome",
+                "sourceEventId": "choice_fallback_68ee5fb8",
+                "excerpt": "月薪从22万降到15万",
+                "reasonCode": "EVIDENCE_EXACT_MATCHED",
+                "confidence": 0.9
+              }
+            ]
+          }
+        ],
+        "committedTransactionIds": [
+          "c56efd7e"
+        ],
+        "unresolvedIssues": [
+          {
+            "id": "legacy_uncertainty_288",
+            "code": "LEGACY_UNCERTAINTY",
+            "severity": "warning",
+            "relatedProposalIds": [],
+            "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+            "createdAtAgeInMonths": 288
+          }
+        ],
+        "revision": 1,
+        "version": 2
+      },
+      "financialLedgerMode": "authoritative",
+      "financialPeriodSummary": {
+        "periodStartAgeInMonths": 288,
+        "periodEndAgeInMonths": 300,
+        "incomeWan": 35.75,
+        "coreExpenseWan": 15,
+        "otherExpenseWan": 0,
+        "debtPrincipalPaidWan": 0,
+        "debtInterestPaidWan": 0,
+        "assetPurchaseWan": 0,
+        "assetSaleProceedsWan": 0,
+        "valuationChangeWan": 0,
+        "netCashFlowWan": 20.75,
+        "netWorthChangeWan": 20.75,
+        "transactionIds": [
+          "financial_c56efd7e"
+        ]
+      },
+      "committedArcMeta": {
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "family_parent",
+            "relation": "parent",
+            "estimatedAgeRange": [
+              43,
+              70
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 300,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "父母",
+            "source": "model_inferred",
+            "confidence": 0.55
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_efb88fbf",
+            "directionType": "career",
+            "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+            "status": "active",
+            "startedAtAgeInMonths": 288,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [],
+        "committedTransactionIds": [
+          "c56efd7e"
+        ],
+        "version": 2,
+        "careerStates": [
+          {
+            "id": "career_opening_288",
+            "employmentStatus": "employed",
+            "activeProjectIds": [],
+            "effectiveFromAgeInMonths": 288,
+            "source": "accepted_history",
+            "confidence": 0.6
+          }
+        ],
+        "currentCareerStateId": "career_opening_288",
+        "currentEmploymentStatus": "employed",
+        "careerRevision": 0
+      }
+    },
+    "currentAttributes": {
+      "happiness": 52,
+      "intelligence": 68,
+      "wealth": 66,
+      "relation": 58,
+      "health": 70
+    },
+    "nodeCount": 2,
+    "simulationSeed": "176072de-e89d-454d-bf39-4f86a58820e4",
+    "outcome": null,
+    "isLoading": false,
+    "isLoadingNext": false,
+    "errorMsg": null,
+    "invitations": []
+  }
+}

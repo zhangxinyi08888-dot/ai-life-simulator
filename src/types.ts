@@ -2,6 +2,9 @@
  * Shared Type Definitions for AI Life Simulator
  */
 
+import type { FinancialLedger, FinancialPeriodSummary } from "./domain/finance/types";
+import type { CareerState } from "./domain/career/types";
+
 export interface LifeAttributes {
   happiness: number;   // 幸福度 (0 - 100)
   intelligence: number; // 智商/才干 (0 - 100)
@@ -54,8 +57,22 @@ export interface FinancialChange {
   assetValueChangeWan: number;
   otherNetChangeWan: number;
   netWorthChangeWan: number;
+  liquidityShortfallWan?: number;
   incomeStability?: IncomeStability;
   reasons: string[];
+}
+
+export interface EmploymentTransitionProposal {
+  subject: "protagonist";
+  toStatus: EmploymentStatus;
+  effectiveAtAgeInMonths: number;
+  sourceOutcomeId?: string;
+  occupation?: string;
+  industry?: string;
+  organization?: string;
+  careerStage?: string;
+  evidence: string;
+  confidence: number;
 }
 
 export interface UserInitialData {
@@ -163,7 +180,7 @@ export type WorldDelta =
   | { type: "person_status"; personId: string; status: PersonLifeStatus; reason: string }
   | { type: "person_role"; personId: string; occupationStatus: PersonState["occupationStatus"] }
   | { type: "relationship_change"; personId: string; summary: string }
-  | { type: "career_state"; summary: string }
+  | { type: "career_state"; summary: string; employmentTransition?: EmploymentTransitionProposal }
   | { type: "health_state"; summary: string }
   | { type: "location_change"; summary: string };
 
@@ -271,8 +288,12 @@ export interface WorldStateSnapshot {
   relationshipSummary?: string;
   healthSummary?: string;
   locationSummary?: string;
+  currentEmploymentStatus?: EmploymentStatus;
+  careerStates?: CareerState[];
+  currentCareerStateId?: string;
+  careerRevision?: number;
   committedTransactionIds?: string[];
-  version: 1;
+  version: 1 | 2;
 }
 
 export interface SimulationNode {
@@ -285,9 +306,13 @@ export interface SimulationNode {
   descriptionParagraphs?: string[]; // 新节点的权威段落结构；description 为兼容字符串
   choices: SimulationChoice[]; // 三个预设选项 + 支持自定义
   attributes: LifeAttributes;  // 更新后的五维属性值
+  financialLedger?: FinancialLedger;
+  financialLedgerMode?: "shadow" | "authoritative";
   financialState?: FinancialState;
+  financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
+  financialProcessingMeta?: FinancialProcessingMeta;
   isEndingNode: boolean;       // 是否已到达人生终点
   eventMeta?: EventMeta;        // 触发本节点的事件种子元数据，用于冷却与同类限制
   narrativeMeta?: NarrativeMeta;
@@ -310,9 +335,13 @@ export interface HistoryItem {
   selectedChoice: string;
   selectedDecisionIntent?: string;
   attributes: LifeAttributes;   // 存储该历史节点当时的属性状态，支持高保真时光回溯
+  financialLedger?: FinancialLedger;
+  financialLedgerMode?: "shadow" | "authoritative";
   financialState?: FinancialState;
+  financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
+  financialProcessingMeta?: FinancialProcessingMeta;
   choices: SimulationChoice[];   // 存储该节点当时的选项，支持回到历史节点重新选择
   isEndingNode: boolean;         // 存储该节点是否为结局节点，支持完整恢复节点状态
   eventMeta?: EventMeta;
@@ -320,6 +349,16 @@ export interface HistoryItem {
   worldStateSnapshot?: WorldStateSnapshot;
   committedArcMeta?: SimulationNode["committedArcMeta"];
   reportInvitation?: ReportInvitationMeta;
+}
+
+export interface FinancialProcessingMeta {
+  proposalCount: number;
+  acceptedEventCount: number;
+  acceptedCareerTransitionCount?: number;
+  blockingIssueCount: number;
+  repairTriggered: boolean;
+  repairLatencyMs: number;
+  totalProcessingLatencyMs: number;
 }
 
 export interface PersonalityInsight {
