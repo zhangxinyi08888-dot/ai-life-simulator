@@ -1,5 +1,12 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+
+function runGit(args) {
+  return new Promise((resolve, reject) => execFile("git", args, { cwd: process.cwd() }, (error, stdout) => (
+    error ? reject(error) : resolve(stdout.trim())
+  )));
+}
 
 const root = path.resolve(process.argv[2]);
 const casesDir = path.join(root, "cases");
@@ -35,6 +42,8 @@ let duplicateActiveShortfallNodes = 0;
 let systemShortfallScheduleIssueNodes = 0;
 let issueUndefinedNodes = 0;
 let reportPlaceholderCases = 0;
+let valuedOptionOmittedNodes = 0;
+let contingentOptionInflatedNodes = 0;
 
 for (const record of records) {
   const history = record.finalState?.history || [];
@@ -94,9 +103,22 @@ for (const record of records) {
       && issue.code === "UNKNOWN_DEBT_SCHEDULE"
       && (issue.relatedDebtAccountIds || []).some((id) => activeShortfalls.some((debt) => debt.id === id)));
     const issueUndefined = (ledger.unresolvedIssues || []).some((issue) => /undefined|Cannot read properties|TypeError/u.test(String(issue.summary || "")));
+    const activeOptions = (ledger.businessHoldings || []).filter((holding) => holding.instrumentType === "stock_option"
+      && (holding.status === "active" || holding.status === "partially_sold"));
+    const valuedOptionCarryingWan = round(activeOptions.reduce((sum, holding) => sum + Number(holding.personalCarryingValueWan || 0), 0));
+    const valuedOptionOmitted = valuedOptionCarryingWan > 0
+      && Number(fs.businessAndOtherAssetsWan || 0) + 0.02 < valuedOptionCarryingWan;
+    const contingentOptionInflated = activeOptions.some((holding) => {
+      const terms = holding.optionTerms || {};
+      const remainingVestedUnits = Number(terms.vestedUnits || 0) - Number(terms.exercisedUnits || 0);
+      return Number(holding.personalCarryingValueWan || 0) > 0
+        && (remainingVestedUnits <= 0 || !Number.isFinite(terms.fairValueWanPerUnit));
+    });
     if (duplicateActiveShortfall) duplicateActiveShortfallNodes += 1;
     if (systemShortfallScheduleIssue) systemShortfallScheduleIssueNodes += 1;
     if (issueUndefined) issueUndefinedNodes += 1;
+    if (valuedOptionOmitted) valuedOptionOmittedNodes += 1;
+    if (contingentOptionInflated) contingentOptionInflatedNodes += 1;
 
     const netWorthDelta = previous ? round(Number(fs.netWorthWan || 0) - Number(previous.fs.netWorthWan || 0)) : 0;
     const wealthDelta = previous ? Number(node.attributes?.wealth || 0) - Number(previous.node.attributes?.wealth || 0) : 0;
@@ -116,7 +138,7 @@ for (const record of records) {
       financialState: fs,
       attributes: node.attributes,
       invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth },
-      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, wealthDirectionMismatch },
+      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, wealthDirectionMismatch },
       issueIds: (ledger.unresolvedIssues || []).map((issue) => issue.id)
     });
     previous = { node, fs, signature, transactionCount };
@@ -177,6 +199,8 @@ const summary = {
   systemShortfallScheduleIssueNodes,
   issueUndefinedNodes,
   reportPlaceholderCases,
+  valuedOptionOmittedNodes,
+  contingentOptionInflatedNodes,
   openIssues: openIssues.length,
   resolvedIssues: resolvedIssues.length,
   issueCodeCounts
@@ -197,6 +221,8 @@ const blockers = [
   systemShortfallScheduleIssueNodes > 0 && `系统 shortfall 自触发 UNKNOWN_DEBT_SCHEDULE：${systemShortfallScheduleIssueNodes} 个节点`,
   issueUndefinedNodes > 0 && `业务 issue 泄漏程序异常或 undefined：${issueUndefinedNodes} 个节点`,
   reportPlaceholderCases > 0 && `终局报告泄漏内部占位符：${reportPlaceholderCases} 组`,
+  valuedOptionOmittedNodes > 0 && `已归属且有账面价值的期权未进入用户财富：${valuedOptionOmittedNodes} 个节点`,
+  contingentOptionInflatedNodes > 0 && `未归属或缺可靠估值的期权被计入用户财富：${contingentOptionInflatedNodes} 个节点`,
   openIssues.length > 0 && `终局仍存在 open issue：${openIssues.length} 个`,
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
 ].filter(Boolean);
@@ -228,6 +254,8 @@ ${blockers.map((item) => `- ${item}`).join("\n")}
 | 系统 shortfall 自触发计划噪音 | ${systemShortfallScheduleIssueNodes} | 目标 0 |
 | issue 泄漏异常/undefined | ${issueUndefinedNodes} | 目标 0 |
 | 报告内部占位符 | ${reportPlaceholderCases} 组 | 目标 0 |
+| 有价值期权未计入用户财富 | ${valuedOptionOmittedNodes} | 目标 0 |
+| 或有/缺估值期权错误计入财富 | ${contingentOptionInflatedNodes} | 目标 0 |
 | open / resolved issue | ${openIssues.length} / ${resolvedIssues.length} | 必须有关闭路径且终局可控 |
 
 Accepted 覆盖率以“包含财务叙述的节点中，本节点新增已提交交易或核心财务签名发生变化”为可审计代理口径；它不把纯时间计提误算为新事实接受。
@@ -275,10 +303,14 @@ const aggregate = {
 };
 await writeFile(path.join(root, "aggregate.json"), `${JSON.stringify(aggregate, null, 2)}\n`);
 const runStartedAt = records.map((record) => record.startedAt).sort()[0];
+const repositoryCommit = await runGit(["rev-parse", "HEAD"]);
+const repositoryDirty = Boolean(await runGit(["status", "--short"]));
 const manifest = {
   runId: path.basename(root),
   runStartedAt,
   generatedAt: new Date().toISOString(),
+  repositoryCommit,
+  repositoryDirty,
   cases: records.map((record) => ({ caseSlug: record.caseSlug, scenario: record.scenario, path: `cases/${record.caseSlug}.json` }))
 };
 await writeFile(path.join(root, "run-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
