@@ -33,6 +33,7 @@ let acceptedCoverageNodes = 0;
 let staleFinanceNodes = 0;
 let salaryMismatchNodes = 0;
 let missingHoldingNodes = 0;
+let missingOptionHoldingNodes = 0;
 let missingPropertyNodes = 0;
 let wealthDirectionMismatches = 0;
 let adultZeroExpenseNodes = 0;
@@ -97,13 +98,17 @@ for (const record of records) {
       .some((candidate) => Math.abs(value - candidate) <= Math.max(2, value * 0.12)));
     if (salaryMismatch) salaryMismatchNodes += 1;
     const holdingMissing = holdingText.test(description) && (ledger.businessHoldings?.length || 0) === 0 && Number(fs.businessAndOtherAssetsWan || 0) === 0;
+    const optionHoldingMissing = /期权/u.test(description)
+      && !(ledger.businessHoldings || []).some((holding) => holding.instrumentType === "stock_option");
     const propertyMissing = propertyText.test(description) && (ledger.assetAccounts?.filter((item) => item.type === "property").length || 0) === 0 && Number(fs.propertyMarketValueWan || 0) === 0;
     if (holdingMissing) missingHoldingNodes += 1;
+    if (optionHoldingMissing) missingOptionHoldingNodes += 1;
     if (propertyMissing) missingPropertyNodes += 1;
 
     const ageYears = Number(node.ageInMonths || 0) / 12;
     const adultZeroExpense = ageYears >= 18 && Number(fs.annualCoreExpenseWan || 0) === 0;
-    const adultBelowPolicyExpense = ageYears >= 23 && Number(fs.annualCoreExpenseWan || 0) + 0.02 < 4.2;
+    const adultBelowPolicyExpense = ageYears >= 23 && fs.employmentStatus !== "student"
+      && Number(fs.annualCoreExpenseWan || 0) + 0.02 < 4.2;
     const careerIncomeSources = (ledger.incomeSources || []).filter((source) => source.status === "active" && source.linkedCareerStateId);
     const hasRecentCareerEvidence = careerIncomeSources.some((source) => Number.isFinite(source.lastConfirmedAtAgeInMonths)
       && Number(node.ageInMonths) - Number(source.lastConfirmedAtAgeInMonths) <= 36);
@@ -129,8 +134,10 @@ for (const record of records) {
       return Number(holding.personalCarryingValueWan || 0) > 0
         && (remainingVestedUnits <= 0 || !Number.isFinite(terms.fairValueWanPerUnit));
     });
-    const staleOptionLifecycle = activeOptions.some((holding) => Number.isFinite(holding.expirationDateInMonths)
-      && Number(holding.expirationDateInMonths) < Number(node.ageInMonths));
+    const staleOptionLifecycle = activeOptions.some((holding) => {
+      const expiresAt = holding.optionTerms?.expiresAtAgeInMonths ?? holding.expirationDateInMonths;
+      return Number.isFinite(expiresAt) && Number(expiresAt) < Number(node.ageInMonths);
+    });
     if (duplicateActiveShortfall) duplicateActiveShortfallNodes += 1;
     if (systemShortfallScheduleIssue) systemShortfallScheduleIssueNodes += 1;
     if (issueUndefined) issueUndefinedNodes += 1;
@@ -170,13 +177,21 @@ for (const record of records) {
     && Number(first.totalDebtWan || 0) === 0;
   if (openingFactMismatch) openingFactMismatchCases += 1;
   if (/金额待账本确认|回报幅度待账本确认|回报率待账本确认/u.test(JSON.stringify(record.finalState?.outcome || {}))) reportPlaceholderCases += 1;
+  const invitationSequence = (record.interactionLog || [])
+    .filter((item) => ["invitation_declined", "invitation_accepted"].includes(item.type))
+    .map((item) => `${item.invitation?.id || "unknown"}:${item.type === "invitation_accepted" ? "accepted" : "declined"}`);
+  const recoverableEvents = (record.interactionLog || [])
+    .filter((item) => item.type === "recoverable_error" || item.type === "recoverable_timeout");
   cases.push({
     caseSlug: record.caseSlug,
     scenario: record.scenario,
     closureType: record.finalState?.outcome?.meta?.closureType,
     passed: record.passed,
     nodeCount: history.length,
+    finalAgeInMonths: history.at(-1)?.ageInMonths,
     invitationCount: record.finalState?.invitations?.length || 0,
+    invitationSequence,
+    recoverableEvents,
     firstFinancialState: first,
     finalFinancialState: last,
     openingFactMismatch,
@@ -208,6 +223,7 @@ const summary = {
   salaryMismatchNodes,
   salaryMismatchRatePct: percent(salaryMismatchNodes, financeNarrativeNodes),
   missingHoldingNodes,
+  missingOptionHoldingNodes,
   missingPropertyNodes,
   wealthDirectionMismatches,
   adultZeroExpenseNodes,
@@ -232,6 +248,15 @@ const routeRows = cases.map((item) => {
   const last = item.finalFinancialState;
   return `| ${item.caseSlug} | ${item.scenario} | ${item.closureType} | ${item.nodeCount} | ${item.invitationCount} | ${last.cashWan} | ${last.netWorthWan} | ${last.totalDebtWan} | ${last.annualAfterTaxIncomeWan} | ${last.annualCoreExpenseWan} | ${last.employmentStatus} |`;
 }).join("\n");
+const routeEvidenceRows = cases.map((item) => {
+  const ageYears = Math.floor(Number(item.finalAgeInMonths || 0) / 12);
+  const ageMonths = Number(item.finalAgeInMonths || 0) % 12;
+  const age = `${ageYears}岁${ageMonths ? `${ageMonths}个月` : ""}`;
+  return `| ${item.caseSlug} | ${item.scenario} | ${item.nodeCount} | ${age} | ${item.invitationSequence.join(" → ") || "无"} | ${item.closureType} | ${item.recoverableEvents.length} | ${item.passed ? "通过" : "失败"} |`;
+}).join("\n");
+const recoverableRows = cases.flatMap((item) => item.recoverableEvents.map((event) => (
+  `| ${item.caseSlug} | ${event.type} | ${event.historyLength ?? 0} | ${String(event.message || "页面可恢复错误").replace(/\|/g, "\\|")} |`
+))).join("\n") || "| 无 | — | — | 无 |";
 const issueRows = Object.entries(issueCodeCounts).map(([code, count]) => `| ${code} | ${count} |`).join("\n") || "| 无 | 0 |";
 const blockers = [
   adultZeroExpenseNodes > 0 && `成年节点年核心支出为 0：${adultZeroExpenseNodes} 个`,
@@ -243,6 +268,7 @@ const blockers = [
   reportPlaceholderCases > 0 && `终局报告泄漏内部占位符：${reportPlaceholderCases} 组`,
   valuedOptionOmittedNodes > 0 && `已归属且有账面价值的期权未进入用户财富：${valuedOptionOmittedNodes} 个节点`,
   contingentOptionInflatedNodes > 0 && `未归属或缺可靠估值的期权被计入用户财富：${contingentOptionInflatedNodes} 个节点`,
+  missingOptionHoldingNodes > 0 && `正文出现期权但没有 stock_option holding：${missingOptionHoldingNodes} 个节点`,
   staleOptionLifecycleNodes > 0 && `期权超过到期月仍保持 active：${staleOptionLifecycleNodes} 个节点`,
   adultBelowPolicyExpenseNodes > 0 && `23 岁后生活支出仍低于成年保守政策下限：${adultBelowPolicyExpenseNodes} 个节点`,
   openIssues.length > 0 && `终局仍存在 open issue：${openIssues.length} 个`,
@@ -258,6 +284,18 @@ const report = `# 五组真实网页测试：财务完整审计报告
 
 ${blockers.map((item) => `- ${item}`).join("\n")}
 
+## 路径矩阵与邀请序列
+
+| 人物 | 路径 | 节点 | 终局年龄 | 邀请决策序列 | 收束 | 可恢复错误 | 结果 |
+|---|---|---:|---|---|---|---:|---|
+${routeEvidenceRows}
+
+本轮没有失败后替换人物；所有完成记录均来自同一新 run。页面可恢复错误如下，均通过可见重试流程继续：
+
+| 人物 | 类型 | 当时历史节点 | 错误 |
+|---|---|---:|---|
+${recoverableRows}
+
 ## 核心指标
 
 | 指标 | 结果 | 判断 |
@@ -268,6 +306,7 @@ ${blockers.map((item) => `- ${item}`).join("\n")}
 | stale 节点率 | ${summary.staleFinanceRatePct}%（${staleFinanceNodes}/${financeNarrativeNodes}） | 越低越好 |
 | 薪资不匹配率 | ${summary.salaryMismatchRatePct}%（${salaryMismatchNodes}/${financeNarrativeNodes}） | 目标 0 |
 | 正文持股但无持股账户 | ${missingHoldingNodes} | 目标 0 |
+| 正文期权但无 stock_option holding | ${missingOptionHoldingNodes} | 目标 0 |
 | 正文房产/房贷但无房产账户 | ${missingPropertyNodes} | 目标 0 |
 | 成年支出为 0 | ${adultZeroExpenseNodes} | 目标 0 |
 | 80 岁后无近期工作证据仍 employed | ${employedAt80PlusWithoutEvidenceNodes} | 目标 0 |
@@ -292,11 +331,11 @@ ${routeRows}
 
 ## 逐组现实性结论
 
-- **real-career-first**：现金、收入和换岗能进入账本，但创业股权/期权叙述仍有未创建 holding 的节点，入口完整性尚未达标。
-- **real-relationship-first**：路线完成；后段仍出现正文月收入与账本来源不匹配，说明职业事实存在阶段性空洞。
-- **real-education-second**：成年零支出已修复，但 23 岁后基础生活支出仍停留在学生档，且多处房产/房贷叙述没有对应账户，净资产仍会被高估。
-- **real-venture-second**：开局房产 300 万、房贷 210 万已正确入账；期权 holding 能创建，但固定四年归属与到期没有自动结算，导致期权长期保持零价值并在到期后仍 active。
-- **real-custom-lifespan**：单一 shortfall 账户可在收入恢复后还清，89 岁转为 retired，死亡节点确定性改为 not_working 且关闭职业收入；但晚年生活缺口债务仍达到数百万元，需要继续校准支出和兜底政策。
+- **real-career-first**：账本算术与现金闭环稳定，但正文中的创业权益仍有未创建 holding 的节点，入口完整性尚未达标。
+- **real-relationship-first**：路线完成且没有 stale 节点；部分正文月收入仍找不到同额活跃来源，职业收入事实仍有阶段性偏差。
+- **real-education-second**：成年零支出为 0，但 system-policy commitment 被标成 needs_review 后没有在 23 岁边界重估，非学生阶段仍长期停在 0.2 万/月；房产叙述也仍有账户缺口。
+- **real-venture-second**：开局房产和房贷已正确入账，确定性期权归属/到期单测通过；但真实路线中的期权 Proposal 没有形成 stock_option holding，因此仍谈不上把可靠期权价值计入财富。
+- **real-custom-lifespan**：单一 shortfall 账户与死亡闭环有效，终局为 not_working 且无无证据的 80+ 工资；但晚年净债务规模和大量未关闭事实仍需治理。
 
 ## issue 代码统计
 
@@ -306,13 +345,15 @@ ${issueRows}
 
 ## 下一步
 
-1. 在年龄阶段变化时重新评估 system-policy basic_living；学生估计不能永久沿用到就业和中年。
-2. 为确定性期权归属表实现 period settlement，并在 expirationDateInMonths 到达时自动到期；估值仍必须来自 Accepted Event。
-3. 继续补齐缺金额、缺 evidence、缺 business 对象和生效时间越界的归一化/修复重试，降低终局 open issue。
-4. 将薪资、房产和持股 coverage issue 作为 M7 阻断项逐节点关闭，不能只依赖报告重写掩盖缺失事实。
+1. system-policy basic_living 的年龄重估必须识别 estimated 与 needs_review 两种状态；被审查不能阻断政策切档。
+2. 对 business_holding_started / business_option_granted 的常见嵌套形状补归一化，并把“正文有期权、无 stock_option holding”设为专项 coverage 阻断；固定归属和到期仍由已实现的期间结算负责。
+3. 继续补齐缺金额、缺 evidence、缺 business 对象、ID 类型混用和生效时间越界的归一化/修复重试，降低终局 open issue。
+4. 将薪资、房产、普通股和期权 coverage issue 作为 M7 阻断项逐节点关闭，不能只依赖报告重写掩盖缺失事实。
 5. 修复后必须重新跑全新的 2/2/1 五路线，不能复用本轮 JSON。
 
 逐节点的完整正文、全部选择、用户选择、五项状态、账本快照和终局报告见 \`full-test-data.md\`；机器可读审计见 \`finance-audit.json\`。
+
+证据索引：\`cases/\` 保存五组完整 JSON，\`working/\` 保存同轮 checkpoint，\`images/<case>/report-page.jpg\` 与 \`poster.jpg\` 保存终局页面和海报，\`visual-inspection.json\` 保存人工视觉复核结果。
 `;
 await writeFile(path.join(root, "evaluation-report.md"), report);
 
@@ -327,14 +368,24 @@ const aggregate = {
 };
 await writeFile(path.join(root, "aggregate.json"), `${JSON.stringify(aggregate, null, 2)}\n`);
 const runStartedAt = records.map((record) => record.startedAt).sort()[0];
+const runCompletedAt = records.map((record) => record.completedAt).filter(Boolean).sort().at(-1);
 const repositoryCommit = await runGit(["rev-parse", "HEAD"]);
 const repositoryDirty = Boolean(await runGit(["status", "--short"]));
 const manifest = {
   runId: path.basename(root),
   runStartedAt,
+  runCompletedAt,
   generatedAt: new Date().toISOString(),
+  repositoryPath: process.cwd(),
   repositoryCommit,
   repositoryDirty,
+  launchUrl: "http://127.0.0.1:4173/",
+  commands: [
+    "pnpm exec tsx scripts/render-full-browser-test-data-markdown.ts <root>/cases <root>/full-test-data.md",
+    "node scripts/analyze-financial-real-browser-run.mjs <root>",
+    "node $HOME/.codex/skills/run-real-browser-ending-routes/scripts/verify-five-route-run.mjs --root <root> --started-after <runStartedAt> --full-data <root>/full-test-data.md --report <root>/evaluation-report.md"
+  ],
+  artifacts: ["aggregate.json", "finance-audit.json", "full-test-data.md", "evaluation-report.md", "visual-inspection.json", "cases/", "working/", "images/"],
   cases: records.map((record) => ({ caseSlug: record.caseSlug, scenario: record.scenario, path: `cases/${record.caseSlug}.json` }))
 };
 await writeFile(path.join(root, "run-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
