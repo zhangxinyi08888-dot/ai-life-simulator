@@ -98,9 +98,10 @@ test("commits CareerState, ledger, WorldState and derived snapshot as one transa
   assert.equal(result.worldState.currentEmploymentStatus, "self_employed");
   assert.equal(result.worldState.careerRevision, 1);
   assert.equal(result.financialLedger.revision, 1);
-  assert.equal(result.financialLedger.cashAccounts[0].balanceWan, 3);
+  assert.equal(result.financialLedger.cashAccounts[0].balanceWan, 2.65);
+  assert.equal(result.financialLedger.expenseCommitments[0]?.type, "basic_living");
   assert.equal(result.derivedFinancialState.state.employmentStatus, "self_employed");
-  assert.equal(result.derivedFinancialState.compatibilityState.cashWan, 3);
+  assert.equal(result.derivedFinancialState.compatibilityState.cashWan, 2.65);
   assert.deepEqual(result.worldState.committedTransactionIds, ["atomic_success"]);
 });
 

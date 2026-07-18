@@ -1,6 +1,7 @@
 import type { FinancialState } from "../../types";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID, roundWan } from "./ledgerMath";
+import { estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
 import type { OpeningFinancialFacts } from "./openingFinancialFacts";
 import type { DebtAccount, FinancialEvidence, FinancialLedger, IncomeSource } from "./types";
 
@@ -126,16 +127,24 @@ export function migrateLegacyFinancialState(input: {
     lastConfirmedAtAgeInMonths: state.asOfAgeInMonths,
     evidence
   }] : [];
-  const expenseCommitments = state.annualCoreExpenseWan > 0 ? [{
+  const explicitOrLegacyExpenseCommitments = state.annualCoreExpenseWan > 0 ? [{
     id: "legacy_core_expense",
     type: "basic_living" as const,
     displayName: "旧版核心支出聚合",
     monthlyAmountWan: roundWan(state.annualCoreExpenseWan / 12),
     activeFromAgeInMonths: state.asOfAgeInMonths,
     status: "active" as const,
-    factStatus: "estimated" as const,
-    evidence
+    factStatus: input.openingFacts?.monthlyBasicLivingExpenseWan !== undefined ? "known" as const : "estimated" as const,
+    evidence: input.openingFacts?.monthlyBasicLivingExpenseWan !== undefined ? userEvidence : evidence
   }] : [];
+  const estimatedLiving = estimatedBasicLivingCommitment({
+    ageInMonths: state.asOfAgeInMonths,
+    employmentStatus: state.employmentStatus,
+    livingArrangement: input.openingFacts?.ownsProperty ? "owner_occupied" : "unknown"
+  });
+  const expenseCommitments = explicitOrLegacyExpenseCommitments.length > 0
+    ? explicitOrLegacyExpenseCommitments
+    : estimatedLiving ? [estimatedLiving] : [];
   if (state.employmentStatus === "student" && state.annualCoreExpenseWan > 0) {
     incomeSources.push({
       id: "student_basic_family_support",

@@ -48,5 +48,6 @@ test("final report keeps derived amounts and removes unsupported narrative money
   assert.match(sanitized.share.viralTitle, /20万元/);
   assert.doesNotMatch(sanitized.share.oneLineSummary, /100万元|3倍/);
   assert.doesNotMatch(sanitized.report.finalLifeReading.paragraphs[0], /100万元|300%/);
-  assert.match(sanitized.report.finalLifeReading.paragraphs[0], /价值待确认|账本确认/);
+  assert.match(sanitized.report.finalLifeReading.paragraphs[0], /权威估值依据|具体金额判断/);
+  assert.doesNotMatch(JSON.stringify(sanitized), /金额待账本确认|回报幅度待账本确认|回报率待账本确认/);
 });

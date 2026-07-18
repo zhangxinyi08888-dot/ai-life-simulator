@@ -2,6 +2,7 @@ import type { WorldStateSnapshot } from "../../types";
 import { currentCareerState, reduceCareerStates } from "../career/careerState";
 import type { AcceptedCareerTransition, CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
+import { estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
 import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
 import type {
@@ -38,12 +39,6 @@ function eventReferences(event: AcceptedFinancialEvent): {
 
 function intersects(left: string[] | undefined, right: string[]): boolean {
   return Boolean(left?.some((item) => right.includes(item)));
-}
-
-function activeRecurringIncomeIds(ledger: FinancialLedger): string[] {
-  return ledger.incomeSources
-    .filter((source) => source.status === "active" && source.accrualPolicy !== "event_only")
-    .map((source) => source.id);
 }
 
 function isDefaultStudentFamilySupport(source: FinancialLedger["incomeSources"][number]): boolean {
@@ -102,26 +97,16 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   periodEndAgeInMonths: number;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
-  const hasActiveExpense = input.ledger.expenseCommitments.some((commitment) => commitment.status === "active");
-  const startsExpense = input.events.some((event) => event.kind === "expense_commitment_started");
-  if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveExpense && !startsExpense) {
-    const relatedIncomeSourceIds = activeRecurringIncomeIds(input.ledger);
-    for (const sourceId of relatedIncomeSourceIds) {
-      const source = input.ledger.incomeSources.find((item) => item.id === sourceId);
-      if (!source) continue;
-      source.factStatus = "needs_review";
-      source.accrualReviewStatus = "quarantined";
-    }
-    issues.push({
-      id: "pending_fact_missing_adult_expense",
-      code: "PENDING_FACT",
-      severity: "blocking",
-      status: "open",
-      relatedProposalIds: [],
-      relatedIncomeSourceIds,
-      summary: "成年阶段缺少任何有效支出义务；为避免按零支出虚增现金，持续收入已暂停机械计提，等待支出事实确认",
-      createdAtAgeInMonths: input.periodEndAgeInMonths
-    });
+  const hasActiveBasicLiving = input.ledger.expenseCommitments.some((commitment) => (
+    commitment.status === "active" && commitment.type === "basic_living"
+  ));
+  const startsBasicLiving = input.events.some((event) => (
+    event.kind === "expense_commitment_started"
+    && (event.payload as { type?: string }).type === "basic_living"
+  ));
+  if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveBasicLiving && !startsBasicLiving) {
+    const estimatedLiving = estimatedBasicLivingCommitment({ ageInMonths: input.periodStartAgeInMonths });
+    if (estimatedLiving) input.ledger.expenseCommitments.push(estimatedLiving);
   }
 
   if (input.periodEndAgeInMonths >= 55 * 12) {

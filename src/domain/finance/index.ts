@@ -13,3 +13,4 @@ export * from "./evidenceMatching";
 export * from "./reconcileCareerIncomeAtomicity";
 export * from "./commitFinancialDomainTransaction";
 export * from "./openingFinancialFacts";
+export * from "./financialEstimationPolicy";

@@ -40,19 +40,36 @@ function closeEnough(left: number, right: number): boolean {
   return Math.abs(left - right) <= Math.max(0.01, Math.abs(right) * 0.001);
 }
 
-function sanitizeText(text: string, context: AuthoritativeFinalFinancialContext): string {
-  let next = text.replace(/\d+(?:\.\d+)?\s*(?:万元|万|元)(?:人民币)?/gu, (match) => {
-    const parsed = match.match(/(\d+(?:\.\d+)?)\s*(万元|万|元)/u);
-    if (!parsed) return match;
+function sentenceHasUnsupportedFinancialClaim(text: string, context: AuthoritativeFinalFinancialContext): boolean {
+  const unsupportedAmount = [...text.matchAll(/\d+(?:\.\d+)?\s*(?:万元|万|元)(?:人民币)?/gu)].some((match) => {
+    const parsed = match[0].match(/(\d+(?:\.\d+)?)\s*(万元|万|元)/u);
+    if (!parsed) return false;
     const amountWan = amountToWan(Number(parsed[1]), parsed[2]);
-    return context.allowedWanValues.some((value) => closeEnough(value, amountWan)) ? match : "金额待账本确认";
+    return !context.allowedWanValues.some((value) => closeEnough(value, amountWan));
   });
-  next = next.replace(/\d+(?:\.\d+)?\s*倍(?:的)?(?:投资)?回报/gu, "回报幅度待账本确认");
-  next = next.replace(/(?:回报率|收益率)(?:达到|为|约为|超过)?\s*\d+(?:\.\d+)?%/gu, "回报率待账本确认");
-  if (context.hasBusinessValueNeedsReview && /公司|企业|创业|股权|期权/u.test(next) && /估值|市值|价值|获利|回报/u.test(next)) {
-    next = next.replace(/(?:估值|市值|价值|获利|回报)(?:达到|为|约为|超过|了)?[^，。；！？]{0,24}/gu, "价值待确认");
+  return unsupportedAmount
+    || /\d+(?:\.\d+)?\s*倍(?:的)?(?:投资)?回报/gu.test(text)
+    || /(?:回报率|收益率)(?:达到|为|约为|超过)?\s*\d+(?:\.\d+)?%/gu.test(text)
+    || (context.hasBusinessValueNeedsReview
+      && /公司|企业|创业|股权|期权/u.test(text)
+      && /估值|市值|价值|获利|回报/u.test(text));
+}
+
+function rewriteUnsupportedSentence(text: string, context: AuthoritativeFinalFinancialContext): string {
+  if (context.hasBusinessValueNeedsReview && /公司|企业|创业|股权|期权/u.test(text)) {
+    return "相关企业权益仍缺少足够的权威估值依据，暂不作具体金额判断";
   }
-  return next;
+  return "相关财务变化尚无足够的权威账本依据，暂不作具体金额判断";
+}
+
+function sanitizeText(text: string, context: AuthoritativeFinalFinancialContext): string {
+  return text
+    .split(/([。！？；\n])/u)
+    .map((part) => sentenceHasUnsupportedFinancialClaim(part, context)
+      ? rewriteUnsupportedSentence(part, context)
+      : part)
+    .join("")
+    .replace(/(?:相关财务变化尚无足够的权威账本依据，暂不作具体金额判断[，、；\s]*){2,}/gu, "相关财务变化尚无足够的权威账本依据，暂不作具体金额判断");
 }
 
 function sanitizeUnknown(value: unknown, context: AuthoritativeFinalFinancialContext): unknown {

@@ -519,9 +519,19 @@ export interface BusinessEntityRef {
 export interface BusinessHolding {
   id: string;
   business: BusinessEntityRef;
+  instrumentType: "equity" | "stock_option";
   ownershipRate?: number;
   attributableValueWan?: number;
   liquidityDiscountRate?: number;
+  realizationRiskDiscountRate?: number;
+  optionTerms?: {
+    grantedUnits: number;
+    vestedUnits: number;
+    strikePriceWanPerUnit: number;
+    fairValueWanPerUnit?: number;
+    expiresAtAgeInMonths?: number;
+  };
+  vestedIntrinsicValueWan?: number;
   personalCarryingValueWan: number;
   status: "active" | "partially_sold" | "sold" | "written_off";
   factStatus: FinancialFactStatus;
@@ -538,6 +548,10 @@ export interface BusinessHolding {
 - 融资后只有在投后估值和主角持股可确定时，才能更新 `personalCarryingValueWan`。
 - 只有融资金额而没有估值或持股变化时，记录企业融资事实，并把个人权益标记为 `needs_review`；不得简单把融资金额搬到 `businessAndOtherAssetsWan`。
 - 退出或出售股权时，个人现金流和企业权益减少必须成对提交。
+- 期权授予先创建 `stock_option` holding；未归属部分是 contingent interest，不进入当前净资产。
+- 已归属期权只有在期权数量、行权成本和可靠公允价值可确定时才计入个人财富：`vestedIntrinsicValueWan = vestedUnits × max(fairValue - strikePrice, 0)`；`personalCarryingValueWan` 再应用非流动性与实现风险折扣。
+- 正文中的期权数量、期权池比例、公司融资额和公司总估值都不能直接成为个人期权价值。估值未知时保留 holding 并标 `needs_review`，不能把“存在期权”降格成“没有企业权益”。
+- 期权行权必须在同一事务扣减现金行权成本、减少期权权益并增加普通股权益；到期、离职失效或放弃行权必须核销剩余账面价值。
 
 ### 7.9 账本问题
 
@@ -551,11 +565,23 @@ export interface FinancialLedgerIssue {
     | "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"
     | "UNKNOWN_DEBT_SCHEDULE"
     | "UNSUPPORTED_LARGE_VALUE_CHANGE"
+    | "ACCOUNT_TYPE_MISMATCH"
+    | "PENDING_FACT"
+    | "CAREER_STATE_STALE"
     | "LEGACY_UNCERTAINTY";
   severity: "warning" | "blocking";
+  status: "open" | "resolved";
   relatedProposalIds: string[];
+  relatedAccountIds?: string[];
+  relatedIncomeSourceIds?: string[];
+  relatedDebtAccountIds?: string[];
+  relatedBusinessHoldingIds?: string[];
   summary: string;
   createdAtAgeInMonths: number;
+  lastObservedAtAgeInMonths?: number;
+  occurrenceCount?: number;
+  resolvedAtAgeInMonths?: number;
+  resolvedByEventId?: string;
 }
 ```
 
@@ -580,12 +606,14 @@ export interface InitialFinancialProfileProposal {
 
 初始化顺序：
 
-1. 优先读取用户明确填写的金额、工作、住房、债务和家庭责任。
+1. 优先读取用户明确填写的金额、工作、住房、债务和家庭责任；输入范围包括结构化字段、问答和用户自由文本，不得只读取表单字段。
 2. 已回答的稳定问题可以产生 `known` opening event。
 3. 模型只负责把用户材料整理成 Proposal，不能增加用户没有表达的房产、遗产、公司股权或巨额负债。
 4. 缺失但模拟必须使用的基础现金和生活支出，由版本化 `FinancialEstimationPolicy` 给出保守估计，并标记 `estimated + system_policy`。
 5. 无法合理估计的企业持股、债务期限和非工资收入保持 `unknown`，不写 0。
 6. 所有 opening event 经过同一 validator 后交给 `initializeFinancialLedger()`。
+7. 初始化提交前运行 `OpeningFinancialCompletenessValidator`。用户明确提到房产、房贷和月供时，已知部分必须分别形成房产资产、房贷债务和住房支出义务；估值或期限未知的部分使用 `estimated` / `needs_review`，不得静默遗漏整类账户。
+8. 成年 opening ledger 必须存在有效 `basic_living`。没有显式金额时直接使用版本化估计政策创建系统事件，不依赖模型修复，也不得因缺支出而隔离无关收入。
 
 ```ts
 export interface FinancialEstimationPolicy {
@@ -613,6 +641,8 @@ export interface EstimatedMoney {
 ```
 
 估计必须可重现：相同输入与 policy version 得到相同结果。不得把随机模型输出包装成 `system_policy`。
+
+opening 解析器可以确定性提取明确事实，但其输出仍是 Proposal，必须经过与运行态相同的 kind schema、证据和不变量校验；不得先覆盖聚合余额再迁移成账本。
 
 ## 8. 职业状态集成
 
@@ -693,6 +723,13 @@ export interface AcceptedCareerTransition {
 - 生效时间必须位于本节点覆盖时间内；
 - 退休后重新就业、老年进修和兼职顾问均允许，不按年龄禁止；但必须有主角明确证据。
 
+晚年职业状态采用“再确认”而不是“按年龄自动退休”：
+
+- 达到配置年龄（首版 55 岁）后，career-linked 收入设置确认 TTL；跨越多年的节点必须提交职业继续确认、职业转换或工资结束事实之一。
+- 超过 TTL 且没有新的主人公工作证据时产生 `CAREER_STATE_STALE`，只暂停 career-linked 工资；租金、版税、年金和分红不受影响。
+- 80 岁以上继续工作是合法路径，但本期或最近一个阶段必须有 Accepted 主角工作证据。门禁禁止的是“无权威续任证据仍计提工资”，不是高龄工作本身。
+- mortality 终局由确定性生命周期事件结束全部劳动计提；不得让死亡后的状态继续显示在职和领取工资。
+
 ### 8.3 身份与收入解耦
 
 - `employed` 不保证一定存在已知工资金额。
@@ -755,6 +792,12 @@ export type FinancialEventKind =
   | "business_holding_revalued"
   | "business_distribution_received"
   | "business_holding_sold"
+  | "business_option_granted"
+  | "business_option_vested"
+  | "business_option_revalued"
+  | "business_option_exercised"
+  | "business_option_expired"
+  | "business_option_cancelled"
   | "family_support_received"
   | "family_support_paid"
   | "liquidity_shortfall_created";
@@ -817,6 +860,35 @@ export interface BusinessFinancingPayload {
   postMoneyValuationWan?: number;
   ownershipRateAfterFinancing?: number;
   personalCashReceivedWan: 0;
+}
+
+export interface BusinessOptionGrantPayload {
+  holding: BusinessHolding & { instrumentType: "stock_option" };
+}
+
+export interface BusinessOptionVestedPayload {
+  businessHoldingId: string;
+  newlyVestedUnits: number;
+  vestedUnitsAfterEvent: number;
+}
+
+export interface BusinessOptionRevaluationPayload {
+  businessHoldingId: string;
+  fairValueWanPerUnit: number;
+  strikePriceWanPerUnit: number;
+  vestedUnits: number;
+  liquidityDiscountRate: number;
+  realizationRiskDiscountRate: number;
+  previousCarryingValueWan: number;
+  newCarryingValueWan: number;
+}
+
+export interface BusinessOptionExercisePayload {
+  businessHoldingId: string;
+  sourceCashAccountId: string;
+  unitsExercised: number;
+  exerciseCostWan: number;
+  resultingEquityHolding: BusinessHolding & { instrumentType: "equity" };
 }
 ```
 
@@ -941,6 +1013,8 @@ periodOtherExpense = Σ 已接受一次性支出 + 债务利息 + 交易费用
 ```
 
 - 基础生活支出不得为负。
+- 成年节点不得在没有 active `basic_living` 的情况下按 0 结算。先接受明确支出事实；缺失时由 `FinancialEstimationPolicy` 原子创建 `estimated + system_policy` 义务。只有估计策略缺失或执行失败才 blocking。
+- 缺少支出事实不能成为隔离无关收入的理由。
 - 已存在的住房、抚养、照护和医疗义务不会因职业标签变化自动消失。
 - 大额一次性支出必须有资金来源闭环。
 
@@ -949,6 +1023,7 @@ periodOtherExpense = Σ 已接受一次性支出 + 债务利息 + 交易费用
 - `known_schedule`：按已知本金、利息和期数结算。
 - `estimated_amortizing`：按初始化时记录的保守估计结算，每次都保留 estimated 证据。
 - `event_driven`：只在明确事件时变化；达到复核阈值时产生 `UNKNOWN_DEBT_SCHEDULE`。
+- 系统管理的流动性缺口额度不属于未知还款计划，不产生 `UNKNOWN_DEBT_SCHEDULE`。
 - 任何本金偿还都必须有同额现金流或明确的资产处置 / 再融资来源。
 
 ## 11. 流动性与负现金
@@ -989,6 +1064,8 @@ availableCashAfterDeterministicAccrual
 - 下调或取消尚未实际发生的支出。
 
 只有修复接受后才能提交。`liquidity_shortfall_created` 是有证据的短期负债事件，不是 reducer 在后台静默造债。
+
+同一路线的系统流动性缺口使用单一稳定 ID 的 `system_managed_revolving` 额度：每次缺口产生可审计 draw event，后续正现金按版本化 surplus-sweep policy 偿还。不得每个节点新建一个账户，也不得把偿付能力不足的短期缺口强行改成 240 个月机械摊销。旧的多个 shortfall 账户只能通过迁移 / 重组事件合并，不能覆盖历史。
 
 若修复仍失败：
 
@@ -1069,6 +1146,8 @@ currentNetWorthWan - previousNetWorthWan
 
 - 不因未知金额给予高财富分；
 - 流动性、收入稳定性和债务安全度使用保守下界；
+- 支出为 0 或缺失时视为 unknown，不得按“24 个月流动性”或其他满分默认值计算；正常成年账本应由基础生活支出不变量使该分支不可达；
+- 已归属且具有可靠估值的期权以折扣后的 `personalCarryingValueWan` 进入企业及其他资产；未归属或估值未知期权不计入确定性净资产，但必须保留为 contingent / `needs_review` holding；
 - 保留 reason code，便于测试和报告说明。
 
 ## 13. Proposal 校验
@@ -1086,6 +1165,8 @@ Schema
 → Plausibility
 → Cross-domain Consistency
 ```
+
+Schema 必须按 `kind` 使用判别联合验证 payload，而不是只检查 `payload` 为对象。程序异常不得降格成业务 issue：空指针、类型错误和 reducer 未预期异常必须中止本次提交并进入 telemetry / 节点重试；`FinancialLedgerIssue.summary` 禁止出现 `undefined`、异常栈或内部实现文案。跨类型 ID 返回 `ACCOUNT_TYPE_MISMATCH` 和合法候选 ID；只有同类型唯一候选且意图明确时才允许可审计的确定性补全。缺金额不能补 0，除非该事实类型有版本化 estimation policy。
 
 ### 13.2 权威结果校验
 
@@ -1123,6 +1204,16 @@ Schema
 6. 不从普通正文提取金额后直接落账。
 
 正文本地提取器可以用来发现“可能遗漏了重大事实”，但只能触发修复，不能成为 Accepted Event。
+
+结构化修复输入必须包含：每条拒绝的 reason code、相关账户的类型化 ID 列表、阶段时间边界、正文中最多三条最短候选原句和 payload 金额锚。模型从候选原句中选择 evidence，不再自由改写证据。
+
+拒绝后的结算按事实类型处理：
+
+- 同一收入源的调整事实被拒、且职业状态没有变化时，最后一次 Accepted 基线最多继续两个节点并标 `needs_review`；不得立即归零，也不得无限沿用。
+- 已接受换职、离职或退休 transition 时，旧工资必须按生效时间结束，不能使用上述宽限。
+- 新职业收入有明确金额证据时继续走一次修复并以 `estimated` 或 `known` 接受；没有可靠金额时保持 unknown，同时约束后续叙事，不创造收入。
+- 正文与账本收入差距连续两个节点仍未解决时，下一节点必须提交收入确认 / 调整 / 结束之一；Prompt 明示差距，不允许失真账本反向驱动新正文。
+- 缺少基础生活支出不适用收入隔离，由 §7.10 的确定性估计政策补齐。
 
 ### 13.6 模型 Proposal 返回契约
 
@@ -1175,6 +1266,9 @@ Prompt 约束：
 - employmentStatus 通过独立 `EmploymentTransitionProposal` 返回，不放进财务 Proposal。
 - 模型不返回最终余额、净资产、`incomeMonths` 或债务净变化。
 - 账户 ID 优先引用 Prompt 提供的现有 ID；新建来源、资产或债务时使用本节点内唯一临时 ID，由 validator 转成稳定 ID。
+- Prompt 必须提供现有收入来源、现金、债务、房产、企业持股和期权 holding 的类型化 ID，以及所有 open issue。
+- 示例至少覆盖薪资调整、房产购买 + 房贷、房贷还本、企业融资、普通股重估、期权授予 / 归属 / 估值 / 行权。期权示例必须明确未归属部分不计财富、融资额不等于个人期权价值。
+- `NarrativeFactCoverageValidator` 在正文或 opening 输入出现已经发生的购房、房贷、持股、期权事实而没有相应 Proposal 时触发一次修复；仍失败则保留具体 coverage issue 并重写正文，不能静默遗漏。
 
 #### Phase 1–4 兼容适配器
 
@@ -1279,6 +1373,8 @@ Prompt 只接收：
 - “巨额财富”“财务自由”“负债沉重”等评价必须使用配置阈值和可解释指标。
 - blocking issue 存在时，报告不得给出过度确定的金额结论；应说明哪些部分为估计或待确认。
 - 报告不能为了文学主题否定明确数字，也不能用文学表述替代财务事实。
+- 金额校验失败后必须基于 `DerivedFinancialStateV2` 和趋势对整句进行二次生成；禁止把“金额待账本确认”等内部占位符交付给用户。无法可靠重写时删除整句。
+- 期权报告必须区分未归属、已归属但价值待确认、以及已归属且具有可靠折后价值三种状态；只有最后一种可以给出进入净资产的具体金额。
 
 ## 16. 旧数据迁移
 
@@ -1441,6 +1537,19 @@ transaction IDs are idempotent
 | 同一事务重复累计 | 0 |
 | 报告金额与最终派生快照冲突 | 0 |
 | 重大未知金额被静默当作 0 | 0 |
+| 成年节点没有 explicit 或 estimated 有效生活支出 | 0 |
+| 开局明确房产、房贷、月供漏入账 | 0 |
+| Validator 未捕获异常或 issue 包含 `undefined` | 0 |
+| 因 validator 造成连续零收入空洞超过 1 节点 | 0 |
+| 明确收入事实连续 2 节点未确认 | 0 |
+| 80 岁以上无近期工作证据仍计提工资 | 0 |
+| mortality 后继续劳动计提 | 0 |
+| 每路线活跃系统 shortfall 账户 | ≤ 1 |
+| 系统 shortfall 触发 `UNKNOWN_DEBT_SCHEDULE` | 0 |
+| 明确房产、持股或期权事实既无账户也无 `needs_review` | 0 |
+| 已归属且可靠估值期权未进入企业及其他资产 | 0 |
+| 未归属期权或公司融资额被全额计入个人财富 | 0 |
+| 报告内部占位符泄漏 | 0 |
 
 同时保留合理性人工复核：
 

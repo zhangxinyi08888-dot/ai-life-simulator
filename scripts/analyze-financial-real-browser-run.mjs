@@ -29,8 +29,12 @@ let missingHoldingNodes = 0;
 let missingPropertyNodes = 0;
 let wealthDirectionMismatches = 0;
 let adultZeroExpenseNodes = 0;
-let employedAt80PlusNodes = 0;
+let employedAt80PlusWithoutEvidenceNodes = 0;
 let openingFactMismatchCases = 0;
+let duplicateActiveShortfallNodes = 0;
+let systemShortfallScheduleIssueNodes = 0;
+let issueUndefinedNodes = 0;
+let reportPlaceholderCases = 0;
 
 for (const record of records) {
   const history = record.finalState?.history || [];
@@ -77,9 +81,21 @@ for (const record of records) {
 
     const ageYears = Number(node.ageInMonths || 0) / 12;
     const adultZeroExpense = ageYears >= 18 && Number(fs.annualCoreExpenseWan || 0) === 0;
-    const employedAt80Plus = ageYears >= 80 && fs.employmentStatus === "employed";
+    const careerIncomeSources = (ledger.incomeSources || []).filter((source) => source.status === "active" && source.linkedCareerStateId);
+    const hasRecentCareerEvidence = careerIncomeSources.some((source) => Number.isFinite(source.lastConfirmedAtAgeInMonths)
+      && Number(node.ageInMonths) - Number(source.lastConfirmedAtAgeInMonths) <= 36);
+    const employedAt80PlusWithoutEvidence = ageYears >= 80 && fs.employmentStatus === "employed" && !hasRecentCareerEvidence;
     if (adultZeroExpense) adultZeroExpenseNodes += 1;
-    if (employedAt80Plus) employedAt80PlusNodes += 1;
+    if (employedAt80PlusWithoutEvidence) employedAt80PlusWithoutEvidenceNodes += 1;
+    const activeShortfalls = (ledger.debtAccounts || []).filter((debt) => debt.status === "active" && debt.type === "liquidity_shortfall");
+    const duplicateActiveShortfall = activeShortfalls.length > 1;
+    const systemShortfallScheduleIssue = (ledger.unresolvedIssues || []).some((issue) => issue.status !== "resolved"
+      && issue.code === "UNKNOWN_DEBT_SCHEDULE"
+      && (issue.relatedDebtAccountIds || []).some((id) => activeShortfalls.some((debt) => debt.id === id)));
+    const issueUndefined = (ledger.unresolvedIssues || []).some((issue) => /undefined|Cannot read properties|TypeError/u.test(String(issue.summary || "")));
+    if (duplicateActiveShortfall) duplicateActiveShortfallNodes += 1;
+    if (systemShortfallScheduleIssue) systemShortfallScheduleIssueNodes += 1;
+    if (issueUndefined) issueUndefinedNodes += 1;
 
     const netWorthDelta = previous ? round(Number(fs.netWorthWan || 0) - Number(previous.fs.netWorthWan || 0)) : 0;
     const wealthDelta = previous ? Number(node.attributes?.wealth || 0) - Number(previous.node.attributes?.wealth || 0) : 0;
@@ -99,7 +115,7 @@ for (const record of records) {
       financialState: fs,
       attributes: node.attributes,
       invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth },
-      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, employedAt80Plus, wealthDirectionMismatch },
+      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, wealthDirectionMismatch },
       issueIds: (ledger.unresolvedIssues || []).map((issue) => issue.id)
     });
     previous = { node, fs, signature, transactionCount };
@@ -112,6 +128,7 @@ for (const record of records) {
     && Number(first.propertyMarketValueWan || 0) === 0
     && Number(first.totalDebtWan || 0) === 0;
   if (openingFactMismatch) openingFactMismatchCases += 1;
+  if (/金额待账本确认|回报幅度待账本确认|回报率待账本确认/u.test(JSON.stringify(record.finalState?.outcome || {}))) reportPlaceholderCases += 1;
   cases.push({
     caseSlug: record.caseSlug,
     scenario: record.scenario,
@@ -153,8 +170,12 @@ const summary = {
   missingPropertyNodes,
   wealthDirectionMismatches,
   adultZeroExpenseNodes,
-  employedAt80PlusNodes,
+  employedAt80PlusWithoutEvidenceNodes,
   openingFactMismatchCases,
+  duplicateActiveShortfallNodes,
+  systemShortfallScheduleIssueNodes,
+  issueUndefinedNodes,
+  reportPlaceholderCases,
   openIssues: openIssues.length,
   resolvedIssues: resolvedIssues.length,
   issueCodeCounts
@@ -170,7 +191,11 @@ const issueRows = Object.entries(issueCodeCounts).map(([code, count]) => `| ${co
 const blockers = [
   adultZeroExpenseNodes > 0 && `成年节点年核心支出为 0：${adultZeroExpenseNodes} 个`,
   openingFactMismatchCases > 0 && `人物明确提供房产/房贷但开局账本资产和负债均为 0：${openingFactMismatchCases} 组`,
-  employedAt80PlusNodes > 0 && `80 岁以后仍为 employed：${employedAt80PlusNodes} 个节点`,
+  employedAt80PlusWithoutEvidenceNodes > 0 && `80 岁以后无近期工作证据仍为 employed：${employedAt80PlusWithoutEvidenceNodes} 个节点`,
+  duplicateActiveShortfallNodes > 0 && `单路线同时存在多个活跃 shortfall 账户：${duplicateActiveShortfallNodes} 个节点`,
+  systemShortfallScheduleIssueNodes > 0 && `系统 shortfall 自触发 UNKNOWN_DEBT_SCHEDULE：${systemShortfallScheduleIssueNodes} 个节点`,
+  issueUndefinedNodes > 0 && `业务 issue 泄漏程序异常或 undefined：${issueUndefinedNodes} 个节点`,
+  reportPlaceholderCases > 0 && `终局报告泄漏内部占位符：${reportPlaceholderCases} 组`,
   openIssues.length > 0 && `终局仍存在 open issue：${openIssues.length} 个`,
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
 ].filter(Boolean);
@@ -178,7 +203,7 @@ const report = `# 五组真实网页测试：财务完整审计报告
 
 ## 结论
 
-本轮五条全新真实网页路线的 **2/2/1 路径契约全部通过**，账本恒等式、可支配收入恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。入口层修复已经让合法事实更容易进入账本，且报告中的无来源金额会被“金额待账本确认”等保守文本拦截。
+本轮五条全新真实网页路线的 **2/2/1 路径契约全部通过**，账本恒等式、可支配收入恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。入口层修复已经让合法事实更容易进入账本；报告中的无来源金额必须被重写成自然的定性结论，不能泄漏内部占位符。
 
 但 **M7 仍不允许切换唯一写入者**。静态代码门禁通过并不代表动态事实完整；本轮存在以下阻断项：
 
@@ -196,8 +221,12 @@ ${blockers.map((item) => `- ${item}`).join("\n")}
 | 正文持股但无持股账户 | ${missingHoldingNodes} | 目标 0 |
 | 正文房产/房贷但无房产账户 | ${missingPropertyNodes} | 目标 0 |
 | 成年支出为 0 | ${adultZeroExpenseNodes} | 目标 0 |
-| 80 岁后仍 employed | ${employedAt80PlusNodes} | 目标 0 |
+| 80 岁后无近期工作证据仍 employed | ${employedAt80PlusWithoutEvidenceNodes} | 目标 0 |
 | 开局重大资产负债漏入账 | ${openingFactMismatchCases} 组 | 目标 0 |
+| 多个活跃 shortfall 账户节点 | ${duplicateActiveShortfallNodes} | 目标 0 |
+| 系统 shortfall 自触发计划噪音 | ${systemShortfallScheduleIssueNodes} | 目标 0 |
+| issue 泄漏异常/undefined | ${issueUndefinedNodes} | 目标 0 |
+| 报告内部占位符 | ${reportPlaceholderCases} 组 | 目标 0 |
 | open / resolved issue | ${openIssues.length} / ${resolvedIssues.length} | 必须有关闭路径且终局可控 |
 
 Accepted 覆盖率以“包含财务叙述的节点中，本节点新增已提交交易或核心财务签名发生变化”为可审计代理口径；它不把纯时间计提误算为新事实接受。
@@ -225,8 +254,8 @@ ${issueRows}
 ## 下一步
 
 1. 增加“开局结构化资产负债摄取”入口：人物回答中的房产、房贷、月供必须在第一个故事节点前形成账户，不允许仅留在自由文本。
-2. 为生活支出建立可见的缺失事实阻断：成年且支出承诺为空时不得静默按 0 结算，应产生 blocking pending_fact 并要求修复重试。
-3. 将退休/停止工作设计为年龄与叙事提示下的必答 Proposal 校验项；不能回退到关键词直接改状态，但缺少明确 transition 时必须挂起工资计提。
+2. 为生活支出建立确定性估计兜底：成年且支出承诺为空时由版本化 policy 创建 estimated basic_living，不能静默按 0，也不能隔离无关收入。
+3. 将退休/停止工作设计为职业状态再确认；不能回退到关键词直接改状态，高龄继续工作必须有近期 Accepted 主角证据。
 4. 对 open issue 设置终局预算和老化门禁；“有 resolved 路径”不能替代“长期 open issue 不失控”。
 5. 修复后三条阻断场景必须重新跑全新的 2/2/1 五路线，不能复用本轮 JSON。
 
