@@ -41,7 +41,11 @@ type WithNormalizedChoices<T> = Omit<T, "choices"> & { choices: SimulationNode["
 type WithNormalizedNode<T> = Omit<T, keyof SimulationNode> & SimulationNode;
 
 function readNodeDescription(node: any): string {
-  return readString(node?.description)
+  const structuredParagraphs = Array.isArray(node?.descriptionParagraphs)
+    ? node.descriptionParagraphs.map(readString).filter(Boolean)
+    : [];
+  return structuredParagraphs.join("\n\n")
+    || readString(node?.description)
     || readString(node?.narrative)
     || readString(node?.newCrossroads?.narrative)
     || readString(node?.scene)
@@ -156,6 +160,9 @@ export function normalizeSimulationNode<T extends Record<string, any>>(node: T, 
   const episodeId = readString(normalized.narrativeMeta?.storyEpisode?.id) || `episode_${stableHash({ ageInMonths, title: normalized.title })}`;
   const title = readString(normalized.title) || "新的选择";
   const description = readNodeDescription(normalized) || "新的现实局面正在展开。";
+  const descriptionParagraphs = Array.isArray(normalized.descriptionParagraphs)
+    ? normalized.descriptionParagraphs.map(readString).filter(Boolean)
+    : description.split(/\n\s*\n+/).map((paragraph) => paragraph.trim()).filter(Boolean);
 
   return {
     ...normalized,
@@ -165,6 +172,7 @@ export function normalizeSimulationNode<T extends Record<string, any>>(node: T, 
     stage: readString(normalized.stage) || "现实转折",
     title,
     description,
+    descriptionParagraphs,
     attributes: normalizeAttributes(normalized.attributes),
     isEndingNode: Boolean(normalized.isEndingNode),
     narrativeMeta: {

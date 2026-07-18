@@ -2,6 +2,7 @@ export type AiClientErrorCode =
   | "API_KEY_MISSING"
   | "AI_AUTH_FAILED"
   | "AI_RATE_LIMITED"
+  | "AI_REQUEST_ABORTED"
   | "AI_NETWORK_FAILED"
   | "AI_RESPONSE_INVALID"
   | "AI_REQUEST_FAILED";

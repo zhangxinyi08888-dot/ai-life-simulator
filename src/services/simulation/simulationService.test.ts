@@ -145,6 +145,8 @@ const history: HistoryItem[] = [
   }
 ];
 let capturedNextPrompt = "";
+const nextGenerationStages: string[] = [];
+const nextNarrativePreviews: Array<{ title?: string; paragraphs: string[] }> = [];
 
 const nextNode = await generateNextNode({
   userData,
@@ -154,6 +156,8 @@ const nextNode = await generateNextNode({
   selectedDecision: "转向内容行业实习",
   nodeIndex: 1
 }, {
+  onGenerationStage: (stage) => nextGenerationStages.push(stage),
+  onNarrativeProgress: (preview) => nextNarrativePreviews.push(preview),
   callAiJson: async (prompt) => {
     capturedNextPrompt = prompt;
     return {
@@ -199,6 +203,9 @@ assert.ok(nextNode.financialState);
 assert.doesNotMatch(nextNode.description, /存款约90万/);
 assert.match(nextNode.description, /现金流|现金缓冲|储蓄|负债状态/);
 assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, deriveWealthScore(nextNode.financialState!)));
+assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating", "finalizing"]);
+assert.equal(nextNarrativePreviews.at(-1)?.title, "新行业的第一年");
+assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /小团队做基础内容执行/);
 
 const ordinaryHealthDrop = await generateNextNode({
   userData,
