@@ -1,7 +1,8 @@
 import type { FinancialState } from "../../types";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID, roundWan } from "./ledgerMath";
-import type { DebtAccount, FinancialEvidence, FinancialLedger } from "./types";
+import type { OpeningFinancialFacts } from "./openingFinancialFacts";
+import type { DebtAccount, FinancialEvidence, FinancialLedger, IncomeSource } from "./types";
 
 function legacyEvidence(reasonCode: string): FinancialEvidence[] {
   return [{
@@ -15,9 +16,16 @@ export function migrateLegacyFinancialState(input: {
   id: string;
   legacyState: FinancialState;
   linkedCareerStateId?: string;
+  openingFacts?: OpeningFinancialFacts;
 }): FinancialLedger {
   const state = input.legacyState;
   const evidence = legacyEvidence("LEGACY_FINANCIAL_STATE_MIGRATION");
+  const userEvidence: FinancialEvidence[] = input.openingFacts ? [{
+    source: "user",
+    excerpt: input.openingFacts.evidenceText,
+    reasonCode: "EXPLICIT_OPENING_FINANCIAL_FACT",
+    confidence: 1
+  }] : [];
   const assetAccounts = [
     ...(state.investmentAssetsWan > 0 ? [{
       id: "legacy_investment_assets",
@@ -26,9 +34,20 @@ export function migrateLegacyFinancialState(input: {
       marketValueWan: roundWan(state.investmentAssetsWan),
       liquidity: "liquid" as const,
       status: "active" as const,
-      factStatus: "estimated" as const,
+      factStatus: input.openingFacts?.investmentAssetsWan !== undefined ? "known" as const : "estimated" as const,
       openedAtAgeInMonths: state.asOfAgeInMonths,
-      evidence
+      evidence: input.openingFacts?.investmentAssetsWan !== undefined ? userEvidence : evidence
+    }] : []),
+    ...(input.openingFacts?.ownsProperty && state.propertyMarketValueWan === 0 ? [{
+      id: "opening_property_value_pending",
+      type: "property" as const,
+      displayName: "用户明确持有的住房（价值待确认）",
+      marketValueWan: 0,
+      liquidity: "illiquid" as const,
+      status: "active" as const,
+      factStatus: "needs_review" as const,
+      openedAtAgeInMonths: state.asOfAgeInMonths,
+      evidence: userEvidence
     }] : []),
     ...(state.propertyMarketValueWan > 0 ? [{
       id: "legacy_property_assets",
@@ -37,9 +56,9 @@ export function migrateLegacyFinancialState(input: {
       marketValueWan: roundWan(state.propertyMarketValueWan),
       liquidity: "illiquid" as const,
       status: "active" as const,
-      factStatus: "estimated" as const,
+      factStatus: input.openingFacts?.propertyMarketValueWan !== undefined ? "known" as const : "estimated" as const,
       openedAtAgeInMonths: state.asOfAgeInMonths,
-      evidence
+      evidence: input.openingFacts?.propertyMarketValueWan !== undefined ? userEvidence : evidence
     }] : []),
     ...(state.businessAndOtherAssetsWan > 0 ? [{
       id: "legacy_business_and_other_assets",
@@ -53,16 +72,33 @@ export function migrateLegacyFinancialState(input: {
       evidence
     }] : [])
   ];
+  const legacyDebtLooksLikeMortgage = (state.propertyMarketValueWan > 0 || input.openingFacts?.ownsProperty) && state.totalDebtWan > 0;
+  const explicitMortgagePayment = input.openingFacts?.mortgageMonthlyPaymentWan;
+  const estimatedMonthlyPrincipal = legacyDebtLooksLikeMortgage ? roundWan(state.totalDebtWan / 240) : undefined;
   const debtAccounts: DebtAccount[] = state.totalDebtWan > 0 ? [{
-    id: "legacy_total_debt",
-    type: "family_or_personal_loan" as const,
-    displayName: "旧版债务聚合",
+    id: input.openingFacts?.mortgagePrincipalWan !== undefined ? "opening_mortgage" : "legacy_total_debt",
+    type: legacyDebtLooksLikeMortgage ? "mortgage" as const : "family_or_personal_loan" as const,
+    displayName: input.openingFacts?.mortgagePrincipalWan !== undefined ? "用户明确的住房按揭" : legacyDebtLooksLikeMortgage ? "旧版房产关联债务估计" : "旧版债务聚合",
     principalWan: roundWan(state.totalDebtWan),
     openedAtAgeInMonths: state.asOfAgeInMonths,
     status: "active" as const,
-    repaymentPolicy: { mode: "event_driven" as const },
-    factStatus: "needs_review" as const,
-    evidence
+    repaymentPolicy: legacyDebtLooksLikeMortgage
+      ? {
+          mode: "estimated_amortizing" as const,
+          monthlyPaymentWan: explicitMortgagePayment,
+          monthlyPrincipalWan: estimatedMonthlyPrincipal,
+          monthlyInterestWan: explicitMortgagePayment !== undefined
+            ? roundWan(Math.max(0, explicitMortgagePayment - (estimatedMonthlyPrincipal || 0)))
+            : undefined,
+          remainingTermMonths: 240
+        }
+      : { mode: "event_driven" as const },
+    factStatus: input.openingFacts?.mortgagePrincipalWan !== undefined ? "known" as const : "estimated" as const,
+    evidence: input.openingFacts?.mortgagePrincipalWan !== undefined
+      ? userEvidence
+      : legacyDebtLooksLikeMortgage
+      ? [{ source: "system_policy", reasonCode: "LEGACY_MORTGAGE_ESTIMATED_240_MONTHS", confidence: 0.6 }, ...evidence]
+      : evidence
   }] : [];
   if (state.cashWan < 0) {
     debtAccounts.push({
@@ -77,7 +113,7 @@ export function migrateLegacyFinancialState(input: {
       evidence
     });
   }
-  const incomeSources = state.annualAfterTaxIncomeWan > 0 ? [{
+  const incomeSources: IncomeSource[] = state.annualAfterTaxIncomeWan > 0 ? [{
     id: "legacy_recurring_income",
     type: "other" as const,
     displayName: "旧版持续收入聚合",
@@ -87,6 +123,7 @@ export function migrateLegacyFinancialState(input: {
     status: "active" as const,
     linkedCareerStateId: input.linkedCareerStateId,
     factStatus: "estimated" as const,
+    lastConfirmedAtAgeInMonths: state.asOfAgeInMonths,
     evidence
   }] : [];
   const expenseCommitments = state.annualCoreExpenseWan > 0 ? [{
@@ -99,6 +136,24 @@ export function migrateLegacyFinancialState(input: {
     factStatus: "estimated" as const,
     evidence
   }] : [];
+  if (state.employmentStatus === "student" && state.annualCoreExpenseWan > 0) {
+    incomeSources.push({
+      id: "student_basic_family_support",
+      type: "family_support",
+      displayName: "学生基础生活费家庭支持",
+      monthlyNetAmountWan: expenseCommitments[0].monthlyAmountWan,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: state.asOfAgeInMonths,
+      status: "active",
+      factStatus: "estimated",
+      lastConfirmedAtAgeInMonths: state.asOfAgeInMonths,
+      evidence: [{
+        source: "system_policy",
+        reasonCode: "STUDENT_BASIC_LIVING_FAMILY_COVERED",
+        confidence: 0.6
+      }]
+    });
+  }
 
   return initializeFinancialLedger({
     id: input.id,
@@ -109,8 +164,8 @@ export function migrateLegacyFinancialState(input: {
         type: "bank_deposit",
         balanceWan: roundWan(Math.max(0, state.cashWan)),
         status: "active",
-        factStatus: state.isEstimated ? "estimated" : "known",
-        evidence
+        factStatus: input.openingFacts?.cashWan !== undefined ? "known" : state.isEstimated ? "estimated" : "known",
+        evidence: input.openingFacts?.cashWan !== undefined ? userEvidence : evidence
       }],
       assetAccounts,
       debtAccounts,
@@ -123,7 +178,16 @@ export function migrateLegacyFinancialState(input: {
         relatedProposalIds: [],
         summary: "V1 聚合财务快照缺少账户、来源和债务条款明细",
         createdAtAgeInMonths: state.asOfAgeInMonths
-      }]
+      }, ...(input.openingFacts?.ownsProperty && input.openingFacts.propertyMarketValueWan === undefined ? [{
+        id: `opening_property_value_pending_${state.asOfAgeInMonths}`,
+        code: "PENDING_FACT" as const,
+        severity: "blocking" as const,
+        status: "open" as const,
+        relatedProposalIds: [],
+        relatedAccountIds: ["opening_property_value_pending"],
+        summary: "用户明确持有住房和按揭，但未提供房产价值；房产事实已保留，价值等待后续确认",
+        createdAtAgeInMonths: state.asOfAgeInMonths
+      }] : [])]
     }
   });
 }

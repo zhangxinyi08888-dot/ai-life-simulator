@@ -8,4 +8,8 @@ export * from "./migrateLegacyFinancialState";
 export * from "./ledgerMath";
 export * from "./reconcileLiquidity";
 export * from "./validateFinancialProposals";
+export * from "./normalizeFinancialProposals";
+export * from "./evidenceMatching";
+export * from "./reconcileCareerIncomeAtomicity";
 export * from "./commitFinancialDomainTransaction";
+export * from "./openingFinancialFacts";

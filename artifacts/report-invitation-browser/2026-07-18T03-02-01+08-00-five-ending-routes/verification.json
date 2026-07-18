@@ -1,0 +1,19 @@
+{
+  "ok": false,
+  "root": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-18T03-02-01+08-00-five-ending-routes",
+  "caseCount": 5,
+  "scenarioCounts": {
+    "accept_second": 1,
+    "accept_first": 2,
+    "natural_lifespan": 2
+  },
+  "checkedAt": "2026-07-17T20:34:43.238Z",
+  "failures": [
+    "real-balance-second: record.passed is not true",
+    "real-balance-second: fewer than two distinct invitations",
+    "real-balance-second: second invitation was not accepted",
+    "real-balance-second: wrong closure for accept_second",
+    "Expected 2 accept_second cases, found 1",
+    "Expected 1 natural_lifespan case, found 2"
+  ]
+}

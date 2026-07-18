@@ -191,6 +191,22 @@ const newStableStage = evaluateReportInvitation({
 assert.equal(newStableStage.shouldInvite, true);
 assert.equal(newStableStage.invitation?.triggerKey, "stable:2");
 
+const beforeScheduledReinvite = evaluateReportInvitation({
+  ...stableInvitationInput(declinedStableNode),
+  candidateNode: node({ title: "尚未到二次邀请" }),
+  completedChoiceCount: 20
+});
+assert.equal(beforeScheduledReinvite.shouldInvite, false);
+
+const scheduledReinvite = evaluateReportInvitation({
+  ...stableInvitationInput(declinedStableNode),
+  candidateNode: node({ title: "到达二次邀请" }),
+  completedChoiceCount: 21
+});
+assert.equal(scheduledReinvite.shouldInvite, true);
+assert.equal(scheduledReinvite.invitation?.triggerKey, "retry:invite-stable:21");
+assert.equal(scheduledReinvite.reasonCodes.includes("scheduled-reinvite"), true);
+
 const clearedForegroundResolvedNode = historyItem(node({ title: "已清空前台 Arc", arcId: "arc-boundary" }));
 assert.equal(findStableEpisodeStartChoiceCount([clearedForegroundResolvedNode], node({ title: "边界之后" })), 1);
 

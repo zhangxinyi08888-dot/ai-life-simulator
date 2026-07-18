@@ -36,7 +36,7 @@ export function accruePeriodSlice(
 
   let incomeWan = 0;
   for (const source of ledger.incomeSources) {
-    if (source.status !== "active" || source.accrualPolicy === "event_only") continue;
+    if (source.status !== "active" || source.accrualPolicy === "event_only" || source.accrualReviewStatus === "quarantined") continue;
     const months = overlaps({
       start: periodStartAgeInMonths,
       end: periodEndAgeInMonths,

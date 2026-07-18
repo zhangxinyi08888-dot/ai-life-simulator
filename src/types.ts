@@ -311,6 +311,7 @@ export interface SimulationNode {
   financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
+  financialProcessingMeta?: FinancialProcessingMeta;
   isEndingNode: boolean;       // 是否已到达人生终点
   eventMeta?: EventMeta;        // 触发本节点的事件种子元数据，用于冷却与同类限制
   narrativeMeta?: NarrativeMeta;
@@ -339,6 +340,7 @@ export interface HistoryItem {
   financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
+  financialProcessingMeta?: FinancialProcessingMeta;
   choices: SimulationChoice[];   // 存储该节点当时的选项，支持回到历史节点重新选择
   isEndingNode: boolean;         // 存储该节点是否为结局节点，支持完整恢复节点状态
   eventMeta?: EventMeta;
@@ -346,6 +348,16 @@ export interface HistoryItem {
   worldStateSnapshot?: WorldStateSnapshot;
   committedArcMeta?: SimulationNode["committedArcMeta"];
   reportInvitation?: ReportInvitationMeta;
+}
+
+export interface FinancialProcessingMeta {
+  proposalCount: number;
+  acceptedEventCount: number;
+  acceptedCareerTransitionCount?: number;
+  blockingIssueCount: number;
+  repairTriggered: boolean;
+  repairLatencyMs: number;
+  totalProcessingLatencyMs: number;
 }
 
 export interface PersonalityInsight {

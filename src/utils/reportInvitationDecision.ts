@@ -69,6 +69,12 @@ function previousTriggerKeys(history: HistoryItem[]): Set<string> {
   return new Set(history.flatMap((item) => item.reportInvitation?.triggerKey ? [item.reportInvitation.triggerKey] : []));
 }
 
+function latestDeclinedInvitation(history: HistoryItem[]): ReportInvitationMeta | undefined {
+  return history.flatMap((item) => item.reportInvitation ? [item.reportInvitation] : [])
+    .filter((invitation) => invitation.status === "declined")
+    .sort((left, right) => (right.declinedAtChoiceCount ?? right.completedChoiceCount) - (left.declinedAtChoiceCount ?? left.completedChoiceCount))[0];
+}
+
 function buildInvitation(input: {
   reason: ReportInvitationMeta["reason"];
   triggerKey: string;
@@ -110,6 +116,32 @@ export function evaluateReportInvitation(input: {
   }
 
   const invitedKeys = previousTriggerKeys(input.history);
+  const declinedInvitation = latestDeclinedInvitation(input.history);
+  if (declinedInvitation) {
+    const declinedAt = declinedInvitation.declinedAtChoiceCount ?? declinedInvitation.completedChoiceCount;
+    const eligibleAt = declinedAt + input.policy.reinviteAfterChoices;
+    const triggerKey = `retry:${declinedInvitation.id}:${eligibleAt}`;
+    if (
+      input.completedChoiceCount >= eligibleAt
+      && !invitedKeys.has(triggerKey)
+      && isSafeNode(input.candidateNode, input.policy)
+      && !hasActiveForegroundArc(input.candidateNode)
+    ) {
+      return {
+        shouldInvite: true,
+        invitation: buildInvitation({
+          reason: declinedInvitation.reason,
+          triggerKey,
+          completedChoiceCount: input.completedChoiceCount,
+          pressureArcId: declinedInvitation.pressureArcId,
+          resolutionEvidence: declinedInvitation.resolutionEvidence,
+          simulationSeed: input.simulationSeed,
+          branchFingerprint: input.branchFingerprint
+        }),
+        reasonCodes: ["scheduled-reinvite", "safe-intensity", "no-active-pressure-arc"]
+      };
+    }
+  }
   const resolvedArcId = input.pressureArcTransition.nextArcState?.id;
   const resolvedSignal = resolvedArcId
     ? input.acceptedOutcome.arcSignals.find((signal) => (

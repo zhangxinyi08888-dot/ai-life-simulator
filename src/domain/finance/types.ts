@@ -69,6 +69,8 @@ export interface IncomeSource {
   linkedAssetAccountId?: string;
   linkedBusinessHoldingId?: string;
   factStatus: FinancialFactStatus;
+  accrualReviewStatus?: "normal" | "quarantined";
+  lastConfirmedAtAgeInMonths?: number;
   evidence: FinancialEvidence[];
 }
 
@@ -83,6 +85,7 @@ export interface ExpenseCommitment {
   activeUntilAgeInMonths?: number;
   status: "active" | "paused" | "ended";
   factStatus: FinancialFactStatus;
+  accrualReviewStatus?: "normal" | "conservative";
   evidence: FinancialEvidence[];
 }
 
@@ -143,11 +146,21 @@ export interface FinancialLedgerIssue {
     | "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"
     | "UNKNOWN_DEBT_SCHEDULE"
     | "UNSUPPORTED_LARGE_VALUE_CHANGE"
-    | "LEGACY_UNCERTAINTY";
+    | "LEGACY_UNCERTAINTY"
+    | "PENDING_FACT";
   severity: "warning" | "blocking";
+  status?: "open" | "resolved";
   relatedProposalIds: string[];
+  relatedAccountIds?: string[];
+  relatedIncomeSourceIds?: string[];
+  relatedDebtAccountIds?: string[];
+  relatedBusinessHoldingIds?: string[];
   summary: string;
   createdAtAgeInMonths: number;
+  lastObservedAtAgeInMonths?: number;
+  occurrenceCount?: number;
+  resolvedAtAgeInMonths?: number;
+  resolvedByEventId?: string;
 }
 
 export interface FinancialLedger {

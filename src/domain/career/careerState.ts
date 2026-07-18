@@ -6,6 +6,7 @@ import type {
   CareerStateCollection,
   CareerTransitionProposal
 } from "./types";
+import { matchesNormalizedEvidence } from "../finance/evidenceMatching";
 
 const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
   "student",
@@ -95,11 +96,11 @@ export function validateAndAcceptCareerTransition(input: {
     throw new CareerStateError("INVALID_TRANSITION", "职业转换生效时间不在本阶段内");
   }
   const evidenceText = proposal.evidence.trim();
-  if (!evidenceText || !input.narrativeText.includes(evidenceText)) {
+  if (!evidenceText || !matchesNormalizedEvidence(input.narrativeText, evidenceText)) {
     throw new CareerStateError("INVALID_TRANSITION", "职业转换证据必须来自当前正文原句");
   }
-  if (!Number.isFinite(proposal.confidence) || proposal.confidence < 0.8 || proposal.confidence > 1) {
-    throw new CareerStateError("INVALID_TRANSITION", "职业转换 confidence 必须在 0.8-1 之间");
+  if (!Number.isFinite(proposal.confidence) || proposal.confidence < 0.6 || proposal.confidence > 1) {
+    throw new CareerStateError("INVALID_TRANSITION", "职业转换 confidence 必须在 0.6-1 之间");
   }
   const evidence: FinancialEvidence[] = [{
     source: "accepted_simulation_outcome",

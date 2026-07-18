@@ -77,3 +77,46 @@ test("validator rejects unselected, unsupported large and business-personal prop
     "UNBALANCED_TRANSACTION", "UNSUPPORTED_LARGE_VALUE_CHANGE", "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"
   ]));
 });
+
+test("validator prevents a new career wage from stacking on an active career income", () => {
+  const newSalary: FinancialEventProposal = {
+    id: "new_salary",
+    kind: "income_source_started",
+    effectiveAtAgeInMonths: 361,
+    sourceOutcomeId: "switch_job",
+    evidence: "你正式换工作，新岗位月薪3万元",
+    confidence: 0.95,
+    payload: {
+      id: "new_salary_source",
+      type: "salary",
+      displayName: "新岗位工资",
+      monthlyNetAmountWan: 3,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 361,
+      status: "active",
+      linkedCareerStateId: career.id,
+      factStatus: "known",
+      evidence
+    }
+  };
+  const rejected = validateFinancialProposals({
+    proposals: [newSalary], currentLedger: ledger(), currentCareerState: career, acceptedOutcomeId: "switch_job",
+    narrativeText: "你正式换工作，新岗位月薪3万元。", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    simulationTransactionId: "tx_wage_stack"
+  });
+  assert.equal(rejected.acceptedEvents.length, 0);
+  assert.equal(rejected.issues[0].code, "CAREER_INCOME_CONFLICT");
+
+  const acceptedReplacement = validateFinancialProposals({
+    proposals: [{
+      id: "end_old_salary", kind: "income_source_ended", effectiveAtAgeInMonths: 361,
+      sourceOutcomeId: "switch_job", evidence: "你正式结束旧工作", confidence: 0.95,
+      payload: { incomeSourceId: "salary" }
+    }, newSalary],
+    currentLedger: ledger(), currentCareerState: career, acceptedOutcomeId: "switch_job",
+    narrativeText: "你正式结束旧工作，并正式换工作，新岗位月薪3万元。", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    simulationTransactionId: "tx_wage_replacement"
+  });
+  assert.equal(acceptedReplacement.issues.length, 0);
+  assert.equal(acceptedReplacement.acceptedEvents.length, 2);
+});

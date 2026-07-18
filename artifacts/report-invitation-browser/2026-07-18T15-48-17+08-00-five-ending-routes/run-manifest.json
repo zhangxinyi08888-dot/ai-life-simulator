@@ -1,0 +1,32 @@
+{
+  "runId": "2026-07-18T15-48-17+08-00-five-ending-routes",
+  "runStartedAt": "2026-07-18T07:48:31.445Z",
+  "generatedAt": "2026-07-18T09:02:05.512Z",
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "path": "cases/real-career-first.json"
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "path": "cases/real-custom-lifespan.json"
+    },
+    {
+      "caseSlug": "real-education-second",
+      "scenario": "accept_second",
+      "path": "cases/real-education-second.json"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "path": "cases/real-relationship-first.json"
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "scenario": "accept_second",
+      "path": "cases/real-venture-second.json"
+    }
+  ]
+}

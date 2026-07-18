@@ -2,6 +2,7 @@ import { ArcSignalProposal, LifeAttributes, PressureArcState, TemporalProfile, W
 import { DEFAULT_TEMPORAL_PROFILES } from "./timelineAdvance";
 import { stableHash } from "./stableRandom";
 import { sanitizeEmploymentTransitions } from "./employmentState";
+import { normalizeWorldDeltas } from "./normalizeWorldDeltas";
 
 export type ArcExitCondition =
   | { type: "choice_outcome"; outcome: string }
@@ -134,15 +135,19 @@ function initializePressureArc(input: {
 }
 
 export function validateNodeOutcomeProposal(input: {
-  worldDeltas?: WorldDelta[];
+  worldDeltas?: unknown;
   arcSignals?: ArcSignalProposal[];
   policy?: PhaseTransitionPolicy;
   narrativeText?: string;
   expectedSourceOutcomeId?: string;
 }): AcceptedNodeOutcome {
   const policy = input.policy || DEFAULT_PHASE_POLICY;
+  const normalizedWorldDeltas = normalizeWorldDeltas({
+    worldDeltas: input.worldDeltas,
+    acceptedOutcomeIds: input.expectedSourceOutcomeId ? [input.expectedSourceOutcomeId] : []
+  });
   const worldDeltas = sanitizeEmploymentTransitions({
-    worldDeltas: Array.isArray(input.worldDeltas) ? input.worldDeltas : [],
+    worldDeltas: normalizedWorldDeltas.worldDeltas,
     narrativeText: input.narrativeText,
     expectedSourceOutcomeId: input.expectedSourceOutcomeId
   });

@@ -57,10 +57,17 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
   }
 
   async function readState() {
-    const locator = tab.playwright.locator("#ai-life-test-state");
-    await unique(locator, "test state node");
-    const raw = await locator.textContent();
-    return JSON.parse(raw || "{}");
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const locator = tab.playwright.locator("#ai-life-test-state");
+      const count = await locator.count();
+      if (count === 1) {
+        const raw = await locator.textContent();
+        return JSON.parse(raw || "{}");
+      }
+      if (count > 1) throw new Error(`Expected one test state node, got ${count}`);
+      await tab.playwright.waitForTimeout(50);
+    }
+    throw new Error("Timed out waiting for test state node");
   }
 
   async function waitForState(predicate, description, timeoutMs = 180000) {
@@ -130,6 +137,11 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     await snapshot();
     const anchor = await unique(tab.playwright.getByLabel("回溯事件摘要", { exact: true }), "anchor textarea");
     await anchor.fill(config.anchorText);
+    if (Number.isFinite(config.regressionAge)) {
+      await snapshot();
+      const age = await unique(tab.playwright.getByLabel("回溯年龄", { exact: true }), "regression age field");
+      await age.fill(String(config.regressionAge));
+    }
     for (let index = 0; index < 3; index += 1) {
       await snapshot();
       const label = `命运分支 ${String.fromCharCode(65 + index)}`;
@@ -183,6 +195,42 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       displayedChoices: before.currentNode.choices,
       selectedChoiceId: choiceId,
       selectedChoice: choice.text,
+      resultingNodeTitle: after.currentNode.title,
+      resultingAgeInMonths: after.currentNode.ageInMonths,
+      resultingAttributes: after.currentAttributes,
+      resultingFinancialState: after.currentNode.financialState,
+      invitation: after.currentNode.reportInvitation,
+      at: now()
+    });
+    await persist(after);
+    return after;
+  }
+
+  async function beginAdvance(strategy, offset = 0) {
+    const before = await readState();
+    if (before.currentNode?.reportInvitation?.status === "pending") throw new Error("Cannot advance while a report invitation is pending");
+    await snapshot();
+    const choiceId = chooseId(before, strategy, offset);
+    if (!choiceId) throw new Error(`No choice available at ${before.currentNode?.title}`);
+    const choice = before.currentNode.choices.find((item) => item.id === choiceId);
+    const locator = await unique(tab.playwright.locator(`[id=${JSON.stringify(`choice-btn-${choiceId}`)}]`), `choice ${choiceId}`);
+    await locator.click();
+    return { before, choiceId, choice, beforeHistoryLength: before.history.length };
+  }
+
+  async function finishAdvance(pendingAdvance, timeoutMs = 20000) {
+    const after = await waitForState((state) => (
+      state.history.length > pendingAdvance.beforeHistoryLength
+      && !state.isLoadingNext
+      && state.currentNode
+    ), "next real story node", timeoutMs);
+    trace.push({
+      type: "choice_completed",
+      sourceNodeTitle: pendingAdvance.before.currentNode.title,
+      sourceAgeInMonths: pendingAdvance.before.currentNode.ageInMonths,
+      displayedChoices: pendingAdvance.before.currentNode.choices,
+      selectedChoiceId: pendingAdvance.choiceId,
+      selectedChoice: pendingAdvance.choice.text,
       resultingNodeTitle: after.currentNode.title,
       resultingAgeInMonths: after.currentNode.ageInMonths,
       resultingAttributes: after.currentAttributes,
@@ -286,6 +334,9 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     }
 
     await snapshot();
+    // The insight view enters with an opacity/position transition. State can
+    // already be "insight" while the pixels are still the black page shell.
+    await tab.playwright.waitForTimeout(1500);
     const poster = tab.playwright.locator("#share-ending-poster");
     const posterCount = await poster.count();
     let posterRect;
@@ -293,6 +344,9 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       posterRect = await poster.evaluate((element) => {
         const rect = element.getBoundingClientRect();
         return {
+          // Browser screenshot clips use viewport coordinates. Adding the
+          // document scroll offset moves the clip away from the visible card
+          // and produced all-black poster evidence on long report pages.
           x: Math.max(0, rect.x),
           y: Math.max(0, rect.y),
           width: rect.width,
@@ -322,7 +376,9 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     const posterPath = path.join(imagesDir, "poster.jpg");
     const pagePath = path.join(imagesDir, "report-page.jpg");
     await writeFile(posterPath, await tab.screenshot({ clip: posterRect }));
-    await writeFile(pagePath, await tab.screenshot({ fullPage: true }));
+    // Preserve the actual terminal page viewport. fullPage screenshots of the
+    // horizontally centered report can repeat transformed content in Chromium.
+    await writeFile(pagePath, await tab.screenshot({}));
     trace.push({ type: "final_images_saved", posterPath, pagePath, at: now() });
     await persist(state, false, { imagePaths: { posterPath, pagePath } });
     return { posterPath, pagePath };
@@ -393,6 +449,8 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     importCheckpoint,
     startJourney,
     advanceOnce,
+    beginAdvance,
+    finishAdvance,
     advanceCustomOnce,
     recordPendingInvitation,
     declineInvitation,

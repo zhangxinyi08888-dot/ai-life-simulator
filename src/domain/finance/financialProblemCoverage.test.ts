@@ -3,7 +3,7 @@ import test from "node:test";
 import { initializeCareerState } from "../career/careerState";
 import { resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
 import { formatFinancialStateForPrompt } from "../../utils/financialState";
-import { deriveFinancialState } from "./deriveFinancialState";
+import { deriveConservativeWealthBasis, deriveFinancialState } from "./deriveFinancialState";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { FinancialLedgerInvariantError, PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import { reduceFinancialLedger } from "./reduceFinancialLedger";
@@ -176,4 +176,27 @@ test("M5-7 report semantics: the compatibility snapshot preserves the exact auth
   assert.equal(derived.state.netWorthWan, 1900);
   assert.equal(derived.compatibilityState.netWorthWan, 1900);
   assert.match(formatFinancialStateForPrompt(derived.compatibilityState), /累计净财富：1900 万元（已确认）/);
+});
+
+test("M5-8 needs-review positive assets are excluded only from the wealth-score lower bound", () => {
+  const ledger = initializeFinancialLedger({
+    id: "coverage_conservative_wealth",
+    asOfAgeInMonths: 480,
+    openingPosition: {
+      cashAccounts: [{ id: PRIMARY_CASH_ACCOUNT_ID, type: "bank_deposit", balanceWan: 20, status: "active", factStatus: "known", evidence }],
+      businessHoldings: [{
+        id: "uncertain_holding",
+        business: { id: "company", displayName: "待确认公司", status: "operating", factStatus: "needs_review", evidence },
+        personalCarryingValueWan: 1000,
+        status: "active",
+        factStatus: "needs_review",
+        evidence
+      }]
+    }
+  });
+  const derived = deriveFinancialState({ ledger, employmentStatus: "self_employed" });
+  const lowerBound = deriveConservativeWealthBasis({ ledger, financialState: derived.compatibilityState });
+  assert.equal(derived.compatibilityState.netWorthWan, 1020);
+  assert.equal(lowerBound.netWorthWan, 20);
+  assert.equal(lowerBound.businessAndOtherAssetsWan, 0);
 });

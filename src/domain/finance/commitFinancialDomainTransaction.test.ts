@@ -5,7 +5,7 @@ import type { CareerStateCollection } from "../career/types";
 import { commitFinancialDomainTransaction } from "./commitFinancialDomainTransaction";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { FinancialLedgerInvariantError, PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
-import type { AcceptedFinancialEvent, FinancialEventKind, FinancialEventPayloadMap, FinancialEvidence } from "./types";
+import type { AcceptedFinancialEvent, FinancialEventKind, FinancialEventPayloadMap, FinancialEvidence, FinancialLedgerIssue } from "./types";
 import type { WorldStateSnapshot } from "../../types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_simulation_outcome", sourceEventId: "start_business", reasonCode: "TEST_ACCEPTED", confidence: 1 }];
@@ -157,4 +157,166 @@ test("repeated domain transaction is idempotent only when ledger and WorldState 
   assert.equal(repeated.alreadyCommitted, true);
   assert.equal(repeated.financialLedger.revision, 1);
   assert.equal(repeated.worldState.committedTransactionIds?.length, 1);
+});
+
+test("a rejected fact quarantines only the affected recurring income and opens a pending issue", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "salary_main",
+    type: "salary",
+    displayName: "当前工资",
+    monthlyNetAmountWan: 5,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "known",
+    evidence
+  });
+  const blockingIssue: FinancialLedgerIssue = {
+    id: "rejected_salary_change",
+    code: "CAREER_INCOME_CONFLICT",
+    severity: "blocking",
+    status: "open",
+    relatedProposalIds: ["bad_salary_change"],
+    relatedIncomeSourceIds: ["salary_main"],
+    summary: "工资变化无法确认",
+    createdAtAgeInMonths: 361
+  };
+  const first = commitFinancialDomainTransaction({
+    transactionId: "pending_salary",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    financialIssues: [blockingIssue]
+  });
+  const salary = first.financialLedger.incomeSources.find((source) => source.id === "salary_main");
+  assert.equal(salary?.factStatus, "needs_review");
+  assert.equal(salary?.accrualReviewStatus, "quarantined");
+  assert.ok(first.financialLedger.unresolvedIssues.some((issue) => issue.code === "PENDING_FACT" && issue.status === "open"));
+
+  const second = commitFinancialDomainTransaction({
+    transactionId: "pending_salary_next_period",
+    periodStartAgeInMonths: 361,
+    periodEndAgeInMonths: 362,
+    expectedCareerRevision: first.career.careerRevision,
+    expectedLedgerRevision: first.financialLedger.revision,
+    currentCareer: first.career,
+    currentFinancialLedger: first.financialLedger,
+    currentWorldState: first.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+  assert.equal(second.financialPeriodSummary?.incomeWan, 0);
+});
+
+test("a later accepted event resolves the matching issue and releases the quarantined source", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "living",
+    type: "basic_living",
+    displayName: "生活支出",
+    monthlyAmountWan: 1,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "known",
+    evidence
+  });
+  current.ledger.incomeSources.push({
+    id: "salary_main",
+    type: "salary",
+    displayName: "当前工资",
+    monthlyNetAmountWan: 5,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "needs_review",
+    accrualReviewStatus: "quarantined",
+    evidence
+  });
+  current.ledger.unresolvedIssues.push({
+    id: "pending_fact_income_salary_main_360",
+    code: "PENDING_FACT",
+    severity: "blocking",
+    status: "open",
+    relatedProposalIds: ["old_bad_change"],
+    relatedIncomeSourceIds: ["salary_main"],
+    summary: "等待工资确认",
+    createdAtAgeInMonths: 360
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "salary_confirmed",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("salary_adjusted", "income_source_adjusted", 361, {
+      incomeSourceId: "salary_main",
+      nextSource: {
+        ...current.ledger.incomeSources[0],
+        monthlyNetAmountWan: 6,
+        factStatus: "known"
+      }
+    })]
+  });
+  assert.equal(result.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
+  assert.equal(result.financialLedger.unresolvedIssues[0].status, "resolved");
+  assert.equal(result.financialLedger.unresolvedIssues[0].resolvedByEventId, "salary_adjusted");
+});
+
+test("legacy estimated income is quarantined after three unconfirmed material nodes", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版估算收入",
+    monthlyNetAmountWan: 4,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "estimated",
+    lastConfirmedAtAgeInMonths: 359,
+    evidence
+  });
+  current.ledger.recentTransactions.push(...[1, 2, 3].map((index) => ({
+    id: `legacy_material_${index}`,
+    simulationTransactionId: `legacy_material_${index}`,
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 360 + index,
+    eventIds: [],
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  })));
+  const result = commitFinancialDomainTransaction({
+    transactionId: "legacy_reconfirm",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+  assert.equal(result.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
+  assert.ok(result.financialLedger.unresolvedIssues.some((issue) => issue.code === "PENDING_FACT" && issue.relatedIncomeSourceIds?.includes("legacy_recurring_income")));
 });

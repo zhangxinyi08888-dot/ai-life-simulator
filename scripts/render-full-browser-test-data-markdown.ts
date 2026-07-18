@@ -67,8 +67,12 @@ function compactNodeState(node: JsonRecord): JsonRecord {
     ageInMonths: node.ageInMonths,
     stage: node.stage,
     attributes: node.attributes,
+    financialLedgerMode: node.financialLedgerMode,
+    financialLedger: node.financialLedger,
     financialState: node.financialState,
+    financialPeriodSummary: node.financialPeriodSummary,
     financialChange: node.financialChange,
+    financialProcessingMeta: node.financialProcessingMeta,
     eventMeta: node.eventMeta,
     narrativeMeta: node.narrativeMeta,
     committedArcMeta: node.committedArcMeta,
@@ -223,7 +227,7 @@ const records = await Promise.all(files.map(async (file) => (
 const totalNodes = records.reduce((sum, record) => sum + (record.finalState?.history?.length || 0), 0);
 const totalInvitations = records.reduce((sum, record) => sum + (record.finalState?.invitations?.length || 0), 0);
 const lines = [
-  "# 自然收束报告邀请：10 组真实 AI 网页端完整测试数据",
+  `# 自然收束报告邀请：${records.length} 组真实 AI 网页端完整测试数据`,
   "",
   "> 本文档由真实网页端测试保存的原始 JSON 自动生成。测试未启用 E2E 固定故事模板；故事正文、全部选择、用户实际选择、状态快照、所有邀请事件与最终报告均来自实际页面运行，没有抽样或省略。",
   "",

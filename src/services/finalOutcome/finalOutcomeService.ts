@@ -5,6 +5,7 @@ import { FinalLifeOutcome, FinalOutcomeContext, HistoryItem, LifeAttributes, Que
 import { normalizeFinalLifeOutcome } from "../../utils/finalOutcomeResponse";
 import { buildFinalOutcomePrompt } from "./prompts";
 import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
+import { sanitizeFinalOutcomeFinancialClaims } from "../../utils/finalOutcomeFinancialSanitizer";
 
 type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
 
@@ -42,5 +43,8 @@ export async function generateFinalOutcome(
   const callAiJson = getAiJsonCaller(deps);
   const prompt = buildFinalOutcomePrompt(input.userData, input.answers, input.history, input.currentAttributes, input.context);
   const data = parseAiJsonResponse(await callAiJson(prompt));
-  return normalizeFinalLifeOutcome(data, input.history, input.context.closureType);
+  return sanitizeFinalOutcomeFinancialClaims(
+    normalizeFinalLifeOutcome(data, input.history, input.context.closureType),
+    input.history
+  );
 }

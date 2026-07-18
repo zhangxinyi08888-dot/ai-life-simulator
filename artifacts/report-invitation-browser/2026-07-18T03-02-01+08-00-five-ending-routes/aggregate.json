@@ -1,0 +1,265 @@
+{
+  "generatedAt": "2026-07-17T20:28:26.314Z",
+  "recordRoot": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-18T03-02-01+08-00-five-ending-routes",
+  "caseCount": 5,
+  "passedCaseCount": 4,
+  "allArtifactsPresent": true,
+  "scenarioCounts": {
+    "accept_second": 1,
+    "accept_first": 2,
+    "natural_lifespan": 2
+  },
+  "totalNodes": 129,
+  "classifiedNodeCount": 124,
+  "modeCounts": {
+    "missing": 5,
+    "stability_meaning": 61,
+    "crossroads_opportunity": 44,
+    "recovery_growth": 8,
+    "pressure_crisis": 11
+  },
+  "modeShares": {
+    "stability_meaning": 49.2,
+    "crossroads_opportunity": 35.5,
+    "recovery_growth": 6.5,
+    "pressure_crisis": 8.9
+  },
+  "totalInvitations": 5,
+  "invitationReasons": {
+    "stable_window": 5
+  },
+  "invitationStatuses": {
+    "declined": 3,
+    "accepted": 2
+  },
+  "closureTypes": {
+    "mortality": 3,
+    "user_reflection": 2
+  },
+  "financialAnomalies": {
+    "studentNodes": 0,
+    "retiredNodes": 0,
+    "coreExpense1_2Nodes": 0,
+    "negativeDisposableNodes": 0
+  },
+  "recordedAiErrors": 4,
+  "topEventIds": [
+    [
+      "life_normal_transition",
+      11
+    ],
+    [
+      "financial_long_term_order",
+      11
+    ],
+    [
+      "self_daily_meaning",
+      10
+    ],
+    [
+      "self_new_direction_choice",
+      8
+    ],
+    [
+      "financial_resource_priority_choice",
+      8
+    ],
+    [
+      "health_sustainable_routine",
+      7
+    ],
+    [
+      "career_sustainable_work_rhythm",
+      7
+    ],
+    [
+      "career_long_project_completion",
+      7
+    ],
+    [
+      "relationship_daily_companionship",
+      7
+    ],
+    [
+      "career_structural_instability",
+      6
+    ],
+    [
+      "missing",
+      5
+    ],
+    [
+      "career_craft_meaning",
+      5
+    ],
+    [
+      "career_gradual_transition_window",
+      5
+    ],
+    [
+      "financial_side_path_conflict",
+      4
+    ],
+    [
+      "financial_cautious_opportunity",
+      4
+    ]
+  ],
+  "cases": [
+    {
+      "caseSlug": "real-balance-second",
+      "scenario": "accept_second",
+      "historyNodeCount": 38,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "stable:0"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 1210,
+      "imagesPresent": true,
+      "passed": false,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": false,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "historyNodeCount": 16,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "accepted",
+          "triggerKey": "arc:pressure_632edb57"
+        }
+      ],
+      "closureType": "user_reflection",
+      "finalAgeInMonths": 593,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 32,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "stable:0"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 1052,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "historyNodeCount": 16,
+      "invitations": [
+        {
+          "completedChoiceCount": 15,
+          "reason": "stable_window",
+          "status": "accepted",
+          "triggerKey": "stable:0"
+        }
+      ],
+      "closureType": "user_reflection",
+      "finalAgeInMonths": 640,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    },
+    {
+      "caseSlug": "real-wealth-lifespan",
+      "scenario": "natural_lifespan",
+      "historyNodeCount": 27,
+      "invitations": [
+        {
+          "completedChoiceCount": 18,
+          "reason": "stable_window",
+          "status": "declined",
+          "triggerKey": "arc:pressure_fd55e042"
+        }
+      ],
+      "closureType": "mortality",
+      "finalAgeInMonths": 893,
+      "imagesPresent": true,
+      "passed": true,
+      "validation": {
+        "realAiBrowserSource": true,
+        "completeWebHistory": true,
+        "allStoryBodiesPresent": true,
+        "noDeterministicTemplateBodies": true,
+        "allDisplayedChoicesPreserved": true,
+        "allUserChoicesPreserved": true,
+        "allAttributesPreserved": true,
+        "allFinancialStatesPreserved": true,
+        "allInvitationsPreserved": true,
+        "expectedClosureType": true,
+        "finalReportPresent": true,
+        "finalImagesPresent": true
+      }
+    }
+  ]
+}

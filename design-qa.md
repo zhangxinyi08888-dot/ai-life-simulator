@@ -1,45 +1,39 @@
-# Design QA — Preset input confirmation UI
+# Design QA — Wealth header option 1
 
 ## Evidence
 
-- Source visual truth: `/Users/zz/.codex/generated_images/019f5b44-f5c5-7883-a16a-01fb18f3e988/exec-6276b628-58ae-4071-8f76-5194d970f54a.png`
-- Browser-rendered implementation screenshot: `audit/preset-input-ui-390x844.png`
+- Source visual truth: `/Users/zz/.codex/generated_images/019f7608-e1e4-7300-9595-610f9dae03c3/exec-d9e46bd3-f38f-416e-ba57-d1bcea4d4ffa.png`
+- Browser-rendered implementation screenshot: `artifacts/ui-design-qa/wealth-header-option-1-390x844.png`
+- Full-view comparison: `artifacts/ui-design-qa/wealth-header-option-1-side-by-side.png`
+- Focused header comparison: `artifacts/ui-design-qa/wealth-header-option-1-header-compare.png`
 - Viewport: 390 × 844 CSS pixels
-- State: onboarding step 03/03, education return point, untouched system presets
-- Full-view comparison evidence: the source and implementation were opened together at original resolution after the final browser capture.
-- Focused comparison: not required; the full-view pair kept the labels, preset copy, borders, and input affordances legible enough to judge directly.
+- State: simulation node at age 28 years 8 months; attributes 58/50/62/56/50; real net worth 142万; estimated; period change +32万.
 
 ## Findings
 
 No actionable P0, P1, or P2 differences remain.
 
-- Fonts and typography: the existing serif display hierarchy and compact tracked utility text are preserved. The implementation scales the generated concept to the real 390 × 844 product frame without clipped copy or altered wrapping that changes meaning.
-- Spacing and layout rhythm: the open age row, divider, standalone summary field, individually bordered A/B/C rows, and persistent bottom actions match the selected direction. The app surface is 390 px wide with no horizontal overflow; both bottom actions remain fully visible.
-- Colors and visual tokens: untouched preset content renders at `rgb(119, 115, 108)` (`#77736c`), while user-edited content switches to the brighter product body-text token. Near-black surfaces, warm-gray borders, ivory headings, and champagne primary action remain consistent with the source.
-- Image quality and asset fidelity: this screen is interface-led and contains no photographic or illustrative assets. Existing Lucide icons and the supplied brand treatment are preserved; no placeholder or approximate custom asset was introduced.
-- Copy and content: the event summary and all three education choices match the selected mock. Both sections show `系统预置 · 可直接输入替换`, and the label changes to `你的输入` after the summary is edited.
-- Interaction and accessibility: the preset summary and every branch are semantic labelled textareas. Clicking an untouched preset clears it immediately, shows an input hint, and enters the brighter user-content state for direct typing. The return action and primary confirmation remain reachable.
+- Fonts and typography: all five primary values use the same 12px semibold tabular treatment and share the same measured value row (`y=88.5`, `height=18`). Wealth keeps `142万` as the primary value; `+32万` is a deliberately subordinate 7px inline value.
+- Spacing and layout rhythm: every card measures 68 × 80px. All five progress tracks share `y=132`, all five value rows share the same baseline, and the 390px viewport has no horizontal overflow (`scrollWidth=390`).
+- Colors and visual tokens: the existing near-black surfaces, warm-gray borders, ivory/gold primary values, muted estimate badge, green positive change, and red negative-change mapping are preserved.
+- Image quality and asset fidelity: the header is interface-led and adds no raster imagery. Existing Lucide icons are retained; no placeholder, custom SVG, CSS drawing, or approximate asset was introduced.
+- Copy and content: the visible wealth label is `财富`; the real amount is `142万`; the estimate badge is `估`; and the period change is `+32万`. The card title retains the complete accessible explanation, including the hidden wealth resource score.
+- Interaction and accessibility: the estimate badge exposes `估算值`; the wealth card title describes the real amount, estimate state, period change, and resource score. The biography button still opens and closes correctly.
 
 ## Comparison history
 
-### Iteration 1
+### Final comparison
 
-- Earlier finding: [P2] The first implementation kept the age and summary inside one large card and the branches inside one grouped container, which did not match the selected mock's more open hierarchy.
-- Fix made: separated the age row with a divider, moved the summary into its own bordered field, and rendered A/B/C as individually bordered rows.
-- Post-fix visual evidence: `audit/preset-input-ui-390x844.png` shows the corrected structure at 390 × 844 with all content and persistent actions visible.
-
-### Iteration 2
-
-- No remaining actionable P0/P1/P2 findings in the final full-view comparison.
+- The selected mock and browser implementation were normalized to the same 390px width and placed side by side for full-view and focused-header inspection.
+- The implementation preserves the selected option's two compact wealth rows: `财富 + 估` and `142万 +32万`.
+- The implementation intentionally keeps the production screen's existing header scale while matching the selected hierarchy and alignment. No P0/P1/P2 correction loop was required.
 
 ## Primary interactions tested
 
-- Completed onboarding steps 01 and 02 and opened the education confirmation state.
-- Verified untouched summary and A/B/C preset values render in muted gray.
-- Clicked the event summary and branch A, verified each preset cleared immediately, then entered replacement text through the labelled textareas.
-- Verified edited text switches to the brighter user-content state and the summary label changes to `你的输入`.
-- Returned to step 02 and reopened the education choice to verify presets reset correctly.
-- Confirmed the 390 × 844 screen has no horizontal overflow and no vertical clipping of the persistent actions.
+- Opened `生平纪事 1` from the redesigned header.
+- Verified the biography sheet rendered its existing timeline content.
+- Closed the biography sheet with its visible close action.
+- Confirmed no horizontal overflow at 390 × 844.
 
 ## Console and build checks
 
@@ -50,6 +44,6 @@ No actionable P0, P1, or P2 differences remain.
 
 ## Follow-up polish
 
-- [P3] The generated concept uses a slightly larger visual scale than the production 390 × 844 frame; the implementation intentionally keeps the app's existing mobile type scale so all controls fit without scrolling.
+- None required for the selected scope.
 
 final result: passed

@@ -6,6 +6,7 @@ import {
   WorldStateSnapshot
 } from "../types";
 import type { CareerState } from "../domain/career/types";
+import { matchesNormalizedEvidence } from "../domain/finance/evidenceMatching";
 
 const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
   "student",
@@ -38,9 +39,9 @@ export function validateEmploymentTransition(input: {
   if (!proposal || proposal.subject !== "protagonist") return undefined;
   if (!EMPLOYMENT_STATUSES.includes(proposal.toStatus)) return undefined;
   if (!Number.isFinite(proposal.effectiveAtAgeInMonths) || proposal.effectiveAtAgeInMonths < 0) return undefined;
-  if (!Number.isFinite(proposal.confidence) || proposal.confidence < 0.8 || proposal.confidence > 1) return undefined;
+  if (!Number.isFinite(proposal.confidence) || proposal.confidence < 0.6 || proposal.confidence > 1) return undefined;
   const evidence = typeof proposal.evidence === "string" ? proposal.evidence.trim() : "";
-  if (!evidence || (input.narrativeText && !input.narrativeText.includes(evidence))) return undefined;
+  if (!evidence || (input.narrativeText && !matchesNormalizedEvidence(input.narrativeText, evidence))) return undefined;
   if (!input.expectedSourceOutcomeId || proposal.sourceOutcomeId !== input.expectedSourceOutcomeId) return undefined;
   return { ...proposal, evidence };
 }

@@ -1,0 +1,637 @@
+{
+  "generatedAt": "2026-07-18T10:09:34.958Z",
+  "sourceRoot": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-18T15-48-17+08-00-five-ending-routes",
+  "summary": {
+    "caseCount": 5,
+    "totalNodes": 120,
+    "openingMortgageFacts": 1,
+    "openingMortgageCaptured": 1,
+    "missingExpenseNodes": 22,
+    "missingExpensePolicyFailures": 0,
+    "staleLateCareerNodes": 34,
+    "staleLateCareerPolicyFailures": 0,
+    "passed": true
+  },
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "openingFacts": {
+        "evidenceText": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。\n面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。\n我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。",
+        "cashWan": 18,
+        "ownsProperty": false
+      },
+      "projectedOpening": {
+        "cashWan": 18,
+        "propertyAccounts": [],
+        "debtAccounts": []
+      },
+      "nodeResults": []
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "openingFacts": {
+        "evidenceText": "【用户想重写的真实事件】\n29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。\n\n【系统生成的回溯锚点】\n回到 25 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。\n\n【系统生成的回溯锚点】\n回到 25 岁，在事件发生前重新做出选择。\n29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。\n29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。\n我当时税后年收入约32万元，存款25万元，没有房贷，父母身体尚可但希望我离家近一些。\n我很看重工作的社会意义，但也依赖职业成就获得安全感，容易把行动推迟到条件完美。\n我做过教育公益项目，认识当地校长和志愿者，也有咨询和项目管理能力，但不懂长期筹款。",
+        "cashWan": 25,
+        "ownsProperty": false,
+        "annualAfterTaxIncomeWan": 32
+      },
+      "projectedOpening": {
+        "cashWan": 25,
+        "propertyAccounts": [],
+        "debtAccounts": []
+      },
+      "nodeResults": [
+        {
+          "node": 20,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "fund_executive_salary"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 21,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 22,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "fund_executive_salary",
+            "writing_column_income"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 23,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "fund_executive_salary",
+            "writing_column_income"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 24,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 25,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 26,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 27,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 28,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 29,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 30,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 31,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 32,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 33,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 34,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 35,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 36,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 37,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 38,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 39,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 40,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 41,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 42,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "online_course_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 43,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 44,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 45,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "legacy_recurring_income",
+            "remote_consulting_337",
+            "fund_executive_salary",
+            "writing_column_income",
+            "writing_column_790"
+          ],
+          "replayPassed": true
+        }
+      ]
+    },
+    {
+      "caseSlug": "real-education-second",
+      "openingFacts": {
+        "evidenceText": "【用户想重写的真实事件】\n18岁填志愿时，我在家人推荐的金融专业和自己真正喜欢的计算机与交互设计之间选择了更稳妥的金融。\n\n【系统生成的回溯锚点】\n回到 18 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n18岁填志愿时，我在家人推荐的金融专业和自己真正喜欢的计算机与交互设计之间选择了更稳妥的金融。\n\n【系统生成的回溯锚点】\n回到 18 岁，在事件发生前重新做出选择。\n18岁填志愿时，我在家人推荐的金融专业和自己真正喜欢的计算机与交互设计之间选择了更稳妥的金融。\n高考成绩能进入一所不错的综合大学，但计算机专业竞争更激烈，家里无法承担海外学习费用。\n我对新事物好奇，但遇到成绩落后时容易怀疑自己，需要具体的小成果维持信心。\n我自学过一点网页制作，美术基础不错，家里愿意承担国内学费，但希望我毕业后尽快稳定就业。",
+        "ownsProperty": false
+      },
+      "projectedOpening": {
+        "cashWan": 1,
+        "propertyAccounts": [],
+        "debtAccounts": []
+      },
+      "nodeResults": [
+        {
+          "node": 1,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 2,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 3,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 4,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 5,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 6,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 7,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 8,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 9,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 10,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 11,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 12,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 13,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 14,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 15,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 16,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 17,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 18,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 19,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 20,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [],
+          "replayPassed": true
+        },
+        {
+          "node": 21,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [
+            "oss_component_library_sponsor"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 22,
+          "adultMissingExpense": true,
+          "staleCareerSourceIds": [
+            "oss_component_library_sponsor"
+          ],
+          "replayPassed": true
+        }
+      ]
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "openingFacts": {
+        "evidenceText": "【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市。\n冲突时我通常先沉默，等情绪平复后再谈，但也容易为了避免争执而让步。\n我拿到的晋升会让年收入增加约12万元，手里有20万元存款，伴侣有稳定职业和自己的社交支持。",
+        "cashWan": 12,
+        "ownsProperty": false
+      },
+      "projectedOpening": {
+        "cashWan": 12,
+        "propertyAccounts": [],
+        "debtAccounts": []
+      },
+      "nodeResults": []
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "openingFacts": {
+        "evidenceText": "【用户想重写的真实事件】\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n我年薪税后约38万元，房贷余额210万元，每月还款1.3万元，家庭备用金约35万元。\n我擅长发现业务问题，但遇到现金流压力会变得保守，也不喜欢和熟人谈利益分配。\n我有八年供应链产品经验，前同事懂销售和技术，我们认识十几家潜在客户，但没有融资承诺。",
+        "cashWan": 35,
+        "ownsProperty": true,
+        "mortgagePrincipalWan": 210,
+        "mortgageMonthlyPaymentWan": 1.3,
+        "annualAfterTaxIncomeWan": 38
+      },
+      "projectedOpening": {
+        "cashWan": 35,
+        "propertyAccounts": [
+          {
+            "id": "opening_property_value_pending",
+            "type": "property",
+            "displayName": "用户明确持有的住房（价值待确认）",
+            "marketValueWan": 0,
+            "liquidity": "illiquid",
+            "status": "active",
+            "factStatus": "needs_review",
+            "openedAtAgeInMonths": 288,
+            "evidence": [
+              {
+                "source": "user",
+                "excerpt": "【用户想重写的真实事件】\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n我年薪税后约38万元，房贷余额210万元，每月还款1.3万元，家庭备用金约35万元。\n我擅长发现业务问题，但遇到现金流压力会变得保守，也不喜欢和熟人谈利益分配。\n我有八年供应链产品经验，前同事懂销售和技术，我们认识十几家潜在客户，但没有融资承诺。",
+                "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                "confidence": 1
+              }
+            ]
+          }
+        ],
+        "debtAccounts": [
+          {
+            "id": "opening_mortgage",
+            "type": "mortgage",
+            "displayName": "用户明确的住房按揭",
+            "principalWan": 210,
+            "openedAtAgeInMonths": 288,
+            "status": "active",
+            "repaymentPolicy": {
+              "mode": "estimated_amortizing",
+              "monthlyPaymentWan": 1.3,
+              "monthlyPrincipalWan": 0.875,
+              "monthlyInterestWan": 0.425,
+              "remainingTermMonths": 240
+            },
+            "factStatus": "known",
+            "evidence": [
+              {
+                "source": "user",
+                "excerpt": "【用户想重写的真实事件】\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n31岁时我发现中小制造企业缺少好用的供应链软件，考虑和前同事一起创业，但刚背上房贷。\n我年薪税后约38万元，房贷余额210万元，每月还款1.3万元，家庭备用金约35万元。\n我擅长发现业务问题，但遇到现金流压力会变得保守，也不喜欢和熟人谈利益分配。\n我有八年供应链产品经验，前同事懂销售和技术，我们认识十几家潜在客户，但没有融资承诺。",
+                "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                "confidence": 1
+              }
+            ]
+          }
+        ]
+      },
+      "nodeResults": [
+        {
+          "node": 17,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "side_consulting_1"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 18,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "side_consulting_1"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 19,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "side_consulting_1"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 20,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "side_consulting_1"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 21,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "side_consulting_1"
+          ],
+          "replayPassed": true
+        },
+        {
+          "node": 22,
+          "adultMissingExpense": false,
+          "staleCareerSourceIds": [
+            "side_consulting_1",
+            "ai_consulting",
+            "income_consulting_56",
+            "retained_consulting_income"
+          ],
+          "replayPassed": true
+        }
+      ]
+    }
+  ]
+}

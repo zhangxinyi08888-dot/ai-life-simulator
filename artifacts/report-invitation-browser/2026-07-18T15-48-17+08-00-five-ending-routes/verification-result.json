@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "root": "/Users/zz/Documents/new life/test---main/artifacts/report-invitation-browser/2026-07-18T15-48-17+08-00-five-ending-routes",
+  "caseCount": 5,
+  "scenarioCounts": {
+    "accept_first": 2,
+    "natural_lifespan": 1,
+    "accept_second": 2
+  },
+  "checkedAt": "2026-07-18T09:02:05.610Z",
+  "failures": []
+}

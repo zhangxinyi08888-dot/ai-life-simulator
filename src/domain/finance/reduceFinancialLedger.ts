@@ -122,10 +122,17 @@ function addDebtScheduleReviewIssues(ledger: FinancialLedger): void {
     const issueId = `unknown_debt_schedule_${debt.id}`;
     if (ledger.unresolvedIssues.some((issue) => issue.id === issueId)) continue;
     debt.factStatus = "needs_review";
+    debt.repaymentPolicy = {
+      mode: "estimated_amortizing",
+      monthlyPrincipalWan: roundWan(debt.principalWan / 240),
+      remainingTermMonths: 240
+    };
     ledger.unresolvedIssues.push({
       id: issueId,
       code: "UNKNOWN_DEBT_SCHEDULE",
       severity: "warning",
+      status: "open",
+      relatedDebtAccountIds: [debt.id],
       relatedProposalIds: [],
       summary: `债务 ${debt.displayName} 已长期缺少明确还款计划`,
       createdAtAgeInMonths: ledger.asOfAgeInMonths
@@ -144,7 +151,7 @@ function applyEvent(
       const source = event.payload as IncomeSource;
       assertNewId(ledger.incomeSources, source.id, "收入来源");
       validateIncomeSource(source);
-      ledger.incomeSources.push(structuredClone(source));
+      ledger.incomeSources.push({ ...structuredClone(source), accrualReviewStatus: "normal", lastConfirmedAtAgeInMonths: event.effectiveAtAgeInMonths });
       return;
     }
     case "income_source_adjusted": {
@@ -152,7 +159,7 @@ function applyEvent(
       const index = ledger.incomeSources.findIndex((source) => source.id === incomeSourceId);
       if (index < 0 || nextSource.id !== incomeSourceId) throw new FinancialLedgerInvariantError("INVALID_LEDGER", `收入来源调整必须引用同一账户: ${incomeSourceId}`);
       validateIncomeSource(nextSource);
-      ledger.incomeSources[index] = structuredClone(nextSource);
+      ledger.incomeSources[index] = { ...structuredClone(nextSource), accrualReviewStatus: "normal", lastConfirmedAtAgeInMonths: event.effectiveAtAgeInMonths };
       return;
     }
     case "income_source_paused": {

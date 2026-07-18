@@ -1,0 +1,2135 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-07-18T-m7-focused-1784369609683",
+  "dataSource": "real_ai_browser",
+  "caseSlug": "m7-student-to-job",
+  "scenario": "focused_student_job",
+  "config": {
+    "slug": "m7-student-to-job",
+    "scenario": "focused_student_job",
+    "birthday": "1998-01-12",
+    "birthtime": "07:00",
+    "returnPointName": "重写高考志愿 回到志愿填报那天，选择真正想走的方向 约 18 岁",
+    "anchorText": "18岁填志愿时，我在家人推荐的金融专业和自己真正喜欢的计算机与交互设计之间选择了更稳妥的金融。",
+    "branches": [
+      "选择计算机科学，接受从零补数学和编程基础",
+      "主修金融，同时辅修计算机并持续做个人项目",
+      "继续读金融，把兴趣保留为课外爱好"
+    ],
+    "answers": [
+      "高考成绩能进入一所不错的综合大学，但计算机专业竞争更激烈，家里无法承担海外学习费用。",
+      "我对新事物好奇，但遇到成绩落后时容易怀疑自己，需要具体的小成果维持信心。",
+      "我自学过一点网页制作，美术基础不错，家里愿意承担国内学费，但希望我毕业后尽快稳定就业。"
+    ]
+  },
+  "updatedAt": "2026-07-18T10:15:57.972Z",
+  "complete": true,
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "m7-student-to-job",
+      "scenario": "focused_student_job",
+      "at": "2026-07-18T10:14:38.337Z"
+    },
+    {
+      "type": "questions_generated",
+      "questions": [
+        {
+          "question": "当年填志愿时，你的高考分数和省内排名大概是多少？有没有具体的录取线可以参考？",
+          "suggestions": [
+            "我考了620分左右，省内排名约8000名，金融专业是学校往年录取线中位的专业。",
+            "我分数刚过一本线20分，金融正好是我能去的最稳妥的选择，计算机风险更大。",
+            "我不太确定具体分数了，但记得比金融专业录取线高了10分左右，计算机系则要高出30分。",
+            "我分数不高不低，大概在一本线附近徘徊，金融是家人认为最保险的选项。",
+            "我分数足够上任何专业，但家人坚持金融，说计算机就业不稳定。"
+          ]
+        },
+        {
+          "question": "18岁的你，在面对家人强烈推荐金融时，你当时的性格和反应是怎样的？",
+          "suggestions": [
+            "我性格比较顺从，虽然心里喜欢计算机，但不敢和家人争辩，最后妥协了。",
+            "我有点叛逆但没底气，私下查了很多计算机的资料，但最后还是听了家人的话。",
+            "我当时很迷茫，其实对两个专业都没深入了解，只是觉得计算机好玩但怕学不好。",
+            "我表面答应家人，但内心一直不服气，想着以后自己学编程。",
+            "我直接和家人吵了一架，但最后他们用经济压力说服了我。"
+          ]
+        },
+        {
+          "question": "在18岁那个节点，你实际具备哪些与计算机相关的兴趣、能力或资源？比如自学过编程吗？有朋友或老师支持吗？",
+          "suggestions": [
+            "我高中时自学过一点Python，做过简单网页，但数学基础一般，家人觉得我不行。",
+            "我完全零基础，只是喜欢玩游戏和设计，不知道计算机专业具体学什么。",
+            "我有一个表哥是程序员，他建议我学计算机，但父母觉得他混得一般，不信他。",
+            "我参加过学校的信息学竞赛，拿过省三等奖，但家人认为那是业余爱好。",
+            "我除了会操作电脑，没有编程基础，但很喜欢创意设计，交互设计听起来很吸引我。"
+          ]
+        }
+      ],
+      "at": "2026-07-18T10:14:49.020Z"
+    },
+    {
+      "type": "simulation_started",
+      "node": {
+        "age": 18,
+        "stage": "志愿抉择",
+        "title": "十八岁的十字路口：金融还是计算机？",
+        "description": "高考分数刚过一本线，省内排名约前15%。你能进一所不错的综合大学，但计算机专业录取线更高，竞争激烈。家里明确表示无法承担海外费用，希望你就读金融专业，毕业后尽快稳定就业。你自学过一点网页制作，美术基础不错，对交互设计有模糊的兴趣，但数学和编程基础几乎为零。填志愿的最后一天，你坐在电脑前，光标在志愿表上闪烁。父母坐在客厅，偶尔探头问一句‘选金融了吧？’你内心挣扎：顺从家人选稳妥的金融，还是冒险冲击计算机？如果选计算机，大一就得从高数、C语言补起，万一跟不上，可能被调剂甚至挂科。而金融专业至少能保证毕业进银行或券商，但你可能一辈子后悔没有尝试喜欢的方向。",
+        "choices": [
+          {
+            "id": "A",
+            "text": "选择计算机科学，从零补数学和编程基础，准备迎接大一繁重的追赶压力。",
+            "impactSummary": "冒险追梦",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "冒险追梦"
+            },
+            "decisionIntent": "education:major:computer_science",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "主修金融，同时辅修计算机并持续做个人项目，两条腿走路。",
+            "impactSummary": "双线平衡",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "双线平衡"
+            },
+            "decisionIntent": "education:major:finance_with_cs_minor",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "继续读金融，把兴趣保留为课外爱好，专注专业学习与实习。",
+            "impactSummary": "稳妥务实",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳妥务实"
+            },
+            "decisionIntent": "education:major:finance_only",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 65,
+          "wealth": 35,
+          "relation": 50,
+          "health": 70
+        },
+        "isEndingNode": false,
+        "ageInMonths": 216,
+        "lifeStage": "emerging_adulthood",
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_e22c2ae0",
+            "startAgeInMonths": 216,
+            "endAgeInMonths": 216,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_de281a9e",
+            "summary": "高考分数刚过一本线，省内排名约前15%。你能进一所不错的综合大学，但计算机专业录取线更高，竞争激烈。家里明确表示无法承担海外费用，希望你就读金融专业，毕业后尽快"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "financialLedger": {
+          "id": "financial_opening_216",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 216,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 0.5,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 0.1,
+              "activeFromAgeInMonths": 216,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [],
+          "committedTransactionIds": [],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_216",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 216
+            }
+          ],
+          "revision": 0,
+          "version": 2
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 216,
+          "cashWan": 0.5,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 0.5,
+          "annualAfterTaxIncomeWan": 0,
+          "annualDisposableIncomeWan": -1.2,
+          "annualCoreExpenseWan": 1.2,
+          "employmentStatus": "student",
+          "incomeStability": "unstable",
+          "isEstimated": true
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_0d19d8e5",
+              "directionType": "selftruth",
+              "summary": "A. 选择计算机科学，接受从零补数学和编程基础\nB. 主修金融，同时辅修计算机并持续做个人项目\nC. 继续读金融，把兴趣保留为课外爱好",
+              "status": "active",
+              "startedAtAgeInMonths": 216,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_216",
+              "employmentStatus": "student",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 216,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_216",
+          "currentEmploymentStatus": "student",
+          "careerRevision": 0
+        }
+      },
+      "at": "2026-07-18T10:14:58.706Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "十八岁的十字路口：金融还是计算机？",
+      "sourceAgeInMonths": 216,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "选择计算机科学，从零补数学和编程基础，准备迎接大一繁重的追赶压力。",
+          "impactSummary": "冒险追梦",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "冒险追梦"
+          },
+          "decisionIntent": "education:major:computer_science",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "主修金融，同时辅修计算机并持续做个人项目，两条腿走路。",
+          "impactSummary": "双线平衡",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "双线平衡"
+          },
+          "decisionIntent": "education:major:finance_with_cs_minor",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "继续读金融，把兴趣保留为课外爱好，专注专业学习与实习。",
+          "impactSummary": "稳妥务实",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "稳妥务实"
+          },
+          "decisionIntent": "education:major:finance_only",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "选择计算机科学，从零补数学和编程基础，准备迎接大一繁重的追赶压力。",
+      "resultingNodeTitle": "代码与素描：大一的挣扎与微光",
+      "resultingAgeInMonths": 239,
+      "resultingAttributes": {
+        "happiness": 54,
+        "intelligence": 66,
+        "wealth": 37,
+        "relation": 50,
+        "health": 66
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 239,
+        "cashWan": 0,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0.92,
+        "netWorthWan": -0.92,
+        "annualAfterTaxIncomeWan": 0.96,
+        "annualDisposableIncomeWan": -0.24,
+        "annualCoreExpenseWan": 1.2,
+        "employmentStatus": "student",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-18T10:15:14.733Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "代码与素描：大一的挣扎与微光",
+      "sourceAgeInMonths": 239,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "A. 夯实基础",
+          "impactSummary": "夯实基础",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "夯实基础"
+          },
+          "decisionIntent": "skill:summer_course:algorithms_and_data_structures",
+          "eventOutcomeId": "protect_meaningful_daily_element",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "B. 积累经验",
+          "impactSummary": "积累经验",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "积累经验"
+          },
+          "decisionIntent": "career:summer_internship:ux_design",
+          "eventOutcomeId": "add_one_small_source_of_aliveness",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "C. 调整节奏",
+          "impactSummary": "调整节奏",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "调整节奏"
+          },
+          "decisionIntent": "health:summer_rest:exercise_and_self_study",
+          "eventOutcomeId": "simplify_life_around_core_values",
+          "expectedWorldDeltaTypes": []
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "A. 夯实基础",
+      "resultingNodeTitle": "团队项目的烂摊子",
+      "resultingAgeInMonths": 259,
+      "resultingAttributes": {
+        "happiness": 50,
+        "intelligence": 66,
+        "wealth": 48,
+        "relation": 48,
+        "health": 64
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 259,
+        "cashWan": 0.36,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 1.28,
+        "netWorthWan": -0.92,
+        "annualAfterTaxIncomeWan": 3.36,
+        "annualDisposableIncomeWan": 2.16,
+        "annualCoreExpenseWan": 1.2,
+        "employmentStatus": "student",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-18T10:15:30.498Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "团队项目的烂摊子",
+      "sourceAgeInMonths": 259,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "A. 接受有限责任：承诺协助完成最关键的界面改版，但明确告知学长你只能投入每周10小时，且不参与用户测试和后续维护",
+          "impactSummary": "还人情但保底线",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "还人情但保底线"
+          },
+          "decisionIntent": "project:accept_limited_work:school_app_redesign",
+          "eventOutcomeId": "accept_limited_responsibility",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "B. 明确边界：婉拒学长，解释自己已签实习合同且健康需调整，建议他们联系社团指导老师分配学弟学妹支援",
+          "impactSummary": "保实习和健康",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "保实习和健康"
+          },
+          "decisionIntent": "project:decline_unpaid:school_app_redesign",
+          "eventOutcomeId": "draw_explicit_responsibility_boundary",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "C. 寻求规则调解：与学长、社团指导老师和实习主管三方沟通，看能否将校园项目纳入实习任务的一部分，或申请暑期项目学分",
+          "impactSummary": "找规则化解矛盾",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "找规则化解矛盾"
+          },
+          "decisionIntent": "project:seek_mediation:school_app_workload",
+          "eventOutcomeId": "seek_rule_based_mediation",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "A",
+      "selectedChoice": "A. 接受有限责任：承诺协助完成最关键的界面改版，但明确告知学长你只能投入每周10小时，且不参与用户测试和后续维护",
+      "resultingNodeTitle": "界面改版后的余波：责任与边界的代价",
+      "resultingAgeInMonths": 277,
+      "resultingAttributes": {
+        "happiness": 48,
+        "intelligence": 68,
+        "wealth": 57,
+        "relation": 46,
+        "health": 62
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 277,
+        "cashWan": 3.5478,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 1.2278,
+        "netWorthWan": 2.32,
+        "annualAfterTaxIncomeWan": 4.56,
+        "annualDisposableIncomeWan": 3.36,
+        "annualCoreExpenseWan": 1.2,
+        "employmentStatus": "student",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "at": "2026-07-18T10:15:57.972Z"
+    }
+  ],
+  "latestState": {
+    "capturedAt": "2026-07-18T10:15:57.937Z",
+    "e2eCase": null,
+    "recordTestRun": "2026-07-18T-m7-focused-1784369609683-student",
+    "testDataSource": "real_ai_browser",
+    "step": "simulating",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "07:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n18岁填志愿时，我在家人推荐的金融专业和自己真正喜欢的计算机与交互设计之间选择了更稳妥的金融。\n\n【系统生成的回溯锚点】\n回到 18 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "18 岁 · 升学与选择",
+      "milestones": [
+        {
+          "id": "education",
+          "title": "升学与选择",
+          "content": "18岁填志愿时，我在家人推荐的金融专业和自己真正喜欢的计算机与交互设计之间选择了更稳妥的金融。"
+        }
+      ],
+      "milestoneGaokao": "18岁填志愿时，我在家人推荐的金融专业和自己真正喜欢的计算机与交互设计之间选择了更稳妥的金融。",
+      "milestoneCareer": "",
+      "milestoneRelationship": "",
+      "milestoneOther": "",
+      "regressionNodeKey": "education",
+      "regressionAge": 18,
+      "regressionSituation": "【用户想重写的真实事件】\n18岁填志愿时，我在家人推荐的金融专业和自己真正喜欢的计算机与交互设计之间选择了更稳妥的金融。\n\n【系统生成的回溯锚点】\n回到 18 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 选择计算机科学，接受从零补数学和编程基础\nB. 主修金融，同时辅修计算机并持续做个人项目\nC. 继续读金融，把兴趣保留为课外爱好",
+      "coreStoryFocus": "selftruth"
+    },
+    "questions": [
+      {
+        "question": "当年填志愿时，你的高考分数和省内排名大概是多少？有没有具体的录取线可以参考？",
+        "suggestions": [
+          "我考了620分左右，省内排名约8000名，金融专业是学校往年录取线中位的专业。",
+          "我分数刚过一本线20分，金融正好是我能去的最稳妥的选择，计算机风险更大。",
+          "我不太确定具体分数了，但记得比金融专业录取线高了10分左右，计算机系则要高出30分。",
+          "我分数不高不低，大概在一本线附近徘徊，金融是家人认为最保险的选项。",
+          "我分数足够上任何专业，但家人坚持金融，说计算机就业不稳定。"
+        ]
+      },
+      {
+        "question": "18岁的你，在面对家人强烈推荐金融时，你当时的性格和反应是怎样的？",
+        "suggestions": [
+          "我性格比较顺从，虽然心里喜欢计算机，但不敢和家人争辩，最后妥协了。",
+          "我有点叛逆但没底气，私下查了很多计算机的资料，但最后还是听了家人的话。",
+          "我当时很迷茫，其实对两个专业都没深入了解，只是觉得计算机好玩但怕学不好。",
+          "我表面答应家人，但内心一直不服气，想着以后自己学编程。",
+          "我直接和家人吵了一架，但最后他们用经济压力说服了我。"
+        ]
+      },
+      {
+        "question": "在18岁那个节点，你实际具备哪些与计算机相关的兴趣、能力或资源？比如自学过编程吗？有朋友或老师支持吗？",
+        "suggestions": [
+          "我高中时自学过一点Python，做过简单网页，但数学基础一般，家人觉得我不行。",
+          "我完全零基础，只是喜欢玩游戏和设计，不知道计算机专业具体学什么。",
+          "我有一个表哥是程序员，他建议我学计算机，但父母觉得他混得一般，不信他。",
+          "我参加过学校的信息学竞赛，拿过省三等奖，但家人认为那是业余爱好。",
+          "我除了会操作电脑，没有编程基础，但很喜欢创意设计，交互设计听起来很吸引我。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "当年填志愿时，你的高考分数和省内排名大概是多少？有没有具体的录取线可以参考？",
+        "answer": "高考成绩能进入一所不错的综合大学，但计算机专业竞争更激烈，家里无法承担海外学习费用。"
+      },
+      {
+        "id": 2,
+        "question": "18岁的你，在面对家人强烈推荐金融时，你当时的性格和反应是怎样的？",
+        "answer": "我对新事物好奇，但遇到成绩落后时容易怀疑自己，需要具体的小成果维持信心。"
+      },
+      {
+        "id": 3,
+        "question": "在18岁那个节点，你实际具备哪些与计算机相关的兴趣、能力或资源？比如自学过编程吗？有朋友或老师支持吗？",
+        "answer": "我自学过一点网页制作，美术基础不错，家里愿意承担国内学费，但希望我毕业后尽快稳定就业。"
+      }
+    ],
+    "history": [
+      {
+        "age": 18,
+        "ageInMonths": 216,
+        "lifeStage": "emerging_adulthood",
+        "title": "十八岁的十字路口：金融还是计算机？",
+        "stage": "志愿抉择",
+        "description": "高考分数刚过一本线，省内排名约前15%。你能进一所不错的综合大学，但计算机专业录取线更高，竞争激烈。家里明确表示无法承担海外费用，希望你就读金融专业，毕业后尽快稳定就业。你自学过一点网页制作，美术基础不错，对交互设计有模糊的兴趣，但数学和编程基础几乎为零。填志愿的最后一天，你坐在电脑前，光标在志愿表上闪烁。父母坐在客厅，偶尔探头问一句‘选金融了吧？’你内心挣扎：顺从家人选稳妥的金融，还是冒险冲击计算机？如果选计算机，大一就得从高数、C语言补起，万一跟不上，可能被调剂甚至挂科。而金融专业至少能保证毕业进银行或券商，但你可能一辈子后悔没有尝试喜欢的方向。",
+        "selectedChoice": "选择计算机科学，从零补数学和编程基础，准备迎接大一繁重的追赶压力。",
+        "selectedDecisionIntent": "education:major:computer_science",
+        "attributes": {
+          "happiness": 55,
+          "intelligence": 65,
+          "wealth": 35,
+          "relation": 50,
+          "health": 70
+        },
+        "financialLedger": {
+          "id": "financial_opening_216",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 216,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 0.5,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 0.1,
+              "activeFromAgeInMonths": 216,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [],
+          "committedTransactionIds": [],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_216",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 216
+            }
+          ],
+          "revision": 0,
+          "version": 2
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 216,
+          "cashWan": 0.5,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 0.5,
+          "annualAfterTaxIncomeWan": 0,
+          "annualDisposableIncomeWan": -1.2,
+          "annualCoreExpenseWan": 1.2,
+          "employmentStatus": "student",
+          "incomeStability": "unstable",
+          "isEstimated": true
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "选择计算机科学，从零补数学和编程基础，准备迎接大一繁重的追赶压力。",
+            "impactSummary": "冒险追梦",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "冒险追梦"
+            },
+            "decisionIntent": "education:major:computer_science",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "主修金融，同时辅修计算机并持续做个人项目，两条腿走路。",
+            "impactSummary": "双线平衡",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "双线平衡"
+            },
+            "decisionIntent": "education:major:finance_with_cs_minor",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "继续读金融，把兴趣保留为课外爱好，专注专业学习与实习。",
+            "impactSummary": "稳妥务实",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "稳妥务实"
+            },
+            "decisionIntent": "education:major:finance_only",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_e22c2ae0",
+            "startAgeInMonths": 216,
+            "endAgeInMonths": 216,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_de281a9e",
+            "summary": "高考分数刚过一本线，省内排名约前15%。你能进一所不错的综合大学，但计算机专业录取线更高，竞争激烈。家里明确表示无法承担海外费用，希望你就读金融专业，毕业后尽快"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [],
+          "directionArcs": [
+            {
+              "id": "direction_0d19d8e5",
+              "directionType": "selftruth",
+              "summary": "A. 选择计算机科学，接受从零补数学和编程基础\nB. 主修金融，同时辅修计算机并持续做个人项目\nC. 继续读金融，把兴趣保留为课外爱好",
+              "status": "active",
+              "startedAtAgeInMonths": 216,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_216",
+              "employmentStatus": "student",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 216,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_216",
+          "currentEmploymentStatus": "student",
+          "careerRevision": 0
+        }
+      },
+      {
+        "age": 19,
+        "ageInMonths": 239,
+        "lifeStage": "emerging_adulthood",
+        "title": "代码与素描：大一的挣扎与微光",
+        "stage": "大一追赶期",
+        "description": "你选择了计算机专业，大一生活从高数、C语言和线性代数的狂轰滥炸开始。数学基础薄弱让你在第一学期期中考试高数仅62分，C语言作业经常写到凌晨，几次想放弃。但你利用美术基础，在网页设计课程中做出漂亮的个人作品集网站，获得老师表扬。你加入了学校的交互设计社团，参与了一个校园App的UI设计项目，团队里几位学长愿意带你。寒假你自学了JavaScript和Python基础，每天刷LeetCode简单题，慢慢找到一点感觉。大一下学期你数据结构课拿了78分，虽然不算高，但让你确信自己可以跟上。父母偶尔打电话问学习情况，听到你成绩中等，虽有些担心但没再强烈反对。你靠做家教和设计兼职每月赚800元，勉强覆盖生活开销。但长期熬夜让你体重增加，近视加深，健康从70降到了66。整体来看，你已经在计算机道路上站稳脚跟，但距离成为优秀开发者还有很长的路。",
+        "selectedChoice": "A. 夯实基础",
+        "selectedDecisionIntent": "skill:summer_course:algorithms_and_data_structures",
+        "attributes": {
+          "happiness": 54,
+          "intelligence": 66,
+          "wealth": 37,
+          "relation": 50,
+          "health": 66
+        },
+        "financialLedger": {
+          "id": "financial_opening_216",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 239,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 0,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [
+            {
+              "id": "auto_shortfall_94b0102b_228_0",
+              "type": "liquidity_shortfall",
+              "displayName": "自动流动性缺口",
+              "principalWan": 0.7,
+              "openedAtAgeInMonths": 228,
+              "status": "active",
+              "repaymentPolicy": {
+                "mode": "event_driven"
+              },
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "system_policy",
+                  "reasonCode": "AUTOMATIC_LIQUIDITY_SHORTFALL",
+                  "confidence": 1
+                }
+              ]
+            },
+            {
+              "id": "auto_shortfall_94b0102b_239_1",
+              "type": "liquidity_shortfall",
+              "displayName": "自动流动性缺口",
+              "principalWan": 0.22,
+              "openedAtAgeInMonths": 239,
+              "status": "active",
+              "repaymentPolicy": {
+                "mode": "event_driven"
+              },
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "system_policy",
+                  "reasonCode": "AUTOMATIC_LIQUIDITY_SHORTFALL",
+                  "confidence": 1
+                }
+              ]
+            }
+          ],
+          "incomeSources": [
+            {
+              "id": "income_tutoring_design",
+              "type": "freelance",
+              "displayName": "家教与设计兼职",
+              "monthlyNetAmountWan": 0.08,
+              "accrualPolicy": "monthly",
+              "activeFromAgeInMonths": 228,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [],
+              "accrualReviewStatus": "normal",
+              "lastConfirmedAtAgeInMonths": 228
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 0.1,
+              "activeFromAgeInMonths": 216,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [
+            {
+              "id": "financial_94b0102b",
+              "simulationTransactionId": "94b0102b",
+              "eventIds": [
+                "accepted_income_tutoring_design",
+                "auto_shortfall_94b0102b_228_0",
+                "auto_shortfall_94b0102b_239_1"
+              ],
+              "periodStartAgeInMonths": 216,
+              "periodEndAgeInMonths": 239,
+              "cashDeltaWan": -0.5,
+              "assetDeltaWan": 0,
+              "debtDeltaWan": 0.92,
+              "incomeWan": 0.88,
+              "expenseWan": 2.3,
+              "valuationChangeWan": 0,
+              "nonCashGainLossWan": 0,
+              "netWorthDeltaWan": -1.42,
+              "evidence": [
+                {
+                  "source": "accepted_simulation_outcome",
+                  "sourceEventId": "choice_fallback_8493eef4",
+                  "excerpt": "你靠做家教和设计兼职每月赚800元。",
+                  "reasonCode": "EVIDENCE_NORMALIZED_MATCHED",
+                  "confidence": 0.85
+                }
+              ]
+            }
+          ],
+          "committedTransactionIds": [
+            "94b0102b"
+          ],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_216",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 216
+            }
+          ],
+          "revision": 1,
+          "version": 2
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 239,
+          "cashWan": 0,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0.92,
+          "netWorthWan": -0.92,
+          "annualAfterTaxIncomeWan": 0.96,
+          "annualDisposableIncomeWan": -0.24,
+          "annualCoreExpenseWan": 1.2,
+          "employmentStatus": "student",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "financialPeriodSummary": {
+          "periodStartAgeInMonths": 216,
+          "periodEndAgeInMonths": 239,
+          "incomeWan": 0.88,
+          "coreExpenseWan": 2.3,
+          "otherExpenseWan": 0,
+          "debtPrincipalPaidWan": 0,
+          "debtInterestPaidWan": 0,
+          "assetPurchaseWan": 0,
+          "assetSaleProceedsWan": 0,
+          "valuationChangeWan": 0,
+          "netCashFlowWan": -0.5,
+          "netWorthChangeWan": -1.42,
+          "transactionIds": [
+            "financial_94b0102b"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "A. 夯实基础",
+            "impactSummary": "夯实基础",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "夯实基础"
+            },
+            "decisionIntent": "skill:summer_course:algorithms_and_data_structures",
+            "eventOutcomeId": "protect_meaningful_daily_element",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "B. 积累经验",
+            "impactSummary": "积累经验",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "积累经验"
+            },
+            "decisionIntent": "career:summer_internship:ux_design",
+            "eventOutcomeId": "add_one_small_source_of_aliveness",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "C. 调整节奏",
+            "impactSummary": "调整节奏",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "调整节奏"
+            },
+            "decisionIntent": "health:summer_rest:exercise_and_self_study",
+            "eventOutcomeId": "simplify_life_around_core_values",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "self_daily_meaning",
+          "eventCategory": "growth",
+          "eventTags": [
+            "growth",
+            "daily_meaning",
+            "stability",
+            "reflection"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "stability_meaning",
+          "eventSemanticFamily": "self_daily_meaning",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 23,
+          "elapsedYears": 1.9166666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_7634a434",
+            "startAgeInMonths": 216,
+            "endAgeInMonths": 239,
+            "internalTransitions": [
+              "第一学期期中高数仅62分，C语言作业熬夜完成",
+              "网页设计课程作品获老师表扬",
+              "加入交互设计社团，参与校园App UI设计",
+              "寒假自学JavaScript和Python，刷LeetCode",
+              "大一下学期数据结构78分，信心增强"
+            ],
+            "decisionCheckpointId": "checkpoint_dc490c49",
+            "summary": "你选择了计算机专业，大一生活从高数、C语言和线性代数的狂轰滥炸开始。数学基础薄弱让你在第一学期期中考试高数仅62分，C语言作业经常写到凌晨，几次想放弃。但你利用"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "arcId": "selftruth",
+              "event": "选择了计算机专业并坚持下来，虽困难但获得初步成果",
+              "evidence": "你选择了计算机专业，大一生活从高数、C语言和线性代数的狂轰滥炸开始。"
+            }
+          ],
+          "activeCharacters": [
+            "父母",
+            "学长",
+            "社团伙伴"
+          ],
+          "primaryActivity": "学习与兼职",
+          "worldDeltas": [
+            {
+              "type": "career_state",
+              "payload": {
+                "employmentTransition": null
+              }
+            },
+            {
+              "type": "relationship",
+              "payload": {
+                "character": "父母",
+                "change": "从强烈反对转为担忧但默许",
+                "evidence": "父母偶尔打电话问学习情况，听到你成绩中等，虽有些担心但没再强烈反对。"
+              }
+            },
+            {
+              "type": "skill",
+              "payload": {
+                "skill": "编程基础",
+                "change": "从零基础到掌握C语言、Python、JavaScript基础，能完成简单项目",
+                "evidence": "你自学了JavaScript和Python基础，数据结构课拿了78分。"
+              }
+            },
+            {
+              "type": "skill",
+              "payload": {
+                "skill": "交互设计",
+                "change": "参与真实项目，作品被认可",
+                "evidence": "利用美术基础，在网页设计课程中做出漂亮的个人作品集网站，参与校园App UI设计。"
+              }
+            }
+          ]
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                37,
+                64
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 239,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_0d19d8e5",
+              "directionType": "selftruth",
+              "summary": "A. 选择计算机科学，接受从零补数学和编程基础\nB. 主修金融，同时辅修计算机并持续做个人项目\nC. 继续读金融，把兴趣保留为课外爱好",
+              "status": "active",
+              "startedAtAgeInMonths": 216,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "94b0102b"
+          ],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_216",
+              "employmentStatus": "student",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 216,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_216",
+          "currentEmploymentStatus": "student",
+          "careerRevision": 0
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 21,
+        "ageInMonths": 259,
+        "lifeStage": "emerging_adulthood",
+        "title": "团队项目的烂摊子",
+        "stage": "大二暑假：实习与责任边缘",
+        "description": "大二结束，你凭借交互社团的项目经验和自学的前端技能，在暑假找到一家初创公司的远程UI/UX实习，月薪2000元。但实习第三周，一个校园合作项目的学长突然联系你：他们开发的App因核心成员退出，急需你接手完成界面改版和用户测试，否则整个项目可能无法在秋季学期展示。这个项目曾是你大一的起点，学长们帮过你很多，但接手意味着要在实习之余每周多花15-20小时，且没有任何报酬。你的父母知道后，在电话里语气很重：“你暑假不回家，就为了白干别人的活？实习工资够吃饭吗？我们供你读书不是让你当免费劳力。” 你知道学长们确实遇到了困难，但自己刚在实习中站稳脚跟，健康已经因为长期熬夜亮过黄灯（你最近频繁头痛），而且这个项目没有学分、没有工资，只有一句“做得好能写在简历上”。你需要决定：是承担这份额外的责任，还是明确划清界限，或者建议引入第三方协调？",
+        "selectedChoice": "A. 接受有限责任：承诺协助完成最关键的界面改版，但明确告知学长你只能投入每周10小时，且不参与用户测试和后续维护",
+        "selectedDecisionIntent": "project:accept_limited_work:school_app_redesign",
+        "attributes": {
+          "happiness": 50,
+          "intelligence": 66,
+          "wealth": 48,
+          "relation": 48,
+          "health": 64
+        },
+        "financialLedger": {
+          "id": "financial_opening_216",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 259,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 0.36,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [
+            {
+              "id": "auto_shortfall_94b0102b_228_0",
+              "type": "liquidity_shortfall",
+              "displayName": "自动流动性缺口",
+              "principalWan": 0.7,
+              "openedAtAgeInMonths": 228,
+              "status": "active",
+              "repaymentPolicy": {
+                "mode": "estimated_amortizing",
+                "monthlyPrincipalWan": 0.0029,
+                "remainingTermMonths": 240
+              },
+              "factStatus": "needs_review",
+              "evidence": [
+                {
+                  "source": "system_policy",
+                  "reasonCode": "AUTOMATIC_LIQUIDITY_SHORTFALL",
+                  "confidence": 1
+                }
+              ]
+            },
+            {
+              "id": "auto_shortfall_94b0102b_239_1",
+              "type": "liquidity_shortfall",
+              "displayName": "自动流动性缺口",
+              "principalWan": 0.22,
+              "openedAtAgeInMonths": 239,
+              "status": "active",
+              "repaymentPolicy": {
+                "mode": "event_driven"
+              },
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "system_policy",
+                  "reasonCode": "AUTOMATIC_LIQUIDITY_SHORTFALL",
+                  "confidence": 1
+                }
+              ]
+            },
+            {
+              "id": "auto_shortfall_13aa2f78_257_0",
+              "type": "liquidity_shortfall",
+              "displayName": "自动流动性缺口",
+              "principalWan": 0.36,
+              "openedAtAgeInMonths": 257,
+              "status": "active",
+              "repaymentPolicy": {
+                "mode": "event_driven"
+              },
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "system_policy",
+                  "reasonCode": "AUTOMATIC_LIQUIDITY_SHORTFALL",
+                  "confidence": 1
+                }
+              ]
+            }
+          ],
+          "incomeSources": [
+            {
+              "id": "income_tutoring_design",
+              "type": "freelance",
+              "displayName": "家教与设计兼职",
+              "monthlyNetAmountWan": 0.08,
+              "accrualPolicy": "monthly",
+              "activeFromAgeInMonths": 228,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [],
+              "accrualReviewStatus": "normal",
+              "lastConfirmedAtAgeInMonths": 228
+            },
+            {
+              "id": "income_internship_uiux",
+              "type": "salary",
+              "displayName": "初创公司UI/UX实习月薪",
+              "monthlyNetAmountWan": 0.2,
+              "accrualPolicy": "monthly",
+              "activeFromAgeInMonths": 257,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [],
+              "linkedCareerStateId": "career_opening_216",
+              "accrualReviewStatus": "normal",
+              "lastConfirmedAtAgeInMonths": 257
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 0.1,
+              "activeFromAgeInMonths": 216,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [
+            {
+              "id": "financial_94b0102b",
+              "simulationTransactionId": "94b0102b",
+              "eventIds": [
+                "accepted_income_tutoring_design",
+                "auto_shortfall_94b0102b_228_0",
+                "auto_shortfall_94b0102b_239_1"
+              ],
+              "periodStartAgeInMonths": 216,
+              "periodEndAgeInMonths": 239,
+              "cashDeltaWan": -0.5,
+              "assetDeltaWan": 0,
+              "debtDeltaWan": 0.92,
+              "incomeWan": 0.88,
+              "expenseWan": 2.3,
+              "valuationChangeWan": 0,
+              "nonCashGainLossWan": 0,
+              "netWorthDeltaWan": -1.42,
+              "evidence": [
+                {
+                  "source": "accepted_simulation_outcome",
+                  "sourceEventId": "choice_fallback_8493eef4",
+                  "excerpt": "你靠做家教和设计兼职每月赚800元。",
+                  "reasonCode": "EVIDENCE_NORMALIZED_MATCHED",
+                  "confidence": 0.85
+                }
+              ]
+            },
+            {
+              "id": "financial_13aa2f78",
+              "simulationTransactionId": "13aa2f78",
+              "eventIds": [
+                "accepted_income_internship_july",
+                "auto_shortfall_13aa2f78_257_0"
+              ],
+              "periodStartAgeInMonths": 239,
+              "periodEndAgeInMonths": 259,
+              "cashDeltaWan": 0.36,
+              "assetDeltaWan": 0,
+              "debtDeltaWan": 0.36,
+              "incomeWan": 2,
+              "expenseWan": 2,
+              "valuationChangeWan": 0,
+              "nonCashGainLossWan": 0,
+              "netWorthDeltaWan": 0,
+              "evidence": [
+                {
+                  "source": "accepted_simulation_outcome",
+                  "sourceEventId": "protect_meaningful_daily_element",
+                  "excerpt": "你找到一家初创公司的远程UI/UX实习，月薪2000元。",
+                  "reasonCode": "EVIDENCE_FUZZY_MATCHED",
+                  "confidence": 0.9
+                }
+              ]
+            }
+          ],
+          "committedTransactionIds": [
+            "94b0102b",
+            "13aa2f78"
+          ],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_216",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 216
+            },
+            {
+              "id": "unknown_debt_schedule_auto_shortfall_94b0102b_228_0",
+              "code": "UNKNOWN_DEBT_SCHEDULE",
+              "severity": "warning",
+              "status": "open",
+              "relatedDebtAccountIds": [
+                "auto_shortfall_94b0102b_228_0"
+              ],
+              "relatedProposalIds": [],
+              "summary": "债务 自动流动性缺口 已长期缺少明确还款计划",
+              "createdAtAgeInMonths": 259
+            }
+          ],
+          "revision": 2,
+          "version": 2
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 259,
+          "cashWan": 0.36,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 1.28,
+          "netWorthWan": -0.92,
+          "annualAfterTaxIncomeWan": 3.36,
+          "annualDisposableIncomeWan": 2.16,
+          "annualCoreExpenseWan": 1.2,
+          "employmentStatus": "student",
+          "incomeStability": "very_stable",
+          "isEstimated": true
+        },
+        "financialPeriodSummary": {
+          "periodStartAgeInMonths": 239,
+          "periodEndAgeInMonths": 259,
+          "incomeWan": 2,
+          "coreExpenseWan": 2,
+          "otherExpenseWan": 0,
+          "debtPrincipalPaidWan": 0,
+          "debtInterestPaidWan": 0,
+          "assetPurchaseWan": 0,
+          "assetSaleProceedsWan": 0,
+          "valuationChangeWan": 0,
+          "netCashFlowWan": 0.36,
+          "netWorthChangeWan": 0,
+          "transactionIds": [
+            "financial_13aa2f78"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "A. 接受有限责任：承诺协助完成最关键的界面改版，但明确告知学长你只能投入每周10小时，且不参与用户测试和后续维护",
+            "impactSummary": "还人情但保底线",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "还人情但保底线"
+            },
+            "decisionIntent": "project:accept_limited_work:school_app_redesign",
+            "eventOutcomeId": "accept_limited_responsibility",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "B",
+            "text": "B. 明确边界：婉拒学长，解释自己已签实习合同且健康需调整，建议他们联系社团指导老师分配学弟学妹支援",
+            "impactSummary": "保实习和健康",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "保实习和健康"
+            },
+            "decisionIntent": "project:decline_unpaid:school_app_redesign",
+            "eventOutcomeId": "draw_explicit_responsibility_boundary",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "C",
+            "text": "C. 寻求规则调解：与学长、社团指导老师和实习主管三方沟通，看能否将校园项目纳入实习任务的一部分，或申请暑期项目学分",
+            "impactSummary": "找规则化解矛盾",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "找规则化解矛盾"
+            },
+            "decisionIntent": "project:seek_mediation:school_app_workload",
+            "eventOutcomeId": "seek_rule_based_mediation",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_responsibility_shift",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "responsibility_shift",
+            "interest_conflict",
+            "reputation_risk"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "pressure_crisis",
+          "eventSemanticFamily": "career_scope_change",
+          "phasePolicyId": "generic_pressure_v1"
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 20,
+          "elapsedYears": 1.6666666666666667,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_76e51c86",
+            "startAgeInMonths": 239,
+            "endAgeInMonths": 259,
+            "internalTransitions": [
+              "大二下学期你算法课拿了82分，数据结构更加扎实。",
+              "你自学了Figma和基本动效设计，作品集里增加了3个概念项目。",
+              "父母希望你暑假回家，但得知你有实习后不再坚持。"
+            ],
+            "decisionCheckpointId": "checkpoint_0ee95d5e",
+            "summary": "大二结束，你凭借交互社团的项目经验和自学的前端技能，在暑假找到一家初创公司的远程UI/UX实习，月薪2000元。但实习第三周，一个校园合作项目的学长突然联系你："
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [
+            {
+              "arcId": "selftruth",
+              "signal": "你在兴趣与世俗之间继续探索，实习和校园项目都涉及交互设计，方向逐渐清晰。",
+              "evidence": "实习工作是UI/UX，校园项目也是界面改版，两者都指向用户你喜欢的交互设计。"
+            }
+          ],
+          "activeCharacters": [
+            {
+              "name": "学长（校园App项目负责人）",
+              "relation": "社团前辈",
+              "lastSeenAgeInMonths": 239,
+              "status": "active"
+            },
+            {
+              "name": "父母",
+              "relation": "家人",
+              "lastSeenAgeInMonths": 239,
+              "status": "active"
+            }
+          ],
+          "primaryActivity": "远程UI/UX实习兼校园项目协助",
+          "worldDeltas": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "family_parent",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                38.666666666666664,
+                65.66666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 259,
+              "lifeStatus": "unknown",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "父母",
+              "source": "model_inferred",
+              "confidence": 0.55
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_0d19d8e5",
+              "directionType": "selftruth",
+              "summary": "A. 选择计算机科学，接受从零补数学和编程基础\nB. 主修金融，同时辅修计算机并持续做个人项目\nC. 继续读金融，把兴趣保留为课外爱好",
+              "status": "active",
+              "startedAtAgeInMonths": 216,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "94b0102b",
+            "13aa2f78"
+          ],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_216",
+              "employmentStatus": "student",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 216,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_216",
+          "currentEmploymentStatus": "student",
+          "careerRevision": 0
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      }
+    ],
+    "currentNode": {
+      "age": 23,
+      "ageInMonths": 277,
+      "stage": "大三下学期：毕业设计与实习抉择",
+      "title": "界面改版后的余波：责任与边界的代价",
+      "description": "你花了两周完成校园App的界面改版，学长们很感激，但秋季展示时用户测试环节因人手不足漏洞百出，指导老师私下批评了团队。你心里不是滋味，但实习那边的UI/UX主管对你交付的设计稿很满意，给了你转正口头承诺——前提是毕业前能完成一个完整作品集。大三上学期你选修了人机交互和前端框架课，绩点提到3.4，但数据结构进阶课只有75分，让你意识到算法仍是短板。父母在电话里听说你实习有转正机会，态度缓和了些，但总念叨“公务员考试快报名了”。你靠实习工资和兼职每月收入约3000元，还清部分债务后现金流依然紧张。室友们有的在刷考研题，有的海投金融实习，你却在深夜改作品集时问自己：这条路真的走得通吗？",
+      "choices": [
+        {
+          "id": "A",
+          "text": "全力冲刺作品集，争取毕业直接转正为UI/UX设计师，放弃考研和考公。",
+          "impactSummary": "押注设计路线",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "押注设计路线"
+          },
+          "decisionIntent": "career:focus_on_ux_portfolio_and_internship",
+          "eventOutcomeId": "run_transition_pilot",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "利用课余时间系统补算法和数据结构，准备计算机专业考研，把设计作为备选。",
+          "impactSummary": "补基础冲考研",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "补基础冲考研"
+          },
+          "decisionIntent": "education:prepare_cs_graduate_exam",
+          "eventOutcomeId": "keep_current_path_with_review_date",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "维持现状：继续实习积累经验，同时报名考公作为保底，看毕业时哪个机会更稳。",
+          "impactSummary": "多线并行求稳",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "多线并行求稳"
+          },
+          "decisionIntent": "career:multi_track_insurance",
+          "eventOutcomeId": "keep_current_path_with_review_date",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "attributes": {
+        "happiness": 48,
+        "intelligence": 68,
+        "wealth": 57,
+        "relation": 46,
+        "health": 62
+      },
+      "financialEventProposals": [
+        {
+          "id": "income_adjust_internship_277",
+          "kind": "income_source_adjusted",
+          "effectiveAtAgeInMonths": 277,
+          "payload": {
+            "incomeSourceId": "income_internship_uiux",
+            "nextSource": {
+              "id": "income_internship_uiux",
+              "type": "salary",
+              "displayName": "远程UI/UX实习薪资调整",
+              "monthlyNetAmountWan": 0.3,
+              "accrualPolicy": "monthly",
+              "activeFromAgeInMonths": 277,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": []
+            }
+          },
+          "sourceOutcomeId": "accept_limited_responsibility",
+          "evidence": "你靠实习工资和兼职每月收入约3000元",
+          "confidence": 0.85
+        }
+      ],
+      "isEndingNode": false,
+      "narrativeMeta": {
+        "elapsedMonths": 18,
+        "elapsedYears": 1.5,
+        "lifeIntensity": "normal",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_d3bec58d",
+          "startAgeInMonths": 259,
+          "endAgeInMonths": 277,
+          "internalTransitions": [
+            "大三上学期选修人机交互和前端框架课，绩点3.4",
+            "数据结构进阶课75分，意识到算法是短板",
+            "完成校园App界面改版，但用户测试环节出现问题",
+            "实习主管对设计稿满意，承诺转正机会"
+          ],
+          "decisionCheckpointId": "checkpoint_2c2a9494",
+          "summary": "你花了两周完成校园App的界面改版，学长们很感激，但秋季展示时用户测试环节因人手不足漏洞百出，指导老师私下批评了团队。你心里不是滋味，但实习那边的UI/UX主管"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [],
+        "activeCharacters": [
+          "实习主管",
+          "学长们",
+          "父母"
+        ],
+        "primaryActivity": "UI/UX实习+大学课程",
+        "worldDeltas": []
+      },
+      "lifeStage": "emerging_adulthood",
+      "eventMeta": {
+        "eventId": "career_gradual_transition_window",
+        "eventCategory": "career",
+        "eventTags": [
+          "career",
+          "transition",
+          "pilot",
+          "opportunity"
+        ],
+        "eventIntensity": "minor",
+        "eventMode": "crossroads_opportunity",
+        "eventSemanticFamily": "career_transition",
+        "phasePolicyId": "generic_pressure_v1"
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 277,
+        "cashWan": 3.5478,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 1.2278,
+        "netWorthWan": 2.32,
+        "annualAfterTaxIncomeWan": 4.56,
+        "annualDisposableIncomeWan": 3.36,
+        "annualCoreExpenseWan": 1.2,
+        "employmentStatus": "student",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "financialLedger": {
+        "id": "financial_opening_216",
+        "owner": "protagonist",
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 277,
+        "cashAccounts": [
+          {
+            "id": "primary_cash",
+            "type": "bank_deposit",
+            "balanceWan": 3.5478,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ]
+          }
+        ],
+        "assetAccounts": [],
+        "debtAccounts": [
+          {
+            "id": "auto_shortfall_94b0102b_228_0",
+            "type": "liquidity_shortfall",
+            "displayName": "自动流动性缺口",
+            "principalWan": 0.6478,
+            "openedAtAgeInMonths": 228,
+            "status": "active",
+            "repaymentPolicy": {
+              "mode": "estimated_amortizing",
+              "monthlyPrincipalWan": 0.0029,
+              "remainingTermMonths": 222
+            },
+            "factStatus": "needs_review",
+            "evidence": [
+              {
+                "source": "system_policy",
+                "reasonCode": "AUTOMATIC_LIQUIDITY_SHORTFALL",
+                "confidence": 1
+              }
+            ]
+          },
+          {
+            "id": "auto_shortfall_94b0102b_239_1",
+            "type": "liquidity_shortfall",
+            "displayName": "自动流动性缺口",
+            "principalWan": 0.22,
+            "openedAtAgeInMonths": 239,
+            "status": "active",
+            "repaymentPolicy": {
+              "mode": "estimated_amortizing",
+              "monthlyPrincipalWan": 0.0009,
+              "remainingTermMonths": 240
+            },
+            "factStatus": "needs_review",
+            "evidence": [
+              {
+                "source": "system_policy",
+                "reasonCode": "AUTOMATIC_LIQUIDITY_SHORTFALL",
+                "confidence": 1
+              }
+            ]
+          },
+          {
+            "id": "auto_shortfall_13aa2f78_257_0",
+            "type": "liquidity_shortfall",
+            "displayName": "自动流动性缺口",
+            "principalWan": 0.36,
+            "openedAtAgeInMonths": 257,
+            "status": "active",
+            "repaymentPolicy": {
+              "mode": "event_driven"
+            },
+            "factStatus": "known",
+            "evidence": [
+              {
+                "source": "system_policy",
+                "reasonCode": "AUTOMATIC_LIQUIDITY_SHORTFALL",
+                "confidence": 1
+              }
+            ]
+          }
+        ],
+        "incomeSources": [
+          {
+            "id": "income_tutoring_design",
+            "type": "freelance",
+            "displayName": "家教与设计兼职",
+            "monthlyNetAmountWan": 0.08,
+            "accrualPolicy": "monthly",
+            "activeFromAgeInMonths": 228,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [],
+            "accrualReviewStatus": "normal",
+            "lastConfirmedAtAgeInMonths": 228
+          },
+          {
+            "id": "income_internship_uiux",
+            "type": "salary",
+            "displayName": "远程UI/UX实习薪资调整",
+            "monthlyNetAmountWan": 0.3,
+            "accrualPolicy": "monthly",
+            "activeFromAgeInMonths": 277,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [],
+            "linkedCareerStateId": "career_opening_216",
+            "accrualReviewStatus": "normal",
+            "lastConfirmedAtAgeInMonths": 277
+          }
+        ],
+        "expenseCommitments": [
+          {
+            "id": "legacy_core_expense",
+            "type": "basic_living",
+            "displayName": "旧版核心支出聚合",
+            "monthlyAmountWan": 0.1,
+            "activeFromAgeInMonths": 216,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ]
+          }
+        ],
+        "businessHoldings": [],
+        "recentTransactions": [
+          {
+            "id": "financial_94b0102b",
+            "simulationTransactionId": "94b0102b",
+            "eventIds": [
+              "accepted_income_tutoring_design",
+              "auto_shortfall_94b0102b_228_0",
+              "auto_shortfall_94b0102b_239_1"
+            ],
+            "periodStartAgeInMonths": 216,
+            "periodEndAgeInMonths": 239,
+            "cashDeltaWan": -0.5,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": 0.92,
+            "incomeWan": 0.88,
+            "expenseWan": 2.3,
+            "valuationChangeWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": -1.42,
+            "evidence": [
+              {
+                "source": "accepted_simulation_outcome",
+                "sourceEventId": "choice_fallback_8493eef4",
+                "excerpt": "你靠做家教和设计兼职每月赚800元。",
+                "reasonCode": "EVIDENCE_NORMALIZED_MATCHED",
+                "confidence": 0.85
+              }
+            ]
+          },
+          {
+            "id": "financial_13aa2f78",
+            "simulationTransactionId": "13aa2f78",
+            "eventIds": [
+              "accepted_income_internship_july",
+              "auto_shortfall_13aa2f78_257_0"
+            ],
+            "periodStartAgeInMonths": 239,
+            "periodEndAgeInMonths": 259,
+            "cashDeltaWan": 0.36,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": 0.36,
+            "incomeWan": 2,
+            "expenseWan": 2,
+            "valuationChangeWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": 0,
+            "evidence": [
+              {
+                "source": "accepted_simulation_outcome",
+                "sourceEventId": "protect_meaningful_daily_element",
+                "excerpt": "你找到一家初创公司的远程UI/UX实习，月薪2000元。",
+                "reasonCode": "EVIDENCE_FUZZY_MATCHED",
+                "confidence": 0.9
+              }
+            ]
+          },
+          {
+            "id": "financial_f7e89df9",
+            "simulationTransactionId": "f7e89df9",
+            "eventIds": [
+              "accepted_income_adjust_internship_277"
+            ],
+            "periodStartAgeInMonths": 259,
+            "periodEndAgeInMonths": 277,
+            "cashDeltaWan": 3.1878,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": -0.0522,
+            "incomeWan": 5.04,
+            "expenseWan": 1.8,
+            "valuationChangeWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": 3.24,
+            "evidence": [
+              {
+                "source": "accepted_simulation_outcome",
+                "sourceEventId": "accept_limited_responsibility",
+                "excerpt": "你靠实习工资和兼职每月收入约3000元",
+                "reasonCode": "EVIDENCE_EXACT_MATCHED",
+                "confidence": 0.85
+              }
+            ]
+          }
+        ],
+        "committedTransactionIds": [
+          "94b0102b",
+          "13aa2f78",
+          "f7e89df9"
+        ],
+        "unresolvedIssues": [
+          {
+            "id": "legacy_uncertainty_216",
+            "code": "LEGACY_UNCERTAINTY",
+            "severity": "warning",
+            "relatedProposalIds": [],
+            "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+            "createdAtAgeInMonths": 216
+          },
+          {
+            "id": "unknown_debt_schedule_auto_shortfall_94b0102b_228_0",
+            "code": "UNKNOWN_DEBT_SCHEDULE",
+            "severity": "warning",
+            "status": "open",
+            "relatedDebtAccountIds": [
+              "auto_shortfall_94b0102b_228_0"
+            ],
+            "relatedProposalIds": [],
+            "summary": "债务 自动流动性缺口 已长期缺少明确还款计划",
+            "createdAtAgeInMonths": 259
+          },
+          {
+            "id": "unknown_debt_schedule_auto_shortfall_94b0102b_239_1",
+            "code": "UNKNOWN_DEBT_SCHEDULE",
+            "severity": "warning",
+            "status": "open",
+            "relatedDebtAccountIds": [
+              "auto_shortfall_94b0102b_239_1"
+            ],
+            "relatedProposalIds": [],
+            "summary": "债务 自动流动性缺口 已长期缺少明确还款计划",
+            "createdAtAgeInMonths": 277
+          }
+        ],
+        "revision": 3,
+        "version": 2
+      },
+      "financialLedgerMode": "authoritative",
+      "financialPeriodSummary": {
+        "periodStartAgeInMonths": 259,
+        "periodEndAgeInMonths": 277,
+        "incomeWan": 5.04,
+        "coreExpenseWan": 1.8,
+        "otherExpenseWan": 0,
+        "debtPrincipalPaidWan": 0.0522,
+        "debtInterestPaidWan": 0,
+        "assetPurchaseWan": 0,
+        "assetSaleProceedsWan": 0,
+        "valuationChangeWan": 0,
+        "netCashFlowWan": 3.1878,
+        "netWorthChangeWan": 3.24,
+        "transactionIds": [
+          "financial_f7e89df9"
+        ]
+      },
+      "financialProcessingMeta": {
+        "proposalCount": 1,
+        "acceptedEventCount": 1,
+        "blockingIssueCount": 0,
+        "repairTriggered": false,
+        "repairLatencyMs": 0,
+        "totalProcessingLatencyMs": 1
+      },
+      "committedArcMeta": {
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "family_parent",
+            "relation": "parent",
+            "estimatedAgeRange": [
+              40.166666666666664,
+              67.16666666666667
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 277,
+            "lifeStatus": "unknown",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "父母",
+            "source": "model_inferred",
+            "confidence": 0.55
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_0d19d8e5",
+            "directionType": "selftruth",
+            "summary": "A. 选择计算机科学，接受从零补数学和编程基础\nB. 主修金融，同时辅修计算机并持续做个人项目\nC. 继续读金融，把兴趣保留为课外爱好",
+            "status": "active",
+            "startedAtAgeInMonths": 216,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [],
+        "committedTransactionIds": [
+          "94b0102b",
+          "13aa2f78",
+          "f7e89df9"
+        ],
+        "version": 2,
+        "careerStates": [
+          {
+            "id": "career_opening_216",
+            "employmentStatus": "student",
+            "activeProjectIds": [],
+            "effectiveFromAgeInMonths": 216,
+            "source": "accepted_history",
+            "confidence": 0.6
+          }
+        ],
+        "currentCareerStateId": "career_opening_216",
+        "currentEmploymentStatus": "student",
+        "careerRevision": 0
+      }
+    },
+    "currentAttributes": {
+      "happiness": 48,
+      "intelligence": 68,
+      "wealth": 57,
+      "relation": 46,
+      "health": 62
+    },
+    "nodeCount": 4,
+    "simulationSeed": "7eb6f752-063d-4895-8b9f-820b2ce4a27d",
+    "outcome": null,
+    "isLoading": false,
+    "isLoadingNext": false,
+    "errorMsg": null,
+    "invitations": []
+  },
+  "completedAt": "2026-07-18T10:23:30.579Z",
+  "focusedAssessment": {
+    "scopePassed": true,
+    "adultExpenseProtected": true,
+    "negativeCashFailures": 0,
+    "employmentReached": false,
+    "note": "有效生活支出存在，现金下限闭环生效；短路线尚未进入正式就业。"
+  },
+  "imagePath": "/Users/zz/Documents/new life/test---main/artifacts/financial-m7-focused-browser/2026-07-18T-m7-focused-1784369609683/images/m7-student-to-job/focused-final.jpg"
+}

@@ -1,0 +1,102 @@
+{
+  "runId": "2026-07-18T03-02-01+08-00-five-ending-routes",
+  "startedAt": "2026-07-17T19:02:01Z",
+  "runStartedAt": "2026-07-17T19:02:01Z",
+  "completedAt": "2026-07-17T20:31:55Z",
+  "freshRun": true,
+  "dataSource": "real_ai_browser",
+  "pageUrl": "http://localhost:5173/?recordTestRun=2026-07-18T03-02-01%2B08-00-five-ending-routes",
+  "repository": "/Users/zz/Documents/new life/test---main",
+  "branch": "codex/financial-ledger-v2",
+  "commitUnderTest": "abe85b18d07e02754844e99a31df3ae5665b6f3b",
+  "requestedRouteMatrix": {
+    "accept_first": 2,
+    "accept_second": 2,
+    "natural_lifespan": 1
+  },
+  "completedArtifacts": [
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "actualClosure": "user_reflection",
+      "nodeCount": 16,
+      "routeContractPassed": true
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "actualClosure": "user_reflection",
+      "nodeCount": 16,
+      "routeContractPassed": true
+    },
+    {
+      "caseSlug": "real-balance-second",
+      "scenario": "accept_second",
+      "actualClosure": "mortality",
+      "nodeCount": 38,
+      "routeContractPassed": false,
+      "failure": "The first invitation was declined, but no second distinct invitation appeared before mortality."
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "actualClosure": "mortality",
+      "nodeCount": 32,
+      "routeContractPassed": true
+    },
+    {
+      "caseSlug": "real-wealth-lifespan",
+      "scenario": "natural_lifespan",
+      "actualClosure": "mortality",
+      "nodeCount": 27,
+      "routeContractPassed": true
+    }
+  ],
+  "cases": [
+    "real-career-first",
+    "real-relationship-first",
+    "real-balance-second",
+    "real-custom-lifespan",
+    "real-wealth-lifespan"
+  ],
+  "replacementAttempts": [
+    {
+      "caseSlug": "real-education-second",
+      "result": "mortality_before_second_invitation",
+      "checkpoint": "working/real-education-second.json"
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "result": "mortality_before_second_invitation",
+      "checkpoint": "working/real-venture-second.json"
+    }
+  ],
+  "aggregate": {
+    "caseCount": 5,
+    "routeContractsPassed": 4,
+    "totalNodes": 129,
+    "totalInvitations": 5,
+    "recordedRecoverableAiErrors": 4
+  },
+  "financeAudit": {
+    "invariantFailures": 0,
+    "staleFinanceNodes": 120,
+    "salaryMismatchNodes": 31,
+    "missingHoldingNodes": 32,
+    "missingPropertyNodes": 1,
+    "uniqueUnresolvedIssues": 104,
+    "blockingIssues": 97
+  },
+  "imageVerification": {
+    "visuallyInspectedCaseCount": 5,
+    "posterFiles": 5,
+    "reportPageFiles": 5,
+    "note": "The collector's element clip produced black images. The failed clips are preserved as poster-clip-failed.jpg; poster.jpg was replaced with the visually verified full report-page screenshot, which contains the complete poster."
+  },
+  "outputs": {
+    "aggregate": "aggregate.json",
+    "financeAudit": "finance-audit.json",
+    "fullTestData": "full-test-data.md",
+    "evaluationReport": "evaluation-report.md"
+  }
+}

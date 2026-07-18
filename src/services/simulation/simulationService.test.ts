@@ -134,6 +134,38 @@ assert.equal(started.startNode.financialLedgerMode, "authoritative");
 assert.equal(started.startNode.financialLedger?.asOfAgeInMonths, 22 * 12);
 assert.equal(started.startNode.financialLedger?.incomeSources[0]?.linkedCareerStateId, started.startNode.worldStateSnapshot?.currentCareerStateId);
 
+const mortgageStarted = await startSimulation({
+  ...userData,
+  regressionAge: 24,
+  regressionSituation: "刚背上房贷，正在考虑创业"
+}, [{ id: 1, question: "当时财务情况？", answer: "我年薪税后约38万元，房贷余额210万元，每月还款1.3万元，家庭备用金约35万元。" }], {
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      initialAttributes: { happiness: 50, intelligence: 70, wealth: 45, relation: 55, health: 68 },
+      initialFinancialState: {
+        cashWan: 35, investmentAssetsWan: 5, propertyMarketValueWan: 0, businessAndOtherAssetsWan: 0,
+        totalDebtWan: 0, annualAfterTaxIncomeWan: 38, annualDisposableIncomeWan: 20, annualCoreExpenseWan: 18,
+        employmentStatus: "employed", incomeStability: "stable", isEstimated: false
+      },
+      startNode: {
+        age: 24, stage: "创业选择", title: "房贷与创业",
+        description: "她刚背上房贷，在稳定工作和创业验证之间衡量现金流风险。",
+        choices: [
+          { id: "A", text: "留职验证", impactSummary: "保守验证" },
+          { id: "B", text: "辞职创业", impactSummary: "全力投入" },
+          { id: "C", text: "内部创业", impactSummary: "借力试水" }
+        ],
+        attributes: { happiness: 50, intelligence: 70, wealth: 45, relation: 55, health: 68 },
+        isEndingNode: false
+      }
+    })
+  })
+});
+assert.equal(mortgageStarted.startNode.financialState?.totalDebtWan, 210);
+assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.id, "opening_mortgage");
+assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
+assert.equal(mortgageStarted.startNode.financialLedger?.assetAccounts.some((account) => account.type === "property"), true);
+
 const attributes: LifeAttributes = { happiness: 50, intelligence: 70, wealth: 42, relation: 55, health: 64 };
 const history: HistoryItem[] = [
   {
@@ -377,7 +409,7 @@ for (const testCase of studentFallbackCases) {
   });
 
   assert.equal(studentNode.financialChange, undefined);
-  assert.ok((studentNode.financialState?.netWorthWan || 0) < studentFinancialState.netWorthWan);
+  assert.equal(studentNode.financialState?.netWorthWan, studentFinancialState.netWorthWan);
   assert.ok((studentNode.financialState?.cashWan || 0) >= 0);
   assert.ok((studentNode.financialState?.totalDebtWan || 0) >= 0);
   assert.equal(studentNode.financialSignals, undefined);
