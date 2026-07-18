@@ -141,12 +141,24 @@ test("normalizes a fixed option schedule and expiry into authoritative option te
       optionTerms: { grantedUnits: 30000, vestedUnits: 0, exercisedUnits: 0, strikePriceWanPerUnit: 0.001 },
       vestingSchedule: "4年归属，每年25%", expirationDateInMonths: 408,
       personalCarryingValueWan: 0, status: "active", factStatus: "estimated", evidence: []
-    } }, evidence: "公司授予3万份期权，四年归属，每年25%。", confidence: 0.8
+    } }, evidence: "公司授予3万份期权，四年归属，每年25%，34岁到期。", confidence: 0.8
   }] });
   const terms = (result.proposals[0].payload as any).optionHolding.optionTerms;
   assert.deepEqual(terms.vestingPolicy, { totalMonths: 48, frequencyMonths: 12 });
   assert.equal(terms.expiresAtAgeInMonths, 408);
   assert.equal(result.audit.some((item) => item.reasonCode === "OPTION_TERMS_NORMALIZED"), true);
+});
+
+test("does not turn a vesting period into an unsupported option expiry", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
+    id: "grant_without_expiry", kind: "business_option_granted", effectiveAtAgeInMonths: 297,
+    payload: { optionHolding: {
+      id: "startup_option", instrumentType: "stock_option", business: { id: "startup" },
+      optionTerms: { grantedUnits: 8000, vestedUnits: 0, exercisedUnits: 0, strikePriceWanPerUnit: 0.001, expiresAtAgeInMonths: 336 },
+      vestingSchedule: "4年归属，每年25%", personalCarryingValueWan: 0, status: "active", factStatus: "estimated", evidence: []
+    } }, evidence: "公司承诺期权分四年归属。", confidence: 0.9
+  }] });
+  assert.equal((result.proposals[0].payload as any).optionHolding.optionTerms.expiresAtAgeInMonths, undefined);
 });
 
 test("unwraps a nested partial equity holding without inventing a valuation", () => {

@@ -562,6 +562,8 @@ export interface BusinessHolding {
 - 已归属期权只有在期权数量、行权成本和可靠公允价值可确定时才计入个人财富：`vestedIntrinsicValueWan = vestedUnits × max(fairValue - strikePrice, 0)`；`personalCarryingValueWan` 再应用非流动性与实现风险折扣。
 - 正文中的期权数量、期权池比例、公司融资额和公司总估值都不能直接成为个人期权价值。估值未知时保留 holding 并标 `needs_review`，不能把“存在期权”降格成“没有企业权益”。
 - 期权行权必须在同一事务扣减现金行权成本、减少期权权益并增加普通股权益；到达 `expiresAtAgeInMonths` 时账本必须自动到期并核销剩余账面价值，离职失效或放弃行权则由 Accepted Event 核销。
+- `vestingPolicy.totalMonths` 只表示归属周期，绝不是到期周期。`expiresAtAgeInMonths` 必须有正文中明确的到期、有效期或失效证据；没有逐字段证据时 Validator/Normalizer 必须删除该到期字段，防止期权在归属完成日被错误核销。
+- `legacy_migration` 产生的 estimated 基础生活支出属于政策管理的过渡估计。年龄或就业身份跨越政策档位时必须由 `FinancialEstimationPolicy` 接管并重估，不能因为来源标签不是 `system_policy` 而永久停在学生档。
 
 ### 7.9 账本问题
 

@@ -210,7 +210,12 @@ export function normalizeFinancialProposals(input: {
         : undefined;
       if (terms) {
         let normalized = false;
-        if (terms.expiresAtAgeInMonths === undefined && Number.isFinite(option.expirationDateInMonths)) {
+        const evidenceSupportsExpiry = /到期|有效期|失效|过期|expir/iu.test(String(source.evidence || ""));
+        if (terms.expiresAtAgeInMonths !== undefined && !evidenceSupportsExpiry) {
+          delete terms.expiresAtAgeInMonths;
+          normalized = true;
+        }
+        if (terms.expiresAtAgeInMonths === undefined && Number.isFinite(option.expirationDateInMonths) && evidenceSupportsExpiry) {
           terms.expiresAtAgeInMonths = Number(option.expirationDateInMonths);
           normalized = true;
         }

@@ -164,7 +164,7 @@ export function detectNarrativeFinancialCoverageIssues(input: {
   }
   const hasHolding = input.ledger.businessHoldings.some((item) => item.status === "active" || item.status === "partially_sold");
   const hasProtagonistOptionFact = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u.test(input.narrativeText);
-  const hasProtagonistEquityFact = /(?:你(?:持有|拥有|获得)[^。；]{0,20}(?:股权|股份|持股)|(?:股权|持股)结构[^。；]{0,32}你占\s*\d|你(?:成为|是|作为)[^。；]{0,12}(?:联合创始人|合伙人)|你的创始人股权)/u.test(input.narrativeText);
+  const hasProtagonistEquityFact = /(?:你(?:持有|拥有|获得|接受)[^。；]{0,20}(?:股权|股份|持股|干股)|(?:股权|持股)结构[^。；]{0,32}你占\s*\d|你(?:成为|是|作为)[^。；]{0,12}(?:联合创始人|合伙人)|你的(?:创始人股权|干股))/u.test(input.narrativeText);
   if ((hasProtagonistOptionFact || hasProtagonistEquityFact)
     && !hasHolding
     && !hasKind("business_holding_started", "business_option_granted")) {

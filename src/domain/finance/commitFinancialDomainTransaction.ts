@@ -99,6 +99,13 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   employmentStatus: EmploymentStatus;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
+  const isPolicyManagedBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
+    commitment.type === "basic_living"
+    && commitment.status === "active"
+    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
+    && commitment.evidence.some((item) => item.source === "system_policy"
+      || (item.source === "legacy_migration" && item.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION"))
+  );
   const hasActiveBasicLiving = input.ledger.expenseCommitments.some((commitment) => (
     commitment.status === "active" && commitment.type === "basic_living"
   ));
@@ -106,12 +113,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     event.kind === "expense_commitment_started"
     && (event.payload as { type?: string }).type === "basic_living"
   ));
-  const activeSystemEstimate = input.ledger.expenseCommitments.find((commitment) => (
-    commitment.type === "basic_living"
-    && commitment.status === "active"
-    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
-    && commitment.evidence.some((item) => item.source === "system_policy")
-  ));
+  const activeSystemEstimate = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
   if (!startsBasicLivingEvent && activeSystemEstimate) {
     const adulthoodBoundary = 23 * 12;
     const policyBoundary = input.periodStartAgeInMonths < adulthoodBoundary
@@ -126,14 +128,18 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       activeSystemEstimate.activeUntilAgeInMonths = policyBoundary;
       if (policyBoundary <= input.periodStartAgeInMonths) activeSystemEstimate.status = "ended";
       input.ledger.expenseCommitments.push(nextEstimate);
+      if (input.employmentStatus === "student") {
+        for (const source of input.ledger.incomeSources) {
+          if (source.status === "active" && isDefaultStudentFamilySupport(source)) {
+            source.monthlyNetAmountWan = nextEstimate.monthlyAmountWan;
+          }
+        }
+      }
     }
   }
   if (startsBasicLivingEvent) {
     for (const commitment of input.ledger.expenseCommitments) {
-      const isSystemEstimate = commitment.type === "basic_living"
-        && commitment.status === "active"
-        && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
-        && commitment.evidence.some((item) => item.source === "system_policy");
+      const isSystemEstimate = isPolicyManagedBasicLiving(commitment);
       if (!isSystemEstimate) continue;
       commitment.activeUntilAgeInMonths = startsBasicLivingEvent.effectiveAtAgeInMonths;
       if (commitment.activeUntilAgeInMonths <= input.periodStartAgeInMonths) commitment.status = "ended";

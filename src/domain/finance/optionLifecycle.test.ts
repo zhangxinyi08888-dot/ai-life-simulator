@@ -4,6 +4,7 @@ import { deriveFinancialState } from "./deriveFinancialState";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { FinancialLedgerInvariantError, PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import { reduceFinancialLedger } from "./reduceFinancialLedger";
+import { deriveWealthScore } from "../../utils/financialState";
 import type { AcceptedFinancialEvent, BusinessHolding, FinancialEventKind, FinancialEventPayloadMap, FinancialEvidence } from "./types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "OPTION_FACT_CONFIRMED", confidence: 1 }];
@@ -80,8 +81,11 @@ test("only reliably valued vested options contribute discounted intrinsic value"
     }), effectiveAtAgeInMonths: 362 }]
   });
   const state = deriveFinancialState({ ledger: revalued.ledger, employmentStatus: "employed" }).state;
+  const compatibilityState = deriveFinancialState({ ledger: revalued.ledger, employmentStatus: "employed" }).compatibilityState;
   assert.equal(state.businessAndOtherAssetsWan, 0.72);
   assert.equal(state.netWorthWan, 10.72);
+  const withoutOption = { ...compatibilityState, businessAndOtherAssetsWan: 0, netWorthWan: 10 };
+  assert.ok(deriveWealthScore(compatibilityState) >= deriveWealthScore(withoutOption));
   assert.throws(() => reduceFinancialLedger({
     ledger: vested.ledger, transactionId: "option_nominal_value", expectedLedgerRevision: 1,
     periodStartAgeInMonths: 361, periodEndAgeInMonths: 362,

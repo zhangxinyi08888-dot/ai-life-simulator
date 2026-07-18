@@ -17,7 +17,7 @@ const percent = (part, whole) => whole ? round((part / whole) * 100) : 0;
 const close = (a, b, tolerance = 0.02) => Math.abs(Number(a || 0) - Number(b || 0)) <= tolerance;
 const financeText = /(?:月薪|工资|薪资|收入|支出|房租|租金|房贷|贷款|债务|存款|现金|融资|估值|期权|股权|万元|万\/月|每月|年薪|买房|卖房|投资|顾问费|稿费|退休金)/;
 const personalOptionText = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u;
-const personalEquityText = /(?:你(?:持有|拥有|获得)[^。；]{0,20}(?:股权|股份|持股)|(?:股权|持股)结构[^。；]{0,32}你占\s*\d|你(?:成为|是|作为)[^。；]{0,12}(?:联合创始人|合伙人)|你的创始人股权)/u;
+const personalEquityText = /(?:你(?:持有|拥有|获得|接受)[^。；]{0,20}(?:股权|股份|持股|干股)|(?:股权|持股)结构[^。；]{0,32}你占\s*\d|你(?:成为|是|作为)[^。；]{0,12}(?:联合创始人|合伙人)|你的(?:创始人股权|干股))/u;
 const propertyText = /(?:买房|房产|住房|公寓|房屋|房贷|按揭|投资房)/;
 const openingPropertyText = /(?:房产(?:市值|价值)?|住房(?:市值|价值)?|房贷余额|按揭余额|贷款余额)[^0-9]{0,12}\d/;
 const monthlyAmountPatterns = [
@@ -68,7 +68,16 @@ for (const record of records) {
     const assets = round(fs.cashWan + fs.investmentAssetsWan + fs.propertyMarketValueWan + fs.businessAndOtherAssetsWan);
     const expectedNetWorth = round(assets - fs.totalDebtWan);
     const identityOk = close(expectedNetWorth, fs.netWorthWan);
-    const disposableOk = close(Number(fs.annualAfterTaxIncomeWan || 0) - Number(fs.annualCoreExpenseWan || 0) - annualDebtInterestWan, fs.annualDisposableIncomeWan);
+    const annualCashInflowWan = round((ledger.incomeSources || [])
+      .filter((source) => source.status === "active"
+        && source.accrualReviewStatus !== "quarantined"
+        && source.accrualPolicy !== "event_only"
+        && Number(source.activeFromAgeInMonths || 0) <= Number(ledger.asOfAgeInMonths || node.ageInMonths)
+        && (source.activeUntilAgeInMonths == null || Number(source.activeUntilAgeInMonths) > Number(ledger.asOfAgeInMonths || node.ageInMonths)))
+      .reduce((sum, source) => sum + (source.accrualPolicy === "annual"
+        ? Number(source.annualNetAmountWan || 0)
+        : Number(source.monthlyNetAmountWan || 0) * 12), 0));
+    const disposableOk = close(annualCashInflowWan - Number(fs.annualCoreExpenseWan || 0) - annualDebtInterestWan, fs.annualDisposableIncomeWan);
     const cashFloorOk = Number(fs.cashWan || 0) >= -0.001;
     const ageOk = fs.asOfAgeInMonths == null || Number(fs.asOfAgeInMonths) === Number(node.ageInMonths);
     const ledgerAgeOk = ledger.asOfAgeInMonths == null || Number(ledger.asOfAgeInMonths) === Number(node.ageInMonths);
@@ -164,7 +173,7 @@ for (const record of records) {
       selectedChoice: node.selectedChoice,
       financialState: fs,
       attributes: node.attributes,
-      invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth, annualDebtInterestWan },
+      invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth, annualDebtInterestWan, annualCashInflowWan },
       narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, wealthDirectionMismatch },
       issueIds: (ledger.unresolvedIssues || []).map((issue) => issue.id)
     });

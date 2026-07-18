@@ -162,3 +162,18 @@ test("M7 focused: review status does not block deterministic system living polic
   assert.equal(active[0].monthlyAmountWan, 0.35);
   assert.equal(active[0].factStatus, "estimated");
 });
+
+test("M7 focused: legacy estimated living is replaced when employment leaves the student policy", () => {
+  const start = 39 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "legacy_core_expense", type: "basic_living", displayName: "旧版核心支出聚合",
+    monthlyAmountWan: 0.2083, activeFromAgeInMonths: 18 * 12, status: "active", factStatus: "estimated",
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+  });
+  const committed = commit({ ledger: initial, worldState: world(), start, end: start + 12, transactionId: "legacy_living_policy_step" });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].monthlyAmountWan, 0.35);
+  assert.ok(active[0].evidence.some((item) => item.source === "system_policy"));
+});

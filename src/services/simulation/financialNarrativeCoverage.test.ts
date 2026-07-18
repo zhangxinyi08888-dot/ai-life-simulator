@@ -40,3 +40,11 @@ test("employee option grants do not create a protagonist option coverage issue",
   });
   assert.equal(issues.length, 0);
 });
+
+test("a protagonist accepting sweat equity requires a personal holding", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你接受老张的干股提议，正式成为公司的联合创始人。",
+    ledger, acceptedEvents: [], ageInMonths: 386
+  });
+  assert.deepEqual(issues.map((issue) => issue.id), ["narrative_coverage_business_holding_386"]);
+});
