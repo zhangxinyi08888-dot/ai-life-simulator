@@ -44,6 +44,8 @@ let issueUndefinedNodes = 0;
 let reportPlaceholderCases = 0;
 let valuedOptionOmittedNodes = 0;
 let contingentOptionInflatedNodes = 0;
+let staleOptionLifecycleNodes = 0;
+let adultBelowPolicyExpenseNodes = 0;
 
 for (const record of records) {
   const history = record.finalState?.history || [];
@@ -54,10 +56,17 @@ for (const record of records) {
     const node = history[index];
     const fs = node.financialState || {};
     const ledger = node.financialLedger || {};
+    const annualDebtInterestWan = round((ledger.debtAccounts || [])
+      .filter((debt) => debt.status === "active" || debt.status === "defaulted")
+      .reduce((sum, debt) => {
+        if (Number.isFinite(debt.repaymentPolicy?.monthlyInterestWan)) return sum + debt.repaymentPolicy.monthlyInterestWan * 12;
+        if (Number.isFinite(debt.repaymentPolicy?.annualInterestRate)) return sum + Number(debt.principalWan || 0) * debt.repaymentPolicy.annualInterestRate;
+        return sum;
+      }, 0));
     const assets = round(fs.cashWan + fs.investmentAssetsWan + fs.propertyMarketValueWan + fs.businessAndOtherAssetsWan);
     const expectedNetWorth = round(assets - fs.totalDebtWan);
     const identityOk = close(expectedNetWorth, fs.netWorthWan);
-    const disposableOk = close(Number(fs.annualAfterTaxIncomeWan || 0) - Number(fs.annualCoreExpenseWan || 0), fs.annualDisposableIncomeWan);
+    const disposableOk = close(Number(fs.annualAfterTaxIncomeWan || 0) - Number(fs.annualCoreExpenseWan || 0) - annualDebtInterestWan, fs.annualDisposableIncomeWan);
     const cashFloorOk = Number(fs.cashWan || 0) >= -0.001;
     const ageOk = fs.asOfAgeInMonths == null || Number(fs.asOfAgeInMonths) === Number(node.ageInMonths);
     const ledgerAgeOk = ledger.asOfAgeInMonths == null || Number(ledger.asOfAgeInMonths) === Number(node.ageInMonths);
@@ -81,7 +90,11 @@ for (const record of records) {
       for (const match of description.matchAll(pattern)) monthlyAmounts.push(Number(match[1]));
     }
     const impliedAnnual = monthlyAmounts.map((value) => round(value * 12));
-    const salaryMismatch = impliedAnnual.length > 0 && !impliedAnnual.some((value) => Math.abs(value - Number(fs.annualAfterTaxIncomeWan || 0)) <= Math.max(2, value * 0.12));
+    const activeIncomeAnnuals = (ledger.incomeSources || [])
+      .filter((source) => source.status === "active")
+      .map((source) => round(source.accrualPolicy === "annual" ? source.annualNetAmountWan : Number(source.monthlyNetAmountWan || 0) * 12));
+    const salaryMismatch = impliedAnnual.length > 0 && !impliedAnnual.every((value) => activeIncomeAnnuals
+      .some((candidate) => Math.abs(value - candidate) <= Math.max(2, value * 0.12)));
     if (salaryMismatch) salaryMismatchNodes += 1;
     const holdingMissing = holdingText.test(description) && (ledger.businessHoldings?.length || 0) === 0 && Number(fs.businessAndOtherAssetsWan || 0) === 0;
     const propertyMissing = propertyText.test(description) && (ledger.assetAccounts?.filter((item) => item.type === "property").length || 0) === 0 && Number(fs.propertyMarketValueWan || 0) === 0;
@@ -90,12 +103,14 @@ for (const record of records) {
 
     const ageYears = Number(node.ageInMonths || 0) / 12;
     const adultZeroExpense = ageYears >= 18 && Number(fs.annualCoreExpenseWan || 0) === 0;
+    const adultBelowPolicyExpense = ageYears >= 23 && Number(fs.annualCoreExpenseWan || 0) + 0.02 < 4.2;
     const careerIncomeSources = (ledger.incomeSources || []).filter((source) => source.status === "active" && source.linkedCareerStateId);
     const hasRecentCareerEvidence = careerIncomeSources.some((source) => Number.isFinite(source.lastConfirmedAtAgeInMonths)
       && Number(node.ageInMonths) - Number(source.lastConfirmedAtAgeInMonths) <= 36);
     const hasAccruingCareerIncome = careerIncomeSources.some((source) => source.accrualPolicy !== "event_only" && source.accrualReviewStatus !== "quarantined");
     const employedAt80PlusWithoutEvidence = ageYears >= 80 && fs.employmentStatus === "employed" && hasAccruingCareerIncome && !hasRecentCareerEvidence;
     if (adultZeroExpense) adultZeroExpenseNodes += 1;
+    if (adultBelowPolicyExpense) adultBelowPolicyExpenseNodes += 1;
     if (employedAt80PlusWithoutEvidence) employedAt80PlusWithoutEvidenceNodes += 1;
     const activeShortfalls = (ledger.debtAccounts || []).filter((debt) => debt.status === "active" && debt.type === "liquidity_shortfall");
     const duplicateActiveShortfall = activeShortfalls.length > 1;
@@ -114,11 +129,14 @@ for (const record of records) {
       return Number(holding.personalCarryingValueWan || 0) > 0
         && (remainingVestedUnits <= 0 || !Number.isFinite(terms.fairValueWanPerUnit));
     });
+    const staleOptionLifecycle = activeOptions.some((holding) => Number.isFinite(holding.expirationDateInMonths)
+      && Number(holding.expirationDateInMonths) < Number(node.ageInMonths));
     if (duplicateActiveShortfall) duplicateActiveShortfallNodes += 1;
     if (systemShortfallScheduleIssue) systemShortfallScheduleIssueNodes += 1;
     if (issueUndefined) issueUndefinedNodes += 1;
     if (valuedOptionOmitted) valuedOptionOmittedNodes += 1;
     if (contingentOptionInflated) contingentOptionInflatedNodes += 1;
+    if (staleOptionLifecycle) staleOptionLifecycleNodes += 1;
 
     const netWorthDelta = previous ? round(Number(fs.netWorthWan || 0) - Number(previous.fs.netWorthWan || 0)) : 0;
     const wealthDelta = previous ? Number(node.attributes?.wealth || 0) - Number(previous.node.attributes?.wealth || 0) : 0;
@@ -137,8 +155,8 @@ for (const record of records) {
       selectedChoice: node.selectedChoice,
       financialState: fs,
       attributes: node.attributes,
-      invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth },
-      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, wealthDirectionMismatch },
+      invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth, annualDebtInterestWan },
+      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, wealthDirectionMismatch },
       issueIds: (ledger.unresolvedIssues || []).map((issue) => issue.id)
     });
     previous = { node, fs, signature, transactionCount };
@@ -201,6 +219,8 @@ const summary = {
   reportPlaceholderCases,
   valuedOptionOmittedNodes,
   contingentOptionInflatedNodes,
+  staleOptionLifecycleNodes,
+  adultBelowPolicyExpenseNodes,
   openIssues: openIssues.length,
   resolvedIssues: resolvedIssues.length,
   issueCodeCounts
@@ -223,6 +243,8 @@ const blockers = [
   reportPlaceholderCases > 0 && `终局报告泄漏内部占位符：${reportPlaceholderCases} 组`,
   valuedOptionOmittedNodes > 0 && `已归属且有账面价值的期权未进入用户财富：${valuedOptionOmittedNodes} 个节点`,
   contingentOptionInflatedNodes > 0 && `未归属或缺可靠估值的期权被计入用户财富：${contingentOptionInflatedNodes} 个节点`,
+  staleOptionLifecycleNodes > 0 && `期权超过到期月仍保持 active：${staleOptionLifecycleNodes} 个节点`,
+  adultBelowPolicyExpenseNodes > 0 && `23 岁后生活支出仍低于成年保守政策下限：${adultBelowPolicyExpenseNodes} 个节点`,
   openIssues.length > 0 && `终局仍存在 open issue：${openIssues.length} 个`,
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
 ].filter(Boolean);
@@ -256,6 +278,8 @@ ${blockers.map((item) => `- ${item}`).join("\n")}
 | 报告内部占位符 | ${reportPlaceholderCases} 组 | 目标 0 |
 | 有价值期权未计入用户财富 | ${valuedOptionOmittedNodes} | 目标 0 |
 | 或有/缺估值期权错误计入财富 | ${contingentOptionInflatedNodes} | 目标 0 |
+| 过期但仍 active 的期权节点 | ${staleOptionLifecycleNodes} | 目标 0 |
+| 23 岁后仍低于成年支出政策下限 | ${adultBelowPolicyExpenseNodes} | 目标 0 |
 | open / resolved issue | ${openIssues.length} / ${resolvedIssues.length} | 必须有关闭路径且终局可控 |
 
 Accepted 覆盖率以“包含财务叙述的节点中，本节点新增已提交交易或核心财务签名发生变化”为可审计代理口径；它不把纯时间计提误算为新事实接受。
@@ -268,11 +292,11 @@ ${routeRows}
 
 ## 逐组现实性结论
 
-- **real-career-first**：换岗与工资事实能够进入账本，旧工资不再与新工资长期叠加；仍需关注旧来源被隔离后留下的 open issue。
-- **real-relationship-first**：路线完成，但部分阶段 employed 与工资为 0 并存，后来才由新工资事实恢复，说明职业事实仍有阶段性空洞。
-- **real-education-second**：严重失败。成年阶段长期年核心支出为 0，导致现金在没有生活成本的情况下持续累积；这是模型未提出支出事实，而不是 reducer 算错。
-- **real-venture-second**：严重失败。人物开局明确提供住房、房贷余额与月供，账本却以房产 0、债务 0 开始，属于权威初始事实摄取缺口。
-- **real-custom-lifespan**：负现金能正确转成流动性债务，算术闭合；但主角到 110 岁仍以 employed/顾问身份活动，退休与收入终止事实仍不可稳定到达，issue 也持续累积。
+- **real-career-first**：现金、收入和换岗能进入账本，但创业股权/期权叙述仍有未创建 holding 的节点，入口完整性尚未达标。
+- **real-relationship-first**：路线完成；后段仍出现正文月收入与账本来源不匹配，说明职业事实存在阶段性空洞。
+- **real-education-second**：成年零支出已修复，但 23 岁后基础生活支出仍停留在学生档，且多处房产/房贷叙述没有对应账户，净资产仍会被高估。
+- **real-venture-second**：开局房产 300 万、房贷 210 万已正确入账；期权 holding 能创建，但固定四年归属与到期没有自动结算，导致期权长期保持零价值并在到期后仍 active。
+- **real-custom-lifespan**：单一 shortfall 账户可在收入恢复后还清，89 岁转为 retired，死亡节点确定性改为 not_working 且关闭职业收入；但晚年生活缺口债务仍达到数百万元，需要继续校准支出和兜底政策。
 
 ## issue 代码统计
 
@@ -282,11 +306,11 @@ ${issueRows}
 
 ## 下一步
 
-1. 增加“开局结构化资产负债摄取”入口：人物回答中的房产、房贷、月供必须在第一个故事节点前形成账户，不允许仅留在自由文本。
-2. 为生活支出建立确定性估计兜底：成年且支出承诺为空时由版本化 policy 创建 estimated basic_living，不能静默按 0，也不能隔离无关收入。
-3. 将退休/停止工作设计为职业状态再确认；不能回退到关键词直接改状态，高龄继续工作必须有近期 Accepted 主角证据。
-4. 对 open issue 设置终局预算和老化门禁；“有 resolved 路径”不能替代“长期 open issue 不失控”。
-5. 修复后三条阻断场景必须重新跑全新的 2/2/1 五路线，不能复用本轮 JSON。
+1. 在年龄阶段变化时重新评估 system-policy basic_living；学生估计不能永久沿用到就业和中年。
+2. 为确定性期权归属表实现 period settlement，并在 expirationDateInMonths 到达时自动到期；估值仍必须来自 Accepted Event。
+3. 继续补齐缺金额、缺 evidence、缺 business 对象和生效时间越界的归一化/修复重试，降低终局 open issue。
+4. 将薪资、房产和持股 coverage issue 作为 M7 阻断项逐节点关闭，不能只依赖报告重写掩盖缺失事实。
+5. 修复后必须重新跑全新的 2/2/1 五路线，不能复用本轮 JSON。
 
 逐节点的完整正文、全部选择、用户选择、五项状态、账本快照和终局报告见 \`full-test-data.md\`；机器可读审计见 \`finance-audit.json\`。
 `;
