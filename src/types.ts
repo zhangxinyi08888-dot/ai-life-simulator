@@ -303,6 +303,7 @@ export interface SimulationNode {
   stage: string;            // 人生阶段: "学步懵懂", "金石华年", "立身扬名", "不惑风雨", "桑榆暮景", "终章致敬" 等
   title: string;            // 本节标题
   description: string;      // 描述性互动小说正文
+  descriptionParagraphs?: string[]; // 新节点的权威段落结构；description 为兼容字符串
   choices: SimulationChoice[]; // 三个预设选项 + 支持自定义
   attributes: LifeAttributes;  // 更新后的五维属性值
   financialLedger?: FinancialLedger;

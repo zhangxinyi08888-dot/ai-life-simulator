@@ -16,6 +16,23 @@ const node = normalizeSimulationNode({
 
 assert.equal(node.age, 18);
 assert.equal(node.description, "测试叙事");
+assert.deepEqual(node.descriptionParagraphs, ["测试叙事"]);
+
+const structuredParagraphNode = normalizeSimulationNode({
+  age: 20,
+  stage: "新阶段",
+  title: "结构化正文",
+  descriptionParagraphs: ["第一段事实。", "第二段选择。"],
+  choices: [
+    { id: "A", text: "选择 A" },
+    { id: "B", text: "选择 B" },
+    { id: "C", text: "选择 C" }
+  ],
+  attributes: { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 },
+  isEndingNode: false
+});
+assert.equal(structuredParagraphNode.description, "第一段事实。\n\n第二段选择。");
+assert.deepEqual(structuredParagraphNode.descriptionParagraphs, ["第一段事实。", "第二段选择。"]);
 assert.equal(node.attributes.intelligence, 60);
 assert.equal(node.attributes.relation, 45);
 assert.equal(node.choices[0].id, "A");

@@ -37,10 +37,12 @@ import {
   type FinancialLedger,
   type FinancialLedgerIssue
 } from "../../domain/finance";
-import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
+import { callDeepSeekJsonFromBrowser, callDeepSeekJsonStreamFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
-import { getBrowserE2eAiJsonCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
+import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
+import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
+import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
 import {
   buildNextNodePrompt,
   buildEndingNodePrompt,
@@ -52,6 +54,12 @@ import {
 } from "./prompts";
 
 type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
+type AiJsonStreamCaller = (
+  prompt: string,
+  options?: { signal?: AbortSignal; onContent?: (content: string) => void }
+) => Promise<{ text: string }>;
+
+export type NextGenerationStage = "preparing" | "generating" | "validating" | "finalizing" | "revealing";
 
 function normalizeRepairedEmploymentTransition(input: {
   raw: unknown;
@@ -106,6 +114,10 @@ function normalizeRepairedEmploymentTransition(input: {
 
 export interface SimulationServiceDeps {
   callAiJson?: AiJsonCaller;
+  callAiJsonStream?: AiJsonStreamCaller;
+  onGenerationStage?: (stage: NextGenerationStage) => void;
+  onNarrativeProgress?: (preview: StreamedNodePreview) => void;
+  signal?: AbortSignal;
 }
 
 export interface GenerateQuestionsResult {
@@ -133,6 +145,9 @@ function attachPendingFinancialContext(input: {
 }): SimulationNode {
   return {
     ...input.node,
+    descriptionParagraphs: input.node.descriptionParagraphs?.length
+      ? input.node.descriptionParagraphs
+      : splitNarrativeParagraphs(input.node.description),
     financialState: structuredClone(input.previousState),
     financialSignals: undefined,
     financialChange: undefined
@@ -435,10 +450,12 @@ async function commitAuthoritativeFinancialProgress(input: {
   });
   const financialState = committed.derivedFinancialState.compatibilityState;
   const conservativeWealthBasis = deriveConservativeWealthBasis({ ledger: committed.financialLedger, financialState });
+  const description = sanitizeFinancialNarrative(input.node.description, financialState, committed.financialLedger);
   return {
     node: {
       ...input.node,
-      description: sanitizeFinancialNarrative(input.node.description, financialState, committed.financialLedger),
+      description,
+      descriptionParagraphs: splitNarrativeParagraphs(description),
       attributes: withCalculatedWealth(input.node.attributes, conservativeWealthBasis, input.previousWealth),
       financialLedger: committed.financialLedger,
       financialLedgerMode: "authoritative",
@@ -461,11 +478,38 @@ async function commitAuthoritativeFinancialProgress(input: {
 }
 
 function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
-  if (deps.callAiJson) return deps.callAiJson;
-  const e2eCaller = getBrowserE2eAiJsonCaller();
-  if (e2eCaller) return e2eCaller;
+  const caller = deps.callAiJson || getBrowserE2eAiJsonCaller();
+  if (caller) {
+    return async (prompt) => {
+      if (deps.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
+      const response = await caller(prompt);
+      if (deps.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
+      return response;
+    };
+  }
 
-  return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt);
+  return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt, fetch, deps.signal);
+}
+
+function getAiJsonStreamCaller(deps: SimulationServiceDeps, fallbackCaller: AiJsonCaller): AiJsonStreamCaller {
+  if (deps.callAiJsonStream) return deps.callAiJsonStream;
+  if (deps.callAiJson) {
+    return async (prompt, options = {}) => {
+      if (options.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
+      const response = await fallbackCaller(prompt);
+      options.onContent?.(response.text);
+      return response;
+    };
+  }
+
+  const e2eStreamCaller = getBrowserE2eAiJsonStreamCaller();
+  if (e2eStreamCaller) return e2eStreamCaller;
+
+  return (prompt, options = {}) => callDeepSeekJsonStreamFromBrowser(
+    getBrowserAiEnv(),
+    prompt,
+    options
+  );
 }
 
 function parseAiJsonResponse(response: { text?: string }): any {
@@ -610,9 +654,11 @@ export async function startSimulation(
     linkedCareerStateId: openingCareerState.id,
     openingFacts
   });
+  const startDescription = sanitizeFinancialNarrative(startNode.description, financialState, openingFinancialLedger);
   const initializedStartNodeWithFinance = {
     ...startNode,
-    description: sanitizeFinancialNarrative(startNode.description, financialState, openingFinancialLedger),
+    description: startDescription,
+    descriptionParagraphs: splitNarrativeParagraphs(startDescription),
     attributes: startAttributes,
     financialLedger: openingFinancialLedger,
     financialLedgerMode: "authoritative" as const,
@@ -795,7 +841,9 @@ export async function generateNextNode(
   input: GenerateNextNodeInput,
   deps: SimulationServiceDeps = {}
 ): Promise<SimulationNode> {
+  deps.onGenerationStage?.("preparing");
   const callAiJson = getAiJsonCaller(deps);
+  const callAiJsonStream = getAiJsonStreamCaller(deps, callAiJson);
   const lastNode = input.history[input.history.length - 1];
   const lastAge = lastNode ? lastNode.age : (input.userData.regressionAge || 20);
   const currentAgeInMonths = lastNode?.ageInMonths ?? lastAge * 12;
@@ -905,8 +953,22 @@ export async function generateNextNode(
   });
 
   let latestRawNode: any = {};
+  deps.onGenerationStage?.("generating");
   let node = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
-    const response = await callAiJson(buildNodePromptWithRetryNotice(prompt, previousIssues));
+    let lastPreviewSignature = "";
+    const response = await callAiJsonStream(
+      buildNodePromptWithRetryNotice(prompt, previousIssues),
+      {
+        signal: deps.signal,
+        onContent: (content) => {
+          const preview = extractStreamedNodePreview(content);
+          const signature = JSON.stringify(preview);
+          if (signature === lastPreviewSignature) return;
+          lastPreviewSignature = signature;
+          deps.onNarrativeProgress?.(preview);
+        }
+      }
+    );
     latestRawNode = parseAiJsonResponse(response);
     return latestRawNode;
   }, {
@@ -920,6 +982,7 @@ export async function generateNextNode(
     pressureArcId: workingPressureArc?.id,
     allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes
   });
+  deps.onGenerationStage?.("validating");
   node = {
     ...node,
     isEndingNode: false,
@@ -1009,9 +1072,11 @@ export async function generateNextNode(
       lifeIntensity: timelineAdvance.lifeIntensity,
       pressureArcId: workingPressureArc?.id
     });
+    const endingDescription = sanitizeFinancialNarrative(normalizedEnding.description, node.financialState!, node.financialLedger);
     let endingNode: SimulationNode = {
       ...normalizedEnding,
-      description: sanitizeFinancialNarrative(normalizedEnding.description, node.financialState!, node.financialLedger),
+      description: endingDescription,
+      descriptionParagraphs: splitNarrativeParagraphs(endingDescription),
       attributes: node.attributes,
       financialState: node.financialState,
       isEndingNode: true,
@@ -1028,6 +1093,7 @@ export async function generateNextNode(
     const terminalTransition = workingPressureArc
       ? { action: "resolve" as const, previousPhaseId: workingPressureArc.phaseId, nextArcState: { ...workingPressureArc, status: "resolved" as const }, reasonCodes: ["life-ending"] }
       : { action: "stay" as const, reasonCodes: ["no-pressure-arc"] };
+    deps.onGenerationStage?.("finalizing");
     const endingTransactionId = stableHash({ namespace: "ending-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
     const authoritativeFinance = await commitAuthoritativeFinancialProgress({
       node: endingNode,
@@ -1207,6 +1273,7 @@ export async function generateNextNode(
     timelineAdvance
   });
   const transactionId = stableHash({ namespace: "simulation-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
+  deps.onGenerationStage?.("finalizing");
   const authoritativeFinance = await commitAuthoritativeFinancialProgress({
     node,
     rawNode: latestRawNode,

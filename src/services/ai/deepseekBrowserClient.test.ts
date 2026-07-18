@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { AiClientError } from "./errors";
-import { callDeepSeekJsonFromBrowser } from "./deepseekBrowserClient";
+import { callDeepSeekJsonFromBrowser, callDeepSeekJsonStreamFromBrowser } from "./deepseekBrowserClient";
 
 const calls: { url: string; body: any; headers: Record<string, string> }[] = [];
 const okFetch = async (url: string, init?: RequestInit) => {
@@ -59,4 +59,24 @@ await assert.rejects(
     }
   ),
   (error) => error instanceof AiClientError && error.code === "AI_NETWORK_FAILED"
+);
+
+await assert.rejects(
+  () => callDeepSeekJsonStreamFromBrowser(
+    { apiKey: "", baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash" },
+    "x"
+  ),
+  (error) => error instanceof AiClientError && error.code === "API_KEY_MISSING"
+);
+
+await assert.rejects(
+  () => callDeepSeekJsonStreamFromBrowser(
+    { apiKey: "stoppable", baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash" },
+    "x",
+    {},
+    async () => {
+      throw new DOMException("Generation aborted", "AbortError");
+    }
+  ),
+  (error) => error instanceof AiClientError && error.code === "AI_REQUEST_ABORTED"
 );

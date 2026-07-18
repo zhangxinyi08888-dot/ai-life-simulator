@@ -106,6 +106,9 @@ assert.match(prompt, /不得凭空提交就业状态转换/);
 assert.match(prompt, /career_state worldDelta 才能增加 employmentTransition/);
 assert.match(prompt, /sourceOutcomeId 必须等于上方已接受 outcome id/);
 assert.match(prompt, /其他人物上学、退休、工作/);
+assert.match(prompt, /descriptionParagraphs 返回 2-4 个完整自然段/);
+assert.match(prompt, /每个数组项只能包含一个完整段落/);
+assert.match(prompt, /不要重复返回 description 字符串/);
 assert.doesNotMatch(prompt, /达到 73 岁及以上/);
 
 const healthArcBase: PressureArcState = {
