@@ -7,7 +7,7 @@ export interface FinancialProposalNormalizationAudit {
   reasonCode: "KIND_FIELD_NORMALIZED" | "SOURCE_OUTCOME_FILLED" | "DUPLICATE_ID_RENAMED" | "CAREER_LINK_FILLED" | "CASH_ACCOUNT_FILLED"
     | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED"
-    | "OPTION_TERMS_NORMALIZED";
+    | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED";
   originalValue?: string;
   normalizedValue?: string;
 }
@@ -121,7 +121,7 @@ export function normalizeFinancialProposals(input: {
     if (!raw || typeof raw !== "object") return [];
     const source = structuredClone(raw) as Record<string, unknown>;
     const rawKind = source.kind ?? source.type ?? source.deltaType;
-    const kind = typeof rawKind === "string" && KINDS.has(rawKind as FinancialEventKind)
+    let kind = typeof rawKind === "string" && KINDS.has(rawKind as FinancialEventKind)
       ? rawKind as FinancialEventKind
       : rawKind as FinancialEventKind;
     if (source.kind == null && typeof rawKind === "string") {
@@ -139,9 +139,63 @@ export function normalizeFinancialProposals(input: {
       sourceOutcomeId = onlyOutcomeId;
       audit.push({ proposalId: id, reasonCode: "SOURCE_OUTCOME_FILLED", normalizedValue: onlyOutcomeId });
     }
-    const payload: any = source.payload && typeof source.payload === "object"
+    let payload: any = source.payload && typeof source.payload === "object"
       ? structuredClone(source.payload) as Record<string, any>
       : source.payload;
+    const unwrapHolding = (value: any): any => {
+      if (!value || typeof value !== "object") return value;
+      return value.optionHolding || value.businessHolding || value.equityHolding || value.holding || value.holdingDetails || value;
+    };
+    if (payload && kind === "business_holding_started") {
+      const nested = payload.business_holding_started || payload.businessHoldingStarted || payload;
+      payload = unwrapHolding(nested);
+      if (payload?.instrumentType === "stock_option" || payload?.optionTerms) {
+        kind = "business_option_granted";
+        payload = { optionHolding: payload };
+        audit.push({ proposalId: id, reasonCode: "OPTION_EVENT_NORMALIZED", originalValue: "business_holding_started", normalizedValue: kind });
+      }
+    } else if (payload && kind === "business_option_granted") {
+      const nested = payload.business_option_granted || payload.businessOptionGranted || payload;
+      payload = { optionHolding: unwrapHolding(nested) };
+    }
+    const holding: any = kind === "business_option_granted" ? payload?.optionHolding : kind === "business_holding_started" ? payload : undefined;
+    if (holding && typeof holding === "object") {
+      const original = JSON.stringify(holding);
+      holding.id ||= holding.holdingId || `${kind}_${id}`;
+      holding.instrumentType ||= kind === "business_option_granted" ? "stock_option" : "equity";
+      holding.personalCarryingValueWan = Number.isFinite(Number(holding.personalCarryingValueWan))
+        ? Number(holding.personalCarryingValueWan)
+        : Number.isFinite(Number(holding.attributableValueWan)) ? Number(holding.attributableValueWan) : 0;
+      holding.status ||= "active";
+      holding.factStatus ||= "needs_review";
+      holding.evidence = Array.isArray(holding.evidence) ? holding.evidence : [];
+      const businessInput = holding.business && typeof holding.business === "object" ? holding.business : {};
+      const businessId = businessInput.id || holding.businessId || holding.companyId || `${holding.id}_business`;
+      holding.business = {
+        ...businessInput,
+        id: businessId,
+        displayName: businessInput.displayName || holding.businessName || holding.companyName || "待确认企业",
+        status: businessInput.status || "unknown",
+        factStatus: businessInput.factStatus || "needs_review",
+        evidence: Array.isArray(businessInput.evidence) ? businessInput.evidence : []
+      };
+      if (kind === "business_option_granted") {
+        const termsInput = holding.optionTerms && typeof holding.optionTerms === "object" ? holding.optionTerms : {};
+        holding.optionTerms = {
+          ...termsInput,
+          grantedUnits: Number(termsInput.grantedUnits ?? holding.grantedUnits ?? holding.units ?? 0),
+          vestedUnits: Number(termsInput.vestedUnits ?? holding.vestedUnits ?? 0),
+          exercisedUnits: Number(termsInput.exercisedUnits ?? holding.exercisedUnits ?? 0),
+          strikePriceWanPerUnit: Number(termsInput.strikePriceWanPerUnit ?? holding.strikePriceWanPerUnit ?? 0)
+        };
+        // A grant creates a contingent right. Valuation must enter through a
+        // separate revaluation event after vesting, never through grant shape repair.
+        holding.personalCarryingValueWan = 0;
+      }
+      if (JSON.stringify(holding) !== original) {
+        audit.push({ proposalId: id, reasonCode: "BUSINESS_HOLDING_SHAPE_COMPLETED", normalizedValue: holding.id });
+      }
+    }
     const incomeTypeAliases: Record<string, string> = {
       consulting: "contract",
       consultant: "contract",

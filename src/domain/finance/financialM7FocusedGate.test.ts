@@ -147,3 +147,18 @@ test("M7 focused: system living estimate advances from young-adult to adult poli
   assert.equal(active[0].activeFromAgeInMonths, 23 * 12);
   assert.equal(committed.financialPeriodSummary?.coreExpenseWan, 6.6);
 });
+
+test("M7 focused: review status does not block deterministic system living policy transitions", () => {
+  const start = 22 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "reviewed_young_living", type: "basic_living", displayName: "基础生活支出（系统保守估计）",
+    monthlyAmountWan: 0.2, activeFromAgeInMonths: 18 * 12, status: "active", factStatus: "needs_review",
+    evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+  });
+  const committed = commit({ ledger: initial, worldState: world(), start, end: 24 * 12, transactionId: "reviewed_policy_step" });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].monthlyAmountWan, 0.35);
+  assert.equal(active[0].factStatus, "estimated");
+});

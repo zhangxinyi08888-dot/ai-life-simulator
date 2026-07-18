@@ -163,10 +163,17 @@ export function detectNarrativeFinancialCoverageIssues(input: {
       && !hasKind("debt_drawn")) push("mortgage", "正文包含已发生的主人公房贷事实，但没有房贷债务 Proposal");
   }
   const hasHolding = input.ledger.businessHoldings.some((item) => item.status === "active" || item.status === "partially_sold");
-  if (/(?:持有|获得|授予|拥有)[^。；]{0,16}(?:期权|股权|股份|持股)|(?:联合创始人|创始人股权|合伙人权益)/u.test(input.narrativeText)
+  const hasProtagonistOptionFact = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u.test(input.narrativeText);
+  const hasProtagonistEquityFact = /(?:你(?:持有|拥有|获得)[^。；]{0,20}(?:股权|股份|持股)|(?:股权|持股)结构[^。；]{0,32}你占\s*\d|你(?:成为|是|作为)[^。；]{0,12}(?:联合创始人|合伙人)|你的创始人股权)/u.test(input.narrativeText);
+  if ((hasProtagonistOptionFact || hasProtagonistEquityFact)
     && !hasHolding
     && !hasKind("business_holding_started", "business_option_granted")) {
     push("business_holding", "正文包含已发生的主人公股权或期权事实，但没有企业权益 Proposal");
+  }
+  if (hasProtagonistOptionFact
+    && !input.ledger.businessHoldings.some((item) => item.instrumentType === "stock_option" && (item.status === "active" || item.status === "partially_sold"))
+    && !hasKind("business_option_granted")) {
+    push("personal_option", "正文包含已发生的主人公期权事实，但没有 stock_option holding Proposal");
   }
   return issues;
 }

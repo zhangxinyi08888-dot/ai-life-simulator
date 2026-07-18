@@ -148,3 +148,36 @@ test("normalizes a fixed option schedule and expiry into authoritative option te
   assert.equal(terms.expiresAtAgeInMonths, 408);
   assert.equal(result.audit.some((item) => item.reasonCode === "OPTION_TERMS_NORMALIZED"), true);
 });
+
+test("unwraps a nested partial equity holding without inventing a valuation", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
+    id: "founder_equity", kind: "business_holding_started", effectiveAtAgeInMonths: 405,
+    payload: { businessHolding: { holdingId: "founder_share", ownershipRate: 0.4, companyName: "供应链软件公司" } },
+    evidence: "新的股权结构为：你占40%。", confidence: 0.9
+  }] });
+  const holding = result.proposals[0].payload as any;
+  assert.equal(holding.id, "founder_share");
+  assert.equal(holding.business.displayName, "供应链软件公司");
+  assert.equal(holding.ownershipRate, 0.4);
+  assert.equal(holding.personalCarryingValueWan, 0);
+  assert.equal(holding.factStatus, "needs_review");
+  assert.equal(result.audit.some((item) => item.reasonCode === "BUSINESS_HOLDING_SHAPE_COMPLETED"), true);
+});
+
+test("converts a stock-option holding event and nested grant aliases to the option contract", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
+    id: "my_options", kind: "business_holding_started", effectiveAtAgeInMonths: 348,
+    payload: { holding: {
+      holdingId: "employee_options", instrumentType: "stock_option", companyId: "employer",
+      optionTerms: { grantedUnits: 30000 }, vestingSchedule: "4年归属，每年25%"
+    } }, evidence: "公司授予你3万份期权，四年归属，每年25%。", confidence: 0.9
+  }] });
+  assert.equal(result.proposals[0].kind, "business_option_granted");
+  const holding = (result.proposals[0].payload as any).optionHolding;
+  assert.equal(holding.id, "employee_options");
+  assert.equal(holding.instrumentType, "stock_option");
+  assert.equal(holding.personalCarryingValueWan, 0);
+  assert.equal(holding.optionTerms.vestedUnits, 0);
+  assert.deepEqual(holding.optionTerms.vestingPolicy, { totalMonths: 48, frequencyMonths: 12 });
+  assert.equal(result.audit.some((item) => item.reasonCode === "OPTION_EVENT_NORMALIZED"), true);
+});

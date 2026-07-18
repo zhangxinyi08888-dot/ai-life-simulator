@@ -16,7 +16,8 @@ const round = (value) => Math.round(Number(value || 0) * 10000) / 10000;
 const percent = (part, whole) => whole ? round((part / whole) * 100) : 0;
 const close = (a, b, tolerance = 0.02) => Math.abs(Number(a || 0) - Number(b || 0)) <= tolerance;
 const financeText = /(?:月薪|工资|薪资|收入|支出|房租|租金|房贷|贷款|债务|存款|现金|融资|估值|期权|股权|万元|万\/月|每月|年薪|买房|卖房|投资|顾问费|稿费|退休金)/;
-const holdingText = /(?:期权|股权|股份|持股|合伙人权益)/;
+const personalOptionText = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u;
+const personalEquityText = /(?:你(?:持有|拥有|获得)[^。；]{0,20}(?:股权|股份|持股)|(?:股权|持股)结构[^。；]{0,32}你占\s*\d|你(?:成为|是|作为)[^。；]{0,12}(?:联合创始人|合伙人)|你的创始人股权)/u;
 const propertyText = /(?:买房|房产|住房|公寓|房屋|房贷|按揭|投资房)/;
 const openingPropertyText = /(?:房产(?:市值|价值)?|住房(?:市值|价值)?|房贷余额|按揭余额|贷款余额)[^0-9]{0,12}\d/;
 const monthlyAmountPatterns = [
@@ -97,8 +98,9 @@ for (const record of records) {
     const salaryMismatch = impliedAnnual.length > 0 && !impliedAnnual.every((value) => activeIncomeAnnuals
       .some((candidate) => Math.abs(value - candidate) <= Math.max(2, value * 0.12)));
     if (salaryMismatch) salaryMismatchNodes += 1;
-    const holdingMissing = holdingText.test(description) && (ledger.businessHoldings?.length || 0) === 0 && Number(fs.businessAndOtherAssetsWan || 0) === 0;
-    const optionHoldingMissing = /期权/u.test(description)
+    const holdingMissing = (personalOptionText.test(description) || personalEquityText.test(description))
+      && (ledger.businessHoldings?.length || 0) === 0 && Number(fs.businessAndOtherAssetsWan || 0) === 0;
+    const optionHoldingMissing = personalOptionText.test(description)
       && !(ledger.businessHoldings || []).some((holding) => holding.instrumentType === "stock_option");
     const propertyMissing = propertyText.test(description) && (ledger.assetAccounts?.filter((item) => item.type === "property").length || 0) === 0 && Number(fs.propertyMarketValueWan || 0) === 0;
     if (holdingMissing) missingHoldingNodes += 1;

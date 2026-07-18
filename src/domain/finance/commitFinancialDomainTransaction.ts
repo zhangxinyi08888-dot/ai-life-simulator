@@ -109,7 +109,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   const activeSystemEstimate = input.ledger.expenseCommitments.find((commitment) => (
     commitment.type === "basic_living"
     && commitment.status === "active"
-    && commitment.factStatus === "estimated"
+    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
     && commitment.evidence.some((item) => item.source === "system_policy")
   ));
   if (!startsBasicLivingEvent && activeSystemEstimate) {
@@ -132,7 +132,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     for (const commitment of input.ledger.expenseCommitments) {
       const isSystemEstimate = commitment.type === "basic_living"
         && commitment.status === "active"
-        && commitment.factStatus === "estimated"
+        && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
         && commitment.evidence.some((item) => item.source === "system_policy");
       if (!isSystemEstimate) continue;
       commitment.activeUntilAgeInMonths = startsBasicLivingEvent.effectiveAtAgeInMonths;

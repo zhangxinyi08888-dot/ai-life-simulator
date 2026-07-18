@@ -17,7 +17,8 @@ test("narrative coverage catches missing property, mortgage and option facts", (
   assert.deepEqual(issues.map((issue) => issue.id), [
     "narrative_coverage_property_372",
     "narrative_coverage_mortgage_372",
-    "narrative_coverage_business_holding_372"
+    "narrative_coverage_business_holding_372",
+    "narrative_coverage_personal_option_372"
   ]);
   assert.ok(issues.every((issue) => issue.severity === "blocking"));
 });
@@ -28,6 +29,14 @@ test("accepted directional events satisfy narrative coverage", () => {
     ledger,
     acceptedEvents: [{ kind: "asset_purchased" }, { kind: "debt_drawn" }, { kind: "business_option_granted" }],
     ageInMonths: 372
+  });
+  assert.equal(issues.length, 0);
+});
+
+test("employee option grants do not create a protagonist option coverage issue", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你决定建立期权池，并授予销售总监和技术骨干各2%的期权。",
+    ledger, acceptedEvents: [], ageInMonths: 372
   });
   assert.equal(issues.length, 0);
 });
