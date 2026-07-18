@@ -1,11 +1,12 @@
 import type { FinancialEventKind, FinancialEventProposal, FinancialLedger } from "./types";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
-import { matchFinancialEvidence } from "./evidenceMatching";
+import { financialEvidenceCandidates, matchFinancialEvidence } from "./evidenceMatching";
 
 export interface FinancialProposalNormalizationAudit {
   proposalId?: string;
   reasonCode: "KIND_FIELD_NORMALIZED" | "SOURCE_OUTCOME_FILLED" | "DUPLICATE_ID_RENAMED" | "CAREER_LINK_FILLED" | "CASH_ACCOUNT_FILLED"
-    | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED";
+    | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED"
+    | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED";
   originalValue?: string;
   normalizedValue?: string;
 }
@@ -85,7 +86,8 @@ export function normalizeRepairedFinancialProposals(input: {
       }
       const pattern = evidencePatterns[proposal.kind];
       if (!pattern) continue;
-      const sentence = input.narrativeText.split(/(?<=[。！？；])/u).find((item) => pattern.test(item));
+      const sentence = financialEvidenceCandidates({ proposal, narrativeText: input.narrativeText, limit: 1 })[0]?.excerpt
+        || input.narrativeText.split(/(?<=[。！？；])/u).find((item) => pattern.test(item));
       if (sentence) proposal.evidence = sentence.trim();
     }
   }
@@ -97,7 +99,9 @@ const KINDS = new Set<FinancialEventKind>([
   "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended",
   "one_off_expense_paid", "asset_purchased", "asset_sold", "asset_revalued", "debt_drawn",
   "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven",
-  "business_financing_recorded", "business_holding_revalued", "business_distribution_received",
+  "business_option_granted", "business_option_vested", "business_option_revalued",
+  "business_option_exercised", "business_option_expired", "business_option_cancelled",
+  "business_holding_started", "business_financing_recorded", "business_holding_revalued", "business_distribution_received",
   "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"
 ]);
 
@@ -149,13 +153,31 @@ export function normalizeFinancialProposals(input: {
       incomePayload.type = incomeTypeAliases[originalType];
       audit.push({ proposalId: id, reasonCode: "INCOME_TYPE_NORMALIZED", originalValue: originalType, normalizedValue: incomePayload.type });
     }
-    if (payload && (kind === "income_source_ended" || kind === "income_source_paused") && !payload.incomeSourceId) {
+    if (payload && (kind === "income_source_adjusted" || kind === "income_source_ended" || kind === "income_source_paused")) {
       const linkedActiveSources = input.currentLedger?.incomeSources.filter((item) => (
         item.status === "active" && (!input.currentCareerStateId || item.linkedCareerStateId === input.currentCareerStateId)
       )) || [];
-      if (linkedActiveSources.length === 1) {
+      const idBelongsToCash = input.currentLedger?.cashAccounts.some((item) => item.id === payload.incomeSourceId);
+      if ((!payload.incomeSourceId || idBelongsToCash) && linkedActiveSources.length === 1) {
+        const originalValue = typeof payload.incomeSourceId === "string" ? payload.incomeSourceId : undefined;
         payload.incomeSourceId = linkedActiveSources[0].id;
-        audit.push({ proposalId: id, reasonCode: "INCOME_SOURCE_ID_FILLED", normalizedValue: linkedActiveSources[0].id });
+        audit.push({ proposalId: id, reasonCode: idBelongsToCash ? "ACCOUNT_ID_TYPE_CORRECTED" : "INCOME_SOURCE_ID_FILLED", originalValue, normalizedValue: linkedActiveSources[0].id });
+      }
+    }
+    if (payload && kind === "income_source_adjusted" && payload.incomeSourceId) {
+      const existingSource = input.currentLedger?.incomeSources.find((item) => item.id === payload.incomeSourceId);
+      if (existingSource && payload.nextSource && typeof payload.nextSource === "object") {
+        payload.nextSource = mergeMissing(existingSource, payload.nextSource);
+        payload.nextSource.id = payload.incomeSourceId;
+        audit.push({ proposalId: id, reasonCode: "INCOME_SOURCE_SHAPE_COMPLETED", normalizedValue: payload.incomeSourceId });
+      }
+    }
+    if (payload && kind === "expense_commitment_adjusted" && payload.expenseCommitmentId && payload.nextCommitment && typeof payload.nextCommitment === "object") {
+      const existingCommitment = input.currentLedger?.expenseCommitments.find((item) => item.id === payload.expenseCommitmentId);
+      if (existingCommitment) {
+        payload.nextCommitment = mergeMissing(existingCommitment, payload.nextCommitment);
+        payload.nextCommitment.id = payload.expenseCommitmentId;
+        audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: payload.expenseCommitmentId });
       }
     }
     const preferredCareerStateId = input.nextCareerStateIds?.length === 1

@@ -25,12 +25,15 @@ import { adaptTransitionalEmploymentProposal, currentCareerState, initializeCare
 import {
   commitFinancialDomainTransaction,
   deriveConservativeWealthBasis,
+  deriveFinancialState,
+  initializeOpeningFinancialLedger,
   migrateLegacyFinancialState,
   applyOpeningFactsToFinancialState,
   extractOpeningFinancialFacts,
   normalizeFinancialProposals,
   normalizeRepairedFinancialProposals,
   matchesNormalizedEvidence,
+  buildMortalityFinancialClosure,
   reconcileCareerIncomeAtomicity,
   validateFinancialProposals,
   type FinancialEventProposal,
@@ -129,14 +132,43 @@ export interface StartSimulationResult {
   startNode: SimulationNode;
 }
 
-function hasFinancialObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 function rawFinancialEventProposals(rawNode: any): FinancialEventProposal[] {
   return Array.isArray(rawNode?.financialEventProposals)
     ? rawNode.financialEventProposals as FinancialEventProposal[]
     : [];
+}
+
+export function detectNarrativeFinancialCoverageIssues(input: {
+  narrativeText: string;
+  ledger: FinancialLedger;
+  acceptedEvents: Array<{ kind: string }>;
+  ageInMonths: number;
+}): FinancialLedgerIssue[] {
+  const issues: FinancialLedgerIssue[] = [];
+  const hasKind = (...kinds: string[]) => input.acceptedEvents.some((event) => kinds.includes(event.kind));
+  const push = (id: string, summary: string) => issues.push({
+    id: `narrative_coverage_${id}_${input.ageInMonths}`,
+    code: "PENDING_FACT",
+    severity: "blocking",
+    status: "open",
+    relatedProposalIds: [],
+    summary,
+    createdAtAgeInMonths: input.ageInMonths
+  });
+  if (/(?:买下|购入|购买了|名下已有|自有)(?:[^。；]{0,16})(?:房产|住房|房子|公寓)|(?:房贷|按揭)/u.test(input.narrativeText)) {
+    if (!input.ledger.assetAccounts.some((item) => item.status === "active" && item.type === "property")
+      && !hasKind("asset_purchased")) push("property", "正文包含已发生的主人公房产事实，但没有房产资产 Proposal");
+    if (/(?:房贷|按揭)/u.test(input.narrativeText)
+      && !input.ledger.debtAccounts.some((item) => item.status === "active" && item.type === "mortgage")
+      && !hasKind("debt_drawn")) push("mortgage", "正文包含已发生的主人公房贷事实，但没有房贷债务 Proposal");
+  }
+  const hasHolding = input.ledger.businessHoldings.some((item) => item.status === "active" || item.status === "partially_sold");
+  if (/(?:持有|获得|授予|拥有)[^。；]{0,16}(?:期权|股权|股份|持股)|(?:联合创始人|创始人股权|合伙人权益)/u.test(input.narrativeText)
+    && !hasHolding
+    && !hasKind("business_holding_started", "business_option_granted")) {
+    push("business_holding", "正文包含已发生的主人公股权或期权事实，但没有企业权益 Proposal");
+  }
+  return issues;
 }
 
 function attachPendingFinancialContext(input: {
@@ -254,22 +286,16 @@ async function commitAuthoritativeFinancialProgress(input: {
         proposals: normalizedFinancial.proposals,
         ...validationInput
       });
+  validated = {
+    ...validated,
+    issues: [...validated.issues, ...detectNarrativeFinancialCoverageIssues({
+      narrativeText: input.node.description,
+      ledger: initialLedger,
+      acceptedEvents: validated.acceptedEvents,
+      ageInMonths: input.periodEndAgeInMonths
+    })]
+  };
   const completenessIssues: FinancialLedgerIssue[] = [];
-  const startsExpense = validated.acceptedEvents.some((event) => event.kind === "expense_commitment_started");
-  if (input.periodEndAgeInMonths >= 18 * 12
-    && !initialLedger.expenseCommitments.some((commitment) => commitment.status === "active")
-    && !startsExpense) {
-    completenessIssues.push({
-      id: "proposal_issue_missing_adult_expense",
-      code: "PENDING_FACT",
-      severity: "blocking",
-      status: "open",
-      relatedProposalIds: [],
-      relatedIncomeSourceIds: initialLedger.incomeSources.filter((source) => source.status === "active" && source.accrualPolicy !== "event_only").map((source) => source.id),
-      summary: "成年阶段没有有效支出义务；请根据不可修改正文提交明确可证据化的支出 Proposal，若正文没有金额则保留 pending_fact，禁止猜测金额",
-      createdAtAgeInMonths: input.periodEndAgeInMonths
-    });
-  }
   const acceptedIncomeIds = new Set(validated.acceptedEvents.flatMap((event) => {
     const payload = event.payload as Record<string, any>;
     return [payload.incomeSourceId, payload.nextSource?.id, event.kind === "income_source_started" ? payload.id : undefined]
@@ -282,7 +308,7 @@ async function commitAuthoritativeFinancialProgress(input: {
         || input.periodStartAgeInMonths - lastConfirmedAt < 36) continue;
       completenessIssues.push({
         id: `proposal_issue_stale_late_career_${source.id}`,
-        code: "PENDING_FACT",
+        code: "CAREER_STATE_STALE",
         severity: "blocking",
         status: "open",
         relatedProposalIds: [],
@@ -415,10 +441,43 @@ async function commitAuthoritativeFinancialProgress(input: {
     return !(issue.relatedIncomeSourceIds || []).some((sourceId) => finalAcceptedIncomeIds.has(sourceId));
   });
   const existingValidatedIssueIds = new Set(validated.issues.map((issue) => issue.id));
+  const remainingCoverageIssues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: input.node.description,
+    ledger: initialLedger,
+    acceptedEvents: validated.acceptedEvents,
+    ageInMonths: input.periodEndAgeInMonths
+  });
   validated = {
     ...validated,
-    issues: [...validated.issues, ...unresolvedCompletenessIssues.filter((issue) => !existingValidatedIssueIds.has(issue.id))]
+    issues: [
+      ...validated.issues,
+      ...unresolvedCompletenessIssues.filter((issue) => !existingValidatedIssueIds.has(issue.id)),
+      ...remainingCoverageIssues.filter((issue) => !existingValidatedIssueIds.has(issue.id))
+    ]
   };
+  if (input.node.isEndingNode) {
+    const mortality = buildMortalityFinancialClosure({
+      currentCareer,
+      ledger: initialLedger,
+      ageInMonths: input.periodEndAgeInMonths,
+      transactionId: input.transactionId
+    });
+    const terminalIncomeIds = new Set(mortality.financialEvents.map((event) => event.payload.incomeSourceId));
+    acceptedCareerTransitions = mortality.careerTransitions;
+    validated = {
+      acceptedEvents: [
+        ...validated.acceptedEvents.filter((event) => {
+          if (event.kind !== "income_source_adjusted" && event.kind !== "income_source_paused" && event.kind !== "income_source_ended") return true;
+          return !terminalIncomeIds.has(event.payload.incomeSourceId);
+        }),
+        ...mortality.financialEvents
+      ],
+      issues: validated.issues.filter((issue) => !(
+        (issue.code === "CAREER_INCOME_CONFLICT" || issue.code === "PENDING_FACT")
+        && (issue.relatedIncomeSourceIds || []).some((id) => terminalIncomeIds.has(id))
+      ))
+    };
+  }
   const atomicCareerIncome = reconcileCareerIncomeAtomicity({
     currentCareerStateId: currentCareer.id,
     currentLedger: initialLedger,
@@ -630,16 +689,13 @@ export async function startSimulation(
   const rawFinancialState = latestData.initialFinancialState || latestData.startNode?.financialState || latestData.financialState;
   const modelFinancialState = normalizeInitialFinancialState(rawFinancialState, startAgeInMonths, startNode.attributes.wealth);
   const openingFacts = extractOpeningFinancialFacts(userData, answers);
-  const financialState = applyOpeningFactsToFinancialState(modelFinancialState, openingFacts);
-  const startAttributes = hasFinancialObject(rawFinancialState)
-    ? withCalculatedWealth(startNode.attributes, financialState)
-    : startNode.attributes;
+  const proposedFinancialState = applyOpeningFactsToFinancialState(modelFinancialState, openingFacts);
   const startWorldState = emptyWorldState();
   const openingCareerState = initializeCareerState({
     id: `career_opening_${startAgeInMonths}`,
-    employmentStatus: financialState.employmentStatus || "not_working",
+    employmentStatus: proposedFinancialState.employmentStatus || "not_working",
     effectiveFromAgeInMonths: startAgeInMonths,
-    confidence: financialState.isEstimated ? 0.6 : 0.9
+    confidence: proposedFinancialState.isEstimated ? 0.6 : 0.9
   });
   startWorldState.careerStates = [openingCareerState];
   startWorldState.currentCareerStateId = openingCareerState.id;
@@ -648,12 +704,18 @@ export async function startSimulation(
   startWorldState.version = 2;
   startWorldState.directionArcs = ensureDirectionArcs(startWorldState, userData, startNode.ageInMonths ?? startNode.age * 12);
   startWorldState.people = rebuildPersonStates(userData, [], startNode.ageInMonths ?? startNode.age * 12);
-  const openingFinancialLedger = migrateLegacyFinancialState({
+  const openingResult = initializeOpeningFinancialLedger({
     id: `financial_opening_${startAgeInMonths}`,
-    legacyState: financialState,
+    proposedState: proposedFinancialState,
     linkedCareerStateId: openingCareerState.id,
     openingFacts
   });
+  const openingFinancialLedger = openingResult.ledger;
+  const financialState = deriveFinancialState({
+    ledger: openingFinancialLedger,
+    employmentStatus: openingCareerState.employmentStatus
+  }).compatibilityState;
+  const startAttributes = withCalculatedWealth(startNode.attributes, financialState);
   const startDescription = sanitizeFinancialNarrative(startNode.description, financialState, openingFinancialLedger);
   const initializedStartNodeWithFinance = {
     ...startNode,

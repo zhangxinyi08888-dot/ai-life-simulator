@@ -127,7 +127,8 @@ const started = await startSimulation(userData, answers, {
 });
 
 assert.equal(startAttempts, 2);
-assert.equal(started.initialAttributes.wealth, 38);
+assert.equal(started.initialAttributes.wealth, 35);
+assert.equal(started.initialAttributes.wealth, started.startNode.attributes.wealth);
 assert.equal(started.startNode.choices.length, 3);
 assert.equal(started.startNode.age, 22);
 assert.equal(started.startNode.financialLedgerMode, "authoritative");

@@ -1,7 +1,7 @@
 import type { FinancialState } from "../../types";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID, roundWan } from "./ledgerMath";
-import { estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
+import { DEFAULT_FINANCIAL_ESTIMATION_POLICY, estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
 import type { OpeningFinancialFacts } from "./openingFinancialFacts";
 import type { DebtAccount, FinancialEvidence, FinancialLedger, IncomeSource } from "./types";
 
@@ -39,17 +39,25 @@ export function migrateLegacyFinancialState(input: {
       openedAtAgeInMonths: state.asOfAgeInMonths,
       evidence: input.openingFacts?.investmentAssetsWan !== undefined ? userEvidence : evidence
     }] : []),
-    ...(input.openingFacts?.ownsProperty && state.propertyMarketValueWan === 0 ? [{
+    ...(input.openingFacts?.ownsProperty && state.propertyMarketValueWan === 0 ? (() => {
+      const estimate = input.openingFacts?.mortgagePrincipalWan !== undefined
+        ? DEFAULT_FINANCIAL_ESTIMATION_POLICY.estimateMortgagedPropertyValue(input.openingFacts.mortgagePrincipalWan)
+        : undefined;
+      return [{
       id: "opening_property_value_pending",
       type: "property" as const,
-      displayName: "用户明确持有的住房（价值待确认）",
-      marketValueWan: 0,
+      displayName: "用户明确持有的住房（保守估值）",
+      marketValueWan: estimate?.valueWan || 0,
+      plausibleMarketValueRangeWan: estimate?.plausibleRangeWan,
       liquidity: "illiquid" as const,
       status: "active" as const,
-      factStatus: "needs_review" as const,
+      factStatus: estimate ? "estimated" as const : "needs_review" as const,
       openedAtAgeInMonths: state.asOfAgeInMonths,
-      evidence: userEvidence
-    }] : []),
+      evidence: estimate
+        ? [...userEvidence, { source: "system_policy" as const, reasonCode: estimate.reasonCode, confidence: 0.6 }]
+        : userEvidence
+      }];
+    })() : []),
     ...(state.propertyMarketValueWan > 0 ? [{
       id: "legacy_property_assets",
       type: "property" as const,

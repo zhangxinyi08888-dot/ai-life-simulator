@@ -32,7 +32,8 @@ function eventReferences(event: AcceptedFinancialEvent): {
     incomeSourceIds: incomeSourceIds.filter((value): value is string => typeof value === "string"),
     expenseCommitmentIds: expenseCommitmentIds.filter((value): value is string => typeof value === "string"),
     debtAccountIds: [payload.debtAccountId, payload.oldDebtAccountId, payload.debtAccount?.id, payload.replacementDebtAccount?.id].filter((value): value is string => typeof value === "string"),
-    businessHoldingIds: [payload.businessHoldingId].filter((value): value is string => typeof value === "string"),
+    businessHoldingIds: [payload.businessHoldingId, event.kind === "business_holding_started" ? payload.id : undefined, event.kind === "business_option_granted" ? payload.optionHolding?.id : undefined]
+      .filter((value): value is string => typeof value === "string"),
     accountIds: [payload.sourceCashAccountId, payload.destinationCashAccountId, payload.assetAccountId, payload.assetAccount?.id, ...expenseCommitmentIds].filter((value): value is string => typeof value === "string")
   };
 }
@@ -100,11 +101,22 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   const hasActiveBasicLiving = input.ledger.expenseCommitments.some((commitment) => (
     commitment.status === "active" && commitment.type === "basic_living"
   ));
-  const startsBasicLiving = input.events.some((event) => (
+  const startsBasicLivingEvent = input.events.find((event) => (
     event.kind === "expense_commitment_started"
     && (event.payload as { type?: string }).type === "basic_living"
   ));
-  if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveBasicLiving && !startsBasicLiving) {
+  if (startsBasicLivingEvent) {
+    for (const commitment of input.ledger.expenseCommitments) {
+      const isSystemEstimate = commitment.type === "basic_living"
+        && commitment.status === "active"
+        && commitment.factStatus === "estimated"
+        && commitment.evidence.some((item) => item.source === "system_policy");
+      if (!isSystemEstimate) continue;
+      commitment.activeUntilAgeInMonths = startsBasicLivingEvent.effectiveAtAgeInMonths;
+      if (commitment.activeUntilAgeInMonths <= input.periodStartAgeInMonths) commitment.status = "ended";
+    }
+  }
+  if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveBasicLiving && !startsBasicLivingEvent) {
     const estimatedLiving = estimatedBasicLivingCommitment({ ageInMonths: input.periodStartAgeInMonths });
     if (estimatedLiving) input.ledger.expenseCommitments.push(estimatedLiving);
   }
@@ -120,7 +132,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       source.accrualReviewStatus = "quarantined";
       issues.push({
         id: `pending_fact_stale_late_career_${source.id}`,
-        code: "PENDING_FACT",
+        code: "CAREER_STATE_STALE",
         severity: "blocking",
         status: "open",
         relatedProposalIds: [],
@@ -140,7 +152,11 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
       if (issue.status === "resolved") continue;
       const resolvesMissingExpense = issue.id === "pending_fact_missing_adult_expense"
         && event.kind === "expense_commitment_started";
-      if (!resolvesMissingExpense
+      const resolvesCoverage = (issue.id.startsWith("narrative_coverage_property_") && event.kind === "asset_purchased")
+        || (issue.id.startsWith("narrative_coverage_mortgage_") && event.kind === "debt_drawn" && event.payload.debtAccount.type === "mortgage")
+        || (issue.id.startsWith("narrative_coverage_business_holding_")
+          && (event.kind === "business_holding_started" || event.kind === "business_option_granted"));
+      if (!resolvesMissingExpense && !resolvesCoverage
         && !intersects(issue.relatedIncomeSourceIds, refs.incomeSourceIds)
         && !intersects(issue.relatedAccountIds, refs.accountIds)
         && !intersects(issue.relatedDebtAccountIds, refs.debtAccountIds)
@@ -175,19 +191,26 @@ function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedger
       const source = ledger.incomeSources.find((item) => item.id === sourceId && item.status === "active");
       if (!source) continue;
       source.factStatus = "needs_review";
-      source.accrualReviewStatus = "quarantined";
-      if (completenessPolicyAlreadyApplied) continue;
+      if (completenessPolicyAlreadyApplied) {
+        source.accrualReviewStatus = "quarantined";
+        continue;
+      }
       const pendingId = `pending_fact_income_${sourceId}`;
-      addOrObserveIssue(ledger, {
+      const pending = addOrObserveIssue(ledger, {
           id: pendingId,
           code: "PENDING_FACT",
           severity: "blocking",
           status: "open",
           relatedProposalIds: [...issue.relatedProposalIds],
           relatedIncomeSourceIds: [sourceId],
-          summary: `收入来源 ${source.displayName} 的新事实未能通过校验，后续确定性计提已隔离等待确认`,
+          summary: issue.pendingFactPolicy === "bounded_last_known_income"
+            ? `收入来源 ${source.displayName} 的调整事实未能通过校验；旧权威基线最多沿用2个节点，等待修复确认`
+            : `收入来源 ${source.displayName} 的新事实未能通过校验，后续确定性计提已隔离等待确认`,
           createdAtAgeInMonths: ageInMonths
         }, ageInMonths);
+      source.accrualReviewStatus = issue.pendingFactPolicy === "bounded_last_known_income" && (pending.occurrenceCount || 1) < 2
+        ? "normal"
+        : "quarantined";
     }
     for (const commitmentId of issue.relatedAccountIds || []) {
       const commitment = ledger.expenseCommitments.find((item) => item.id === commitmentId && item.status === "active");

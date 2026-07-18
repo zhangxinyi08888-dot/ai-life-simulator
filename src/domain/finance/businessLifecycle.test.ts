@@ -66,6 +66,24 @@ function businessLedger(businessHolding = holding(), cashWan = 10) {
   });
 }
 
+test("a confirmed founder stake creates a holding even when valuation is pending", () => {
+  const ledger = initializeFinancialLedger({
+    id: "founder_start", asOfAgeInMonths: 360,
+    openingPosition: { cashAccounts: [{ id: PRIMARY_CASH_ACCOUNT_ID, type: "bank_deposit", balanceWan: 5, status: "active", factStatus: "known", evidence }] }
+  });
+  const result = reduceFinancialLedger({
+    ledger, transactionId: "founder_start", expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    events: [accepted("holding_started", "business_holding_started", 361, holding({
+      instrumentType: "equity", ownershipRate: undefined, attributableValueWan: undefined,
+      personalCarryingValueWan: 0, factStatus: "needs_review"
+    }))]
+  });
+  assert.equal(result.ledger.businessHoldings.length, 1);
+  assert.equal(result.ledger.businessHoldings[0].factStatus, "needs_review");
+  assert.equal(result.ledger.businessHoldings[0].personalCarryingValueWan, 0);
+});
+
 test("company financing remains a company fact and does not change personal cash or carrying value", () => {
   const result = reduceFinancialLedger({
     ledger: businessLedger(),

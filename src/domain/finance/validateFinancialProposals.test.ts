@@ -5,6 +5,8 @@ import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import { validateFinancialProposals } from "./validateFinancialProposals";
 import type { FinancialEventProposal, FinancialEvidence } from "./types";
+import type { FinancialEventKind } from "./types";
+import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "TEST", confidence: 1 }];
 
@@ -110,4 +112,27 @@ test("low-confidence but otherwise determinate facts are accepted as estimated",
   })], "你开始每月获得1万元顾问收入。");
   assert.equal(result.acceptedEvents.length, 1);
   assert.equal((result.acceptedEvents[0].payload as { factStatus: string }).factStatus, "estimated");
+});
+
+test("rejects malformed kind payload before reducer trial without leaking undefined", () => {
+  const result = validate([proposal({ id: "malformed_adjustment", kind: "income_source_adjusted", payload: { incomeSourceId: "salary_main" }, evidence: "你正式涨薪到每月3万元。" })], "你正式涨薪到每月3万元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.match(result.issues[0].summary, /payload\.nextSource/);
+  assert.doesNotMatch(result.issues[0].summary, /undefined/i);
+});
+
+test("reports typed account mismatch with legal income-source candidates", () => {
+  const context = setup();
+  context.currentLedger.incomeSources.push({ id: "salary_main", type: "salary", displayName: "工资", monthlyNetAmountWan: 2, accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence });
+  const nextSource = { ...structuredClone(context.currentLedger.incomeSources[0]), monthlyNetAmountWan: 3 };
+  const result = validateFinancialProposals({ ...context, proposals: [proposal({ id: "wrong_typed_id", kind: "income_source_adjusted", payload: { incomeSourceId: PRIMARY_CASH_ACCOUNT_ID, nextSource: { ...nextSource, id: PRIMARY_CASH_ACCOUNT_ID } }, evidence: "你正式涨薪到每月3万元。" })], acceptedOutcomeId: "accepted_choice", narrativeText: "你正式涨薪到每月3万元。", periodStartAgeInMonths: 300, periodEndAgeInMonths: 312, simulationTransactionId: "typed_mismatch", liquidityPolicy: "require_explicit" });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0].code, "ACCOUNT_TYPE_MISMATCH");
+  assert.match(result.issues[0].summary, /salary_main/);
+  assert.doesNotMatch(result.issues[0].summary, /undefined/i);
+});
+
+test("every financial event kind has a payload schema that rejects an empty object", () => {
+  const kinds: FinancialEventKind[] = ["income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended", "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended", "one_off_expense_paid", "asset_purchased", "asset_sold", "asset_revalued", "debt_drawn", "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven", "business_financing_recorded", "business_option_granted", "business_option_vested", "business_option_revalued", "business_option_exercised", "business_option_expired", "business_option_cancelled", "business_holding_revalued", "business_distribution_received", "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"];
+  for (const kind of kinds) assert.ok(validateFinancialPayloadSchema(kind, {}).length > 0, `${kind} schema must reject {}`);
 });

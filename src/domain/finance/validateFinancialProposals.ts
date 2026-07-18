@@ -11,12 +11,16 @@ import type {
   FinancialLedgerIssue
 } from "./types";
 import { matchFinancialEvidence, type EvidenceMatchReason } from "./evidenceMatching";
+import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 
 const FINANCIAL_EVENT_KINDS = new Set<FinancialEventKind>([
   "income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended",
   "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended",
   "one_off_expense_paid", "asset_purchased", "asset_sold", "asset_revalued", "debt_drawn",
   "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven",
+  "business_holding_started",
+  "business_option_granted", "business_option_vested", "business_option_revalued",
+  "business_option_exercised", "business_option_expired", "business_option_cancelled",
   "business_financing_recorded", "business_holding_revalued", "business_distribution_received",
   "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"
 ]);
@@ -34,7 +38,11 @@ function proposalIssue(input: {
   const relatedIncomeSourceIds = [payload.incomeSourceId, payload.nextSource?.id].filter((value): value is string => typeof value === "string" && value.length > 0);
   const relatedAccountIds = [payload.sourceCashAccountId, payload.destinationCashAccountId, payload.assetAccountId, payload.assetAccount?.id, payload.expenseCommitmentId, payload.nextCommitment?.id].filter((value): value is string => typeof value === "string" && value.length > 0);
   const relatedDebtAccountIds = [payload.debtAccountId, payload.oldDebtAccountId, payload.debtAccount?.id, payload.replacementDebtAccount?.id].filter((value): value is string => typeof value === "string" && value.length > 0);
-  const relatedBusinessHoldingIds = [payload.businessHoldingId].filter((value): value is string => typeof value === "string" && value.length > 0);
+  const relatedBusinessHoldingIds = [payload.businessHoldingId, payload.id, payload.optionHolding?.id, payload.resultingEquityHolding?.id]
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const safeSummary = String(input.summary || "财务 Proposal 校验失败")
+    .replace(/\bundefined\b/gi, "缺失值")
+    .replace(/\bnull\b/gi, "空值");
   return {
     id: `proposal_issue_${input.proposal?.id || input.code}_${input.ageInMonths}`,
     code: input.code,
@@ -45,9 +53,41 @@ function proposalIssue(input: {
     relatedIncomeSourceIds,
     relatedDebtAccountIds,
     relatedBusinessHoldingIds,
-    summary: input.summary,
-    createdAtAgeInMonths: input.ageInMonths
+    summary: safeSummary,
+    createdAtAgeInMonths: input.ageInMonths,
+    ...(input.proposal?.kind === "income_source_adjusted" ? { pendingFactPolicy: "bounded_last_known_income" as const } : {})
   };
+}
+
+function typedReferenceIssue(input: { proposal: FinancialEventProposal; ledger: FinancialLedger; ageInMonths: number }): FinancialLedgerIssue | undefined {
+  const payload = input.proposal.payload as Record<string, any>;
+  const references: Array<{ id: unknown; label: string; ids: string[] }> = [];
+  const activeCash = input.ledger.cashAccounts.filter((item) => item.status === "active").map((item) => item.id);
+  const activeIncome = input.ledger.incomeSources.filter((item) => item.status !== "ended").map((item) => item.id);
+  const activeExpenses = input.ledger.expenseCommitments.filter((item) => item.status !== "ended").map((item) => item.id);
+  const activeAssets = input.ledger.assetAccounts.filter((item) => item.status !== "disposed").map((item) => item.id);
+  const activeDebts = input.ledger.debtAccounts.filter((item) => item.status === "active" || item.status === "defaulted").map((item) => item.id);
+  const activeHoldings = input.ledger.businessHoldings.filter((item) => item.status === "active" || item.status === "partially_sold").map((item) => item.id);
+  if (["income_source_adjusted", "income_source_paused", "income_source_ended"].includes(input.proposal.kind)) references.push({ id: payload.incomeSourceId, label: "收入来源", ids: activeIncome });
+  if (["expense_commitment_adjusted", "expense_commitment_ended"].includes(input.proposal.kind)) references.push({ id: payload.expenseCommitmentId, label: "支出义务", ids: activeExpenses });
+  if (["asset_sold", "asset_revalued"].includes(input.proposal.kind)) references.push({ id: payload.assetAccountId, label: "资产账户", ids: activeAssets });
+  if (["debt_principal_repaid", "debt_interest_paid", "debt_forgiven"].includes(input.proposal.kind)) references.push({ id: payload.debtAccountId, label: "债务账户", ids: activeDebts });
+  if (input.proposal.kind === "debt_restructured") references.push({ id: payload.oldDebtAccountId, label: "债务账户", ids: activeDebts });
+  if (["business_financing_recorded", "business_holding_revalued", "business_distribution_received", "business_holding_sold",
+    "business_option_vested", "business_option_revalued", "business_option_exercised", "business_option_expired", "business_option_cancelled"
+  ].includes(input.proposal.kind)) references.push({ id: payload.businessHoldingId, label: "企业持股", ids: activeHoldings });
+  const destinationCashKinds: FinancialEventKind[] = ["one_off_income_received", "family_support_received", "asset_sold", "debt_drawn", "liquidity_shortfall_created", "business_distribution_received", "business_holding_sold"];
+  const sourceCashKinds: FinancialEventKind[] = ["one_off_expense_paid", "family_support_paid", "asset_purchased", "debt_principal_repaid", "debt_interest_paid", "business_option_exercised"];
+  if (destinationCashKinds.includes(input.proposal.kind)) references.push({ id: payload.destinationCashAccountId, label: "现金账户", ids: activeCash });
+  if (sourceCashKinds.includes(input.proposal.kind) || (input.proposal.kind === "debt_restructured" && payload.sourceCashAccountId)) references.push({ id: payload.sourceCashAccountId, label: "现金账户", ids: activeCash });
+  const invalid = references.find((reference) => typeof reference.id === "string" && !reference.ids.includes(reference.id));
+  if (!invalid) return undefined;
+  return proposalIssue({
+    proposal: input.proposal,
+    code: "ACCOUNT_TYPE_MISMATCH",
+    summary: `${invalid.label} ID 类型错误或不存在：${String(invalid.id)}；合法候选：${invalid.ids.length ? invalid.ids.join("、") : "无可用候选"}`,
+    ageInMonths: input.ageInMonths
+  });
 }
 
 function markEstimatedFacts<T>(value: T): T {
@@ -161,6 +201,18 @@ export function validateFinancialProposals(input: {
       continue;
     }
     ids.add(proposal.id);
+    const schemaErrors = validateFinancialPayloadSchema(proposal.kind, proposal.payload);
+    if (schemaErrors.length > 0) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: `财务 Proposal payload schema 无效：${schemaErrors.map((error) => `${error.path} ${error.reason}`).join("；")}`,
+        ageInMonths: input.periodEndAgeInMonths
+      }));
+      continue;
+    }
+    const referenceIssue = typedReferenceIssue({ proposal, ledger: input.currentLedger, ageInMonths: proposal.effectiveAtAgeInMonths });
+    if (referenceIssue) { issues.push(referenceIssue); continue; }
     if (!input.acceptedOutcomeId || proposal.sourceOutcomeId !== input.acceptedOutcomeId) {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal 未关联本轮已接受结果", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
@@ -247,6 +299,7 @@ export function validateFinancialProposals(input: {
       });
       acceptedAfterTrial.push(...groupEvents);
     } catch (error) {
+      if (!(error instanceof FinancialLedgerInvariantError)) throw error;
       const code = error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE"
         ? "MISSING_FUNDING_SOURCE"
         : "UNBALANCED_TRANSACTION";

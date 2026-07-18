@@ -64,7 +64,7 @@ test("captures compact free-text mortgage wording and preserves every known open
   const ledger = migrateLegacyFinancialState({ id: "opening", legacyState: state, openingFacts: facts });
   assert.equal(ledger.debtAccounts[0]?.id, "opening_mortgage");
   assert.equal(ledger.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
-  assert.ok(ledger.assetAccounts.some((account) => account.type === "property" && account.factStatus === "needs_review"));
+  assert.ok(ledger.assetAccounts.some((account) => account.type === "property" && account.factStatus === "estimated" && account.marketValueWan === 210));
 });
 
 test("creates deterministic estimated basic living for an adult opening with zero expenses", () => {

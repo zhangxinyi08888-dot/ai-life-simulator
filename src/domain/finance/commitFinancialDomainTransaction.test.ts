@@ -217,6 +217,19 @@ test("a rejected fact quarantines only the affected recurring income and opens a
   assert.equal(second.financialPeriodSummary?.incomeWan, 0);
 });
 
+test("a rejected adjustment uses the last accepted income baseline for at most two nodes", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({ id: "living", type: "basic_living", displayName: "生活支出", monthlyAmountWan: 1, activeFromAgeInMonths: 300, status: "active", factStatus: "known", evidence });
+  current.ledger.incomeSources.push({ id: "salary_main", type: "salary", displayName: "当前工资", monthlyNetAmountWan: 5, accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active", linkedCareerStateId: "career_employed", factStatus: "known", evidence });
+  const adjustmentIssue: FinancialLedgerIssue = { id: "rejected_adjustment", code: "UNBALANCED_TRANSACTION", severity: "blocking", status: "open", relatedProposalIds: ["adjust_salary"], relatedIncomeSourceIds: ["salary_main"], summary: "工资调整证据尚未确认", createdAtAgeInMonths: 361, pendingFactPolicy: "bounded_last_known_income" };
+  const first = commitFinancialDomainTransaction({ transactionId: "bounded_salary_1", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361, expectedCareerRevision: 0, expectedLedgerRevision: 0, currentCareer: current.career, currentFinancialLedger: current.ledger, currentWorldState: current.worldState, acceptedCareerTransitions: [], acceptedFinancialEvents: [], financialIssues: [adjustmentIssue] });
+  assert.equal(first.financialPeriodSummary?.incomeWan, 5); assert.equal(first.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
+  const second = commitFinancialDomainTransaction({ transactionId: "bounded_salary_2", periodStartAgeInMonths: 361, periodEndAgeInMonths: 362, expectedCareerRevision: first.career.careerRevision, expectedLedgerRevision: first.financialLedger.revision, currentCareer: first.career, currentFinancialLedger: first.financialLedger, currentWorldState: first.worldState, acceptedCareerTransitions: [], acceptedFinancialEvents: [], financialIssues: [{ ...adjustmentIssue, createdAtAgeInMonths: 362 }] });
+  assert.equal(second.financialPeriodSummary?.incomeWan, 5); assert.equal(second.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
+  const third = commitFinancialDomainTransaction({ transactionId: "bounded_salary_3", periodStartAgeInMonths: 362, periodEndAgeInMonths: 363, expectedCareerRevision: second.career.careerRevision, expectedLedgerRevision: second.financialLedger.revision, currentCareer: second.career, currentFinancialLedger: second.financialLedger, currentWorldState: second.worldState, acceptedCareerTransitions: [], acceptedFinancialEvents: [] });
+  assert.equal(third.financialPeriodSummary?.incomeWan, 0);
+});
+
 test("a later accepted event resolves the matching issue and releases the quarantined source", () => {
   const current = setup();
   current.ledger.expenseCommitments.push({

@@ -19,6 +19,7 @@ export interface FinancialEstimationPolicy {
   id: string;
   version: number;
   estimateBasicLivingCommitment(context: FinancialEstimationContext): EstimatedMoney;
+  estimateMortgagedPropertyValue(mortgagePrincipalWan: number): EstimatedMoney;
 }
 
 export const DEFAULT_FINANCIAL_ESTIMATION_POLICY: FinancialEstimationPolicy = {
@@ -35,6 +36,15 @@ export const DEFAULT_FINANCIAL_ESTIMATION_POLICY: FinancialEstimationPolicy = {
       plausibleRangeWan: youngAdult ? [0.12, 0.35] : [0.25, 0.6],
       policyId: "cn_conservative_basic_living@1",
       reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1"
+    };
+  },
+  estimateMortgagedPropertyValue(mortgagePrincipalWan) {
+    const principal = roundWan(Math.max(0, mortgagePrincipalWan));
+    return {
+      valueWan: principal,
+      plausibleRangeWan: [roundWan(principal * 0.8), roundWan(principal * 1.5)],
+      policyId: "cn_conservative_mortgaged_property@1",
+      reasonCode: "MORTGAGED_PROPERTY_VALUE_ESTIMATED_V1"
     };
   }
 };

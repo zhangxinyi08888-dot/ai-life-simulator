@@ -121,3 +121,14 @@ test("repair evidence is grounded to a verbatim consultant sentence", () => {
   });
   assert.equal(result.proposals[0].evidence, "你转为每周三天的顾问后，顾问年收入稳定在24万左右。家庭生活也慢了下来。".split("家庭")[0]);
 });
+
+test("corrects a cash-account id used as the sole active income-source id and completes the next source shape", () => {
+  const currentLedger = initializeFinancialLedger({ id: "typed_income", asOfAgeInMonths: 300, openingPosition: {
+    cashAccounts: [{ id: PRIMARY_CASH_ACCOUNT_ID, type: "bank_deposit", balanceWan: 3, status: "active", factStatus: "known", evidence: [] }],
+    incomeSources: [{ id: "salary_main", type: "salary", displayName: "工资", monthlyNetAmountWan: 2, accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: [] }]
+  } });
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], currentLedger, currentCareerStateId: "career_current", proposals: [{ id: "adjust", kind: "income_source_adjusted", effectiveAtAgeInMonths: 312, payload: { incomeSourceId: PRIMARY_CASH_ACCOUNT_ID, nextSource: { monthlyNetAmountWan: 3 } }, evidence: "你涨薪到每月3万元。", confidence: 0.9 }] });
+  const payload = result.proposals[0].payload as any;
+  assert.equal(payload.incomeSourceId, "salary_main"); assert.equal(payload.nextSource.id, "salary_main"); assert.equal(payload.nextSource.displayName, "工资"); assert.equal(payload.nextSource.monthlyNetAmountWan, 3);
+  assert.equal(result.audit.some((item) => item.reasonCode === "ACCOUNT_ID_TYPE_CORRECTED"), true);
+});

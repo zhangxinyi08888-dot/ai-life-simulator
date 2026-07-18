@@ -84,7 +84,8 @@ for (const record of records) {
     const careerIncomeSources = (ledger.incomeSources || []).filter((source) => source.status === "active" && source.linkedCareerStateId);
     const hasRecentCareerEvidence = careerIncomeSources.some((source) => Number.isFinite(source.lastConfirmedAtAgeInMonths)
       && Number(node.ageInMonths) - Number(source.lastConfirmedAtAgeInMonths) <= 36);
-    const employedAt80PlusWithoutEvidence = ageYears >= 80 && fs.employmentStatus === "employed" && !hasRecentCareerEvidence;
+    const hasAccruingCareerIncome = careerIncomeSources.some((source) => source.accrualPolicy !== "event_only" && source.accrualReviewStatus !== "quarantined");
+    const employedAt80PlusWithoutEvidence = ageYears >= 80 && fs.employmentStatus === "employed" && hasAccruingCareerIncome && !hasRecentCareerEvidence;
     if (adultZeroExpense) adultZeroExpenseNodes += 1;
     if (employedAt80PlusWithoutEvidence) employedAt80PlusWithoutEvidenceNodes += 1;
     const activeShortfalls = (ledger.debtAccounts || []).filter((debt) => debt.status === "active" && debt.type === "liquidity_shortfall");

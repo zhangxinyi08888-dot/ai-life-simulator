@@ -94,6 +94,27 @@ function validateExpenseCommitment(commitment: ExpenseCommitment): void {
   nonNegativeMoney(commitment.monthlyAmountWan, `支出义务 ${commitment.id}.monthlyAmountWan`);
 }
 
+function requiredOptionHolding(ledger: FinancialLedger, id: string): BusinessHolding {
+  const holding = requiredById(ledger.businessHoldings, id, "企业期权");
+  if (holding.instrumentType !== "stock_option" || !holding.optionTerms) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业权益 ${id} 不是有效期权`);
+  }
+  if (holding.status !== "active" && holding.status !== "partially_sold") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `期权 ${id} 已关闭`);
+  }
+  return holding;
+}
+
+function optionCarryingValue(holding: BusinessHolding): number {
+  const terms = holding.optionTerms;
+  if (!terms || terms.fairValueWanPerUnit === undefined) return 0;
+  const availableVestedUnits = terms.vestedUnits - terms.exercisedUnits;
+  const intrinsicValueWan = availableVestedUnits * Math.max(terms.fairValueWanPerUnit - terms.strikePriceWanPerUnit, 0);
+  return roundWan(intrinsicValueWan
+    * (1 - (holding.liquidityDiscountRate || 0))
+    * (1 - (terms.realizationRiskDiscountRate || 0)));
+}
+
 interface EventTotals {
   oneOffIncomeWan: number;
   otherExpenseWan: number;
@@ -117,6 +138,7 @@ function accumulatePeriodAccrual(
 function addDebtScheduleReviewIssues(ledger: FinancialLedger): void {
   for (const debt of ledger.debtAccounts) {
     if (debt.status !== "active"
+      || debt.type === "liquidity_shortfall"
       || debt.repaymentPolicy.mode !== "event_driven"
       || ledger.asOfAgeInMonths - debt.openedAtAgeInMonths < EVENT_DRIVEN_DEBT_REVIEW_MONTHS) continue;
     const issueId = `unknown_debt_schedule_${debt.id}`;
@@ -319,6 +341,15 @@ function applyEvent(
       }
       return;
     }
+    case "business_holding_started": {
+      const holding = event.payload;
+      assertNewId(ledger.businessHoldings, holding.id, "企业持股");
+      if (holding.instrumentType === "stock_option") {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权必须通过 business_option_granted 创建");
+      }
+      ledger.businessHoldings.push({ ...structuredClone(holding), instrumentType: holding.instrumentType || "equity" });
+      return;
+    }
     case "business_financing_recorded": {
       const payload = event.payload;
       positiveMoney(payload.financingAmountWan, "business_financing_recorded.financingAmountWan");
@@ -351,6 +382,98 @@ function applyEvent(
           });
         }
       }
+      return;
+    }
+    case "business_option_granted": {
+      const holding = structuredClone(event.payload.optionHolding);
+      assertNewId(ledger.businessHoldings, holding.id, "企业期权");
+      if (holding.instrumentType !== "stock_option" || !holding.optionTerms || holding.optionTerms.grantedUnits <= 0) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权授予事件必须创建具有正授予数量的 stock_option holding 和 optionTerms");
+      }
+      if (holding.personalCarryingValueWan !== 0 || holding.optionTerms.exercisedUnits !== 0) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "授予期权在可靠估值前不得直接计入个人财富");
+      }
+      if (holding.optionTerms.fairValueWanPerUnit !== undefined) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权公允价值只能通过独立重估事件进入账本");
+      }
+      if (holding.optionTerms.vestedUnits > holding.optionTerms.grantedUnits) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "已归属期权数量不得超过授予数量");
+      }
+      holding.status = "active";
+      ledger.businessHoldings.push(holding);
+      return;
+    }
+    case "business_option_vested": {
+      const holding = requiredOptionHolding(ledger, event.payload.businessHoldingId);
+      const terms = holding.optionTerms!;
+      const units = positiveMoney(event.payload.unitsVested, "business_option_vested.unitsVested");
+      if (terms.vestedUnits + units > terms.grantedUnits) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "归属数量超过尚未归属的期权数量");
+      }
+      const previousValue = holding.personalCarryingValueWan;
+      terms.vestedUnits = roundWan(terms.vestedUnits + units);
+      holding.personalCarryingValueWan = optionCarryingValue(holding);
+      totals.valuationChangeWan = roundWan(totals.valuationChangeWan + holding.personalCarryingValueWan - previousValue);
+      return;
+    }
+    case "business_option_revalued": {
+      const payload = event.payload;
+      const holding = requiredOptionHolding(ledger, payload.businessHoldingId);
+      if (roundWan(holding.personalCarryingValueWan) !== roundWan(payload.previousCarryingValueWan)) {
+        throw new FinancialLedgerInvariantError("REVISION_CONFLICT", `期权 ${holding.id} 的旧账面价值不一致`);
+      }
+      const fairValue = nonNegativeMoney(payload.fairValueWanPerUnit, "business_option_revalued.fairValueWanPerUnit");
+      if (payload.liquidityDiscountRate < 0 || payload.liquidityDiscountRate > 1
+        || payload.realizationRiskDiscountRate < 0 || payload.realizationRiskDiscountRate > 1) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权的流动性和实现风险折扣必须在 0-1 之间");
+      }
+      if (!payload.valuationEvidence.length) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权重估必须提供可靠估值证据");
+      holding.optionTerms!.fairValueWanPerUnit = fairValue;
+      holding.optionTerms!.realizationRiskDiscountRate = payload.realizationRiskDiscountRate;
+      holding.liquidityDiscountRate = payload.liquidityDiscountRate;
+      const expected = optionCarryingValue(holding);
+      if (roundWan(payload.newCarryingValueWan) !== expected) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", `已归属期权的个人账面价值应为 ${expected} 万元，不能使用融资额或期权名义金额`);
+      }
+      totals.valuationChangeWan = roundWan(totals.valuationChangeWan + expected - holding.personalCarryingValueWan);
+      holding.personalCarryingValueWan = expected;
+      holding.factStatus = event.evidence.some((item) => item.confidence < 0.8) ? "estimated" : "known";
+      holding.evidence.push(...structuredClone(payload.valuationEvidence));
+      return;
+    }
+    case "business_option_exercised": {
+      const payload = event.payload;
+      const holding = requiredOptionHolding(ledger, payload.businessHoldingId);
+      const terms = holding.optionTerms!;
+      const units = positiveMoney(payload.unitsExercised, "business_option_exercised.unitsExercised");
+      if (units > terms.vestedUnits - terms.exercisedUnits) throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "行权数量超过可行权的已归属期权");
+      if (terms.fairValueWanPerUnit === undefined) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权行权前必须有可靠公允价值");
+      const expectedCost = roundWan(units * terms.strikePriceWanPerUnit);
+      if (roundWan(payload.exerciseCostWan) !== expectedCost) throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", `行权成本应为 ${expectedCost} 万元`);
+      const equity = structuredClone(payload.resultingEquityHolding);
+      assertNewId(ledger.businessHoldings, equity.id, "行权所得股权");
+      if ((equity.instrumentType || "equity") !== "equity" || equity.business.id !== holding.business.id) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "行权所得必须是同一企业的普通股权 holding");
+      }
+      const grossEquityValue = roundWan(units * terms.fairValueWanPerUnit);
+      const expectedEquityValue = roundWan(grossEquityValue * (1 - (equity.liquidityDiscountRate || 0)));
+      if (roundWan(equity.personalCarryingValueWan) !== expectedEquityValue) throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", `行权所得股权账面价值应为 ${expectedEquityValue} 万元`);
+      const previousOptionValue = holding.personalCarryingValueWan;
+      changeCash(ledger, payload.sourceCashAccountId, -expectedCost);
+      terms.exercisedUnits = roundWan(terms.exercisedUnits + units);
+      holding.personalCarryingValueWan = optionCarryingValue(holding);
+      if (terms.exercisedUnits === terms.grantedUnits) holding.status = "exercised";
+      ledger.businessHoldings.push(equity);
+      totals.assetPurchaseWan = roundWan(totals.assetPurchaseWan + expectedCost);
+      totals.valuationChangeWan = roundWan(totals.valuationChangeWan + equity.personalCarryingValueWan + holding.personalCarryingValueWan - previousOptionValue);
+      return;
+    }
+    case "business_option_expired":
+    case "business_option_cancelled": {
+      const holding = requiredOptionHolding(ledger, event.payload.businessHoldingId);
+      totals.valuationChangeWan = roundWan(totals.valuationChangeWan - holding.personalCarryingValueWan);
+      holding.personalCarryingValueWan = 0;
+      holding.status = event.kind === "business_option_expired" ? "expired" : "cancelled";
       return;
     }
     case "business_holding_revalued": {
@@ -465,32 +588,60 @@ export function reduceFinancialLedger(input: {
   let coreExpenseWan = 0;
   let cursor = input.periodStartAgeInMonths;
   const automaticLiquidityEventIds: string[] = [];
+  const systemShortfallId = "system_liquidity_shortfall";
 
-  const closeLiquidityShortfall = (ageInMonths: number) => {
+  const primaryCashAccount = () => next.cashAccounts.find((candidate) => candidate.id === PRIMARY_CASH_ACCOUNT_ID && candidate.status === "active")
+    || next.cashAccounts.find((candidate) => candidate.status === "active");
+
+  const systemShortfallAccount = () => next.debtAccounts.find((debt) => debt.id === systemShortfallId)
+    || next.debtAccounts.find((debt) => debt.type === "liquidity_shortfall"
+      && debt.evidence.some((item) => item.source === "system_policy"));
+
+  const reconcileSystemLiquidity = (ageInMonths: number) => {
     const cash = totalCashWan(next);
-    if (cash >= 0 || input.liquidityPolicy !== "auto_shortfall_debt") return;
-    const principalWan = roundWan(-cash);
-    const id = `auto_shortfall_${input.transactionId}_${ageInMonths}_${automaticLiquidityEventIds.length}`;
-    next.debtAccounts.push({
-      id,
-      type: "liquidity_shortfall",
-      displayName: "自动流动性缺口",
-      principalWan,
-      openedAtAgeInMonths: ageInMonths,
-      status: "active",
-      repaymentPolicy: { mode: "event_driven" },
-      factStatus: "known",
-      evidence: [{
-        source: "system_policy",
-        reasonCode: "AUTOMATIC_LIQUIDITY_SHORTFALL",
-        confidence: 1
-      }]
-    });
-    const account = next.cashAccounts.find((candidate) => candidate.id === PRIMARY_CASH_ACCOUNT_ID && candidate.status === "active")
-      || next.cashAccounts.find((candidate) => candidate.status === "active");
+    if (input.liquidityPolicy !== "auto_shortfall_debt") return;
+    const account = primaryCashAccount();
     if (!account) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "自动流动性闭环缺少现金账户");
-    account.balanceWan = roundWan(account.balanceWan + principalWan);
-    automaticLiquidityEventIds.push(id);
+    if (cash < 0) {
+      const principalWan = roundWan(-cash);
+      let shortfall = systemShortfallAccount();
+      if (!shortfall) {
+        shortfall = {
+          id: systemShortfallId,
+          type: "liquidity_shortfall",
+          displayName: "系统流动性滚动额度",
+          principalWan: 0,
+          openedAtAgeInMonths: ageInMonths,
+          status: "active",
+          repaymentPolicy: { mode: "event_driven" },
+          factStatus: "known",
+          evidence: [{ source: "system_policy", reasonCode: "SYSTEM_MANAGED_REVOLVING_SHORTFALL", confidence: 1 }]
+        };
+        next.debtAccounts.push(shortfall);
+      }
+      shortfall.status = "active";
+      shortfall.closedAtAgeInMonths = undefined;
+      shortfall.principalWan = roundWan(shortfall.principalWan + principalWan);
+      account.balanceWan = roundWan(account.balanceWan + principalWan);
+      automaticLiquidityEventIds.push(`auto_shortfall_draw_${input.transactionId}_${ageInMonths}_${automaticLiquidityEventIds.length}`);
+      return;
+    }
+    const shortfall = systemShortfallAccount();
+    if (!shortfall || shortfall.status !== "active" || shortfall.principalWan <= 0) return;
+    const monthlyCoreExpenseWan = next.expenseCommitments
+      .filter((commitment) => commitment.status === "active")
+      .reduce((sum, commitment) => sum + commitment.monthlyAmountWan, 0);
+    const reserveWan = roundWan(monthlyCoreExpenseWan * 3);
+    const repayWan = roundWan(Math.min(shortfall.principalWan, Math.max(0, cash - reserveWan)));
+    if (repayWan <= 0) return;
+    account.balanceWan = roundWan(account.balanceWan - repayWan);
+    shortfall.principalWan = roundWan(shortfall.principalWan - repayWan);
+    totals.debtPrincipalPaidWan = roundWan(totals.debtPrincipalPaidWan + repayWan);
+    if (shortfall.principalWan === 0) {
+      shortfall.status = "repaid";
+      shortfall.closedAtAgeInMonths = ageInMonths;
+    }
+    automaticLiquidityEventIds.push(`auto_shortfall_repayment_${input.transactionId}_${ageInMonths}_${automaticLiquidityEventIds.length}`);
   };
 
   for (let index = 0; index < events.length;) {
@@ -502,7 +653,7 @@ export function reduceFinancialLedger(input: {
       applyEvent(next, events[index], allEventIds, totals);
       index += 1;
     }
-    closeLiquidityShortfall(boundary);
+    reconcileSystemLiquidity(boundary);
     assertSufficientLiquidity(next, boundary);
     cursor = boundary;
   }
@@ -510,7 +661,7 @@ export function reduceFinancialLedger(input: {
   recurringIncomeWan = roundWan(recurringIncomeWan + finalAccrual.incomeWan);
   coreExpenseWan = roundWan(coreExpenseWan + finalAccrual.coreExpenseWan);
 
-  closeLiquidityShortfall(input.periodEndAgeInMonths);
+  reconcileSystemLiquidity(input.periodEndAgeInMonths);
   assertSufficientLiquidity(next, input.periodEndAgeInMonths);
 
   next.asOfAgeInMonths = input.periodEndAgeInMonths;

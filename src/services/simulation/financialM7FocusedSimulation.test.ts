@@ -12,7 +12,7 @@ const userData: UserInitialData = {
   regressionSituation: "在稳定岗位继续发展", regressionChoices: "继续工作", coreStoryFocus: "career"
 };
 
-test("M7 focused generation triggers at most one repair and records latency metadata for a missing adult expense", async () => {
+test("M7 focused generation applies deterministic living cost without an unnecessary repair call", async () => {
   const age = 30 * 12;
   const career = initializeCareerState({ id: "career", employmentStatus: "employed", effectiveFromAgeInMonths: age, confidence: 1 });
   const ledger = initializeFinancialLedger({
@@ -63,11 +63,12 @@ test("M7 focused generation triggers at most one repair and records latency meta
     }
   });
   assert.equal(primaryCalls, 1);
-  assert.equal(repairCalls, 1);
-  assert.equal(node.financialProcessingMeta?.repairTriggered, true);
+  assert.equal(repairCalls, 0);
+  assert.equal(node.financialProcessingMeta?.repairTriggered, false);
   assert.equal(node.financialProcessingMeta?.proposalCount, 0);
-  assert.ok((node.financialProcessingMeta?.blockingIssueCount || 0) >= 1);
+  assert.equal(node.financialProcessingMeta?.blockingIssueCount, 0);
   assert.ok((node.financialProcessingMeta?.totalProcessingLatencyMs || -1) >= 0);
-  assert.equal(node.financialLedger?.incomeSources.find((source) => source.id === "salary")?.accrualReviewStatus, "quarantined");
-  assert.ok(node.financialLedger?.unresolvedIssues.some((issue) => issue.id === "pending_fact_missing_adult_expense"));
+  assert.equal(node.financialLedger?.incomeSources.find((source) => source.id === "salary")?.accrualReviewStatus, "normal");
+  assert.ok(node.financialLedger?.expenseCommitments.some((item) => item.type === "basic_living" && item.factStatus === "estimated"));
+  assert.equal(node.financialLedger?.unresolvedIssues.some((issue) => issue.id === "pending_fact_missing_adult_expense"), false);
 });
