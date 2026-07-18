@@ -6,7 +6,8 @@ export interface FinancialProposalNormalizationAudit {
   proposalId?: string;
   reasonCode: "KIND_FIELD_NORMALIZED" | "SOURCE_OUTCOME_FILLED" | "DUPLICATE_ID_RENAMED" | "CAREER_LINK_FILLED" | "CASH_ACCOUNT_FILLED"
     | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED"
-    | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED";
+    | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED"
+    | "OPTION_TERMS_NORMALIZED";
   originalValue?: string;
   normalizedValue?: string;
 }
@@ -148,6 +149,31 @@ export function normalizeFinancialProposals(input: {
       freelance: "self_employment_draw"
     };
     const incomePayload = kind === "income_source_adjusted" ? payload?.nextSource : kind === "income_source_started" ? payload : undefined;
+    if (payload && kind === "business_option_granted" && payload.optionHolding && typeof payload.optionHolding === "object") {
+      const option = payload.optionHolding as Record<string, any>;
+      const terms = option.optionTerms && typeof option.optionTerms === "object"
+        ? option.optionTerms as Record<string, any>
+        : undefined;
+      if (terms) {
+        let normalized = false;
+        if (terms.expiresAtAgeInMonths === undefined && Number.isFinite(option.expirationDateInMonths)) {
+          terms.expiresAtAgeInMonths = Number(option.expirationDateInMonths);
+          normalized = true;
+        }
+        if (!terms.vestingPolicy && typeof option.vestingSchedule === "string") {
+          const annual = option.vestingSchedule.match(/(\d+)\s*年归属[^\d]*(?:每年)\s*(\d+(?:\.\d+)?)\s*%/u);
+          if (annual) {
+            const totalMonths = Number(annual[1]) * 12;
+            const annualRate = Number(annual[2]) / 100;
+            if (totalMonths > 0 && annualRate > 0 && Math.abs(annualRate * Number(annual[1]) - 1) <= 0.02) {
+              terms.vestingPolicy = { totalMonths, frequencyMonths: 12 };
+              normalized = true;
+            }
+          }
+        }
+        if (normalized) audit.push({ proposalId: id, reasonCode: "OPTION_TERMS_NORMALIZED", normalizedValue: JSON.stringify(terms) });
+      }
+    }
     if (incomePayload && incomeTypeAliases[String(incomePayload.type)]) {
       const originalType = String(incomePayload.type);
       incomePayload.type = incomeTypeAliases[originalType];

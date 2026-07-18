@@ -132,6 +132,7 @@ function accumulatePeriodAccrual(
   totals.debtPrincipalPaidWan = roundWan(totals.debtPrincipalPaidWan + accrual.debtPrincipalPaidWan);
   totals.debtInterestPaidWan = roundWan(totals.debtInterestPaidWan + accrual.debtInterestPaidWan);
   totals.otherExpenseWan = roundWan(totals.otherExpenseWan + accrual.debtInterestPaidWan);
+  totals.valuationChangeWan = roundWan(totals.valuationChangeWan + accrual.valuationChangeWan);
   return { incomeWan: accrual.incomeWan, coreExpenseWan: accrual.coreExpenseWan };
 }
 
@@ -398,6 +399,14 @@ function applyEvent(
       }
       if (holding.optionTerms.vestedUnits > holding.optionTerms.grantedUnits) {
         throw new FinancialLedgerInvariantError("INVALID_LEDGER", "已归属期权数量不得超过授予数量");
+      }
+      holding.optionTerms.grantedAtAgeInMonths ??= event.effectiveAtAgeInMonths;
+      const vestingPolicy = holding.optionTerms.vestingPolicy;
+      if (vestingPolicy && (vestingPolicy.totalMonths <= 0
+        || (vestingPolicy.cliffMonths ?? 0) < 0
+        || (vestingPolicy.frequencyMonths ?? 1) <= 0
+        || (vestingPolicy.cliffMonths ?? 0) > vestingPolicy.totalMonths)) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权固定归属政策的期限、悬崖期或结算频率无效");
       }
       holding.status = "active";
       ledger.businessHoldings.push(holding);

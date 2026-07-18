@@ -527,8 +527,16 @@ export interface BusinessHolding {
   optionTerms?: {
     grantedUnits: number;
     vestedUnits: number;
+    exercisedUnits: number;
     strikePriceWanPerUnit: number;
+    grantedAtAgeInMonths?: number;
+    vestingPolicy?: {
+      totalMonths: number;
+      cliffMonths?: number;
+      frequencyMonths?: number;
+    };
     fairValueWanPerUnit?: number;
+    realizationRiskDiscountRate?: number;
     expiresAtAgeInMonths?: number;
   };
   vestedIntrinsicValueWan?: number;
@@ -548,10 +556,10 @@ export interface BusinessHolding {
 - 融资后只有在投后估值和主角持股可确定时，才能更新 `personalCarryingValueWan`。
 - 只有融资金额而没有估值或持股变化时，记录企业融资事实，并把个人权益标记为 `needs_review`；不得简单把融资金额搬到 `businessAndOtherAssetsWan`。
 - 退出或出售股权时，个人现金流和企业权益减少必须成对提交。
-- 期权授予先创建 `stock_option` holding；未归属部分是 contingent interest，不进入当前净资产。
+- 期权授予先创建 `stock_option` holding；未归属部分是 contingent interest，不进入当前净资产。固定归属表必须结构化为 `vestingPolicy`，由期间结算按账本时间确定性更新 `vestedUnits`；不得依赖模型在每个归属日重复记忆并补交事件。
 - 已归属期权只有在期权数量、行权成本和可靠公允价值可确定时才计入个人财富：`vestedIntrinsicValueWan = vestedUnits × max(fairValue - strikePrice, 0)`；`personalCarryingValueWan` 再应用非流动性与实现风险折扣。
 - 正文中的期权数量、期权池比例、公司融资额和公司总估值都不能直接成为个人期权价值。估值未知时保留 holding 并标 `needs_review`，不能把“存在期权”降格成“没有企业权益”。
-- 期权行权必须在同一事务扣减现金行权成本、减少期权权益并增加普通股权益；到期、离职失效或放弃行权必须核销剩余账面价值。
+- 期权行权必须在同一事务扣减现金行权成本、减少期权权益并增加普通股权益；到达 `expiresAtAgeInMonths` 时账本必须自动到期并核销剩余账面价值，离职失效或放弃行权则由 Accepted Event 核销。
 
 ### 7.9 账本问题
 
@@ -1549,6 +1557,7 @@ transaction IDs are idempotent
 | 明确房产、持股或期权事实既无账户也无 `needs_review` | 0 |
 | 已归属且可靠估值期权未进入企业及其他资产 | 0 |
 | 未归属期权或公司融资额被全额计入个人财富 | 0 |
+| 到达确定到期月后仍为 active 的期权 | 0 |
 | 报告内部占位符泄漏 | 0 |
 
 同时保留合理性人工复核：

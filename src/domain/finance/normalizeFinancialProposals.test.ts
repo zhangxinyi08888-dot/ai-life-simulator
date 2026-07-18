@@ -132,3 +132,19 @@ test("corrects a cash-account id used as the sole active income-source id and co
   assert.equal(payload.incomeSourceId, "salary_main"); assert.equal(payload.nextSource.id, "salary_main"); assert.equal(payload.nextSource.displayName, "工资"); assert.equal(payload.nextSource.monthlyNetAmountWan, 3);
   assert.equal(result.audit.some((item) => item.reasonCode === "ACCOUNT_ID_TYPE_CORRECTED"), true);
 });
+
+test("normalizes a fixed option schedule and expiry into authoritative option terms", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
+    id: "grant", kind: "business_option_granted", effectiveAtAgeInMonths: 348,
+    payload: { optionHolding: {
+      id: "employee_option", instrumentType: "stock_option", business: { id: "employer" },
+      optionTerms: { grantedUnits: 30000, vestedUnits: 0, exercisedUnits: 0, strikePriceWanPerUnit: 0.001 },
+      vestingSchedule: "4年归属，每年25%", expirationDateInMonths: 408,
+      personalCarryingValueWan: 0, status: "active", factStatus: "estimated", evidence: []
+    } }, evidence: "公司授予3万份期权，四年归属，每年25%。", confidence: 0.8
+  }] });
+  const terms = (result.proposals[0].payload as any).optionHolding.optionTerms;
+  assert.deepEqual(terms.vestingPolicy, { totalMonths: 48, frequencyMonths: 12 });
+  assert.equal(terms.expiresAtAgeInMonths, 408);
+  assert.equal(result.audit.some((item) => item.reasonCode === "OPTION_TERMS_NORMALIZED"), true);
+});

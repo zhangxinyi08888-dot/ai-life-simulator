@@ -139,6 +139,12 @@ export interface BusinessHolding {
     vestedUnits: number;
     exercisedUnits: number;
     strikePriceWanPerUnit: number;
+    grantedAtAgeInMonths?: number;
+    vestingPolicy?: {
+      totalMonths: number;
+      cliffMonths?: number;
+      frequencyMonths?: number;
+    };
     fairValueWanPerUnit?: number;
     realizationRiskDiscountRate?: number;
     expiresAtAgeInMonths?: number;

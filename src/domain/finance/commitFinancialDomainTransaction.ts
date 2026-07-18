@@ -1,4 +1,4 @@
-import type { WorldStateSnapshot } from "../../types";
+import type { EmploymentStatus, WorldStateSnapshot } from "../../types";
 import { currentCareerState, reduceCareerStates } from "../career/careerState";
 import type { AcceptedCareerTransition, CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
@@ -96,6 +96,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   events: AcceptedFinancialEvent[];
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
+  employmentStatus: EmploymentStatus;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
   const hasActiveBasicLiving = input.ledger.expenseCommitments.some((commitment) => (
@@ -105,6 +106,28 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     event.kind === "expense_commitment_started"
     && (event.payload as { type?: string }).type === "basic_living"
   ));
+  const activeSystemEstimate = input.ledger.expenseCommitments.find((commitment) => (
+    commitment.type === "basic_living"
+    && commitment.status === "active"
+    && commitment.factStatus === "estimated"
+    && commitment.evidence.some((item) => item.source === "system_policy")
+  ));
+  if (!startsBasicLivingEvent && activeSystemEstimate) {
+    const adulthoodBoundary = 23 * 12;
+    const policyBoundary = input.periodStartAgeInMonths < adulthoodBoundary
+      && input.periodEndAgeInMonths >= adulthoodBoundary
+      ? adulthoodBoundary
+      : input.periodStartAgeInMonths;
+    const nextEstimate = estimatedBasicLivingCommitment({
+      ageInMonths: policyBoundary,
+      employmentStatus: input.employmentStatus
+    });
+    if (nextEstimate && nextEstimate.monthlyAmountWan !== activeSystemEstimate.monthlyAmountWan) {
+      activeSystemEstimate.activeUntilAgeInMonths = policyBoundary;
+      if (policyBoundary <= input.periodStartAgeInMonths) activeSystemEstimate.status = "ended";
+      input.ledger.expenseCommitments.push(nextEstimate);
+    }
+  }
   if (startsBasicLivingEvent) {
     for (const commitment of input.ledger.expenseCommitments) {
       const isSystemEstimate = commitment.type === "basic_living"
@@ -323,6 +346,8 @@ export function commitFinancialDomainTransaction(
     expectedCareerRevision: input.expectedCareerRevision,
     acceptedTransitions: input.acceptedCareerTransitions
   });
+  const nextCurrentCareerState = currentCareerState(nextCareer);
+  if (!nextCurrentCareerState) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "职业事务未产生当前 CareerState");
   assertLinkedCareerStates(input.acceptedFinancialEvents, nextCareer);
   const settlementLedger = structuredClone(input.currentFinancialLedger);
   applyStudentFamilySupportLifecycle({
@@ -334,7 +359,8 @@ export function commitFinancialDomainTransaction(
     ledger: settlementLedger,
     events: input.acceptedFinancialEvents,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
-    periodEndAgeInMonths: input.periodEndAgeInMonths
+    periodEndAgeInMonths: input.periodEndAgeInMonths,
+    employmentStatus: nextCurrentCareerState.employmentStatus
   });
   const financialResult = reduceFinancialLedger({
     ledger: settlementLedger,
@@ -349,6 +375,13 @@ export function commitFinancialDomainTransaction(
     throw new FinancialLedgerInvariantError("REVISION_CONFLICT", "事务在原子提交过程中被重复处理");
   }
   const committedLedger = structuredClone(financialResult.ledger);
+  for (const commitment of committedLedger.expenseCommitments) {
+    if (commitment.status === "active"
+      && commitment.activeUntilAgeInMonths !== undefined
+      && commitment.activeUntilAgeInMonths <= input.periodEndAgeInMonths) {
+      commitment.status = "ended";
+    }
+  }
   for (const source of committedLedger.incomeSources) {
     if (source.status === "active" && isDefaultStudentFamilySupport(source)
       && source.activeUntilAgeInMonths !== undefined && source.activeUntilAgeInMonths <= input.periodEndAgeInMonths) {
@@ -360,8 +393,6 @@ export function commitFinancialDomainTransaction(
   for (const issue of newIssues) addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths);
   applyPendingFactPolicy(committedLedger, newIssues, input.periodEndAgeInMonths);
   addLegacyIncomeReconfirmation(committedLedger, input.periodEndAgeInMonths);
-  const nextCurrentCareerState = currentCareerState(nextCareer);
-  if (!nextCurrentCareerState) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "职业事务未产生当前 CareerState");
   const nextWorldState: WorldStateSnapshot = {
     ...structuredClone(input.currentWorldState),
     careerStates: structuredClone(nextCareer.careerStates),

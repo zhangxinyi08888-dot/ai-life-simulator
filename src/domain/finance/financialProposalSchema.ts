@@ -81,6 +81,16 @@ function businessHolding(value: unknown, path: string, errors: FinancialPayloadS
       requiredNumber(terms.vestedUnits, `${path}.optionTerms.vestedUnits`, errors);
       requiredNumber(terms.exercisedUnits, `${path}.optionTerms.exercisedUnits`, errors);
       requiredNumber(terms.strikePriceWanPerUnit, `${path}.optionTerms.strikePriceWanPerUnit`, errors);
+      optionalNumber(terms.grantedAtAgeInMonths, `${path}.optionTerms.grantedAtAgeInMonths`, errors);
+      optionalNumber(terms.expiresAtAgeInMonths, `${path}.optionTerms.expiresAtAgeInMonths`, errors);
+      if (terms.vestingPolicy !== undefined) {
+        const policy = requiredRecord(terms.vestingPolicy, `${path}.optionTerms.vestingPolicy`, errors);
+        if (policy) {
+          requiredNumber(policy.totalMonths, `${path}.optionTerms.vestingPolicy.totalMonths`, errors, false);
+          optionalNumber(policy.cliffMonths, `${path}.optionTerms.vestingPolicy.cliffMonths`, errors);
+          optionalNumber(policy.frequencyMonths, `${path}.optionTerms.vestingPolicy.frequencyMonths`, errors);
+        }
+      }
     }
   }
 }

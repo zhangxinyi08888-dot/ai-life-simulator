@@ -118,3 +118,46 @@ test("expiry and cancellation write off all remaining option value", () => {
     assert.equal(result.ledger.businessHoldings[0].status, kind === "business_option_expired" ? "expired" : "cancelled");
   }
 });
+
+test("fixed vesting policy settles deterministically and valued vested units enter wealth", () => {
+  const scheduled = option({
+    factStatus: "known",
+    optionTerms: {
+      grantedUnits: 100, vestedUnits: 0, exercisedUnits: 0, strikePriceWanPerUnit: 0.01,
+      fairValueWanPerUnit: 0.04, realizationRiskDiscountRate: 0.25,
+      grantedAtAgeInMonths: 360, vestingPolicy: { totalMonths: 48, frequencyMonths: 12 }
+    }
+  });
+  const result = reduceFinancialLedger({
+    ledger: ledger(scheduled), transactionId: "scheduled_vest", expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 360, periodEndAgeInMonths: 372, events: []
+  });
+  assert.equal(result.alreadyCommitted, false);
+  if (!("periodSummary" in result)) throw new Error("expected a committed option vest transaction");
+  const holding = result.ledger.businessHoldings[0];
+  assert.equal(holding.optionTerms?.vestedUnits, 25);
+  assert.equal(holding.personalCarryingValueWan, 0.45);
+  assert.equal(result.periodSummary?.valuationChangeWan, 0.45);
+  assert.equal(deriveFinancialState({ ledger: result.ledger, employmentStatus: "employed" }).state.businessAndOtherAssetsWan, 0.45);
+});
+
+test("option expiry is settled at the recorded age even without another model proposal", () => {
+  const expiring = option({
+    personalCarryingValueWan: 0.72,
+    optionTerms: {
+      grantedUnits: 100, vestedUnits: 40, exercisedUnits: 0, strikePriceWanPerUnit: 0.01,
+      fairValueWanPerUnit: 0.04, realizationRiskDiscountRate: 0.25, expiresAtAgeInMonths: 408
+    }
+  });
+  const current = ledger(expiring);
+  current.asOfAgeInMonths = 400;
+  const result = reduceFinancialLedger({
+    ledger: current, transactionId: "automatic_expiry", expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 400, periodEndAgeInMonths: 409, events: []
+  });
+  assert.equal(result.alreadyCommitted, false);
+  if (!("periodSummary" in result)) throw new Error("expected a committed option expiry transaction");
+  assert.equal(result.ledger.businessHoldings[0].status, "expired");
+  assert.equal(result.ledger.businessHoldings[0].personalCarryingValueWan, 0);
+  assert.equal(result.periodSummary?.valuationChangeWan, -0.72);
+});
