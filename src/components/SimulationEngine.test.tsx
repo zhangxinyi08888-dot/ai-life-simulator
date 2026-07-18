@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SimulationNode } from "../types";
-import SimulationEngine from "./SimulationEngine";
+import SimulationEngine, { isDecisionAreaInReadingViewport } from "./SimulationEngine";
+
+assert.equal(isDecisionAreaInReadingViewport({ decisionTop: 500, decisionBottom: 800, readingTop: 100, readingBottom: 500 }), false);
+assert.equal(isDecisionAreaInReadingViewport({ decisionTop: 470, decisionBottom: 800, readingTop: 100, readingBottom: 500 }), true);
+assert.equal(isDecisionAreaInReadingViewport({ decisionTop: -300, decisionBottom: 110, readingTop: 100, readingBottom: 500 }), false);
 
 const currentNode: SimulationNode = {
   age: 18,
@@ -59,6 +63,14 @@ assert.doesNotMatch(loadingMarkup, /你选择了/);
 const idleMarkup = renderLoadingState(false);
 
 assert.match(idleMarkup, /id="interaction-dock"/);
+assert.match(idleMarkup, /id="choices-ready-dock"/);
+assert.match(idleMarkup, /id="inline-decision-area"/);
+assert.match(idleMarkup, /aria-labelledby="decision-area-heading"/);
+assert.match(idleMarkup, /tabindex="-1"/);
+assert.match(idleMarkup, /1 个选择已准备好/);
+assert.match(idleMarkup, /pb-\[89px\]/);
+assert.match(idleMarkup, /absolute inset-x-0 bottom-0/);
+assert.ok(idleMarkup.indexOf('id="preset-choices-container"') < idleMarkup.indexOf('id="interaction-dock"'));
 assert.match(idleMarkup, /data-chapter-state="committed"/);
 assert.doesNotMatch(idleMarkup, /id="generation-dock"/);
 
@@ -71,7 +83,7 @@ const streamingMarkup = renderToStaticMarkup(
     onAcceptReportInvitation={() => undefined}
     onContinueReportInvitation={() => undefined}
     isLoadingNext
-    generationStage="generating"
+    generationStage="revealing"
     narrativePreview={{
       title: "正在形成的新章节",
       paragraphs: ["第一段已经抵达。", "第二段正在继续。"],
@@ -91,7 +103,11 @@ assert.match(streamingMarkup, /id="chapter-node-body"/);
 assert.match(streamingMarkup, /正在形成的新章节/);
 assert.match(streamingMarkup, /第一段已经抵达/);
 assert.match(streamingMarkup, /第二段正在继续/);
+assert.match(streamingMarkup, /paragraph-enter/);
 assert.match(streamingMarkup, /id="scroll-to-latest-btn"/);
+assert.match(streamingMarkup, /正在展开最终正文/);
+assert.match(streamingMarkup, /立即展开/);
+assert.doesNotMatch(streamingMarkup, /opacity:0;transform:translateY\(5px\)/);
 assert.doesNotMatch(streamingMarkup, /id="next-chapter-draft-title"/);
 
 const interruptedMarkup = renderToStaticMarkup(
@@ -104,12 +120,8 @@ const interruptedMarkup = renderToStaticMarkup(
     onContinueReportInvitation={() => undefined}
     isLoadingNext={false}
     generationStage="generating"
-    narrativePreview={{
-      title: "保留下来的章节",
-      paragraphs: ["这段已经生成，因此中断后仍然可见。"],
-      descriptionComplete: false
-    }}
-    generationError="生成已暂停，当前已经出现的内容会继续保留。"
+    narrativePreview={null}
+    generationError="本次推演已暂停，新的章节尚未写入时间线。"
     onStopGeneration={() => undefined}
     onRetryGeneration={() => undefined}
     onDiscardGeneration={() => undefined}
@@ -119,7 +131,8 @@ const interruptedMarkup = renderToStaticMarkup(
 );
 
 assert.match(interruptedMarkup, /id="next-generation-error-state"/);
-assert.match(interruptedMarkup, /这段已经生成，因此中断后仍然可见/);
+assert.match(interruptedMarkup, /generation-shimmer/);
+assert.doesNotMatch(interruptedMarkup, /保留下来的章节/);
 assert.match(interruptedMarkup, /id="retry-next-generation-btn"/);
 assert.match(interruptedMarkup, /id="discard-next-generation-btn"/);
 assert.doesNotMatch(interruptedMarkup, /id="interaction-dock"/);

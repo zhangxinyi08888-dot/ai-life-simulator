@@ -42,6 +42,7 @@ function choiceNode(
     age,
     stage: isEndingNode ? "人生收束" : "现实抉择",
     title,
+    descriptionParagraphs: description.split(/\n\s*\n+/).map((paragraph) => paragraph.trim()).filter(Boolean),
     description,
     attributes,
     isEndingNode,
@@ -334,7 +335,7 @@ function journeyNode(definition: JourneyDefinition, index: number, ending = fals
     ending ? `${definition.title}的生命终章` : `${definition.title} · 阶段 ${String(index + 1).padStart(2, "0")}`,
     ending
       ? `岁月最终走到生命的自然终点。回看一路的选择，${definition.theme}没有给出唯一答案，却留下了清晰的获得、代价与关系。`
-      : `在${definition.theme}这条路上，第 ${index + 1} 个阶段带来了新的现实反馈。你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。`,
+      : `在${definition.theme}这条路上，第 ${index + 1} 个阶段带来了新的现实反馈。你开始接手一个周期更长、协作人数更多的项目，原来积累的经验第一次需要接受更复杂的检验。收入和职责都有变化，但新的节奏也压缩了休息时间。\n\n进入第二个月后，团队同时推进两个版本，你需要在需求澄清、实际交付和新人协作之间反复切换。一个原本不起眼的数据问题逐渐影响到项目排期，合作部门开始追问责任边界。你没有立刻找到答案，只能先把问题拆开，一项项补齐证据。\n\n你既看见此前选择积累出的成果，也必须在现金流、关系、健康和长期方向之间重新分配精力。身边的人给出了不同建议，有人希望你抓住机会，也有人提醒你不要再次透支自己。这个节点不会替你宣布人生已经完成，只要求你决定下一步如何继续。`,
     attrs({
       happiness: Math.min(86, 58 + Math.floor(index / 4)),
       intelligence: Math.min(92, 70 + Math.floor(index / 3)),
@@ -446,6 +447,7 @@ export function createE2eAiJsonCaller(slug: string): AiJsonCaller {
         node = {
           ...node,
           description: `${node.description}\n\n${evidence}，长期方向仍然可以继续推进。`,
+          descriptionParagraphs: [...(node.descriptionParagraphs || [node.description]), `${evidence}，长期方向仍然可以继续推进。`],
           narrativeMeta: {
             ...(node.narrativeMeta || {} as SimulationNode["narrativeMeta"]),
             arcSignals: [{ type: "pressure_resolved", pressureArcId: operationArcId, evidence, confidence: 1 }],

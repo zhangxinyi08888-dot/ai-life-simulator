@@ -1,38 +1,57 @@
-const SENTENCE_PATTERN = /[^。！？!?；;]+[。！？!?；;]?/g;
+const SENTENCE_END_PATTERN = /[。！？!?；;]/;
+const SHORT_PARAGRAPH_TARGET_LENGTH = 64;
+const SHORT_PARAGRAPH_MAX_LENGTH = 76;
+const SHORT_PARAGRAPH_MIN_SPLIT_LENGTH = 32;
 
-function splitSingleBlock(text: string): string[] {
-  if (text.length <= 90) return [text];
+export function splitNarrativeSentences(text: string): string[] {
+  if (!text) return [];
+  const sentences: string[] = [];
+  let start = 0;
 
-  const sentences = text.match(SENTENCE_PATTERN)?.map((sentence) => sentence.trim()).filter(Boolean) || [];
-  if (sentences.length <= 1) return [text];
+  for (let index = 0; index < text.length; index += 1) {
+    if (!SENTENCE_END_PATTERN.test(text[index])) continue;
+    while (index + 1 < text.length && SENTENCE_END_PATTERN.test(text[index + 1])) index += 1;
+    while (index + 1 < text.length && /[”’）】》」』]/.test(text[index + 1])) index += 1;
+    sentences.push(text.slice(start, index + 1));
+    start = index + 1;
+  }
 
-  const desiredCount = Math.min(4, Math.max(2, Math.ceil(text.length / 100)));
-  const targetLength = Math.ceil(text.length / desiredCount);
+  if (start < text.length) sentences.push(text.slice(start));
+  return sentences.filter(Boolean);
+}
+
+export function completeSentencePrefix(text: string): string {
+  const sentences = splitNarrativeSentences(text);
+  while (sentences.length > 0 && !SENTENCE_END_PATTERN.test(sentences.at(-1)!)) sentences.pop();
+  return sentences.join("");
+}
+
+function splitSingleBlock(text: string, includeTrailingParagraph: boolean): string[] {
+  const sentences = splitNarrativeSentences(text).map((sentence) => sentence.trim()).filter(Boolean);
+  if (sentences.length === 0) return [];
+
   const paragraphs: string[] = [];
   let current = "";
 
   for (const sentence of sentences) {
     if (
       current
-      && paragraphs.length < desiredCount - 1
-      && current.length >= targetLength * 0.55
-      && current.length + sentence.length > targetLength
+      && current.length >= SHORT_PARAGRAPH_MIN_SPLIT_LENGTH
+      && current.length + sentence.length > SHORT_PARAGRAPH_MAX_LENGTH
     ) {
       paragraphs.push(current);
       current = sentence;
-      continue;
+    } else {
+      current += sentence;
     }
-    current += sentence;
+    if (current.length >= SHORT_PARAGRAPH_TARGET_LENGTH) {
+      paragraphs.push(current);
+      current = "";
+    }
   }
 
-  if (current) paragraphs.push(current);
-  if (paragraphs.length > 1 && paragraphs.at(-1)!.length < 28) {
-    paragraphs[paragraphs.length - 2] += paragraphs.pop();
-  }
-
-  return paragraphs.length <= 4
-    ? paragraphs
-    : [...paragraphs.slice(0, 3), paragraphs.slice(3).join("")];
+  if (includeTrailingParagraph && current) paragraphs.push(current);
+  return paragraphs;
 }
 
 export function splitNarrativeParagraphs(description: string): string[] {
@@ -44,13 +63,13 @@ export function splitNarrativeParagraphs(description: string): string[] {
     .map((paragraph) => paragraph.replace(/\s*\n\s*/g, "").trim())
     .filter(Boolean);
 
-  if (
-    explicitParagraphs.length > 1
-    && explicitParagraphs.length <= 4
-    && explicitParagraphs.every((paragraph) => paragraph.length <= 120)
-  ) {
-    return explicitParagraphs;
-  }
+  return explicitParagraphs.flatMap((paragraph) => splitSingleBlock(paragraph, true));
+}
 
-  return splitSingleBlock(explicitParagraphs.join("") || normalized);
+export function splitStableStreamingParagraphs(text: string): string[] {
+  const completePrefix = completeSentencePrefix(text.replace(/\r\n/g, "\n"));
+  if (!completePrefix) return [];
+  return completePrefix
+    .split(/\n\s*\n+/)
+    .flatMap((paragraph) => splitSingleBlock(paragraph.replace(/\s*\n\s*/g, "").trim(), false));
 }

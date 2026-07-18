@@ -25,6 +25,7 @@ import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
 import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
+import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
 import {
   buildNextNodePrompt,
   buildFinancialSignalsRepairPrompt,
@@ -41,7 +42,7 @@ type AiJsonStreamCaller = (
   options?: { signal?: AbortSignal; onContent?: (content: string) => void }
 ) => Promise<{ text: string }>;
 
-export type NextGenerationStage = "preparing" | "generating" | "validating" | "finalizing";
+export type NextGenerationStage = "preparing" | "generating" | "validating" | "finalizing" | "revealing";
 
 export interface SimulationServiceDeps {
   callAiJson?: AiJsonCaller;
@@ -92,9 +93,11 @@ function attachFinancialProgress(input: {
       input.elapsedMonths,
       input.targetAgeInMonths
     );
+    const description = sanitizeFinancialNarrative(input.node.description, calculated.financialState);
     return {
       ...input.node,
-      description: sanitizeFinancialNarrative(input.node.description, calculated.financialState),
+      description,
+      descriptionParagraphs: splitNarrativeParagraphs(description),
       attributes: withCalculatedWealth(input.node.attributes, calculated.financialState, input.previousWealth),
       financialState: calculated.financialState,
       financialSignals: calculated.financialSignals,
@@ -115,9 +118,11 @@ function attachFinancialProgress(input: {
       input.elapsedMonths,
       input.targetAgeInMonths
     );
+    const description = sanitizeFinancialNarrative(input.node.description, calculated.financialState);
     return {
       ...input.node,
-      description: sanitizeFinancialNarrative(input.node.description, calculated.financialState),
+      description,
+      descriptionParagraphs: splitNarrativeParagraphs(description),
       attributes: withCalculatedWealth(input.node.attributes, calculated.financialState, input.previousWealth),
       financialState: calculated.financialState,
       financialChange: calculated.financialChange
@@ -142,9 +147,11 @@ function attachFinancialProgress(input: {
     input.elapsedMonths,
     input.targetAgeInMonths
   );
+  const description = sanitizeFinancialNarrative(input.node.description, inferred.financialState);
   return {
     ...input.node,
-    description: sanitizeFinancialNarrative(input.node.description, inferred.financialState),
+    description,
+    descriptionParagraphs: splitNarrativeParagraphs(description),
     attributes: withCalculatedWealth(input.node.attributes, inferred.financialState, input.previousWealth),
     financialState: inferred.financialState,
     financialSignals: inferred.financialSignals,
@@ -367,9 +374,11 @@ export async function startSimulation(
   const startWorldState = emptyWorldState();
   startWorldState.directionArcs = ensureDirectionArcs(startWorldState, userData, startNode.ageInMonths ?? startNode.age * 12);
   startWorldState.people = rebuildPersonStates(userData, [], startNode.ageInMonths ?? startNode.age * 12);
+  const startDescription = sanitizeFinancialNarrative(startNode.description, financialState);
   const initializedStartNodeWithFinance = {
     ...startNode,
-    description: sanitizeFinancialNarrative(startNode.description, financialState),
+    description: startDescription,
+    descriptionParagraphs: splitNarrativeParagraphs(startDescription),
     attributes: startAttributes,
     financialState,
     worldStateSnapshot: startWorldState
@@ -765,9 +774,11 @@ export async function generateNextNode(
       lifeIntensity: timelineAdvance.lifeIntensity,
       pressureArcId: workingPressureArc?.id
     });
+    const endingDescription = sanitizeFinancialNarrative(normalizedEnding.description, node.financialState!);
     const endingNode: SimulationNode = {
       ...normalizedEnding,
-      description: sanitizeFinancialNarrative(normalizedEnding.description, node.financialState!),
+      description: endingDescription,
+      descriptionParagraphs: splitNarrativeParagraphs(endingDescription),
       attributes: node.attributes,
       financialState: node.financialState,
       financialChange: node.financialChange,

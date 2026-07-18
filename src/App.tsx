@@ -17,6 +17,7 @@ import {
 import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeService";
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
+import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
 
 type AppStep = "initial" | "questioning" | "simulating" | "insight";
 
@@ -54,7 +55,7 @@ function readDevRecordedAppState(): DevRecordedAppState | null {
 
 function getSimulationErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof DOMException && error.name === "AbortError") {
-    return "生成已暂停，当前已经出现的内容会继续保留。";
+    return "本次推演已暂停，新的章节尚未写入时间线。";
   }
   if (!isAiClientError(error)) return fallback;
 
@@ -68,7 +69,7 @@ function getSimulationErrorMessage(error: unknown, fallback: string): string {
     return "DeepSeek 请求过于频繁，请稍后再试。";
   }
   if (error.code === "AI_REQUEST_ABORTED") {
-    return "生成已暂停，当前已经出现的内容会继续保留。";
+    return "本次推演已暂停，新的章节尚未写入时间线。";
   }
   if (error.code === "AI_RESPONSE_INVALID") {
     return "AI 返回内容格式异常，请重新生成。";
@@ -83,6 +84,12 @@ function getSimulationErrorMessage(error: unknown, fallback: string): string {
 function isGenerationAbort(error: unknown): boolean {
   return (error instanceof DOMException && error.name === "AbortError")
     || (isAiClientError(error) && error.code === "AI_REQUEST_ABORTED");
+}
+
+const NARRATIVE_REVEAL_INTERVAL_MS = 160;
+
+function waitForNarrativeReveal(): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, NARRATIVE_REVEAL_INTERVAL_MS));
 }
 
 export default function App() {
@@ -115,6 +122,8 @@ export default function App() {
   const [nextGenerationError, setNextGenerationError] = useState<string | null>(null);
   const [pendingNextChoice, setPendingNextChoice] = useState<string | null>(null);
   const nextGenerationAbortRef = useRef<AbortController | null>(null);
+  const nextNarrativePreviewRef = useRef<StreamedNodePreview | null>(null);
+  const skipNarrativeRevealRef = useRef(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const testStateImportEnabled = import.meta.env.DEV
     && typeof window !== "undefined"
@@ -301,15 +310,17 @@ export default function App() {
     });
   };
 
-  const runNextGeneration = async (choiceText: string, options: { preservePreview?: boolean } = {}) => {
+  const runNextGeneration = async (choiceText: string) => {
     if (!currentNode || !userData) return;
 
     setErrorMsg(null);
     setNextGenerationError(null);
     setPendingNextChoice(choiceText);
-    if (!options.preservePreview) setNextNarrativePreview(null);
+    setNextNarrativePreview(null);
+    nextNarrativePreviewRef.current = null;
     setNextGenerationStage("preparing");
     setIsLoadingNext(true);
+    skipNarrativeRevealRef.current = false;
 
     const previousHistory = history;
     const newHistoryItem = createHistoryItemFromNode(currentNode, choiceText);
@@ -331,26 +342,61 @@ export default function App() {
         },
         {
           onGenerationStage: setNextGenerationStage,
-          onNarrativeProgress: (preview) => setNextNarrativePreview((previous) => (
-            mergeStreamedNodePreview(previous, preview, Boolean(options.preservePreview))
-          )),
+          onNarrativeProgress: (preview) => {
+            const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
+            nextNarrativePreviewRef.current = merged;
+            setNextNarrativePreview(merged);
+          },
           signal: abortController.signal
         }
       );
 
+      setNextGenerationStage("revealing");
+      const revealFrames = buildNarrativeRevealFrames(body.title, body.description);
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        skipNarrativeRevealRef.current = true;
+      }
+      const visibleParagraphs = nextNarrativePreviewRef.current?.paragraphs ?? [];
+      let lastCoveredFrameIndex = -1;
+      revealFrames.forEach((frame, frameIndex) => {
+        const isCovered = frame.paragraphs.length <= visibleParagraphs.length
+          && frame.paragraphs.every((paragraph, index) => visibleParagraphs[index] === paragraph);
+        if (isCovered) lastCoveredFrameIndex = frameIndex;
+      });
+      const firstMissingFrameIndex = lastCoveredFrameIndex + 1;
+      for (let index = firstMissingFrameIndex; index < revealFrames.length; index += 1) {
+        if (skipNarrativeRevealRef.current) {
+          const finalFrame = revealFrames.at(-1) ?? null;
+          nextNarrativePreviewRef.current = finalFrame;
+          setNextNarrativePreview(finalFrame);
+          break;
+        }
+        nextNarrativePreviewRef.current = revealFrames[index];
+        setNextNarrativePreview(revealFrames[index]);
+        if (index < revealFrames.length - 1) await waitForNarrativeReveal();
+      }
+      if (firstMissingFrameIndex >= revealFrames.length) {
+        const finalFrame = revealFrames.at(-1) ?? null;
+        nextNarrativePreviewRef.current = finalFrame;
+        setNextNarrativePreview(finalFrame);
+      }
+
       setAttributes(body.attributes);
       setCurrentNode(body);
       setNodeCount(prev => prev + 1);
-      setNextNarrativePreview(null);
       setNextGenerationError(null);
       setPendingNextChoice(null);
+      setIsLoadingNext(false);
+      await waitForNarrativeReveal();
+      setNextNarrativePreview(null);
 
     } catch (err: any) {
       if (!isGenerationAbort(err)) console.error(err);
-      setNextGenerationError(getSimulationErrorMessage(err, "时空穿梭有些颠簸，已保留当前内容，可以继续生成。"));
+      setNextGenerationError(getSimulationErrorMessage(err, "时空穿梭有些颠簸，新的章节尚未写入时间线，可以重新生成。"));
       setHistory(previousHistory);
     } finally {
       setIsLoadingNext(false);
+      skipNarrativeRevealRef.current = false;
       if (nextGenerationAbortRef.current === abortController) nextGenerationAbortRef.current = null;
     }
   };
@@ -369,12 +415,16 @@ export default function App() {
   };
 
   const handleStopNextGeneration = () => {
+    if (nextGenerationStage === "revealing") {
+      skipNarrativeRevealRef.current = true;
+      return;
+    }
     nextGenerationAbortRef.current?.abort();
   };
 
   const handleRetryNextGeneration = () => {
     if (!pendingNextChoice) return;
-    void runNextGeneration(pendingNextChoice, { preservePreview: true });
+    void runNextGeneration(pendingNextChoice);
   };
 
   const handleDiscardNextGeneration = () => {

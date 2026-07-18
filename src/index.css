@@ -9,6 +9,22 @@
   }
 }
 
+@keyframes paragraph-enter {
+  from {
+    opacity: 0;
+    top: 4px;
+  }
+  to {
+    opacity: 1;
+    top: 0;
+  }
+}
+
+.paragraph-enter {
+  position: relative;
+  animation: paragraph-enter 300ms ease-out both;
+}
+
 .generation-shimmer {
   background-color: #211c13;
   background-image: linear-gradient(90deg, #211c13 0%, #2a2419 32%, #766541 50%, #2a2419 68%, #211c13 100%);
@@ -20,5 +36,9 @@
   .generation-shimmer {
     animation: none;
     background-image: none;
+  }
+
+  .paragraph-enter {
+    animation: none;
   }
 }
