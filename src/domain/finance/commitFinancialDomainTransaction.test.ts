@@ -91,17 +91,23 @@ test("commits CareerState, ledger, WorldState and derived snapshot as one transa
         destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
         amountWan: 1
       })
-    ]
+    ],
+    financialIssues: [{
+      id: "career_transition_missing_prior", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
+      relatedProposalIds: [], summary: "先前节点缺少职业转换", createdAtAgeInMonths: 360
+    }]
   });
   assert.equal(result.alreadyCommitted, false);
   assert.equal(result.career.currentCareerStateId, nextCareerStateId);
   assert.equal(result.worldState.currentEmploymentStatus, "self_employed");
   assert.equal(result.worldState.careerRevision, 1);
   assert.equal(result.financialLedger.revision, 1);
-  assert.equal(result.financialLedger.cashAccounts[0].balanceWan, 3);
+  assert.equal(result.financialLedger.cashAccounts[0].balanceWan, 2.65);
+  assert.equal(result.financialLedger.expenseCommitments[0]?.type, "basic_living");
   assert.equal(result.derivedFinancialState.state.employmentStatus, "self_employed");
-  assert.equal(result.derivedFinancialState.compatibilityState.cashWan, 3);
+  assert.equal(result.derivedFinancialState.compatibilityState.cashWan, 2.65);
   assert.deepEqual(result.worldState.committedTransactionIds, ["atomic_success"]);
+  assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "career_transition_missing_prior")?.status, "resolved");
 });
 
 test("a ledger failure returns no partial CareerState or WorldState mutation", () => {
@@ -214,6 +220,96 @@ test("a rejected fact quarantines only the affected recurring income and opens a
     acceptedFinancialEvents: []
   });
   assert.equal(second.financialPeriodSummary?.incomeWan, 0);
+});
+
+test("a rolled-back career transaction keeps the previously accepted wage active", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "salary_main", type: "salary", displayName: "当前工资", monthlyNetAmountWan: 5,
+    accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active",
+    linkedCareerStateId: "career_employed", factStatus: "known", evidence
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "career_atomicity_rollback", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0, expectedLedgerRevision: 0, currentCareer: current.career,
+    currentFinancialLedger: current.ledger, currentWorldState: current.worldState,
+    acceptedCareerTransitions: [], acceptedFinancialEvents: [],
+    financialIssues: [{
+      id: "career_repair_atomicity_rollback", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
+      relatedProposalIds: ["bad_transition", "bad_salary_migration"], relatedIncomeSourceIds: ["salary_main"],
+      summary: "职业转换修复未通过，事务已整体回滚", createdAtAgeInMonths: 361
+    }]
+  });
+  const salary = result.financialLedger.incomeSources.find((source) => source.id === "salary_main");
+  assert.equal(result.financialPeriodSummary?.incomeWan, 5);
+  assert.equal(salary?.factStatus, "known");
+  assert.equal(salary?.accrualReviewStatus ?? "normal", "normal");
+  assert.equal(result.financialLedger.unresolvedIssues.find((issue) => issue.id === "career_repair_atomicity_rollback")?.status, "open");
+  assert.equal(result.financialLedger.unresolvedIssues.some((issue) => issue.id === "pending_fact_income_salary_main"), false);
+});
+
+test("an accepted source event wins over a malformed sibling issue in the same node", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "salary_main", type: "salary", displayName: "当前工资", monthlyNetAmountWan: 2,
+    accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active",
+    linkedCareerStateId: "career_employed", factStatus: "known", evidence
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "accepted_wins_same_node", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0, expectedLedgerRevision: 0, currentCareer: current.career,
+    currentFinancialLedger: current.ledger, currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("salary_confirmed", "income_source_adjusted", 361, {
+      incomeSourceId: "salary_main",
+      nextSource: { ...current.ledger.incomeSources[0], monthlyNetAmountWan: 2.5 }
+    })],
+    financialIssues: [{
+      id: "malformed_salary_sibling", code: "UNBALANCED_TRANSACTION", severity: "blocking", status: "open",
+      relatedProposalIds: ["bad_duplicate"], relatedIncomeSourceIds: ["salary_main"],
+      summary: "同一响应中的重复工资 Proposal 无效", createdAtAgeInMonths: 361
+    }]
+  });
+  const source = result.financialLedger.incomeSources.find((item) => item.id === "salary_main")!;
+  assert.equal(source.monthlyNetAmountWan, 2.5);
+  assert.equal(source.accrualReviewStatus, "normal");
+  assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "malformed_salary_sibling")?.status, "resolved");
+  assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "pending_fact_income_salary_main")?.status, "resolved");
+});
+
+test("a later accepted career income resolves personal-compensation narrative coverage", () => {
+  const current = setup();
+  current.ledger.unresolvedIssues.push({
+    id: "narrative_coverage_personal_compensation_360", code: "PENDING_FACT", severity: "blocking", status: "open",
+    relatedProposalIds: [], summary: "正文薪酬尚未入账", createdAtAgeInMonths: 360
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "resolve_personal_compensation", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0, expectedLedgerRevision: 0, currentCareer: current.career,
+    currentFinancialLedger: current.ledger, currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("salary_confirmed", "income_source_started", 361, {
+      id: "salary_confirmed", type: "salary", displayName: "确认工资", monthlyNetAmountWan: 3,
+      accrualPolicy: "monthly", activeFromAgeInMonths: 361, status: "active", linkedCareerStateId: "career_employed",
+      factStatus: "known", evidence
+    })]
+  });
+  const issue = result.financialLedger.unresolvedIssues.find((item) => item.id === "narrative_coverage_personal_compensation_360");
+  assert.equal(issue?.status, "resolved");
+  assert.equal(issue?.resolvedByEventId, "salary_confirmed");
+});
+
+test("a rejected adjustment uses the last accepted income baseline for at most two nodes", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({ id: "living", type: "basic_living", displayName: "生活支出", monthlyAmountWan: 1, activeFromAgeInMonths: 300, status: "active", factStatus: "known", evidence });
+  current.ledger.incomeSources.push({ id: "salary_main", type: "salary", displayName: "当前工资", monthlyNetAmountWan: 5, accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active", linkedCareerStateId: "career_employed", factStatus: "known", evidence });
+  const adjustmentIssue: FinancialLedgerIssue = { id: "rejected_adjustment", code: "UNBALANCED_TRANSACTION", severity: "blocking", status: "open", relatedProposalIds: ["adjust_salary"], relatedIncomeSourceIds: ["salary_main"], summary: "工资调整证据尚未确认", createdAtAgeInMonths: 361, pendingFactPolicy: "bounded_last_known_income" };
+  const first = commitFinancialDomainTransaction({ transactionId: "bounded_salary_1", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361, expectedCareerRevision: 0, expectedLedgerRevision: 0, currentCareer: current.career, currentFinancialLedger: current.ledger, currentWorldState: current.worldState, acceptedCareerTransitions: [], acceptedFinancialEvents: [], financialIssues: [adjustmentIssue] });
+  assert.equal(first.financialPeriodSummary?.incomeWan, 5); assert.equal(first.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
+  const second = commitFinancialDomainTransaction({ transactionId: "bounded_salary_2", periodStartAgeInMonths: 361, periodEndAgeInMonths: 362, expectedCareerRevision: first.career.careerRevision, expectedLedgerRevision: first.financialLedger.revision, currentCareer: first.career, currentFinancialLedger: first.financialLedger, currentWorldState: first.worldState, acceptedCareerTransitions: [], acceptedFinancialEvents: [], financialIssues: [{ ...adjustmentIssue, createdAtAgeInMonths: 362 }] });
+  assert.equal(second.financialPeriodSummary?.incomeWan, 5); assert.equal(second.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
+  const third = commitFinancialDomainTransaction({ transactionId: "bounded_salary_3", periodStartAgeInMonths: 362, periodEndAgeInMonths: 363, expectedCareerRevision: second.career.careerRevision, expectedLedgerRevision: second.financialLedger.revision, currentCareer: second.career, currentFinancialLedger: second.financialLedger, currentWorldState: second.worldState, acceptedCareerTransitions: [], acceptedFinancialEvents: [] });
+  assert.equal(third.financialPeriodSummary?.incomeWan, 0);
 });
 
 test("a later accepted event resolves the matching issue and releases the quarantined source", () => {

@@ -65,6 +65,8 @@ test("repair prompt supplies rejection reasons, period bounds and the unique out
   assert.match(prompt, /收入来源调整必须引用同一账户/);
   assert.match(prompt, /不得省略 confidence/);
   assert.match(prompt, /逐字复制当前正文/);
+  assert.match(prompt, /正文候选原句与金额锚/);
+  assert.match(prompt, /你正式涨薪到每月3万元/);
   assert.match(prompt, /confidence 必须在 0.6-1 之间/);
   assert.match(prompt, /employmentTransition/);
   assert.match(prompt, /原子组/);

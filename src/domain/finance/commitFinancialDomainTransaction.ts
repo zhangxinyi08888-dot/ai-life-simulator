@@ -1,7 +1,8 @@
-import type { WorldStateSnapshot } from "../../types";
+import type { EmploymentStatus, WorldStateSnapshot } from "../../types";
 import { currentCareerState, reduceCareerStates } from "../career/careerState";
 import type { AcceptedCareerTransition, CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
+import { estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
 import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
 import type {
@@ -31,19 +32,14 @@ function eventReferences(event: AcceptedFinancialEvent): {
     incomeSourceIds: incomeSourceIds.filter((value): value is string => typeof value === "string"),
     expenseCommitmentIds: expenseCommitmentIds.filter((value): value is string => typeof value === "string"),
     debtAccountIds: [payload.debtAccountId, payload.oldDebtAccountId, payload.debtAccount?.id, payload.replacementDebtAccount?.id].filter((value): value is string => typeof value === "string"),
-    businessHoldingIds: [payload.businessHoldingId].filter((value): value is string => typeof value === "string"),
+    businessHoldingIds: [payload.businessHoldingId, event.kind === "business_holding_started" ? payload.id : undefined, event.kind === "business_option_granted" ? payload.optionHolding?.id : undefined]
+      .filter((value): value is string => typeof value === "string"),
     accountIds: [payload.sourceCashAccountId, payload.destinationCashAccountId, payload.assetAccountId, payload.assetAccount?.id, ...expenseCommitmentIds].filter((value): value is string => typeof value === "string")
   };
 }
 
 function intersects(left: string[] | undefined, right: string[]): boolean {
   return Boolean(left?.some((item) => right.includes(item)));
-}
-
-function activeRecurringIncomeIds(ledger: FinancialLedger): string[] {
-  return ledger.incomeSources
-    .filter((source) => source.status === "active" && source.accrualPolicy !== "event_only")
-    .map((source) => source.id);
 }
 
 function isDefaultStudentFamilySupport(source: FinancialLedger["incomeSources"][number]): boolean {
@@ -100,28 +96,88 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   events: AcceptedFinancialEvent[];
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
+  employmentStatus: EmploymentStatus;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
-  const hasActiveExpense = input.ledger.expenseCommitments.some((commitment) => commitment.status === "active");
-  const startsExpense = input.events.some((event) => event.kind === "expense_commitment_started");
-  if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveExpense && !startsExpense) {
-    const relatedIncomeSourceIds = activeRecurringIncomeIds(input.ledger);
-    for (const sourceId of relatedIncomeSourceIds) {
-      const source = input.ledger.incomeSources.find((item) => item.id === sourceId);
-      if (!source) continue;
-      source.factStatus = "needs_review";
-      source.accrualReviewStatus = "quarantined";
-    }
-    issues.push({
-      id: "pending_fact_missing_adult_expense",
-      code: "PENDING_FACT",
-      severity: "blocking",
-      status: "open",
-      relatedProposalIds: [],
-      relatedIncomeSourceIds,
-      summary: "成年阶段缺少任何有效支出义务；为避免按零支出虚增现金，持续收入已暂停机械计提，等待支出事实确认",
-      createdAtAgeInMonths: input.periodEndAgeInMonths
+  const isPolicyManagedBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
+    commitment.type === "basic_living"
+    && commitment.status === "active"
+    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
+    && commitment.evidence.some((item) => item.source === "system_policy"
+      || (item.source === "legacy_migration" && item.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION"))
+  );
+  const hasActiveBasicLiving = input.ledger.expenseCommitments.some((commitment) => (
+    commitment.status === "active" && commitment.type === "basic_living"
+  ));
+  const startsBasicLivingEvent = input.events.find((event) => (
+    event.kind === "expense_commitment_started"
+    && (event.payload as { type?: string }).type === "basic_living"
+  ));
+  const touchesExistingBasicLiving = input.events.some((event) => {
+    if (event.kind !== "expense_commitment_adjusted" && event.kind !== "expense_commitment_ended") return false;
+    const commitmentId = (event.payload as { expenseCommitmentId?: string }).expenseCommitmentId;
+    return input.ledger.expenseCommitments.some((commitment) => (
+      commitment.id === commitmentId && commitment.type === "basic_living"
+    ));
+  });
+  const activeSystemEstimate = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
+  for (const event of input.events) {
+    if (event.kind !== "expense_commitment_adjusted") continue;
+    const existing = input.ledger.expenseCommitments.find((commitment) => (
+      commitment.id === event.payload.expenseCommitmentId && isPolicyManagedBasicLiving(commitment)
+    ));
+    if (!existing) continue;
+    const next = event.payload.nextCommitment;
+    const remainsEstimated = next.factStatus === "estimated" || next.factStatus === "needs_review";
+    if (!remainsEstimated) continue;
+    const policyFloor = estimatedBasicLivingCommitment({
+      ageInMonths: event.effectiveAtAgeInMonths,
+      employmentStatus: input.employmentStatus
     });
+    if (!policyFloor || next.monthlyAmountWan >= policyFloor.monthlyAmountWan) continue;
+    next.monthlyAmountWan = policyFloor.monthlyAmountWan;
+    next.evidence = [
+      ...(next.evidence || []).filter((item) => item.source !== "system_policy"),
+      ...policyFloor.evidence
+    ];
+  }
+  // An accepted adjustment/closure is the authority for this period. Do not
+  // rotate the same legacy/system baseline underneath it and accidentally
+  // leave both the replacement estimate and the adjusted baseline active.
+  if (!startsBasicLivingEvent && !touchesExistingBasicLiving && activeSystemEstimate) {
+    const adulthoodBoundary = 23 * 12;
+    const policyBoundary = input.periodStartAgeInMonths < adulthoodBoundary
+      && input.periodEndAgeInMonths >= adulthoodBoundary
+      ? adulthoodBoundary
+      : input.periodStartAgeInMonths;
+    const nextEstimate = estimatedBasicLivingCommitment({
+      ageInMonths: policyBoundary,
+      employmentStatus: input.employmentStatus
+    });
+    if (nextEstimate && nextEstimate.monthlyAmountWan !== activeSystemEstimate.monthlyAmountWan) {
+      activeSystemEstimate.activeUntilAgeInMonths = policyBoundary;
+      if (policyBoundary <= input.periodStartAgeInMonths) activeSystemEstimate.status = "ended";
+      input.ledger.expenseCommitments.push(nextEstimate);
+      if (input.employmentStatus === "student") {
+        for (const source of input.ledger.incomeSources) {
+          if (source.status === "active" && isDefaultStudentFamilySupport(source)) {
+            source.monthlyNetAmountWan = nextEstimate.monthlyAmountWan;
+          }
+        }
+      }
+    }
+  }
+  if (startsBasicLivingEvent) {
+    for (const commitment of input.ledger.expenseCommitments) {
+      const isSystemEstimate = isPolicyManagedBasicLiving(commitment);
+      if (!isSystemEstimate) continue;
+      commitment.activeUntilAgeInMonths = startsBasicLivingEvent.effectiveAtAgeInMonths;
+      if (commitment.activeUntilAgeInMonths <= input.periodStartAgeInMonths) commitment.status = "ended";
+    }
+  }
+  if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveBasicLiving && !startsBasicLivingEvent) {
+    const estimatedLiving = estimatedBasicLivingCommitment({ ageInMonths: input.periodStartAgeInMonths });
+    if (estimatedLiving) input.ledger.expenseCommitments.push(estimatedLiving);
   }
 
   if (input.periodEndAgeInMonths >= 55 * 12) {
@@ -135,7 +191,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       source.accrualReviewStatus = "quarantined";
       issues.push({
         id: `pending_fact_stale_late_career_${source.id}`,
-        code: "PENDING_FACT",
+        code: "CAREER_STATE_STALE",
         severity: "blocking",
         status: "open",
         relatedProposalIds: [],
@@ -155,7 +211,15 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
       if (issue.status === "resolved") continue;
       const resolvesMissingExpense = issue.id === "pending_fact_missing_adult_expense"
         && event.kind === "expense_commitment_started";
-      if (!resolvesMissingExpense
+      const resolvesCoverage = (issue.id.startsWith("narrative_coverage_property_") && (event.kind === "asset_purchased" || event.kind === "asset_balance_discovered"))
+        || (issue.id.startsWith("narrative_coverage_mortgage_")
+          && (event.kind === "debt_drawn" || event.kind === "debt_balance_discovered")
+          && event.payload.debtAccount.type === "mortgage")
+        || (issue.id.startsWith("narrative_coverage_business_holding_")
+          && (event.kind === "business_holding_started" || event.kind === "business_option_granted"))
+        || (issue.id.startsWith("narrative_coverage_personal_compensation_")
+          && (event.kind === "income_source_started" || event.kind === "income_source_adjusted"));
+      if (!resolvesMissingExpense && !resolvesCoverage
         && !intersects(issue.relatedIncomeSourceIds, refs.incomeSourceIds)
         && !intersects(issue.relatedAccountIds, refs.accountIds)
         && !intersects(issue.relatedDebtAccountIds, refs.debtAccountIds)
@@ -180,8 +244,24 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
   }
 }
 
+function resolveCareerTransitionIssues(ledger: FinancialLedger, transitions: AcceptedCareerTransition[], ageInMonths: number): void {
+  if (transitions.length === 0) return;
+  const resolvingTransition = transitions[transitions.length - 1];
+  for (const issue of ledger.unresolvedIssues) {
+    if (issue.status === "resolved" || issue.code !== "CAREER_INCOME_CONFLICT") continue;
+    if (!issue.id.startsWith("career_transition_missing_") && !issue.id.startsWith("career_transition_issue_")) continue;
+    issue.status = "resolved";
+    issue.resolvedAtAgeInMonths = ageInMonths;
+    issue.resolvedByEventId = resolvingTransition.id;
+  }
+}
+
 function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedgerIssue[], ageInMonths: number): void {
   for (const issue of issues.filter((item) => item.severity === "blocking")) {
+    // A failed cross-domain career transaction is rolled back atomically. The
+    // previously accepted career and wage therefore remain authoritative; the
+    // repair issue must stay visible without turning that unchanged wage off.
+    if (issue.id.startsWith("career_repair_atomicity_") || issue.id.startsWith("career_income_atomicity_")) continue;
     const completenessPolicyAlreadyApplied = issue.id === "pending_fact_missing_adult_expense"
       || issue.id.startsWith("pending_fact_stale_late_career_")
       || issue.id === "proposal_issue_missing_adult_expense"
@@ -190,19 +270,26 @@ function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedger
       const source = ledger.incomeSources.find((item) => item.id === sourceId && item.status === "active");
       if (!source) continue;
       source.factStatus = "needs_review";
-      source.accrualReviewStatus = "quarantined";
-      if (completenessPolicyAlreadyApplied) continue;
+      if (completenessPolicyAlreadyApplied) {
+        source.accrualReviewStatus = "quarantined";
+        continue;
+      }
       const pendingId = `pending_fact_income_${sourceId}`;
-      addOrObserveIssue(ledger, {
+      const pending = addOrObserveIssue(ledger, {
           id: pendingId,
           code: "PENDING_FACT",
           severity: "blocking",
           status: "open",
           relatedProposalIds: [...issue.relatedProposalIds],
           relatedIncomeSourceIds: [sourceId],
-          summary: `收入来源 ${source.displayName} 的新事实未能通过校验，后续确定性计提已隔离等待确认`,
+          summary: issue.pendingFactPolicy === "bounded_last_known_income"
+            ? `收入来源 ${source.displayName} 的调整事实未能通过校验；旧权威基线最多沿用2个节点，等待修复确认`
+            : `收入来源 ${source.displayName} 的新事实未能通过校验，后续确定性计提已隔离等待确认`,
           createdAtAgeInMonths: ageInMonths
         }, ageInMonths);
+      source.accrualReviewStatus = issue.pendingFactPolicy === "bounded_last_known_income" && (pending.occurrenceCount || 1) < 2
+        ? "normal"
+        : "quarantined";
     }
     for (const commitmentId of issue.relatedAccountIds || []) {
       const commitment = ledger.expenseCommitments.find((item) => item.id === commitmentId && item.status === "active");
@@ -315,6 +402,8 @@ export function commitFinancialDomainTransaction(
     expectedCareerRevision: input.expectedCareerRevision,
     acceptedTransitions: input.acceptedCareerTransitions
   });
+  const nextCurrentCareerState = currentCareerState(nextCareer);
+  if (!nextCurrentCareerState) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "职业事务未产生当前 CareerState");
   assertLinkedCareerStates(input.acceptedFinancialEvents, nextCareer);
   const settlementLedger = structuredClone(input.currentFinancialLedger);
   applyStudentFamilySupportLifecycle({
@@ -326,7 +415,8 @@ export function commitFinancialDomainTransaction(
     ledger: settlementLedger,
     events: input.acceptedFinancialEvents,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
-    periodEndAgeInMonths: input.periodEndAgeInMonths
+    periodEndAgeInMonths: input.periodEndAgeInMonths,
+    employmentStatus: nextCurrentCareerState.employmentStatus
   });
   const financialResult = reduceFinancialLedger({
     ledger: settlementLedger,
@@ -341,19 +431,29 @@ export function commitFinancialDomainTransaction(
     throw new FinancialLedgerInvariantError("REVISION_CONFLICT", "事务在原子提交过程中被重复处理");
   }
   const committedLedger = structuredClone(financialResult.ledger);
+  for (const commitment of committedLedger.expenseCommitments) {
+    if (commitment.status === "active"
+      && commitment.activeUntilAgeInMonths !== undefined
+      && commitment.activeUntilAgeInMonths <= input.periodEndAgeInMonths) {
+      commitment.status = "ended";
+    }
+  }
   for (const source of committedLedger.incomeSources) {
     if (source.status === "active" && isDefaultStudentFamilySupport(source)
       && source.activeUntilAgeInMonths !== undefined && source.activeUntilAgeInMonths <= input.periodEndAgeInMonths) {
       source.status = "ended";
     }
   }
-  resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
   const newIssues = [...completenessIssues, ...(input.financialIssues || [])];
   for (const issue of newIssues) addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths);
   applyPendingFactPolicy(committedLedger, newIssues, input.periodEndAgeInMonths);
+  // An Accepted Event is the authority for its referenced fact even when a
+  // malformed sibling Proposal produced an issue in the same model response.
+  // Resolve after issue insertion/pending policy so the rejected sibling cannot
+  // immediately quarantine the just-accepted source.
+  resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
+  resolveCareerTransitionIssues(committedLedger, input.acceptedCareerTransitions, input.periodEndAgeInMonths);
   addLegacyIncomeReconfirmation(committedLedger, input.periodEndAgeInMonths);
-  const nextCurrentCareerState = currentCareerState(nextCareer);
-  if (!nextCurrentCareerState) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "职业事务未产生当前 CareerState");
   const nextWorldState: WorldStateSnapshot = {
     ...structuredClone(input.currentWorldState),
     careerStates: structuredClone(nextCareer.careerStates),

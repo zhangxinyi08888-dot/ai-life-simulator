@@ -567,8 +567,10 @@ export function deriveWealthScore(state: FinancialState): number {
     unstable: 20, volatile: 40, stable: 70, very_stable: 90
   };
   const monthlyExpense = state.annualCoreExpenseWan / 12;
-  const liquidityMonths = monthlyExpense > 0 ? Math.max(0, state.cashWan) / monthlyExpense : 24;
-  const liquidityScore = scoreByBands(liquidityMonths, [[0, 10], [3, 40], [6, 60], [12, 80], [24, 100]]);
+  const liquidityMonths = monthlyExpense > 0 ? Math.max(0, state.cashWan) / monthlyExpense : undefined;
+  const liquidityScore = liquidityMonths === undefined
+    ? 10
+    : scoreByBands(liquidityMonths, [[0, 10], [3, 40], [6, 60], [12, 80], [24, 100]]);
   const debtRatio = state.annualAfterTaxIncomeWan > 0
     ? state.totalDebtWan / Math.max(state.annualAfterTaxIncomeWan * 5, 1)
     : state.totalDebtWan > 0 ? 1 : 0;

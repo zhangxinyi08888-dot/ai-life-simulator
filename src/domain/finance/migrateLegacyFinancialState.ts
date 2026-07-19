@@ -1,6 +1,7 @@
 import type { FinancialState } from "../../types";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID, roundWan } from "./ledgerMath";
+import { DEFAULT_FINANCIAL_ESTIMATION_POLICY, estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
 import type { OpeningFinancialFacts } from "./openingFinancialFacts";
 import type { DebtAccount, FinancialEvidence, FinancialLedger, IncomeSource } from "./types";
 
@@ -38,17 +39,25 @@ export function migrateLegacyFinancialState(input: {
       openedAtAgeInMonths: state.asOfAgeInMonths,
       evidence: input.openingFacts?.investmentAssetsWan !== undefined ? userEvidence : evidence
     }] : []),
-    ...(input.openingFacts?.ownsProperty && state.propertyMarketValueWan === 0 ? [{
+    ...(input.openingFacts?.ownsProperty && state.propertyMarketValueWan === 0 ? (() => {
+      const estimate = input.openingFacts?.mortgagePrincipalWan !== undefined
+        ? DEFAULT_FINANCIAL_ESTIMATION_POLICY.estimateMortgagedPropertyValue(input.openingFacts.mortgagePrincipalWan)
+        : undefined;
+      return [{
       id: "opening_property_value_pending",
       type: "property" as const,
-      displayName: "用户明确持有的住房（价值待确认）",
-      marketValueWan: 0,
+      displayName: "用户明确持有的住房（保守估值）",
+      marketValueWan: estimate?.valueWan || 0,
+      plausibleMarketValueRangeWan: estimate?.plausibleRangeWan,
       liquidity: "illiquid" as const,
       status: "active" as const,
-      factStatus: "needs_review" as const,
+      factStatus: estimate ? "estimated" as const : "needs_review" as const,
       openedAtAgeInMonths: state.asOfAgeInMonths,
-      evidence: userEvidence
-    }] : []),
+      evidence: estimate
+        ? [...userEvidence, { source: "system_policy" as const, reasonCode: estimate.reasonCode, confidence: 0.6 }]
+        : userEvidence
+      }];
+    })() : []),
     ...(state.propertyMarketValueWan > 0 ? [{
       id: "legacy_property_assets",
       type: "property" as const,
@@ -126,16 +135,24 @@ export function migrateLegacyFinancialState(input: {
     lastConfirmedAtAgeInMonths: state.asOfAgeInMonths,
     evidence
   }] : [];
-  const expenseCommitments = state.annualCoreExpenseWan > 0 ? [{
+  const explicitOrLegacyExpenseCommitments = state.annualCoreExpenseWan > 0 ? [{
     id: "legacy_core_expense",
     type: "basic_living" as const,
     displayName: "旧版核心支出聚合",
     monthlyAmountWan: roundWan(state.annualCoreExpenseWan / 12),
     activeFromAgeInMonths: state.asOfAgeInMonths,
     status: "active" as const,
-    factStatus: "estimated" as const,
-    evidence
+    factStatus: input.openingFacts?.monthlyBasicLivingExpenseWan !== undefined ? "known" as const : "estimated" as const,
+    evidence: input.openingFacts?.monthlyBasicLivingExpenseWan !== undefined ? userEvidence : evidence
   }] : [];
+  const estimatedLiving = estimatedBasicLivingCommitment({
+    ageInMonths: state.asOfAgeInMonths,
+    employmentStatus: state.employmentStatus,
+    livingArrangement: input.openingFacts?.ownsProperty ? "owner_occupied" : "unknown"
+  });
+  const expenseCommitments = explicitOrLegacyExpenseCommitments.length > 0
+    ? explicitOrLegacyExpenseCommitments
+    : estimatedLiving ? [estimatedLiving] : [];
   if (state.employmentStatus === "student" && state.annualCoreExpenseWan > 0) {
     incomeSources.push({
       id: "student_basic_family_support",

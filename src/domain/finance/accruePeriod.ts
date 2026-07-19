@@ -6,6 +6,7 @@ export interface PeriodAccrual {
   coreExpenseWan: number;
   debtPrincipalPaidWan: number;
   debtInterestPaidWan: number;
+  valuationChangeWan: number;
 }
 
 function overlaps(input: {
@@ -28,11 +29,40 @@ export function accruePeriodSlice(
     throw new FinancialLedgerInvariantError("INVALID_LEDGER", "结算阶段结束时间不能早于开始时间");
   }
   if (periodEndAgeInMonths === periodStartAgeInMonths) {
-    return { incomeWan: 0, coreExpenseWan: 0, debtPrincipalPaidWan: 0, debtInterestPaidWan: 0 };
+    return { incomeWan: 0, coreExpenseWan: 0, debtPrincipalPaidWan: 0, debtInterestPaidWan: 0, valuationChangeWan: 0 };
   }
   const primaryCash = ledger.cashAccounts.find((account) => account.id === PRIMARY_CASH_ACCOUNT_ID && account.status === "active")
     || ledger.cashAccounts.find((account) => account.status === "active");
   if (!primaryCash) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "自动结算需要一个有效现金账户");
+
+  let valuationChangeWan = 0;
+  for (const holding of ledger.businessHoldings) {
+    const terms = holding.optionTerms;
+    if (holding.instrumentType !== "stock_option" || !terms || holding.status !== "active") continue;
+    const previousValueWan = holding.personalCarryingValueWan;
+    if (terms.expiresAtAgeInMonths !== undefined && terms.expiresAtAgeInMonths <= periodEndAgeInMonths) {
+      holding.personalCarryingValueWan = 0;
+      holding.status = "expired";
+      valuationChangeWan = roundWan(valuationChangeWan - previousValueWan);
+      continue;
+    }
+    const policy = terms.vestingPolicy;
+    if (!policy || terms.grantedAtAgeInMonths === undefined || periodEndAgeInMonths <= terms.grantedAtAgeInMonths) continue;
+    const elapsedMonths = Math.min(policy.totalMonths, periodEndAgeInMonths - terms.grantedAtAgeInMonths);
+    const cliffMonths = policy.cliffMonths ?? 0;
+    const frequencyMonths = policy.frequencyMonths ?? 1;
+    const settledMonths = elapsedMonths < cliffMonths ? 0 : Math.floor(elapsedMonths / frequencyMonths) * frequencyMonths;
+    const targetVestedUnits = roundWan(terms.grantedUnits * Math.min(1, settledMonths / policy.totalMonths));
+    if (targetVestedUnits > terms.vestedUnits) terms.vestedUnits = targetVestedUnits;
+    if (terms.fairValueWanPerUnit !== undefined) {
+      const availableVestedUnits = Math.max(0, terms.vestedUnits - terms.exercisedUnits);
+      const intrinsicValueWan = availableVestedUnits * Math.max(terms.fairValueWanPerUnit - terms.strikePriceWanPerUnit, 0);
+      holding.personalCarryingValueWan = roundWan(intrinsicValueWan
+        * (1 - (holding.liquidityDiscountRate || 0))
+        * (1 - (terms.realizationRiskDiscountRate || 0)));
+      valuationChangeWan = roundWan(valuationChangeWan + holding.personalCarryingValueWan - previousValueWan);
+    }
+  }
 
   let incomeWan = 0;
   for (const source of ledger.incomeSources) {
@@ -101,5 +131,5 @@ export function accruePeriodSlice(
   // A transaction may temporarily go below zero before an accepted debt draw or
   // asset sale at the same boundary. Only the final atomic commit is constrained.
   primaryCash.balanceWan = roundWan(primaryCash.balanceWan + incomeWan - coreExpenseWan);
-  return { incomeWan, coreExpenseWan, debtPrincipalPaidWan, debtInterestPaidWan };
+  return { incomeWan, coreExpenseWan, debtPrincipalPaidWan, debtInterestPaidWan, valuationChangeWan };
 }

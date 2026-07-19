@@ -86,18 +86,22 @@ test("M7 focused: explicit mortgage opens debt, repayment policy and a property 
   assert.equal(migrated.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
   const property = migrated.assetAccounts.find((account) => account.type === "property");
   assert.equal(property?.type, "property");
-  assert.equal(property?.factStatus, "needs_review");
+  assert.equal(property?.factStatus, "estimated");
+  assert.equal(property?.marketValueWan, 210);
 });
 
-test("M7 focused: missing adult expenses quarantine recurring income before it can inflate cash", () => {
+test("M7 focused: missing adult expenses receive a deterministic estimate without quarantining income", () => {
   const initial = ledger(360, { income: [salary(360)], cash: 20 });
   const committed = commit({ ledger: initial, worldState: world(), start: 360, end: 372, transactionId: "missing_expense" });
-  assert.equal(committed.financialLedger.cashAccounts[0].balanceWan, 20);
-  assert.equal(committed.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
-  assert.ok(committed.financialLedger.unresolvedIssues.some((issue) => issue.id === "pending_fact_missing_adult_expense" && issue.status === "open"));
+  assert.equal(committed.financialLedger.cashAccounts[0].balanceWan, 39.8);
+  assert.equal(committed.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
+  const estimated = committed.financialLedger.expenseCommitments.find((item) => item.type === "basic_living");
+  assert.equal(estimated?.monthlyAmountWan, 0.35);
+  assert.equal(estimated?.factStatus, "estimated");
+  assert.ok(estimated?.evidence.some((item) => item.source === "system_policy"));
 });
 
-test("M7 focused: an accepted expense fact resolves the gap and releases income for the next period", () => {
+test("M7 focused: an accepted expense fact replaces the system estimate", () => {
   const first = commit({ ledger: ledger(360, { income: [salary(360)] }), worldState: world(), start: 360, end: 372, transactionId: "gap" });
   const expense = living(372);
   const event: AcceptedFinancialEvent = {
@@ -105,7 +109,8 @@ test("M7 focused: an accepted expense fact resolves the gap and releases income 
     payload: expense, evidence, acceptedByReasonCodes: ["TEST"]
   };
   const second = commit({ ledger: first.financialLedger, worldState: first.worldState, start: 372, end: 373, transactionId: "expense_confirmed", events: [event] });
-  assert.equal(second.financialLedger.unresolvedIssues.find((issue) => issue.id === "pending_fact_missing_adult_expense")?.status, "resolved");
+  assert.equal(second.derivedFinancialState.state.annualizedCoreExpenseWan, 12);
+  assert.equal(second.financialLedger.expenseCommitments.find((item) => item.factStatus === "estimated")?.status, "ended");
   assert.equal(second.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
 });
 
@@ -118,11 +123,119 @@ test("M7 focused: stale late-career salary is paused before settlement", () => {
   assert.ok(committed.financialLedger.unresolvedIssues.some((issue) => issue.id === "pending_fact_stale_late_career_salary"));
 });
 
-test("M7 focused: repeated completeness failures age one issue instead of appending duplicates", () => {
+test("M7 focused: deterministic basic living persists without repeated issues", () => {
   const first = commit({ ledger: ledger(360, { income: [salary(360)] }), worldState: world(), start: 360, end: 366, transactionId: "one" });
   const second = commit({ ledger: first.financialLedger, worldState: first.worldState, start: 366, end: 372, transactionId: "two" });
-  const issues = second.financialLedger.unresolvedIssues.filter((issue) => issue.id === "pending_fact_missing_adult_expense");
-  assert.equal(issues.length, 1);
-  assert.equal(issues[0].occurrenceCount, 2);
-  assert.equal(deriveFinancialState({ ledger: second.financialLedger, employmentStatus: "employed" }).compatibilityState.cashWan, 20);
+  const livingCommitments = second.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(livingCommitments.length, 1);
+  assert.equal(second.financialLedger.unresolvedIssues.filter((issue) => issue.id === "pending_fact_missing_adult_expense").length, 0);
+  assert.equal(deriveFinancialState({ ledger: second.financialLedger, employmentStatus: "employed" }).compatibilityState.cashWan, 39.8);
+});
+
+test("M7 focused: system living estimate advances from young-adult to adult policy", () => {
+  const start = 22 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "young_living", type: "basic_living", displayName: "基础生活支出（系统保守估计）",
+    monthlyAmountWan: 0.2, activeFromAgeInMonths: 18 * 12, status: "active", factStatus: "estimated",
+    evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+  });
+  const committed = commit({ ledger: initial, worldState: world(), start, end: 24 * 12, transactionId: "adult_policy_step" });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].monthlyAmountWan, 0.35);
+  assert.equal(active[0].activeFromAgeInMonths, 23 * 12);
+  assert.equal(committed.financialPeriodSummary?.coreExpenseWan, 6.6);
+});
+
+test("M7 focused: review status does not block deterministic system living policy transitions", () => {
+  const start = 22 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "reviewed_young_living", type: "basic_living", displayName: "基础生活支出（系统保守估计）",
+    monthlyAmountWan: 0.2, activeFromAgeInMonths: 18 * 12, status: "active", factStatus: "needs_review",
+    evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+  });
+  const committed = commit({ ledger: initial, worldState: world(), start, end: 24 * 12, transactionId: "reviewed_policy_step" });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].monthlyAmountWan, 0.35);
+  assert.equal(active[0].factStatus, "estimated");
+});
+
+test("M7 focused: legacy estimated living is replaced when employment leaves the student policy", () => {
+  const start = 39 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "legacy_core_expense", type: "basic_living", displayName: "旧版核心支出聚合",
+    monthlyAmountWan: 0.2083, activeFromAgeInMonths: 18 * 12, status: "active", factStatus: "estimated",
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+  });
+  const committed = commit({ ledger: initial, worldState: world(), start, end: start + 12, transactionId: "legacy_living_policy_step" });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].monthlyAmountWan, 0.35);
+  assert.ok(active[0].evidence.some((item) => item.source === "system_policy"));
+});
+
+test("M7 focused: an accepted legacy living adjustment does not create a second policy baseline", () => {
+  const start = 24 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "legacy_core_expense", type: "basic_living", displayName: "旧版核心支出聚合",
+    monthlyAmountWan: 1, activeFromAgeInMonths: start, status: "active", factStatus: "estimated",
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+  });
+  const adjusted: AcceptedFinancialEvent = {
+    id: "accepted_living_adjustment", proposalId: "living_adjustment", kind: "expense_commitment_adjusted",
+    effectiveAtAgeInMonths: start + 12,
+    payload: {
+      expenseCommitmentId: "legacy_core_expense",
+      nextCommitment: {
+        id: "legacy_core_expense", type: "basic_living", displayName: "确认后的基本生活支出",
+        monthlyAmountWan: 0.7, activeFromAgeInMonths: start, status: "active", factStatus: "known", evidence
+      }
+    },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const committed = commit({
+    ledger: initial, worldState: world(), start, end: start + 12,
+    transactionId: "legacy_living_adjusted", events: [adjusted]
+  });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].id, "legacy_core_expense");
+  assert.equal(active[0].monthlyAmountWan, 0.7);
+});
+
+test("M7 focused: an estimated adjustment cannot keep a working adult on the student living floor", () => {
+  const start = 24 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "student_living", type: "basic_living", displayName: "基础生活支出（系统保守估计）",
+    monthlyAmountWan: 0.15, activeFromAgeInMonths: 18 * 12, status: "active", factStatus: "estimated",
+    evidence: [{ source: "system_policy", reasonCode: "STUDENT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+  });
+  const adjusted: AcceptedFinancialEvent = {
+    id: "accepted_stale_student_adjustment", proposalId: "stale_student_adjustment",
+    kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: start + 12,
+    payload: {
+      expenseCommitmentId: "student_living",
+      nextCommitment: {
+        id: "student_living", type: "basic_living", displayName: "基础生活支出（估计）",
+        monthlyAmountWan: 0.15, activeFromAgeInMonths: 18 * 12, status: "active",
+        factStatus: "estimated", evidence: []
+      }
+    },
+    evidence, acceptedByReasonCodes: ["TEST"]
+  };
+  const committed = commit({
+    ledger: initial, worldState: world(), start, end: start + 12,
+    transactionId: "adult_floor_after_adjustment", events: [adjusted]
+  });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].monthlyAmountWan, 0.35);
+  assert.ok(active[0].evidence.some((item) => item.source === "system_policy"));
 });

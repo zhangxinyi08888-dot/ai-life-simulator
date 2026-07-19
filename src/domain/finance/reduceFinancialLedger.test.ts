@@ -385,8 +385,49 @@ test("authoritative liquidity policy converts negative cash into an auditable de
   assert.equal(result.ledger.cashAccounts[0].balanceWan, 0);
   assert.equal(result.ledger.debtAccounts[0].principalWan, 2);
   assert.equal(result.ledger.debtAccounts[0].type, "liquidity_shortfall");
-  assert.equal(result.transaction.eventIds.includes(result.ledger.debtAccounts[0].id), true);
+  assert.ok(result.transaction.eventIds.some((id) => id.startsWith("auto_shortfall_draw_")));
   assert.equal(result.periodSummary.netWorthChangeWan, -3);
+});
+
+test("system liquidity shortfall reuses one revolving account, avoids schedule noise and sweeps surplus", () => {
+  const opening = initializeFinancialLedger({
+    id: "revolving_shortfall",
+    asOfAgeInMonths: 360,
+    openingPosition: {
+      cashAccounts: [{ id: PRIMARY_CASH_ACCOUNT_ID, type: "bank_deposit", balanceWan: 1, status: "active", factStatus: "known", evidence }]
+    }
+  });
+  const first = reduceFinancialLedger({
+    ledger: opening, transactionId: "shortfall_one", expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    events: [accepted("expense_one", "one_off_expense_paid", 361, { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 3 })],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  const second = reduceFinancialLedger({
+    ledger: first.ledger, transactionId: "shortfall_two", expectedLedgerRevision: 1,
+    periodStartAgeInMonths: 361, periodEndAgeInMonths: 362,
+    events: [accepted("expense_two", "one_off_expense_paid", 362, { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 1 })],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  assert.equal(second.ledger.debtAccounts.filter((debt) => debt.type === "liquidity_shortfall").length, 1);
+  assert.equal(second.ledger.debtAccounts[0].principalWan, 3);
+  const aged = reduceFinancialLedger({
+    ledger: second.ledger, transactionId: "shortfall_aged", expectedLedgerRevision: 2,
+    periodStartAgeInMonths: 362, periodEndAgeInMonths: 386, events: [], liquidityPolicy: "auto_shortfall_debt"
+  });
+  assert.equal(aged.ledger.unresolvedIssues.some((issue) => issue.code === "UNKNOWN_DEBT_SCHEDULE"), false);
+  const recovered = reduceFinancialLedger({
+    ledger: aged.ledger, transactionId: "shortfall_recovered", expectedLedgerRevision: 3,
+    periodStartAgeInMonths: 386, periodEndAgeInMonths: 387,
+    events: [accepted("recovery", "one_off_income_received", 387, { destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 5 })],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  if (!("periodSummary" in recovered)) return;
+  assert.equal(recovered.ledger.debtAccounts[0].status, "repaid");
+  assert.equal(recovered.ledger.debtAccounts[0].principalWan, 0);
+  assert.equal(recovered.ledger.cashAccounts[0].balanceWan, 2);
+  assert.equal(recovered.periodSummary.debtPrincipalPaidWan, 3);
+  assert.ok(recovered.transaction.eventIds.some((id) => id.startsWith("auto_shortfall_repayment_")));
 });
 
 test("does not let a later inflow retroactively fund an earlier expense", () => {
@@ -407,6 +448,36 @@ test("does not let a later inflow retroactively fund an earlier expense", () => 
       })
     ]
   }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
+});
+
+test("records late-discovered property and mortgage as prior fact correction without fake cash flow", () => {
+  const result = reduceFinancialLedger({
+    ledger: ledgerAt(360, 10),
+    transactionId: "late_balance_facts",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    events: [
+      accepted("home_discovered", "asset_balance_discovered", 361, {
+        assetAccount: {
+          id: "home_existing", type: "property", displayName: "此前已有住房",
+          marketValueWan: 300, liquidity: "illiquid", status: "active", factStatus: "estimated",
+          openedAtAgeInMonths: 300, evidence
+        }
+      }),
+      accepted("mortgage_discovered", "debt_balance_discovered", 361, {
+        debtAccount: debt("mortgage_existing", 120, "mortgage")
+      })
+    ]
+  });
+  if (!("periodSummary" in result)) return;
+  assert.equal(result.transaction.cashDeltaWan, 0);
+  assert.equal(result.transaction.incomeWan, 0);
+  assert.equal(result.transaction.valuationChangeWan, 0);
+  assert.equal(result.transaction.priorFactCorrectionWan, 180);
+  assert.equal(result.transaction.nonCashGainLossWan, 0);
+  assert.equal(result.transaction.netWorthDeltaWan, 180);
+  assert.equal(result.periodSummary.priorFactCorrectionWan, 180);
 });
 
 test("is idempotent for the same simulation transaction id", () => {

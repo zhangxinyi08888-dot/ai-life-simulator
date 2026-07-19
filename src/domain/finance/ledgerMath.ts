@@ -106,6 +106,9 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
     }
   });
   ledger.businessHoldings.forEach((holding) => {
+    if (holding.instrumentType !== undefined && !["equity", "stock_option"].includes(holding.instrumentType)) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业持股 ${holding.id}.instrumentType 无效`);
+    }
     assertFiniteNonNegative(holding.personalCarryingValueWan, `企业持股 ${holding.id}.personalCarryingValueWan`);
     if (holding.ownershipRate !== undefined && (holding.ownershipRate < 0 || holding.ownershipRate > 1)) {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业持股 ${holding.id}.ownershipRate 必须在 0-1 之间`);
@@ -117,7 +120,25 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
       && (holding.liquidityDiscountRate < 0 || holding.liquidityDiscountRate > 1)) {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业持股 ${holding.id}.liquidityDiscountRate 必须在 0-1 之间`);
     }
-    if ((holding.status === "sold" || holding.status === "written_off") && holding.personalCarryingValueWan !== 0) {
+    if (holding.instrumentType === "stock_option") {
+      const terms = holding.optionTerms;
+      if (!terms) throw new FinancialLedgerInvariantError("INVALID_LEDGER", `期权 ${holding.id} 缺少 optionTerms`);
+      [terms.grantedUnits, terms.vestedUnits, terms.exercisedUnits, terms.strikePriceWanPerUnit]
+        .forEach((value, index) => assertFiniteNonNegative(value, `期权 ${holding.id}.optionTerms[${index}]`));
+      if ((terms.grantedUnits === 0 && holding.factStatus !== "needs_review")
+        || terms.vestedUnits > terms.grantedUnits || terms.exercisedUnits > terms.vestedUnits) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", `期权 ${holding.id} 的授予、归属和行权数量不一致`);
+      }
+      if (terms.fairValueWanPerUnit !== undefined) assertFiniteNonNegative(terms.fairValueWanPerUnit, `期权 ${holding.id}.fairValueWanPerUnit`);
+      if (terms.realizationRiskDiscountRate !== undefined
+        && (terms.realizationRiskDiscountRate < 0 || terms.realizationRiskDiscountRate > 1)) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", `期权 ${holding.id}.realizationRiskDiscountRate 必须在 0-1 之间`);
+      }
+      if (terms.vestedUnits === terms.exercisedUnits && holding.personalCarryingValueWan !== 0) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", `没有剩余已归属单位的期权 ${holding.id} 账面价值必须为零`);
+      }
+    }
+    if (["sold", "written_off", "exercised", "expired", "cancelled"].includes(holding.status) && holding.personalCarryingValueWan !== 0) {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `已出售或核销持股 ${holding.id} 的个人账面价值必须归零`);
     }
   });

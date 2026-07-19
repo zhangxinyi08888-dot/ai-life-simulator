@@ -17,14 +17,23 @@ const EVENT_PATTERNS: Partial<Record<FinancialEventKind, RegExp>> = {
   expense_commitment_ended: /支出|房租|租金|月供|结束|终止|不再|还清/,
   one_off_expense_paid: /支出|支付|花费|缴纳|购买|转出|投入/,
   asset_purchased: /购买|买入|购置|首付|房产|投资/,
+  asset_balance_discovered: /已有|名下|自有|房产|住房|房子/,
   asset_sold: /出售|卖出|变现|成交/,
   asset_revalued: /估值|市值|升值|贬值|上涨|下跌/,
   debt_drawn: /借款|贷款|房贷|按揭|融资到账|借入/,
+  debt_balance_discovered: /已有|背上|尚欠|剩余|房贷|按揭|贷款/,
   debt_principal_repaid: /还本|偿还本金|提前还款|还清|结清/,
   debt_interest_paid: /利息|息费/,
   debt_restructured: /重组|再融资|置换贷款/,
   debt_forgiven: /减免|豁免|免除债务/,
+  business_holding_started: /创始人|联合创始|股权|持股|股份|合伙人权益/,
   business_financing_recorded: /融资|投资方|天使轮|A轮|B轮|估值/,
+  business_option_granted: /授予|获得|期权|期权池/,
+  business_option_vested: /归属|解锁|成熟|期权/,
+  business_option_revalued: /期权|估值|公允价值|行权价/,
+  business_option_exercised: /行权|认购|转换为股权/,
+  business_option_expired: /期权到期|到期失效/,
+  business_option_cancelled: /期权取消|期权作废|离职失效/,
   business_holding_revalued: /股权|持股|期权|估值|股份/,
   business_distribution_received: /分红|股息|利润分配/,
   business_holding_sold: /出售股权|转让股份|退出|套现/,
@@ -57,6 +66,19 @@ function financialAmounts(value: unknown, key = ""): number[] {
   return Object.entries(value as Record<string, unknown>).flatMap(([childKey, child]) => financialAmounts(child, childKey));
 }
 
+export interface FinancialEvidenceCandidate { excerpt: string; amountAnchorsWan: number[]; eventMatched: boolean }
+
+/** Ranked, verbatim narrative candidates supplied to the single repair attempt. */
+export function financialEvidenceCandidates(input: { proposal: FinancialEventProposal; narrativeText: string; limit?: number }): FinancialEvidenceCandidate[] {
+  const amounts = [...new Set(financialAmounts(input.proposal.payload))];
+  const eventPattern = EVENT_PATTERNS[input.proposal.kind];
+  return narrativeSentences(input.narrativeText)
+    .map((excerpt) => ({ excerpt, amountAnchorsWan: amounts.filter((amount) => textContainsAmount(excerpt, amount)), eventMatched: Boolean(eventPattern?.test(excerpt)) }))
+    .filter((candidate) => candidate.eventMatched || candidate.amountAnchorsWan.length > 0)
+    .sort((left, right) => Number(right.eventMatched) - Number(left.eventMatched) || right.amountAnchorsWan.length - left.amountAnchorsWan.length || left.excerpt.length - right.excerpt.length)
+    .slice(0, input.limit ?? 3);
+}
+
 function textContainsAmount(text: string, amount: number): boolean {
   const normalized = text.normalize("NFKC");
   const candidates = new Set([
@@ -79,7 +101,7 @@ export function matchFinancialEvidence(input: {
 }): { matched: boolean; reasonCode?: EvidenceMatchReason; excerpt?: string } {
   const evidence = String(input.proposal.evidence || "").trim();
   if (!evidence) return { matched: false };
-  if (!ENTITY_ONLY_EVENT_KINDS.has(input.proposal.kind) && NON_PROTAGONIST_ENTITY_PATTERN.test(evidence)) {
+  if (!ENTITY_ONLY_EVENT_KINDS.has(input.proposal.kind) && NON_PROTAGONIST_ENTITY_PATTERN.test(evidence) && !PROTAGONIST_PATTERN.test(evidence)) {
     return { matched: false };
   }
   if (input.narrativeText.includes(evidence)) {
