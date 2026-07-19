@@ -7,6 +7,8 @@ export * from "./reduceFinancialLedger";
 export * from "./deriveFinancialState";
 export * from "./migrateLegacyFinancialState";
 export * from "./mortalityFinancialClosure";
+export * from "./lateLifeEmploymentClosure";
+export * from "./completeCareerIncomeReplacement";
 export * from "./ledgerMath";
 export * from "./reconcileLiquidity";
 export * from "./validateFinancialProposals";

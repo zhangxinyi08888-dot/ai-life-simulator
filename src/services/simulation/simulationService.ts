@@ -34,6 +34,8 @@ import {
   normalizeFinancialProposals,
   normalizeRepairedFinancialProposals,
   matchesNormalizedEvidence,
+  buildLateLifeEmploymentClosure,
+  completeCareerIncomeReplacementProposals,
   buildMortalityFinancialClosure,
   reconcileCareerIncomeAtomicity,
   validateFinancialProposals,
@@ -196,7 +198,8 @@ export function narrativeRequiresCareerTransition(input: {
   if (!protagonistText) return false;
   const stopsWorking = /你[^。；]{0,24}(?:正式退休|办理退休|离职|辞职|辞去|停止工作|结束全职|不再工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(protagonistText);
   if (stopsWorking && !["retired", "not_working"].includes(input.currentStatus)) return true;
-  const startsWorking = /你[^。；]{0,28}(?:正式入职|入职|受聘|开始全职工作|开始工作|加入[^。；]{0,12}(?:公司|机构|团队))/u.test(protagonistText);
+  const startsWorking = /你[^。；]{0,28}(?:正式入职|入职|受聘|开始全职工作|开始工作|加入[^。；]{0,12}(?:公司|机构|团队)|(?:接受|选择)[^。；]{0,16}(?:offer|新职位|新工作))/iu.test(protagonistText)
+    || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(protagonistText);
   if (startsWorking && ["student", "not_working", "retired", "medical_leave"].includes(input.currentStatus)) return true;
   return /你[^。；]{0,24}(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(protagonistText);
 }
@@ -275,7 +278,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     }
   });
   let nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
-  const selectedDecisionRequiresCareerTransition = /退休|转为.{0,12}顾问|结束.{0,12}全职|离职|换工作|入职/u.test(input.selectedDecision || "");
+  const selectedDecisionRequiresCareerTransition = /退休|转为.{0,12}顾问|结束.{0,12}全职|离职|换工作|入职|(?:接受|选择).{0,16}(?:offer|新职位|新工作)/iu.test(input.selectedDecision || "");
   const careerTransitionRequired = selectedDecisionRequiresCareerTransition || narrativeRequiresCareerTransition({
     narrativeText: input.node.description,
     currentStatus: currentCareer.employmentStatus
@@ -305,6 +308,13 @@ async function commitAuthoritativeFinancialProgress(input: {
         currentCareerStateId: currentCareer.id,
         nextCareerStateIds: nextCareerIds
       });
+  normalizedFinancial.proposals = completeCareerIncomeReplacementProposals({
+    proposals: normalizedFinancial.proposals,
+    currentLedger: initialLedger,
+    currentCareerStateId: currentCareer.id,
+    transition: acceptedCareerTransitions[0],
+    acceptedOutcomeId: input.acceptedOutcomeId
+  });
   const validationInput = {
         currentLedger: initialLedger,
         currentCareerState: currentCareer,
@@ -422,8 +432,15 @@ async function commitAuthoritativeFinancialProgress(input: {
       }).proposals;
       const combinedProposals = new Map(rebasedInitiallyAccepted.map((proposal) => [proposal.id, proposal]));
       for (const proposal of repairedNormalized.proposals) combinedProposals.set(proposal.id, proposal);
-      validated = validateFinancialProposals({
+      const completedCombinedProposals = completeCareerIncomeReplacementProposals({
         proposals: [...combinedProposals.values()],
+        currentLedger: initialLedger,
+        currentCareerStateId: currentCareer.id,
+        transition: acceptedCareerTransitions[0],
+        acceptedOutcomeId: input.acceptedOutcomeId
+      });
+      validated = validateFinancialProposals({
+        proposals: completedCombinedProposals,
         ...validationInput,
         allowedCareerStateIds: nextCareerIds
       });
@@ -504,6 +521,35 @@ async function commitAuthoritativeFinancialProgress(input: {
       ...remainingCoverageIssues.filter((issue) => !existingValidatedIssueIds.has(issue.id))
     ]
   };
+  if (!input.node.isEndingNode && input.periodEndAgeInMonths >= 80 * 12
+    && currentCareer.employmentStatus === "employed" && acceptedCareerTransitions.length === 0) {
+    const lateLifeClosure = buildLateLifeEmploymentClosure({
+      currentCareer,
+      ledger: initialLedger,
+      ageInMonths: input.periodEndAgeInMonths,
+      transactionId: input.transactionId
+    });
+    const closedIncomeIds = new Set(lateLifeClosure.financialEvents.map((event) => event.payload.incomeSourceId));
+    acceptedCareerTransitions = lateLifeClosure.careerTransitions;
+    validated = {
+      acceptedEvents: [
+        ...validated.acceptedEvents.filter((event) => {
+          if (event.kind === "income_source_started") {
+            return event.payload.linkedCareerStateId !== currentCareer.id;
+          }
+          if (event.kind === "income_source_adjusted" || event.kind === "income_source_paused" || event.kind === "income_source_ended") {
+            return !closedIncomeIds.has(event.payload.incomeSourceId);
+          }
+          return true;
+        }),
+        ...lateLifeClosure.financialEvents
+      ],
+      issues: validated.issues.filter((issue) => !(
+        (issue.code === "CAREER_INCOME_CONFLICT" || issue.code === "CAREER_STATE_STALE" || issue.code === "PENDING_FACT")
+        && (issue.relatedIncomeSourceIds || []).some((id) => closedIncomeIds.has(id))
+      ))
+    };
+  }
   if (input.node.isEndingNode) {
     const mortality = buildMortalityFinancialClosure({
       currentCareer,

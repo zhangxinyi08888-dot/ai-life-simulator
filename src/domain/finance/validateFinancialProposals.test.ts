@@ -147,6 +147,17 @@ test("rejects company revenue and team payroll at the personal-ledger boundary",
   assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 2);
 });
 
+test("does not confuse a salary at a SaaS company with company revenue", () => {
+  const result = validate([
+    proposal({
+      id: "saas_salary", kind: "income_source_started", evidence: "你正式入职跨境电商SaaS公司，税后月薪1.5万元。",
+      payload: { id: "saas_salary", type: "salary", displayName: "SaaS公司税后工资", monthlyNetAmountWan: 1.5, accrualPolicy: "monthly", activeFromAgeInMonths: 312, status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence }
+    })
+  ], "你正式入职跨境电商SaaS公司，税后月薪1.5万元。");
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 0);
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
 test("requires adjustment instead of stacking a second authoritative basic-living commitment", () => {
   const context = setup();
   context.currentLedger.expenseCommitments.push({

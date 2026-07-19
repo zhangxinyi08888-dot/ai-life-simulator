@@ -208,3 +208,34 @@ test("M7 focused: an accepted legacy living adjustment does not create a second 
   assert.equal(active[0].id, "legacy_core_expense");
   assert.equal(active[0].monthlyAmountWan, 0.7);
 });
+
+test("M7 focused: an estimated adjustment cannot keep a working adult on the student living floor", () => {
+  const start = 24 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "student_living", type: "basic_living", displayName: "基础生活支出（系统保守估计）",
+    monthlyAmountWan: 0.15, activeFromAgeInMonths: 18 * 12, status: "active", factStatus: "estimated",
+    evidence: [{ source: "system_policy", reasonCode: "STUDENT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+  });
+  const adjusted: AcceptedFinancialEvent = {
+    id: "accepted_stale_student_adjustment", proposalId: "stale_student_adjustment",
+    kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: start + 12,
+    payload: {
+      expenseCommitmentId: "student_living",
+      nextCommitment: {
+        id: "student_living", type: "basic_living", displayName: "基础生活支出（估计）",
+        monthlyAmountWan: 0.15, activeFromAgeInMonths: 18 * 12, status: "active",
+        factStatus: "estimated", evidence: []
+      }
+    },
+    evidence, acceptedByReasonCodes: ["TEST"]
+  };
+  const committed = commit({
+    ledger: initial, worldState: world(), start, end: start + 12,
+    transactionId: "adult_floor_after_adjustment", events: [adjusted]
+  });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].monthlyAmountWan, 0.35);
+  assert.ok(active[0].evidence.some((item) => item.source === "system_policy"));
+});

@@ -163,6 +163,24 @@ test("corrects a cash-account id used as the sole active income-source id and co
   assert.equal(result.audit.some((item) => item.reasonCode === "ACCOUNT_ID_TYPE_CORRECTED"), true);
 });
 
+test("preserves policy evidence when an expense adjustment omits it", () => {
+  const currentLedger = initializeFinancialLedger({ id: "expense_evidence", asOfAgeInMonths: 288, openingPosition: {
+    expenseCommitments: [{
+      id: "living_policy", type: "basic_living", displayName: "基础生活支出（系统保守估计）",
+      monthlyAmountWan: 0.15, activeFromAgeInMonths: 216, status: "active", factStatus: "estimated",
+      evidence: [{ source: "system_policy", reasonCode: "STUDENT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+    }]
+  } });
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], currentLedger, proposals: [{
+    id: "adjust_living", kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: 300,
+    payload: { expenseCommitmentId: "living_policy", nextCommitment: { monthlyAmountWan: 0.15, evidence: [] } },
+    evidence: "生活支出仍按估计处理。", confidence: 0.9
+  }] });
+  const next = (result.proposals[0].payload as any).nextCommitment;
+  assert.equal(next.evidence[0].source, "system_policy");
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_EVIDENCE_PRESERVED"), true);
+});
+
 test("normalizes a fixed option schedule and expiry into authoritative option terms", () => {
   const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
     id: "grant", kind: "business_option_granted", effectiveAtAgeInMonths: 348,

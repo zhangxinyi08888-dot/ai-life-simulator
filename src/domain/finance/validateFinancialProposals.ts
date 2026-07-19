@@ -100,7 +100,9 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
   const explicitlyNegatedReceipt = /你(?:个人)?[^。；]{0,12}(?:没有|未|并未|不曾)[^。；]{0,12}(?:领取|获得|收到|分红|股息)/u.test(text);
   const explicitPersonal = !explicitlyNegatedReceipt
     && /你(?:个人)?[^。；]{0,20}(?:领取|获得|收到|税后工资|月薪|年薪|顾问费|分红|股息)|转入(?:你的|个人)账户/u.test(text);
-  return (businessExpense || businessRevenue) && !explicitPersonal;
+  const personalCompensation = ["salary", "contract", "self_employment_draw"].includes(String(subject?.type))
+    && /(?:税后|到手)?(?:工资|薪资|月薪|年薪)|顾问费|咨询费/u.test(text);
+  return (businessExpense || businessRevenue) && !explicitPersonal && !personalCompensation;
 }
 
 function markEstimatedFacts<T>(value: T): T {

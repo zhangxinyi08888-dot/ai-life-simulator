@@ -6,7 +6,7 @@ export interface FinancialProposalNormalizationAudit {
   proposalId?: string;
   reasonCode: "KIND_FIELD_NORMALIZED" | "SOURCE_OUTCOME_FILLED" | "DUPLICATE_ID_RENAMED" | "CAREER_LINK_FILLED" | "CASH_ACCOUNT_FILLED"
     | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED"
-    | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED"
+    | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED"
     | "ASSET_ACCOUNT_SHAPE_COMPLETED" | "DEBT_ACCOUNT_SHAPE_COMPLETED";
@@ -381,6 +381,7 @@ export function normalizeFinancialProposals(input: {
       if (existingSource && payload.nextSource && typeof payload.nextSource === "object") {
         payload.nextSource = mergeMissing(existingSource, payload.nextSource);
         payload.nextSource.id = payload.incomeSourceId;
+        if (!Array.isArray(payload.nextSource.evidence)) payload.nextSource.evidence = structuredClone(existingSource.evidence || []);
         audit.push({ proposalId: id, reasonCode: "INCOME_SOURCE_SHAPE_COMPLETED", normalizedValue: payload.incomeSourceId });
       }
     }
@@ -389,6 +390,10 @@ export function normalizeFinancialProposals(input: {
       if (existingCommitment) {
         payload.nextCommitment = mergeMissing(existingCommitment, payload.nextCommitment);
         payload.nextCommitment.id = payload.expenseCommitmentId;
+        if (!Array.isArray(payload.nextCommitment.evidence) || payload.nextCommitment.evidence.length === 0) {
+          payload.nextCommitment.evidence = structuredClone(existingCommitment.evidence);
+          audit.push({ proposalId: id, reasonCode: "EXPENSE_EVIDENCE_PRESERVED", normalizedValue: payload.expenseCommitmentId });
+        }
         const typeAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
         payload.nextCommitment.type = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
         const nextAmount = payload.nextCommitment.monthlyAmountWan ?? payload.nextCommitment.amountWanPerMonth ?? payload.nextCommitment.monthlyCostWan ?? monthlyAmountFromEvidence();

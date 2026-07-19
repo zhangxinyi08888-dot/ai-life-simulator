@@ -121,6 +121,26 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     ));
   });
   const activeSystemEstimate = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
+  for (const event of input.events) {
+    if (event.kind !== "expense_commitment_adjusted") continue;
+    const existing = input.ledger.expenseCommitments.find((commitment) => (
+      commitment.id === event.payload.expenseCommitmentId && isPolicyManagedBasicLiving(commitment)
+    ));
+    if (!existing) continue;
+    const next = event.payload.nextCommitment;
+    const remainsEstimated = next.factStatus === "estimated" || next.factStatus === "needs_review";
+    if (!remainsEstimated) continue;
+    const policyFloor = estimatedBasicLivingCommitment({
+      ageInMonths: event.effectiveAtAgeInMonths,
+      employmentStatus: input.employmentStatus
+    });
+    if (!policyFloor || next.monthlyAmountWan >= policyFloor.monthlyAmountWan) continue;
+    next.monthlyAmountWan = policyFloor.monthlyAmountWan;
+    next.evidence = [
+      ...(next.evidence || []).filter((item) => item.source !== "system_policy"),
+      ...policyFloor.evidence
+    ];
+  }
   // An accepted adjustment/closure is the authority for this period. Do not
   // rotate the same legacy/system baseline underneath it and accidentally
   // leave both the replacement estimate and the adjusted baseline active.
