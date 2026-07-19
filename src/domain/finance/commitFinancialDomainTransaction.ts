@@ -212,6 +212,18 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
   }
 }
 
+function resolveCareerTransitionIssues(ledger: FinancialLedger, transitions: AcceptedCareerTransition[], ageInMonths: number): void {
+  if (transitions.length === 0) return;
+  const resolvingTransition = transitions[transitions.length - 1];
+  for (const issue of ledger.unresolvedIssues) {
+    if (issue.status === "resolved" || issue.code !== "CAREER_INCOME_CONFLICT") continue;
+    if (!issue.id.startsWith("career_transition_missing_") && !issue.id.startsWith("career_transition_issue_")) continue;
+    issue.status = "resolved";
+    issue.resolvedAtAgeInMonths = ageInMonths;
+    issue.resolvedByEventId = resolvingTransition.id;
+  }
+}
+
 function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedgerIssue[], ageInMonths: number): void {
   for (const issue of issues.filter((item) => item.severity === "blocking")) {
     const completenessPolicyAlreadyApplied = issue.id === "pending_fact_missing_adult_expense"
@@ -396,10 +408,15 @@ export function commitFinancialDomainTransaction(
       source.status = "ended";
     }
   }
-  resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
   const newIssues = [...completenessIssues, ...(input.financialIssues || [])];
   for (const issue of newIssues) addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths);
   applyPendingFactPolicy(committedLedger, newIssues, input.periodEndAgeInMonths);
+  // An Accepted Event is the authority for its referenced fact even when a
+  // malformed sibling Proposal produced an issue in the same model response.
+  // Resolve after issue insertion/pending policy so the rejected sibling cannot
+  // immediately quarantine the just-accepted source.
+  resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
+  resolveCareerTransitionIssues(committedLedger, input.acceptedCareerTransitions, input.periodEndAgeInMonths);
   addLegacyIncomeReconfirmation(committedLedger, input.periodEndAgeInMonths);
   const nextWorldState: WorldStateSnapshot = {
     ...structuredClone(input.currentWorldState),

@@ -91,7 +91,11 @@ test("commits CareerState, ledger, WorldState and derived snapshot as one transa
         destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
         amountWan: 1
       })
-    ]
+    ],
+    financialIssues: [{
+      id: "career_transition_missing_prior", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
+      relatedProposalIds: [], summary: "先前节点缺少职业转换", createdAtAgeInMonths: 360
+    }]
   });
   assert.equal(result.alreadyCommitted, false);
   assert.equal(result.career.currentCareerStateId, nextCareerStateId);
@@ -103,6 +107,7 @@ test("commits CareerState, ledger, WorldState and derived snapshot as one transa
   assert.equal(result.derivedFinancialState.state.employmentStatus, "self_employed");
   assert.equal(result.derivedFinancialState.compatibilityState.cashWan, 2.65);
   assert.deepEqual(result.worldState.committedTransactionIds, ["atomic_success"]);
+  assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "career_transition_missing_prior")?.status, "resolved");
 });
 
 test("a ledger failure returns no partial CareerState or WorldState mutation", () => {
@@ -215,6 +220,35 @@ test("a rejected fact quarantines only the affected recurring income and opens a
     acceptedFinancialEvents: []
   });
   assert.equal(second.financialPeriodSummary?.incomeWan, 0);
+});
+
+test("an accepted source event wins over a malformed sibling issue in the same node", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "salary_main", type: "salary", displayName: "当前工资", monthlyNetAmountWan: 2,
+    accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active",
+    linkedCareerStateId: "career_employed", factStatus: "known", evidence
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "accepted_wins_same_node", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0, expectedLedgerRevision: 0, currentCareer: current.career,
+    currentFinancialLedger: current.ledger, currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("salary_confirmed", "income_source_adjusted", 361, {
+      incomeSourceId: "salary_main",
+      nextSource: { ...current.ledger.incomeSources[0], monthlyNetAmountWan: 2.5 }
+    })],
+    financialIssues: [{
+      id: "malformed_salary_sibling", code: "UNBALANCED_TRANSACTION", severity: "blocking", status: "open",
+      relatedProposalIds: ["bad_duplicate"], relatedIncomeSourceIds: ["salary_main"],
+      summary: "同一响应中的重复工资 Proposal 无效", createdAtAgeInMonths: 361
+    }]
+  });
+  const source = result.financialLedger.incomeSources.find((item) => item.id === "salary_main")!;
+  assert.equal(source.monthlyNetAmountWan, 2.5);
+  assert.equal(source.accrualReviewStatus, "normal");
+  assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "malformed_salary_sibling")?.status, "resolved");
+  assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "pending_fact_income_salary_main")?.status, "resolved");
 });
 
 test("a rejected adjustment uses the last accepted income baseline for at most two nodes", () => {
