@@ -82,6 +82,36 @@ test("completes late-discovered mortgage shape without inventing current cash mo
   assert.equal(payload.destinationCashAccountId, undefined);
 });
 
+test("normalizes residential purchase aliases and explicit price without inventing a valuation", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
+    id: "home_purchase", kind: "asset_purchased", effectiveAtAgeInMonths: 422,
+    payload: {
+      sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      cashPaidWan: 54,
+      transactionFeeWan: 0,
+      linkedDebtDrawEventId: "mortgage_draw",
+      assetAccount: { id: "home", type: "residential_property", factStatus: "confirmed" }
+    },
+    evidence: "你买下一套两居室，总价180万，首付54万，组合贷款126万。", confidence: 0.9
+  }] });
+  const account = (result.proposals[0].payload as any).assetAccount;
+  assert.equal(account.type, "property");
+  assert.equal(account.marketValueWan, 180);
+  assert.equal(account.factStatus, "known");
+});
+
+test("keeps an unknown discovered property as needs-review zero carrying value", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
+    id: "old_home", kind: "asset_balance_discovered", effectiveAtAgeInMonths: 422,
+    payload: { asset: { accountId: "home", type: "house" } },
+    evidence: "你仍住在自己名下的房子里，但当前估值不清楚。", confidence: 0.9
+  }] });
+  const account = (result.proposals[0].payload as any).assetAccount;
+  assert.equal(account.type, "property");
+  assert.equal(account.marketValueWan, 0);
+  assert.equal(account.factStatus, "needs_review");
+});
+
 test("repair output inherits omitted structural fields from the rejected proposal", () => {
   const result = normalizeRepairedFinancialProposals({
     acceptedOutcomeIds: ["selected"],

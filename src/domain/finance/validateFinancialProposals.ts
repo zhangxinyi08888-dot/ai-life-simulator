@@ -107,15 +107,20 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
 }
 
 function thirdPartyIncomeFact(proposal: FinancialEventProposal): boolean {
-  if (!["income_source_started", "income_source_adjusted", "one_off_income_received"].includes(proposal.kind)) return false;
+  if (!["income_source_started", "income_source_adjusted", "one_off_income_received", "family_support_received"].includes(proposal.kind)) return false;
   const payload = proposal.payload as Record<string, any>;
   const subject = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
   const text = `${proposal.evidence || ""} ${subject?.displayName || ""}`;
   const thirdParty = /(?:妻子|丈夫|伴侣|配偶|女友|男友|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|岳父|岳母|公公|婆婆|小余|她|他)[^。；]{0,45}(?:月薪|年薪|工资|薪资|收入|到手|分红|股息)/u.test(text)
     || /^(?:妻子|丈夫|伴侣|配偶|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|小余)/u.test(String(subject?.displayName || ""));
-  const transferredToProtagonist = /(?:给你|向你|转入你的|转给你|汇给你|进入你(?:的)?账户|共同账户)/u.test(text);
+  const transferredToProtagonist = /(?:给你|向你|转入你的|转给你|汇给你|进入你(?:的)?账户|转[^。；]{0,16}(?:进|入)你(?:建立的|的)?[^。；]{0,16}账户|共同账户)/u.test(text);
   const protagonistIsRecipient = /(?:邀请|邀约|问|聘请|雇佣|希望)[^。；]{0,18}你[^。；]{0,28}(?:月薪|年薪|工资|薪资|顾问费|咨询费)|你[^。；]{0,28}(?:加入|担任|受聘|接受)[^。；]{0,28}(?:月薪|年薪|工资|薪资|顾问费|咨询费)/u.test(text);
-  return thirdParty && !transferredToProtagonist && !protagonistIsRecipient;
+  // A recurring source always belongs to the person who earns it. An explicit
+  // transfer from that source may be recorded only as family_support_received;
+  // it must never become a protagonist salary/source or CareerState link.
+  if (thirdParty && ["income_source_started", "income_source_adjusted"].includes(proposal.kind)) return true;
+  if (thirdParty && proposal.kind === "family_support_received") return !transferredToProtagonist;
+  return thirdParty && !protagonistIsRecipient;
 }
 
 function markEstimatedFacts<T>(value: T): T {
@@ -133,6 +138,15 @@ function acceptedEvent(proposal: FinancialEventProposal, evidenceReason: Evidenc
   const payload = proposal.confidence < 0.8
     ? markEstimatedFacts(proposal.payload)
     : structuredClone(proposal.payload);
+  if (proposal.kind === "asset_purchased" && payload && typeof payload === "object") {
+    const purchase = payload as Record<string, unknown>;
+    const linkedId = purchase.linkedDebtDrawEventId;
+    if (typeof linkedId === "string" && !linkedId.startsWith("accepted_")) {
+      // Proposal dependencies are expressed with Proposal IDs. Once accepted,
+      // the reducer's atomicity check must reference the corresponding Event ID.
+      purchase.linkedDebtDrawEventId = `accepted_${linkedId}`;
+    }
+  }
   return {
     id: `accepted_${proposal.id}`,
     proposalId: proposal.id,

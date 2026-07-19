@@ -187,6 +187,70 @@ test("rejects a spouse salary from the protagonist ledger", () => {
   assert.match(result.issues[0].summary, /其他人物/);
 });
 
+test("rejects a spouse recurring transfer as protagonist income and requires family support events", () => {
+  const result = validate([proposal({
+    id: "wife_med_contribution", kind: "income_source_started",
+    evidence: "妻子每月从工资里转2000元进你建立的医疗备用金账户。",
+    payload: { id: "wife_med_contribution", type: "family_support", displayName: "妻子医疗金转入", monthlyNetAmountWan: 0.2, accrualPolicy: "monthly", activeFromAgeInMonths: 312, status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence }
+  })], "妻子每月从工资里转2000元进你建立的医疗备用金账户。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0].code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+  assert.match(result.issues[0].summary, /家庭支持事件/);
+});
+
+test("accepts only an explicit spouse transfer through family_support_received", () => {
+  const accepted = validate([proposal({
+    id: "wife_med_transfer", kind: "family_support_received",
+    evidence: "妻子从工资里转2000元进你建立的医疗备用金账户。",
+    payload: { destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 0.2 }
+  })], "妻子从工资里转2000元进你建立的医疗备用金账户。");
+  assert.equal(accepted.issues.length, 0, JSON.stringify(accepted.issues));
+  assert.equal(accepted.acceptedEvents.length, 1);
+
+  const rejected = validate([proposal({
+    id: "wife_salary_as_support", kind: "family_support_received",
+    evidence: "妻子目前月薪2万元。",
+    payload: { destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 2 }
+  })], "妻子目前月薪2万元。");
+  assert.equal(rejected.acceptedEvents.length, 0);
+  assert.equal(rejected.issues[0].code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+});
+
+test("rewrites an accepted asset dependency from proposal id to event id", () => {
+  const context = setup();
+  context.currentLedger.cashAccounts[0].balanceWan = 54;
+  const proposals = [
+    proposal({
+      id: "mortgage_draw", kind: "debt_drawn", evidence: "你办理126万元组合贷款。",
+      payload: {
+        debtAccount: { id: "mortgage", type: "mortgage", displayName: "房贷", principalWan: 126, openedAtAgeInMonths: 312, status: "active", repaymentPolicy: { mode: "estimated_amortizing", monthlyPrincipalWan: 0.525, remainingTermMonths: 240 }, factStatus: "known", evidence },
+        destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID, principalDrawnWan: 126
+      }
+    }),
+    proposal({
+      id: "home_purchase", kind: "asset_purchased", evidence: "你用54万元首付和126万元组合贷款买下总价180万元的住房。",
+      payload: {
+        sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+        assetAccount: { id: "home", type: "property", displayName: "自住房", marketValueWan: 180, liquidity: "illiquid", status: "active", factStatus: "known", openedAtAgeInMonths: 312, evidence },
+        cashPaidWan: 180, transactionFeeWan: 0, linkedDebtDrawEventId: "mortgage_draw"
+      }
+    })
+  ];
+  const result = validateFinancialProposals({
+    ...context,
+    proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你办理126万元组合贷款，用54万元首付买下总价180万元的住房。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "mortgage_purchase",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.acceptedEvents.length, 2);
+  assert.equal((result.acceptedEvents[1].payload as any).linkedDebtDrawEventId, "accepted_mortgage_draw");
+});
+
 test("allows compensation explicitly offered to the protagonist by another person", () => {
   const result = validate([proposal({
     id: "consulting_offer", kind: "income_source_started", evidence: "张哥问你要不要以技术顾问身份加入，每周远程工作十小时，月薪8000元；你最终决定接下兼职。",

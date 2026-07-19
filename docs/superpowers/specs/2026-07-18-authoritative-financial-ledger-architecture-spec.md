@@ -203,6 +203,7 @@ FinancialState
 
 - 所有金额继续使用 `CNY_WAN_REAL`：以当前购买力表示的人民币万元，避免跨越几十年的名义金额不可比。
 - 收入默认记录个人税后到账金额；公司税前营收、家庭成员收入和雇主成本不能混入。
+- 配偶、父母、子女等家庭成员的周期性工资或收入来源永远不能创建为主角的 `IncomeSource`，也不能绑定主角 `CareerState`。家庭成员明确转给主角的实际到账只能用 `family_support_received` 记录当期转账；“每月转入共同用途账户”仍不等于主角拥有该家庭成员的工资来源。
 - 公司客户回款、SaaS 年费、产品销售额不是个人收入；团队工资、员工补贴、服务器、推广和企业运营成本也不是个人生活支出。只有实际支付给主角的工资、自雇提款、顾问费或已经分配的分红进入个人账本。
 - 支出只记录主角个人实际承担或共同承担中归属于主角的部分；“家里欠债”“孩子学费”“父母医疗费”只有主角实际支付、代偿或共同负责时才进入个人账本。
 - 配偶共同房产和共同债务在第一版允许按主角归属比例计入；比例未知时标记 `needs_review`，不得默认 100% 归属于主角。
@@ -908,6 +909,8 @@ export interface BusinessOptionExercisePayload {
 }
 ```
 
+`linkedDebtDrawEventId` 在模型 Proposal 中引用同节点 `debt_drawn` 的 Proposal ID；Proposal 被接受时，validator 必须把它确定性改写为对应 Accepted Event ID 后再交给 reducer。不得让 reducer 同时理解两种 ID 空间，也不得因 ID 前缀差异拒绝合法的“借款 + 购置”原子组。
+
 持续来源和义务的 start / adjust / pause / end payload 必须携带完整对象 ID、生效时间和新旧值。资产重估必须携带 `assetAccountId`、旧值、新值和估值依据。债务重组必须显式引用旧债和新债，不能只给 `totalDebtChangeWan`。
 
 ```ts
@@ -1288,6 +1291,7 @@ Prompt 约束：
 - employmentStatus 通过独立 `EmploymentTransitionProposal` 返回，不放进财务 Proposal。
 - 模型不返回最终余额、净资产、`incomeMonths` 或债务净变化。
 - 账户 ID 优先引用 Prompt 提供的现有 ID；新建来源、资产或债务时使用本节点内唯一临时 ID，由 validator 转成稳定 ID。
+- 入口归一化必须把 `residential_property`、`real_estate`、`housing_loan`、`mortgage_loan` 等确定性账户类型别名映射到权威枚举，并把正文明确的“总价 / 市值 / 贷款余额”补入对应字段。正文确认资产存在但没有可靠估值时仍创建 `marketValueWan = 0 + needs_review` 的房产账户，表示未知而不是不存在。
 - Prompt 必须提供现有收入来源、现金、债务、房产、企业持股和期权 holding 的类型化 ID，以及所有 open issue。
 - 示例至少覆盖薪资调整、房产购买 + 房贷、房贷还本、企业融资、普通股重估、期权授予 / 归属 / 估值 / 行权。期权示例必须明确未归属部分不计财富、融资额不等于个人期权价值。
 - 对“本期才发现此前已有房产/房贷”的事实，必须使用 `asset_balance_discovered` / `debt_balance_discovered`；不得复用购买或借款事件制造本期现金流。该修正进入 `priorFactCorrectionWan`，报告不得称为本期财富增长或亏损。

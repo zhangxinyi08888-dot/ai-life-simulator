@@ -117,6 +117,23 @@ const KIND_ALIASES: Record<string, FinancialEventKind> = {
   equity_option_grant: "business_option_granted"
 };
 
+const FACT_STATUS_ALIASES: Record<string, "known" | "estimated" | "unknown" | "needs_review"> = {
+  confirmed: "known",
+  verified: "known",
+  explicit: "known",
+  certain: "known",
+  estimate: "estimated",
+  inferred: "estimated",
+  pending: "needs_review",
+  review: "needs_review",
+  unverified: "needs_review"
+};
+
+function normalizeFactStatus(value: unknown, fallback: "estimated" | "needs_review" = "estimated") {
+  if (["known", "estimated", "unknown", "needs_review"].includes(String(value))) return value;
+  return FACT_STATUS_ALIASES[String(value)] || fallback;
+}
+
 export function normalizeFinancialProposals(input: {
   proposals: unknown;
   acceptedOutcomeIds?: string[];
@@ -329,12 +346,24 @@ export function normalizeFinancialProposals(input: {
       if (candidate && typeof candidate === "object") {
         const original = JSON.stringify(candidate);
         candidate.id ||= payload.assetAccountId || candidate.accountId || `${kind}_${id}`;
-        candidate.type ||= /房|公寓|住宅/u.test(evidenceText) ? "property" : "other_personal_asset";
+        const assetTypeAliases: Record<string, string> = {
+          real_estate: "property",
+          residential_property: "property",
+          residence: "property",
+          home: "property",
+          house: "property",
+          apartment: "property"
+        };
+        candidate.type = assetTypeAliases[String(candidate.type)] || candidate.type
+          || (/房|公寓|住宅/u.test(evidenceText) ? "property" : "other_personal_asset");
         candidate.displayName ||= candidate.name || candidate.label || (candidate.type === "property" ? "待确认房产" : "待确认资产");
-        candidate.marketValueWan = Number(candidate.marketValueWan ?? candidate.valueWan ?? candidate.amountWan);
+        const explicitPropertyValue = evidenceText.normalize("NFKC").match(/(?:总价|成交价|市值|价值)[^\d]{0,8}(\d+(?:\.\d+)?)\s*万/u);
+        const rawMarketValue = candidate.marketValueWan ?? candidate.valueWan ?? candidate.amountWan
+          ?? (explicitPropertyValue ? Number(explicitPropertyValue[1]) : undefined);
+        candidate.marketValueWan = Number.isFinite(Number(rawMarketValue)) ? Number(rawMarketValue) : 0;
         candidate.liquidity ||= candidate.type === "property" ? "illiquid" : "semi_liquid";
         candidate.status ||= "active";
-        candidate.factStatus ||= "estimated";
+        candidate.factStatus = normalizeFactStatus(candidate.factStatus, rawMarketValue === undefined ? "needs_review" : "estimated");
         candidate.openedAtAgeInMonths = Number.isInteger(Number(candidate.openedAtAgeInMonths)) ? Number(candidate.openedAtAgeInMonths) : effectiveAtAgeInMonths;
         candidate.evidence = Array.isArray(candidate.evidence) ? candidate.evidence : [];
         payload.assetAccount = candidate;
@@ -346,12 +375,23 @@ export function normalizeFinancialProposals(input: {
       if (candidate && typeof candidate === "object") {
         const original = JSON.stringify(candidate);
         candidate.id ||= payload.debtAccountId || candidate.accountId || `${kind}_${id}`;
-        candidate.type ||= /房贷|按揭/u.test(evidenceText) ? "mortgage" : "family_or_personal_loan";
+        const debtTypeAliases: Record<string, string> = {
+          housing_loan: "mortgage",
+          home_loan: "mortgage",
+          housing_mortgage: "mortgage",
+          mortgage_loan: "mortgage",
+          personal_loan: "family_or_personal_loan"
+        };
+        candidate.type = debtTypeAliases[String(candidate.type)] || candidate.type
+          || (/房贷|按揭|组合贷款/u.test(evidenceText) ? "mortgage" : "family_or_personal_loan");
         candidate.displayName ||= candidate.name || candidate.label || (candidate.type === "mortgage" ? "待确认房贷" : "待确认债务");
-        candidate.principalWan = Number(candidate.principalWan ?? payload.principalDrawnWan ?? candidate.amountWan);
+        const explicitDebtValue = evidenceText.normalize("NFKC").match(/(?:组合贷款|贷款|房贷(?:余额)?|按揭(?:余额)?)[^\d]{0,8}(\d+(?:\.\d+)?)\s*万/u);
+        const rawPrincipal = candidate.principalWan ?? payload.principalDrawnWan ?? candidate.amountWan
+          ?? (explicitDebtValue ? Number(explicitDebtValue[1]) : undefined);
+        candidate.principalWan = Number.isFinite(Number(rawPrincipal)) ? Number(rawPrincipal) : 0;
         candidate.openedAtAgeInMonths = Number.isInteger(Number(candidate.openedAtAgeInMonths)) ? Number(candidate.openedAtAgeInMonths) : effectiveAtAgeInMonths;
         candidate.status ||= "active";
-        candidate.factStatus ||= "estimated";
+        candidate.factStatus = normalizeFactStatus(candidate.factStatus, rawPrincipal === undefined ? "needs_review" : "estimated");
         candidate.evidence = Array.isArray(candidate.evidence) ? candidate.evidence : [];
         if (!candidate.repaymentPolicy || typeof candidate.repaymentPolicy !== "object") candidate.repaymentPolicy = {};
         const policyAliases: Record<string, string> = { amortizing: "estimated_amortizing", estimated: "estimated_amortizing", schedule: "known_schedule", manual: "event_driven" };
