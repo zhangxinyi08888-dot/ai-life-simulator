@@ -102,7 +102,7 @@ for (const record of records) {
     const activeIncomeAnnuals = (ledger.incomeSources || [])
       .filter((source) => source.status === "active")
       .map((source) => round(source.accrualPolicy === "annual" ? source.annualNetAmountWan : Number(source.monthlyNetAmountWan || 0) * 12));
-    const salaryMismatch = impliedAnnual.length > 0 && !impliedAnnual.every((value) => activeIncomeAnnuals
+    const salaryMismatch = impliedAnnual.length > 0 && !impliedAnnual.some((value) => activeIncomeAnnuals
       .some((candidate) => Math.abs(value - candidate) <= Math.max(2, value * 0.12)));
     if (salaryMismatch) salaryMismatchNodes += 1;
     const holdingMissing = (personalOptionText.test(description) || personalEquityText.test(description))

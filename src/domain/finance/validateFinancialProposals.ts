@@ -106,6 +106,18 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
   return (businessExpense || businessRevenue) && !explicitPersonal && !personalCompensation;
 }
 
+function thirdPartyIncomeFact(proposal: FinancialEventProposal): boolean {
+  if (!["income_source_started", "income_source_adjusted", "one_off_income_received"].includes(proposal.kind)) return false;
+  const payload = proposal.payload as Record<string, any>;
+  const subject = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
+  const text = `${proposal.evidence || ""} ${subject?.displayName || ""}`;
+  const thirdParty = /(?:妻子|丈夫|伴侣|配偶|女友|男友|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|岳父|岳母|公公|婆婆|小余|她|他)[^。；]{0,45}(?:月薪|年薪|工资|薪资|收入|到手|分红|股息)/u.test(text)
+    || /^(?:妻子|丈夫|伴侣|配偶|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|小余)/u.test(String(subject?.displayName || ""));
+  const transferredToProtagonist = /(?:给你|向你|转入你的|转给你|汇给你|进入你(?:的)?账户|共同账户)/u.test(text);
+  const protagonistIsRecipient = /(?:邀请|邀约|问|聘请|雇佣|希望)[^。；]{0,18}你[^。；]{0,28}(?:月薪|年薪|工资|薪资|顾问费|咨询费)|你[^。；]{0,28}(?:加入|担任|受聘|接受)[^。；]{0,28}(?:月薪|年薪|工资|薪资|顾问费|咨询费)/u.test(text);
+  return thirdParty && !transferredToProtagonist && !protagonistIsRecipient;
+}
+
 function markEstimatedFacts<T>(value: T): T {
   if (!value || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(markEstimatedFacts) as T;
@@ -240,6 +252,10 @@ export function validateFinancialProposals(input: {
       continue;
     }
     const payload = proposal.payload as Record<string, unknown>;
+    if (thirdPartyIncomeFact(proposal)) {
+      issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "伴侣、父母、子女或其他人物的工资与收入不得进入主人公个人账本；只有明确转给主人公的款项才能使用家庭支持事件入账", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
     if (["expense_commitment_started", "expense_commitment_adjusted", "one_off_expense_paid"].includes(proposal.kind)
       && businessOperatingFact(proposal)) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司团队工资或经营成本不得进入主人公个人支出账本", ageInMonths: proposal.effectiveAtAgeInMonths }));

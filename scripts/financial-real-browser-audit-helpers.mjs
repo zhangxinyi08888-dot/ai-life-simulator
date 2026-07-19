@@ -1,6 +1,7 @@
 const businessExpensePattern = /(?:公司|团队|项目|门店|工作室|机构|中心)[^。；]{0,40}(?:工资|薪酬|人力成本|运营成本|服务器|市场推广|采购|办公成本|仓库|场地|审计费)|(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,30}(?:会计|员工|助理|工程师|销售|运营)[^。；]{0,20}(?:月薪|工资|薪酬)|(?:专职会计|员工|助理|工程师|销售|运营)[^。；]{0,16}(?:月薪|工资|薪酬)|(?:仓库|办公室|门店|场地)(?:月租|租金)|(?:团队工资|员工工资|助理补贴|企业运营)/u;
 const businessRevenuePattern = /(?:公司|SaaS|产品|平台|客户合同|客户年费|工作室|机构|中心|基金会|协会|公益项目)[^。；]{0,45}(?:营收|收入|年费|回款|销售额|资助|拨款|赞助|项目款|首期款|可支配资金)|(?:订阅收入|公司月收入|项目营收|项目资助|项目拨款)/u;
 const personalReceiptPattern = /(?:个人(?:工资|薪酬|提款|顾问费|咨询费|分红|股息)|创始人提款|税后工资|月薪|年薪|利润分配|转入个人|向你支付|你(?:领取|获得|收到)[^。；]{0,12}(?:工资|薪酬|提款|顾问费|咨询费|分红|股息))/u;
+const thirdPartyIncomePattern = /(?:妻子|丈夫|伴侣|配偶|女友|男友|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|岳父|岳母|公公|婆婆|小余|她|他)[^。；]{0,45}(?:月薪|年薪|工资|薪资|收入|到手|分红|股息)|(?:^|\s)(?:妻子|丈夫|伴侣|配偶|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|小余)/u;
 
 function ledgerFactText(item) {
   return [item?.id, item?.displayName, ...(item?.evidence || []).map((evidence) => evidence?.excerpt)]
@@ -14,8 +15,9 @@ export function personalLedgerBusinessBoundaryViolations(ledger = {}) {
     .filter((source) => {
       const text = ledgerFactText(source);
       const personalIncomeType = ["salary", "contract", "self_employment_draw", "business_dividend"].includes(source.type);
-      return businessRevenuePattern.test(text) && !personalReceiptPattern.test(text)
-        && !(personalIncomeType && /工资|薪酬|顾问|咨询|提款|分红|股息/u.test(text));
+      const thirdPartyIncome = thirdPartyIncomePattern.test(text) && !/(?:给你|向你|转入你的|转给你|汇给你|共同账户)/u.test(text);
+      return thirdPartyIncome || (businessRevenuePattern.test(text) && !personalReceiptPattern.test(text)
+        && !(personalIncomeType && /工资|薪酬|顾问|咨询|提款|分红|股息/u.test(text)));
     })
     .map((source) => source.id);
   const expenseCommitmentIds = (ledger.expenseCommitments || [])

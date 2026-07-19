@@ -34,6 +34,12 @@ test("keeps a personal product-consulting contract out of business revenue viola
   }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
 });
 
+test("flags spouse salary in a protagonist ledger", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "income_xiaoyu", type: "salary", displayName: "小余出纳工作", status: "active", evidence: []
+  }] }), { incomeSourceIds: ["income_xiaoyu"], expenseCommitmentIds: [] });
+});
+
 test("extracts protagonist compensation without treating company revenue or staff payroll as salary", () => {
   assert.deepEqual(personalCompensationAnnualAmounts("你被任命为负责人，薪资调整为年薪42万元（月薪3.5万）。公司月收入达到4万元。"), [42, 42]);
   assert.deepEqual(personalCompensationAnnualAmounts("你招聘一位专职会计，月薪4500元。中心月收入达到10万元。"), []);

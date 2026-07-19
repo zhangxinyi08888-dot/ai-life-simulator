@@ -177,6 +177,25 @@ test("rejects nonprofit grants, hired staff payroll and warehouse rent from the 
   assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 3);
 });
 
+test("rejects a spouse salary from the protagonist ledger", () => {
+  const result = validate([proposal({
+    id: "spouse_salary", kind: "income_source_started", evidence: "小余考了会计证，找到一份出纳工作，月薪4500元。",
+    payload: { id: "income_xiaoyu_accountant", type: "salary", displayName: "小余出纳工作", monthlyNetAmountWan: 0.45, accrualPolicy: "monthly", activeFromAgeInMonths: 312, status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence }
+  })], "小余考了会计证，找到一份出纳工作，月薪4500元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0].code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+  assert.match(result.issues[0].summary, /其他人物/);
+});
+
+test("allows compensation explicitly offered to the protagonist by another person", () => {
+  const result = validate([proposal({
+    id: "consulting_offer", kind: "income_source_started", evidence: "张哥问你要不要以技术顾问身份加入，每周远程工作十小时，月薪8000元；你最终决定接下兼职。",
+    payload: { id: "income_consulting", type: "contract", displayName: "技术顾问收入", monthlyNetAmountWan: 0.8, accrualPolicy: "monthly", activeFromAgeInMonths: 312, status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence }
+  })], "张哥问你要不要以技术顾问身份加入，每周远程工作十小时，月薪8000元；你最终决定接下兼职。");
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 0);
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
 test("requires adjustment instead of stacking a second authoritative basic-living commitment", () => {
   const context = setup();
   context.currentLedger.expenseCommitments.push({
