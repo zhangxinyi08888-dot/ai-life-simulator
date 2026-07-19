@@ -125,7 +125,8 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
       if (!terms) throw new FinancialLedgerInvariantError("INVALID_LEDGER", `期权 ${holding.id} 缺少 optionTerms`);
       [terms.grantedUnits, terms.vestedUnits, terms.exercisedUnits, terms.strikePriceWanPerUnit]
         .forEach((value, index) => assertFiniteNonNegative(value, `期权 ${holding.id}.optionTerms[${index}]`));
-      if (terms.grantedUnits <= 0 || terms.vestedUnits > terms.grantedUnits || terms.exercisedUnits > terms.vestedUnits) {
+      if ((terms.grantedUnits === 0 && holding.factStatus !== "needs_review")
+        || terms.vestedUnits > terms.grantedUnits || terms.exercisedUnits > terms.vestedUnits) {
         throw new FinancialLedgerInvariantError("INVALID_LEDGER", `期权 ${holding.id} 的授予、归属和行权数量不一致`);
       }
       if (terms.fairValueWanPerUnit !== undefined) assertFiniteNonNegative(terms.fairValueWanPerUnit, `期权 ${holding.id}.fairValueWanPerUnit`);

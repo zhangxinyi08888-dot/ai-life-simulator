@@ -209,6 +209,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
   async function beginAdvance(strategy, offset = 0) {
     const before = await readState();
     if (before.currentNode?.reportInvitation?.status === "pending") throw new Error("Cannot advance while a report invitation is pending");
+    await tab.playwright.waitForTimeout(120);
     await snapshot();
     const choiceId = chooseId(before, strategy, offset);
     if (!choiceId) throw new Error(`No choice available at ${before.currentNode?.title}`);

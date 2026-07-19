@@ -405,8 +405,11 @@ function applyEvent(
     case "business_option_granted": {
       const holding = structuredClone(event.payload.optionHolding);
       assertNewId(ledger.businessHoldings, holding.id, "企业期权");
-      if (holding.instrumentType !== "stock_option" || !holding.optionTerms || holding.optionTerms.grantedUnits <= 0) {
-        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权授予事件必须创建具有正授予数量的 stock_option holding 和 optionTerms");
+      if (holding.instrumentType !== "stock_option" || !holding.optionTerms || holding.optionTerms.grantedUnits < 0) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权授予事件必须创建具有非负授予数量的 stock_option holding 和 optionTerms");
+      }
+      if (holding.optionTerms.grantedUnits === 0 && holding.factStatus !== "needs_review") {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "授予数量未知的期权只能以 needs_review 保存");
       }
       if (holding.personalCarryingValueWan !== 0 || holding.optionTerms.exercisedUnits !== 0) {
         throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "授予期权在可靠估值前不得直接计入个人财富");

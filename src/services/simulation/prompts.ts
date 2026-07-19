@@ -292,6 +292,7 @@ ${formatDecisionIntentRules()}
 - 只有主角在本阶段已经明确入职、离职、创业、停工休养或退休时，career_state worldDelta 才能增加 employmentTransition；必须返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、正文原句 evidence 和 confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时不得返回 employmentTransition。
 - 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。
 ${targetAgeInMonths >= 55 * 12 ? "- 主角已满 55 岁：如果 description 明确写出已经退休、离职或停止工作，必须同时提交 employmentTransition，以及结束或暂停账本摘要中 linkedCareerStateId 对应当前职业的工资收入；租金、版税、年金等非职业收入不得结束。" : ""}
+${targetAgeInMonths >= 80 * 12 ? "- 主角已满 80 岁：本节点不得继续沿用 employed。若仍持续独立创作、顾问或经营，应提交到 self_employed 的 employmentTransition 并迁移职业收入；否则必须提交 retired 或 not_working，并结束 linkedCareerStateId 对应工资。非职业收入继续保留。" : ""}
 ${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
 ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - financialEventProposals 必须放在返回 JSON 顶层；没有已经发生的财务变化时返回空数组，不得重复返回全部现有余额。

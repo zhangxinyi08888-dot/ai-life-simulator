@@ -113,8 +113,18 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     event.kind === "expense_commitment_started"
     && (event.payload as { type?: string }).type === "basic_living"
   ));
+  const touchesExistingBasicLiving = input.events.some((event) => {
+    if (event.kind !== "expense_commitment_adjusted" && event.kind !== "expense_commitment_ended") return false;
+    const commitmentId = (event.payload as { expenseCommitmentId?: string }).expenseCommitmentId;
+    return input.ledger.expenseCommitments.some((commitment) => (
+      commitment.id === commitmentId && commitment.type === "basic_living"
+    ));
+  });
   const activeSystemEstimate = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
-  if (!startsBasicLivingEvent && activeSystemEstimate) {
+  // An accepted adjustment/closure is the authority for this period. Do not
+  // rotate the same legacy/system baseline underneath it and accidentally
+  // leave both the replacement estimate and the adjusted baseline active.
+  if (!startsBasicLivingEvent && !touchesExistingBasicLiving && activeSystemEstimate) {
     const adulthoodBoundary = 23 * 12;
     const policyBoundary = input.periodStartAgeInMonths < adulthoodBoundary
       && input.periodEndAgeInMonths >= adulthoodBoundary

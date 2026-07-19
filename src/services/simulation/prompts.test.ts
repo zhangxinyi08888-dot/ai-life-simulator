@@ -111,6 +111,17 @@ assert.match(prompt, /每个数组项只能包含一个完整段落/);
 assert.match(prompt, /不要重复返回 description 字符串/);
 assert.doesNotMatch(prompt, /达到 73 岁及以上/);
 
+const lateCareerPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history: [{ ...history[0], age: 80, ageInMonths: 960 }],
+  currentAttributes,
+  selectedDecision: "继续独立写作",
+  eventSeed: healthWarningEvent
+});
+assert.match(lateCareerPrompt, /主角已满 80 岁：本节点不得继续沿用 employed/);
+assert.match(lateCareerPrompt, /self_employed/);
+
 const healthArcBase: PressureArcState = {
   id: "pressure_health_test",
   eventId: "health_forced_pause",

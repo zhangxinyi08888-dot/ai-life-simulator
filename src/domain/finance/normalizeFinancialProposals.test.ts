@@ -224,3 +224,46 @@ test("converts a stock-option holding event and nested grant aliases to the opti
   assert.deepEqual(holding.optionTerms.vestingPolicy, { totalMonths: 48, frequencyMonths: 12 });
   assert.equal(result.audit.some((item) => item.reasonCode === "OPTION_EVENT_NORMALIZED"), true);
 });
+
+test("normalizes long-tail option aliases and keeps unknown option value out of wealth", () => {
+  const currentLedger = initializeFinancialLedger({
+    id: "existing_equity", asOfAgeInMonths: 360,
+    openingPosition: {
+      businessHoldings: [{
+        id: "startup_equity", instrumentType: "equity", personalCarryingValueWan: 0,
+        status: "active", factStatus: "needs_review", evidence: [],
+        business: { id: "startup", displayName: "创业公司", status: "operating", factStatus: "known", evidence: [] }
+      }]
+    }
+  });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentLedger,
+    proposals: [{
+      id: "grant_alias", kind: "stock_option_grant", effectiveAtAgeInMonths: 368,
+      payload: { optionHolding: { id: "startup_equity", displayName: "创业公司10%期权", businessId: "startup" } },
+      evidence: "你持有创业公司10%的期权，但归属和行权条件仍待确认。", confidence: 0.9
+    }]
+  });
+  assert.equal(result.proposals[0].kind, "business_option_granted");
+  const holding = (result.proposals[0].payload as any).optionHolding;
+  assert.equal(holding.id, "startup_equity_stock_option");
+  assert.equal(holding.instrumentType, "stock_option");
+  assert.equal(holding.optionTerms.grantedUnits, 0);
+  assert.equal(holding.optionTerms.vestedUnits, 0);
+  assert.equal(holding.personalCarryingValueWan, 0);
+  assert.equal(holding.factStatus, "needs_review");
+});
+
+test("recognizes option semantics in a generic holding event even when units are absent", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
+    id: "generic_option", kind: "business_holding_started", effectiveAtAgeInMonths: 368,
+    payload: { id: "employee_right", displayName: "员工期权", businessId: "employer" },
+    evidence: "公司确认你拥有员工期权，具体份额待补充。", confidence: 0.85
+  }] });
+  assert.equal(result.proposals[0].kind, "business_option_granted");
+  const holding = (result.proposals[0].payload as any).optionHolding;
+  assert.equal(holding.optionTerms.grantedUnits, 0);
+  assert.equal(holding.personalCarryingValueWan, 0);
+  assert.equal(holding.factStatus, "needs_review");
+  assert.equal(result.audit.some((item) => item.reasonCode === "OPTION_UNITS_UNKNOWN"), true);
+});

@@ -69,6 +69,19 @@ test("grant and company financing never turn nominal option facts into personal 
   assert.equal(financed.ledger.businessHoldings[0].personalCarryingValueWan, 0);
 });
 
+test("an option fact with unknown units is retained for review without entering wealth", () => {
+  const unknown = option({
+    optionTerms: { grantedUnits: 0, vestedUnits: 0, exercisedUnits: 0, strikePriceWanPerUnit: 0 },
+    factStatus: "needs_review",
+    personalCarryingValueWan: 0
+  });
+  const result = reduce(undefined, "unknown_option_grant", accepted("unknown_grant", "business_option_granted", { optionHolding: unknown }));
+  assert.equal(result.ledger.businessHoldings[0].instrumentType, "stock_option");
+  assert.equal(result.ledger.businessHoldings[0].optionTerms?.grantedUnits, 0);
+  assert.equal(result.ledger.businessHoldings[0].factStatus, "needs_review");
+  assert.equal(deriveFinancialState({ ledger: result.ledger, employmentStatus: "employed" }).state.netWorthWan, 10);
+});
+
 test("only reliably valued vested options contribute discounted intrinsic value", () => {
   const vested = reduce(option(), "option_vest", accepted("vest", "business_option_vested", { businessHoldingId: "employee_options", unitsVested: 40 }));
   assert.equal(vested.ledger.businessHoldings[0].personalCarryingValueWan, 0);

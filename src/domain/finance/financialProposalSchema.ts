@@ -77,7 +77,10 @@ function businessHolding(value: unknown, path: string, errors: FinancialPayloadS
   if (requireOption) {
     const terms = requiredRecord(item.optionTerms, `${path}.optionTerms`, errors);
     if (terms) {
-      requiredNumber(terms.grantedUnits, `${path}.optionTerms.grantedUnits`, errors, false);
+      requiredNumber(terms.grantedUnits, `${path}.optionTerms.grantedUnits`, errors);
+      if (Number(terms.grantedUnits) === 0 && item.factStatus !== "needs_review") {
+        errors.push({ path: `${path}.optionTerms.grantedUnits`, reason: "未知授予数量只能以 needs_review 保存" });
+      }
       requiredNumber(terms.vestedUnits, `${path}.optionTerms.vestedUnits`, errors);
       requiredNumber(terms.exercisedUnits, `${path}.optionTerms.exercisedUnits`, errors);
       requiredNumber(terms.strikePriceWanPerUnit, `${path}.optionTerms.strikePriceWanPerUnit`, errors);

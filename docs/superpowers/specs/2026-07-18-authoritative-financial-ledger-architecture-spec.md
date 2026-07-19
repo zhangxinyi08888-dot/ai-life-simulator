@@ -560,7 +560,7 @@ export interface BusinessHolding {
 - 退出或出售股权时，个人现金流和企业权益减少必须成对提交。
 - 期权授予先创建 `stock_option` holding；未归属部分是 contingent interest，不进入当前净资产。固定归属表必须结构化为 `vestingPolicy`，由期间结算按账本时间确定性更新 `vestedUnits`；不得依赖模型在每个归属日重复记忆并补交事件。
 - `BusinessHolding` 永远表示主人公个人拥有的权益。正文中“主人公授予员工期权”“公司建立期权池”只属于企业事实，不能据此为主人公创建 `stock_option` holding；只有明确表明主人公获得、持有或行使期权时才触发个人期权完整性门禁。
-- 入口归一化必须兼容 `holding`、`businessHolding`、`equityHolding`、`optionHolding` 以及事件名嵌套等常见模型形状。若 `business_holding_started` 的实际 instrument 为 `stock_option`，必须确定性改写为 `business_option_granted`。归一化可以补 ID、状态、空证据数组和零账面值，但不得补造授予数量、行权价、估值或归属事实。
+- 入口归一化必须兼容 `holding`、`businessHolding`、`equityHolding`、`optionHolding` 以及事件名嵌套等常见模型形状。若 `business_holding_started` 的正文和 displayName 明确表示主人公期权，必须确定性改写为 `business_option_granted`。归一化可以补 ID、状态、空证据数组和零账面值，但不得补造授予数量、行权价、估值或归属事实；授予数量未知时以 `grantedUnits = 0 + needs_review` 保留期权事实，且在补齐真实条款前始终不得计入财富。
 - 已归属期权只有在期权数量、行权成本和可靠公允价值可确定时才计入个人财富：`vestedIntrinsicValueWan = vestedUnits × max(fairValue - strikePrice, 0)`；`personalCarryingValueWan` 再应用非流动性与实现风险折扣。
 - 正文中的期权数量、期权池比例、公司融资额和公司总估值都不能直接成为个人期权价值。估值未知时保留 holding 并标 `needs_review`，不能把“存在期权”降格成“没有企业权益”。
 - 期权行权必须在同一事务扣减现金行权成本、减少期权权益并增加普通股权益；到达 `expiresAtAgeInMonths` 时账本必须自动到期并核销剩余账面价值，离职失效或放弃行权则由 Accepted Event 核销。
@@ -741,7 +741,7 @@ export interface AcceptedCareerTransition {
 
 - 达到配置年龄（首版 55 岁）后，career-linked 收入设置确认 TTL；跨越多年的节点必须提交职业继续确认、职业转换或工资结束事实之一。
 - 超过 TTL 且没有新的主人公工作证据时产生 `CAREER_STATE_STALE`，只暂停 career-linked 工资；租金、版税、年金和分红不受影响。
-- 80 岁以上继续工作是合法路径，但本期或最近一个阶段必须有 Accepted 主角工作证据。门禁禁止的是“无权威续任证据仍计提工资”，不是高龄工作本身。
+- 80 岁以上继续创作、顾问或经营仍是合法路径，但身份必须迁移为 `self_employed`；普通 `employed` 必须在 80 岁前通过 Accepted Transition 收口为 `retired`、`not_working` 或 `self_employed`。非职业收入不受该收口影响。
 - mortality 终局由确定性生命周期事件结束全部劳动计提；不得让死亡后的状态继续显示在职和领取工资。
 
 ### 8.3 身份与收入解耦
@@ -1569,7 +1569,7 @@ transaction IDs are idempotent
 | Validator 未捕获异常或 issue 包含 `undefined` | 0 |
 | 因 validator 造成连续零收入空洞超过 1 节点 | 0 |
 | 明确收入事实连续 2 节点未确认 | 0 |
-| 80 岁以上无近期工作证据仍计提工资 | 0 |
+| 80 岁以上仍为 `employed` | 0 |
 | mortality 后继续劳动计提 | 0 |
 | 每路线活跃系统 shortfall 账户 | ≤ 1 |
 | 系统 shortfall 触发 `UNKNOWN_DEBT_SCHEDULE` | 0 |

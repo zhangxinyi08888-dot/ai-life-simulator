@@ -39,6 +39,7 @@ let missingOptionHoldingNodes = 0;
 let missingPropertyNodes = 0;
 let wealthDirectionMismatches = 0;
 let adultZeroExpenseNodes = 0;
+let employedAt80PlusNodes = 0;
 let employedAt80PlusWithoutEvidenceNodes = 0;
 let openingFactMismatchCases = 0;
 let duplicateActiveShortfallNodes = 0;
@@ -128,9 +129,11 @@ for (const record of records) {
     const hasRecentCareerEvidence = careerIncomeSources.some((source) => Number.isFinite(source.lastConfirmedAtAgeInMonths)
       && Number(node.ageInMonths) - Number(source.lastConfirmedAtAgeInMonths) <= 36);
     const hasAccruingCareerIncome = careerIncomeSources.some((source) => source.accrualPolicy !== "event_only" && source.accrualReviewStatus !== "quarantined");
+    const employedAt80Plus = ageYears >= 80 && fs.employmentStatus === "employed";
     const employedAt80PlusWithoutEvidence = ageYears >= 80 && fs.employmentStatus === "employed" && hasAccruingCareerIncome && !hasRecentCareerEvidence;
     if (adultZeroExpense) adultZeroExpenseNodes += 1;
     if (adultBelowPolicyExpense) adultBelowPolicyExpenseNodes += 1;
+    if (employedAt80Plus) employedAt80PlusNodes += 1;
     if (employedAt80PlusWithoutEvidence) employedAt80PlusWithoutEvidenceNodes += 1;
     const activeShortfalls = (ledger.debtAccounts || []).filter((debt) => debt.status === "active" && debt.type === "liquidity_shortfall");
     const duplicateActiveShortfall = activeShortfalls.length > 1;
@@ -189,7 +192,7 @@ for (const record of records) {
       financialState: fs,
       attributes: node.attributes,
       invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth, annualDebtInterestWan, annualCashInflowWan },
-      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, optionHoldingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, invalidHoldingInstrument, personalLedgerBusinessBoundary, businessBoundaryViolations, duplicateSingletonExpense, duplicateSingletonExpenses, wealthDirectionMismatch },
+      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, optionHoldingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80Plus, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, invalidHoldingInstrument, personalLedgerBusinessBoundary, businessBoundaryViolations, duplicateSingletonExpense, duplicateSingletonExpenses, wealthDirectionMismatch },
       issueIds: (ledger.unresolvedIssues || []).map((issue) => issue.id)
     });
     previous = { node, fs, signature, transactionCount };
@@ -218,6 +221,7 @@ for (const record of records) {
     missingPropertyNodes: nodes.filter((item) => item.narrativeChecks.propertyMissing).length,
     missingOptionHoldingNodes: nodes.filter((item) => item.narrativeChecks.optionHoldingMissing).length,
     valuedOptionOmittedNodes: nodes.filter((item) => item.narrativeChecks.valuedOptionOmitted).length,
+    employedAt80PlusNodes: nodes.filter((item) => item.narrativeChecks.employedAt80Plus).length,
     employedAt80PlusWithoutEvidenceNodes: nodes.filter((item) => item.narrativeChecks.employedAt80PlusWithoutEvidence).length,
     openIssues: (history.at(-1)?.financialLedger?.unresolvedIssues || []).filter((issue) => (issue.status || "open") === "open").length
   };
@@ -267,6 +271,7 @@ const summary = {
   missingPropertyNodes,
   wealthDirectionMismatches,
   adultZeroExpenseNodes,
+  employedAt80PlusNodes,
   employedAt80PlusWithoutEvidenceNodes,
   openingFactMismatchCases,
   duplicateActiveShortfallNodes,
@@ -301,9 +306,9 @@ const routeRealityRows = cases.map((item) => {
   const metrics = item.realityMetrics;
   const blockerCount = metrics.invariantFailures + metrics.salaryMismatchNodes + metrics.adultZeroExpenseNodes
     + metrics.personalLedgerBusinessBoundaryNodes + metrics.duplicateSingletonExpenseNodes + metrics.missingPropertyNodes
-    + metrics.missingOptionHoldingNodes + metrics.valuedOptionOmittedNodes + metrics.employedAt80PlusWithoutEvidenceNodes
+    + metrics.missingOptionHoldingNodes + metrics.valuedOptionOmittedNodes + metrics.employedAt80PlusNodes
     + Number(item.openingFactMismatch);
-  return `| ${item.caseSlug} | ${metrics.invariantFailures} | ${metrics.salaryMismatchNodes} | ${metrics.adultZeroExpenseNodes} | ${metrics.personalLedgerBusinessBoundaryNodes} | ${metrics.duplicateSingletonExpenseNodes} | ${metrics.missingPropertyNodes} | ${metrics.missingOptionHoldingNodes} | ${metrics.valuedOptionOmittedNodes} | ${metrics.employedAt80PlusWithoutEvidenceNodes} | ${metrics.openIssues} | ${blockerCount === 0 ? "核心现实性门禁通过" : "存在阻断"} |`;
+  return `| ${item.caseSlug} | ${metrics.invariantFailures} | ${metrics.salaryMismatchNodes} | ${metrics.adultZeroExpenseNodes} | ${metrics.personalLedgerBusinessBoundaryNodes} | ${metrics.duplicateSingletonExpenseNodes} | ${metrics.missingPropertyNodes} | ${metrics.missingOptionHoldingNodes} | ${metrics.valuedOptionOmittedNodes} | ${metrics.employedAt80PlusNodes} | ${metrics.openIssues} | ${blockerCount === 0 ? "核心现实性门禁通过" : "存在阻断"} |`;
 }).join("\n");
 const recoverableRows = cases.flatMap((item) => item.recoverableEvents.map((event) => (
   `| ${item.caseSlug} | ${event.type} | ${event.historyLength ?? 0} | ${String(event.message || "页面可恢复错误").replace(/\|/g, "\\|")} |`
@@ -312,7 +317,7 @@ const issueRows = Object.entries(issueCodeCounts).map(([code, count]) => `| ${co
 const blockers = [
   adultZeroExpenseNodes > 0 && `成年节点年核心支出为 0：${adultZeroExpenseNodes} 个`,
   openingFactMismatchCases > 0 && `人物明确提供房产/房贷但开局账本资产和负债均为 0：${openingFactMismatchCases} 组`,
-  employedAt80PlusWithoutEvidenceNodes > 0 && `80 岁以后无近期工作证据仍为 employed：${employedAt80PlusWithoutEvidenceNodes} 个节点`,
+  employedAt80PlusNodes > 0 && `80 岁以后仍为 employed：${employedAt80PlusNodes} 个节点（其中无近期工作证据 ${employedAt80PlusWithoutEvidenceNodes} 个）`,
   duplicateActiveShortfallNodes > 0 && `单路线同时存在多个活跃 shortfall 账户：${duplicateActiveShortfallNodes} 个节点`,
   systemShortfallScheduleIssueNodes > 0 && `系统 shortfall 自触发 UNKNOWN_DEBT_SCHEDULE：${systemShortfallScheduleIssueNodes} 个节点`,
   issueUndefinedNodes > 0 && `业务 issue 泄漏程序异常或 undefined：${issueUndefinedNodes} 个节点`,
@@ -367,7 +372,8 @@ ${recoverableRows}
 | 正文期权但无 stock_option holding | ${missingOptionHoldingNodes} | 目标 0 |
 | 正文房产/房贷但无房产账户 | ${missingPropertyNodes} | 目标 0 |
 | 成年支出为 0 | ${adultZeroExpenseNodes} | 目标 0 |
-| 80 岁后无近期工作证据仍 employed | ${employedAt80PlusWithoutEvidenceNodes} | 目标 0 |
+| 80 岁后仍 employed | ${employedAt80PlusNodes} | 目标 0 |
+| 其中无近期工作证据仍 employed | ${employedAt80PlusWithoutEvidenceNodes} | 诊断项 |
 | 开局重大资产负债漏入账 | ${openingFactMismatchCases} 组 | 目标 0 |
 | 多个活跃 shortfall 账户节点 | ${duplicateActiveShortfallNodes} | 目标 0 |
 | 系统 shortfall 自触发计划噪音 | ${systemShortfallScheduleIssueNodes} | 目标 0 |
@@ -394,7 +400,7 @@ ${routeRows}
 
 以下结论直接从本轮各节点账本与正文计算，不复用旧批次的路线描述：
 
-| 人物 | 不变量失败 | 薪资错配 | 成年零支出 | 企业事实污染 | 重复生活/住房基线 | 房产缺口 | 期权 holding 缺口 | 有价值期权漏计 | 80+ stale 工资 | 终局 open issue | 判断 |
+| 人物 | 不变量失败 | 薪资错配 | 成年零支出 | 企业事实污染 | 重复生活/住房基线 | 房产缺口 | 期权 holding 缺口 | 有价值期权漏计 | 80+ employed | 终局 open issue | 判断 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
 ${routeRealityRows}
 

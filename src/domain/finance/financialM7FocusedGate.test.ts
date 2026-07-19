@@ -177,3 +177,34 @@ test("M7 focused: legacy estimated living is replaced when employment leaves the
   assert.equal(active[0].monthlyAmountWan, 0.35);
   assert.ok(active[0].evidence.some((item) => item.source === "system_policy"));
 });
+
+test("M7 focused: an accepted legacy living adjustment does not create a second policy baseline", () => {
+  const start = 24 * 12;
+  const initial = ledger(start, { cash: 20 });
+  initial.expenseCommitments.push({
+    id: "legacy_core_expense", type: "basic_living", displayName: "旧版核心支出聚合",
+    monthlyAmountWan: 1, activeFromAgeInMonths: start, status: "active", factStatus: "estimated",
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+  });
+  const adjusted: AcceptedFinancialEvent = {
+    id: "accepted_living_adjustment", proposalId: "living_adjustment", kind: "expense_commitment_adjusted",
+    effectiveAtAgeInMonths: start + 12,
+    payload: {
+      expenseCommitmentId: "legacy_core_expense",
+      nextCommitment: {
+        id: "legacy_core_expense", type: "basic_living", displayName: "确认后的基本生活支出",
+        monthlyAmountWan: 0.7, activeFromAgeInMonths: start, status: "active", factStatus: "known", evidence
+      }
+    },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const committed = commit({
+    ledger: initial, worldState: world(), start, end: start + 12,
+    transactionId: "legacy_living_adjusted", events: [adjusted]
+  });
+  const active = committed.financialLedger.expenseCommitments.filter((item) => item.type === "basic_living" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].id, "legacy_core_expense");
+  assert.equal(active[0].monthlyAmountWan, 0.7);
+});
