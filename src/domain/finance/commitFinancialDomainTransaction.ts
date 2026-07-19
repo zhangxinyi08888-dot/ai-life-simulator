@@ -226,6 +226,10 @@ function resolveCareerTransitionIssues(ledger: FinancialLedger, transitions: Acc
 
 function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedgerIssue[], ageInMonths: number): void {
   for (const issue of issues.filter((item) => item.severity === "blocking")) {
+    // A failed cross-domain career transaction is rolled back atomically. The
+    // previously accepted career and wage therefore remain authoritative; the
+    // repair issue must stay visible without turning that unchanged wage off.
+    if (issue.id.startsWith("career_repair_atomicity_") || issue.id.startsWith("career_income_atomicity_")) continue;
     const completenessPolicyAlreadyApplied = issue.id === "pending_fact_missing_adult_expense"
       || issue.id.startsWith("pending_fact_stale_late_career_")
       || issue.id === "proposal_issue_missing_adult_expense"

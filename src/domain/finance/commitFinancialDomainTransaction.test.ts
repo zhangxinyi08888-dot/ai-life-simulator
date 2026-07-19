@@ -222,6 +222,32 @@ test("a rejected fact quarantines only the affected recurring income and opens a
   assert.equal(second.financialPeriodSummary?.incomeWan, 0);
 });
 
+test("a rolled-back career transaction keeps the previously accepted wage active", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "salary_main", type: "salary", displayName: "当前工资", monthlyNetAmountWan: 5,
+    accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active",
+    linkedCareerStateId: "career_employed", factStatus: "known", evidence
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "career_atomicity_rollback", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0, expectedLedgerRevision: 0, currentCareer: current.career,
+    currentFinancialLedger: current.ledger, currentWorldState: current.worldState,
+    acceptedCareerTransitions: [], acceptedFinancialEvents: [],
+    financialIssues: [{
+      id: "career_repair_atomicity_rollback", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
+      relatedProposalIds: ["bad_transition", "bad_salary_migration"], relatedIncomeSourceIds: ["salary_main"],
+      summary: "职业转换修复未通过，事务已整体回滚", createdAtAgeInMonths: 361
+    }]
+  });
+  const salary = result.financialLedger.incomeSources.find((source) => source.id === "salary_main");
+  assert.equal(result.financialPeriodSummary?.incomeWan, 5);
+  assert.equal(salary?.factStatus, "known");
+  assert.equal(salary?.accrualReviewStatus ?? "normal", "normal");
+  assert.equal(result.financialLedger.unresolvedIssues.find((issue) => issue.id === "career_repair_atomicity_rollback")?.status, "open");
+  assert.equal(result.financialLedger.unresolvedIssues.some((issue) => issue.id === "pending_fact_income_salary_main"), false);
+});
+
 test("an accepted source event wins over a malformed sibling issue in the same node", () => {
   const current = setup();
   current.ledger.incomeSources.push({

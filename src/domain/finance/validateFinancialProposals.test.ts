@@ -132,6 +132,40 @@ test("reports typed account mismatch with legal income-source candidates", () =>
   assert.doesNotMatch(result.issues[0].summary, /undefined/i);
 });
 
+test("rejects company revenue and team payroll at the personal-ledger boundary", () => {
+  const result = validate([
+    proposal({
+      id: "saas_revenue", kind: "income_source_started", evidence: "公司SaaS年费收入达到27万元。",
+      payload: { id: "saas_revenue", type: "business_dividend", displayName: "SaaS年费收入", annualNetAmountWan: 27, accrualPolicy: "annual", activeFromAgeInMonths: 312, status: "active", factStatus: "estimated", evidence }
+    }),
+    proposal({
+      id: "team_payroll", kind: "expense_commitment_started", evidence: "公司团队工资和运营成本每月3.8万元。",
+      payload: { id: "team_payroll", type: "other", displayName: "团队工资及运营成本", monthlyAmountWan: 3.8, activeFromAgeInMonths: 312, status: "active", factStatus: "estimated", evidence }
+    })
+  ], "公司SaaS年费收入达到27万元。公司团队工资和运营成本每月3.8万元。你没有从公司领取分红。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 2);
+});
+
+test("requires adjustment instead of stacking a second authoritative basic-living commitment", () => {
+  const context = setup();
+  context.currentLedger.expenseCommitments.push({
+    id: "living_current", type: "basic_living", displayName: "当前生活费", monthlyAmountWan: 0.8,
+    activeFromAgeInMonths: 300, status: "active", factStatus: "estimated", evidence
+  });
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "living_duplicate", kind: "expense_commitment_started", evidence: "你的基本生活费调整为每月1万元。",
+      payload: { id: "living_duplicate", type: "basic_living", displayName: "新的基本生活费", monthlyAmountWan: 1, activeFromAgeInMonths: 312, status: "active", factStatus: "estimated", evidence }
+    })],
+    acceptedOutcomeId: "accepted_choice", narrativeText: "你的基本生活费调整为每月1万元。",
+    periodStartAgeInMonths: 300, periodEndAgeInMonths: 312, simulationTransactionId: "duplicate_living", liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.match(result.issues[0].summary, /expense_commitment_adjusted/);
+});
+
 test("every financial event kind has a payload schema that rejects an empty object", () => {
   const kinds: FinancialEventKind[] = ["income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended", "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended", "one_off_expense_paid", "asset_purchased", "asset_balance_discovered", "asset_sold", "asset_revalued", "debt_drawn", "debt_balance_discovered", "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven", "business_financing_recorded", "business_option_granted", "business_option_vested", "business_option_revalued", "business_option_exercised", "business_option_expired", "business_option_cancelled", "business_holding_revalued", "business_distribution_received", "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"];
   for (const kind of kinds) assert.ok(validateFinancialPayloadSchema(kind, {}).length > 0, `${kind} schema must reject {}`);

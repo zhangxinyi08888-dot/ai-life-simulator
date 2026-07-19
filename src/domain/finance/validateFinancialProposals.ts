@@ -91,6 +91,18 @@ function typedReferenceIssue(input: { proposal: FinancialEventProposal; ledger: 
   });
 }
 
+function businessOperatingFact(proposal: FinancialEventProposal): boolean {
+  const payload = proposal.payload as Record<string, any>;
+  const subject = proposal.kind === "expense_commitment_adjusted" ? payload.nextCommitment : payload;
+  const text = `${proposal.evidence || ""} ${subject?.displayName || ""}`;
+  const businessExpense = /(?:公司|团队|项目|门店|工作室|机构)[^。；]{0,30}(?:工资|薪酬|人力成本|运营成本|服务器|市场推广|采购|办公成本)|(?:团队工资|员工工资|助理补贴|企业运营)/u.test(text);
+  const businessRevenue = /(?:公司|SaaS|产品|平台|客户合同|客户年费)[^。；]{0,30}(?:营收|收入|年费|回款|销售额)|(?:订阅收入|公司月收入|项目营收)/u.test(text);
+  const explicitlyNegatedReceipt = /你(?:个人)?[^。；]{0,12}(?:没有|未|并未|不曾)[^。；]{0,12}(?:领取|获得|收到|分红|股息)/u.test(text);
+  const explicitPersonal = !explicitlyNegatedReceipt
+    && /你(?:个人)?[^。；]{0,20}(?:领取|获得|收到|税后工资|月薪|年薪|顾问费|分红|股息)|转入(?:你的|个人)账户/u.test(text);
+  return (businessExpense || businessRevenue) && !explicitPersonal;
+}
+
 function markEstimatedFacts<T>(value: T): T {
   if (!value || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(markEstimatedFacts) as T;
@@ -224,12 +236,43 @@ export function validateFinancialProposals(input: {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal 生效时间不在本阶段内", ageInMonths: input.periodEndAgeInMonths }));
       continue;
     }
+    const payload = proposal.payload as Record<string, unknown>;
+    if (["expense_commitment_started", "expense_commitment_adjusted", "one_off_expense_paid"].includes(proposal.kind)
+      && businessOperatingFact(proposal)) {
+      issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司团队工资或经营成本不得进入主人公个人支出账本", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
+    if (["income_source_started", "income_source_adjusted", "one_off_income_received"].includes(proposal.kind)
+      && businessOperatingFact(proposal)) {
+      issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司营收、客户回款或产品年费不得进入主人公个人收入账本；只有个人工资、提款或已分配分红可以入账", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
+    if (proposal.kind === "income_source_started" && payload.type === "business_dividend"
+      && !/分红|股息|利润分配|个人领取|转入个人/u.test(`${proposal.evidence} ${String(payload.displayName || "")}`)) {
+      issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "business_dividend 必须有已向主人公分配利润的证据，不能用公司年费或营收替代", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
     const evidenceMatch = matchFinancialEvidence({ proposal, narrativeText: input.narrativeText });
     if (!evidenceMatch.matched || !evidenceMatch.reasonCode || !Number.isFinite(proposal.confidence) || proposal.confidence < 0.6 || proposal.confidence > 1) {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal 缺少可靠正文证据或 confidence", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
     }
-    const payload = proposal.payload as Record<string, unknown>;
+    if (proposal.kind === "expense_commitment_started") {
+      const durableType = String(payload.type);
+      const existingSameType = input.currentLedger.expenseCommitments.filter((item) => item.status === "active" && item.type === durableType);
+      const onlyPolicyEstimate = existingSameType.length > 0 && existingSameType.every((item) => item.evidence.some((evidence) => evidence.source === "system_policy"
+        || (evidence.source === "legacy_migration" && evidence.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION")));
+      if (["basic_living", "housing", "dependent_support", "healthcare", "insurance"].includes(durableType)
+        && existingSameType.length > 0 && !onlyPolicyEstimate) {
+        issues.push(proposalIssue({
+          proposal,
+          code: "UNBALANCED_TRANSACTION",
+          summary: `持续支出 ${durableType} 已存在，必须引用现有支出 ID 使用 expense_commitment_adjusted，不能重复 started`,
+          ageInMonths: proposal.effectiveAtAgeInMonths
+        }));
+        continue;
+      }
+    }
     if (proposal.kind === "business_financing_recorded" && payload.personalCashReceivedWan !== 0) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司融资不得进入个人现金", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
