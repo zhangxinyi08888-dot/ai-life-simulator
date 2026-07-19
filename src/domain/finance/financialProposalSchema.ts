@@ -111,9 +111,11 @@ export function validateFinancialPayloadSchema(kind: FinancialEventKind, value: 
     case "expense_commitment_ended": string("expenseCommitmentId"); break;
     case "one_off_expense_paid": case "family_support_paid": string("sourceCashAccountId"); positive("amountWan"); break;
     case "asset_purchased": string("sourceCashAccountId"); assetAccount(payload.assetAccount, "payload.assetAccount", errors); positive("cashPaidWan"); nonNegative("transactionFeeWan"); break;
+    case "asset_balance_discovered": assetAccount(payload.assetAccount, "payload.assetAccount", errors); break;
     case "asset_sold": string("assetAccountId"); string("destinationCashAccountId"); positive("assetValueRemovedWan"); positive("cashReceivedWan"); nonNegative("transactionFeeWan"); break;
     case "asset_revalued": string("assetAccountId"); nonNegative("previousMarketValueWan"); nonNegative("newMarketValueWan"); requiredArray(payload.valuationEvidence, "payload.valuationEvidence", errors); break;
     case "debt_drawn": case "liquidity_shortfall_created": debtAccount(payload.debtAccount, "payload.debtAccount", errors); string("destinationCashAccountId"); positive("principalDrawnWan"); break;
+    case "debt_balance_discovered": debtAccount(payload.debtAccount, "payload.debtAccount", errors); break;
     case "debt_principal_repaid": string("debtAccountId"); string("sourceCashAccountId"); positive("principalPaidWan"); break;
     case "debt_interest_paid": string("debtAccountId"); string("sourceCashAccountId"); positive("interestPaidWan"); break;
     case "debt_restructured": string("oldDebtAccountId"); debtAccount(payload.replacementDebtAccount, "payload.replacementDebtAccount", errors); nonNegative("transactionFeeWan"); if (Number(payload.transactionFeeWan) > 0) string("sourceCashAccountId"); break;

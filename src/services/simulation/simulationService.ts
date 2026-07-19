@@ -22,6 +22,7 @@ import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
 import { adaptTransitionalEmploymentProposal, currentCareerState, initializeCareerState, validateAndAcceptCareerTransition } from "../../domain/career/careerState";
+import type { CareerState } from "../../domain/career/types";
 import {
   commitFinancialDomainTransaction,
   deriveConservativeWealthBasis,
@@ -155,12 +156,17 @@ export function detectNarrativeFinancialCoverageIssues(input: {
     summary,
     createdAtAgeInMonths: input.ageInMonths
   });
-  if (/(?:买下|购入|购买了|名下已有|自有)(?:[^。；]{0,16})(?:房产|住房|房子|公寓)|(?:房贷|按揭)/u.test(input.narrativeText)) {
+  const protagonistSentences = input.narrativeText.split(/(?<=[。！？；])/u)
+    .filter((sentence) => /你|你的|你们|本人|自己|名下/u.test(sentence))
+    .filter((sentence) => !/(?:母亲|父亲|妈妈|爸爸|表哥|表姐|堂哥|堂姐|朋友|同事|伴侣|丈夫|妻子)[^，。；]{0,24}(?:房贷|按揭)/u.test(sentence)
+      || /你(?:本人)?[^，。；]{0,24}(?:房贷|按揭)|(?:你的|你名下)[^，。；]{0,24}(?:房产|住房|房子|公寓)/u.test(sentence));
+  const protagonistPropertyText = protagonistSentences.join(" ");
+  if (/(?:买下|购入|购买了|名下已有|自有|拥有)(?:[^。；]{0,20})(?:房产|住房|房子|公寓)|(?:还完|偿还|还清|背上|尚有|剩余)[^。；]{0,12}(?:房贷|按揭)|(?:房贷|按揭)[^。；]{0,12}(?:月供|本金|余额)/u.test(protagonistPropertyText)) {
     if (!input.ledger.assetAccounts.some((item) => item.status === "active" && item.type === "property")
-      && !hasKind("asset_purchased")) push("property", "正文包含已发生的主人公房产事实，但没有房产资产 Proposal");
-    if (/(?:房贷|按揭)/u.test(input.narrativeText)
+      && !hasKind("asset_purchased", "asset_balance_discovered")) push("property", "正文包含已发生的主人公房产事实，但没有房产资产 Proposal");
+    if (/(?:房贷|按揭)/u.test(protagonistPropertyText)
       && !input.ledger.debtAccounts.some((item) => item.status === "active" && item.type === "mortgage")
-      && !hasKind("debt_drawn")) push("mortgage", "正文包含已发生的主人公房贷事实，但没有房贷债务 Proposal");
+      && !hasKind("debt_drawn", "debt_balance_discovered")) push("mortgage", "正文包含已发生的主人公房贷事实，但没有房贷债务 Proposal");
   }
   const hasHolding = input.ledger.businessHoldings.some((item) => item.status === "active" || item.status === "partially_sold");
   const hasProtagonistOptionFact = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u.test(input.narrativeText);
@@ -176,6 +182,23 @@ export function detectNarrativeFinancialCoverageIssues(input: {
     push("personal_option", "正文包含已发生的主人公期权事实，但没有 stock_option holding Proposal");
   }
   return issues;
+}
+
+export function narrativeRequiresCareerTransition(input: {
+  narrativeText: string;
+  currentStatus: CareerState["employmentStatus"];
+}): boolean {
+  const protagonistText = input.narrativeText.split(/(?<=[。！？；])/u)
+    .filter((sentence) => /你|你的|你们|本人|自己/u.test(sentence))
+    .filter((sentence) => !/(?:母亲|父亲|妈妈|爸爸|伴侣|丈夫|妻子|朋友|同事)[^，。；]{0,20}(?:入职|离职|辞职|退休|换工作|跳槽)/u.test(sentence)
+      || /你[^，。；]{0,20}(?:入职|离职|辞职|退休|换工作|跳槽|转岗|转任)/u.test(sentence))
+    .join(" ");
+  if (!protagonistText) return false;
+  const stopsWorking = /你[^。；]{0,24}(?:正式退休|办理退休|离职|辞职|辞去|停止工作|结束全职|不再工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(protagonistText);
+  if (stopsWorking && !["retired", "not_working"].includes(input.currentStatus)) return true;
+  const startsWorking = /你[^。；]{0,28}(?:正式入职|入职|受聘|开始全职工作|开始工作|加入[^。；]{0,12}(?:公司|机构|团队))/u.test(protagonistText);
+  if (startsWorking && ["student", "not_working", "retired", "medical_leave"].includes(input.currentStatus)) return true;
+  return /你[^。；]{0,24}(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(protagonistText);
 }
 
 function attachPendingFinancialContext(input: {
@@ -253,14 +276,18 @@ async function commitAuthoritativeFinancialProgress(input: {
   });
   let nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
   const selectedDecisionRequiresCareerTransition = /退休|转为.{0,12}顾问|结束.{0,12}全职|离职|换工作|入职/u.test(input.selectedDecision || "");
-  if (selectedDecisionRequiresCareerTransition && acceptedCareerTransitions.length === 0 && careerValidationIssues.length === 0) {
+  const careerTransitionRequired = selectedDecisionRequiresCareerTransition || narrativeRequiresCareerTransition({
+    narrativeText: input.node.description,
+    currentStatus: currentCareer.employmentStatus
+  });
+  if (careerTransitionRequired && acceptedCareerTransitions.length === 0 && careerValidationIssues.length === 0) {
     careerValidationIssues.push({
       id: `career_transition_missing_${input.transactionId}`,
       code: "CAREER_INCOME_CONFLICT",
       severity: "blocking",
       status: "open",
       relatedProposalIds: [],
-      summary: `已接受选择“${input.selectedDecision}”要求职业转换，但本轮没有通过校验的 employmentTransition`,
+      summary: `已接受选择或正文明确要求主人公职业转换，但本轮没有通过校验的 employmentTransition：${input.selectedDecision || "正文事实"}`,
       createdAtAgeInMonths: input.periodEndAgeInMonths
     });
   }
@@ -434,6 +461,21 @@ async function commitAuthoritativeFinancialProgress(input: {
     validated = {
       ...validated,
       issues: [...validated.issues, ...careerValidationIssues.filter((issue) => !existingIds.has(issue.id))]
+    };
+  }
+  if (careerTransitionRequired && acceptedCareerTransitions.length === 0
+    && !validated.issues.some((issue) => issue.id === `career_transition_missing_${input.transactionId}`)) {
+    validated = {
+      ...validated,
+      issues: [...validated.issues, {
+        id: `career_transition_missing_${input.transactionId}`,
+        code: "CAREER_INCOME_CONFLICT",
+        severity: "blocking",
+        status: "open",
+        relatedProposalIds: [],
+        summary: "正文中的主人公职业转换在一次修复后仍未形成 Accepted CareerTransition",
+        createdAtAgeInMonths: input.periodEndAgeInMonths
+      }]
     };
   }
   const finalAcceptedIncomeIds = new Set(validated.acceptedEvents.flatMap((event) => {

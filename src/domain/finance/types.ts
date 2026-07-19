@@ -214,9 +214,11 @@ export type FinancialEventKind =
   | "expense_commitment_ended"
   | "one_off_expense_paid"
   | "asset_purchased"
+  | "asset_balance_discovered"
   | "asset_sold"
   | "asset_revalued"
   | "debt_drawn"
+  | "debt_balance_discovered"
   | "debt_principal_repaid"
   | "debt_interest_paid"
   | "debt_restructured"
@@ -266,6 +268,11 @@ export interface AssetPurchasePayload {
   linkedDebtDrawEventId?: string;
 }
 
+/** A previously owned asset first becomes known in this period; no current-period cash flow. */
+export interface AssetBalanceDiscoveredPayload {
+  assetAccount: AssetAccount;
+}
+
 export interface AssetSalePayload {
   assetAccountId: string;
   destinationCashAccountId: string;
@@ -285,6 +292,11 @@ export interface DebtDrawPayload {
   debtAccount: DebtAccount;
   destinationCashAccountId: string;
   principalDrawnWan: number;
+}
+
+/** A pre-existing liability first becomes known in this period; no current-period cash flow. */
+export interface DebtBalanceDiscoveredPayload {
+  debtAccount: DebtAccount;
 }
 
 export interface DebtPrincipalRepaymentPayload {
@@ -401,9 +413,11 @@ export interface FinancialEventPayloadMap {
   expense_commitment_ended: ExpenseCommitmentStatusPayload;
   one_off_expense_paid: MoneyPaidPayload;
   asset_purchased: AssetPurchasePayload;
+  asset_balance_discovered: AssetBalanceDiscoveredPayload;
   asset_sold: AssetSalePayload;
   asset_revalued: AssetRevaluationPayload;
   debt_drawn: DebtDrawPayload;
+  debt_balance_discovered: DebtBalanceDiscoveredPayload;
   debt_principal_repaid: DebtPrincipalRepaymentPayload;
   debt_interest_paid: DebtInterestPaymentPayload;
   debt_restructured: DebtRestructuredPayload;
@@ -448,6 +462,7 @@ export interface FinancialTransaction {
   incomeWan: number;
   expenseWan: number;
   valuationChangeWan: number;
+  priorFactCorrectionWan?: number;
   nonCashGainLossWan: number;
   netWorthDeltaWan: number;
   evidence: FinancialEvidence[];
@@ -464,6 +479,7 @@ export interface FinancialPeriodSummary {
   assetPurchaseWan: number;
   assetSaleProceedsWan: number;
   valuationChangeWan: number;
+  priorFactCorrectionWan?: number;
   netCashFlowWan: number;
   netWorthChangeWan: number;
   transactionIds: string[];

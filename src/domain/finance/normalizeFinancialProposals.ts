@@ -7,7 +7,8 @@ export interface FinancialProposalNormalizationAudit {
   reasonCode: "KIND_FIELD_NORMALIZED" | "SOURCE_OUTCOME_FILLED" | "DUPLICATE_ID_RENAMED" | "CAREER_LINK_FILLED" | "CASH_ACCOUNT_FILLED"
     | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED"
-    | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED";
+    | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
+    | "ASSET_ACCOUNT_SHAPE_COMPLETED" | "DEBT_ACCOUNT_SHAPE_COMPLETED";
   originalValue?: string;
   normalizedValue?: string;
 }
@@ -98,7 +99,7 @@ export function normalizeRepairedFinancialProposals(input: {
 const KINDS = new Set<FinancialEventKind>([
   "income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended",
   "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended",
-  "one_off_expense_paid", "asset_purchased", "asset_sold", "asset_revalued", "debt_drawn",
+  "one_off_expense_paid", "asset_purchased", "asset_balance_discovered", "asset_sold", "asset_revalued", "debt_drawn", "debt_balance_discovered",
   "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven",
   "business_option_granted", "business_option_vested", "business_option_revalued",
   "business_option_exercised", "business_option_expired", "business_option_cancelled",
@@ -142,6 +143,17 @@ export function normalizeFinancialProposals(input: {
     let payload: any = source.payload && typeof source.payload === "object"
       ? structuredClone(source.payload) as Record<string, any>
       : source.payload;
+    const effectiveAtAgeInMonths = Number(source.effectiveAtAgeInMonths);
+    const evidenceText = typeof source.evidence === "string" ? source.evidence : "";
+    const monthlyAmountFromEvidence = (): number | undefined => {
+      const normalized = evidenceText.normalize("NFKC");
+      const wan = normalized.match(/(?:每月|月(?:薪|收入|支出|租|供)?|每个月)[^。；，]{0,12}?(\d+(?:\.\d+)?)\s*万/u)
+        || normalized.match(/(\d+(?:\.\d+)?)\s*万\s*(?:\/月|每月)/u);
+      if (wan) return Number(wan[1]);
+      const yuan = normalized.match(/(?:每月|月(?:薪|收入|支出|租|供)?|每个月)[^。；，]{0,12}?(\d+(?:\.\d+)?)\s*元/u)
+        || normalized.match(/(\d+(?:\.\d+)?)\s*元\s*(?:\/月|每月)/u);
+      return yuan ? Number(yuan[1]) / 10000 : undefined;
+    };
     const unwrapHolding = (value: any): any => {
       if (!value || typeof value !== "object") return value;
       return value.optionHolding || value.businessHolding || value.equityHolding || value.holding || value.holdingDetails || value;
@@ -210,7 +222,13 @@ export function normalizeFinancialProposals(input: {
       consulting: "contract",
       consultant: "contract",
       advisory: "contract",
-      freelance: "self_employment_draw"
+      freelance: "self_employment_draw",
+      stipend: "other",
+      allowance: "other",
+      subsidy: "other",
+      service_fee: "contract",
+      consulting_fee: "contract",
+      recurring_income: "other"
     };
     const incomePayload = kind === "income_source_adjusted" ? payload?.nextSource : kind === "income_source_started" ? payload : undefined;
     if (payload && kind === "business_option_granted" && payload.optionHolding && typeof payload.optionHolding === "object") {
@@ -248,6 +266,82 @@ export function normalizeFinancialProposals(input: {
       incomePayload.type = incomeTypeAliases[originalType];
       audit.push({ proposalId: id, reasonCode: "INCOME_TYPE_NORMALIZED", originalValue: originalType, normalizedValue: incomePayload.type });
     }
+    if (incomePayload && typeof incomePayload === "object") {
+      const original = JSON.stringify(incomePayload);
+      if (kind === "income_source_started") incomePayload.id ||= incomePayload.incomeSourceId || incomePayload.sourceId || `${kind}_${id}`;
+      if (kind === "income_source_started") incomePayload.type ||= /工资|薪资|月薪/u.test(evidenceText) ? "salary" : /顾问|咨询|服务费/u.test(evidenceText) ? "contract" : "other";
+      const policyAliases: Record<string, string> = { recurring: "monthly", recurring_monthly: "monthly", monthly_recurring: "monthly", yearly: "annual", annually: "annual", one_off: "event_only" };
+      incomePayload.accrualPolicy = policyAliases[incomePayload.accrualPolicy] || incomePayload.accrualPolicy
+        || (kind === "income_source_started" ? (incomePayload.annualNetAmountWan !== undefined ? "annual" : "monthly") : undefined);
+      const monthly = incomePayload.monthlyNetAmountWan ?? incomePayload.monthlyAmountWan ?? incomePayload.amountWanPerMonth ?? monthlyAmountFromEvidence();
+      const annual = incomePayload.annualNetAmountWan ?? incomePayload.annualAmountWan ?? incomePayload.amountWanPerYear;
+      if (incomePayload.accrualPolicy === "monthly" && Number.isFinite(Number(monthly))) incomePayload.monthlyNetAmountWan = Number(monthly);
+      if (incomePayload.accrualPolicy === "annual" && Number.isFinite(Number(annual))) incomePayload.annualNetAmountWan = Number(annual);
+      if (kind === "income_source_started") {
+        incomePayload.displayName ||= incomePayload.name || incomePayload.label || "待确认收入来源";
+        incomePayload.activeFromAgeInMonths = Number.isInteger(Number(incomePayload.activeFromAgeInMonths)) ? Number(incomePayload.activeFromAgeInMonths) : effectiveAtAgeInMonths;
+        incomePayload.status ||= "active";
+        incomePayload.factStatus ||= "estimated";
+        incomePayload.evidence = Array.isArray(incomePayload.evidence) ? incomePayload.evidence : [];
+      }
+      if (JSON.stringify(incomePayload) !== original) audit.push({ proposalId: id, reasonCode: "INCOME_SOURCE_SHAPE_COMPLETED", normalizedValue: incomePayload.id });
+    }
+    const expensePayload = kind === "expense_commitment_started" ? payload : undefined;
+    if (expensePayload && typeof expensePayload === "object") {
+      const original = JSON.stringify(expensePayload);
+      expensePayload.id ||= expensePayload.expenseCommitmentId || expensePayload.commitmentId || `${kind}_${id}`;
+      const expenseAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
+      expensePayload.type = expenseAliases[expensePayload.type] || expensePayload.type || (/房租|月供|住房/u.test(evidenceText) ? "housing" : /照护|护工|赡养/u.test(evidenceText) ? "dependent_support" : "other");
+      const amount = expensePayload.monthlyAmountWan ?? expensePayload.amountWanPerMonth ?? expensePayload.monthlyCostWan ?? monthlyAmountFromEvidence();
+      if (Number.isFinite(Number(amount))) expensePayload.monthlyAmountWan = Number(amount);
+      expensePayload.displayName ||= expensePayload.name || expensePayload.label || "待确认持续支出";
+      expensePayload.activeFromAgeInMonths = Number.isInteger(Number(expensePayload.activeFromAgeInMonths)) ? Number(expensePayload.activeFromAgeInMonths) : effectiveAtAgeInMonths;
+      expensePayload.status ||= "active";
+      expensePayload.factStatus ||= "estimated";
+      expensePayload.evidence = Array.isArray(expensePayload.evidence) ? expensePayload.evidence : [];
+      if (JSON.stringify(expensePayload) !== original) audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: expensePayload.id });
+    }
+    if (payload && (kind === "asset_purchased" || kind === "asset_balance_discovered")) {
+      const candidate = payload.assetAccount && typeof payload.assetAccount === "object" ? payload.assetAccount : payload.asset || payload.account;
+      if (candidate && typeof candidate === "object") {
+        const original = JSON.stringify(candidate);
+        candidate.id ||= payload.assetAccountId || candidate.accountId || `${kind}_${id}`;
+        candidate.type ||= /房|公寓|住宅/u.test(evidenceText) ? "property" : "other_personal_asset";
+        candidate.displayName ||= candidate.name || candidate.label || (candidate.type === "property" ? "待确认房产" : "待确认资产");
+        candidate.marketValueWan = Number(candidate.marketValueWan ?? candidate.valueWan ?? candidate.amountWan);
+        candidate.liquidity ||= candidate.type === "property" ? "illiquid" : "semi_liquid";
+        candidate.status ||= "active";
+        candidate.factStatus ||= "estimated";
+        candidate.openedAtAgeInMonths = Number.isInteger(Number(candidate.openedAtAgeInMonths)) ? Number(candidate.openedAtAgeInMonths) : effectiveAtAgeInMonths;
+        candidate.evidence = Array.isArray(candidate.evidence) ? candidate.evidence : [];
+        payload.assetAccount = candidate;
+        if (JSON.stringify(candidate) !== original) audit.push({ proposalId: id, reasonCode: "ASSET_ACCOUNT_SHAPE_COMPLETED", normalizedValue: candidate.id });
+      }
+    }
+    if (payload && (kind === "debt_drawn" || kind === "debt_balance_discovered" || kind === "liquidity_shortfall_created")) {
+      const candidate = payload.debtAccount && typeof payload.debtAccount === "object" ? payload.debtAccount : payload.debt || payload.account;
+      if (candidate && typeof candidate === "object") {
+        const original = JSON.stringify(candidate);
+        candidate.id ||= payload.debtAccountId || candidate.accountId || `${kind}_${id}`;
+        candidate.type ||= /房贷|按揭/u.test(evidenceText) ? "mortgage" : "family_or_personal_loan";
+        candidate.displayName ||= candidate.name || candidate.label || (candidate.type === "mortgage" ? "待确认房贷" : "待确认债务");
+        candidate.principalWan = Number(candidate.principalWan ?? payload.principalDrawnWan ?? candidate.amountWan);
+        candidate.openedAtAgeInMonths = Number.isInteger(Number(candidate.openedAtAgeInMonths)) ? Number(candidate.openedAtAgeInMonths) : effectiveAtAgeInMonths;
+        candidate.status ||= "active";
+        candidate.factStatus ||= "estimated";
+        candidate.evidence = Array.isArray(candidate.evidence) ? candidate.evidence : [];
+        if (!candidate.repaymentPolicy || typeof candidate.repaymentPolicy !== "object") candidate.repaymentPolicy = {};
+        const policyAliases: Record<string, string> = { amortizing: "estimated_amortizing", estimated: "estimated_amortizing", schedule: "known_schedule", manual: "event_driven" };
+        candidate.repaymentPolicy.mode = policyAliases[candidate.repaymentPolicy.mode] || candidate.repaymentPolicy.mode
+          || (candidate.type === "mortgage" ? "estimated_amortizing" : "event_driven");
+        if (candidate.repaymentPolicy.mode === "estimated_amortizing" && !candidate.repaymentPolicy.monthlyPrincipalWan && Number.isFinite(candidate.principalWan)) {
+          candidate.repaymentPolicy.monthlyPrincipalWan = candidate.principalWan / 240;
+          candidate.repaymentPolicy.remainingTermMonths ||= 240;
+        }
+        payload.debtAccount = candidate;
+        if (JSON.stringify(candidate) !== original) audit.push({ proposalId: id, reasonCode: "DEBT_ACCOUNT_SHAPE_COMPLETED", normalizedValue: candidate.id });
+      }
+    }
     if (payload && (kind === "income_source_adjusted" || kind === "income_source_ended" || kind === "income_source_paused")) {
       const linkedActiveSources = input.currentLedger?.incomeSources.filter((item) => (
         item.status === "active" && (!input.currentCareerStateId || item.linkedCareerStateId === input.currentCareerStateId)
@@ -272,6 +366,10 @@ export function normalizeFinancialProposals(input: {
       if (existingCommitment) {
         payload.nextCommitment = mergeMissing(existingCommitment, payload.nextCommitment);
         payload.nextCommitment.id = payload.expenseCommitmentId;
+        const typeAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
+        payload.nextCommitment.type = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
+        const nextAmount = payload.nextCommitment.monthlyAmountWan ?? payload.nextCommitment.amountWanPerMonth ?? payload.nextCommitment.monthlyCostWan ?? monthlyAmountFromEvidence();
+        if (Number.isFinite(Number(nextAmount))) payload.nextCommitment.monthlyAmountWan = Number(nextAmount);
         audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: payload.expenseCommitmentId });
       }
     }
@@ -311,7 +409,7 @@ export function normalizeFinancialProposals(input: {
     return [{
       id,
       kind,
-      effectiveAtAgeInMonths: Number(source.effectiveAtAgeInMonths),
+      effectiveAtAgeInMonths,
       payload,
       evidence: typeof source.evidence === "string" ? source.evidence : "",
       sourceOutcomeId,

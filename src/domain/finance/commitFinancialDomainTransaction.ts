@@ -181,8 +181,10 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
       if (issue.status === "resolved") continue;
       const resolvesMissingExpense = issue.id === "pending_fact_missing_adult_expense"
         && event.kind === "expense_commitment_started";
-      const resolvesCoverage = (issue.id.startsWith("narrative_coverage_property_") && event.kind === "asset_purchased")
-        || (issue.id.startsWith("narrative_coverage_mortgage_") && event.kind === "debt_drawn" && event.payload.debtAccount.type === "mortgage")
+      const resolvesCoverage = (issue.id.startsWith("narrative_coverage_property_") && (event.kind === "asset_purchased" || event.kind === "asset_balance_discovered"))
+        || (issue.id.startsWith("narrative_coverage_mortgage_")
+          && (event.kind === "debt_drawn" || event.kind === "debt_balance_discovered")
+          && event.payload.debtAccount.type === "mortgage")
         || (issue.id.startsWith("narrative_coverage_business_holding_")
           && (event.kind === "business_holding_started" || event.kind === "business_option_granted"));
       if (!resolvesMissingExpense && !resolvesCoverage

@@ -123,6 +123,7 @@ interface EventTotals {
   assetPurchaseWan: number;
   assetSaleProceedsWan: number;
   valuationChangeWan: number;
+  priorFactCorrectionWan: number;
 }
 
 function accumulatePeriodAccrual(
@@ -244,6 +245,14 @@ function applyEvent(
       totals.otherExpenseWan = roundWan(totals.otherExpenseWan + fee);
       return;
     }
+    case "asset_balance_discovered": {
+      const asset = event.payload.assetAccount;
+      assertNewId(ledger.assetAccounts, asset.id, "资产账户");
+      const value = nonNegativeMoney(asset.marketValueWan, "asset_balance_discovered.assetAccount.marketValueWan");
+      ledger.assetAccounts.push(structuredClone({ ...asset, marketValueWan: value }));
+      totals.priorFactCorrectionWan = roundWan(totals.priorFactCorrectionWan + value);
+      return;
+    }
     case "asset_sold": {
       const payload = event.payload;
       const asset = requiredById(ledger.assetAccounts, payload.assetAccountId, "资产账户");
@@ -286,6 +295,14 @@ function applyEvent(
       }
       ledger.debtAccounts.push(structuredClone(payload.debtAccount));
       changeCash(ledger, payload.destinationCashAccountId, principal);
+      return;
+    }
+    case "debt_balance_discovered": {
+      const debt = event.payload.debtAccount;
+      assertNewId(ledger.debtAccounts, debt.id, "债务账户");
+      const principal = positiveMoney(debt.principalWan, "debt_balance_discovered.debtAccount.principalWan");
+      ledger.debtAccounts.push(structuredClone({ ...debt, principalWan: principal }));
+      totals.priorFactCorrectionWan = roundWan(totals.priorFactCorrectionWan - principal);
       return;
     }
     case "debt_principal_repaid": {
@@ -591,7 +608,8 @@ export function reduceFinancialLedger(input: {
     debtInterestPaidWan: 0,
     assetPurchaseWan: 0,
     assetSaleProceedsWan: 0,
-    valuationChangeWan: 0
+    valuationChangeWan: 0,
+    priorFactCorrectionWan: 0
   };
   let recurringIncomeWan = 0;
   let coreExpenseWan = 0;
@@ -685,7 +703,7 @@ export function reduceFinancialLedger(input: {
   const incomeWan = roundWan(recurringIncomeWan + totals.oneOffIncomeWan);
   const expenseWan = roundWan(coreExpenseWan + totals.otherExpenseWan);
   const netWorthDeltaWan = roundWan(afterNetWorth - beforeNetWorth);
-  const nonCashGainLossWan = roundWan(netWorthDeltaWan - incomeWan + expenseWan - totals.valuationChangeWan);
+  const nonCashGainLossWan = roundWan(netWorthDeltaWan - incomeWan + expenseWan - totals.valuationChangeWan - totals.priorFactCorrectionWan);
   const evidence = events.flatMap((event) => event.evidence);
   const transaction: FinancialTransaction = {
     id: `financial_${input.transactionId}`,
@@ -699,6 +717,7 @@ export function reduceFinancialLedger(input: {
     incomeWan,
     expenseWan,
     valuationChangeWan: totals.valuationChangeWan,
+    priorFactCorrectionWan: totals.priorFactCorrectionWan,
     nonCashGainLossWan,
     netWorthDeltaWan,
     evidence
@@ -706,7 +725,7 @@ export function reduceFinancialLedger(input: {
   next.recentTransactions = [...next.recentTransactions, transaction].slice(-RECENT_TRANSACTION_LIMIT);
   assertFinancialLedgerInvariants(next);
 
-  const expectedNetWorthDelta = roundWan(incomeWan - expenseWan + totals.valuationChangeWan + nonCashGainLossWan);
+  const expectedNetWorthDelta = roundWan(incomeWan - expenseWan + totals.valuationChangeWan + totals.priorFactCorrectionWan + nonCashGainLossWan);
   if (expectedNetWorthDelta !== netWorthDeltaWan) {
     throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "净资产变化无法由收入、支出、估值和非现金损益解释");
   }
@@ -721,6 +740,7 @@ export function reduceFinancialLedger(input: {
     assetPurchaseWan: totals.assetPurchaseWan,
     assetSaleProceedsWan: totals.assetSaleProceedsWan,
     valuationChangeWan: totals.valuationChangeWan,
+    priorFactCorrectionWan: totals.priorFactCorrectionWan,
     netCashFlowWan: transaction.cashDeltaWan,
     netWorthChangeWan: netWorthDeltaWan,
     transactionIds: [transaction.id]

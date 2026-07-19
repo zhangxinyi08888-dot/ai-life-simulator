@@ -793,9 +793,11 @@ export type FinancialEventKind =
   | "expense_commitment_ended"
   | "one_off_expense_paid"
   | "asset_purchased"
+  | "asset_balance_discovered"
   | "asset_sold"
   | "asset_revalued"
   | "debt_drawn"
+  | "debt_balance_discovered"
   | "debt_principal_repaid"
   | "debt_interest_paid"
   | "debt_restructured"
@@ -932,9 +934,11 @@ export type FinancialEventPayload =
 | 持续/一次性个人收入到账 | `+金额` | 0 | 0 | `+金额` |
 | 生活或一次性费用支付 | `-金额` | 0 | 0 | `-金额` |
 | 现金购买投资/房产 | `-金额及费用` | `+购入价值` | 0 | 仅费用和成交差额影响 |
+| 本期首次发现此前已有资产 | 0 | `+已确认余额` | 0 | 记为 `priorFactCorrectionWan`，不是本期收益或估值收益 |
 | 出售资产 | `+净到手金额` | `-账面价值` | 0 | 出售损益影响 |
 | 资产重估 | 0 | `±金额` | 0 | `±金额` |
 | 新增借款到账 | `+金额` | 0 | `+金额` | 0 |
+| 本期首次发现此前已有债务 | 0 | 0 | `+已确认余额` | 记为负的 `priorFactCorrectionWan`，不是本期支出 |
 | 偿还本金 | `-金额` | 0 | `-金额` | 0 |
 | 支付利息 | `-金额` | 0 | 0 | `-金额` |
 | 债务减免 | 0 | 0 | `-金额` | `+金额`，单独标记非现金收益 |
@@ -957,6 +961,7 @@ export interface FinancialTransaction {
   incomeWan: number;
   expenseWan: number;
   valuationChangeWan: number;
+  priorFactCorrectionWan: number;
   nonCashGainLossWan: number;
   netWorthDeltaWan: number;
   evidence: FinancialEvidence[];
@@ -1280,6 +1285,7 @@ Prompt 约束：
 - 账户 ID 优先引用 Prompt 提供的现有 ID；新建来源、资产或债务时使用本节点内唯一临时 ID，由 validator 转成稳定 ID。
 - Prompt 必须提供现有收入来源、现金、债务、房产、企业持股和期权 holding 的类型化 ID，以及所有 open issue。
 - 示例至少覆盖薪资调整、房产购买 + 房贷、房贷还本、企业融资、普通股重估、期权授予 / 归属 / 估值 / 行权。期权示例必须明确未归属部分不计财富、融资额不等于个人期权价值。
+- 对“本期才发现此前已有房产/房贷”的事实，必须使用 `asset_balance_discovered` / `debt_balance_discovered`；不得复用购买或借款事件制造本期现金流。该修正进入 `priorFactCorrectionWan`，报告不得称为本期财富增长或亏损。
 - `NarrativeFactCoverageValidator` 在正文或 opening 输入出现已经发生的购房、房贷、持股、期权事实而没有相应 Proposal 时触发一次修复；仍失败则保留具体 coverage issue 并重写正文，不能静默遗漏。
 
 #### Phase 1–4 兼容适配器
@@ -1563,6 +1569,7 @@ transaction IDs are idempotent
 | 已归属且可靠估值期权未进入企业及其他资产 | 0 |
 | 未归属期权或公司融资额被全额计入个人财富 | 0 |
 | 到达确定到期月后仍为 active 的期权 | 0 |
+| 迟到资产/债务事实被误记为本期购买、借款或收益 | 0 |
 | 报告内部占位符泄漏 | 0 |
 
 同时保留合理性人工复核：

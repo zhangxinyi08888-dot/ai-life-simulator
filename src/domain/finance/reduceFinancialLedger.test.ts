@@ -450,6 +450,36 @@ test("does not let a later inflow retroactively fund an earlier expense", () => 
   }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
 });
 
+test("records late-discovered property and mortgage as prior fact correction without fake cash flow", () => {
+  const result = reduceFinancialLedger({
+    ledger: ledgerAt(360, 10),
+    transactionId: "late_balance_facts",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    events: [
+      accepted("home_discovered", "asset_balance_discovered", 361, {
+        assetAccount: {
+          id: "home_existing", type: "property", displayName: "此前已有住房",
+          marketValueWan: 300, liquidity: "illiquid", status: "active", factStatus: "estimated",
+          openedAtAgeInMonths: 300, evidence
+        }
+      }),
+      accepted("mortgage_discovered", "debt_balance_discovered", 361, {
+        debtAccount: debt("mortgage_existing", 120, "mortgage")
+      })
+    ]
+  });
+  if (!("periodSummary" in result)) return;
+  assert.equal(result.transaction.cashDeltaWan, 0);
+  assert.equal(result.transaction.incomeWan, 0);
+  assert.equal(result.transaction.valuationChangeWan, 0);
+  assert.equal(result.transaction.priorFactCorrectionWan, 180);
+  assert.equal(result.transaction.nonCashGainLossWan, 0);
+  assert.equal(result.transaction.netWorthDeltaWan, 180);
+  assert.equal(result.periodSummary.priorFactCorrectionWan, 180);
+});
+
 test("is idempotent for the same simulation transaction id", () => {
   const first = reduceFinancialLedger({
     ledger: ledgerAt(240, 1),

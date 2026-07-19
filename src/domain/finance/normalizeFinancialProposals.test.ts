@@ -52,6 +52,36 @@ test("fills a missing cash account reference without changing the amount", () =>
   assert.equal((result.proposals[0].payload as { amountWan: number }).amountWan, 2);
 });
 
+test("completes long-tail recurring income and expense shapes from deterministic aliases", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [
+    { id: "stipend", kind: "income_source_started", effectiveAtAgeInMonths: 300, payload: { type: "stipend", accrualPolicy: "recurring_monthly" }, evidence: "你每月获得4500元补贴。", confidence: 0.9 },
+    { id: "caregiver", kind: "expense_commitment_started", effectiveAtAgeInMonths: 300, payload: { type: "caregiver" }, evidence: "你每月支付护工6000元。", confidence: 0.9 }
+  ] });
+  const income = result.proposals[0].payload as any;
+  const expense = result.proposals[1].payload as any;
+  assert.equal(income.type, "other");
+  assert.equal(income.accrualPolicy, "monthly");
+  assert.equal(income.monthlyNetAmountWan, 0.45);
+  assert.equal(income.status, "active");
+  assert.equal(expense.type, "dependent_support");
+  assert.equal(expense.monthlyAmountWan, 0.6);
+  assert.equal(expense.status, "active");
+});
+
+test("completes late-discovered mortgage shape without inventing current cash movement", () => {
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
+    id: "old_mortgage", kind: "debt_balance_discovered", effectiveAtAgeInMonths: 400,
+    payload: { debt: { accountId: "mortgage_home", amountWan: 120 } },
+    evidence: "你名下住房尚有120万元房贷余额。", confidence: 0.9
+  }] });
+  const payload = result.proposals[0].payload as any;
+  assert.equal(payload.debtAccount.id, "mortgage_home");
+  assert.equal(payload.debtAccount.type, "mortgage");
+  assert.equal(payload.debtAccount.principalWan, 120);
+  assert.equal(payload.debtAccount.repaymentPolicy.mode, "estimated_amortizing");
+  assert.equal(payload.destinationCashAccountId, undefined);
+});
+
 test("repair output inherits omitted structural fields from the rejected proposal", () => {
   const result = normalizeRepairedFinancialProposals({
     acceptedOutcomeIds: ["selected"],

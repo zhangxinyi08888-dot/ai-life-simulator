@@ -16,7 +16,7 @@ import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 const FINANCIAL_EVENT_KINDS = new Set<FinancialEventKind>([
   "income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended",
   "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended",
-  "one_off_expense_paid", "asset_purchased", "asset_sold", "asset_revalued", "debt_drawn",
+  "one_off_expense_paid", "asset_purchased", "asset_balance_discovered", "asset_sold", "asset_revalued", "debt_drawn", "debt_balance_discovered",
   "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven",
   "business_holding_started",
   "business_option_granted", "business_option_vested", "business_option_revalued",
@@ -38,7 +38,8 @@ function proposalIssue(input: {
   const relatedIncomeSourceIds = [payload.incomeSourceId, payload.nextSource?.id].filter((value): value is string => typeof value === "string" && value.length > 0);
   const relatedAccountIds = [payload.sourceCashAccountId, payload.destinationCashAccountId, payload.assetAccountId, payload.assetAccount?.id, payload.expenseCommitmentId, payload.nextCommitment?.id].filter((value): value is string => typeof value === "string" && value.length > 0);
   const relatedDebtAccountIds = [payload.debtAccountId, payload.oldDebtAccountId, payload.debtAccount?.id, payload.replacementDebtAccount?.id].filter((value): value is string => typeof value === "string" && value.length > 0);
-  const relatedBusinessHoldingIds = [payload.businessHoldingId, payload.id, payload.optionHolding?.id, payload.resultingEquityHolding?.id]
+  const isHoldingPayload = input.proposal?.kind === "business_holding_started";
+  const relatedBusinessHoldingIds = [payload.businessHoldingId, isHoldingPayload ? payload.id : undefined, payload.optionHolding?.id, payload.resultingEquityHolding?.id]
     .filter((value): value is string => typeof value === "string" && value.length > 0);
   const safeSummary = String(input.summary || "财务 Proposal 校验失败")
     .replace(/\bundefined\b/gi, "缺失值")

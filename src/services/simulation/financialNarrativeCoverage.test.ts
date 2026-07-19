@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { initializeFinancialLedger } from "../../domain/finance/initializeLedger";
-import { detectNarrativeFinancialCoverageIssues } from "./simulationService";
+import { detectNarrativeFinancialCoverageIssues, narrativeRequiresCareerTransition } from "./simulationService";
 
 const evidence = [{ source: "accepted_history" as const, reasonCode: "TEST", confidence: 1 }];
 const ledger = initializeFinancialLedger({
@@ -33,6 +33,24 @@ test("accepted directional events satisfy narrative coverage", () => {
   assert.equal(issues.length, 0);
 });
 
+test("late-discovered balances satisfy coverage without a fake current-period purchase", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你每月偿还房贷4500元，这套自有住房仍有贷款余额。",
+    ledger,
+    acceptedEvents: [{ kind: "asset_balance_discovered" }, { kind: "debt_balance_discovered" }],
+    ageInMonths: 373
+  });
+  assert.equal(issues.length, 0);
+});
+
+test("another person's mortgage does not create protagonist coverage", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "母亲提到表哥最近背上了房贷，你只是听着。",
+    ledger, acceptedEvents: [], ageInMonths: 374
+  });
+  assert.equal(issues.length, 0);
+});
+
 test("employee option grants do not create a protagonist option coverage issue", () => {
   const issues = detectNarrativeFinancialCoverageIssues({
     narrativeText: "你决定建立期权池，并授予销售总监和技术骨干各2%的期权。",
@@ -47,4 +65,12 @@ test("a protagonist accepting sweat equity requires a personal holding", () => {
     ledger, acceptedEvents: [], ageInMonths: 386
   });
   assert.deepEqual(issues.map((issue) => issue.id), ["narrative_coverage_business_holding_386"]);
+});
+
+test("explicit protagonist job entry, role change and retirement require authoritative transitions", () => {
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你正式入职一家软件公司。", currentStatus: "student" }), true);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你决定换工作，加入新的团队。", currentStatus: "employed" }), true);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你办理退休，结束全职工作。", currentStatus: "employed" }), true);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你继续当前岗位，本期没有变化。", currentStatus: "employed" }), false);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "父亲正式退休，你为他庆祝。", currentStatus: "employed" }), false);
 });
