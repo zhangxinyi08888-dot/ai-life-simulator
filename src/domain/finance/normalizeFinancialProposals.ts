@@ -163,6 +163,16 @@ export function normalizeFinancialProposals(input: {
       const original = JSON.stringify(holding);
       holding.id ||= holding.holdingId || `${kind}_${id}`;
       holding.instrumentType ||= kind === "business_option_granted" ? "stock_option" : "equity";
+      const instrumentAliases: Record<string, "equity" | "stock_option"> = {
+        non_listed_equity: "equity",
+        private_equity: "equity",
+        founder_equity: "equity",
+        common_stock: "equity",
+        shares: "equity",
+        option: "stock_option",
+        stock_options: "stock_option"
+      };
+      holding.instrumentType = instrumentAliases[holding.instrumentType] || holding.instrumentType;
       holding.personalCarryingValueWan = Number.isFinite(Number(holding.personalCarryingValueWan))
         ? Number(holding.personalCarryingValueWan)
         : Number.isFinite(Number(holding.attributableValueWan)) ? Number(holding.attributableValueWan) : 0;

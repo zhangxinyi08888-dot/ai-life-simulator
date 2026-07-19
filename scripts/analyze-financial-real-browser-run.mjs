@@ -18,11 +18,11 @@ const close = (a, b, tolerance = 0.02) => Math.abs(Number(a || 0) - Number(b || 
 const financeText = /(?:月薪|工资|薪资|收入|支出|房租|租金|房贷|贷款|债务|存款|现金|融资|估值|期权|股权|万元|万\/月|每月|年薪|买房|卖房|投资|顾问费|稿费|退休金)/;
 const personalOptionText = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u;
 const personalEquityText = /(?:你(?:持有|拥有|获得|接受)[^。；]{0,20}(?:股权|股份|持股|干股)|(?:股权|持股)结构[^。；]{0,32}你占\s*\d|你(?:成为|是|作为)[^。；]{0,12}(?:联合创始人|合伙人)|你的(?:创始人股权|干股))/u;
-const propertyText = /(?:买房|房产|住房|公寓|房屋|房贷|按揭|投资房)/;
+const personalPropertyText = /(?:你(?:买下|买了|购买|购置|拥有|持有|还清|提前还)[^。；]{0,24}(?:房|公寓|房贷|按揭)|你们(?:买下|买了|购买|购置|拥有|持有|还清|提前还)[^。；]{0,24}(?:房|公寓|房贷|按揭)|(?:你|你们)(?:的)?(?:自住房|住房|房产|公寓|房贷|按揭|月供)|名下[^。；]{0,16}(?:住房|房产|公寓)|房贷每月|每月还完房贷|提前还清(?:部分|剩余)?房贷)/u;
 const openingPropertyText = /(?:房产(?:市值|价值)?|住房(?:市值|价值)?|房贷余额|按揭余额|贷款余额)[^0-9]{0,12}\d/;
 const monthlyAmountPatterns = [
-  /(?:税后)?月薪(?:达到|提升至|升至|降至|恢复至|约为|为|约|从[^，。]{0,12}到)?\s*(\d+(?:\.\d+)?)\s*万/g,
-  /每月(?:收入|工资|薪资|顾问收入|咨询收入|稿费)?(?:达到|提升至|升至|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/g
+  /(?:税后)?(?:月薪|月收入|月工资|月薪资)(?:达到|提升至|升至|降至|恢复至|稳定在|约为|为|约|从[^，。]{0,12}到)?\s*(\d+(?:\.\d+)?)\s*万/g,
+  /每月(?:收入|工资|薪资|顾问收入|咨询收入|稿费)(?:达到|提升至|升至|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/g
 ];
 
 const cases = [];
@@ -48,6 +48,7 @@ let valuedOptionOmittedNodes = 0;
 let contingentOptionInflatedNodes = 0;
 let staleOptionLifecycleNodes = 0;
 let adultBelowPolicyExpenseNodes = 0;
+let invalidHoldingInstrumentNodes = 0;
 
 for (const record of records) {
   const history = record.finalState?.history || [];
@@ -111,7 +112,7 @@ for (const record of records) {
       && (ledger.businessHoldings?.length || 0) === 0 && Number(fs.businessAndOtherAssetsWan || 0) === 0;
     const optionHoldingMissing = personalOptionText.test(description)
       && !(ledger.businessHoldings || []).some((holding) => holding.instrumentType === "stock_option");
-    const propertyMissing = propertyText.test(description) && (ledger.assetAccounts?.filter((item) => item.type === "property").length || 0) === 0 && Number(fs.propertyMarketValueWan || 0) === 0;
+    const propertyMissing = personalPropertyText.test(description) && (ledger.assetAccounts?.filter((item) => item.type === "property").length || 0) === 0 && Number(fs.propertyMarketValueWan || 0) === 0;
     if (holdingMissing) missingHoldingNodes += 1;
     if (optionHoldingMissing) missingOptionHoldingNodes += 1;
     if (propertyMissing) missingPropertyNodes += 1;
@@ -149,12 +150,16 @@ for (const record of records) {
       const expiresAt = holding.optionTerms?.expiresAtAgeInMonths ?? holding.expirationDateInMonths;
       return Number.isFinite(expiresAt) && Number(expiresAt) < Number(node.ageInMonths);
     });
+    const invalidHoldingInstrument = (ledger.businessHoldings || []).some((holding) => (
+      holding.instrumentType !== undefined && !["equity", "stock_option"].includes(holding.instrumentType)
+    ));
     if (duplicateActiveShortfall) duplicateActiveShortfallNodes += 1;
     if (systemShortfallScheduleIssue) systemShortfallScheduleIssueNodes += 1;
     if (issueUndefined) issueUndefinedNodes += 1;
     if (valuedOptionOmitted) valuedOptionOmittedNodes += 1;
     if (contingentOptionInflated) contingentOptionInflatedNodes += 1;
     if (staleOptionLifecycle) staleOptionLifecycleNodes += 1;
+    if (invalidHoldingInstrument) invalidHoldingInstrumentNodes += 1;
 
     const netWorthDelta = previous ? round(Number(fs.netWorthWan || 0) - Number(previous.fs.netWorthWan || 0)) : 0;
     const wealthDelta = previous ? Number(node.attributes?.wealth || 0) - Number(previous.node.attributes?.wealth || 0) : 0;
@@ -174,7 +179,7 @@ for (const record of records) {
       financialState: fs,
       attributes: node.attributes,
       invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth, annualDebtInterestWan, annualCashInflowWan },
-      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, wealthDirectionMismatch },
+      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, invalidHoldingInstrument, wealthDirectionMismatch },
       issueIds: (ledger.unresolvedIssues || []).map((issue) => issue.id)
     });
     previous = { node, fs, signature, transactionCount };
@@ -248,6 +253,7 @@ const summary = {
   contingentOptionInflatedNodes,
   staleOptionLifecycleNodes,
   adultBelowPolicyExpenseNodes,
+  invalidHoldingInstrumentNodes,
   openIssues: openIssues.length,
   resolvedIssues: resolvedIssues.length,
   issueCodeCounts
@@ -277,10 +283,13 @@ const blockers = [
   systemShortfallScheduleIssueNodes > 0 && `系统 shortfall 自触发 UNKNOWN_DEBT_SCHEDULE：${systemShortfallScheduleIssueNodes} 个节点`,
   issueUndefinedNodes > 0 && `业务 issue 泄漏程序异常或 undefined：${issueUndefinedNodes} 个节点`,
   reportPlaceholderCases > 0 && `终局报告泄漏内部占位符：${reportPlaceholderCases} 组`,
+  salaryMismatchNodes > 0 && `正文月收入与活跃收入来源不一致：${salaryMismatchNodes} 个节点`,
+  missingPropertyNodes > 0 && `正文主人公房产或房贷事实没有房产账户：${missingPropertyNodes} 个节点`,
   valuedOptionOmittedNodes > 0 && `已归属且有账面价值的期权未进入用户财富：${valuedOptionOmittedNodes} 个节点`,
   contingentOptionInflatedNodes > 0 && `未归属或缺可靠估值的期权被计入用户财富：${contingentOptionInflatedNodes} 个节点`,
   missingOptionHoldingNodes > 0 && `正文出现期权但没有 stock_option holding：${missingOptionHoldingNodes} 个节点`,
   staleOptionLifecycleNodes > 0 && `期权超过到期月仍保持 active：${staleOptionLifecycleNodes} 个节点`,
+  invalidHoldingInstrumentNodes > 0 && `持股 instrumentType 不在权威枚举内：${invalidHoldingInstrumentNodes} 个节点`,
   adultBelowPolicyExpenseNodes > 0 && `23 岁后生活支出仍低于成年保守政策下限：${adultBelowPolicyExpenseNodes} 个节点`,
   openIssues.length > 0 && `终局仍存在 open issue：${openIssues.length} 个`,
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
@@ -329,6 +338,7 @@ ${recoverableRows}
 | 有价值期权未计入用户财富 | ${valuedOptionOmittedNodes} | 目标 0 |
 | 或有/缺估值期权错误计入财富 | ${contingentOptionInflatedNodes} | 目标 0 |
 | 过期但仍 active 的期权节点 | ${staleOptionLifecycleNodes} | 目标 0 |
+| 非法持股 instrumentType 节点 | ${invalidHoldingInstrumentNodes} | 目标 0 |
 | 23 岁后仍低于成年支出政策下限 | ${adultBelowPolicyExpenseNodes} | 目标 0 |
 | open / resolved issue | ${openIssues.length} / ${resolvedIssues.length} | 必须有关闭路径且终局可控 |
 
@@ -342,11 +352,11 @@ ${routeRows}
 
 ## 逐组现实性结论
 
-- **real-career-first**：账本算术与现金闭环稳定，但正文中的创业权益仍有未创建 holding 的节点，入口完整性尚未达标。
-- **real-relationship-first**：路线完成且没有 stale 节点；部分正文月收入仍找不到同额活跃来源，职业收入事实仍有阶段性偏差。
-- **real-education-second**：成年零支出为 0，但 system-policy commitment 被标成 needs_review 后没有在 23 岁边界重估，非学生阶段仍长期停在 0.2 万/月；房产叙述也仍有账户缺口。
-- **real-venture-second**：开局房产和房贷已正确入账，确定性期权归属/到期单测通过；但真实路线中的期权 Proposal 没有形成 stock_option holding，因此仍谈不上把可靠期权价值计入财富。
-- **real-custom-lifespan**：单一 shortfall 账户与死亡闭环有效，终局为 not_working 且无无证据的 80+ 工资；但晚年净债务规模和大量未关闭事实仍需治理。
+- **real-career-first**：个人期权 holding 已形成，固定归属持续结算且没有把归属期误作到期；由于正文始终没有可靠公允单价，期权账面值为 0、未计入财富是正确的保守结果。终局仍为 employed 但权威年收入已被 stale policy 暂停为 0，说明职业确认/退休闭环仍未完成。
+- **real-relationship-first**：三段正文明确出现主人公房贷、提前还本和还清事实，但账本始终没有房产账户；终局 employed、年收入 0 也表明职业收入确认被挂起。这是当前最明确的事实摄取缺口。
+- **real-education-second**：成年零支出与 23 岁后低支出均已归零，基础生活费政策切档修复有效；但 53 岁终局仍标 student，同时正文的 2.5 万月收入与活跃来源不一致，CareerState 长期演化仍有偏差。
+- **real-venture-second**：开局 210 万房产/房贷已正确入账，终局房贷归零；企业权益进入账户，但模型返回了非法的 non_listed_equity instrumentType，且 150 万 carrying value 仍为 needs_review，只能作为原始净资产估计，不能进入保守财富属性。
+- **real-custom-lifespan**：100 岁 3 个月生理终局为 not_working，80+ 工资计提、重复 shortfall 和系统债务计划噪音均为 0；但终局净债务 216.626 万且仍有大量拒绝事实，负债规模部分来自入口拒绝后的保守偏差，不能仅按算术正确判为现实。
 
 ## issue 代码统计
 
@@ -356,11 +366,11 @@ ${issueRows}
 
 ## 下一步
 
-1. system-policy basic_living 的年龄重估必须识别 estimated 与 needs_review 两种状态；被审查不能阻断政策切档。
-2. 对 business_holding_started / business_option_granted 的常见嵌套形状补归一化，并把“正文有期权、无 stock_option holding”设为专项 coverage 阻断；固定归属和到期仍由已实现的期间结算负责。
-3. 继续补齐缺金额、缺 evidence、缺 business 对象、ID 类型混用和生效时间越界的归一化/修复重试，降低终局 open issue。
-4. 将薪资、房产、普通股和期权 coverage issue 作为 M7 阻断项逐节点关闭，不能只依赖报告重写掩盖缺失事实。
-5. 修复后必须重新跑全新的 2/2/1 五路线，不能复用本轮 JSON。
+1. 优先修复后续购房/房贷 coverage repair：向修复模型提供原句、现有现金/债务 ID 与成对的 asset_purchased + debt_drawn 示例；仍失败时必须暂停相关结算并保持具体 pending fact，不能让房贷叙述无账户地继续。
+2. 收口 CareerState 与收入来源：解决 53 岁 student、employed 但年收入为 0，以及 8 个正文月收入不匹配；职业转换必须和旧收入关闭、新收入启动组成受控依赖组。
+3. 归一化持股 instrumentType 同义词并在账本边界拒绝非法枚举；本轮暴露的 non_listed_equity 已映射为 equity，后续不得把运行时非法字符串写入权威账本。
+4. 继续补齐缺金额、缺 evidence、缺 business 对象、ID 类型混用和生效时间越界的结构化修复，重点消除 35 个 UNBALANCED_TRANSACTION、11 个 PENDING_FACT 与 7 个 ACCOUNT_TYPE_MISMATCH。
+5. 期权验收保持双向门禁：可靠折后 carrying value 必须进入企业及其他资产、净资产和财富分；未归属或缺可靠估值期权只保留 contingent holding。上述阻断修复后再跑全新的 2/2/1，不能复用本轮 JSON。
 
 逐节点的完整正文、全部选择、用户选择、五项状态、账本快照和终局报告见 \`full-test-data.md\`；机器可读审计见 \`finance-audit.json\`。
 

@@ -164,13 +164,14 @@ test("does not turn a vesting period into an unsupported option expiry", () => {
 test("unwraps a nested partial equity holding without inventing a valuation", () => {
   const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
     id: "founder_equity", kind: "business_holding_started", effectiveAtAgeInMonths: 405,
-    payload: { businessHolding: { holdingId: "founder_share", ownershipRate: 0.4, companyName: "供应链软件公司" } },
+    payload: { businessHolding: { holdingId: "founder_share", instrumentType: "non_listed_equity", ownershipRate: 0.4, companyName: "供应链软件公司" } },
     evidence: "新的股权结构为：你占40%。", confidence: 0.9
   }] });
   const holding = result.proposals[0].payload as any;
   assert.equal(holding.id, "founder_share");
   assert.equal(holding.business.displayName, "供应链软件公司");
   assert.equal(holding.ownershipRate, 0.4);
+  assert.equal(holding.instrumentType, "equity");
   assert.equal(holding.personalCarryingValueWan, 0);
   assert.equal(holding.factStatus, "needs_review");
   assert.equal(result.audit.some((item) => item.reasonCode === "BUSINESS_HOLDING_SHAPE_COMPLETED"), true);

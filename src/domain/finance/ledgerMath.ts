@@ -106,6 +106,9 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
     }
   });
   ledger.businessHoldings.forEach((holding) => {
+    if (holding.instrumentType !== undefined && !["equity", "stock_option"].includes(holding.instrumentType)) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业持股 ${holding.id}.instrumentType 无效`);
+    }
     assertFiniteNonNegative(holding.personalCarryingValueWan, `企业持股 ${holding.id}.personalCarryingValueWan`);
     if (holding.ownershipRate !== undefined && (holding.ownershipRate < 0 || holding.ownershipRate > 1)) {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业持股 ${holding.id}.ownershipRate 必须在 0-1 之间`);

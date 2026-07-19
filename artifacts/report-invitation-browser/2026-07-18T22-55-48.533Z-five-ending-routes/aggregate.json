@@ -1,0 +1,323 @@
+{
+  "generatedAt": "2026-07-19T00:03:12.160Z",
+  "caseCount": 5,
+  "allCasesPassed": true,
+  "scenarioCounts": {
+    "accept_first": 2,
+    "natural_lifespan": 1,
+    "accept_second": 2
+  },
+  "totalHistoryNodes": 119,
+  "totalInvitations": 12,
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "closureType": "user_reflection",
+      "passed": true,
+      "nodeCount": 16,
+      "finalAgeInMonths": 661,
+      "invitationCount": 1,
+      "invitationSequence": [
+        "5cecb989:accepted"
+      ],
+      "recoverableEvents": [
+        {
+          "type": "recoverable_error",
+          "subtype": "collector_deadline_after_page_commit",
+          "historyLength": 15,
+          "message": "页面已完成节点并显示邀请；采集器等待超时后从同轮页面状态继续",
+          "at": "2026-07-18T23:03:48.472Z"
+        }
+      ],
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 288,
+        "cashWan": 18,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 23,
+        "annualAfterTaxIncomeWan": 24,
+        "annualDisposableIncomeWan": 6,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 661,
+        "cashWan": 651.75,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 656.75,
+        "annualAfterTaxIncomeWan": 0,
+        "annualDisposableIncomeWan": -10.2,
+        "annualCoreExpenseWan": 10.2,
+        "employmentStatus": "employed",
+        "incomeStability": "unstable",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "change": {
+        "cashWan": 633.75,
+        "netWorthWan": 633.75,
+        "debtWan": 0
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "closureType": "mortality",
+      "passed": true,
+      "nodeCount": 43,
+      "finalAgeInMonths": 1203,
+      "invitationCount": 6,
+      "invitationSequence": [
+        "5b572d1d:declined",
+        "a2a7b4b5:declined",
+        "0c5acd7e:declined",
+        "e8cf6c88:declined",
+        "d8c59b98:declined",
+        "0f211f0d:declined"
+      ],
+      "recoverableEvents": [
+        {
+          "type": "recoverable_error",
+          "subtype": "invalid_ai_json_visible_retry",
+          "historyLength": 4,
+          "message": "AI 返回内容格式异常；通过页面可见继续生成完成同一节点",
+          "at": "2026-07-18T23:37:28.353Z"
+        },
+        {
+          "type": "recoverable_error",
+          "subtype": "browser_session_timeout_same_run_resume",
+          "historyLength": 14,
+          "message": "浏览器控制会话超时；从本次运行目录内同人物 checkpoint 恢复",
+          "at": "2026-07-18T23:42:52.443Z"
+        }
+      ],
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 300,
+        "cashWan": 25,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 30,
+        "annualAfterTaxIncomeWan": 32,
+        "annualDisposableIncomeWan": 11.9996,
+        "annualCoreExpenseWan": 20.0004,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 1203,
+        "cashWan": 0,
+        "investmentAssetsWan": 5,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 221.626,
+        "netWorthWan": -216.626,
+        "annualAfterTaxIncomeWan": 1.14,
+        "annualDisposableIncomeWan": -11.58,
+        "annualCoreExpenseWan": 12.72,
+        "employmentStatus": "not_working",
+        "incomeStability": "very_stable",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "change": {
+        "cashWan": -25,
+        "netWorthWan": -246.626,
+        "debtWan": 221.626
+      }
+    },
+    {
+      "caseSlug": "real-education-second",
+      "scenario": "accept_second",
+      "closureType": "user_reflection",
+      "passed": true,
+      "nodeCount": 22,
+      "finalAgeInMonths": 639,
+      "invitationCount": 2,
+      "invitationSequence": [
+        "5f42f127:declined",
+        "46b41325:accepted"
+      ],
+      "recoverableEvents": [
+        {
+          "type": "recoverable_error",
+          "subtype": "browser_control_timeout_after_page_commit",
+          "historyLength": 15,
+          "message": "页面已完成节点并显示邀请；浏览器控制等待超时后从同轮状态继续",
+          "at": "2026-07-18T23:19:40.162Z"
+        }
+      ],
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 216,
+        "cashWan": 0.5,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 0.5,
+        "annualAfterTaxIncomeWan": 0,
+        "annualDisposableIncomeWan": -2.4,
+        "annualCoreExpenseWan": 2.4,
+        "employmentStatus": "student",
+        "incomeStability": "unstable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 639,
+        "cashWan": 206.84,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 206.84,
+        "annualAfterTaxIncomeWan": 19.2,
+        "annualDisposableIncomeWan": 6.84,
+        "annualCoreExpenseWan": 12.36,
+        "employmentStatus": "student",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "change": {
+        "cashWan": 206.34,
+        "netWorthWan": 206.34,
+        "debtWan": 0
+      }
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "closureType": "user_reflection",
+      "passed": true,
+      "nodeCount": 16,
+      "finalAgeInMonths": 741,
+      "invitationCount": 1,
+      "invitationSequence": [
+        "398661b6:accepted"
+      ],
+      "recoverableEvents": [
+        {
+          "type": "recoverable_error",
+          "subtype": "collector_stop_button_deadline",
+          "historyLength": 7,
+          "message": "页面节点已经完成，立即展开按钮交互超时；从同轮页面状态继续",
+          "at": "2026-07-18T23:09:42.368Z"
+        }
+      ],
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 312,
+        "cashWan": 12,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 22,
+        "annualAfterTaxIncomeWan": 18,
+        "annualDisposableIncomeWan": 6,
+        "annualCoreExpenseWan": 12,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 741,
+        "cashWan": 431.2205,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 441.2205,
+        "annualAfterTaxIncomeWan": 0,
+        "annualDisposableIncomeWan": -5.4,
+        "annualCoreExpenseWan": 5.4,
+        "employmentStatus": "employed",
+        "incomeStability": "unstable",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "change": {
+        "cashWan": 419.2205,
+        "netWorthWan": 419.2205,
+        "debtWan": 0
+      }
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "scenario": "accept_second",
+      "closureType": "user_reflection",
+      "passed": true,
+      "nodeCount": 22,
+      "finalAgeInMonths": 747,
+      "invitationCount": 2,
+      "invitationSequence": [
+        "8c24e23e:declined",
+        "d5b13e4d:accepted"
+      ],
+      "recoverableEvents": [
+        {
+          "type": "recoverable_error",
+          "subtype": "invalid_ai_json_visible_retry",
+          "historyLength": 12,
+          "message": "AI 返回内容格式异常；通过页面可见继续生成完成同一节点",
+          "at": "2026-07-18T23:28:30.767Z"
+        }
+      ],
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 288,
+        "cashWan": 35,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 210,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 210,
+        "netWorthWan": 45,
+        "annualAfterTaxIncomeWan": 38,
+        "annualDisposableIncomeWan": 10.4996,
+        "annualCoreExpenseWan": 22.4004,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 747,
+        "cashWan": 315.2333,
+        "investmentAssetsWan": 10,
+        "propertyMarketValueWan": 210,
+        "businessAndOtherAssetsWan": 150,
+        "totalDebtWan": 0,
+        "netWorthWan": 685.2333,
+        "annualAfterTaxIncomeWan": 0,
+        "annualDisposableIncomeWan": -47.4,
+        "annualCoreExpenseWan": 47.4,
+        "employmentStatus": "employed",
+        "incomeStability": "unstable",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "change": {
+        "cashWan": 280.2333,
+        "netWorthWan": 640.2333,
+        "debtWan": -210
+      }
+    }
+  ]
+}
