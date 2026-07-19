@@ -144,17 +144,18 @@ function rawFinancialEventProposals(rawNode: any): FinancialEventProposal[] {
 export function detectNarrativeFinancialCoverageIssues(input: {
   narrativeText: string;
   ledger: FinancialLedger;
-  acceptedEvents: Array<{ kind: string }>;
+  acceptedEvents: Array<{ kind: string; payload?: unknown }>;
   ageInMonths: number;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
   const hasKind = (...kinds: string[]) => input.acceptedEvents.some((event) => kinds.includes(event.kind));
-  const push = (id: string, summary: string) => issues.push({
+  const push = (id: string, summary: string, relatedIncomeSourceIds: string[] = []) => issues.push({
     id: `narrative_coverage_${id}_${input.ageInMonths}`,
     code: "PENDING_FACT",
     severity: "blocking",
     status: "open",
     relatedProposalIds: [],
+    relatedIncomeSourceIds,
     summary,
     createdAtAgeInMonths: input.ageInMonths
   });
@@ -182,6 +183,39 @@ export function detectNarrativeFinancialCoverageIssues(input: {
     && !input.ledger.businessHoldings.some((item) => item.instrumentType === "stock_option" && (item.status === "active" || item.status === "partially_sold"))
     && !hasKind("business_option_granted")) {
     push("personal_option", "正文包含已发生的主人公期权事实，但没有 stock_option holding Proposal");
+  }
+  const personalCompensationAnnuals = input.narrativeText.split(/(?<=[。！？；])/u).flatMap((sentence) => {
+    if (!/你|你的|本人|自己/u.test(sentence)) return [];
+    const candidateCompensation = /猎头|邀请|邀约|推荐|提出|offer|如果|可以给你|考虑|是否|至少|预计|建议|希望/iu.test(sentence);
+    const completedCompensation = /正式(?:加入|入职|受聘)|决定接受|接受了|签下|转为[^。；]{0,20}(?:顾问|兼职|全职)|月薪(?:降至|调整为|维持)|薪资调整为|工资调整为|给自己/u.test(sentence);
+    if (candidateCompensation && !completedCompensation) return [];
+    const personalContext = /(?:你(?:的|本人|个人)?[^。；]{0,45}|给自己[^。；]{0,24})(?:薪资调整为|工资调整为|税后工资|税后月薪|月薪|年薪)|薪资调整为[^。；]{0,18}(?:年薪|月薪)/u.test(sentence);
+    if (!personalContext) return [];
+    const monthly = [...sentence.matchAll(/(?:税后)?月薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*(万|元)/gu)]
+      .filter((match) => !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:会计|员工|助理|工程师|销售|运营|护工)[^。；]{0,35}$/u.test(sentence.slice(Math.max(0, Number(match.index) - 110), Number(match.index))))
+      .map((match) => Math.round(Number(match[1]) * (match[2] === "元" ? 0.0001 : 1) * 12 * 10000) / 10000);
+    const annual = [...sentence.matchAll(/(?:税后)?年薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/gu)]
+      .map((match) => Number(match[1]));
+    return [...monthly, ...annual];
+  });
+  const latestPersonalCompensationAnnual = personalCompensationAnnuals.at(-1);
+  if (Number.isFinite(latestPersonalCompensationAnnual)) {
+    const activeCareerSources = input.ledger.incomeSources.filter((source) => source.status === "active" && Boolean(source.linkedCareerStateId));
+    const eventSources = input.acceptedEvents.flatMap((event) => {
+      if (event.kind !== "income_source_started" && event.kind !== "income_source_adjusted") return [];
+      const payload = event.payload as Record<string, any> | undefined;
+      const source = event.kind === "income_source_adjusted" ? payload?.nextSource : payload;
+      return source ? [source] : [];
+    });
+    const sourceAnnuals = [...activeCareerSources, ...eventSources].map((source) => Number.isFinite(source.annualNetAmountWan)
+      ? Number(source.annualNetAmountWan)
+      : Number(source.monthlyNetAmountWan || 0) * 12);
+    const matches = sourceAnnuals.some((value) => Math.abs(value - Number(latestPersonalCompensationAnnual)) <= Math.max(2, Number(latestPersonalCompensationAnnual) * 0.12));
+    if (!matches) push(
+      "personal_compensation",
+      `正文明确主人公当前个人薪酬约为年化 ${Number(latestPersonalCompensationAnnual).toFixed(2)} 万，但账本没有匹配的职业收入 Proposal`,
+      activeCareerSources.map((source) => source.id)
+    );
   }
   return issues;
 }

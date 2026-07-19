@@ -299,7 +299,8 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - 每项 Proposal 必须包含 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时返回空数组。
 - evidence 必须摘自 description 中已经发生的事实句；系统会做标点、空白和金额锚定匹配。confidence 在 0.8-1 时按明确事实提交，0.6-0.8 时按 estimated 提交；低于 0.6、候选选项、计划和意向不能提交。
 - 持续收入或支出分别使用 income_source_started/adjusted/paused/ended 与 expense_commitment_started/adjusted/ended；一次性收支使用 one_off_income_received/one_off_expense_paid。
-- 这是主人公个人账本：公司营收、SaaS 年费、客户回款、团队工资、员工补贴、服务器和企业运营成本一律不得写入个人 incomeSources / expenseCommitments。主人公实际领取的税后工资、自雇提款、顾问费或已经分配到账的分红才可作为个人收入。
+- 这是主人公个人账本：公司营收、SaaS 年费、客户回款，以及公益中心/基金会/协会收到的资助、拨款、赞助和项目款，一律不得写入个人 incomeSources；团队或机构的员工工资、会计薪酬、仓库/场地租金、服务器和运营成本一律不得写入个人 expenseCommitments。主人公实际领取的税后工资、自雇提款、个人顾问费或已经分配到账的分红才可作为个人收入。
+- description 若明确写出主人公已经生效的月薪或年薪，必须提交与该金额匹配的职业收入 started/adjusted；即使同一段还写了机构资助、公司营收或团队成本，也不能用这些组织金额代替主人公薪酬。
 - basic_living 或 housing 基线已经存在时必须引用账本 ID 使用 expense_commitment_adjusted；不得再 started 一个“基本生活与房贷”等混合义务造成重复计提。照护、医疗和保险可以按不同责任分别建账。房贷本金与利息由 debt repayment policy 结算，不能再次混入 basic_living。
 - 新工作工资不得与账本摘要里的旧职业收入叠加：同一职业内薪资变化优先用 income_source_adjusted；换工作必须同时提交旧职业收入的 income_source_ended 和带 linkedCareerStateId 的新 income_source_started。职业、组织或岗位改变时，即使 employmentStatus 仍为 employed，也要提交新的 employmentTransition。
 - 正文必须严格区分月薪和年薪：年薪 22 万不得写成月薪 22 万；Proposal 的 monthlyNetAmountWan 与正文月薪必须相同，annualNetAmountWan 与正文年薪必须相同。

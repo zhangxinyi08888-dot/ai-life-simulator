@@ -216,7 +216,9 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
           && (event.kind === "debt_drawn" || event.kind === "debt_balance_discovered")
           && event.payload.debtAccount.type === "mortgage")
         || (issue.id.startsWith("narrative_coverage_business_holding_")
-          && (event.kind === "business_holding_started" || event.kind === "business_option_granted"));
+          && (event.kind === "business_holding_started" || event.kind === "business_option_granted"))
+        || (issue.id.startsWith("narrative_coverage_personal_compensation_")
+          && (event.kind === "income_source_started" || event.kind === "income_source_adjusted"));
       if (!resolvesMissingExpense && !resolvesCoverage
         && !intersects(issue.relatedIncomeSourceIds, refs.incomeSourceIds)
         && !intersects(issue.relatedAccountIds, refs.accountIds)

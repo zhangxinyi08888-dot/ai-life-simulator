@@ -277,6 +277,28 @@ test("an accepted source event wins over a malformed sibling issue in the same n
   assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "pending_fact_income_salary_main")?.status, "resolved");
 });
 
+test("a later accepted career income resolves personal-compensation narrative coverage", () => {
+  const current = setup();
+  current.ledger.unresolvedIssues.push({
+    id: "narrative_coverage_personal_compensation_360", code: "PENDING_FACT", severity: "blocking", status: "open",
+    relatedProposalIds: [], summary: "正文薪酬尚未入账", createdAtAgeInMonths: 360
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "resolve_personal_compensation", periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0, expectedLedgerRevision: 0, currentCareer: current.career,
+    currentFinancialLedger: current.ledger, currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("salary_confirmed", "income_source_started", 361, {
+      id: "salary_confirmed", type: "salary", displayName: "确认工资", monthlyNetAmountWan: 3,
+      accrualPolicy: "monthly", activeFromAgeInMonths: 361, status: "active", linkedCareerStateId: "career_employed",
+      factStatus: "known", evidence
+    })]
+  });
+  const issue = result.financialLedger.unresolvedIssues.find((item) => item.id === "narrative_coverage_personal_compensation_360");
+  assert.equal(issue?.status, "resolved");
+  assert.equal(issue?.resolvedByEventId, "salary_confirmed");
+});
+
 test("a rejected adjustment uses the last accepted income baseline for at most two nodes", () => {
   const current = setup();
   current.ledger.expenseCommitments.push({ id: "living", type: "basic_living", displayName: "生活支出", monthlyAmountWan: 1, activeFromAgeInMonths: 300, status: "active", factStatus: "known", evidence });

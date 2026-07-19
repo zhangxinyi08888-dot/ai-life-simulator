@@ -67,6 +67,36 @@ test("a protagonist accepting sweat equity requires a personal holding", () => {
   assert.deepEqual(issues.map((issue) => issue.id), ["narrative_coverage_business_holding_386"]);
 });
 
+test("personal salary narration requires a matching career-income event", () => {
+  ledger.incomeSources.push({
+    id: "salary_old", type: "salary", displayName: "旧工资", monthlyNetAmountWan: 2,
+    accrualPolicy: "monthly", activeFromAgeInMonths: 360, status: "active", linkedCareerStateId: "career_current",
+    factStatus: "estimated", evidence
+  });
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你被任命为产品负责人，薪资调整为年薪42万元（月薪3.5万）。公司月收入达到4万元。",
+    ledger, acceptedEvents: [], ageInMonths: 386
+  });
+  assert.deepEqual(issues.map((issue) => issue.id), ["narrative_coverage_personal_compensation_386"]);
+  assert.deepEqual(issues[0].relatedIncomeSourceIds, ["salary_old"]);
+  ledger.incomeSources.pop();
+});
+
+test("matching salary adjustment satisfies compensation coverage while staff payroll does not create it", () => {
+  const matching = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你全职加入新公司，月薪3.5万。",
+    ledger,
+    acceptedEvents: [{ kind: "income_source_started", payload: { monthlyNetAmountWan: 3.5, linkedCareerStateId: "career_next" } }],
+    ageInMonths: 386
+  });
+  assert.equal(matching.length, 0);
+  const staffPayroll = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你招聘一位专职会计，月薪4500元。",
+    ledger, acceptedEvents: [], ageInMonths: 386
+  });
+  assert.equal(staffPayroll.length, 0);
+});
+
 test("explicit protagonist job entry, role change and retirement require authoritative transitions", () => {
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你正式入职一家软件公司。", currentStatus: "student" }), true);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你决定换工作，加入新的团队。", currentStatus: "employed" }), true);

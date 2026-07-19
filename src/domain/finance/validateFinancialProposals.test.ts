@@ -158,6 +158,25 @@ test("does not confuse a salary at a SaaS company with company revenue", () => {
   assert.equal(result.acceptedEvents.length, 1);
 });
 
+test("rejects nonprofit grants, hired staff payroll and warehouse rent from the personal ledger", () => {
+  const result = validate([
+    proposal({
+      id: "nonprofit_grant", kind: "one_off_income_received", evidence: "青禾中心获得国家级公益项目资助，首期款30万元将在签约后到账。",
+      payload: { amountWan: 30, destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID }
+    }),
+    proposal({
+      id: "accountant_salary", kind: "expense_commitment_started", evidence: "你招聘一位专职会计，月薪4500元。",
+      payload: { id: "expense_accountant_salary", type: "basic_living", displayName: "专职会计月薪", monthlyAmountWan: 0.45, activeFromAgeInMonths: 312, status: "active", factStatus: "estimated", evidence }
+    }),
+    proposal({
+      id: "warehouse_rent", kind: "expense_commitment_started", evidence: "中心新增仓库月租800元。",
+      payload: { id: "expense_warehouse_rent", type: "basic_living", displayName: "新增仓库月租", monthlyAmountWan: 0.08, activeFromAgeInMonths: 312, status: "active", factStatus: "estimated", evidence }
+    })
+  ], "青禾中心获得国家级公益项目资助，首期款30万元将在签约后到账。你招聘一位专职会计，月薪4500元。中心新增仓库月租800元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 3);
+});
+
 test("requires adjustment instead of stacking a second authoritative basic-living commitment", () => {
   const context = setup();
   context.currentLedger.expenseCommitments.push({

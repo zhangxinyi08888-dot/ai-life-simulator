@@ -95,10 +95,11 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
   const payload = proposal.payload as Record<string, any>;
   const subject = proposal.kind === "expense_commitment_adjusted" ? payload.nextCommitment : payload;
   const text = `${proposal.evidence || ""} ${subject?.displayName || ""}`;
-  const businessExpense = /(?:公司|团队|项目|门店|工作室|机构)[^。；]{0,30}(?:工资|薪酬|人力成本|运营成本|服务器|市场推广|采购|办公成本)|(?:团队工资|员工工资|助理补贴|企业运营)/u.test(text);
-  const businessRevenue = /(?:公司|SaaS|产品|平台|客户合同|客户年费)[^。；]{0,30}(?:营收|收入|年费|回款|销售额)|(?:订阅收入|公司月收入|项目营收)/u.test(text);
+  const businessExpense = /(?:公司|团队|项目|门店|工作室|机构|中心)[^。；]{0,40}(?:工资|薪酬|人力成本|运营成本|服务器|市场推广|采购|办公成本|仓库|场地|审计费)|(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,30}(?:会计|员工|助理|工程师|销售|运营)[^。；]{0,20}(?:月薪|工资|薪酬)|(?:专职会计|员工|助理|工程师|销售|运营)[^。；]{0,16}(?:月薪|工资|薪酬)|(?:仓库|办公室|门店|场地)(?:月租|租金)|(?:团队工资|员工工资|助理补贴|企业运营)/u.test(text);
+  const businessRevenue = /(?:公司|SaaS|产品|平台|客户合同|客户年费|工作室|机构|中心|基金会|协会|公益项目)[^。；]{0,45}(?:营收|收入|年费|回款|销售额|资助|拨款|赞助|项目款|首期款|可支配资金)|(?:订阅收入|公司月收入|项目营收|项目资助|项目拨款)/u.test(text);
   const explicitlyNegatedReceipt = /你(?:个人)?[^。；]{0,12}(?:没有|未|并未|不曾)[^。；]{0,12}(?:领取|获得|收到|分红|股息)/u.test(text);
-  const explicitPersonal = !explicitlyNegatedReceipt
+  const isIncomeProposal = ["income_source_started", "income_source_adjusted", "one_off_income_received"].includes(proposal.kind);
+  const explicitPersonal = isIncomeProposal && !explicitlyNegatedReceipt
     && /你(?:个人)?[^。；]{0,20}(?:领取|获得|收到|税后工资|月薪|年薪|顾问费|分红|股息)|转入(?:你的|个人)账户/u.test(text);
   const personalCompensation = ["salary", "contract", "self_employment_draw"].includes(String(subject?.type))
     && /(?:税后|到手)?(?:工资|薪资|月薪|年薪)|顾问费|咨询费/u.test(text);
