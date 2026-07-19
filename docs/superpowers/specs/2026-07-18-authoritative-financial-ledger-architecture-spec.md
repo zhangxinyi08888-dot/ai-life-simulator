@@ -1284,7 +1284,7 @@ Prompt 约束：
 - 没有财务变化时返回空数组，不重复返回全部现有账户。
 - Proposal 只描述本节点已经发生的变化，不返回候选选项中的未来金额。
 - Prompt 和 Validator 都必须执行个人 / 企业边界：公司营收、客户回款、SaaS 年费与企业经营成本不得伪装成个人收入或支出；`business_dividend` 必须有利润已经向主角分配的证据。
-- `basic_living`、`housing`、`dependent_support`、`healthcare`、`insurance` 等同类耐久义务已有权威 active 账户时，金额变化必须引用现有 ID 使用 `expense_commitment_adjusted`，不得再次 `started` 造成重复计提。房贷本金和利息由债务事件及 repayment policy 结算，不得混入 `basic_living`。
+- `basic_living`、`housing` 这两类单例基线已有权威 active 账户时，金额变化必须引用现有 ID 使用 `expense_commitment_adjusted`，不得再次 `started` 造成重复计提。照护、医疗和保险允许按不同责任分别建账。房贷本金和利息由债务事件及 repayment policy 结算，不得混入 `basic_living`。
 - employmentStatus 通过独立 `EmploymentTransitionProposal` 返回，不放进财务 Proposal。
 - 模型不返回最终余额、净资产、`incomeMonths` 或债务净变化。
 - 账户 ID 优先引用 Prompt 提供的现有 ID；新建来源、资产或债务时使用本节点内唯一临时 ID，由 validator 转成稳定 ID。
@@ -1539,7 +1539,7 @@ transaction IDs are idempotent
 - A 轮融资不增加个人现金。
 - 公司合同额和营收不进入个人收入。
 - 公司团队工资和经营成本不进入个人支出。
-- 同类耐久生活支出变化使用 adjustment，不产生两个并行 active 义务。
+- `basic_living`、`housing` 基线变化使用 adjustment，不产生两个并行 active 义务。
 - 投后估值与持股明确时才重估个人权益。
 - 分红增加个人现金，但公司融资不增加。
 - 出售持股同时减少企业权益并增加个人现金。

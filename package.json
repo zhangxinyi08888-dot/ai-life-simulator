@@ -16,7 +16,7 @@
     "test:financial-baseline": "node --test scripts/analyze-financial-ledger-baseline.test.mjs",
     "test:financial-m2": "node --import tsx --test src/domain/finance/reduceFinancialLedger.test.ts",
     "test:financial-m5": "node --import tsx --test src/domain/career/careerState.test.ts src/domain/finance/recurringLifecycle.test.ts src/domain/finance/debtLifecycle.test.ts src/domain/finance/businessLifecycle.test.ts src/domain/finance/financialProblemCoverage.test.ts",
-    "test:financial-m7": "node --import tsx --test src/domain/finance/financialM7Gate.test.ts src/domain/finance/commitFinancialDomainTransaction.test.ts src/services/simulation/simulationService.test.ts src/utils/simulationTransaction.test.ts",
+    "test:financial-m7": "node --import tsx --test src/domain/finance/financialM7Gate.test.ts src/domain/finance/commitFinancialDomainTransaction.test.ts src/services/simulation/simulationService.test.ts src/utils/simulationTransaction.test.ts scripts/financial-real-browser-audit-helpers.test.mjs",
     "test:financial-m7-focused": "node --import tsx --test src/domain/finance/financialM7FocusedGate.test.ts src/domain/finance/openingFinancialFacts.test.ts src/domain/finance/financialM7Gate.test.ts src/services/simulation/financialM7FocusedSimulation.test.ts"
   },
   "dependencies": {

@@ -166,6 +166,24 @@ test("requires adjustment instead of stacking a second authoritative basic-livin
   assert.match(result.issues[0].summary, /expense_commitment_adjusted/);
 });
 
+test("allows separate dependent-support commitments for different responsibilities", () => {
+  const context = setup();
+  context.currentLedger.expenseCommitments.push({
+    id: "support_parent", type: "dependent_support", displayName: "父母照护费", monthlyAmountWan: 0.2,
+    activeFromAgeInMonths: 300, status: "active", factStatus: "known", evidence
+  });
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "support_child", kind: "expense_commitment_started", evidence: "你开始每月支付0.3万元子女教育生活费。",
+      payload: { id: "support_child", type: "dependent_support", displayName: "子女教育生活费", monthlyAmountWan: 0.3, activeFromAgeInMonths: 312, status: "active", factStatus: "known", evidence }
+    })],
+    acceptedOutcomeId: "accepted_choice", narrativeText: "你开始每月支付0.3万元子女教育生活费。",
+    periodStartAgeInMonths: 300, periodEndAgeInMonths: 312, simulationTransactionId: "separate_support", liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
 test("every financial event kind has a payload schema that rejects an empty object", () => {
   const kinds: FinancialEventKind[] = ["income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended", "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended", "one_off_expense_paid", "asset_purchased", "asset_balance_discovered", "asset_sold", "asset_revalued", "debt_drawn", "debt_balance_discovered", "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven", "business_financing_recorded", "business_option_granted", "business_option_vested", "business_option_revalued", "business_option_exercised", "business_option_expired", "business_option_cancelled", "business_holding_revalued", "business_distribution_received", "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"];
   for (const kind of kinds) assert.ok(validateFinancialPayloadSchema(kind, {}).length > 0, `${kind} schema must reject {}`);

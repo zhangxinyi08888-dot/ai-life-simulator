@@ -1,6 +1,7 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
+import { duplicateSingletonExpenseTypes, personalLedgerBusinessBoundaryViolations } from "./financial-real-browser-audit-helpers.mjs";
 
 function runGit(args) {
   return new Promise((resolve, reject) => execFile("git", args, { cwd: process.cwd() }, (error, stdout) => (
@@ -49,6 +50,8 @@ let contingentOptionInflatedNodes = 0;
 let staleOptionLifecycleNodes = 0;
 let adultBelowPolicyExpenseNodes = 0;
 let invalidHoldingInstrumentNodes = 0;
+let personalLedgerBusinessBoundaryNodes = 0;
+let duplicateSingletonExpenseNodes = 0;
 
 for (const record of records) {
   const history = record.finalState?.history || [];
@@ -153,6 +156,11 @@ for (const record of records) {
     const invalidHoldingInstrument = (ledger.businessHoldings || []).some((holding) => (
       holding.instrumentType !== undefined && !["equity", "stock_option"].includes(holding.instrumentType)
     ));
+    const businessBoundaryViolations = personalLedgerBusinessBoundaryViolations(ledger);
+    const personalLedgerBusinessBoundary = businessBoundaryViolations.incomeSourceIds.length > 0
+      || businessBoundaryViolations.expenseCommitmentIds.length > 0;
+    const duplicateSingletonExpenses = duplicateSingletonExpenseTypes(ledger);
+    const duplicateSingletonExpense = duplicateSingletonExpenses.length > 0;
     if (duplicateActiveShortfall) duplicateActiveShortfallNodes += 1;
     if (systemShortfallScheduleIssue) systemShortfallScheduleIssueNodes += 1;
     if (issueUndefined) issueUndefinedNodes += 1;
@@ -160,6 +168,8 @@ for (const record of records) {
     if (contingentOptionInflated) contingentOptionInflatedNodes += 1;
     if (staleOptionLifecycle) staleOptionLifecycleNodes += 1;
     if (invalidHoldingInstrument) invalidHoldingInstrumentNodes += 1;
+    if (personalLedgerBusinessBoundary) personalLedgerBusinessBoundaryNodes += 1;
+    if (duplicateSingletonExpense) duplicateSingletonExpenseNodes += 1;
 
     const netWorthDelta = previous ? round(Number(fs.netWorthWan || 0) - Number(previous.fs.netWorthWan || 0)) : 0;
     const wealthDelta = previous ? Number(node.attributes?.wealth || 0) - Number(previous.node.attributes?.wealth || 0) : 0;
@@ -179,7 +189,7 @@ for (const record of records) {
       financialState: fs,
       attributes: node.attributes,
       invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth, annualDebtInterestWan, annualCashInflowWan },
-      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, invalidHoldingInstrument, wealthDirectionMismatch },
+      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, optionHoldingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, invalidHoldingInstrument, personalLedgerBusinessBoundary, businessBoundaryViolations, duplicateSingletonExpense, duplicateSingletonExpenses, wealthDirectionMismatch },
       issueIds: (ledger.unresolvedIssues || []).map((issue) => issue.id)
     });
     previous = { node, fs, signature, transactionCount };
@@ -198,6 +208,19 @@ for (const record of records) {
     .map((item) => `${item.invitation?.id || "unknown"}:${item.type === "invitation_accepted" ? "accepted" : "declined"}`);
   const recoverableEvents = (record.interactionLog || [])
     .filter((item) => item.type === "recoverable_error" || item.type === "recoverable_timeout");
+  const realityMetrics = {
+    invariantFailures: nodes.filter((item) => !item.invariantChecks.identityOk || !item.invariantChecks.disposableOk
+      || !item.invariantChecks.cashFloorOk || !item.invariantChecks.ageOk || !item.invariantChecks.ledgerAgeOk).length,
+    salaryMismatchNodes: nodes.filter((item) => item.narrativeChecks.salaryMismatch).length,
+    adultZeroExpenseNodes: nodes.filter((item) => item.narrativeChecks.adultZeroExpense).length,
+    personalLedgerBusinessBoundaryNodes: nodes.filter((item) => item.narrativeChecks.personalLedgerBusinessBoundary).length,
+    duplicateSingletonExpenseNodes: nodes.filter((item) => item.narrativeChecks.duplicateSingletonExpense).length,
+    missingPropertyNodes: nodes.filter((item) => item.narrativeChecks.propertyMissing).length,
+    missingOptionHoldingNodes: nodes.filter((item) => item.narrativeChecks.optionHoldingMissing).length,
+    valuedOptionOmittedNodes: nodes.filter((item) => item.narrativeChecks.valuedOptionOmitted).length,
+    employedAt80PlusWithoutEvidenceNodes: nodes.filter((item) => item.narrativeChecks.employedAt80PlusWithoutEvidence).length,
+    openIssues: (history.at(-1)?.financialLedger?.unresolvedIssues || []).filter((issue) => (issue.status || "open") === "open").length
+  };
   cases.push({
     caseSlug: record.caseSlug,
     scenario: record.scenario,
@@ -211,6 +234,7 @@ for (const record of records) {
     firstFinancialState: first,
     finalFinancialState: last,
     openingFactMismatch,
+    realityMetrics,
     change: {
       cashWan: round(Number(last.cashWan || 0) - Number(first.cashWan || 0)),
       netWorthWan: round(Number(last.netWorthWan || 0) - Number(first.netWorthWan || 0)),
@@ -254,6 +278,8 @@ const summary = {
   staleOptionLifecycleNodes,
   adultBelowPolicyExpenseNodes,
   invalidHoldingInstrumentNodes,
+  personalLedgerBusinessBoundaryNodes,
+  duplicateSingletonExpenseNodes,
   openIssues: openIssues.length,
   resolvedIssues: resolvedIssues.length,
   issueCodeCounts
@@ -270,6 +296,14 @@ const routeEvidenceRows = cases.map((item) => {
   const ageMonths = Number(item.finalAgeInMonths || 0) % 12;
   const age = `${ageYears}岁${ageMonths ? `${ageMonths}个月` : ""}`;
   return `| ${item.caseSlug} | ${item.scenario} | ${item.nodeCount} | ${age} | ${item.invitationSequence.join(" → ") || "无"} | ${item.closureType} | ${item.recoverableEvents.length} | ${item.passed ? "通过" : "失败"} |`;
+}).join("\n");
+const routeRealityRows = cases.map((item) => {
+  const metrics = item.realityMetrics;
+  const blockerCount = metrics.invariantFailures + metrics.salaryMismatchNodes + metrics.adultZeroExpenseNodes
+    + metrics.personalLedgerBusinessBoundaryNodes + metrics.duplicateSingletonExpenseNodes + metrics.missingPropertyNodes
+    + metrics.missingOptionHoldingNodes + metrics.valuedOptionOmittedNodes + metrics.employedAt80PlusWithoutEvidenceNodes
+    + Number(item.openingFactMismatch);
+  return `| ${item.caseSlug} | ${metrics.invariantFailures} | ${metrics.salaryMismatchNodes} | ${metrics.adultZeroExpenseNodes} | ${metrics.personalLedgerBusinessBoundaryNodes} | ${metrics.duplicateSingletonExpenseNodes} | ${metrics.missingPropertyNodes} | ${metrics.missingOptionHoldingNodes} | ${metrics.valuedOptionOmittedNodes} | ${metrics.employedAt80PlusWithoutEvidenceNodes} | ${metrics.openIssues} | ${blockerCount === 0 ? "核心现实性门禁通过" : "存在阻断"} |`;
 }).join("\n");
 const recoverableRows = cases.flatMap((item) => item.recoverableEvents.map((event) => (
   `| ${item.caseSlug} | ${event.type} | ${event.historyLength ?? 0} | ${String(event.message || "页面可恢复错误").replace(/\|/g, "\\|")} |`
@@ -290,19 +324,23 @@ const blockers = [
   missingOptionHoldingNodes > 0 && `正文出现期权但没有 stock_option holding：${missingOptionHoldingNodes} 个节点`,
   staleOptionLifecycleNodes > 0 && `期权超过到期月仍保持 active：${staleOptionLifecycleNodes} 个节点`,
   invalidHoldingInstrumentNodes > 0 && `持股 instrumentType 不在权威枚举内：${invalidHoldingInstrumentNodes} 个节点`,
+  personalLedgerBusinessBoundaryNodes > 0 && `公司营收或经营成本进入个人收支：${personalLedgerBusinessBoundaryNodes} 个节点`,
+  duplicateSingletonExpenseNodes > 0 && `basic_living 或 housing 存在重复 active 基线：${duplicateSingletonExpenseNodes} 个节点`,
   adultBelowPolicyExpenseNodes > 0 && `23 岁后生活支出仍低于成年保守政策下限：${adultBelowPolicyExpenseNodes} 个节点`,
   openIssues.length > 0 && `终局仍存在 open issue：${openIssues.length} 个`,
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
 ].filter(Boolean);
+const routeContractPassed = records.length === 5 && records.every((record) => record.passed);
+const m7Ready = routeContractPassed && blockers.length === 0 && invariantFailures === 0;
 const report = `# 五组真实网页测试：财务完整审计报告
 
 ## 结论
 
-本轮五条全新真实网页路线的 **2/2/1 路径契约全部通过**，账本恒等式、可支配收入恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。入口层修复已经让合法事实更容易进入账本；报告中的无来源金额必须被重写成自然的定性结论，不能泄漏内部占位符。
+本轮五条全新真实网页路线的 **2/2/1 路径契约${routeContractPassed ? "全部通过" : "未全部通过"}**，账本恒等式、可支配收入恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。入口层修复必须让合法事实进入账本；报告中的无来源金额必须被重写成自然的定性结论，不能泄漏内部占位符。
 
-但 **M7 仍不允许切换唯一写入者**。静态代码门禁通过并不代表动态事实完整；本轮存在以下阻断项：
+**M7 ${m7Ready ? "满足本轮动态放行条件" : "仍不允许切换唯一写入者"}**。静态代码门禁通过并不代表动态事实完整；本轮${blockers.length ? "存在以下阻断项" : "没有检测到动态阻断项"}：
 
-${blockers.map((item) => `- ${item}`).join("\n")}
+${blockers.length ? blockers.map((item) => `- ${item}`).join("\n") : "- 无"}
 
 ## 路径矩阵与邀请序列
 
@@ -339,6 +377,8 @@ ${recoverableRows}
 | 或有/缺估值期权错误计入财富 | ${contingentOptionInflatedNodes} | 目标 0 |
 | 过期但仍 active 的期权节点 | ${staleOptionLifecycleNodes} | 目标 0 |
 | 非法持股 instrumentType 节点 | ${invalidHoldingInstrumentNodes} | 目标 0 |
+| 公司营收或经营成本进入个人收支 | ${personalLedgerBusinessBoundaryNodes} | 目标 0 |
+| basic_living / housing 重复 active | ${duplicateSingletonExpenseNodes} | 目标 0 |
 | 23 岁后仍低于成年支出政策下限 | ${adultBelowPolicyExpenseNodes} | 目标 0 |
 | open / resolved issue | ${openIssues.length} / ${resolvedIssues.length} | 必须有关闭路径且终局可控 |
 
@@ -352,11 +392,11 @@ ${routeRows}
 
 ## 逐组现实性结论
 
-- **real-career-first**：个人期权 holding 已形成，固定归属持续结算且没有把归属期误作到期；由于正文始终没有可靠公允单价，期权账面值为 0、未计入财富是正确的保守结果。终局仍为 employed 但权威年收入已被 stale policy 暂停为 0，说明职业确认/退休闭环仍未完成。
-- **real-relationship-first**：三段正文明确出现主人公房贷、提前还本和还清事实，但账本始终没有房产账户；终局 employed、年收入 0 也表明职业收入确认被挂起。这是当前最明确的事实摄取缺口。
-- **real-education-second**：成年零支出与 23 岁后低支出均已归零，基础生活费政策切档修复有效；但 53 岁终局仍标 student，同时正文的 2.5 万月收入与活跃来源不一致，CareerState 长期演化仍有偏差。
-- **real-venture-second**：开局 210 万房产/房贷已正确入账，终局房贷归零；企业权益进入账户，但模型返回了非法的 non_listed_equity instrumentType，且 150 万 carrying value 仍为 needs_review，只能作为原始净资产估计，不能进入保守财富属性。
-- **real-custom-lifespan**：100 岁 3 个月生理终局为 not_working，80+ 工资计提、重复 shortfall 和系统债务计划噪音均为 0；但终局净债务 216.626 万且仍有大量拒绝事实，负债规模部分来自入口拒绝后的保守偏差，不能仅按算术正确判为现实。
+以下结论直接从本轮各节点账本与正文计算，不复用旧批次的路线描述：
+
+| 人物 | 不变量失败 | 薪资错配 | 成年零支出 | 企业事实污染 | 重复生活/住房基线 | 房产缺口 | 期权 holding 缺口 | 有价值期权漏计 | 80+ stale 工资 | 终局 open issue | 判断 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+${routeRealityRows}
 
 ## issue 代码统计
 
@@ -366,11 +406,10 @@ ${issueRows}
 
 ## 下一步
 
-1. 优先修复后续购房/房贷 coverage repair：向修复模型提供原句、现有现金/债务 ID 与成对的 asset_purchased + debt_drawn 示例；仍失败时必须暂停相关结算并保持具体 pending fact，不能让房贷叙述无账户地继续。
-2. 收口 CareerState 与收入来源：解决 53 岁 student、employed 但年收入为 0，以及 8 个正文月收入不匹配；职业转换必须和旧收入关闭、新收入启动组成受控依赖组。
-3. 归一化持股 instrumentType 同义词并在账本边界拒绝非法枚举；本轮暴露的 non_listed_equity 已映射为 equity，后续不得把运行时非法字符串写入权威账本。
-4. 继续补齐缺金额、缺 evidence、缺 business 对象、ID 类型混用和生效时间越界的结构化修复，重点消除 35 个 UNBALANCED_TRANSACTION、11 个 PENDING_FACT 与 7 个 ACCOUNT_TYPE_MISMATCH。
-5. 期权验收保持双向门禁：可靠折后 carrying value 必须进入企业及其他资产、净资产和财富分；未归属或缺可靠估值期权只保留 contingent holding。上述阻断修复后再跑全新的 2/2/1，不能复用本轮 JSON。
+1. 逐项处理上方动态生成的阻断项；不得用旧批次的固定结论替代本轮证据。
+2. 入口事实修复继续使用原句、类型化账户 ID 和一次结构化重试，不降低 Validator 标准。
+3. 期权验收保持双向门禁：可靠折后 carrying value 必须进入企业及其他资产、净资产和财富分；未归属或缺可靠估值期权只保留 contingent holding。
+4. 所有阻断归零后仍需再跑全新的 2/2/1，不能复用本轮 JSON。
 
 逐节点的完整正文、全部选择、用户选择、五项状态、账本快照和终局报告见 \`full-test-data.md\`；机器可读审计见 \`finance-audit.json\`。
 
@@ -381,7 +420,8 @@ await writeFile(path.join(root, "evaluation-report.md"), report);
 const aggregate = {
   generatedAt: new Date().toISOString(),
   caseCount: records.length,
-  allCasesPassed: records.length === 5 && records.every((record) => record.passed),
+  allCasesPassed: routeContractPassed,
+  m7Ready,
   scenarioCounts: records.reduce((acc, record) => ({ ...acc, [record.scenario]: (acc[record.scenario] || 0) + 1 }), {}),
   totalHistoryNodes: totalNodes,
   totalInvitations: records.reduce((sum, record) => sum + (record.finalState?.invitations?.length || 0), 0),

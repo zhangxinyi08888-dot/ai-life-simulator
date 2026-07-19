@@ -262,7 +262,7 @@ export function validateFinancialProposals(input: {
       const existingSameType = input.currentLedger.expenseCommitments.filter((item) => item.status === "active" && item.type === durableType);
       const onlyPolicyEstimate = existingSameType.length > 0 && existingSameType.every((item) => item.evidence.some((evidence) => evidence.source === "system_policy"
         || (evidence.source === "legacy_migration" && evidence.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION")));
-      if (["basic_living", "housing", "dependent_support", "healthcare", "insurance"].includes(durableType)
+      if (["basic_living", "housing"].includes(durableType)
         && existingSameType.length > 0 && !onlyPolicyEstimate) {
         issues.push(proposalIssue({
           proposal,
