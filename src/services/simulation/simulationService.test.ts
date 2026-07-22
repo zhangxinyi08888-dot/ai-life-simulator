@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
-import { generateNextNode as generateNextNodeProduction, generateQuestions, startSimulation } from "./simulationService";
+import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 
@@ -18,6 +18,19 @@ const userData: UserInitialData = {
   coreStoryFocus: "career",
   milestones: [{ id: "career", title: "第一份工作", content: "进了一家传统公司" }]
 };
+
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元。",
+  currentStatus: "student"
+}), true);
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你选择保持当前工作节奏，暂不考虑新的机会。",
+  currentStatus: "employed"
+}), false);
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你辞别成都来到深圳。新公司做跨境电商SaaS，你负责前端开发。",
+  currentStatus: "student"
+}), true);
 
 const questions = await generateQuestions(userData, {
   callAiJson: async (prompt) => {
@@ -127,7 +140,8 @@ const started = await startSimulation(userData, answers, {
 });
 
 assert.equal(startAttempts, 2);
-assert.equal(started.initialAttributes.wealth, 38);
+assert.equal(started.initialAttributes.wealth, 35);
+assert.equal(started.initialAttributes.wealth, started.startNode.attributes.wealth);
 assert.equal(started.startNode.choices.length, 3);
 assert.equal(started.startNode.age, 22);
 assert.equal(started.startNode.financialLedgerMode, "authoritative");

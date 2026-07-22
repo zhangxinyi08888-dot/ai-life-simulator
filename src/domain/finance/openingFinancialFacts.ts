@@ -10,6 +10,7 @@ export interface OpeningFinancialFacts {
   mortgagePrincipalWan?: number;
   mortgageMonthlyPaymentWan?: number;
   annualAfterTaxIncomeWan?: number;
+  monthlyBasicLivingExpenseWan?: number;
 }
 
 function amountWan(value: string, unit: string): number | undefined {
@@ -43,7 +44,7 @@ export function extractOpeningFinancialFacts(userData: UserInitialData, answers:
   const evidenceText = openingFinancialEvidenceText(userData, answers);
   const mortgagePrincipalWan = matchAmount(evidenceText, [
     /(?:房贷|按揭)(?:余额|本金|还剩|剩余)[^\d]{0,10}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
-    /(?:还背着|背着)[^。；]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)[^。；]{0,8}(?:房贷|按揭)/
+    /(?:还背着|背着|背上)[^\d\n。；]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)[^\n。；]{0,8}(?:房贷|按揭)/
   ]);
   const mortgageMonthlyPaymentWan = matchAmount(evidenceText, [
     /(?:月供|每月还款|每个月还款)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
@@ -74,6 +75,10 @@ export function extractOpeningFinancialFacts(userData: UserInitialData, answers:
     annualAfterTaxIncomeWan: matchAmount(evidenceText, [
       /(?:税后年薪|税后年收入|年薪税后|年收入税后)[^\d]{0,10}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
       /(?:年薪|年收入)[^。；]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)[^。；]{0,8}(?:税后)/
+    ]),
+    monthlyBasicLivingExpenseWan: matchAmount(evidenceText, [
+      /(?:每月|每个月|月均)[^\d。；]{0,8}(?:基本)?(?:生活费|生活支出|日常开销)[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/,
+      /(?:基本)?(?:生活费|生活支出|日常开销)[^\d。；]{0,8}(?:每月|每个月|月均)?[^\d]{0,6}(\d+(?:\.\d+)?)\s*(万元|万|元)/
     ])
   };
 }
@@ -88,6 +93,9 @@ export function applyOpeningFactsToFinancialState(
   if (facts.propertyMarketValueWan !== undefined) next.propertyMarketValueWan = facts.propertyMarketValueWan;
   if (facts.mortgagePrincipalWan !== undefined) next.totalDebtWan = facts.mortgagePrincipalWan;
   if (facts.annualAfterTaxIncomeWan !== undefined) next.annualAfterTaxIncomeWan = facts.annualAfterTaxIncomeWan;
+  if (facts.monthlyBasicLivingExpenseWan !== undefined) {
+    next.annualCoreExpenseWan = roundWan(facts.monthlyBasicLivingExpenseWan * 12);
+  }
   next.annualDisposableIncomeWan = roundWan(next.annualAfterTaxIncomeWan - next.annualCoreExpenseWan);
   next.netWorthWan = roundWan(
     next.cashWan

@@ -35,6 +35,7 @@ export interface AssetAccount {
   type: AssetType;
   displayName: string;
   marketValueWan: number;
+  plausibleMarketValueRangeWan?: [number, number];
   liquidity: "liquid" | "semi_liquid" | "illiquid";
   status: "active" | "disposed";
   factStatus: FinancialFactStatus;
@@ -182,11 +183,28 @@ export interface BusinessEntityRef {
 export interface BusinessHolding {
   id: string;
   business: BusinessEntityRef;
+  /** Defaults to equity for ledgers created before option lifecycle support. */
+  instrumentType?: "equity" | "stock_option";
   ownershipRate?: number;
   attributableValueWan?: number;
   liquidityDiscountRate?: number;
+  optionTerms?: {
+    grantedUnits: number;
+    vestedUnits: number;
+    exercisedUnits: number;
+    strikePriceWanPerUnit: number;
+    grantedAtAgeInMonths?: number;
+    vestingPolicy?: {
+      totalMonths: number;
+      cliffMonths?: number;
+      frequencyMonths?: number;
+    };
+    fairValueWanPerUnit?: number;
+    realizationRiskDiscountRate?: number;
+    expiresAtAgeInMonths?: number;
+  };
   personalCarryingValueWan: number;
-  status: "active" | "partially_sold" | "sold" | "written_off";
+  status: "active" | "partially_sold" | "sold" | "written_off" | "exercised" | "expired" | "cancelled";
   factStatus: FinancialFactStatus;
   evidence: FinancialEvidence[];
 }
@@ -200,12 +218,14 @@ export interface FinancialLedgerIssue {
     | "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"
     | "UNKNOWN_DEBT_SCHEDULE"
     | "UNSUPPORTED_LARGE_VALUE_CHANGE"
+    | "ACCOUNT_TYPE_MISMATCH"
     | "LEGACY_UNCERTAINTY"
     | "PENDING_FACT"
     | "DEBT_PAYMENT_MISSED"
     | "DEBT_PAYMENT_DELINQUENT"
     | "LIQUIDITY_SHORTFALL_PERSISTED"
     | "MODEL_OPENING_BALANCE_IGNORED"
+    | "CAREER_STATE_STALE"
     | "INVALID_ASSET_TYPE";
   severity: "warning" | "blocking";
   status?: "open" | "resolved";
@@ -220,6 +240,7 @@ export interface FinancialLedgerIssue {
   occurrenceCount?: number;
   resolvedAtAgeInMonths?: number;
   resolvedByEventId?: string;
+  pendingFactPolicy?: "bounded_last_known_income";
 }
 
 interface FinancialLedgerCommon {
@@ -234,6 +255,7 @@ interface FinancialLedgerCommon {
   businessHoldings: BusinessHolding[];
   recentTransactions: FinancialTransaction[];
   committedTransactionIds: string[];
+  openingAcceptedEventIds?: string[];
   unresolvedIssues: FinancialLedgerIssue[];
   revision: number;
 }
@@ -263,9 +285,11 @@ export type FinancialEventKind =
   | "expense_commitment_ended"
   | "one_off_expense_paid"
   | "asset_purchased"
+  | "asset_balance_discovered"
   | "asset_sold"
   | "asset_revalued"
   | "debt_drawn"
+  | "debt_balance_discovered"
   | "debt_principal_repaid"
   | "debt_interest_paid"
   | "debt_restructured"
@@ -273,6 +297,12 @@ export type FinancialEventKind =
   | "debt_default_recorded"
   | "business_holding_started"
   | "business_financing_recorded"
+  | "business_option_granted"
+  | "business_option_vested"
+  | "business_option_revalued"
+  | "business_option_exercised"
+  | "business_option_expired"
+  | "business_option_cancelled"
   | "business_holding_revalued"
   | "business_distribution_received"
   | "business_holding_sold"
@@ -312,6 +342,11 @@ export interface AssetPurchasePayload {
   linkedDebtDrawEventId?: string;
 }
 
+/** A previously owned asset first becomes known in this period; no current-period cash flow. */
+export interface AssetBalanceDiscoveredPayload {
+  assetAccount: AssetAccount;
+}
+
 export interface AssetSalePayload {
   assetAccountId: string;
   destinationCashAccountId: string;
@@ -331,6 +366,11 @@ export interface DebtDrawPayload {
   debtAccount: DebtAccount;
   destinationCashAccountId: string;
   principalDrawnWan: number;
+}
+
+/** A pre-existing liability first becomes known in this period; no current-period cash flow. */
+export interface DebtBalanceDiscoveredPayload {
+  debtAccount: DebtAccount;
 }
 
 export interface DebtPrincipalRepaymentPayload {
@@ -388,6 +428,37 @@ export interface BusinessHoldingRevaluationPayload {
   valuationEvidence: FinancialEvidence[];
 }
 
+export interface BusinessOptionGrantPayload {
+  optionHolding: BusinessHolding;
+}
+
+export interface BusinessOptionVestPayload {
+  businessHoldingId: string;
+  unitsVested: number;
+}
+
+export interface BusinessOptionRevaluationPayload {
+  businessHoldingId: string;
+  previousCarryingValueWan: number;
+  fairValueWanPerUnit: number;
+  liquidityDiscountRate: number;
+  realizationRiskDiscountRate: number;
+  newCarryingValueWan: number;
+  valuationEvidence: FinancialEvidence[];
+}
+
+export interface BusinessOptionExercisePayload {
+  businessHoldingId: string;
+  unitsExercised: number;
+  sourceCashAccountId: string;
+  exerciseCostWan: number;
+  resultingEquityHolding: BusinessHolding;
+}
+
+export interface BusinessOptionClosurePayload {
+  businessHoldingId: string;
+}
+
 export interface BusinessDistributionPayload extends MoneyReceivedPayload {
   businessHoldingId: string;
 }
@@ -430,9 +501,11 @@ export interface FinancialEventPayloadMap {
   expense_commitment_ended: ExpenseCommitmentStatusPayload;
   one_off_expense_paid: MoneyPaidPayload;
   asset_purchased: AssetPurchasePayload;
+  asset_balance_discovered: AssetBalanceDiscoveredPayload;
   asset_sold: AssetSalePayload;
   asset_revalued: AssetRevaluationPayload;
   debt_drawn: DebtDrawPayload;
+  debt_balance_discovered: DebtBalanceDiscoveredPayload;
   debt_principal_repaid: DebtPrincipalRepaymentPayload;
   debt_interest_paid: DebtInterestPaymentPayload;
   debt_restructured: DebtRestructuredPayload;
@@ -440,6 +513,12 @@ export interface FinancialEventPayloadMap {
   debt_default_recorded: DebtDefaultRecordedPayload;
   business_holding_started: BusinessHoldingStartedPayload;
   business_financing_recorded: BusinessFinancingPayload;
+  business_option_granted: BusinessOptionGrantPayload;
+  business_option_vested: BusinessOptionVestPayload;
+  business_option_revalued: BusinessOptionRevaluationPayload;
+  business_option_exercised: BusinessOptionExercisePayload;
+  business_option_expired: BusinessOptionClosurePayload;
+  business_option_cancelled: BusinessOptionClosurePayload;
   business_holding_revalued: BusinessHoldingRevaluationPayload;
   business_distribution_received: BusinessDistributionPayload;
   business_holding_sold: BusinessHoldingSalePayload;
@@ -473,6 +552,7 @@ export interface FinancialTransaction {
   incomeWan: number;
   expenseWan: number;
   valuationChangeWan: number;
+  priorFactCorrectionWan?: number;
   nonCashGainLossWan: number;
   netWorthDeltaWan: number;
   debtServiceRecords?: DebtServiceRecord[];
@@ -503,6 +583,7 @@ export interface FinancialPeriodSummary {
   assetPurchaseWan: number;
   assetSaleProceedsWan: number;
   valuationChangeWan: number;
+  priorFactCorrectionWan?: number;
   netCashFlowWan: number;
   netWorthChangeWan: number;
   transactionIds: string[];

@@ -1,0 +1,41 @@
+{
+  "inspectedAt": "2026-07-19T04:20:00+08:00",
+  "status": "passed",
+  "method": "manual_visual_review",
+  "cases": [
+    {
+      "caseId": "real-career-first",
+      "reportPage": "images/real-career-first/report-page.jpg",
+      "poster": "images/real-career-first/poster.jpg",
+      "result": "readable_current_run"
+    },
+    {
+      "caseId": "real-relationship-first",
+      "reportPage": "images/real-relationship-first/report-page.jpg",
+      "poster": "images/real-relationship-first/poster.jpg",
+      "result": "readable_current_run"
+    },
+    {
+      "caseId": "real-education-second",
+      "reportPage": "images/real-education-second/report-page.jpg",
+      "poster": "images/real-education-second/poster.jpg",
+      "result": "readable_current_run"
+    },
+    {
+      "caseId": "real-venture-second",
+      "reportPage": "images/real-venture-second/report-page.jpg",
+      "poster": "images/real-venture-second/poster.jpg",
+      "result": "readable_current_run"
+    },
+    {
+      "caseId": "real-custom-lifespan",
+      "reportPage": "images/real-custom-lifespan/report-page.jpg",
+      "poster": "images/real-custom-lifespan/poster.jpg",
+      "result": "readable_current_run"
+    }
+  ],
+  "notes": [
+    "All five report-page screenshots and all five poster crops were opened and visually inspected.",
+    "The browser clip capture produced invalid black poster files; posters were deterministically recropped from the corresponding fresh report-page screenshots without reusing prior-run evidence."
+  ]
+}

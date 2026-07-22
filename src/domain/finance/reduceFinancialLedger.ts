@@ -96,6 +96,27 @@ function validateExpenseCommitment(commitment: ExpenseCommitment): void {
   nonNegativeMoney(commitment.monthlyAmountWan, `支出义务 ${commitment.id}.monthlyAmountWan`);
 }
 
+function requiredOptionHolding(ledger: FinancialLedger, id: string): BusinessHolding {
+  const holding = requiredById(ledger.businessHoldings, id, "企业期权");
+  if (holding.instrumentType !== "stock_option" || !holding.optionTerms) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `企业权益 ${id} 不是有效期权`);
+  }
+  if (holding.status !== "active" && holding.status !== "partially_sold") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `期权 ${id} 已关闭`);
+  }
+  return holding;
+}
+
+function optionCarryingValue(holding: BusinessHolding): number {
+  const terms = holding.optionTerms;
+  if (!terms || terms.fairValueWanPerUnit === undefined) return 0;
+  const availableVestedUnits = terms.vestedUnits - terms.exercisedUnits;
+  const intrinsicValueWan = availableVestedUnits * Math.max(terms.fairValueWanPerUnit - terms.strikePriceWanPerUnit, 0);
+  return roundWan(intrinsicValueWan
+    * (1 - (holding.liquidityDiscountRate || 0))
+    * (1 - (terms.realizationRiskDiscountRate || 0)));
+}
+
 interface EventTotals {
   oneOffIncomeWan: number;
   otherExpenseWan: number;
@@ -113,6 +134,7 @@ interface EventTotals {
   assetPurchaseWan: number;
   assetSaleProceedsWan: number;
   valuationChangeWan: number;
+  priorFactCorrectionWan: number;
 }
 
 function accumulatePeriodAccrual(
@@ -129,6 +151,7 @@ function accumulatePeriodAccrual(
   );
   totals.debtServiceRecords.push(...accrual.debtServiceRecords);
   totals.otherExpenseWan = roundWan(totals.otherExpenseWan + accrual.debtInterestAccruedWan);
+  totals.valuationChangeWan = roundWan(totals.valuationChangeWan + accrual.valuationChangeWan);
   return { incomeWan: accrual.incomeWan, coreExpenseWan: accrual.coreExpenseWan };
 }
 
@@ -342,6 +365,14 @@ function applyEvent(
       totals.otherExpenseWan = roundWan(totals.otherExpenseWan + fee);
       return;
     }
+    case "asset_balance_discovered": {
+      const asset = event.payload.assetAccount;
+      assertNewId(ledger.assetAccounts, asset.id, "资产账户");
+      const value = nonNegativeMoney(asset.marketValueWan, "asset_balance_discovered.assetAccount.marketValueWan");
+      ledger.assetAccounts.push(structuredClone({ ...asset, marketValueWan: value }));
+      totals.priorFactCorrectionWan = roundWan(totals.priorFactCorrectionWan + value);
+      return;
+    }
     case "asset_sold": {
       const payload = event.payload;
       const asset = requiredById(ledger.assetAccounts, payload.assetAccountId, "资产账户");
@@ -392,6 +423,14 @@ function applyEvent(
       ledger.debtAccounts.push(createdDebt);
       changeCash(ledger, payload.destinationCashAccountId, principal);
       totals.debtPrincipalDrawnWan = roundWan(totals.debtPrincipalDrawnWan + principal);
+      return;
+    }
+    case "debt_balance_discovered": {
+      const debt = event.payload.debtAccount;
+      assertNewId(ledger.debtAccounts, debt.id, "债务账户");
+      const principal = positiveMoney(debt.principalWan, "debt_balance_discovered.debtAccount.principalWan");
+      ledger.debtAccounts.push(normalizeDebtAccountV3({ ...structuredClone(debt), principalWan: principal }));
+      totals.priorFactCorrectionWan = roundWan(totals.priorFactCorrectionWan - principal);
       return;
     }
     case "debt_principal_repaid": {
@@ -520,6 +559,109 @@ function applyEvent(
       totals.assetPurchaseWan = roundWan(totals.assetPurchaseWan + invested);
       return;
     }
+    case "business_option_granted": {
+      const holding = structuredClone(event.payload.optionHolding);
+      assertNewId(ledger.businessHoldings, holding.id, "企业期权");
+      if (holding.instrumentType !== "stock_option" || !holding.optionTerms || holding.optionTerms.grantedUnits < 0) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权授予事件必须创建具有非负授予数量的 stock_option holding 和 optionTerms");
+      }
+      if (holding.optionTerms.grantedUnits === 0 && holding.factStatus !== "needs_review") {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "授予数量未知的期权只能以 needs_review 保存");
+      }
+      if (holding.personalCarryingValueWan !== 0 || holding.optionTerms.exercisedUnits !== 0) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "授予期权在可靠估值前不得直接计入个人财富");
+      }
+      if (holding.optionTerms.fairValueWanPerUnit !== undefined) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权公允价值只能通过独立重估事件进入账本");
+      }
+      if (holding.optionTerms.vestedUnits > holding.optionTerms.grantedUnits) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "已归属期权数量不得超过授予数量");
+      }
+      holding.optionTerms.grantedAtAgeInMonths ??= event.effectiveAtAgeInMonths;
+      const vestingPolicy = holding.optionTerms.vestingPolicy;
+      if (vestingPolicy && (vestingPolicy.totalMonths <= 0
+        || (vestingPolicy.cliffMonths ?? 0) < 0
+        || (vestingPolicy.frequencyMonths ?? 1) <= 0
+        || (vestingPolicy.cliffMonths ?? 0) > vestingPolicy.totalMonths)) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权固定归属政策的期限、悬崖期或结算频率无效");
+      }
+      holding.status = "active";
+      ledger.businessHoldings.push(holding);
+      return;
+    }
+    case "business_option_vested": {
+      const holding = requiredOptionHolding(ledger, event.payload.businessHoldingId);
+      const terms = holding.optionTerms!;
+      const units = positiveMoney(event.payload.unitsVested, "business_option_vested.unitsVested");
+      if (terms.vestedUnits + units > terms.grantedUnits) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "归属数量超过尚未归属的期权数量");
+      }
+      const previousValue = holding.personalCarryingValueWan;
+      terms.vestedUnits = roundWan(terms.vestedUnits + units);
+      holding.personalCarryingValueWan = optionCarryingValue(holding);
+      totals.valuationChangeWan = roundWan(totals.valuationChangeWan + holding.personalCarryingValueWan - previousValue);
+      return;
+    }
+    case "business_option_revalued": {
+      const payload = event.payload;
+      const holding = requiredOptionHolding(ledger, payload.businessHoldingId);
+      if (roundWan(holding.personalCarryingValueWan) !== roundWan(payload.previousCarryingValueWan)) {
+        throw new FinancialLedgerInvariantError("REVISION_CONFLICT", `期权 ${holding.id} 的旧账面价值不一致`);
+      }
+      const fairValue = nonNegativeMoney(payload.fairValueWanPerUnit, "business_option_revalued.fairValueWanPerUnit");
+      if (payload.liquidityDiscountRate < 0 || payload.liquidityDiscountRate > 1
+        || payload.realizationRiskDiscountRate < 0 || payload.realizationRiskDiscountRate > 1) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权的流动性和实现风险折扣必须在 0-1 之间");
+      }
+      if (!payload.valuationEvidence.length) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权重估必须提供可靠估值证据");
+      holding.optionTerms!.fairValueWanPerUnit = fairValue;
+      holding.optionTerms!.realizationRiskDiscountRate = payload.realizationRiskDiscountRate;
+      holding.liquidityDiscountRate = payload.liquidityDiscountRate;
+      const expected = optionCarryingValue(holding);
+      if (roundWan(payload.newCarryingValueWan) !== expected) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", `已归属期权的个人账面价值应为 ${expected} 万元，不能使用融资额或期权名义金额`);
+      }
+      totals.valuationChangeWan = roundWan(totals.valuationChangeWan + expected - holding.personalCarryingValueWan);
+      holding.personalCarryingValueWan = expected;
+      holding.factStatus = event.evidence.some((item) => item.confidence < 0.8) ? "estimated" : "known";
+      holding.evidence.push(...structuredClone(payload.valuationEvidence));
+      return;
+    }
+    case "business_option_exercised": {
+      const payload = event.payload;
+      const holding = requiredOptionHolding(ledger, payload.businessHoldingId);
+      const terms = holding.optionTerms!;
+      const units = positiveMoney(payload.unitsExercised, "business_option_exercised.unitsExercised");
+      if (units > terms.vestedUnits - terms.exercisedUnits) throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "行权数量超过可行权的已归属期权");
+      if (terms.fairValueWanPerUnit === undefined) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "期权行权前必须有可靠公允价值");
+      const expectedCost = roundWan(units * terms.strikePriceWanPerUnit);
+      if (roundWan(payload.exerciseCostWan) !== expectedCost) throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", `行权成本应为 ${expectedCost} 万元`);
+      const equity = structuredClone(payload.resultingEquityHolding);
+      assertNewId(ledger.businessHoldings, equity.id, "行权所得股权");
+      if ((equity.instrumentType || "equity") !== "equity" || equity.business.id !== holding.business.id) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "行权所得必须是同一企业的普通股权 holding");
+      }
+      const grossEquityValue = roundWan(units * terms.fairValueWanPerUnit);
+      const expectedEquityValue = roundWan(grossEquityValue * (1 - (equity.liquidityDiscountRate || 0)));
+      if (roundWan(equity.personalCarryingValueWan) !== expectedEquityValue) throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", `行权所得股权账面价值应为 ${expectedEquityValue} 万元`);
+      const previousOptionValue = holding.personalCarryingValueWan;
+      changeCash(ledger, payload.sourceCashAccountId, -expectedCost);
+      terms.exercisedUnits = roundWan(terms.exercisedUnits + units);
+      holding.personalCarryingValueWan = optionCarryingValue(holding);
+      if (terms.exercisedUnits === terms.grantedUnits) holding.status = "exercised";
+      ledger.businessHoldings.push(equity);
+      totals.assetPurchaseWan = roundWan(totals.assetPurchaseWan + expectedCost);
+      totals.valuationChangeWan = roundWan(totals.valuationChangeWan + equity.personalCarryingValueWan + holding.personalCarryingValueWan - previousOptionValue);
+      return;
+    }
+    case "business_option_expired":
+    case "business_option_cancelled": {
+      const holding = requiredOptionHolding(ledger, event.payload.businessHoldingId);
+      totals.valuationChangeWan = roundWan(totals.valuationChangeWan - holding.personalCarryingValueWan);
+      holding.personalCarryingValueWan = 0;
+      holding.status = event.kind === "business_option_expired" ? "expired" : "cancelled";
+      return;
+    }
     case "business_holding_revalued": {
       const payload = event.payload;
       const holding = requiredById(ledger.businessHoldings, payload.businessHoldingId, "企业持股");
@@ -644,7 +786,8 @@ export function reduceFinancialLedger(input: {
     debtServiceRecords: [],
     assetPurchaseWan: 0,
     assetSaleProceedsWan: 0,
-    valuationChangeWan: 0
+    valuationChangeWan: 0,
+    priorFactCorrectionWan: 0
   };
   let recurringIncomeWan = 0;
   let coreExpenseWan = 0;
@@ -811,9 +954,13 @@ export function reduceFinancialLedger(input: {
   const incomeWan = roundWan(recurringIncomeWan + totals.oneOffIncomeWan);
   const expenseWan = roundWan(coreExpenseWan + totals.otherExpenseWan);
   const netWorthDeltaWan = roundWan(afterNetWorth - beforeNetWorth);
-  const nonCashGainLossWan = roundWan(netWorthDeltaWan - incomeWan + expenseWan - totals.valuationChangeWan);
+  const nonCashGainLossWan = roundWan(
+    netWorthDeltaWan - incomeWan + expenseWan - totals.valuationChangeWan - totals.priorFactCorrectionWan
+  );
   const expectedDebtDeltaWan = roundWan(
     totals.debtPrincipalDrawnWan
+    + events.filter((event) => event.kind === "debt_balance_discovered")
+      .reduce((sum, event) => sum + event.payload.debtAccount.principalWan, 0)
     + automaticLiquidityShortfallIncreaseWan
     + totals.debtInterestAccruedWan
     - totals.debtPrincipalPaidWan
@@ -842,6 +989,7 @@ export function reduceFinancialLedger(input: {
     incomeWan,
     expenseWan,
     valuationChangeWan: totals.valuationChangeWan,
+    priorFactCorrectionWan: totals.priorFactCorrectionWan,
     nonCashGainLossWan,
     netWorthDeltaWan,
     debtServiceRecords: totals.debtServiceRecords,
@@ -860,7 +1008,7 @@ export function reduceFinancialLedger(input: {
   next.recentTransactions = [...next.recentTransactions, transaction].slice(-RECENT_TRANSACTION_LIMIT);
   assertFinancialLedgerInvariants(next);
 
-  const expectedNetWorthDelta = roundWan(incomeWan - expenseWan + totals.valuationChangeWan + nonCashGainLossWan);
+  const expectedNetWorthDelta = roundWan(incomeWan - expenseWan + totals.valuationChangeWan + totals.priorFactCorrectionWan + nonCashGainLossWan);
   if (expectedNetWorthDelta !== netWorthDeltaWan) {
     throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "净资产变化无法由收入、支出、估值和非现金损益解释");
   }
@@ -877,6 +1025,7 @@ export function reduceFinancialLedger(input: {
     assetPurchaseWan: totals.assetPurchaseWan,
     assetSaleProceedsWan: totals.assetSaleProceedsWan,
     valuationChangeWan: totals.valuationChangeWan,
+    priorFactCorrectionWan: totals.priorFactCorrectionWan,
     netCashFlowWan: transaction.cashDeltaWan,
     netWorthChangeWan: netWorthDeltaWan,
     transactionIds: [transaction.id]

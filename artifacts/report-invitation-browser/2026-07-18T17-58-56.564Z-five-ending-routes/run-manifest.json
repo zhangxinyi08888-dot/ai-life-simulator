@@ -1,0 +1,34 @@
+{
+  "runId": "2026-07-18T17-58-56.564Z-five-ending-routes",
+  "runStartedAt": "2026-07-18T17:59:57.248Z",
+  "generatedAt": "2026-07-18T19:41:37.418Z",
+  "repositoryCommit": "7d0f0b13aca50da846e6b83d2d1e5f80acb7f6f6",
+  "repositoryDirty": true,
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "path": "cases/real-career-first.json"
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "path": "cases/real-custom-lifespan.json"
+    },
+    {
+      "caseSlug": "real-education-second",
+      "scenario": "accept_second",
+      "path": "cases/real-education-second.json"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "path": "cases/real-relationship-first.json"
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "scenario": "accept_second",
+      "path": "cases/real-venture-second.json"
+    }
+  ]
+}

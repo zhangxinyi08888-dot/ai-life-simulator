@@ -108,6 +108,17 @@ test("wealth score is deterministic and responds to financial capacity", () => {
   assert.ok(deriveWealthScore(high) <= 100);
 });
 
+test("zero or unknown living expense does not receive a perfect liquidity score", () => {
+  const base = normalizeInitialFinancialState({
+    cashWan: 24, investmentAssetsWan: 0, propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0, totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 12, annualDisposableIncomeWan: 12,
+    annualCoreExpenseWan: 0, incomeStability: "stable", isEstimated: true
+  }, 30 * 12, 50);
+  const withKnownExpense = { ...base, annualCoreExpenseWan: 12, annualDisposableIncomeWan: 0 };
+  assert.ok(deriveWealthScore(base) < deriveWealthScore(withKnownExpense));
+});
+
 test("supports negative wealth and compact display units", () => {
   const state = normalizeInitialFinancialState({
     cashWan: 10,

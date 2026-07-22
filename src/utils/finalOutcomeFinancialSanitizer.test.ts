@@ -50,4 +50,5 @@ test("final report keeps derived amounts and removes unsupported narrative money
   assert.doesNotMatch(sanitized.report.finalLifeReading.paragraphs[0], /100万元|300%/);
   assert.match(sanitized.report.finalLifeReading.paragraphs[0], /财务现实仍在变化/);
   assert.doesNotMatch(sanitized.report.finalLifeReading.paragraphs[0], /价值待确认|账本确认|金额待/u);
+  assert.doesNotMatch(JSON.stringify(sanitized), /金额待账本确认|回报幅度待账本确认|回报率待账本确认/);
 });

@@ -9,6 +9,7 @@ import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance"
 import { formatFinancialStateForPrompt } from "../../utils/financialState";
 import type { AcceptedFinancialEvent, DebtHealthState, FinancialEventProposal, FinancialLedger, FinancialLedgerIssue } from "../../domain/finance";
 import { formatDebtNarrativeAuthorityForPrompt } from "../../utils/debtNarrativeAuthority";
+import { financialEvidenceCandidates } from "../../domain/finance/evidenceMatching";
 
 const FINANCIAL_NARRATIVE_RULE = `- 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
 - 允许描述本阶段实际发生的交易金额，例如月薪、房租、医疗费、首付、贷款、投资额和项目收入。`;
@@ -315,18 +316,26 @@ ${formatDecisionIntentRules()}
 - 已接受选择明确写有“辞职”“离职”“开始创业”或“全职创业”时，本轮必须提交 employmentTransition；辞职创业的 toStatus 使用 self_employed，不能只在正文写成已完成。
 - 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。
 ${targetAgeInMonths >= 55 * 12 ? "- 主角已满 55 岁：如果 description 明确写出已经退休、离职或停止工作，必须同时提交 employmentTransition，以及结束或暂停账本摘要中 linkedCareerStateId 对应当前职业的工资收入；租金、版税、年金等非职业收入不得结束。" : ""}
+${targetAgeInMonths >= 80 * 12 ? "- 主角已满 80 岁：本节点不得继续沿用 employed。若仍持续独立创作、顾问或经营，应提交到 self_employed 的 employmentTransition 并迁移职业收入；否则必须提交 retired 或 not_working，并结束 linkedCareerStateId 对应工资。非职业收入继续保留。" : ""}
 ${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
 ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - financialEventProposals 必须放在返回 JSON 顶层；没有已经发生的财务变化时返回空数组，不得重复返回全部现有余额。
 - 每项 Proposal 必须包含 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence、financialScope。financialScope 只能是 personal 或 business_operating；sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时返回空数组。
 - evidence 必须摘自 description 中已经发生的事实句；系统会做标点、空白和金额锚定匹配。confidence 在 0.8-1 时按明确事实提交，0.6-0.8 时按 estimated 提交；低于 0.6、候选选项、计划和意向不能提交。
 - 持续收入或支出分别使用 income_source_started/adjusted/paused/ended 与 expense_commitment_started/adjusted/ended；一次性收支使用 one_off_income_received/one_off_expense_paid。
+- 这是主人公个人账本：公司营收、SaaS 年费、客户回款，以及公益中心/基金会/协会收到的资助、拨款、赞助和项目款，一律不得写入个人 incomeSources；团队或机构的员工工资、会计薪酬、仓库/场地租金、服务器和运营成本一律不得写入个人 expenseCommitments。主人公实际领取的税后工资、自雇提款、个人顾问费或已经分配到账的分红才可作为个人收入。
+- description 若明确写出主人公已经生效的月薪或年薪，必须提交与该金额匹配的职业收入 started/adjusted；即使同一段还写了机构资助、公司营收或团队成本，也不能用这些组织金额代替主人公薪酬。
+- 伴侣、父母、子女、同事和其他人物的工资、顾问费、分红或经营收入不属于主人公个人账本；不得为其创建 incomeSources，也不得把其绑定到主人公 CareerState。只有正文明确写出该人物把钱转给主人公时，才可使用 family_support_received 记录实际到账金额。
+- basic_living 或 housing 基线已经存在时必须引用账本 ID 使用 expense_commitment_adjusted；不得再 started 一个“基本生活与房贷”等混合义务造成重复计提。照护、医疗和保险可以按不同责任分别建账。房贷本金与利息由 debt repayment policy 结算，不能再次混入 basic_living。
 - 新工作工资不得与账本摘要里的旧职业收入叠加：同一职业内薪资变化优先用 income_source_adjusted；换工作必须同时提交旧职业收入的 income_source_ended 和带 linkedCareerStateId 的新 income_source_started。职业、组织或岗位改变时，即使 employmentStatus 仍为 employed，也要提交新的 employmentTransition。
 - 主角亲自经营所得的个人可支配收入必须使用 type="self_employment_draw" 并关联新 CareerState；不得把公司营业收入或创业者个人收入写成 type="other"。辞职创业时必须原子提交旧工资结束、self_employed 转换和新 self_employment_draw（正文未确认个人收入时可不启动新收入）。
 - 正文必须严格区分月薪和年薪：年薪 22 万不得写成月薪 22 万；Proposal 的 monthlyNetAmountWan 与正文月薪必须相同，annualNetAmountWan 与正文年薪必须相同。
 - 借款、还本、利息、资产购买、资产出售和重估必须使用各自有方向的事件；不得返回债务净变化、资产净变化或最终余额。
 - 主角首次以个人现金创办/出资公司时使用 business_holding_started，同时创建个人持股并等额扣减个人现金；公司融资只能用 business_financing_recorded，payload.personalCashReceivedWan 必须为 0；个人分红和出售持股分别使用 business_distribution_received、business_holding_sold。
 - 公司营业收入、合同额、员工工资、销售提成、服务器和公司房租都属于 financialScope="business_operating"，不得用个人 income_source_*、expense_commitment_* 或 one_off_* 入账。主角实际领取的税后工资、业主提款、已到账分红属于 financialScope="personal"，分别使用 salary、self_employment_draw、business_distribution_received。
+- 新获得或首次确认创始人/合伙人股权时先用 business_holding_started 创建 equity holding；公司融资只能用 business_financing_recorded，payload.personalCashReceivedWan 必须为 0；个人分红和出售持股分别使用 business_distribution_received、business_holding_sold。融资额、公司估值和期权名义金额都不得直接当作个人财富。
+- “接受干股”“成为联合创始人/合伙人”“新的股权结构中你占X%”都属于主人公个人权益事实，必须提交 business_holding_started；即使估值未知，也要创建 personalCarryingValueWan=0、factStatus=needs_review 的 equity holding，不能只提交主人公对公司的补贴或工资变化。
+- 期权必须走生命周期事件：授予 business_option_granted、归属 business_option_vested、可靠估值 business_option_revalued、行权 business_option_exercised、到期/取消 business_option_expired/cancelled。未归属期权只记录权利、personalCarryingValueWan=0；已归属期权只有同时具备公允单价、行权价和折扣时才计入财富。
 - employmentStatus 不属于财务 Proposal，只能通过 career_state.employmentTransition 提交。
 - 所有金额单位都是万元，例如 500 元=0.05 万元；不要返回 incomeMonths、netWorthWan、netWorthChangeWan、financialChange 或自行计算 wealth。
 - 学生阶段的估算基础生活费已有家庭基本支持对冲；不得仅因正常上学生活费提交个人负债。只有正文明确出现助学贷款、分期、信用卡或个人借款时才提交 debt_drawn。
@@ -368,7 +377,11 @@ financialEventProposals 示例（仅在正文确实发生对应事实时使用�
 - 只要返回 debt_drawn，description 必须包含一整句可逐字引用的完成事实，例如“银行已将20万元贷款全额放入你的现金账户。”；Proposal.evidence 必须逐字复制该句。仅写“申请贷款后”、月供或未来计划不足以证明已经放款。
 - 主角首次用个人现金创办公司或取得创始人持股时提交：{ "id": "start_business_current_node", "kind": "business_holding_started", "payload": { "sourceCashAccountId": "必须从账本摘要选择现金账户 id", "businessHolding": { "id": "holding_current_node", "business": { "id": "business_current_node", "displayName": "正文中的公司名", "status": "operating", "factStatus": "known", "evidence": [] }, "ownershipRate": 1, "attributableValueWan": 10, "liquidityDiscountRate": 0, "personalCarryingValueWan": 10, "status": "active", "factStatus": "known", "evidence": [] }, "personalCashInvestedWan": 10 }, "financialScope": "personal" }。personalCarryingValueWan 必须等于 personalCashInvestedWan；公司后续房租、员工工资和营业收入不进入个人账本。
 - 房贷借入：debt_drawn 创建 mortgage 债务并把本金转入现金账户；买房另用 asset_purchased，并通过 linkedDebtDrawEventId 引用该借款 Proposal id。还本金只用 debt_principal_repaid，不能写债务净变化。
+- 迟到事实：若正文只是本轮首次说明主人公此前已经拥有房产或尚有房贷，而不是本轮发生购买/借款，分别使用 asset_balance_discovered 和 debt_balance_discovered。payload 只包含完整 assetAccount 或 debtAccount；它们修正期初事实，不得增减本期现金，也不得伪装成本期收益。
 - 持股估值：只有融资额而没有可靠估值时先提交 business_financing_recorded，personalCashReceivedWan=0；已有持股标 needs_review。只有正文同时给出估值或可验证持股价值时才提交 business_holding_revalued。
+- 期权授予：business_option_granted.payload.optionHolding 必须使用 instrumentType="stock_option"，包含 optionTerms.grantedUnits/vestedUnits/exercisedUnits/strikePriceWanPerUnit；已知固定归属表时写入 optionTerms.vestingPolicy={totalMonths,cliffMonths?,frequencyMonths?}，已知到期年龄时写入 optionTerms.expiresAtAgeInMonths。授予时 personalCarryingValueWan 必须为 0。固定归属表由账本按期间确定性结算；没有固定表时，实际归属用 business_option_vested。有可靠公允单价后用 business_option_revalued，newCarryingValueWan 只能等于“剩余已归属数量 × max(公允单价-行权价,0) × (1-流动性折扣) × (1-实现风险折扣)”。
+- 归属期或“分四年归属”不是期权到期日。正文没有明确“到期/有效期/失效年龄”时严禁填写 expiresAtAgeInMonths，也不能把 vestingPolicy.totalMonths 换算成到期年龄。
+- 期权行权：business_option_exercised 必须引用账本中的期权 holding 和现金账户，exerciseCostWan=行权数量×行权单价，并创建同一公司的 resultingEquityHolding；不得只增加股权而不扣行权现金。
 
 ${formatAttributeChangeRules()}
 
@@ -389,8 +402,8 @@ export function formatRestrictedFinancialLedger(ledger?: FinancialLedger): strin
   const debts = ledger.debtAccounts.filter((item) => item.status === "active").map((item) => (
     `- 债务账户 ${item.id}: type=${item.type}, principal=${item.principalWan}, policy=${item.repaymentPolicy.mode}, factStatus=${item.factStatus}`
   ));
-  const holdings = ledger.businessHoldings.filter((item) => item.status !== "sold").map((item) => (
-    `- 持股 ${item.id}: company=${item.business.displayName}, carryingValue=${item.personalCarryingValueWan}, factStatus=${item.factStatus}`
+  const holdings = ledger.businessHoldings.filter((item) => !["sold", "written_off", "exercised", "expired", "cancelled"].includes(item.status)).map((item) => (
+    `- 企业权益 ${item.id}: instrument=${item.instrumentType || "equity"}, company=${item.business.displayName}, carryingValue=${item.personalCarryingValueWan}, optionGranted=${item.optionTerms?.grantedUnits ?? "-"}, optionVested=${item.optionTerms?.vestedUnits ?? "-"}, optionExercised=${item.optionTerms?.exercisedUnits ?? "-"}, strike=${item.optionTerms?.strikePriceWanPerUnit ?? "-"}, fairValue=${item.optionTerms?.fairValueWanPerUnit ?? "-"}, factStatus=${item.factStatus}`
   ));
   const issues = ledger.unresolvedIssues.filter((item) => item.status !== "resolved").map((item) => (
     `- open issue ${item.id}: code=${item.code}, occurrences=${item.occurrenceCount ?? 1}, age=${item.createdAtAgeInMonths}-${item.lastObservedAtAgeInMonths ?? item.createdAtAgeInMonths}, ${item.summary}`
@@ -465,6 +478,10 @@ export function buildFinancialProposalRepairPrompt(input: {
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
 }): string {
+  const evidenceCandidates = input.rejectedProposals.map((proposal) => ({
+    proposalId: proposal.id,
+    candidates: financialEvidenceCandidates({ proposal, narrativeText: input.narrativeText })
+  }));
   return `你只修复财务 Proposal，不得重写故事正文，不得返回解释。
 
 【不可修改的当前正文】
@@ -488,6 +505,12 @@ ${JSON.stringify(input.rejectedEmploymentTransition || null, null, 2)}
 【逐条拒绝原因】
 ${JSON.stringify(input.issues.map((issue) => ({ proposalIds: issue.relatedProposalIds, code: issue.code, summary: issue.summary })), null, 2)}
 
+【正文候选原句与金额锚（万）】
+${JSON.stringify(evidenceCandidates, null, 2)}
+
+【Coverage issue 可用的正文原句】
+${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) => item.trim()).filter(Boolean), null, 2)}
+
 只返回：
 { "employmentTransition": 修正后的职业转换或 null, "financialEventProposals": [修正后的 Proposal] }
 
@@ -496,6 +519,9 @@ ${JSON.stringify(input.issues.map((issue) => ({ proposalIds: issue.relatedPropos
 - MISSING_FUNDING_SOURCE 必须通过正文已经支持的明确借款、资产出售、家庭支持到账、收入到账来补足；若正文只表达计划、尝试或协商，可以省略尚未发生的支出。禁止依赖后台自动缺口，禁止把 liquidityTreatment 写入 Proposal。
 - 资产购买、投资或企业出资、债务本金/利息、债务重组费用都必须有明确可用现金或同一原子组内有正文证据的资金来源；不能用新的自动短期周转来让它们通过。
 - 正文或已接受选择明确发生辞职、离职、创业、退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新职业收入（如有）一起返回；辞职创业使用 toStatus="self_employed"，个人经营所得使用 type="self_employment_draw" 且 linkedCareerStateId 指向新 CareerState，不得使用 type="other"。该组要么全部提交，要么全部不提交。
+- 只修正被拒 Proposal，或为逐条拒绝原因中的 narrative coverage issue 补交正文已经发生但遗漏的 Proposal；不能新增正文没有发生的事实。为满足原子依赖，可以同时补充同一收入替换所必需的旧来源 income_source_ended、同一资产购买所必需的 debt_drawn，或公司融资前遗漏的 business_holding_started。
+- coverage 指向“此前已有房产/尚有房贷”而非本期购买/借入时，必须分别使用 asset_balance_discovered / debt_balance_discovered；不得用 asset_purchased / debt_drawn 制造不存在的本期现金流。若正文没有可靠余额，账户 factStatus=needs_review，余额使用正文支持的保守值；不能凭空补市场价。
+- 正文明确发生退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新顾问收入（如有）一起返回；三者将作为一个原子组，要么全部提交，要么全部不提交。
 - employmentTransition 必须完整返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、occupation（如有）、evidence、confidence；证据与置信度规则和财务 Proposal 相同。
 - 每项都必须完整返回 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence、financialScope；不得省略 confidence。公司营业收入、员工工资和运营成本使用 business_operating，个人工资、业主提款和已到账分红使用 personal；business_operating 事实不得伪装成个人收支 Proposal。
 - debt_drawn 的 payload 必须是 { "debtAccount": 完整债务账户, "destinationCashAccountId": "账本中的现金账户 id", "principalDrawnWan": 本次到账本金 }。不得返回把 id、type、principalAmountWan、annualInterestRate、termMonths 平铺在 payload 的旧格式；debtAccount.principalWan 必须等于 principalDrawnWan。
@@ -505,7 +531,7 @@ ${JSON.stringify(input.issues.map((issue) => ({ proposalIds: issue.relatedPropos
 - sourceOutcomeId 必须为 ${input.acceptedOutcomeId}。
 - 调整现有收入、支出、债务或持股时必须引用上方真实 ID。
 - effectiveAtAgeInMonths 必须位于本阶段范围。
-- evidence 必须逐字复制当前正文中已经发生事实的完整原句，金额、主语和事件方向一致；禁止概括或改写。
+- evidence 必须优先从“正文候选原句”逐字复制当前正文中已经发生事实的完整原句，并核对 amountAnchorsWan 与 payload 金额；金额、主语和事件方向必须一致，禁止概括或改写。
 - confidence 必须在 0.6-1 之间；正文逐字明确支持时使用 0.8-1，只能估计时使用 0.6-0.8，低于 0.6 时直接省略该 Proposal。
 - 无法可靠修正的 Proposal 直接省略。`;
 }

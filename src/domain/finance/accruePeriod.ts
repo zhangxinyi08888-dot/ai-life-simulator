@@ -10,6 +10,7 @@ export interface PeriodAccrual {
   debtInterestUnpaidWan: number;
   automaticLiquidityShortfallRecoveryWan: number;
   debtServiceRecords: DebtServiceRecord[];
+  valuationChangeWan: number;
 }
 
 export interface AccruePeriodOptions {
@@ -49,6 +50,38 @@ function accrueIncomeAndEssentials(ledger: FinancialLedger, start: number, end: 
     coreExpenseWan += commitment.monthlyAmountWan * months;
   }
   return { incomeWan: roundWan(incomeWan), coreExpenseWan: roundWan(coreExpenseWan) };
+}
+
+function accrueBusinessOptionValuation(ledger: FinancialLedger, periodEndAgeInMonths: number): number {
+  let valuationChangeWan = 0;
+  for (const holding of ledger.businessHoldings) {
+    const terms = holding.optionTerms;
+    if (holding.instrumentType !== "stock_option" || !terms || holding.status !== "active") continue;
+    const previousValueWan = holding.personalCarryingValueWan;
+    if (terms.expiresAtAgeInMonths !== undefined && terms.expiresAtAgeInMonths <= periodEndAgeInMonths) {
+      holding.personalCarryingValueWan = 0;
+      holding.status = "expired";
+      valuationChangeWan = roundWan(valuationChangeWan - previousValueWan);
+      continue;
+    }
+    const policy = terms.vestingPolicy;
+    if (!policy || terms.grantedAtAgeInMonths === undefined || periodEndAgeInMonths <= terms.grantedAtAgeInMonths) continue;
+    const elapsedMonths = Math.min(policy.totalMonths, periodEndAgeInMonths - terms.grantedAtAgeInMonths);
+    const cliffMonths = policy.cliffMonths ?? 0;
+    const frequencyMonths = policy.frequencyMonths ?? 1;
+    const settledMonths = elapsedMonths < cliffMonths ? 0 : Math.floor(elapsedMonths / frequencyMonths) * frequencyMonths;
+    const targetVestedUnits = roundWan(terms.grantedUnits * Math.min(1, settledMonths / policy.totalMonths));
+    if (targetVestedUnits > terms.vestedUnits) terms.vestedUnits = targetVestedUnits;
+    if (terms.fairValueWanPerUnit !== undefined) {
+      const availableVestedUnits = Math.max(0, terms.vestedUnits - terms.exercisedUnits);
+      const intrinsicValueWan = availableVestedUnits * Math.max(terms.fairValueWanPerUnit - terms.strikePriceWanPerUnit, 0);
+      holding.personalCarryingValueWan = roundWan(intrinsicValueWan
+        * (1 - (holding.liquidityDiscountRate || 0))
+        * (1 - (terms.realizationRiskDiscountRate || 0)));
+      valuationChangeWan = roundWan(valuationChangeWan + holding.personalCarryingValueWan - previousValueWan);
+    }
+  }
+  return valuationChangeWan;
 }
 
 function serviceDebtForMonth(
@@ -160,7 +193,8 @@ export function accruePeriodSlice(
     debtInterestAccruedWan: 0,
     debtInterestUnpaidWan: 0,
     automaticLiquidityShortfallRecoveryWan: 0,
-    debtServiceRecords: []
+    debtServiceRecords: [],
+    valuationChangeWan: accrueBusinessOptionValuation(ledger, periodEndAgeInMonths)
   };
   const cash = primaryCashAccount(ledger);
   for (let start = periodStartAgeInMonths; start < periodEndAgeInMonths; start += 1) {

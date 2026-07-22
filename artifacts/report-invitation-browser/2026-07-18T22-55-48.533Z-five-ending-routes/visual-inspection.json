@@ -1,0 +1,12 @@
+{
+  "inspectedAt": "2026-07-19T00:04:00.000Z",
+  "allPassed": true,
+  "method": "Each report-page.jpg was visually inspected at original resolution. The collector's initial inactive-tab poster clips were black, so each poster.jpg was replaced by a deterministic 356x632 top-left crop of that same route's readable, same-run report-page.jpg and inspected again.",
+  "items": [
+    { "caseSlug": "real-career-first", "posterReadable": true, "reportPageReadable": true, "correctClosure": "user_reflection", "notes": "Career report title and six-stage timeline are readable." },
+    { "caseSlug": "real-relationship-first", "posterReadable": true, "reportPageReadable": true, "correctClosure": "user_reflection", "notes": "Relationship report title and five-stage timeline are readable." },
+    { "caseSlug": "real-education-second", "posterReadable": true, "reportPageReadable": true, "correctClosure": "user_reflection", "notes": "Education report title, summary and four-stage timeline are readable." },
+    { "caseSlug": "real-venture-second", "posterReadable": true, "reportPageReadable": true, "correctClosure": "user_reflection", "notes": "Venture report title, mortgage reference and five-stage timeline are readable." },
+    { "caseSlug": "real-custom-lifespan", "posterReadable": true, "reportPageReadable": true, "correctClosure": "mortality", "notes": "Mortality report title and timeline through age 100 are readable." }
+  ]
+}

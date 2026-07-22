@@ -143,6 +143,17 @@ const narrativeRepairPrompt = buildFinancialNarrativeRepairPrompt({
 assert.match(narrativeRepairPrompt, /不得继续声称贷款已经获批、放款、到账/);
 assert.match(narrativeRepairPrompt, /不得继续声称已经产生该笔贷款的月供、还贷或欠款/);
 
+const lateCareerPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history: [{ ...history[0], age: 80, ageInMonths: 960 }],
+  currentAttributes,
+  selectedDecision: "继续独立写作",
+  eventSeed: healthWarningEvent
+});
+assert.match(lateCareerPrompt, /主角已满 80 岁：本节点不得继续沿用 employed/);
+assert.match(lateCareerPrompt, /self_employed/);
+
 const healthArcBase: PressureArcState = {
   id: "pressure_health_test",
   eventId: "health_forced_pause",
