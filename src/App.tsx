@@ -120,6 +120,7 @@ export default function App() {
   const [nextGenerationStage, setNextGenerationStage] = useState<NextGenerationStage>("preparing");
   const [nextNarrativePreview, setNextNarrativePreview] = useState<StreamedNodePreview | null>(null);
   const [nextGenerationError, setNextGenerationError] = useState<string | null>(null);
+  const [nextGenerationErrorDebug, setNextGenerationErrorDebug] = useState<string | null>(null);
   const [pendingNextChoice, setPendingNextChoice] = useState<string | null>(null);
   const nextGenerationAbortRef = useRef<AbortController | null>(null);
   const nextNarrativePreviewRef = useRef<StreamedNodePreview | null>(null);
@@ -153,6 +154,7 @@ export default function App() {
       setIsLoadingNext(false);
       setNextNarrativePreview(null);
       setNextGenerationError(null);
+      setNextGenerationErrorDebug(null);
       setPendingNextChoice(null);
       setErrorMsg(null);
       setShowTestStateImporter(false);
@@ -187,6 +189,7 @@ export default function App() {
       isLoadingNext,
       nextNarrativePreview,
       nextGenerationError,
+      nextGenerationErrorDebug,
       errorMsg,
       invitations: history.flatMap((item, index) => item.reportInvitation ? [{ nodeIndex: index, ...item.reportInvitation, terminalAction: item.selectedChoice }] : [])
     };
@@ -206,7 +209,7 @@ export default function App() {
         // The filesystem record remains the source of truth if browser storage is unavailable.
       }
     }
-  }, [answers, attributes, currentNode, errorMsg, history, isLoading, isLoadingNext, name, nextGenerationError, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
+  }, [answers, attributes, currentNode, errorMsg, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
 
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
@@ -315,6 +318,7 @@ export default function App() {
 
     setErrorMsg(null);
     setNextGenerationError(null);
+    setNextGenerationErrorDebug(null);
     setPendingNextChoice(choiceText);
     setNextNarrativePreview(null);
     nextNarrativePreviewRef.current = null;
@@ -385,6 +389,7 @@ export default function App() {
       setCurrentNode(body);
       setNodeCount(prev => prev + 1);
       setNextGenerationError(null);
+      setNextGenerationErrorDebug(null);
       setPendingNextChoice(null);
       setIsLoadingNext(false);
       await waitForNarrativeReveal();
@@ -393,6 +398,7 @@ export default function App() {
     } catch (err: any) {
       if (!isGenerationAbort(err)) console.error(err);
       setNextGenerationError(getSimulationErrorMessage(err, "时空穿梭有些颠簸，新的章节尚未写入时间线，可以重新生成。"));
+      setNextGenerationErrorDebug(err instanceof Error ? `${err.name}: ${err.message}` : String(err));
       setHistory(previousHistory);
     } finally {
       setIsLoadingNext(false);
@@ -430,6 +436,7 @@ export default function App() {
   const handleDiscardNextGeneration = () => {
     setNextNarrativePreview(null);
     setNextGenerationError(null);
+    setNextGenerationErrorDebug(null);
     setPendingNextChoice(null);
     setNextGenerationStage("preparing");
   };
@@ -447,6 +454,7 @@ export default function App() {
       setStep("simulating");
       setNextNarrativePreview(null);
       setNextGenerationError(null);
+      setNextGenerationErrorDebug(null);
       setPendingNextChoice(null);
     } catch (err: any) {
       console.error(err);
@@ -468,6 +476,7 @@ export default function App() {
     setErrorMsg(null);
     setNextNarrativePreview(null);
     setNextGenerationError(null);
+    setNextGenerationErrorDebug(null);
     setPendingNextChoice(null);
   };
 

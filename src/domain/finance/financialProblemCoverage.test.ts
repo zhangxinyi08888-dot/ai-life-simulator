@@ -114,7 +114,7 @@ test("M5-4 static debt: scheduled principal consumes equal cash while interest a
   assert.equal(result.periodSummary.netWorthChangeWan, -0.1);
 });
 
-test("M5-5 liquidity: negative disposable cash flow is valid while negative cash is rejected", () => {
+test("M5-5 liquidity: negative disposable cash flow is valid and recurring essentials close through one shortfall debt", () => {
   const opening = (cashWan: number) => initializeFinancialLedger({
     id: `coverage_liquidity_${cashWan}`,
     asOfAgeInMonths: 360,
@@ -134,14 +134,18 @@ test("M5-5 liquidity: negative disposable cash flow is valid while negative cash
   assert.equal(valid.alreadyCommitted, false);
   assert.equal(valid.ledger.cashAccounts[0].balanceWan, 10);
   assert.equal(deriveFinancialState({ ledger: valid.ledger, employmentStatus: "not_working" }).state.annualizedDisposableCashFlowWan, -24);
-  assert.throws(() => reduceFinancialLedger({
+  const shortfall = reduceFinancialLedger({
     ledger: opening(1),
     transactionId: "coverage_negative_cash",
     expectedLedgerRevision: 0,
     periodStartAgeInMonths: 360,
     periodEndAgeInMonths: 361,
     events: []
-  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
+  });
+  assert.equal(shortfall.alreadyCommitted, false);
+  assert.equal(shortfall.ledger.cashAccounts[0].balanceWan, 0);
+  assert.equal(shortfall.ledger.debtAccounts.filter((item) => item.type === "liquidity_shortfall" && item.status === "active").length, 1);
+  assert.equal(shortfall.ledger.debtAccounts.find((item) => item.type === "liquidity_shortfall")?.principalWan, 1);
 });
 
 test("M5-6 retirement semantics: pension and rent define the run rate independently of status", () => {

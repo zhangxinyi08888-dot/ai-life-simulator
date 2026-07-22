@@ -31,7 +31,7 @@ function eventReferences(event: AcceptedFinancialEvent): {
     incomeSourceIds: incomeSourceIds.filter((value): value is string => typeof value === "string"),
     expenseCommitmentIds: expenseCommitmentIds.filter((value): value is string => typeof value === "string"),
     debtAccountIds: [payload.debtAccountId, payload.oldDebtAccountId, payload.debtAccount?.id, payload.replacementDebtAccount?.id].filter((value): value is string => typeof value === "string"),
-    businessHoldingIds: [payload.businessHoldingId].filter((value): value is string => typeof value === "string"),
+    businessHoldingIds: [payload.businessHoldingId, payload.businessHolding?.id].filter((value): value is string => typeof value === "string"),
     accountIds: [payload.sourceCashAccountId, payload.destinationCashAccountId, payload.assetAccountId, payload.assetAccount?.id, ...expenseCommitmentIds].filter((value): value is string => typeof value === "string")
   };
 }
@@ -181,7 +181,7 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
 }
 
 function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedgerIssue[], ageInMonths: number): void {
-  for (const issue of issues.filter((item) => item.severity === "blocking")) {
+  for (const issue of issues.filter((item) => item.severity === "blocking" && item.status !== "resolved")) {
     const completenessPolicyAlreadyApplied = issue.id === "pending_fact_missing_adult_expense"
       || issue.id.startsWith("pending_fact_stale_late_career_")
       || issue.id === "proposal_issue_missing_adult_expense"
@@ -213,7 +213,19 @@ function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedger
     }
     for (const debtId of issue.relatedDebtAccountIds || []) {
       const debt = ledger.debtAccounts.find((item) => item.id === debtId);
-      if (debt) debt.factStatus = "needs_review";
+      if (!debt) continue;
+      const hasAcceptedAuthority = debt.evidence.some((item) => (
+        item.source === "user"
+        || item.source === "accepted_history"
+        || item.source === "accepted_simulation_outcome"
+      ));
+      // A rejected proposal describes an attempted change, not a revocation of
+      // an already accepted balance. In particular, an invalid debt_drawn
+      // proposal must never erase an explicit opening mortgage from debt-health
+      // calculations. Only genuinely non-authoritative debt facts are put back
+      // into review.
+      if (debt.origin === "system_auto_shortfall" || (debt.factStatus === "known" && hasAcceptedAuthority)) continue;
+      debt.factStatus = "needs_review";
     }
     for (const holdingId of issue.relatedBusinessHoldingIds || []) {
       const holding = ledger.businessHoldings.find((item) => item.id === holdingId);
@@ -241,6 +253,32 @@ function addLegacyIncomeReconfirmation(ledger: FinancialLedger, ageInMonths: num
       summary: `旧版估算收入 ${source.displayName} 已连续多个实质节点未获确认，确定性计提已隔离；下一节点需要确认当前收入`,
       createdAtAgeInMonths: ageInMonths
     }, ageInMonths);
+  }
+}
+
+function resolveRecoveredDebtDelinquencyIssues(
+  ledger: FinancialLedger,
+  ageInMonths: number,
+  transactionId: string
+): void {
+  const recentCutoff = ageInMonths - 12;
+  for (const issue of ledger.unresolvedIssues) {
+    if (issue.code !== "DEBT_PAYMENT_DELINQUENT" || (issue.status ?? "open") !== "open") continue;
+    const lastObserved = issue.lastObservedAtAgeInMonths ?? issue.createdAtAgeInMonths;
+    if (lastObserved > recentCutoff) continue;
+    const relatedIds = new Set(issue.relatedDebtAccountIds ?? []);
+    const relatedAccounts = ledger.debtAccounts.filter((account) => relatedIds.has(account.id));
+    if (relatedAccounts.length === 0) continue;
+    const recovered = relatedAccounts.every((account) => (
+      account.status !== "defaulted"
+      && account.servicingStatus === "current"
+      && (account.consecutiveMissedPaymentMonths ?? 0) === 0
+      && !(account.recentMissedPaymentAgeInMonths ?? []).some((month) => month > recentCutoff)
+    ));
+    if (!recovered) continue;
+    issue.status = "resolved";
+    issue.resolvedAtAgeInMonths = ageInMonths;
+    issue.resolvedByEventId = `system:servicing_recovered:${transactionId}`;
   }
 }
 
@@ -347,11 +385,16 @@ export function commitFinancialDomainTransaction(
       source.status = "ended";
     }
   }
-  resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
   const newIssues = [...completenessIssues, ...(input.financialIssues || [])];
-  for (const issue of newIssues) addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths);
-  applyPendingFactPolicy(committedLedger, newIssues, input.periodEndAgeInMonths);
+  const observedIssues = newIssues.map((issue) => addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths));
+  // Current-transaction validation issues are added only after the reducer has
+  // accepted authoritative events. Resolve overlaps now so a rejected
+  // competing proposal cannot re-quarantine the same income source that an
+  // accepted event just confirmed.
+  resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
+  applyPendingFactPolicy(committedLedger, observedIssues, input.periodEndAgeInMonths);
   addLegacyIncomeReconfirmation(committedLedger, input.periodEndAgeInMonths);
+  resolveRecoveredDebtDelinquencyIssues(committedLedger, input.periodEndAgeInMonths, input.transactionId);
   const nextCurrentCareerState = currentCareerState(nextCareer);
   if (!nextCurrentCareerState) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "职业事务未产生当前 CareerState");
   const nextWorldState: WorldStateSnapshot = {

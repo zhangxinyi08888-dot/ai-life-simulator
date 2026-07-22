@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import type { FinancialState, HistoryItem, LifeAttributes, UserInitialData, WorldStateSnapshot } from "../types";
+import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
+import { PRIMARY_CASH_ACCOUNT_ID } from "../domain/finance/ledgerMath";
 import { buildEventMeta, isLifeEventCandidateEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "./lifeEvents";
 
 const seeds = [101, 202, 303] as const;
@@ -48,6 +50,33 @@ function node(input: {
   debt?: number;
   cash?: number;
 }): HistoryItem {
+  const evidence = [{ source: "accepted_history" as const, reasonCode: "LONG_ROUTE_FIXTURE", confidence: 1 }];
+  const financialLedger = input.debt === undefined ? undefined : initializeFinancialLedger({
+    id: `route_ledger_${input.ageInMonths}`,
+    asOfAgeInMonths: input.ageInMonths,
+    openingPosition: {
+      cashAccounts: [{
+        id: PRIMARY_CASH_ACCOUNT_ID,
+        type: "bank_deposit",
+        balanceWan: input.cash ?? 8,
+        status: "active",
+        factStatus: "known",
+        evidence
+      }],
+      debtAccounts: input.debt > 0 ? [{
+        id: `route_debt_${input.ageInMonths}`,
+        type: "family_or_personal_loan",
+        displayName: "路线债务",
+        principalWan: input.debt,
+        openedAtAgeInMonths: input.ageInMonths - 24,
+        status: "active",
+        repaymentPolicy: { mode: "event_driven" },
+        factStatus: "known",
+        origin: "explicit",
+        evidence
+      }] : []
+    }
+  });
   return {
     age: input.ageInMonths / 12,
     ageInMonths: input.ageInMonths,
@@ -58,6 +87,23 @@ function node(input: {
     selectedDecisionIntent: input.intent,
     attributes: input.attrs || attributes,
     financialState: finance(input.ageInMonths, input.debt ?? 10, input.cash ?? 8, input.cash !== 2),
+    financialLedger,
+    debtHealthState: input.debt === undefined ? undefined : {
+      asOfAgeInMonths: input.ageInMonths,
+      level: "watch",
+      trend: "improving",
+      totalDebtWan: input.debt,
+      scheduledDebtServiceNext12MonthsWan: 0,
+      availableCashForDebtNext12MonthsWan: input.cash ?? 8,
+      cashBufferMonths: input.cash ?? 8,
+      liquidityShortfallDebtWan: 0,
+      consecutiveMissedPaymentMonths: 0,
+      missedPaymentMonthsLast12: 0,
+      activeDefaultedDebtCount: 0,
+      reasonCodes: ["DEBT_BALANCE_IMPROVING"],
+      source: "authoritative_ledger",
+      sourceLedgerRevision: financialLedger?.revision
+    },
     choices: [{ id: "A", text: input.intent, impactSummary: "持续推进", decisionIntent: input.intent, eventOutcomeId: "route_fixture" }],
     isEndingNode: false,
     eventMeta: input.eventId

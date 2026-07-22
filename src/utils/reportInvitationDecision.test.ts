@@ -11,6 +11,7 @@ function node(input: {
   arcId?: string;
   transitionAction?: SimulationNode["committedArcMeta"] extends infer T ? T extends { transitionAction?: infer A } ? A : never : never;
   foregroundArcId?: string;
+  foregroundPhasePolicyId?: string;
   invitation?: SimulationNode["reportInvitation"];
 }): SimulationNode {
   return {
@@ -57,7 +58,7 @@ function node(input: {
         id: input.foregroundArcId,
         eventId: "event",
         eventIntentType: "test",
-        phasePolicyId: "generic_pressure_v1",
+        phasePolicyId: input.foregroundPhasePolicyId ?? "generic_pressure_v1",
         phaseId: "response",
         status: "active",
         startedAtAgeInMonths: 30 * 12,
@@ -138,6 +139,25 @@ const stableInvitation = evaluateReportInvitation({
 });
 assert.equal(stableInvitation.shouldInvite, true);
 assert.equal(stableInvitation.invitation?.triggerKey, "stable:0");
+
+const chronicDebtHistory = Array.from({ length: 7 }, (_, index) => historyItem(node({
+  title: `长期偿债生活${index + 1}`,
+  foregroundArcId: "debt-arc",
+  foregroundPhasePolicyId: "financial_debt_v1"
+})));
+const chronicDebtInvitation = evaluateReportInvitation({
+  candidateNode: node({ title: "长期偿债生活8", foregroundArcId: "debt-arc", foregroundPhasePolicyId: "financial_debt_v1" }),
+  history: chronicDebtHistory,
+  completedChoiceCount: 15,
+  pressureArcTransition: { action: "stay", reasonCodes: ["debt-still-active"] },
+  acceptedOutcome: { worldDeltas: [], arcSignals: [] },
+  policy: DEFAULT_REPORT_INVITATION_POLICY,
+  simulationSeed: "seed",
+  branchFingerprint: "chronic-debt"
+});
+assert.equal(chronicDebtInvitation.shouldInvite, true);
+assert.equal(chronicDebtInvitation.invitation?.triggerKey, "chronic-debt:debt-arc");
+assert.equal(chronicDebtInvitation.reasonCodes.includes("chronic-debt-reflection-window"), true);
 
 const declinedStableNode = node({
   title: "稳定生活一",

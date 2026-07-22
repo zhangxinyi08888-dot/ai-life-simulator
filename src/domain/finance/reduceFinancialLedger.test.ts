@@ -74,11 +74,11 @@ function debt(id: string, principalWan: number, type: DebtAccount["type"] = "fam
   };
 }
 
-test("initializes a version 2 protagonist ledger and derives the compatibility snapshot", () => {
+test("initializes a version 3 protagonist ledger and derives the compatibility snapshot", () => {
   const ledger = ledgerAt(240, 12.5);
   const derived = deriveFinancialState({ ledger, employmentStatus: "employed" });
 
-  assert.equal(ledger.version, 2);
+  assert.equal(ledger.version, 3);
   assert.equal(ledger.revision, 0);
   assert.equal(derived.state.cashWan, 12.5);
   assert.equal(derived.state.netWorthWan, 12.5);
@@ -152,6 +152,43 @@ test("accrues recurring income and commitments only for their actual active mont
   assert.equal(derived.state.annualizedRecurringIncomeWan, 0);
   assert.equal(derived.state.annualizedCoreExpenseWan, 12);
   assert.equal(derived.state.annualizedDisposableCashFlowWan, -12);
+});
+
+test("accepted income facts replace stale account evidence on start and adjustment", () => {
+  const staleEvidence: FinancialEvidence[] = [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "stale_outcome",
+    excerpt: "前三个月没有任何个人收入。",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    confidence: 0.9
+  }];
+  const ledger = ledgerAt(240, 10);
+  ledger.incomeSources.push({
+    id: "owner_draw",
+    type: "self_employment_draw",
+    displayName: "创业个人工资",
+    monthlyNetAmountWan: 0.5,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 240,
+    status: "active",
+    linkedCareerStateId: "career_founder",
+    factStatus: "known",
+    evidence: staleEvidence
+  });
+  const result = reduceFinancialLedger({
+    ledger,
+    transactionId: "tx_income_evidence_refresh",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 240,
+    periodEndAgeInMonths: 241,
+    events: [accepted("owner_draw_adjusted", "income_source_adjusted", 240, {
+      incomeSourceId: "owner_draw",
+      nextSource: { ...ledger.incomeSources[0], monthlyNetAmountWan: 4 }
+    })]
+  });
+  assert.deepEqual(result.ledger.incomeSources[0].evidence, evidence);
+  assert.equal(result.ledger.incomeSources[0].monthlyNetAmountWan, 4);
+  assert.equal(result.ledger.incomeSources[0].lastConfirmedAtAgeInMonths, 240);
 });
 
 test("cash purchase plus linked borrowing preserves principal transfer and charges only real loss", () => {
@@ -372,12 +409,15 @@ test("authoritative liquidity policy converts negative cash into an auditable de
     expectedLedgerRevision: 0,
     periodStartAgeInMonths: 360,
     periodEndAgeInMonths: 361,
-    events: [accepted(
-      "unfunded_expense",
-      "one_off_expense_paid",
-      361,
-      { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 3 }
-    )],
+    events: [{
+      ...accepted(
+        "unfunded_expense",
+        "one_off_expense_paid",
+        361,
+        { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 3 }
+      ),
+      liquidityTreatment: "allow_system_shortfall"
+    }],
     liquidityPolicy: "auto_shortfall_debt"
   });
   assert.equal(result.alreadyCommitted, false);

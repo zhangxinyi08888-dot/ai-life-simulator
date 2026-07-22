@@ -98,3 +98,34 @@ export function applyOpeningFactsToFinancialState(
   );
   return next;
 }
+
+/**
+ * New-game opening balances are closed-world facts. The model may estimate
+ * recurring income and expenses, but it never owns cash, assets or debt.
+ */
+export function applyAuthoritativeOpeningFactsToFinancialState(
+  modelState: FinancialState,
+  facts: OpeningFinancialFacts
+): { state: FinancialState; ignoredModelBalance: boolean } {
+  const ignoredModelBalance = [
+    modelState.cashWan,
+    modelState.investmentAssetsWan,
+    modelState.propertyMarketValueWan,
+    modelState.businessAndOtherAssetsWan,
+    modelState.totalDebtWan
+  ].some((value) => value !== 0);
+  const closedWorldState: FinancialState = {
+    ...modelState,
+    cashWan: 0,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    netWorthWan: 0,
+    isEstimated: true
+  };
+  return {
+    state: applyOpeningFactsToFinancialState(closedWorldState, facts),
+    ignoredModelBalance
+  };
+}

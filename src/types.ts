@@ -3,6 +3,7 @@
  */
 
 import type { FinancialLedger, FinancialPeriodSummary } from "./domain/finance/types";
+import type { DebtHealthState } from "./domain/finance/debtHealth";
 import type { CareerState } from "./domain/career/types";
 
 export interface LifeAttributes {
@@ -229,12 +230,15 @@ export interface PressureArcState {
   directionArcId?: string;
   phasePolicyId: string;
   phaseId: string;
-  status: "active" | "stabilizing" | "resolved";
+  status: "active" | "stabilizing" | "suspended" | "resolved";
   startedAtAgeInMonths: number;
   phaseStartedAtAgeInMonths: number;
   phaseCheckpointCount: number;
   totalCheckpointCount: number;
   unresolvedSummary: string;
+  suspendedAtAgeInMonths?: number;
+  suspendedByArcId?: string;
+  resolutionReasonCodes?: string[];
 }
 
 export interface TimelineTransition {
@@ -309,6 +313,8 @@ export interface SimulationNode {
   financialLedger?: FinancialLedger;
   financialLedgerMode?: "shadow" | "authoritative";
   financialState?: FinancialState;
+  /** Deterministic risk snapshot derived from this node's closing ledger. */
+  debtHealthState?: DebtHealthState;
   financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
@@ -338,6 +344,8 @@ export interface HistoryItem {
   financialLedger?: FinancialLedger;
   financialLedgerMode?: "shadow" | "authoritative";
   financialState?: FinancialState;
+  /** Immutable snapshot of the debt health committed with this history item. */
+  debtHealthState?: DebtHealthState;
   financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
@@ -359,6 +367,13 @@ export interface FinancialProcessingMeta {
   repairTriggered: boolean;
   repairLatencyMs: number;
   totalProcessingLatencyMs: number;
+  debtNarrativeAuthorityVersion?: "debt_narrative_v1";
+  narrativeFallback?: boolean;
+  narrativeFallbackReasonCodes?: string[];
+  rejectedDebtClaimKinds?: string[];
+  narrativeRepairAttempts?: number;
+  narrativeRepairSucceeded?: boolean;
+  narrativeFallbackSurfacePaths?: string[];
 }
 
 export interface PersonalityInsight {
@@ -462,5 +477,10 @@ export interface FinalLifeOutcome {
     posterVersion: "web-v1";
     reportVersion: "life-pattern-v2";
     closureType: SimulationClosureType;
+    financialNarrativeAuthorityVersion?: string;
+    financialClaimRepairTriggered?: boolean;
+    financialClaimFallbackCount?: number;
+    financialClaimViolationCodes?: string[];
+    sourceLedgerRevision?: number;
   };
 }

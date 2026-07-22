@@ -1,5 +1,6 @@
 import { accruePeriodSlice } from "./accruePeriod";
 import { validateAcceptedFinancialEvents } from "./acceptFinancialEvents";
+import { normalizeDebtAccountV3 } from "./initializeLedger";
 import {
   assertFinancialLedgerInvariants,
   cloneLedger,
@@ -17,6 +18,7 @@ import type {
   BusinessHolding,
   CashAccount,
   DebtAccount,
+  DebtServiceRecord,
   ExpenseCommitment,
   FinancialEventKind,
   FinancialLedger,
@@ -99,6 +101,15 @@ interface EventTotals {
   otherExpenseWan: number;
   debtPrincipalPaidWan: number;
   debtInterestPaidWan: number;
+  debtInterestLiabilityPaidWan: number;
+  debtInterestAccruedWan: number;
+  debtInterestUnpaidWan: number;
+  debtPrincipalDrawnWan: number;
+  debtPrincipalForgivenWan: number;
+  debtInterestForgivenWan: number;
+  debtCapitalizedInterestWan: number;
+  automaticLiquidityShortfallRecoveryWan: number;
+  debtServiceRecords: DebtServiceRecord[];
   assetPurchaseWan: number;
   assetSaleProceedsWan: number;
   valuationChangeWan: number;
@@ -110,13 +121,21 @@ function accumulatePeriodAccrual(
 ): { incomeWan: number; coreExpenseWan: number } {
   totals.debtPrincipalPaidWan = roundWan(totals.debtPrincipalPaidWan + accrual.debtPrincipalPaidWan);
   totals.debtInterestPaidWan = roundWan(totals.debtInterestPaidWan + accrual.debtInterestPaidWan);
-  totals.otherExpenseWan = roundWan(totals.otherExpenseWan + accrual.debtInterestPaidWan);
+  totals.debtInterestLiabilityPaidWan = roundWan(totals.debtInterestLiabilityPaidWan + accrual.debtInterestPaidWan);
+  totals.debtInterestAccruedWan = roundWan(totals.debtInterestAccruedWan + accrual.debtInterestAccruedWan);
+  totals.debtInterestUnpaidWan = roundWan(totals.debtInterestUnpaidWan + accrual.debtInterestUnpaidWan);
+  totals.automaticLiquidityShortfallRecoveryWan = roundWan(
+    totals.automaticLiquidityShortfallRecoveryWan + accrual.automaticLiquidityShortfallRecoveryWan
+  );
+  totals.debtServiceRecords.push(...accrual.debtServiceRecords);
+  totals.otherExpenseWan = roundWan(totals.otherExpenseWan + accrual.debtInterestAccruedWan);
   return { incomeWan: accrual.incomeWan, coreExpenseWan: accrual.coreExpenseWan };
 }
 
 function addDebtScheduleReviewIssues(ledger: FinancialLedger): void {
   for (const debt of ledger.debtAccounts) {
     if (debt.status !== "active"
+      || debt.type === "liquidity_shortfall"
       || debt.repaymentPolicy.mode !== "event_driven"
       || ledger.asOfAgeInMonths - debt.openedAtAgeInMonths < EVENT_DRIVEN_DEBT_REVIEW_MONTHS) continue;
     const issueId = `unknown_debt_schedule_${debt.id}`;
@@ -140,6 +159,98 @@ function addDebtScheduleReviewIssues(ledger: FinancialLedger): void {
   }
 }
 
+function addDebtServiceIssues(ledger: FinancialLedger, records: DebtServiceRecord[]): void {
+  for (const record of records) {
+    if (record.outcome === "paid") continue;
+    const debt = ledger.debtAccounts.find((candidate) => candidate.id === record.debtAccountId);
+    if (!debt) continue;
+    const code = debt.servicingStatus === "delinquent"
+      ? "DEBT_PAYMENT_DELINQUENT" as const
+      : "DEBT_PAYMENT_MISSED" as const;
+    const id = `${code.toLowerCase()}_${debt.id}_${record.ageInMonths}`;
+    if (ledger.unresolvedIssues.some((issue) => issue.id === id)) continue;
+    ledger.unresolvedIssues.push({
+      id,
+      code,
+      severity: "warning",
+      status: "open",
+      relatedProposalIds: [],
+      relatedDebtAccountIds: [debt.id],
+      summary: code === "DEBT_PAYMENT_DELINQUENT"
+        ? `债务 ${debt.displayName} 已连续未足额履约`
+        : `债务 ${debt.displayName} 本月未足额履约`,
+      createdAtAgeInMonths: record.ageInMonths
+    });
+  }
+}
+
+type AutomaticShortfallDebt = DebtAccount & {
+  origin?: "explicit" | "system_auto_shortfall" | "legacy_migration";
+  lastPrincipalIncreaseAtAgeInMonths?: number;
+};
+
+function isAutomaticShortfallDebt(debt: DebtAccount): debt is AutomaticShortfallDebt {
+  const candidate = debt as AutomaticShortfallDebt;
+  return debt.type === "liquidity_shortfall" && (
+    candidate.origin === "system_auto_shortfall"
+    || debt.evidence.some((item) => item.reasonCode === "AUTOMATIC_LIQUIDITY_SHORTFALL")
+  );
+}
+
+/**
+ * The reducer is a mechanical boundary: even an old or partially migrated
+ * ledger must not be able to keep multiple live system-created shortfall
+ * accounts. Explicit bridge loans remain separate because they represent an
+ * accepted user/world fact rather than the liquidity-floor policy.
+ */
+function consolidateAutomaticShortfallAccounts(ledger: FinancialLedger): AutomaticShortfallDebt | undefined {
+  // liquidity_shortfall is a policy-created/event-created balance, never a
+  // scheduled instalment. Repair stale v2 schedules before period accrual so
+  // they cannot pay themselves by creating another liquidity gap.
+  for (const debt of ledger.debtAccounts) {
+    if (debt.type !== "liquidity_shortfall") continue;
+    const shortfall = debt as AutomaticShortfallDebt;
+    shortfall.repaymentPolicy = { mode: "event_driven" };
+    shortfall.origin ??= isAutomaticShortfallDebt(shortfall) ? "system_auto_shortfall" : "explicit";
+    shortfall.accruedUnpaidInterestWan ??= 0;
+    shortfall.servicingStatus ??= "current";
+    shortfall.consecutiveMissedPaymentMonths ??= 0;
+    shortfall.totalMissedPaymentMonths ??= 0;
+    shortfall.recentMissedPaymentAgeInMonths ??= [];
+  }
+  const active = ledger.debtAccounts.filter(
+    (debt): debt is AutomaticShortfallDebt => debt.status === "active" && isAutomaticShortfallDebt(debt)
+  );
+  if (active.length === 0) return undefined;
+
+  const canonical = active[0];
+  canonical.origin = "system_auto_shortfall";
+  canonical.repaymentPolicy = { mode: "event_driven" };
+  for (const duplicate of active.slice(1)) {
+    canonical.principalWan = roundWan(canonical.principalWan + duplicate.principalWan);
+    canonical.accruedUnpaidInterestWan = roundWan(
+      (canonical.accruedUnpaidInterestWan ?? 0) + (duplicate.accruedUnpaidInterestWan ?? 0)
+    );
+    canonical.consecutiveMissedPaymentMonths = Math.max(
+      canonical.consecutiveMissedPaymentMonths ?? 0,
+      duplicate.consecutiveMissedPaymentMonths ?? 0
+    );
+    canonical.totalMissedPaymentMonths = (canonical.totalMissedPaymentMonths ?? 0)
+      + (duplicate.totalMissedPaymentMonths ?? 0);
+    canonical.recentMissedPaymentAgeInMonths = [...new Set([
+      ...(canonical.recentMissedPaymentAgeInMonths ?? []),
+      ...(duplicate.recentMissedPaymentAgeInMonths ?? [])
+    ])].sort((left, right) => left - right);
+    canonical.evidence.push(...structuredClone(duplicate.evidence));
+    duplicate.principalWan = 0;
+    duplicate.accruedUnpaidInterestWan = 0;
+    duplicate.status = "restructured";
+    duplicate.closedAtAgeInMonths = ledger.asOfAgeInMonths;
+    duplicate.repaymentPolicy = { mode: "event_driven" };
+  }
+  return canonical;
+}
+
 function applyEvent(
   ledger: FinancialLedger,
   event: AcceptedFinancialEvent,
@@ -151,7 +262,12 @@ function applyEvent(
       const source = event.payload as IncomeSource;
       assertNewId(ledger.incomeSources, source.id, "收入来源");
       validateIncomeSource(source);
-      ledger.incomeSources.push({ ...structuredClone(source), accrualReviewStatus: "normal", lastConfirmedAtAgeInMonths: event.effectiveAtAgeInMonths });
+      ledger.incomeSources.push({
+        ...structuredClone(source),
+        evidence: event.evidence.length ? structuredClone(event.evidence) : structuredClone(source.evidence),
+        accrualReviewStatus: "normal",
+        lastConfirmedAtAgeInMonths: event.effectiveAtAgeInMonths
+      });
       return;
     }
     case "income_source_adjusted": {
@@ -159,7 +275,12 @@ function applyEvent(
       const index = ledger.incomeSources.findIndex((source) => source.id === incomeSourceId);
       if (index < 0 || nextSource.id !== incomeSourceId) throw new FinancialLedgerInvariantError("INVALID_LEDGER", `收入来源调整必须引用同一账户: ${incomeSourceId}`);
       validateIncomeSource(nextSource);
-      ledger.incomeSources[index] = { ...structuredClone(nextSource), accrualReviewStatus: "normal", lastConfirmedAtAgeInMonths: event.effectiveAtAgeInMonths };
+      ledger.incomeSources[index] = {
+        ...structuredClone(nextSource),
+        evidence: event.evidence.length ? structuredClone(event.evidence) : structuredClone(nextSource.evidence),
+        accrualReviewStatus: "normal",
+        lastConfirmedAtAgeInMonths: event.effectiveAtAgeInMonths
+      };
       return;
     }
     case "income_source_paused": {
@@ -261,8 +382,16 @@ function applyEvent(
       if (event.kind === "liquidity_shortfall_created" && payload.debtAccount.type !== "liquidity_shortfall") {
         throw new FinancialLedgerInvariantError("INVALID_LEDGER", "流动性缺口事件只能创建 liquidity_shortfall 债务");
       }
-      ledger.debtAccounts.push(structuredClone(payload.debtAccount));
+      const createdDebt = normalizeDebtAccountV3({
+        ...structuredClone(payload.debtAccount),
+        origin: payload.debtAccount.origin ?? "explicit"
+      });
+      if (event.kind === "liquidity_shortfall_created") {
+        createdDebt.repaymentPolicy = { mode: "event_driven" };
+      }
+      ledger.debtAccounts.push(createdDebt);
       changeCash(ledger, payload.destinationCashAccountId, principal);
+      totals.debtPrincipalDrawnWan = roundWan(totals.debtPrincipalDrawnWan + principal);
       return;
     }
     case "debt_principal_repaid": {
@@ -281,10 +410,13 @@ function applyEvent(
     }
     case "debt_interest_paid": {
       const payload = event.payload;
-      requiredById(ledger.debtAccounts, payload.debtAccountId, "债务账户");
+      const debt = requiredById(ledger.debtAccounts, payload.debtAccountId, "债务账户");
       const interest = positiveMoney(payload.interestPaidWan, "debt_interest_paid.interestPaidWan");
+      const liabilityPaidWan = roundWan(Math.min(interest, debt.accruedUnpaidInterestWan ?? 0));
       changeCash(ledger, payload.sourceCashAccountId, -interest);
+      debt.accruedUnpaidInterestWan = roundWan(Math.max(0, (debt.accruedUnpaidInterestWan ?? 0) - interest));
       totals.debtInterestPaidWan = roundWan(totals.debtInterestPaidWan + interest);
+      totals.debtInterestLiabilityPaidWan = roundWan(totals.debtInterestLiabilityPaidWan + liabilityPaidWan);
       totals.otherExpenseWan = roundWan(totals.otherExpenseWan + interest);
       return;
     }
@@ -292,8 +424,10 @@ function applyEvent(
       const payload = event.payload;
       const oldDebt = requiredById(ledger.debtAccounts, payload.oldDebtAccountId, "旧债务账户");
       assertNewId(ledger.debtAccounts, payload.replacementDebtAccount.id, "替代债务账户");
-      if (roundWan(oldDebt.principalWan) !== roundWan(payload.replacementDebtAccount.principalWan)) {
-        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "再融资替代债务必须承接相同本金；额外借款或减免需单独事件");
+      const oldObligationWan = roundWan(oldDebt.principalWan + (oldDebt.accruedUnpaidInterestWan ?? 0));
+      const replacementObligationWan = roundWan(payload.replacementDebtAccount.principalWan + (payload.replacementDebtAccount.accruedUnpaidInterestWan ?? 0));
+      if (oldObligationWan !== replacementObligationWan) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "再融资替代债务必须完整承接本金与未付利息；额外借款或减免需单独事件");
       }
       const fee = nonNegativeMoney(payload.transactionFeeWan, "debt_restructured.transactionFeeWan");
       if (fee > 0) {
@@ -304,19 +438,40 @@ function applyEvent(
       oldDebt.status = "restructured";
       oldDebt.closedAtAgeInMonths = event.effectiveAtAgeInMonths;
       oldDebt.principalWan = 0;
-      ledger.debtAccounts.push(structuredClone(payload.replacementDebtAccount));
+      oldDebt.accruedUnpaidInterestWan = 0;
+      ledger.debtAccounts.push(normalizeDebtAccountV3({
+        ...structuredClone(payload.replacementDebtAccount),
+        origin: payload.replacementDebtAccount.origin ?? "explicit"
+      }));
+      totals.debtCapitalizedInterestWan = roundWan(
+        totals.debtCapitalizedInterestWan + (payload.capitalizedInterestWan ?? 0)
+      );
       return;
     }
     case "debt_forgiven": {
       const payload = event.payload;
       const debt = requiredById(ledger.debtAccounts, payload.debtAccountId, "债务账户");
-      const forgiven = positiveMoney(payload.principalForgivenWan, "debt_forgiven.principalForgivenWan");
-      if (forgiven > debt.principalWan) throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "债务减免超过剩余本金");
-      debt.principalWan = roundWan(debt.principalWan - forgiven);
-      if (debt.principalWan === 0) {
+      const principalForgivenWan = nonNegativeMoney(payload.principalForgivenWan, "debt_forgiven.principalForgivenWan");
+      const interestForgivenWan = nonNegativeMoney(payload.accruedInterestForgivenWan ?? 0, "debt_forgiven.accruedInterestForgivenWan");
+      if (principalForgivenWan + interestForgivenWan <= 0) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "债务减免金额必须大于零");
+      if (principalForgivenWan > debt.principalWan || interestForgivenWan > (debt.accruedUnpaidInterestWan ?? 0)) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "债务减免超过剩余本金或未付利息");
+      }
+      debt.principalWan = roundWan(debt.principalWan - principalForgivenWan);
+      debt.accruedUnpaidInterestWan = roundWan((debt.accruedUnpaidInterestWan ?? 0) - interestForgivenWan);
+      totals.debtPrincipalForgivenWan = roundWan(totals.debtPrincipalForgivenWan + principalForgivenWan);
+      totals.debtInterestForgivenWan = roundWan(totals.debtInterestForgivenWan + interestForgivenWan);
+      if (debt.principalWan === 0 && debt.accruedUnpaidInterestWan === 0) {
         debt.status = "repaid";
         debt.closedAtAgeInMonths = event.effectiveAtAgeInMonths;
       }
+      return;
+    }
+    case "debt_default_recorded": {
+      const debt = requiredById(ledger.debtAccounts, event.payload.debtAccountId, "债务账户");
+      if (!event.payload.reason.trim()) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "正式违约必须记录原因");
+      debt.status = "defaulted";
+      debt.servicingStatus = "delinquent";
       return;
     }
     case "business_financing_recorded": {
@@ -353,19 +508,39 @@ function applyEvent(
       }
       return;
     }
+    case "business_holding_started": {
+      const payload = event.payload;
+      const invested = nonNegativeMoney(payload.personalCashInvestedWan, "business_holding_started.personalCashInvestedWan");
+      assertNewId(ledger.businessHoldings, payload.businessHolding.id, "企业持股");
+      if (roundWan(payload.businessHolding.personalCarryingValueWan) !== invested) {
+        throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "新企业持股账面价值必须等于个人实际出资");
+      }
+      if (invested > 0) changeCash(ledger, payload.sourceCashAccountId, -invested);
+      ledger.businessHoldings.push(structuredClone(payload.businessHolding));
+      totals.assetPurchaseWan = roundWan(totals.assetPurchaseWan + invested);
+      return;
+    }
     case "business_holding_revalued": {
       const payload = event.payload;
       const holding = requiredById(ledger.businessHoldings, payload.businessHoldingId, "企业持股");
       if (roundWan(holding.personalCarryingValueWan) !== roundWan(payload.previousCarryingValueWan)) {
         throw new FinancialLedgerInvariantError("REVISION_CONFLICT", `企业持股 ${holding.id} 的旧账面价值不一致`);
       }
-      if (payload.postMoneyValuationWan === undefined || payload.ownershipRate === undefined) {
-        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "个人企业权益重估必须同时提供企业估值和持股比例");
+      if (payload.ownershipRate === undefined) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "个人企业权益调整必须提供持股比例");
       }
-      const valuationWan = nonNegativeMoney(payload.postMoneyValuationWan, "business_holding_revalued.postMoneyValuationWan");
       if (payload.ownershipRate < 0 || payload.ownershipRate > 1) {
         throw new FinancialLedgerInvariantError("INVALID_LEDGER", "企业权益重估持股比例必须在 0-1 之间");
       }
+      if (payload.postMoneyValuationWan === undefined) {
+        if (roundWan(payload.newCarryingValueWan) !== roundWan(payload.previousCarryingValueWan)) {
+          throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "没有企业估值时只能调整持股比例，不能改变个人账面价值");
+        }
+        holding.ownershipRate = payload.ownershipRate;
+        holding.evidence.push(...structuredClone(payload.valuationEvidence));
+        return;
+      }
+      const valuationWan = nonNegativeMoney(payload.postMoneyValuationWan, "business_holding_revalued.postMoneyValuationWan");
       const attributableValueWan = roundWan(valuationWan * payload.ownershipRate);
       const expectedCarryingValueWan = roundWan(attributableValueWan * (1 - (holding.liquidityDiscountRate || 0)));
       const nextValue = nonNegativeMoney(payload.newCarryingValueWan, "business_holding_revalued.newCarryingValueWan");
@@ -448,6 +623,7 @@ export function reduceFinancialLedger(input: {
   const events = validateAcceptedFinancialEvents(input);
   const allEventIds = new Set(events.map((event) => event.id));
   const next = cloneLedger(input.ledger);
+  let automaticShortfallAccount = consolidateAutomaticShortfallAccounts(next);
   const beforeCash = totalCashWan(next);
   const beforeAssets = totalAssetWan(next);
   const beforeDebt = totalDebtWan(next);
@@ -457,6 +633,15 @@ export function reduceFinancialLedger(input: {
     otherExpenseWan: 0,
     debtPrincipalPaidWan: 0,
     debtInterestPaidWan: 0,
+    debtInterestLiabilityPaidWan: 0,
+    debtInterestAccruedWan: 0,
+    debtInterestUnpaidWan: 0,
+    debtPrincipalDrawnWan: 0,
+    debtPrincipalForgivenWan: 0,
+    debtInterestForgivenWan: 0,
+    debtCapitalizedInterestWan: 0,
+    automaticLiquidityShortfallRecoveryWan: 0,
+    debtServiceRecords: [],
     assetPurchaseWan: 0,
     assetSaleProceedsWan: 0,
     valuationChangeWan: 0
@@ -465,55 +650,156 @@ export function reduceFinancialLedger(input: {
   let coreExpenseWan = 0;
   let cursor = input.periodStartAgeInMonths;
   const automaticLiquidityEventIds: string[] = [];
+  const automaticLiquidityRecoveryEventIds: string[] = [];
+  let automaticLiquidityShortfallIncreaseWan = 0;
 
-  const closeLiquidityShortfall = (ageInMonths: number) => {
+  const closeLiquidityShortfall = (ageInMonths: number, allowed: boolean) => {
     const cash = totalCashWan(next);
-    if (cash >= 0 || input.liquidityPolicy !== "auto_shortfall_debt") return;
+    if (cash >= 0 || !allowed) return;
     const principalWan = roundWan(-cash);
-    const id = `auto_shortfall_${input.transactionId}_${ageInMonths}_${automaticLiquidityEventIds.length}`;
-    next.debtAccounts.push({
-      id,
-      type: "liquidity_shortfall",
-      displayName: "自动流动性缺口",
-      principalWan,
-      openedAtAgeInMonths: ageInMonths,
-      status: "active",
-      repaymentPolicy: { mode: "event_driven" },
-      factStatus: "known",
-      evidence: [{
-        source: "system_policy",
-        reasonCode: "AUTOMATIC_LIQUIDITY_SHORTFALL",
-        confidence: 1
-      }]
-    });
+    let auditEventId: string;
+    if (automaticShortfallAccount) {
+      automaticShortfallAccount.principalWan = roundWan(automaticShortfallAccount.principalWan + principalWan);
+      automaticShortfallAccount.origin = "system_auto_shortfall";
+      automaticShortfallAccount.repaymentPolicy = { mode: "event_driven" };
+      automaticShortfallAccount.lastPrincipalIncreaseAtAgeInMonths = ageInMonths;
+      auditEventId = `auto_shortfall_increase_${input.transactionId}_${ageInMonths}_${automaticLiquidityEventIds.length}`;
+    } else {
+      const id = `auto_shortfall_${input.transactionId}_${ageInMonths}`;
+      automaticShortfallAccount = {
+        id,
+        type: "liquidity_shortfall",
+        displayName: "自动流动性缺口",
+        principalWan,
+        openedAtAgeInMonths: ageInMonths,
+        status: "active",
+        repaymentPolicy: { mode: "event_driven" },
+        factStatus: "known",
+        origin: "system_auto_shortfall",
+        accruedUnpaidInterestWan: 0,
+        servicingStatus: "current",
+        consecutiveMissedPaymentMonths: 0,
+        totalMissedPaymentMonths: 0,
+        recentMissedPaymentAgeInMonths: [],
+        lastPrincipalIncreaseAtAgeInMonths: ageInMonths,
+        evidence: [{
+          source: "system_policy",
+          reasonCode: "AUTOMATIC_LIQUIDITY_SHORTFALL",
+          confidence: 1
+        }]
+      } as AutomaticShortfallDebt;
+      next.debtAccounts.push(automaticShortfallAccount);
+      // Preserve the original creation event identity for restored histories;
+      // later increases receive their own transaction-scoped audit ids.
+      auditEventId = id;
+    }
     const account = next.cashAccounts.find((candidate) => candidate.id === PRIMARY_CASH_ACCOUNT_ID && candidate.status === "active")
       || next.cashAccounts.find((candidate) => candidate.status === "active");
     if (!account) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "自动流动性闭环缺少现金账户");
     account.balanceWan = roundWan(account.balanceWan + principalWan);
-    automaticLiquidityEventIds.push(id);
+    automaticLiquidityShortfallIncreaseWan = roundWan(automaticLiquidityShortfallIncreaseWan + principalWan);
+    automaticLiquidityEventIds.push(auditEventId);
+  };
+
+  const recoverAutomaticLiquidityShortfall = (ageInMonths: number): number => {
+    if (!automaticShortfallAccount || automaticShortfallAccount.status !== "active") return 0;
+    const activeMonthlyCoreExpenseWan = roundWan(next.expenseCommitments
+      .filter((commitment) => commitment.status === "active"
+        && commitment.activeFromAgeInMonths < ageInMonths
+        && (commitment.activeUntilAgeInMonths === undefined || commitment.activeUntilAgeInMonths >= ageInMonths))
+      .reduce((sum, commitment) => sum + commitment.monthlyAmountWan, 0));
+    // Missing adult expense facts are blocking elsewhere. Never interpret the
+    // missing commitment as a zero reserve and drain all cash here.
+    if (ageInMonths >= 18 * 12 && activeMonthlyCoreExpenseWan <= 0) return 0;
+    const cashReserveTargetWan = roundWan(activeMonthlyCoreExpenseWan * 3);
+    const availableWan = roundWan(Math.max(0, totalCashWan(next) - cashReserveTargetWan));
+    const recoveredWan = roundWan(Math.min(availableWan, automaticShortfallAccount.principalWan));
+    if (recoveredWan <= 0) return 0;
+
+    let remainingWan = recoveredWan;
+    const orderedCashAccounts = [...next.cashAccounts]
+      .filter((account) => account.status === "active" && account.balanceWan > 0)
+      .sort((left, right) => {
+        if (left.id === PRIMARY_CASH_ACCOUNT_ID) return -1;
+        if (right.id === PRIMARY_CASH_ACCOUNT_ID) return 1;
+        return left.id.localeCompare(right.id);
+      });
+    for (const account of orderedCashAccounts) {
+      const paidWan = roundWan(Math.min(account.balanceWan, remainingWan));
+      account.balanceWan = roundWan(account.balanceWan - paidWan);
+      remainingWan = roundWan(remainingWan - paidWan);
+      if (remainingWan <= 0) break;
+    }
+    if (remainingWan > 0.001) {
+      throw new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "自动缺口债回补无法从现金账户完整扣除");
+    }
+
+    const recoveredDebtId = automaticShortfallAccount.id;
+    automaticShortfallAccount.principalWan = roundWan(automaticShortfallAccount.principalWan - recoveredWan);
+    automaticShortfallAccount.lastPaymentAtAgeInMonths = ageInMonths;
+    automaticShortfallAccount.servicingStatus = "current";
+    automaticShortfallAccount.consecutiveMissedPaymentMonths = 0;
+    if (automaticShortfallAccount.principalWan === 0 && (automaticShortfallAccount.accruedUnpaidInterestWan ?? 0) === 0) {
+      automaticShortfallAccount.status = "repaid";
+      automaticShortfallAccount.closedAtAgeInMonths = ageInMonths;
+      for (const issue of next.unresolvedIssues) {
+        if (issue.status !== "resolved"
+          && issue.code === "LIQUIDITY_SHORTFALL_PERSISTED"
+          && issue.relatedDebtAccountIds?.includes(recoveredDebtId)) issue.status = "resolved";
+      }
+      automaticShortfallAccount = undefined;
+    }
+    automaticLiquidityRecoveryEventIds.push(
+      `auto_shortfall_recovery_${input.transactionId}_${ageInMonths}_${automaticLiquidityRecoveryEventIds.length}`
+    );
+    return recoveredWan;
   };
 
   for (let index = 0; index < events.length;) {
     const boundary = events[index].effectiveAtAgeInMonths;
-    const accrual = accumulatePeriodAccrual(accruePeriodSlice(next, cursor, boundary), totals);
+    let boundaryEnd = index;
+    while (boundaryEnd < events.length && events[boundaryEnd].effectiveAtAgeInMonths === boundary) boundaryEnd += 1;
+    const boundaryEvents = events.slice(index, boundaryEnd);
+    const restructuringDebtIds = new Set(boundaryEvents
+      .filter((event) => event.kind === "debt_restructured")
+      .map((event) => event.kind === "debt_restructured" ? event.payload.oldDebtAccountId : ""));
+    const accrual = accumulatePeriodAccrual(accruePeriodSlice(next, cursor, boundary, {
+      closeNonDebtLiquidityShortfall: (ageInMonths) => closeLiquidityShortfall(ageInMonths, true),
+      recoverAutomaticLiquidityShortfall,
+      excludedDebtAccountIds: restructuringDebtIds
+    }), totals);
     recurringIncomeWan = roundWan(recurringIncomeWan + accrual.incomeWan);
     coreExpenseWan = roundWan(coreExpenseWan + accrual.coreExpenseWan);
-    while (index < events.length && events[index].effectiveAtAgeInMonths === boundary) {
+    while (index < boundaryEnd) {
       applyEvent(next, events[index], allEventIds, totals);
       index += 1;
     }
-    closeLiquidityShortfall(boundary);
+    automaticShortfallAccount = consolidateAutomaticShortfallAccounts(next) ?? automaticShortfallAccount;
+    const containsForbiddenShortfallUse = boundaryEvents.some((event) => [
+      "asset_purchased", "debt_principal_repaid", "debt_interest_paid", "debt_restructured"
+    ].includes(event.kind));
+    const mayUseSystemShortfall = input.liquidityPolicy === "auto_shortfall_debt"
+      && !containsForbiddenShortfallUse
+      && boundaryEvents.some((event) => event.kind === "one_off_expense_paid"
+        && event.liquidityTreatment === "allow_system_shortfall");
+    closeLiquidityShortfall(boundary, mayUseSystemShortfall);
+    totals.automaticLiquidityShortfallRecoveryWan = roundWan(
+      totals.automaticLiquidityShortfallRecoveryWan + recoverAutomaticLiquidityShortfall(boundary)
+    );
     assertSufficientLiquidity(next, boundary);
     cursor = boundary;
   }
-  const finalAccrual = accumulatePeriodAccrual(accruePeriodSlice(next, cursor, input.periodEndAgeInMonths), totals);
+  const finalAccrual = accumulatePeriodAccrual(accruePeriodSlice(next, cursor, input.periodEndAgeInMonths, {
+    closeNonDebtLiquidityShortfall: (ageInMonths) => closeLiquidityShortfall(ageInMonths, true),
+    recoverAutomaticLiquidityShortfall
+  }), totals);
   recurringIncomeWan = roundWan(recurringIncomeWan + finalAccrual.incomeWan);
   coreExpenseWan = roundWan(coreExpenseWan + finalAccrual.coreExpenseWan);
 
-  closeLiquidityShortfall(input.periodEndAgeInMonths);
   assertSufficientLiquidity(next, input.periodEndAgeInMonths);
 
   next.asOfAgeInMonths = input.periodEndAgeInMonths;
+  addDebtServiceIssues(next, totals.debtServiceRecords);
   addDebtScheduleReviewIssues(next);
   next.revision += 1;
   next.committedTransactionIds.push(input.transactionId);
@@ -526,23 +812,51 @@ export function reduceFinancialLedger(input: {
   const expenseWan = roundWan(coreExpenseWan + totals.otherExpenseWan);
   const netWorthDeltaWan = roundWan(afterNetWorth - beforeNetWorth);
   const nonCashGainLossWan = roundWan(netWorthDeltaWan - incomeWan + expenseWan - totals.valuationChangeWan);
+  const expectedDebtDeltaWan = roundWan(
+    totals.debtPrincipalDrawnWan
+    + automaticLiquidityShortfallIncreaseWan
+    + totals.debtInterestAccruedWan
+    - totals.debtPrincipalPaidWan
+    - totals.automaticLiquidityShortfallRecoveryWan
+    - totals.debtPrincipalForgivenWan
+    - totals.debtInterestLiabilityPaidWan
+    - totals.debtInterestForgivenWan
+  );
+  const actualDebtDeltaWan = roundWan(afterDebt - beforeDebt);
+  if (expectedDebtDeltaWan !== actualDebtDeltaWan) {
+    throw new FinancialLedgerInvariantError(
+      "UNBALANCED_TRANSACTION",
+      `债务变化无法闭合：expected=${expectedDebtDeltaWan}, actual=${actualDebtDeltaWan}`
+    );
+  }
   const evidence = events.flatMap((event) => event.evidence);
   const transaction: FinancialTransaction = {
     id: `financial_${input.transactionId}`,
     simulationTransactionId: input.transactionId,
-    eventIds: [...events.map((event) => event.id), ...automaticLiquidityEventIds],
+    eventIds: [...events.map((event) => event.id), ...automaticLiquidityEventIds, ...automaticLiquidityRecoveryEventIds],
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
     cashDeltaWan: roundWan(afterCash - beforeCash),
     assetDeltaWan: roundWan(afterAssets - beforeAssets),
-    debtDeltaWan: roundWan(afterDebt - beforeDebt),
+    debtDeltaWan: actualDebtDeltaWan,
     incomeWan,
     expenseWan,
     valuationChangeWan: totals.valuationChangeWan,
     nonCashGainLossWan,
     netWorthDeltaWan,
+    debtServiceRecords: totals.debtServiceRecords,
+    automaticLiquidityShortfallIncreaseWan,
+    automaticLiquidityShortfallRecoveryWan: totals.automaticLiquidityShortfallRecoveryWan,
+    debtPrincipalDrawnWan: roundWan(totals.debtPrincipalDrawnWan + automaticLiquidityShortfallIncreaseWan),
+    debtPrincipalPaidWan: roundWan(totals.debtPrincipalPaidWan + totals.automaticLiquidityShortfallRecoveryWan),
+    debtPrincipalForgivenWan: totals.debtPrincipalForgivenWan,
+    debtInterestAccruedWan: totals.debtInterestAccruedWan,
+    debtInterestPaidWan: totals.debtInterestPaidWan,
+    debtInterestLiabilityPaidWan: totals.debtInterestLiabilityPaidWan,
+    debtInterestForgivenWan: totals.debtInterestForgivenWan,
+    debtCapitalizedInterestWan: totals.debtCapitalizedInterestWan,
     evidence
-  };
+  } as FinancialTransaction;
   next.recentTransactions = [...next.recentTransactions, transaction].slice(-RECENT_TRANSACTION_LIMIT);
   assertFinancialLedgerInvariants(next);
 
@@ -558,6 +872,8 @@ export function reduceFinancialLedger(input: {
     otherExpenseWan: totals.otherExpenseWan,
     debtPrincipalPaidWan: totals.debtPrincipalPaidWan,
     debtInterestPaidWan: totals.debtInterestPaidWan,
+    debtInterestUnpaidWan: totals.debtInterestUnpaidWan,
+    automaticLiquidityShortfallRecoveryWan: totals.automaticLiquidityShortfallRecoveryWan,
     assetPurchaseWan: totals.assetPurchaseWan,
     assetSaleProceedsWan: totals.assetSaleProceedsWan,
     valuationChangeWan: totals.valuationChangeWan,

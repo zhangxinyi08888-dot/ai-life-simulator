@@ -6,6 +6,12 @@ import { normalizeFinalLifeOutcome } from "../../utils/finalOutcomeResponse";
 import { buildFinalOutcomePrompt } from "./prompts";
 import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
 import { sanitizeFinalOutcomeFinancialClaims } from "../../utils/finalOutcomeFinancialSanitizer";
+import {
+  applyFinalFinancialNarrativeFallback,
+  buildFinalFinancialNarrativeRepairPrompt,
+  collectFinalFinancialNarrativeIssues,
+  deriveFinalFinancialNarrativeAuthority
+} from "../../utils/finalFinancialNarrativeAuthority";
 
 type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
 
@@ -43,8 +49,49 @@ export async function generateFinalOutcome(
   const callAiJson = getAiJsonCaller(deps);
   const prompt = buildFinalOutcomePrompt(input.userData, input.answers, input.history, input.currentAttributes, input.context);
   const data = parseAiJsonResponse(await callAiJson(prompt));
-  return sanitizeFinalOutcomeFinancialClaims(
+  let outcome = sanitizeFinalOutcomeFinancialClaims(
     normalizeFinalLifeOutcome(data, input.history, input.context.closureType),
     input.history
   );
+  const authority = deriveFinalFinancialNarrativeAuthority(input.history);
+  let issues = collectFinalFinancialNarrativeIssues({ outcome, authority });
+  const initialViolationCodes = [...new Set(issues.map((issue) => issue.code))];
+  let repairTriggered = false;
+  let fallbackCount = 0;
+
+  if (authority && issues.length > 0) {
+    repairTriggered = true;
+    const repairData = parseAiJsonResponse(await callAiJson(buildFinalFinancialNarrativeRepairPrompt({
+      outcome,
+      authority,
+      issues
+    })));
+    outcome = sanitizeFinalOutcomeFinancialClaims(
+      normalizeFinalLifeOutcome(repairData, input.history, input.context.closureType),
+      input.history
+    );
+    issues = collectFinalFinancialNarrativeIssues({ outcome, authority });
+  }
+
+  if (authority && issues.length > 0) {
+    fallbackCount = issues.length;
+    outcome = applyFinalFinancialNarrativeFallback({ outcome, authority, issues });
+    const remaining = collectFinalFinancialNarrativeIssues({ outcome, authority });
+    if (remaining.length > 0) {
+      throw new AiClientError(
+        "AI_RESPONSE_INVALID",
+        `终局报告仍与权威财务事实冲突：${remaining.map((issue) => `${issue.path}:${issue.code}`).join("；")}`
+      );
+    }
+  }
+
+  outcome.meta = {
+    ...outcome.meta,
+    financialNarrativeAuthorityVersion: authority?.version,
+    financialClaimRepairTriggered: repairTriggered,
+    financialClaimFallbackCount: fallbackCount,
+    financialClaimViolationCodes: initialViolationCodes,
+    sourceLedgerRevision: authority?.sourceLedgerRevision
+  };
+  return outcome;
 }

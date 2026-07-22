@@ -11,6 +11,20 @@ export interface DecisionGateResult {
   reasonCodes: string[];
 }
 
+export function applyDecisionDensityDowngrade(
+  node: SimulationNode,
+  gate: DecisionGateResult
+): SimulationNode {
+  if (!gate.reasonCodes.includes("node-density-exceeded") || !node.narrativeMeta) return node;
+  return {
+    ...node,
+    narrativeMeta: {
+      ...node.narrativeMeta,
+      lifeIntensity: "normal"
+    }
+  };
+}
+
 export const DEFAULT_NODE_DENSITY_POLICY = {
   maxCriticalCheckpointsPerPressureArc: 2,
   maxHighOrCriticalCheckpointsPerRolling12Months: 3
@@ -66,7 +80,8 @@ export function evaluateDecisionGate(input: {
   const intensity: LifeIntensity = input.candidateNode.narrativeMeta?.lifeIntensity || "normal";
   const recentHigh = countRecentHighIntensityNodes(input.recentHistory, input.targetAgeInMonths);
   const pressureCriticalCount = input.pressureArc && intensity === "critical" ? input.pressureArc.phaseCheckpointCount : 0;
-  const densityExceeded = !input.independentCriticalEvent && (
+  const densityExceeded = !input.independentCriticalEvent
+    && (intensity === "critical" || intensity === "high_tension") && (
     recentHigh >= DEFAULT_NODE_DENSITY_POLICY.maxHighOrCriticalCheckpointsPerRolling12Months
     || pressureCriticalCount >= DEFAULT_NODE_DENSITY_POLICY.maxCriticalCheckpointsPerPressureArc
   );

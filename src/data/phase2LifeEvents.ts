@@ -1,23 +1,24 @@
-import type { HistoryItem, LifeAttributes } from "../types";
+import type { HistoryItem, LifeAttributes, TemporalProfile } from "../types";
 import type { LifeEventSeed } from "./lifeEvents";
 
 const ADAPTATION = ["年龄只调整执行方式、风险和支持条件，不得删除该人生方向。"];
 
 interface Phase2EventDefinition extends Omit<LifeEventSeed,
-  "dispatchMode" | "minAge" | "maxAge" | "ageAffinity" | "conditionDescription" | "tags" | "fingerprint" | "trigger"
+  "minAge" | "maxAge" | "ageAffinity" | "conditionDescription" | "tags" | "fingerprint" | "trigger"
 > {
   preferredRange: [number, number];
   conditionDescription: string;
   tags: string[];
   trigger?: LifeEventSeed["trigger"];
-  temporal: { lifeIntensity: "normal" | "stable"; durationMonths: [number, number] };
+  intensity?: "minor" | "major";
+  temporal: Omit<TemporalProfile, "requiresFollowUp"> & { requiresFollowUp?: boolean };
 }
 
 function phase2Event(definition: Phase2EventDefinition): LifeEventSeed {
-  const { preferredRange, temporal, ...event } = definition;
+  const { preferredRange, temporal, intensity = "minor", ...event } = definition;
   return {
     ...event,
-    dispatchMode: "random",
+    dispatchMode: definition.dispatchMode ?? "random",
     minAge: preferredRange[0],
     maxAge: preferredRange[1],
     ageAffinity: {
@@ -28,14 +29,14 @@ function phase2Event(definition: Phase2EventDefinition): LifeEventSeed {
     fingerprint: {
       category: event.category,
       tags: event.tags,
-      intensity: "minor"
+      intensity
     },
     trigger: definition.trigger || { eligibility: () => true },
     intent: {
       ...event.intent,
       temporalProfile: {
         ...temporal,
-        requiresFollowUp: false
+        requiresFollowUp: temporal.requiresFollowUp ?? false
       }
     }
   };
@@ -81,6 +82,27 @@ function healthArcPhase(history: HistoryItem[] = [], phases: string[]): boolean 
 
 function latestWorld(history: HistoryItem[] = []) {
   return [...history].reverse().find((item) => item.worldStateSnapshot)?.worldStateSnapshot;
+}
+
+function activeDebtArc(history: HistoryItem[] = []) {
+  return latestWorld(history)?.pressureArcs.find((arc) => (
+    arc.phasePolicyId === "financial_debt_v1" && arc.status !== "resolved"
+  ));
+}
+
+function hasDebtServiceAndNonDebtObligation(history: HistoryItem[] = []): boolean {
+  const ledger = [...history].reverse().find((item) => item.financialLedger)?.financialLedger;
+  if (!ledger) return false;
+  const hasNonDebtObligation = ledger.expenseCommitments.some((expense) => (
+    expense.status === "active" && expense.monthlyAmountWan > 0
+  ));
+  const hasPlannedDebtService = ledger.debtAccounts.some((debt) => (
+    ["active", "defaulted"].includes(debt.status)
+    && (debt.repaymentPolicy.monthlyPaymentWan ?? (
+      (debt.repaymentPolicy.monthlyPrincipalWan ?? 0) + (debt.repaymentPolicy.monthlyInterestWan ?? 0)
+    )) > 0
+  ));
+  return hasNonDebtObligation && hasPlannedDebtService;
 }
 
 function hasReliablePeer(history: HistoryItem[] = []): boolean {
@@ -665,6 +687,156 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
     temporal: { lifeIntensity: "stable", durationMonths: [12, 36] }
   }),
   phase2Event({
+    id: "financial_debt_pressure_emerges",
+    category: "financial",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "financial_debt_pressure",
+    title: "债务开始挤压生活",
+    preferredRange: [18, 110],
+    conditionDescription: "权威账本显示债务压力已进入观察或困境状态",
+    cooldown: 6,
+    baseProbability: 0.68,
+    tags: ["financial", "debt", "pressure", "cashflow"],
+    requiredContextGroups: [
+      ["debt_health_available", "debt_watch"],
+      ["debt_health_available", "debt_distressed"]
+    ],
+    trigger: { eligibility: (_attribs, _userData, _age, history = []) => !activeDebtArc(history) },
+    historyConditionGroups: [[{
+      type: "event_absent",
+      semanticFamilies: ["financial_debt_pressure"],
+      withinNodes: 6
+    }]],
+    intent: {
+      type: "financial_debt_pressure_emerges",
+      meaning: "持续还款开始挤压日常选择，需要先稳定现金流并核对债务结构。",
+      tensionAxes: ["即时生活质量 vs 长期偿债", "减少支出 vs 稳定收入", "独自承受 vs 核对可用支持"],
+      allowedOutcomes: ["reduce_discretionary_expenses", "stabilize_core_income", "review_debt_structure"],
+      emotionalTone: "pressure"
+    },
+    temporal: { lifeIntensity: "normal", durationMonths: [6, 18] }
+  }),
+  phase2Event({
+    id: "financial_repayment_tradeoff",
+    category: "financial",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "financial_debt_tradeoff",
+    title: "还款与基本生活发生冲突",
+    preferredRange: [18, 110],
+    conditionDescription: "权威账本显示非债务义务与计划偿债同时挤压可用现金",
+    cooldown: 5,
+    baseProbability: 0.72,
+    tags: ["financial", "debt", "tradeoff", "essential_expenses"],
+    requiredContextGroups: [["debt_distressed"]],
+    trigger: { eligibility: (_attribs, _userData, _age, history = []) => (
+      !activeDebtArc(history) && hasDebtServiceAndNonDebtObligation(history)
+    ) },
+    intent: {
+      type: "financial_repayment_tradeoff",
+      meaning: "原有还款安排与基本生活需要发生冲突，必须明确保护顺序和可承受额度。",
+      tensionAxes: ["基本生活 vs 原计划还款", "最低履约 vs 现金安全", "短期支持 vs 长期可持续"],
+      allowedOutcomes: [
+        "protect_essential_expenses",
+        "maintain_affordable_minimum_payment",
+        "seek_verified_income_or_support"
+      ],
+      emotionalTone: "crossroads"
+    },
+    temporal: { lifeIntensity: "high_tension", durationMonths: [3, 9] }
+  }),
+  phase2Event({
+    id: "financial_payment_strain",
+    category: "financial",
+    narrativeMode: "pressure_crisis",
+    semanticFamily: "financial_debt_crisis",
+    dispatchMode: "arc_only",
+    intensity: "major",
+    title: "原还款安排无法维持",
+    preferredRange: [18, 110],
+    conditionDescription: "权威账本已记录持续未足额偿付或正式违约",
+    cooldown: 0,
+    baseProbability: 0,
+    tags: ["financial", "debt", "payment_strain", "major_crisis"],
+    requiredContextGroups: [["debt_default_risk"], ["debt_defaulted"]],
+    trigger: { eligibility: () => false },
+    intent: {
+      type: "financial_payment_strain",
+      meaning: "现有偿债安排已不能持续，需要面对拖欠事实并寻找可验证的处置路径。",
+      tensionAxes: ["重组协商 vs 维持原约定", "处置资产 vs 保留基本生活", "承认拖欠 vs 继续掩盖缺口"],
+      allowedOutcomes: [
+        "request_debt_restructuring",
+        "sell_nonessential_asset",
+        "seek_verified_family_support",
+        "accept_and_record_payment_arrears"
+      ],
+      emotionalTone: "crisis",
+      phasePolicyId: "financial_debt_v1"
+    },
+    temporal: { lifeIntensity: "high_tension", durationMonths: [3, 6], requiresFollowUp: true }
+  }),
+  phase2Event({
+    id: "financial_debt_restructuring",
+    category: "financial",
+    narrativeMode: "recovery_growth",
+    semanticFamily: "financial_debt_restructuring",
+    title: "重新安排债务",
+    preferredRange: [18, 110],
+    conditionDescription: "债务危机 Arc 正在响应或重组阶段",
+    cooldown: 0,
+    baseProbability: 0.75,
+    tags: ["financial", "debt", "restructuring", "recovery"],
+    historyConditionGroups: [[{
+      type: "pressure_arc_state",
+      phasePolicyIds: ["financial_debt_v1"],
+      phaseIds: ["response", "restructuring"],
+      statuses: ["active", "stabilizing"]
+    }]],
+    intent: {
+      type: "financial_debt_restructuring",
+      meaning: "角色进入正式核对和协商阶段，但只有被验证并落账的协议才会改变债务事实。",
+      tensionAxes: ["降低月供 vs 延长负担", "重融资成本 vs 当前现金流", "部分减免 vs 可验证条件"],
+      allowedOutcomes: [
+        "extend_repayment_term",
+        "refinance_with_explicit_terms",
+        "negotiate_partial_forgiveness",
+        "decline_unsustainable_restructuring"
+      ],
+      emotionalTone: "reflection"
+    },
+    temporal: { lifeIntensity: "normal", durationMonths: [3, 12] }
+  }),
+  phase2Event({
+    id: "financial_life_under_repayment",
+    category: "financial",
+    narrativeMode: "stability_meaning",
+    semanticFamily: "financial_debt_sustainable_life",
+    title: "在偿债中重建日常",
+    preferredRange: [18, 110],
+    conditionDescription: "偿债已经恢复到可持续区间，生活可以在仍有余额时继续展开",
+    cooldown: 0,
+    baseProbability: 0.72,
+    tags: ["financial", "debt", "sustainable_life", "operation"],
+    requiredContextGroups: [["debt_manageable"], ["debt_watch"]],
+    historyConditionGroups: [[{
+      type: "pressure_arc_state",
+      phasePolicyIds: ["financial_debt_v1"],
+      phaseIds: ["recovery", "operation"],
+      statuses: ["active", "stabilizing"]
+    }]],
+    intent: {
+      type: "financial_life_under_repayment",
+      meaning: "债务尚未清零，但现金流已允许角色在偿债中恢复健康、关系和有意义的生活方向。",
+      tensionAxes: ["持续偿债 vs 保留生活", "现金缓冲 vs 加速还款", "责任履行 vs 有意义的参与"],
+      allowedOutcomes: [
+        "maintain_sustainable_repayment",
+        "balance_repayment_and_health",
+        "preserve_one_meaningful_life_direction"
+      ],
+      emotionalTone: "reflection"
+    },
+    temporal: { lifeIntensity: "stable", durationMonths: [9, 24] }
+  }),
+  phase2Event({
     id: "financial_resource_priority_choice",
     category: "financial",
     narrativeMode: "crossroads_opportunity",
@@ -705,7 +877,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
     trigger: { eligibility: (_attribs, _userData, _age, history = []) => (latestFinancialState(history)?.cashWan ?? -1) >= 0 && !hasRecentMajor(history, "financial") },
     historyConditionGroups: [[
       { type: "event_absent", semanticFamilies: ["financial_cautious_opportunity"], withinNodes: 8 },
-      { type: "event_absent", eventIds: ["financial_major_crisis"], withinNodes: 4 }
+      { type: "event_absent", semanticFamilies: ["financial_debt_pressure", "financial_debt_crisis"], withinNodes: 4 }
     ]],
     intent: {
       type: "financial_cautious_opportunity",
@@ -755,8 +927,10 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
     cooldown: 6,
     baseProbability: 0.66,
     tags: ["financial", "debt", "recovery", "cashflow"],
-    requiredContextGroups: [["financial_state_available", "debt_present"]],
+    requiredContextGroups: [["debt_health_available", "debt_recovering"]],
     trigger: { eligibility: (_attribs, _userData, age, history = []) => {
+      const debtArc = activeDebtArc(history);
+      if (debtArc && !["recovery", "operation"].includes(debtArc.phaseId)) return false;
       const states = history.slice(-10).filter((item) => item.financialState);
       const elapsed = elapsedSinceMatchingIntent(history, age, /financial:(repay|reduce_expense)|career:(increase_income|stabilize_income)/i);
       return typeof elapsed === "number" && elapsed >= 6 && states.length > 0

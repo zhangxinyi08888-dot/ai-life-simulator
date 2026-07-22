@@ -16,6 +16,7 @@ export interface FinancialEvidence {
   excerpt?: string;
   reasonCode: string;
   confidence: number;
+  financialScope?: "personal" | "business_operating";
 }
 
 export interface CashAccount {
@@ -100,7 +101,60 @@ export interface DebtRepaymentPolicy {
   remainingTermMonths?: number;
 }
 
+export type DebtOrigin = "explicit" | "system_auto_shortfall" | "legacy_migration";
+
+export type DebtServicingStatus = "current" | "partial" | "missed" | "delinquent";
+
+export interface DebtServiceRecord {
+  id: string;
+  debtAccountId: string;
+  ageInMonths: number;
+  interestDueWan: number;
+  /** Interest newly accrued in this month; excludes carried unpaid interest. */
+  currentInterestAccruedWan?: number;
+  interestPaidWan: number;
+  interestUnpaidWan: number;
+  principalDueWan: number;
+  principalPaidWan: number;
+  principalUnpaidWan: number;
+  outcome: "paid" | "partial" | "missed";
+  reasonCodes: Array<
+    | "PAID_AS_SCHEDULED"
+    | "PARTIAL_PAYMENT"
+    | "DEBT_PAYMENT_MISSED"
+    | "INSUFFICIENT_CASH_AFTER_ESSENTIALS"
+  >;
+}
+
 export interface DebtAccount {
+  id: string;
+  type: DebtType;
+  displayName: string;
+  principalWan: number;
+  openedAtAgeInMonths: number;
+  closedAtAgeInMonths?: number;
+  status: "active" | "repaid" | "restructured" | "defaulted";
+  repaymentPolicy: DebtRepaymentPolicy;
+  factStatus: FinancialFactStatus;
+  evidence: FinancialEvidence[];
+  /**
+   * These fields are present on every canonical v3 ledger. They remain
+   * optional at construction boundaries during the v2 rollout so existing
+   * accepted proposal fixtures can be normalized in one place.
+   */
+  origin?: DebtOrigin;
+  accruedUnpaidInterestWan?: number;
+  servicingStatus?: DebtServicingStatus;
+  consecutiveMissedPaymentMonths?: number;
+  totalMissedPaymentMonths?: number;
+  recentMissedPaymentAgeInMonths?: number[];
+  lastPaymentAtAgeInMonths?: number;
+  lastMissedPaymentAtAgeInMonths?: number;
+  lastPrincipalIncreaseAtAgeInMonths?: number;
+}
+
+/** Frozen persisted debt shape written by FinancialLedger v2. */
+export interface DebtAccountV2 {
   id: string;
   type: DebtType;
   displayName: string;
@@ -147,7 +201,12 @@ export interface FinancialLedgerIssue {
     | "UNKNOWN_DEBT_SCHEDULE"
     | "UNSUPPORTED_LARGE_VALUE_CHANGE"
     | "LEGACY_UNCERTAINTY"
-    | "PENDING_FACT";
+    | "PENDING_FACT"
+    | "DEBT_PAYMENT_MISSED"
+    | "DEBT_PAYMENT_DELINQUENT"
+    | "LIQUIDITY_SHORTFALL_PERSISTED"
+    | "MODEL_OPENING_BALANCE_IGNORED"
+    | "INVALID_ASSET_TYPE";
   severity: "warning" | "blocking";
   status?: "open" | "resolved";
   relatedProposalIds: string[];
@@ -163,14 +222,13 @@ export interface FinancialLedgerIssue {
   resolvedByEventId?: string;
 }
 
-export interface FinancialLedger {
+interface FinancialLedgerCommon {
   id: string;
   owner: "protagonist";
   currencyUnit: "CNY_WAN_REAL";
   asOfAgeInMonths: number;
   cashAccounts: CashAccount[];
   assetAccounts: AssetAccount[];
-  debtAccounts: DebtAccount[];
   incomeSources: IncomeSource[];
   expenseCommitments: ExpenseCommitment[];
   businessHoldings: BusinessHolding[];
@@ -178,8 +236,21 @@ export interface FinancialLedger {
   committedTransactionIds: string[];
   unresolvedIssues: FinancialLedgerIssue[];
   revision: number;
+}
+
+/** Frozen persisted input shape. It is read-only migration input, never output. */
+export interface FinancialLedgerV2 extends FinancialLedgerCommon {
+  debtAccounts: DebtAccountV2[];
   version: 2;
 }
+
+export interface FinancialLedgerV3 extends FinancialLedgerCommon {
+  debtAccounts: DebtAccount[];
+  version: 3;
+}
+
+export type FinancialLedgerInput = FinancialLedgerV2 | FinancialLedgerV3;
+export type FinancialLedger = FinancialLedgerV3;
 
 export type FinancialEventKind =
   | "income_source_started"
@@ -199,6 +270,8 @@ export type FinancialEventKind =
   | "debt_interest_paid"
   | "debt_restructured"
   | "debt_forgiven"
+  | "debt_default_recorded"
+  | "business_holding_started"
   | "business_financing_recorded"
   | "business_holding_revalued"
   | "business_distribution_received"
@@ -215,6 +288,8 @@ export interface FinancialEventProposal {
   evidence: string;
   sourceOutcomeId?: string;
   confidence: number;
+  /** Whether the fact belongs to the protagonist's personal ledger or to company operations. */
+  financialScope?: "personal" | "business_operating";
 }
 
 export interface MoneyReceivedPayload {
@@ -275,11 +350,19 @@ export interface DebtRestructuredPayload {
   replacementDebtAccount: DebtAccount;
   sourceCashAccountId?: string;
   transactionFeeWan: number;
+  /** Portion of the old unpaid interest incorporated into replacement principal. */
+  capitalizedInterestWan?: number;
 }
 
 export interface DebtForgivenPayload {
   debtAccountId: string;
   principalForgivenWan: number;
+  accruedInterestForgivenWan?: number;
+}
+
+export interface DebtDefaultRecordedPayload {
+  debtAccountId: string;
+  reason: string;
 }
 
 export interface BusinessFinancingPayload {
@@ -288,6 +371,12 @@ export interface BusinessFinancingPayload {
   postMoneyValuationWan?: number;
   ownershipRateAfterFinancing?: number;
   personalCashReceivedWan: 0;
+}
+
+export interface BusinessHoldingStartedPayload {
+  sourceCashAccountId: string;
+  businessHolding: BusinessHolding;
+  personalCashInvestedWan: number;
 }
 
 export interface BusinessHoldingRevaluationPayload {
@@ -348,6 +437,8 @@ export interface FinancialEventPayloadMap {
   debt_interest_paid: DebtInterestPaymentPayload;
   debt_restructured: DebtRestructuredPayload;
   debt_forgiven: DebtForgivenPayload;
+  debt_default_recorded: DebtDefaultRecordedPayload;
+  business_holding_started: BusinessHoldingStartedPayload;
   business_financing_recorded: BusinessFinancingPayload;
   business_holding_revalued: BusinessHoldingRevaluationPayload;
   business_distribution_received: BusinessDistributionPayload;
@@ -367,6 +458,7 @@ export type AcceptedFinancialEvent<K extends FinancialEventKind = FinancialEvent
   payload: FinancialEventPayloadMap[K];
   evidence: FinancialEvidence[];
   acceptedByReasonCodes: string[];
+  liquidityTreatment?: "require_explicit" | "allow_system_shortfall";
 } : never;
 
 export interface FinancialTransaction {
@@ -383,6 +475,18 @@ export interface FinancialTransaction {
   valuationChangeWan: number;
   nonCashGainLossWan: number;
   netWorthDeltaWan: number;
+  debtServiceRecords?: DebtServiceRecord[];
+  automaticLiquidityShortfallIncreaseWan?: number;
+  automaticLiquidityShortfallRecoveryWan?: number;
+  debtPrincipalDrawnWan?: number;
+  debtPrincipalPaidWan?: number;
+  debtPrincipalForgivenWan?: number;
+  debtInterestAccruedWan?: number;
+  debtInterestPaidWan?: number;
+  /** Portion of interest paid that actually reduced accrued debt liability. */
+  debtInterestLiabilityPaidWan?: number;
+  debtInterestForgivenWan?: number;
+  debtCapitalizedInterestWan?: number;
   evidence: FinancialEvidence[];
 }
 
@@ -394,6 +498,8 @@ export interface FinancialPeriodSummary {
   otherExpenseWan: number;
   debtPrincipalPaidWan: number;
   debtInterestPaidWan: number;
+  debtInterestUnpaidWan?: number;
+  automaticLiquidityShortfallRecoveryWan?: number;
   assetPurchaseWan: number;
   assetSaleProceedsWan: number;
   valuationChangeWan: number;

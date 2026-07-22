@@ -167,7 +167,10 @@ const cooledPressure = sample({
   userData: { ...baseUser, currentSituation: `${baseUser.currentSituation}，已婚，需要照护父母，职业与生活结构受限。` },
   age: 45, history: cooledPressureHistory
 });
-assert.equal(cooledPressure.modes.pressure_crisis, 0);
+// As the library grows beyond six pressure families, a six-node cooldown
+// window cannot suppress every family at once. It must still reduce pressure
+// selection to a small residual share instead of assuming an empty mode.
+assert.ok(cooledPressure.modes.pressure_crisis < cooledPressure.nonNull * 0.1);
 
 const careerFocus = sample({ seed: 9, attributes: stable, userData: { ...baseUser, coreStoryFocus: "career" }, age: 45, history: contextHistory }, 10_000);
 const selfFocus = sample({ seed: 9, attributes: stable, userData: { ...baseUser, coreStoryFocus: "selftruth" }, age: 45, history: contextHistory }, 10_000);

@@ -2,6 +2,10 @@ import { SimulationNode, StoryEpisode, WorldStateSnapshot } from "../types";
 import { commitTransitionalEmploymentTransition, currentCareerState } from "../domain/career/careerState";
 import { AcceptedNodeOutcome, PressureArcTransitionDecision } from "./arcLifecycle";
 
+type MultiArcTransitionDecision = PressureArcTransitionDecision & {
+  additionalArcStateUpdates?: NonNullable<PressureArcTransitionDecision["nextArcState"]>[];
+};
+
 export interface SimulationTransactionInput {
   transactionId: string;
   node: SimulationNode;
@@ -52,6 +56,26 @@ function applySummaries(
   return next;
 }
 
+function validateArcStateUpdates(transition: MultiArcTransitionDecision): void {
+  const arcIds = [
+    transition.nextArcState?.id,
+    ...(transition.additionalArcStateUpdates || []).map((arc) => arc.id)
+  ].filter((id): id is string => Boolean(id));
+  const seenArcIds = new Set<string>();
+  for (const arcId of arcIds) {
+    if (seenArcIds.has(arcId)) {
+      throw new Error(`Simulation transaction contains duplicate updates for the same Arc: ${arcId}`);
+    }
+    seenArcIds.add(arcId);
+  }
+}
+
+function upsertPressureArc(snapshot: WorldStateSnapshot, arc: NonNullable<PressureArcTransitionDecision["nextArcState"]>): void {
+  const index = snapshot.pressureArcs.findIndex((item) => item.id === arc.id);
+  if (index >= 0) snapshot.pressureArcs[index] = { ...arc };
+  else snapshot.pressureArcs.push({ ...arc });
+}
+
 export function commitSimulationTransaction(input: SimulationTransactionInput): CommittedSimulationState {
   const committedIds = input.currentWorldStateSnapshot.committedTransactionIds || [];
   if (committedIds.includes(input.transactionId) && !input.domainTransactionAlreadyCommitted) {
@@ -61,6 +85,12 @@ export function commitSimulationTransaction(input: SimulationTransactionInput): 
       alreadyCommitted: true
     };
   }
+
+  // Validate the complete write set before cloning or applying any part of the
+  // transaction. A primary/background collision is a caller error and must not
+  // result in a partially committed WorldState.
+  const pressureArcTransition = input.pressureArcTransition as MultiArcTransitionDecision;
+  validateArcStateUpdates(pressureArcTransition);
 
   let nextSnapshot: WorldStateSnapshot = {
     ...input.currentWorldStateSnapshot,
@@ -80,11 +110,17 @@ export function commitSimulationTransaction(input: SimulationTransactionInput): 
     input.domainTransactionAlreadyCommitted
   );
 
-  const nextArc = input.pressureArcTransition.nextArcState;
-  if (nextArc) {
-    const index = nextSnapshot.pressureArcs.findIndex((arc) => arc.id === nextArc.id);
-    if (index >= 0) nextSnapshot.pressureArcs[index] = { ...nextArc };
-    else nextSnapshot.pressureArcs.push({ ...nextArc });
+  const nextArc = pressureArcTransition.nextArcState;
+  if (nextArc) upsertPressureArc(nextSnapshot, nextArc);
+  for (const additionalArcState of pressureArcTransition.additionalArcStateUpdates || []) {
+    upsertPressureArc(nextSnapshot, additionalArcState);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(pressureArcTransition, "foregroundPressureArcId")) {
+    nextSnapshot.foregroundPressureArcId = pressureArcTransition.foregroundPressureArcId;
+  } else if (nextArc) {
+    // Preserve the original single-Arc contract for callers that have not yet
+    // adopted an explicit foreground decision.
     nextSnapshot.foregroundPressureArcId = nextArc.status === "resolved" ? undefined : nextArc.id;
   }
 
@@ -94,7 +130,7 @@ export function commitSimulationTransaction(input: SimulationTransactionInput): 
     committedArcMeta: {
       pressureArcId: nextArc?.id,
       phaseId: nextArc?.phaseId,
-      transitionAction: input.pressureArcTransition.action
+      transitionAction: pressureArcTransition.action
     },
     worldStateSnapshot: nextSnapshot
   };

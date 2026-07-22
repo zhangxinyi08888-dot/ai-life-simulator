@@ -1,0 +1,85 @@
+name: Financial Debt Lifecycle
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: financial-debt-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  debt-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: P0-A — production audit credibility
+        run: pnpm test:financial-production-audit
+
+      - name: P0-B — automatic shortfall recovery and debt conservation
+        run: pnpm test:financial-debt-recovery
+
+      - name: P0-C — final report financial authority
+        run: pnpm test:financial-final-narrative
+
+      - name: P0-C2 — browser journey and invitation isolation
+        run: pnpm test:financial-journey-isolation
+
+      - name: P0-C3 — company-personal and career-income contracts
+        run: pnpm test:financial-business-boundary
+
+      - name: P0-D — closed-world opening and asset integrity
+        run: pnpm test:financial-opening-assets
+
+      - name: D1a — shortfall safety and v2-to-v3 migration
+        run: pnpm test:financial-debt-d1a
+
+      - name: D1b — servicing waterfall and funding safety
+        run: pnpm test:financial-debt-d1b
+
+      - name: D2 — derived debt health and history
+        run: pnpm test:financial-debt-d2
+
+      - name: D3 — debt event eligibility and contracts
+        run: pnpm test:financial-debt-d3
+
+      - name: D4 — debt arc and health preemption
+        run: pnpm test:financial-debt-d4
+
+      - name: D4.5 — authoritative debt narrative contract
+        run: pnpm test:financial-debt-d4.5
+
+      - name: Existing financial M5 regression
+        run: pnpm test:financial-m5
+
+      - name: Existing financial M7 regression
+        run: pnpm test:financial-m7
+
+      - name: Full repository regression
+        run: pnpm test
+
+      - name: Type check
+        run: pnpm lint
+
+      - name: Production build
+        run: pnpm build

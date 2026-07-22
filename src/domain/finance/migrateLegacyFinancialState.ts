@@ -94,6 +94,13 @@ export function migrateLegacyFinancialState(input: {
         }
       : { mode: "event_driven" as const },
     factStatus: input.openingFacts?.mortgagePrincipalWan !== undefined ? "known" as const : "estimated" as const,
+    // An opening mortgage explicitly stated by the user is not a legacy
+    // estimate merely because the compatibility FinancialState is used as the
+    // transport into the ledger. Preserve its authoritative identity so later
+    // eligibility and debt-health derivation cannot quarantine it as legacy.
+    origin: input.openingFacts?.mortgagePrincipalWan !== undefined
+      ? "explicit" as const
+      : "legacy_migration" as const,
     evidence: input.openingFacts?.mortgagePrincipalWan !== undefined
       ? userEvidence
       : legacyDebtLooksLikeMortgage
@@ -110,6 +117,7 @@ export function migrateLegacyFinancialState(input: {
       status: "active",
       repaymentPolicy: { mode: "event_driven" },
       factStatus: "needs_review",
+      origin: "legacy_migration",
       evidence
     });
   }

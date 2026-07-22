@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 import { HistoryItem, SimulationChoice, SimulationNode } from "../types";
-import { evaluateDecisionGate } from "./decisionGate";
+import { applyDecisionDensityDowngrade, evaluateDecisionGate } from "./decisionGate";
 
 const base: SimulationNode = {
   age: 35,
@@ -65,6 +66,38 @@ assert.equal(evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistor
 const passedTwice = [...passedOnce, cityHistoryItem(40, cityChoices[0].text)];
 const cooledResult = evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: passedTwice, targetAgeInMonths: 492 });
 assert.equal(cooledResult.isDecisionCheckpoint, false);
+
+test("a density-only repair can downgrade intensity without changing the event or choices", () => {
+  const candidate = {
+    ...base,
+    narrativeMeta: {
+      ...base.narrativeMeta,
+      lifeIntensity: "critical" as const
+    }
+  };
+  const gate = evaluateDecisionGate({
+    candidateNode: candidate,
+    recentHistory: [
+      { ...base, selectedChoice: "A", ageInMonths: 410, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "high_tension" as const } },
+      { ...base, selectedChoice: "B", ageInMonths: 415, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "critical" as const } },
+      { ...base, selectedChoice: "C", ageInMonths: 419, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "high_tension" as const } }
+    ],
+    targetAgeInMonths: 420
+  });
+  assert.equal(gate.reasonCodes.includes("node-density-exceeded"), true);
+  const downgraded = applyDecisionDensityDowngrade(candidate, gate);
+  assert.equal(downgraded.narrativeMeta?.lifeIntensity, "normal");
+  assert.deepEqual(downgraded.choices, candidate.choices);
+  assert.equal(evaluateDecisionGate({
+    candidateNode: downgraded,
+    recentHistory: [
+      { ...base, selectedChoice: "A", ageInMonths: 410, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "high_tension" as const } },
+      { ...base, selectedChoice: "B", ageInMonths: 415, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "critical" as const } },
+      { ...base, selectedChoice: "C", ageInMonths: 419, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "high_tension" as const } }
+    ],
+    targetAgeInMonths: 420
+  }).reasonCodes.includes("node-density-exceeded"), false);
+});
 assert.equal(cooledResult.repeatsRecentlyPassedOption, true);
 assert.deepEqual(cooledResult.blockedDecisionIntents, ["location:relocate_to:wuhan_guanggu"]);
 assert.ok(cooledResult.reasonCodes.includes("repeats-recently-passed-option"));

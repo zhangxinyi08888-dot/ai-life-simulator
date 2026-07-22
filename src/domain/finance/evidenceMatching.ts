@@ -4,7 +4,13 @@ export type EvidenceMatchReason = "EVIDENCE_EXACT_MATCHED" | "EVIDENCE_NORMALIZE
 
 const PROTAGONIST_PATTERN = /你|主角|本人|自己的|个人/;
 const NON_PROTAGONIST_ENTITY_PATTERN = /^(?:公司|企业|项目|团队|同事|伴侣|配偶|父母|孩子|子女)/;
-const ENTITY_ONLY_EVENT_KINDS = new Set<FinancialEventKind>(["business_financing_recorded"]);
+const ENTITY_ONLY_EVENT_KINDS = new Set<FinancialEventKind>([
+  "business_financing_recorded",
+  "business_holding_started",
+  "business_holding_revalued",
+  "business_distribution_received",
+  "business_holding_sold"
+]);
 
 const EVENT_PATTERNS: Partial<Record<FinancialEventKind, RegExp>> = {
   income_source_started: /工资|薪资|月薪|年薪|收入|顾问|咨询|稿费|版税|租金|养老金|年金|分红|提款/,
@@ -25,6 +31,7 @@ const EVENT_PATTERNS: Partial<Record<FinancialEventKind, RegExp>> = {
   debt_restructured: /重组|再融资|置换贷款/,
   debt_forgiven: /减免|豁免|免除债务/,
   business_financing_recorded: /融资|投资方|天使轮|A轮|B轮|估值/,
+  business_holding_started: /创业|成立|创办|注册|投入|出资|启动资金/,
   business_holding_revalued: /股权|持股|期权|估值|股份/,
   business_distribution_received: /分红|股息|利润分配/,
   business_holding_sold: /出售股权|转让股份|退出|套现/,
@@ -79,7 +86,8 @@ export function matchFinancialEvidence(input: {
 }): { matched: boolean; reasonCode?: EvidenceMatchReason; excerpt?: string } {
   const evidence = String(input.proposal.evidence || "").trim();
   if (!evidence) return { matched: false };
-  if (!ENTITY_ONLY_EVENT_KINDS.has(input.proposal.kind) && NON_PROTAGONIST_ENTITY_PATTERN.test(evidence)) {
+  const explicitPersonalReceipt = /(?:公司|企业|项目|团队).{0,32}(?:向|给)(?:你|主角|本人)(?:的)?(?:个人账户)?(?:支付|发放|转入|打入)|(?:你|主角|本人).{0,32}(?:领取|收到|获得).{0,20}(?:工资|薪资|报酬|分红|提款)/u.test(evidence);
+  if (!ENTITY_ONLY_EVENT_KINDS.has(input.proposal.kind) && NON_PROTAGONIST_ENTITY_PATTERN.test(evidence) && !explicitPersonalReceipt) {
     return { matched: false };
   }
   if (input.narrativeText.includes(evidence)) {
@@ -89,6 +97,14 @@ export function matchFinancialEvidence(input: {
   const normalizedEvidence = normalizeEvidenceText(evidence);
   if (normalizedEvidence && normalizedNarrative.includes(normalizedEvidence)) {
     return { matched: true, reasonCode: "EVIDENCE_NORMALIZED_MATCHED", excerpt: evidence };
+  }
+
+  if ((input.proposal.kind === "income_source_ended" || input.proposal.kind === "income_source_paused")
+    && /(?:你|主角|本人).{0,40}(?:辞职|辞去|离职|退休|停止工作|工资停发|收入中断)/u.test(evidence)) {
+    const careerClosureSentence = narrativeSentences(input.narrativeText).find((candidate) => (
+      /(?:你|主角|本人).{0,60}(?:辞职|辞去|离职|退休|停止工作|工资停发|收入中断|正式开始.{0,10}创业)/u.test(candidate)
+    ));
+    if (careerClosureSentence) return { matched: true, reasonCode: "EVIDENCE_FUZZY_MATCHED", excerpt: careerClosureSentence };
   }
 
   const amounts = financialAmounts(input.proposal.payload);

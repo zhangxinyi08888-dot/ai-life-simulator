@@ -156,19 +156,27 @@ test("standard debt cannot enter the authoritative ledger as permanently event-d
   ) => error instanceof FinancialLedgerInvariantError && error.code === "INVALID_LEDGER");
 });
 
-test("automatic scheduled payments still require enough cash and remain atomic on failure", () => {
+test("scheduled payments use available cash, record partial service, and never auto-borrow", () => {
   const ledger = ledgerWithDebt(debt({
     type: "consumer_loan",
     repaymentPolicy: { mode: "known_schedule", monthlyPrincipalWan: 1, monthlyInterestWan: 0.1 }
   }), 0.5);
-  assert.throws(() => reduceFinancialLedger({
+  const result = reduceFinancialLedger({
     ledger,
     transactionId: "tx_schedule_shortfall",
     expectedLedgerRevision: 0,
     periodStartAgeInMonths: 240,
     periodEndAgeInMonths: 241,
     events: []
-  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
+  });
+  assert.equal(result.alreadyCommitted, false);
+  if (result.alreadyCommitted) return;
+  assert.equal(result.ledger.cashAccounts[0].balanceWan, 0);
+  assert.equal(result.ledger.debtAccounts[0].principalWan, 11.6);
+  assert.equal(result.ledger.debtAccounts[0].servicingStatus, "partial");
+  assert.equal(result.transaction.debtServiceRecords?.[0].principalUnpaidWan, 0.6);
+  assert.equal(result.ledger.debtAccounts.some((item) => item.type === "liquidity_shortfall"), false);
+  // Reducer remains atomic and never mutates its input ledger.
   assert.equal(ledger.cashAccounts[0].balanceWan, 0.5);
   assert.equal(ledger.debtAccounts[0].principalWan, 12);
   assert.equal(ledger.revision, 0);
