@@ -559,6 +559,8 @@ export interface FinancialTransaction {
   automaticLiquidityShortfallIncreaseWan?: number;
   automaticLiquidityShortfallRecoveryWan?: number;
   debtPrincipalDrawnWan?: number;
+  /** Previously existing debt first discovered in this period; no current cash was received. */
+  debtBalanceDiscoveredWan?: number;
   debtPrincipalPaidWan?: number;
   debtPrincipalForgivenWan?: number;
   debtInterestAccruedWan?: number;

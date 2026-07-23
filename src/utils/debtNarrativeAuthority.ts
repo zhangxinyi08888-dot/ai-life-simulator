@@ -45,6 +45,7 @@ export interface DebtDeltaBreakdown {
   openingDebtWan: number;
   closingDebtWan: number;
   drawsWan: number;
+  balanceDiscoveredWan: number;
   automaticShortfallIncreaseWan: number;
   currentInterestAccruedWan: number;
   principalPaidWan: number;
@@ -115,6 +116,7 @@ function deriveDebtDeltaBreakdown(ledger: FinancialLedger, periodStartAgeInMonth
   const closingDebtWan = totalDebtWan(ledger);
   const actualDeltaWan = Number(sum("debtDeltaWan").toFixed(4));
   const totalDrawnWan = sum("debtPrincipalDrawnWan");
+  const balanceDiscoveredWan = sum("debtBalanceDiscoveredWan");
   const automaticShortfallIncreaseWan = sum("automaticLiquidityShortfallIncreaseWan");
   const automaticShortfallRecoveryWan = sum("automaticLiquidityShortfallRecoveryWan");
   const totalPrincipalPaidWan = sum("debtPrincipalPaidWan");
@@ -124,6 +126,7 @@ function deriveDebtDeltaBreakdown(ledger: FinancialLedger, periodStartAgeInMonth
   const interestLiabilityPaidWan = sum("debtInterestLiabilityPaidWan");
   const forgivenWan = sum("debtPrincipalForgivenWan") + sum("debtInterestForgivenWan");
   const explainedDeltaWan = drawsWan
+    + balanceDiscoveredWan
     + automaticShortfallIncreaseWan
     + currentInterestAccruedWan
     - principalPaidWan
@@ -134,6 +137,7 @@ function deriveDebtDeltaBreakdown(ledger: FinancialLedger, periodStartAgeInMonth
     openingDebtWan: Number((closingDebtWan - actualDeltaWan).toFixed(4)),
     closingDebtWan,
     drawsWan: Number(drawsWan.toFixed(4)),
+    balanceDiscoveredWan: Number(balanceDiscoveredWan.toFixed(4)),
     automaticShortfallIncreaseWan: Number(automaticShortfallIncreaseWan.toFixed(4)),
     currentInterestAccruedWan: Number(currentInterestAccruedWan.toFixed(4)),
     principalPaidWan: Number(principalPaidWan.toFixed(4)),

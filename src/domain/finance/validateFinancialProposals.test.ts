@@ -185,6 +185,52 @@ test("new debt receives accepted-event evidence before debt-health eligibility",
   if (event.kind === "debt_drawn") assert.equal(event.payload.debtAccount.evidence[0]?.source, "accepted_simulation_outcome");
 });
 
+test("rejects a repeated discovery of the sole opening mortgage with the same balance", () => {
+  const state = setup();
+  state.currentLedger.debtAccounts.push({
+    id: "opening_mortgage",
+    type: "mortgage",
+    displayName: "开局住房按揭",
+    principalWan: 210,
+    openedAtAgeInMonths: 288,
+    status: "active",
+    repaymentPolicy: { mode: "estimated_amortizing", monthlyPrincipalWan: 0.875, remainingTermMonths: 240 },
+    factStatus: "known",
+    evidence,
+    origin: "explicit"
+  });
+  const result = validateFinancialProposals({
+    ...state,
+    proposals: [proposal({
+      id: "repeated_opening_mortgage",
+      kind: "debt_balance_discovered",
+      evidence: "你仍背着210万元房贷余额。",
+      payload: {
+        debtAccount: {
+          id: "model_generated_mortgage",
+          type: "mortgage",
+          displayName: "住房贷款",
+          principalWan: 210,
+          openedAtAgeInMonths: 288,
+          status: "active",
+          repaymentPolicy: { mode: "estimated_amortizing", monthlyPrincipalWan: 0.875, remainingTermMonths: 240 },
+          factStatus: "known",
+          evidence: [],
+          origin: "explicit"
+        }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你仍背着210万元房贷余额。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "repeated_opening_mortgage",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.match(result.issues[0]?.summary ?? "", /已存在且余额一致/);
+});
+
 test("an explicit family loan with no schedule normalizes to event-driven servicing", () => {
   const raw = proposal({
     id: "family_loan",

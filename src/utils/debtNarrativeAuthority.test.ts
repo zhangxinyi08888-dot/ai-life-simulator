@@ -329,6 +329,28 @@ test("PB-NARR-02 debt delta breakdown explains newly accrued interest", () => {
   assert.match(authority.canonicalFacts.find((fact) => fact.kind === "debt_interest_accrued")?.text ?? "", /0.5万元利息/);
 });
 
+test("debt delta breakdown treats a discovered prior balance as an explained non-cash correction", () => {
+  const ledger = debtLedger();
+  ledger.debtAccounts[0].principalWan = 210;
+  ledger.debtAccounts[0].accruedUnpaidInterestWan = 0;
+  ledger.recentTransactions = [{
+    ...ledger.recentTransactions[0],
+    debtDeltaWan: 210,
+    netWorthDeltaWan: -210,
+    priorFactCorrectionWan: -210,
+    nonCashGainLossWan: 0,
+    debtBalanceDiscoveredWan: 210,
+    debtInterestAccruedWan: 0
+  }];
+  const authority = deriveDebtNarrativeAuthority({
+    ledger,
+    debtHealthState: { ...debtHealth(), totalDebtWan: 210 },
+    periodStartAgeInMonths: 396
+  });
+  assert.equal(authority.deltaBreakdown.balanceDiscoveredWan, 210);
+  assert.equal(authority.deltaBreakdown.unexplainedDeltaWan, 0);
+});
+
 test("debt surface repair supplies deterministic copy when an optional choice summary is absent", () => {
   const authority = deriveDebtNarrativeAuthority({ ledger: debtLedger(), debtHealthState: debtHealth(), periodStartAgeInMonths: 396 });
   const unsafe = node({

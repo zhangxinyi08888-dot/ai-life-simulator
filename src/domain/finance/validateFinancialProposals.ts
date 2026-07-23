@@ -150,6 +150,29 @@ function thirdPartyIncomeFact(proposal: FinancialEventProposal): boolean {
   return thirdParty && !protagonistIsRecipient;
 }
 
+function duplicateDebtBalanceDiscovery(
+  proposal: FinancialEventProposal,
+  ledger: FinancialLedger
+): { id: string; principalWan: number } | undefined {
+  if (proposal.kind !== "debt_balance_discovered") return undefined;
+  const candidate = (proposal.payload as FinancialEventPayloadMap["debt_balance_discovered"]).debtAccount;
+  const activeDebts = ledger.debtAccounts.filter((account) => account.status === "active" || account.status === "defaulted");
+  const exactId = activeDebts.find((account) => account.id === candidate.id);
+  if (exactId) return exactId;
+
+  // A repeated mention of the sole opening mortgage is not a new balance fact.
+  // Multiple mortgages remain distinguishable and therefore require an
+  // explicit account id instead of being collapsed by type.
+  if (candidate.type !== "mortgage") return undefined;
+  const activeMortgages = activeDebts.filter((account) => account.type === "mortgage");
+  if (activeMortgages.length !== 1) return undefined;
+  const existing = activeMortgages[0];
+  const toleranceWan = Math.max(0.01, Math.abs(existing.principalWan) * 0.001);
+  return Math.abs(existing.principalWan - candidate.principalWan) <= toleranceWan
+    ? existing
+    : undefined;
+}
+
 function markEstimatedFacts<T>(value: T): T {
   if (!value || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(markEstimatedFacts) as T;
@@ -359,6 +382,16 @@ export function validateFinancialProposals(input: {
     }
     const referenceIssue = typedReferenceIssue({ proposal, ledger: input.currentLedger, ageInMonths: proposal.effectiveAtAgeInMonths });
     if (referenceIssue) { issues.push(referenceIssue); continue; }
+    const duplicateDebt = duplicateDebtBalanceDiscovery(proposal, input.currentLedger);
+    if (duplicateDebt) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: `债务账户 ${duplicateDebt.id} 已存在且余额一致；正文重复提及不能再次创建 debt_balance_discovered`,
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
     if (!input.acceptedOutcomeId || proposal.sourceOutcomeId !== input.acceptedOutcomeId) {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal 未关联本轮已接受结果", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;

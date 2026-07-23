@@ -977,6 +977,9 @@ export function reduceFinancialLedger(input: {
     );
   }
   const evidence = events.flatMap((event) => event.evidence);
+  const debtBalanceDiscoveredWan = roundWan(events
+    .filter((event) => event.kind === "debt_balance_discovered")
+    .reduce((sum, event) => sum + event.payload.debtAccount.principalWan, 0));
   const transaction: FinancialTransaction = {
     id: `financial_${input.transactionId}`,
     simulationTransactionId: input.transactionId,
@@ -996,6 +999,7 @@ export function reduceFinancialLedger(input: {
     automaticLiquidityShortfallIncreaseWan,
     automaticLiquidityShortfallRecoveryWan: totals.automaticLiquidityShortfallRecoveryWan,
     debtPrincipalDrawnWan: roundWan(totals.debtPrincipalDrawnWan + automaticLiquidityShortfallIncreaseWan),
+    debtBalanceDiscoveredWan,
     debtPrincipalPaidWan: roundWan(totals.debtPrincipalPaidWan + totals.automaticLiquidityShortfallRecoveryWan),
     debtPrincipalForgivenWan: totals.debtPrincipalForgivenWan,
     debtInterestAccruedWan: totals.debtInterestAccruedWan,
