@@ -190,20 +190,39 @@ function addDebtServiceIssues(ledger: FinancialLedger, records: DebtServiceRecor
     const code = debt.servicingStatus === "delinquent"
       ? "DEBT_PAYMENT_DELINQUENT" as const
       : "DEBT_PAYMENT_MISSED" as const;
-    const id = `${code.toLowerCase()}_${debt.id}_${record.ageInMonths}`;
-    if (ledger.unresolvedIssues.some((issue) => issue.id === id)) continue;
-    ledger.unresolvedIssues.push({
-      id,
-      code,
-      severity: "warning",
-      status: "open",
-      relatedProposalIds: [],
-      relatedDebtAccountIds: [debt.id],
-      summary: code === "DEBT_PAYMENT_DELINQUENT"
-        ? `债务 ${debt.displayName} 已连续未足额履约`
-        : `债务 ${debt.displayName} 本月未足额履约`,
-      createdAtAgeInMonths: record.ageInMonths
-    });
+    const stableId = `debt_payment_servicing_${debt.id}`;
+    const activeIssues = ledger.unresolvedIssues.filter((issue) => (
+      (issue.status ?? "open") === "open"
+      && (issue.code === "DEBT_PAYMENT_MISSED" || issue.code === "DEBT_PAYMENT_DELINQUENT")
+      && issue.relatedDebtAccountIds?.includes(debt.id)
+    ));
+    let issue = activeIssues.find((candidate) => candidate.id === stableId);
+    for (const duplicate of activeIssues) {
+      if (duplicate === issue) continue;
+      duplicate.status = "resolved";
+      duplicate.resolvedAtAgeInMonths = record.ageInMonths;
+      duplicate.resolvedByEventId = `system:servicing_issue_consolidated:${debt.id}`;
+    }
+    if (!issue) {
+      issue = {
+        id: stableId,
+        code,
+        severity: "warning",
+        status: "open",
+        relatedProposalIds: [],
+        relatedDebtAccountIds: [debt.id],
+        summary: "",
+        createdAtAgeInMonths: record.ageInMonths,
+        occurrenceCount: 0
+      };
+      ledger.unresolvedIssues.push(issue);
+    }
+    issue.code = code;
+    issue.summary = code === "DEBT_PAYMENT_DELINQUENT"
+      ? `债务 ${debt.displayName} 已连续未足额履约`
+      : `债务 ${debt.displayName} 本月未足额履约`;
+    issue.lastObservedAtAgeInMonths = record.ageInMonths;
+    issue.occurrenceCount = (issue.occurrenceCount ?? 0) + 1;
   }
 }
 

@@ -273,6 +273,55 @@ test("a rejected debt proposal cannot revoke an existing user-authoritative debt
   assert.notEqual(health.level, "none");
 });
 
+test("a current debt account immediately closes its active servicing issue", () => {
+  const current = setup();
+  current.ledger.debtAccounts.push({
+    id: "recovered_loan",
+    type: "consumer_loan",
+    displayName: "已恢复履约的贷款",
+    principalWan: 5,
+    openedAtAgeInMonths: 300,
+    status: "active",
+    repaymentPolicy: { mode: "known_schedule", monthlyPrincipalWan: 0.2, monthlyInterestWan: 0.02, remainingTermMonths: 25 },
+    factStatus: "known",
+    origin: "explicit",
+    accruedUnpaidInterestWan: 0,
+    servicingStatus: "current",
+    consecutiveMissedPaymentMonths: 0,
+    totalMissedPaymentMonths: 1,
+    recentMissedPaymentAgeInMonths: [359],
+    evidence
+  });
+  current.ledger.unresolvedIssues.push({
+    id: "debt_payment_servicing_recovered_loan",
+    code: "DEBT_PAYMENT_MISSED",
+    severity: "warning",
+    status: "open",
+    relatedProposalIds: [],
+    relatedDebtAccountIds: ["recovered_loan"],
+    summary: "债务已出现未足额履约",
+    createdAtAgeInMonths: 359,
+    lastObservedAtAgeInMonths: 359,
+    occurrenceCount: 1
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "servicing_recovered",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+  const issue = result.financialLedger.unresolvedIssues.find((item) => item.id === "debt_payment_servicing_recovered_loan");
+  assert.equal(issue?.status, "resolved");
+  assert.equal(issue?.resolvedAtAgeInMonths, 361);
+  assert.equal(issue?.resolvedByEventId, "system:servicing_recovered:servicing_recovered");
+});
+
 test("a rejected proposal cannot revoke a deterministic automatic-shortfall debt", () => {
   const current = setup();
   current.ledger.debtAccounts.push({

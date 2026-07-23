@@ -309,6 +309,22 @@ test("D1-11 first missed payment does not formally default the account", () => {
   assert.equal(result.ledger.unresolvedIssues.some((issue) => String(issue.code) === "DEBT_PAYMENT_MISSED"), true);
 });
 
+test("D1-11b repeated missed payments update one active servicing issue per debt", () => {
+  const first = committed(commitOneMonth(ledger({ cashWan: 0, debts: [scheduledDebt()] }), "d1_servicing_issue_1"));
+  const second = committed(commitOneMonth(first.ledger, "d1_servicing_issue_2"));
+  const third = committed(commitOneMonth(second.ledger, "d1_servicing_issue_3"));
+  const active = third.ledger.unresolvedIssues.filter((issue) => (
+    (issue.status ?? "open") === "open"
+    && (issue.code === "DEBT_PAYMENT_MISSED" || issue.code === "DEBT_PAYMENT_DELINQUENT")
+    && issue.relatedDebtAccountIds?.includes("scheduled_loan")
+  ));
+  assert.equal(active.length, 1);
+  assert.equal(active[0].id, "debt_payment_servicing_scheduled_loan");
+  assert.equal(active[0].code, "DEBT_PAYMENT_DELINQUENT");
+  assert.equal(active[0].occurrenceCount, 3);
+  assert.equal(active[0].lastObservedAtAgeInMonths, 243);
+});
+
 test("D1-12 only an accepted formal default event changes lifecycle status to defaulted", () => {
   const opening = ledger({ cashWan: 0, debts: [scheduledDebt()] });
   const missed = committed(commitOneMonth(opening, "d1_before_default"));

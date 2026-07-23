@@ -4,7 +4,7 @@ import { initializeFinancialLedger } from "../../domain/finance/initializeLedger
 import { PRIMARY_CASH_ACCOUNT_ID } from "../../domain/finance/ledgerMath";
 import type { FinancialEvidence } from "../../domain/finance/types";
 import { buildFinancialProposalRepairPrompt, formatRestrictedFinancialLedger } from "./prompts";
-import { buildDeterministicFinancialNarrativeRollback, extractMisplacedEmploymentTransition, isCompanyOperatingNarrativeProposal, resolveSelectedOutcomeId, stillClaimsRejectedDebtDraw, stillClaimsRejectedDebtRestructure, synthesizeMissingBusinessHoldingStartProposal, synthesizeMissingDebtCompletionProposals, synthesizeSelectedCareerTransition, validateSelectedDecisionConsistency } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, extractMisplacedEmploymentTransition, isCompanyOperatingNarrativeProposal, resolveSelectedOutcomeId, settleRejectedFinancialProposalIssues, stillClaimsRejectedDebtDraw, stillClaimsRejectedDebtRestructure, synthesizeMissingBusinessHoldingStartProposal, synthesizeMissingDebtCompletionProposals, synthesizeSelectedCareerTransition, validateSelectedDecisionConsistency } from "./simulationService";
 import type { HistoryItem } from "../../types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "TEST", confidence: 1 }];
@@ -160,6 +160,46 @@ test("failed model rollback degrades rejected completion facts deterministically
   assert.match(paragraphs.join("\n"), /晚上你照常回家吃饭/);
   assert.match(paragraphs.join("\n"), /尚未形成生效协议/);
   assert.doesNotMatch(paragraphs.join("\n"), /已经批准|降至0.3万元/);
+});
+
+test("rejected proposal diagnostics are closed after the proposal is not committed", () => {
+  const [issue] = settleRejectedFinancialProposalIssues({
+    issues: [{
+      id: "proposal_issue_bad_repayment_300",
+      code: "UNBALANCED_TRANSACTION",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["bad_repayment"],
+      summary: "还款金额无效",
+      createdAtAgeInMonths: 300
+    }],
+    acceptedProposalIds: [],
+    rejectedProposalIds: ["bad_repayment"],
+    ageInMonths: 300,
+    narrativeRolledBack: true
+  });
+  assert.equal(issue.status, "resolved");
+  assert.equal(issue.resolvedByEventId, "system:rejected_proposal_narrative_rollback");
+});
+
+test("unresolved authoritative facts are not hidden by proposal settlement", () => {
+  const [issue] = settleRejectedFinancialProposalIssues({
+    issues: [{
+      id: "pending_fact_income_salary",
+      code: "PENDING_FACT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: [],
+      relatedIncomeSourceIds: ["salary"],
+      summary: "当前工资需要确认",
+      createdAtAgeInMonths: 300
+    }],
+    acceptedProposalIds: [],
+    rejectedProposalIds: ["bad_salary_change"],
+    ageInMonths: 300,
+    narrativeRolledBack: true
+  });
+  assert.equal(issue.status, "open");
 });
 
 test("PB-NARR-16 rollback never renders custom-decision control text as a story paragraph", () => {

@@ -6,6 +6,7 @@ import {
 } from "./lib/financial-production-audit.mjs";
 import { execFile } from "node:child_process";
 import {
+  classifyTerminalFinancialIssues,
   collectRecoveredGenerationAttempts,
   collectVisibleGenerationPauses,
   duplicateSingletonExpenseTypes,
@@ -304,7 +305,19 @@ for (const record of records) {
 }
 
 const issues = [...latestIssues.values()];
-const openIssues = issues.filter((issue) => (issue.status || "open") === "open");
+const distressedDebtAccountKeys = new Set(records.flatMap((record) => {
+  const terminalLedger = record.finalState?.history?.at(-1)?.financialLedger || {};
+  return (terminalLedger.debtAccounts || [])
+    .filter((debt) => (
+      (debt.status === "active" || debt.status === "defaulted")
+      && (debt.servicingStatus !== "current" || Number(debt.consecutiveMissedPaymentMonths || 0) > 0)
+    ))
+    .map((debt) => `${record.caseSlug}:${debt.id}`);
+}));
+const issueHealth = classifyTerminalFinancialIssues(issues, distressedDebtAccountKeys);
+const openIssues = issueHealth.openIssues;
+const blockingOpenIssues = issueHealth.blockingOpenIssues;
+const servicingWarnings = issueHealth.servicingWarnings;
 const resolvedIssues = issues.filter((issue) => issue.status === "resolved");
 const issueCodeCounts = openIssues.reduce((acc, issue) => {
   acc[issue.code] = (acc[issue.code] || 0) + 1;
@@ -344,6 +357,10 @@ const summary = {
   generationRecoveredCount,
   generationPauseCaseCount,
   openIssues: openIssues.length,
+  blockingOpenIssues: blockingOpenIssues.length,
+  servicingWarnings: servicingWarnings.length,
+  distressedDebtAccounts: distressedDebtAccountKeys.size,
+  orphanServicingWarnings: issueHealth.orphanServicingWarnings.length,
   resolvedIssues: resolvedIssues.length,
   issueCodeCounts,
   ...productionAudit.summary
@@ -412,7 +429,9 @@ const blockers = [
   personalLedgerBusinessBoundaryNodes > 0 && `公司营收或经营成本进入个人收支：${personalLedgerBusinessBoundaryNodes} 个节点`,
   duplicateSingletonExpenseNodes > 0 && `basic_living 或 housing 存在重复 active 基线：${duplicateSingletonExpenseNodes} 个节点`,
   adultBelowPolicyExpenseNodes > 0 && `23 岁后生活支出仍低于成年保守政策下限：${adultBelowPolicyExpenseNodes} 个节点`,
-  openIssues.length > 0 && `终局仍存在 open issue：${openIssues.length} 个`,
+  blockingOpenIssues.length > 0 && `终局仍存在 blocking open issue：${blockingOpenIssues.length} 个`,
+  issueHealth.servicingWarningOverflow > 0 && `偿付 warning 超过真实困境债务账户：${servicingWarnings.length}/${distressedDebtAccountKeys.size}`,
+  issueHealth.orphanServicingWarnings.length > 0 && `已恢复或不存在的债务仍挂偿付 warning：${issueHealth.orphanServicingWarnings.length} 个账户`,
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
 ].filter(Boolean);
 const routeContractPassed = records.length === 5 && records.every((record) => record.passed);
@@ -487,6 +506,8 @@ ${recoverableRows}
 | basic_living / housing 重复 active | ${duplicateSingletonExpenseNodes} | 目标 0 |
 | 23 岁后仍低于成年支出政策下限 | ${adultBelowPolicyExpenseNodes} | 目标 0 |
 | open / resolved issue | ${openIssues.length} / ${resolvedIssues.length} | 必须有关闭路径且终局可控 |
+| blocking open issue | ${blockingOpenIssues.length} | 发布门禁必须为 0 |
+| 偿付 warning / 真实困境债务账户 | ${servicingWarnings.length} / ${distressedDebtAccountKeys.size} | warning 不得超过真实困境账户，且不得指向已恢复账户 |
 
 Accepted 覆盖率以“包含财务叙述的节点中，本节点新增已提交交易或核心财务签名发生变化”为可审计代理口径；它不把纯时间计提误算为新事实接受。
 

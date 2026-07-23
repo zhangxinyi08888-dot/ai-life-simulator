@@ -360,19 +360,20 @@ function resolveRecoveredDebtDelinquencyIssues(
   ageInMonths: number,
   transactionId: string
 ): void {
-  const recentCutoff = ageInMonths - 12;
   for (const issue of ledger.unresolvedIssues) {
-    if (issue.code !== "DEBT_PAYMENT_DELINQUENT" || (issue.status ?? "open") !== "open") continue;
-    const lastObserved = issue.lastObservedAtAgeInMonths ?? issue.createdAtAgeInMonths;
-    if (lastObserved > recentCutoff) continue;
+    if ((issue.code !== "DEBT_PAYMENT_MISSED" && issue.code !== "DEBT_PAYMENT_DELINQUENT")
+      || (issue.status ?? "open") !== "open") continue;
     const relatedIds = new Set(issue.relatedDebtAccountIds ?? []);
     const relatedAccounts = ledger.debtAccounts.filter((account) => relatedIds.has(account.id));
     if (relatedAccounts.length === 0) continue;
     const recovered = relatedAccounts.every((account) => (
-      account.status !== "defaulted"
-      && account.servicingStatus === "current"
-      && (account.consecutiveMissedPaymentMonths ?? 0) === 0
-      && !(account.recentMissedPaymentAgeInMonths ?? []).some((month) => month > recentCutoff)
+      account.status === "repaid"
+      || account.status === "restructured"
+      || (
+        account.status !== "defaulted"
+        && account.servicingStatus === "current"
+        && (account.consecutiveMissedPaymentMonths ?? 0) === 0
+      )
     ));
     if (!recovered) continue;
     issue.status = "resolved";

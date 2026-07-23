@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   collectRecoveredGenerationAttempts,
   collectVisibleGenerationPauses,
+  classifyTerminalFinancialIssues,
   duplicateSingletonExpenseTypes,
   personalCompensationAnnualAmounts,
   personalLedgerBusinessBoundaryViolations
@@ -38,6 +39,32 @@ test("keeps a personal product-consulting contract out of business revenue viola
   assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
     id: "income_consulting", type: "contract", displayName: "AI产品顾问收入", status: "active", evidence: []
   }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
+test("keeps evidence-scoped personal consulting fees out of company revenue violations", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "consultant_income_ai_tool_630",
+    type: "other",
+    displayName: "AI医疗创业公司顾问费",
+    status: "active",
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "顾问收入每月1万"
+    }]
+  }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
+test("does not let personal scope relabel company operating revenue as consulting income", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "company_revenue",
+    type: "other",
+    displayName: "AI医疗创业公司月营收",
+    status: "active",
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "公司月收入达到20万"
+    }]
+  }] }), { incomeSourceIds: ["company_revenue"], expenseCommitmentIds: [] });
 });
 
 test("flags spouse salary in a protagonist ledger", () => {
@@ -81,4 +108,45 @@ test("keeps runner-only legacy pause evidence auditable", () => {
   });
   assert.equal(pauses.length, 1);
   assert.equal(pauses[0].source, "runner");
+});
+
+test("release issue classification blocks facts but bounds servicing warnings by distressed accounts", () => {
+  const distressed = new Set(["route-a:loan-a"]);
+  const result = classifyTerminalFinancialIssues([
+    {
+      caseSlug: "route-a",
+      id: "debt_payment_servicing_loan-a",
+      code: "DEBT_PAYMENT_DELINQUENT",
+      severity: "warning",
+      status: "open",
+      relatedDebtAccountIds: ["loan-a"]
+    },
+    {
+      caseSlug: "route-a",
+      id: "proposal_issue_bad",
+      code: "UNBALANCED_TRANSACTION",
+      severity: "blocking",
+      status: "open"
+    },
+    {
+      caseSlug: "route-a",
+      id: "old_warning",
+      code: "LEGACY_UNCERTAINTY",
+      severity: "warning",
+      status: "open"
+    }
+  ], distressed);
+  assert.equal(result.blockingOpenIssues.length, 1);
+  assert.equal(result.servicingWarnings.length, 1);
+  assert.equal(result.servicingWarningOverflow, 0);
+  assert.deepEqual(result.orphanServicingWarnings, []);
+});
+
+test("servicing warnings for recovered or duplicated debt accounts fail the release classification", () => {
+  const result = classifyTerminalFinancialIssues([
+    { caseSlug: "route-a", id: "old-1", code: "DEBT_PAYMENT_MISSED", severity: "warning", status: "open", relatedDebtAccountIds: ["loan-a"] },
+    { caseSlug: "route-a", id: "old-2", code: "DEBT_PAYMENT_DELINQUENT", severity: "warning", status: "open", relatedDebtAccountIds: ["loan-a"] }
+  ], new Set());
+  assert.equal(result.servicingWarningOverflow, 2);
+  assert.deepEqual(result.orphanServicingWarnings, ["route-a:loan-a"]);
 });

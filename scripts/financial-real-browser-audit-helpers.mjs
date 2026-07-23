@@ -9,14 +9,27 @@ function ledgerFactText(item) {
     .join(" ");
 }
 
+function hasExplicitPersonalServiceReceipt(source) {
+  const personalEvidence = (source?.evidence || [])
+    .filter((evidence) => evidence?.financialScope === "personal")
+    .map((evidence) => evidence?.excerpt)
+    .filter(Boolean)
+    .join(" ");
+  if (!personalEvidence) return false;
+  const text = [source?.displayName, personalEvidence].filter(Boolean).join(" ");
+  return /(?:个人)?(?:顾问|咨询)(?:费|收入|报酬|薪酬)|(?:顾问|咨询)(?:工作|服务)[^。；]{0,16}(?:收入|报酬|薪酬)/u.test(text);
+}
+
 export function personalLedgerBusinessBoundaryViolations(ledger = {}) {
   const incomeSourceIds = (ledger.incomeSources || [])
     .filter((source) => source.status === "active")
     .filter((source) => {
       const text = ledgerFactText(source);
       const personalIncomeType = ["salary", "contract", "self_employment_draw", "business_dividend"].includes(source.type);
+      const explicitPersonalServiceReceipt = hasExplicitPersonalServiceReceipt(source);
       const thirdPartyIncome = thirdPartyIncomePattern.test(text) && !/(?:给你|向你|转入你的|转给你|汇给你|共同账户)/u.test(text);
       return thirdPartyIncome || (businessRevenuePattern.test(text) && !personalReceiptPattern.test(text)
+        && !explicitPersonalServiceReceipt
         && !(personalIncomeType && /工资|薪酬|顾问|咨询|提款|分红|股息/u.test(text)));
     })
     .map((source) => source.id);
@@ -92,4 +105,26 @@ export function collectRecoveredGenerationAttempts(record = {}) {
     recoveredIds.add(event.generationEventId || `trace:${event.historyLength || 0}:${event.at || ""}`);
   }
   return recoveredIds.size;
+}
+
+export function classifyTerminalFinancialIssues(issues = [], distressedDebtAccountKeys = new Set()) {
+  const openIssues = issues.filter((issue) => (issue.status || "open") === "open");
+  const blockingOpenIssues = openIssues.filter((issue) => issue.severity === "blocking");
+  const servicingWarnings = openIssues.filter((issue) => (
+    issue.severity !== "blocking"
+    && (issue.code === "DEBT_PAYMENT_MISSED" || issue.code === "DEBT_PAYMENT_DELINQUENT")
+  ));
+  const servicingWarningAccountKeys = new Set(servicingWarnings.flatMap((issue) => (
+    (issue.relatedDebtAccountIds || []).map((debtId) => `${issue.caseSlug}:${debtId}`)
+  )));
+  const orphanServicingWarnings = [...servicingWarningAccountKeys]
+    .filter((key) => !distressedDebtAccountKeys.has(key));
+  return {
+    openIssues,
+    blockingOpenIssues,
+    servicingWarnings,
+    servicingWarningAccountKeys,
+    orphanServicingWarnings,
+    servicingWarningOverflow: Math.max(0, servicingWarnings.length - distressedDebtAccountKeys.size)
+  };
 }

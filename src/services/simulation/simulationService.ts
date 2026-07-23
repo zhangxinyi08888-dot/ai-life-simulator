@@ -391,6 +391,31 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
     : ["你把这次行动保留为仍在推进的尝试，没有把尚未确认的结果提前写进生活。"];
 }
 
+export function settleRejectedFinancialProposalIssues(input: {
+  issues: FinancialLedgerIssue[];
+  acceptedProposalIds: string[];
+  rejectedProposalIds: string[];
+  ageInMonths: number;
+  narrativeRolledBack: boolean;
+}): FinancialLedgerIssue[] {
+  const acceptedIds = new Set(input.acceptedProposalIds);
+  const rejectedIds = new Set(input.rejectedProposalIds);
+  return input.issues.map((issue) => {
+    const relatedIds = issue.relatedProposalIds || [];
+    const rejectedOnly = relatedIds.length > 0
+      && relatedIds.every((proposalId) => rejectedIds.has(proposalId) && !acceptedIds.has(proposalId));
+    if (!rejectedOnly || (issue.status ?? "open") !== "open") return issue;
+    return {
+      ...issue,
+      status: "resolved",
+      resolvedAtAgeInMonths: input.ageInMonths,
+      resolvedByEventId: input.narrativeRolledBack
+        ? "system:rejected_proposal_narrative_rollback"
+        : "system:rejected_proposal_not_committed"
+    };
+  });
+}
+
 export function synthesizeMissingDebtCompletionProposals(input: {
   proposals: FinancialEventProposal[];
   narrativeText: string;
@@ -1169,6 +1194,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     && stillClaimsRejectedProposal(proposal, input.node.description)
   ));
   let committedNarrativeNode = input.node;
+  let rejectedNarrativeWasRolledBack = false;
   if (rejectedCompletedProposals.length > 0) {
     let paragraphs: string[] | undefined;
     try {
@@ -1202,6 +1228,7 @@ async function commitAuthoritativeFinancialProgress(input: {
       });
       repairedDescription = paragraphs.join("\n\n");
       narrativeFallbackReasonCodes.push("FINANCIAL_COMPLETION_ROLLBACK");
+      rejectedNarrativeWasRolledBack = true;
     }
     committedNarrativeNode = {
       ...input.node,
@@ -1209,6 +1236,43 @@ async function commitAuthoritativeFinancialProgress(input: {
       descriptionParagraphs: paragraphs
     };
   }
+  const closingNarrativeContractIssues = [
+    ...detectNarrativeFinancialCoverageIssues({
+      narrativeText: committedNarrativeNode.description,
+      ledger: initialLedger,
+      acceptedEvents: validated.acceptedEvents,
+      ageInMonths: input.periodEndAgeInMonths
+    }),
+    ...collectPersonalIncomeNarrativeContractIssues({
+      narrativeText: committedNarrativeNode.description,
+      acceptedFinancialEvents: validated.acceptedEvents,
+      ageInMonths: input.periodEndAgeInMonths
+    })
+  ];
+  const closingNarrativeIssueIds = new Set(closingNarrativeContractIssues.map((issue) => issue.id));
+  const narrativeIssuePrefixes = ["narrative_coverage_", "personal_income_claim_without_event_"];
+  const reconciledNarrativeIssues = validated.issues.map((issue) => {
+    if (!narrativeIssuePrefixes.some((prefix) => issue.id.startsWith(prefix))
+      || closingNarrativeIssueIds.has(issue.id)
+      || (issue.status ?? "open") !== "open") return issue;
+    return {
+      ...issue,
+      status: "resolved" as const,
+      resolvedAtAgeInMonths: input.periodEndAgeInMonths,
+      resolvedByEventId: "system:closing_narrative_revalidated"
+    };
+  });
+  const reconciledNarrativeIssueIds = new Set(reconciledNarrativeIssues.map((issue) => issue.id));
+  const finalizedFinancialIssues = settleRejectedFinancialProposalIssues({
+    issues: [
+      ...reconciledNarrativeIssues,
+      ...closingNarrativeContractIssues.filter((issue) => !reconciledNarrativeIssueIds.has(issue.id))
+    ],
+    acceptedProposalIds: [...finalAcceptedProposalIds],
+    rejectedProposalIds: finalRejectedFinancialProposalIds,
+    ageInMonths: input.periodEndAgeInMonths,
+    narrativeRolledBack: rejectedNarrativeWasRolledBack
+  });
   const committed = commitFinancialDomainTransaction({
     transactionId: input.transactionId,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
@@ -1220,7 +1284,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     currentWorldState: input.currentWorldState,
     acceptedCareerTransitions,
     acceptedFinancialEvents: validated.acceptedEvents,
-    financialIssues: validated.issues.filter((issue) => (
+    financialIssues: finalizedFinancialIssues.filter((issue) => (
       issue.id !== "proposal_issue_missing_adult_expense"
       && !issue.id.startsWith("proposal_issue_stale_late_career_")
     )),
