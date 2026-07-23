@@ -4,7 +4,7 @@ import { initializeFinancialLedger } from "../../domain/finance/initializeLedger
 import { PRIMARY_CASH_ACCOUNT_ID } from "../../domain/finance/ledgerMath";
 import type { FinancialEvidence } from "../../domain/finance/types";
 import { buildFinancialProposalRepairPrompt, formatRestrictedFinancialLedger } from "./prompts";
-import { buildDeterministicFinancialNarrativeRollback, extractMisplacedEmploymentTransition, isCompanyOperatingNarrativeProposal, resolveSelectedOutcomeId, settleRejectedFinancialProposalIssues, stillClaimsRejectedDebtDraw, stillClaimsRejectedDebtRestructure, synthesizeMissingBusinessHoldingStartProposal, synthesizeMissingDebtCompletionProposals, synthesizeSelectedCareerTransition, validateSelectedDecisionConsistency } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, extractMisplacedEmploymentTransition, isCompanyOperatingNarrativeProposal, resolveSelectedOutcomeId, settleRejectedFinancialProposalIssues, stillClaimsRejectedDebtDraw, stillClaimsRejectedDebtRestructure, synthesizeMissingBusinessHoldingStartProposal, synthesizeMissingBusinessOptionGrantProposal, synthesizeMissingDebtCompletionProposals, synthesizeSelectedCareerTransition, validateSelectedDecisionConsistency } from "./simulationService";
 import type { HistoryItem } from "../../types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "TEST", confidence: 1 }];
@@ -280,6 +280,48 @@ test("PB-BIZ-08 explicit company formation synthesizes an unpriced founder holdi
   assert.equal(proposals.length, 1);
   assert.equal(proposals[0].kind, "business_holding_started");
   assert.equal((proposals[0].payload as any).personalCashInvestedWan, 0);
+});
+
+test("synthesizes a needs-review option holding even when an equity holding already exists", () => {
+  const current = initializeFinancialLedger({
+    id: "option_with_equity",
+    asOfAgeInMonths: 459,
+    openingPosition: {
+      businessHoldings: [{
+        id: "founder_holding",
+        business: { id: "old_business", displayName: "旧创业项目", status: "operating", factStatus: "known", evidence: [] },
+        instrumentType: "equity",
+        personalCarryingValueWan: 5,
+        status: "active",
+        factStatus: "known",
+        evidence: []
+      }]
+    }
+  });
+  const narrativeText = "老张在链捷科技与您签订顾问协议。你以外部顾问身份每周投入15小时，月顾问费1.2万元，另获2%期权（分四年归属）。";
+  const proposals = synthesizeMissingBusinessOptionGrantProposal({
+    proposals: [{
+      id: "malformed_option",
+      kind: "business_option_granted",
+      effectiveAtAgeInMonths: 477,
+      sourceOutcomeId: "accepted_consulting",
+      evidence: narrativeText,
+      confidence: 0.8,
+      payload: {}
+    }],
+    narrativeText,
+    acceptedOutcomeId: "accepted_consulting",
+    effectiveAtAgeInMonths: 477,
+    ledger: current
+  });
+  assert.equal(proposals.length, 1);
+  assert.equal(proposals[0].kind, "business_option_granted");
+  const option = (proposals[0].payload as any).optionHolding;
+  assert.equal(option.instrumentType, "stock_option");
+  assert.equal(option.ownershipRate, 0.02);
+  assert.equal(option.optionTerms.grantedUnits, 0);
+  assert.equal(option.optionTerms.vestingPolicy.totalMonths, 48);
+  assert.equal(option.factStatus, "needs_review");
 });
 
 test("PB-BIZ-08 replaces an unsupported invented founder contribution with an unpriced holding", () => {

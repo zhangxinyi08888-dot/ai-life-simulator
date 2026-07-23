@@ -416,6 +416,52 @@ test("preserves policy evidence when an expense adjustment omits it", () => {
   assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_EVIDENCE_PRESERVED"), true);
 });
 
+test("preserves expense account semantics when rent-only evidence targets a basic-living adjustment", () => {
+  const currentLedger = initializeFinancialLedger({ id: "expense_type_identity", asOfAgeInMonths: 288, openingPosition: {
+    expenseCommitments: [{
+      id: "living_policy", type: "basic_living", displayName: "基础生活支出（系统保守估计）",
+      monthlyAmountWan: 0.35, activeFromAgeInMonths: 288, status: "active", factStatus: "estimated",
+      evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+    }]
+  } });
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], currentLedger, proposals: [{
+    id: "adjust_rent", kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: 300,
+    payload: {
+      expenseCommitmentId: "living_policy",
+      nextCommitment: { type: "housing", displayName: "基本生活与房租", monthlyAmountWan: 0.5 }
+    },
+    evidence: "你搬到新城市后，每月房租调整为5000元。", confidence: 0.9
+  }] });
+  const next = (result.proposals[0].payload as any).nextCommitment;
+  assert.equal(next.type, "basic_living");
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_TYPE_PRESERVED"), true);
+});
+
+test("repairs an unknown income id and annual amount against the sole active career source", () => {
+  const currentLedger = initializeFinancialLedger({ id: "annual_income_repair", asOfAgeInMonths: 351, openingPosition: {
+    incomeSources: [{
+      id: "legacy_recurring_income", type: "other", displayName: "旧版持续收入聚合",
+      annualNetAmountWan: 18, accrualPolicy: "annual", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_previous", factStatus: "needs_review", evidence: []
+    }]
+  } });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    currentLedger,
+    currentCareerStateId: "career_current",
+    proposals: [{
+      id: "salary_351_32", kind: "income_source_adjusted", effectiveAtAgeInMonths: 379,
+      payload: { incomeSourceId: "salary_351", nextSource: { amountWan: 32, displayName: "分公司年薪" } },
+      evidence: "29岁3个月，你已在分公司站稳脚跟，年薪32万。", confidence: 0.95
+    }]
+  });
+  const payload = result.proposals[0].payload as any;
+  assert.equal(payload.incomeSourceId, "legacy_recurring_income");
+  assert.equal(payload.nextSource.id, "legacy_recurring_income");
+  assert.equal(payload.nextSource.accrualPolicy, "annual");
+  assert.equal(payload.nextSource.annualNetAmountWan, 32);
+});
+
 test("does not replace the living baseline with rent-only evidence", () => {
   const result = normalizeFinancialProposals({
     acceptedOutcomeIds: ["selected"],

@@ -598,6 +598,92 @@ export function synthesizeMissingBusinessHoldingStartProposal(input: {
   }];
 }
 
+export function synthesizeMissingBusinessOptionGrantProposal(input: {
+  proposals: FinancialEventProposal[];
+  narrativeText: string;
+  acceptedOutcomeId?: string;
+  effectiveAtAgeInMonths: number;
+  ledger: FinancialLedger;
+}): FinancialEventProposal[] {
+  if (!input.acceptedOutcomeId) return input.proposals;
+  const optionEvidence = input.narrativeText.split(/(?<=[。！？；])/u)
+    .map((sentence) => sentence.trim())
+    .find((sentence) => (
+      /(?:你|你的|本人|主角).{0,60}(?:获得|获授|被授予|另获|拿到|持有|拥有).{0,24}期权/u.test(sentence)
+      && !/(?:计划|考虑|可能|如果|若|将会).{0,40}期权/u.test(sentence)
+    ));
+  if (!optionEvidence) return input.proposals;
+  const alreadyRecorded = input.ledger.businessHoldings.some((holding) => (
+    holding.instrumentType === "stock_option"
+    && (holding.status === "active" || holding.status === "partially_sold")
+    && holding.evidence.some((evidence) => evidence.excerpt === optionEvidence)
+  ));
+  if (alreadyRecorded) return input.proposals;
+
+  const ownershipPercent = optionEvidence.match(/(\d+(?:\.\d+)?)\s*%\s*期权/u);
+  const vestingYears = optionEvidence.match(/(?:分|按)?\s*([一二三四五六七八九十\d]+)\s*年(?:归属|成熟)/u);
+  const chineseYears: Record<string, number> = {
+    一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10
+  };
+  const vestingYearCount = vestingYears
+    ? (Number(vestingYears[1]) || chineseYears[vestingYears[1]])
+    : undefined;
+  const businessName = [...input.narrativeText.matchAll(/(?:在|加入|受聘于|为)([\p{Script=Han}A-Za-z0-9]{2,12}(?:科技|公司|工作室|集团))/gu)]
+    .map((match) => match[1])
+    .at(-1);
+  const existingBusiness = businessName
+    ? input.ledger.businessHoldings.find((holding) => (
+      holding.business.displayName.includes(businessName)
+      || businessName.includes(holding.business.displayName)
+    ))?.business
+    : undefined;
+  const optionId = `option_holding_${input.effectiveAtAgeInMonths}`;
+  const deterministicOption: FinancialEventProposal = {
+    id: `business_option_granted_${input.effectiveAtAgeInMonths}`,
+    kind: "business_option_granted",
+    effectiveAtAgeInMonths: input.effectiveAtAgeInMonths,
+    sourceOutcomeId: input.acceptedOutcomeId,
+    financialScope: "personal",
+    evidence: optionEvidence,
+    confidence: 0.95,
+    payload: {
+      optionHolding: {
+        id: optionId,
+        business: existingBusiness ? structuredClone(existingBusiness) : {
+          id: `business_${optionId}`,
+          displayName: businessName || "期权授予企业（待确认）",
+          status: "operating",
+          factStatus: businessName ? "known" : "needs_review",
+          evidence: []
+        },
+        instrumentType: "stock_option",
+        ...(ownershipPercent ? { ownershipRate: Number(ownershipPercent[1]) / 100 } : {}),
+        optionTerms: {
+          grantedUnits: 0,
+          vestedUnits: 0,
+          exercisedUnits: 0,
+          strikePriceWanPerUnit: 0,
+          grantedAtAgeInMonths: input.effectiveAtAgeInMonths,
+          ...(vestingYearCount ? {
+            vestingPolicy: {
+              totalMonths: vestingYearCount * 12,
+              frequencyMonths: 12
+            }
+          } : {})
+        },
+        personalCarryingValueWan: 0,
+        status: "active",
+        factStatus: "needs_review",
+        evidence: []
+      }
+    }
+  };
+  return [
+    ...input.proposals.filter((proposal) => proposal.kind !== "business_option_granted"),
+    deterministicOption
+  ];
+}
+
 export function synthesizeSelectedPersonalIncomeProposal(input: {
   proposals: FinancialEventProposal[];
   selectedDecision?: string;
@@ -915,6 +1001,13 @@ async function commitAuthoritativeFinancialProgress(input: {
     acceptedOutcomeId: input.acceptedOutcomeId,
     effectiveAtAgeInMonths: input.periodEndAgeInMonths,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
+    ledger: initialLedger
+  });
+  normalizedFinancial.proposals = synthesizeMissingBusinessOptionGrantProposal({
+    proposals: normalizedFinancial.proposals,
+    narrativeText: input.node.description,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    effectiveAtAgeInMonths: input.periodEndAgeInMonths,
     ledger: initialLedger
   });
   normalizedFinancial.proposals = synthesizeSelectedPersonalIncomeProposal({

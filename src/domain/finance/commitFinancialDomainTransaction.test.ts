@@ -142,6 +142,46 @@ test("a ledger failure returns no partial CareerState or WorldState mutation", (
   assert.deepEqual(current.worldState.committedTransactionIds, []);
 });
 
+test("an authoritative housing start closes the prior policy or legacy housing estimate", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "estimated_housing",
+    type: "housing",
+    displayName: "系统估计住房支出",
+    monthlyAmountWan: 0.35,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "replace_estimated_housing",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("known_housing", "expense_commitment_started", 361, {
+      id: "mortgage_housing",
+      type: "housing",
+      displayName: "用户确认的住房月供",
+      monthlyAmountWan: 0.38,
+      activeFromAgeInMonths: 361,
+      status: "active",
+      factStatus: "known",
+      evidence
+    })]
+  });
+  const estimated = result.financialLedger.expenseCommitments.find((item) => item.id === "estimated_housing");
+  const activeHousing = result.financialLedger.expenseCommitments.filter((item) => item.status === "active" && item.type === "housing");
+  assert.equal(estimated?.status, "ended");
+  assert.equal(estimated?.activeUntilAgeInMonths, 361);
+  assert.deepEqual(activeHousing.map((item) => item.id), ["mortgage_housing"]);
+});
+
 test("repeated domain transaction is idempotent only when ledger and WorldState agree", () => {
   const current = setup();
   const committed = commitFinancialDomainTransaction({

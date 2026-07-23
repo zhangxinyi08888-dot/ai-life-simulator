@@ -8,7 +8,7 @@ export interface FinancialProposalNormalizationAudit {
     | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED"
     | "DEBT_DRAW_PAYLOAD_NORMALIZED" | "DEBT_TYPE_NORMALIZED" | "ASSET_PURCHASE_PAYLOAD_NORMALIZED"
     | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED"
-    | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED"
+    | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED" | "EXPENSE_TYPE_PRESERVED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
     | "RENT_ONLY_RECLASSIFIED_AS_HOUSING"
@@ -283,6 +283,12 @@ export function normalizeFinancialProposals(input: {
         || normalized.match(/(\d+(?:\.\d+)?)\s*元\s*(?:\/月|每月)/u);
       return yuan ? Number(yuan[1]) / 10000 : undefined;
     };
+    const annualAmountFromEvidence = (): number | undefined => {
+      const normalized = evidenceText.normalize("NFKC");
+      const wan = normalized.match(/(?:年薪|年收入|年度收入)[^。；，]{0,12}?(\d+(?:\.\d+)?)\s*万/u)
+        || normalized.match(/(\d+(?:\.\d+)?)\s*万\s*(?:\/年|每年)/u);
+      return wan ? Number(wan[1]) : undefined;
+    };
     const unwrapHolding = (value: any): any => {
       if (!value || typeof value !== "object") return value;
       return value.optionHolding || value.businessHolding || value.equityHolding || value.holding || value.holdingDetails || value;
@@ -529,8 +535,18 @@ export function normalizeFinancialProposals(input: {
       const policyAliases: Record<string, string> = { recurring: "monthly", recurring_monthly: "monthly", monthly_recurring: "monthly", yearly: "annual", annually: "annual", one_off: "event_only" };
       incomePayload.accrualPolicy = policyAliases[incomePayload.accrualPolicy] || incomePayload.accrualPolicy
         || (kind === "income_source_started" ? (incomePayload.annualNetAmountWan !== undefined ? "annual" : "monthly") : undefined);
-      const monthly = incomePayload.monthlyNetAmountWan ?? incomePayload.monthlyAmountWan ?? incomePayload.amountWanPerMonth ?? monthlyAmountFromEvidence();
-      const annual = incomePayload.annualNetAmountWan ?? incomePayload.annualAmountWan ?? incomePayload.amountWanPerYear;
+      const evidenceMonthly = monthlyAmountFromEvidence();
+      const evidenceAnnual = annualAmountFromEvidence();
+      const monthly = incomePayload.monthlyNetAmountWan ?? incomePayload.monthlyAmountWan ?? incomePayload.amountWanPerMonth
+        ?? (evidenceMonthly !== undefined ? incomePayload.amountWan : undefined)
+        ?? evidenceMonthly;
+      const annual = incomePayload.annualNetAmountWan ?? incomePayload.annualAmountWan ?? incomePayload.amountWanPerYear
+        ?? (evidenceAnnual !== undefined ? incomePayload.amountWan : undefined)
+        ?? evidenceAnnual;
+      if (evidenceAnnual !== undefined && evidenceMonthly === undefined
+        && incomePayload.annualNetAmountWan === undefined && incomePayload.monthlyNetAmountWan === undefined) {
+        incomePayload.accrualPolicy = "annual";
+      }
       if (incomePayload.accrualPolicy === "monthly" && Number.isFinite(Number(monthly))) incomePayload.monthlyNetAmountWan = Number(monthly);
       if (incomePayload.accrualPolicy === "annual" && Number.isFinite(Number(annual))) incomePayload.annualNetAmountWan = Number(annual);
       if (kind === "income_source_started") {
@@ -631,11 +647,25 @@ export function normalizeFinancialProposals(input: {
       const linkedActiveSources = input.currentLedger?.incomeSources.filter((item) => (
         item.status === "active" && (!input.currentCareerStateId || item.linkedCareerStateId === input.currentCareerStateId)
       )) || [];
+      const activeCareerCandidates = input.currentLedger?.incomeSources.filter((item) => (
+        item.status === "active"
+        && (Boolean(item.linkedCareerStateId)
+          || ["salary", "contract", "self_employment_draw"].includes(item.type)
+          || item.id === "legacy_recurring_income")
+      )) || [];
+      const repairCandidates = linkedActiveSources.length > 0 ? linkedActiveSources : activeCareerCandidates;
       const idBelongsToCash = input.currentLedger?.cashAccounts.some((item) => item.id === payload.incomeSourceId);
-      if ((!payload.incomeSourceId || idBelongsToCash) && linkedActiveSources.length === 1) {
+      const idIsUnknown = typeof payload.incomeSourceId === "string"
+        && !input.currentLedger?.incomeSources.some((item) => item.id === payload.incomeSourceId);
+      if ((!payload.incomeSourceId || idBelongsToCash || idIsUnknown) && repairCandidates.length === 1) {
         const originalValue = typeof payload.incomeSourceId === "string" ? payload.incomeSourceId : undefined;
-        payload.incomeSourceId = linkedActiveSources[0].id;
-        audit.push({ proposalId: id, reasonCode: idBelongsToCash ? "ACCOUNT_ID_TYPE_CORRECTED" : "INCOME_SOURCE_ID_FILLED", originalValue, normalizedValue: linkedActiveSources[0].id });
+        payload.incomeSourceId = repairCandidates[0].id;
+        audit.push({
+          proposalId: id,
+          reasonCode: idBelongsToCash || idIsUnknown ? "ACCOUNT_ID_TYPE_CORRECTED" : "INCOME_SOURCE_ID_FILLED",
+          originalValue,
+          normalizedValue: repairCandidates[0].id
+        });
       }
     }
     if (payload && kind === "income_source_adjusted" && payload.incomeSourceId) {
@@ -657,12 +687,17 @@ export function normalizeFinancialProposals(input: {
           audit.push({ proposalId: id, reasonCode: "EXPENSE_EVIDENCE_PRESERVED", normalizedValue: payload.expenseCommitmentId });
         }
         const typeAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
-        payload.nextCommitment.type = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
-        if (payload.nextCommitment.type === "basic_living"
-          && /(?:房租|月租|宿舍|租房)/u.test(evidenceText)
-          && !/(?:生活费|日常开销|基本生活|伙食|餐饮|水电|通勤|综合支出)/u.test(evidenceText)) {
-          payload.nextCommitment.type = "housing";
-          audit.push({ proposalId: id, reasonCode: "RENT_ONLY_RECLASSIFIED_AS_HOUSING", normalizedValue: payload.expenseCommitmentId });
+        const requestedType = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
+        if (requestedType !== existingCommitment.type) {
+          payload.nextCommitment.type = existingCommitment.type;
+          audit.push({
+            proposalId: id,
+            reasonCode: "EXPENSE_TYPE_PRESERVED",
+            originalValue: String(requestedType),
+            normalizedValue: existingCommitment.type
+          });
+        } else {
+          payload.nextCommitment.type = requestedType;
         }
         const nextAmount = payload.nextCommitment.monthlyAmountWan ?? payload.nextCommitment.amountWanPerMonth ?? payload.nextCommitment.monthlyCostWan ?? monthlyAmountFromEvidence();
         if (Number.isFinite(Number(nextAmount))) payload.nextCommitment.monthlyAmountWan = Number(nextAmount);

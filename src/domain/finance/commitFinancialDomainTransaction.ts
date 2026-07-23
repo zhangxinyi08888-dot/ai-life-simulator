@@ -105,6 +105,12 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   employmentStatus: EmploymentStatus;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
+  const isPolicyOrLegacyEstimate = (commitment: FinancialLedger["expenseCommitments"][number]) => (
+    commitment.status === "active"
+    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
+    && commitment.evidence.some((item) => item.source === "system_policy"
+      || (item.source === "legacy_migration" && item.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION"))
+  );
   const isPolicyManagedBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
     commitment.type === "basic_living"
     && commitment.status === "active"
@@ -119,6 +125,18 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     event.kind === "expense_commitment_started"
     && (event.payload as { type?: string }).type === "basic_living"
   ));
+  const authoritativeSingletonStarts = input.events.filter((event) => (
+    event.kind === "expense_commitment_started"
+    && ["basic_living", "housing"].includes((event.payload as { type?: string }).type || "")
+  ));
+  for (const event of authoritativeSingletonStarts) {
+    const nextType = (event.payload as { type: string }).type;
+    for (const commitment of input.ledger.expenseCommitments) {
+      if (commitment.type !== nextType || !isPolicyOrLegacyEstimate(commitment)) continue;
+      commitment.status = "ended";
+      commitment.activeUntilAgeInMonths = event.effectiveAtAgeInMonths;
+    }
+  }
   const touchesExistingBasicLiving = input.events.some((event) => {
     if (event.kind !== "expense_commitment_adjusted" && event.kind !== "expense_commitment_ended") return false;
     const commitmentId = (event.payload as { expenseCommitmentId?: string }).expenseCommitmentId;
