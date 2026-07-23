@@ -74,6 +74,70 @@ test("PB-CAREER-06 accepted employment transition can ground the exact personal 
   assert.match(result[0].evidence, /税后月薪约2.6万元/);
 });
 
+test("PB-CAREER-11 exact annual salary in accepted narrative starts same-node income without a career transition", () => {
+  const ledger = initializeFinancialLedger({ id: "annual_salary_confirmation", asOfAgeInMonths: 420 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续当前节奏，把顾问角色逐步转为正式兼职。",
+    narrativeText: "调整完成后，你的税后年薪稳定在32万元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "annual_salary_confirmation",
+    periodStartAgeInMonths: 420,
+    currentCareerStateId: "career_consultant",
+    currentEmploymentStatus: "part_time",
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "income_source_started");
+  assert.equal((result[0]?.payload as any).annualNetAmountWan, 32);
+  assert.equal((result[0]?.payload as any).accrualPolicy, "annual");
+});
+
+test("PB-CAREER-12 exact narrative salary adjusts the sole active current income in the same node", () => {
+  const ledger = initializeFinancialLedger({
+    id: "same_node_salary_adjustment",
+    asOfAgeInMonths: 480,
+    openingPosition: {
+      incomeSources: [{
+        id: "current_salary", type: "salary", displayName: "当前工资",
+        monthlyNetAmountWan: 3, accrualPolicy: "monthly", activeFromAgeInMonths: 420,
+        status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+      }]
+    }
+  });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续留任并承担新的职责。",
+    narrativeText: "年度复核结束后，你的月薪正式调整为4.2万元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "same_node_salary_adjustment",
+    periodStartAgeInMonths: 480,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "income_source_adjusted");
+  assert.equal((result[0]?.payload as any).incomeSourceId, "current_salary");
+  assert.equal((result[0]?.payload as any).nextSource.monthlyNetAmountWan, 4.2);
+});
+
+test("PB-CAREER-13 employee hiring salary cannot become protagonist income", () => {
+  const ledger = initializeFinancialLedger({ id: "employee_salary", asOfAgeInMonths: 480 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续扩张团队。",
+    narrativeText: "你招聘了一名销售，月薪调整为3万元，并给他设置了季度奖金。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "employee_salary",
+    periodStartAgeInMonths: 480,
+    currentCareerStateId: "career_founder",
+    currentEmploymentStatus: "self_employed",
+    ledger
+  });
+  assert.equal(result.length, 0);
+});
+
 test("PB-CAREER-09 income confirmation remains linked to the current career when no transition occurs", () => {
   assert.deepEqual(resolveAllowedIncomeCareerStateIds("career_self_employed", []), ["career_self_employed"]);
   assert.deepEqual(resolveAllowedIncomeCareerStateIds("career_old", ["career_new"]), ["career_new"]);

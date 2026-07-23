@@ -520,7 +520,7 @@ ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) =>
 - 资产购买、投资或企业出资、债务本金/利息、债务重组费用都必须有明确可用现金或同一原子组内有正文证据的资金来源；不能用新的自动短期周转来让它们通过。
 - 正文或已接受选择明确发生辞职、离职、创业、退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新职业收入（如有）一起返回；辞职创业使用 toStatus="self_employed"，个人经营所得使用 type="self_employment_draw" 且 linkedCareerStateId 指向新 CareerState，不得使用 type="other"。该组要么全部提交，要么全部不提交。
 - 只修正被拒 Proposal，或为逐条拒绝原因中的 narrative coverage issue 补交正文已经发生但遗漏的 Proposal；不能新增正文没有发生的事实。为满足原子依赖，可以同时补充同一收入替换所必需的旧来源 income_source_ended、同一资产购买所必需的 debt_drawn，或公司融资前遗漏的 business_holding_started。
-- coverage 指向“此前已有房产/尚有房贷”而非本期购买/借入时，必须分别使用 asset_balance_discovered / debt_balance_discovered；不得用 asset_purchased / debt_drawn 制造不存在的本期现金流。若正文没有可靠余额，账户 factStatus=needs_review，余额使用正文支持的保守值；不能凭空补市场价。
+- coverage 指向“此前已有房产/尚有房贷”而非本期购买/借入时，必须分别使用 asset_balance_discovered / debt_balance_discovered；不得用 asset_purchased / debt_drawn 制造不存在的本期现金流。debt_balance_discovered 必须引用正文明确给出的余额或本金，绝不能从月供、期限或利率反推本金。房产只明确存在但没有可靠市值时，可保留 marketValueWan=0、factStatus=needs_review 的资产事实；不能凭空补市场价。
 - 正文明确发生退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新顾问收入（如有）一起返回；三者将作为一个原子组，要么全部提交，要么全部不提交。
 - employmentTransition 必须完整返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、occupation（如有）、evidence、confidence；证据与置信度规则和财务 Proposal 相同。
 - 每项都必须完整返回 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence、financialScope；不得省略 confidence。公司营业收入、员工工资和运营成本使用 business_operating，个人工资、业主提款和已到账分红使用 personal；business_operating 事实不得伪装成个人收支 Proposal。

@@ -173,6 +173,23 @@ function duplicateDebtBalanceDiscovery(
     : undefined;
 }
 
+function debtBalanceEvidenceSupportsPrincipal(proposal: FinancialEventProposal): boolean {
+  if (proposal.kind !== "debt_balance_discovered") return true;
+  const principalWan = Number(
+    (proposal.payload as FinancialEventPayloadMap["debt_balance_discovered"]).debtAccount.principalWan
+  );
+  const debtEvidence = proposal.evidence?.split(/(?<=[。！？；])/u).find((sentence) => (
+    /房贷|按揭|贷款|借款|欠款|负债|债务|本金/u.test(sentence)
+    && /余额|尚欠|还欠|剩余|本金|欠款|负债|债务/u.test(sentence)
+  ));
+  if (!debtEvidence) return false;
+  const explicitBalancesWan = [...debtEvidence.matchAll(/(\d+(?:\.\d+)?)\s*万元?/gu)]
+    .map((match) => Number(match[1]));
+  return explicitBalancesWan.some((amount) => (
+    Math.abs(amount - principalWan) <= Math.max(0.01, Math.abs(principalWan) * 0.001)
+  ));
+}
+
 function markEstimatedFacts<T>(value: T): T {
   if (!value || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(markEstimatedFacts) as T;
@@ -425,6 +442,15 @@ export function validateFinancialProposals(input: {
     const evidenceMatch = matchFinancialEvidence({ proposal, narrativeText: input.narrativeText });
     if (!evidenceMatch.matched || !evidenceMatch.reasonCode || !Number.isFinite(proposal.confidence) || proposal.confidence < 0.6 || proposal.confidence > 1) {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal 缺少可靠正文证据或 confidence", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
+    if (!debtBalanceEvidenceSupportsPrincipal(proposal)) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: "债务余额发现必须有正文明确余额或本金金额；不能从月供、期限或利率反推本金",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
       continue;
     }
     if (proposal.financialScope === "business_operating" && PERSONAL_OPERATING_FLOW_KINDS.has(proposal.kind)) {

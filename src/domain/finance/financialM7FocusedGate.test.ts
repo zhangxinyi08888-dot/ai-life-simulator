@@ -86,8 +86,8 @@ test("M7 focused: explicit mortgage opens debt, repayment policy and a property 
   assert.equal(migrated.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
   const property = migrated.assetAccounts.find((account) => account.type === "property");
   assert.equal(property?.type, "property");
-  assert.equal(property?.factStatus, "estimated");
-  assert.equal(property?.marketValueWan, 210);
+  assert.equal(property?.factStatus, "needs_review");
+  assert.equal(property?.marketValueWan, 0);
 });
 
 test("M7 focused: missing adult expenses receive a deterministic estimate without quarantining income", () => {

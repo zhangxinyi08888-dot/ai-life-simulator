@@ -231,6 +231,74 @@ test("rejects a repeated discovery of the sole opening mortgage with the same ba
   assert.match(result.issues[0]?.summary ?? "", /已存在且余额一致/);
 });
 
+test("rejects a discovered mortgage principal inferred only from monthly payment", () => {
+  const state = setup();
+  const result = validateFinancialProposals({
+    ...state,
+    proposals: [proposal({
+      id: "invented_mortgage_balance",
+      kind: "debt_balance_discovered",
+      evidence: "你算了一笔账，每月房贷月供1.2万，加上生活开销，还能存下一些钱。",
+      payload: {
+        debtAccount: {
+          id: "mortgage_primary",
+          type: "mortgage",
+          displayName: "待确认房贷",
+          principalWan: 150,
+          openedAtAgeInMonths: 312,
+          status: "active",
+          repaymentPolicy: { mode: "estimated_amortizing", monthlyPaymentWan: 1.2, remainingTermMonths: 240 },
+          factStatus: "estimated",
+          evidence: [],
+          origin: "explicit"
+        }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你算了一笔账，每月房贷月供1.2万，加上生活开销，还能存下一些钱。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "invented_mortgage_balance",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.match(result.issues[0]?.summary ?? "", /不能从月供、期限或利率反推本金/);
+});
+
+test("accepts a discovered debt balance when the evidence states the exact principal", () => {
+  const state = setup();
+  const result = validateFinancialProposals({
+    ...state,
+    proposals: [proposal({
+      id: "explicit_mortgage_balance",
+      kind: "debt_balance_discovered",
+      evidence: "你核对账单后确认，当前房贷余额150万元。",
+      payload: {
+        debtAccount: {
+          id: "mortgage_primary",
+          type: "mortgage",
+          displayName: "住房房贷",
+          principalWan: 150,
+          openedAtAgeInMonths: 312,
+          status: "active",
+          repaymentPolicy: { mode: "estimated_amortizing", remainingTermMonths: 240 },
+          factStatus: "known",
+          evidence: [],
+          origin: "explicit"
+        }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你核对账单后确认，当前房贷余额150万元。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "explicit_mortgage_balance",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 1);
+  assert.equal(result.acceptedEvents[0]?.kind, "debt_balance_discovered");
+});
+
 test("an explicit family loan with no schedule normalizes to event-driven servicing", () => {
   const raw = proposal({
     id: "family_loan",

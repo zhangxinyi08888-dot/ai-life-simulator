@@ -699,18 +699,25 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   if (!decision || !input.acceptedOutcomeId) return input.proposals;
   const narrativeEvidence = input.allowNarrativeEvidence
     ? input.narrativeText?.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
-        /(?:你|主角|本人|你的个人账户).{0,48}(?:税后)?(?:月薪|工资|薪资).{0,12}\d+(?:\.\d+)?\s*万元?|(?:税后)?月薪(?:约|为|达到|降至|升至)?\s*\d+(?:\.\d+)?\s*万元?/u.test(sentence)
+        (
+          /(?:你|主角|本人|你的个人账户).{0,48}(?:税后)?(?:月薪|年薪|工资|薪资).{0,12}\d+(?:\.\d+)?\s*万元?|(?:税后)?(?:月薪|年薪)(?:约|为|达到|降至|升至|涨到|调整为|维持在)?\s*\d+(?:\.\d+)?\s*万元?/u.test(sentence)
+        )
+        && !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:员工|助理|工程师|销售|运营|护工)[^。；]{0,35}(?:月薪|年薪)/u.test(sentence)
+        && !/(?:如果|若|预计|计划|考虑|希望|目标|可以给你)[^。；]{0,50}(?:月薪|年薪)/iu.test(sentence)
       ))
     : undefined;
   const evidenceText = /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|我(?:每月|开始|从本月起).{0,24}(?:工资|薪资|月薪)/u.test(decision)
     ? decision
     : narrativeEvidence;
-  const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪/u.test(evidenceText!);
+  const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪/u.test(evidenceText!);
   const monthlyMatch = evidenceText?.match(/每月[^，。；]{0,28}?(?:支付|发放|领取|获得|拿到|为|达到|调整为|降至|升至)?\s*(\d+(?:\.\d+)?)\s*万元?(?:税后)?(?:工资|薪资|月薪)?/u)
-    || evidenceText?.match(/(?:税后)?月薪(?:约|为|达到|调整为|降至|升至)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
-  if (!explicitlyPersonal || !monthlyMatch || !(Number(monthlyMatch[1]) > 0)) return input.proposals;
+    || evidenceText?.match(/(?:税后)?月薪(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
+  const annualMatch = evidenceText?.match(/(?:税后)?年薪(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
+  if (!explicitlyPersonal || (!monthlyMatch && !annualMatch)) return input.proposals;
 
-  const monthlyNetAmountWan = Number(monthlyMatch[1]);
+  const monthlyNetAmountWan = monthlyMatch ? Number(monthlyMatch[1]) : undefined;
+  const annualNetAmountWan = annualMatch ? Number(annualMatch[1]) : undefined;
+  if (!(Number(monthlyNetAmountWan ?? annualNetAmountWan) > 0)) return input.proposals;
   const careerIncomeTypes = new Set(["salary", "contract", "self_employment_draw"]);
   const allActiveCareerSources = input.ledger.incomeSources.filter((source) => (
     source.status === "active" && careerIncomeTypes.has(source.type)
@@ -734,8 +741,8 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     ...structuredClone(existingSource),
     type: incomeType,
     monthlyNetAmountWan,
-    annualNetAmountWan: undefined,
-    accrualPolicy: "monthly" as const,
+    annualNetAmountWan,
+    accrualPolicy: monthlyMatch ? "monthly" as const : "annual" as const,
     status: "active" as const,
     linkedCareerStateId: sourceCareerStateId,
     factStatus: "known" as const,
@@ -746,7 +753,8 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     type: incomeType,
     displayName: input.currentEmploymentStatus === "self_employed" ? "用户确认的创业个人工资" : "用户确认的个人工资",
     monthlyNetAmountWan,
-    accrualPolicy: "monthly" as const,
+    annualNetAmountWan,
+    accrualPolicy: monthlyMatch ? "monthly" as const : "annual" as const,
     activeFromAgeInMonths: input.periodStartAgeInMonths,
     status: "active" as const,
     linkedCareerStateId: sourceCareerStateId,
@@ -1014,7 +1022,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     proposals: normalizedFinancial.proposals,
     selectedDecision: input.selectedDecision,
     narrativeText: input.node.description,
-    allowNarrativeEvidence: acceptedCareerTransitions.length === 1,
+    allowNarrativeEvidence: true,
     acceptedOutcomeId: input.acceptedOutcomeId,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     currentCareerStateId: nextCareerIds.length === 1 ? nextCareerIds[0] : currentCareer.id,
