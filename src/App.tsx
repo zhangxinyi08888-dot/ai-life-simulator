@@ -414,26 +414,33 @@ export default function App() {
     nextGenerationAbortRef.current = abortController;
 
     try {
-      const body = await generateNextNode(
-        {
-          userData,
-          answers,
-          history: updatedHistory,
-          currentAttributes: attributes,
-          selectedDecision: choiceText,
-          nodeIndex: updatedHistory.length,
-          simulationSeed
-        },
-        {
-          onGenerationStage: setNextGenerationStage,
-          onNarrativeProgress: (preview) => {
-            const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
-            nextNarrativePreviewRef.current = merged;
-            setNextNarrativePreview(merged);
-          },
-          signal: abortController.signal
+      const body = await runWithInvalidAiResponseRetry(async (attempt) => {
+        if (attempt > 1) {
+          nextNarrativePreviewRef.current = null;
+          setNextNarrativePreview(null);
+          setNextGenerationStage("preparing");
         }
-      );
+        return generateNextNode(
+          {
+            userData,
+            answers,
+            history: updatedHistory,
+            currentAttributes: attributes,
+            selectedDecision: choiceText,
+            nodeIndex: updatedHistory.length,
+            simulationSeed
+          },
+          {
+            onGenerationStage: setNextGenerationStage,
+            onNarrativeProgress: (preview) => {
+              const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
+              nextNarrativePreviewRef.current = merged;
+              setNextNarrativePreview(merged);
+            },
+            signal: abortController.signal
+          }
+        );
+      });
 
       setNextGenerationStage("revealing");
       const revealFrames = buildNarrativeRevealFrames(body.title, body.description);
