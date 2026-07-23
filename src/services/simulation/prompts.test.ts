@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { LifeEventSeed } from "../../data/lifeEvents";
-import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
+import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData, WorldStateSnapshot } from "../../types";
 import { buildNextNodePrompt } from "./prompts";
 
 const userData: UserInitialData = {
@@ -46,6 +46,7 @@ const history: HistoryItem[] = [
 const healthWarningEvent: LifeEventSeed = {
   id: "health_system_warning",
   category: "health",
+  routeLine: "health",
   narrativeMode: "pressure_crisis",
   semanticFamily: "health_system_warning",
   title: "健康系统预警",
@@ -121,6 +122,61 @@ const lateCareerPrompt = buildNextNodePrompt({
 });
 assert.match(lateCareerPrompt, /主角已满 80 岁：本节点不得继续沿用 employed/);
 assert.match(lateCareerPrompt, /self_employed/);
+
+const mother = {
+  id: "person_mother",
+  identityKey: { namespace: "user_role" as const, key: "parent:mother" },
+  displayName: "母亲",
+  relation: "parent" as const,
+  lifeStatus: "active" as const,
+  source: "user_fact" as const,
+  confidence: 1
+};
+const familyWorldState: WorldStateSnapshot = {
+  people: [mother],
+  directionArcs: [],
+  pressureArcs: [],
+  relationships: [],
+  familyRelationships: [{
+    id: "family_mother",
+    participantPersonId: mother.id,
+    role: "mother",
+    activation: "active",
+    contact: "frequent",
+    emotionalSupport: "supportive",
+    practicalSupport: "conditional",
+    autonomyRespect: "high",
+    conflictIntensity: "low",
+    topicStances: [{
+      id: "stance_relocation",
+      topic: "relocation",
+      stance: "concerned_but_respectful",
+      reasons: ["担心搬家成本，但尊重最终决定"],
+      effectiveFromAgeInMonths: 288,
+      evidence: [{ nodeIndex: 3, sourceOutcomeId: "discuss_relocation", evidence: "我有些担心，但你自己决定。" }],
+      source: "accepted_history",
+      confidence: 0.9
+    }],
+    revision: 1
+  }],
+  version: 2
+};
+const familyPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "继续推进职业计划",
+  eventSeed: null,
+  worldState: familyWorldState
+});
+assert.match(familyPrompt, /【当前权威家庭关系状态】/);
+assert.match(familyPrompt, /role=mother/);
+assert.match(familyPrompt, /emotionalSupport=supportive/);
+assert.match(familyPrompt, /autonomyRespect=high/);
+assert.match(familyPrompt, /relocation=concerned_but_respectful/);
+assert.match(familyPrompt, /担心搬家成本，但尊重最终决定/);
+assert.match(familyPrompt, /unknown 表示尚无已接受事实，不得解释为反对、保守、冷漠或控制/);
 
 const healthArcBase: PressureArcState = {
   id: "pressure_health_test",

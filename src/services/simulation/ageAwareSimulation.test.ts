@@ -142,6 +142,8 @@ try {
   });
   assert.equal(warningNode.eventMeta?.eventId, "health_system_warning");
   assert.equal(warningNode.eventMeta?.eventIntensity, "minor");
+  assert.equal(warningNode.eventMeta?.selectionKind, "forced");
+  assert.equal(warningNode.eventMeta?.linePolicyId, undefined);
   assert.equal(warningNode.worldStateSnapshot?.pressureArcs.length, 0);
   assert.equal(warningNode.committedArcMeta?.pressureArcId, undefined);
   assert.match(warningPrompt, /health_system_warning/);
@@ -246,6 +248,7 @@ try {
     nodeIndex: 1,
     simulationSeed: "gate-seed"
   }, {
+    relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
     callAiJson: async () => {
       gateAttempts += 1;
       return { text: JSON.stringify(rawNode(gateAttempts === 1 ? "恢复期没有新变化。" : "恢复完成后出现新的经营选择。", gateAttempts === 1)) };

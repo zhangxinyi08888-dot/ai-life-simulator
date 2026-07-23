@@ -32,6 +32,16 @@ const financialAnomalies = {
   coreExpense1_2Nodes: 0,
   negativeDisposableNodes: 0
 };
+const romanceDispatchMetrics = {
+  presentedRomanceNodes: 0,
+  repairAttempted: 0,
+  repairSucceeded: 0,
+  fallbackCount: 0,
+  rescheduledCount: 0,
+  rescheduleFulfilledCount: 0,
+  rescheduleDelayNodes: [],
+  fallbackReasons: {}
+};
 let totalNodes = 0;
 let recordedAiErrors = 0;
 
@@ -52,6 +62,21 @@ for (const record of records) {
     increment(modeCounts, node.eventMeta?.eventMode || "missing");
     increment(eventCounts, node.eventMeta?.eventId || "missing");
     const financial = node.financialState || {};
+    const eventMeta = node.eventMeta || {};
+    if (eventMeta.routeLine === "romance") romanceDispatchMetrics.presentedRomanceNodes += 1;
+    if (eventMeta.romanceRepairAttempted) romanceDispatchMetrics.repairAttempted += 1;
+    if (eventMeta.romanceRepairSucceeded) romanceDispatchMetrics.repairSucceeded += 1;
+    if (eventMeta.romanceRescheduled) {
+      romanceDispatchMetrics.fallbackCount += 1;
+      romanceDispatchMetrics.rescheduledCount += 1;
+      increment(romanceDispatchMetrics.fallbackReasons, eventMeta.fallbackReason || "missing");
+    }
+    if (eventMeta.romanceRescheduleFulfilled) {
+      romanceDispatchMetrics.rescheduleFulfilledCount += 1;
+      if (Number.isInteger(eventMeta.romanceRescheduleDelayNodes)) {
+        romanceDispatchMetrics.rescheduleDelayNodes.push(eventMeta.romanceRescheduleDelayNodes);
+      }
+    }
     if (financial.employmentStatus === "student") financialAnomalies.studentNodes += 1;
     if (financial.employmentStatus === "retired") financialAnomalies.retiredNodes += 1;
     if (financial.annualCoreExpenseWan === 1.2) financialAnomalies.coreExpense1_2Nodes += 1;
@@ -110,6 +135,7 @@ const aggregate = {
   invitationStatuses,
   closureTypes,
   financialAnomalies,
+  romanceDispatchMetrics,
   recordedAiErrors,
   topEventIds: Object.entries(eventCounts).sort((a, b) => b[1] - a[1]).slice(0, 15),
   cases

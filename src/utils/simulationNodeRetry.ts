@@ -1,5 +1,9 @@
 import { LifeIntensity, SimulationNode } from "../types";
-import { getSimulationNodeValidationIssues, normalizeSimulationNode } from "./simulationResponse";
+import {
+  getSimulationNodeValidationIssues,
+  normalizeSimulationNode,
+  repairDeterministicRomanceChoices
+} from "./simulationResponse";
 
 interface GenerateCompleteNodeOptions {
   fallbackAge?: number;
@@ -12,7 +16,16 @@ interface GenerateCompleteNodeOptions {
   lifeIntensity?: LifeIntensity;
   pressureArcId?: string;
   allowedOutcomeIds?: string[];
+  eventIntentType?: string;
+  deferRomanceContractValidation?: boolean;
 }
+
+const ROMANCE_CONTRACT_ISSUES = new Set([
+  "eventOutcomeId",
+  "eventOutcomeCoverage",
+  "romanceChoiceSemantics",
+  "romanceNarrativeGrounding"
+]);
 
 export async function generateCompleteSimulationNode(
   generateRawNode: (attempt: number, previousIssues: string[]) => Promise<Record<string, any>>,
@@ -23,10 +36,18 @@ export async function generateCompleteSimulationNode(
   let lastNode: Record<string, any> = {};
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    lastNode = await generateRawNode(attempt, issues);
+    lastNode = repairDeterministicRomanceChoices(
+      await generateRawNode(attempt, issues),
+      options.eventIntentType,
+      options.allowedOutcomeIds
+    );
     issues = getSimulationNodeValidationIssues(lastNode, {
-      allowedOutcomeIds: options.allowedOutcomeIds
+      allowedOutcomeIds: options.allowedOutcomeIds,
+      eventIntentType: options.eventIntentType
     });
+    if (options.deferRomanceContractValidation) {
+      issues = issues.filter((issue) => !ROMANCE_CONTRACT_ISSUES.has(issue));
+    }
     if (issues.length === 0) {
       return normalizeSimulationNode(lastNode, options);
     }

@@ -1,4 +1,4 @@
-import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory, NarrativeMode, TemporalProfile, UserInitialData } from "../types";
+import type { EventMeta, HistoryItem, LifeAttributes, LifeEventCategory, NarrativeMode, RouteLine, TemporalProfile, UserInitialData } from "../types";
 import {
   NARRATIVE_MODES,
   applyModeFatigue,
@@ -8,10 +8,18 @@ import {
 } from "../config/narrativeModePolicy";
 import {
   evaluateEventEligibility,
+  hasExploringRelationshipForAtLeastMonths,
   type EventHistoryCondition,
   type RequiredContextKey
 } from "../utils/eventEligibility";
 import { PHASE2_LIFE_EVENTS } from "./phase2LifeEvents";
+import { CAREER_LINE_MIX_POLICY, selectCareerMainPortfolioLine, selectCareerRouteLine, type LineSelectionResult, type SelectionEntropy } from "../config/lineMixPolicy";
+import {
+  activeRelationshipCheckpoint,
+  explorationNeedsResolution,
+  relationshipLifecycleEventId,
+  relationshipProgressionWeightMultiplier
+} from "../domain/relationship/relationshipLifecycle";
 
 type UserEventData = Partial<UserInitialData> & { birthday?: string; gender?: string; currentSituation?: string };
 
@@ -70,6 +78,7 @@ export interface EventFingerprint {
 export interface LifeEventSeed {
   id: string;
   category: LifeEventCategory;
+  routeLine: RouteLine;
   narrativeMode: NarrativeMode;
   semanticFamily: string;
   dispatchMode?: "random" | "arc_only";
@@ -85,11 +94,13 @@ export interface LifeEventSeed {
   fingerprint?: EventFingerprint;
   hardAgeConstraint?: HardAgeConstraint;
   ageAffinity?: AgeAffinity;
+  ageAffinityPolicyId?: "romance_formation_age_v1";
   historyConditionGroups?: EventHistoryCondition[][];
   requiredContextGroups?: RequiredContextKey[][];
 }
 
 export interface EventSelectionTrace {
+  lineSelection?: LineSelectionResult;
   selectedMode?: NarrativeMode;
   availableModes: NarrativeMode[];
   modeWeightsBeforeFatigue?: Record<NarrativeMode, number>;
@@ -110,6 +121,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "career_venture_pressure",
     category: "career",
+    routeLine: "career",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "career_transition",
     requiredContextGroups: [["career_or_creation_direction"]],
@@ -135,6 +147,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "career_responsibility_shift",
     category: "career",
+    routeLine: "career",
     narrativeMode: "pressure_crisis",
     semanticFamily: "career_scope_change",
     requiredContextGroups: [["career_active"]],
@@ -159,6 +172,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "career_structural_instability",
     category: "career",
+    routeLine: "career",
     narrativeMode: "pressure_crisis",
     semanticFamily: "career_structural_instability",
     requiredContextGroups: [["career_active"]],
@@ -187,6 +201,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "career_credit_ownership_conflict",
     category: "career",
+    routeLine: "career",
     narrativeMode: "pressure_crisis",
     semanticFamily: "career_credit_ownership",
     requiredContextGroups: [["active_project_context"]],
@@ -209,32 +224,251 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     }
   },
   {
+    id: "romance_new_connection",
+    category: "relationship",
+    routeLine: "romance",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "romance_formation",
+    requiredContextGroups: [["no_active_romantic_connection"]],
+    title: "生活里的新联系",
+    minAge: 18,
+    maxAge: 100,
+    hardAgeConstraint: { minAge: 18, reason: "只向成年人提供浪漫关系形成事件", basis: "legal" },
+    ageAffinityPolicyId: "romance_formation_age_v1",
+    conditionDescription: "正常生活场景中出现一个可以继续了解的人",
+    cooldown: 10,
+    baseProbability: 0.65,
+    tags: ["relationship", "romance", "new_connection", "boundaries"],
+    trigger: {
+      eligibility: (_attribs, _userData, age, history = []) => {
+        const preference = [...history].reverse()
+          .find((item) => item.worldStateSnapshot?.routePreferences)?.worldStateSnapshot
+          ?.routePreferences?.find((item) => item.routeLine === "romance");
+        const cooldownActive = typeof preference?.cooldownUntilAgeInMonths === "number"
+          && preference.cooldownUntilAgeInMonths > age * 12;
+        const closedWithoutExpiry = preference?.openness === "closed" && preference.cooldownUntilAgeInMonths === undefined;
+        return !cooldownActive
+          && !closedWithoutExpiry
+          && history.slice(-20).filter((item) => item.selectedEventOutcomeId === "decline_romantic_direction").length < 2;
+      }
+    },
+    intent: {
+      type: "romance_new_connection",
+      meaning: "正常生活场景中出现一个可以继续了解的人，是否发展由用户决定。",
+      tensionAxes: ["保持现有节奏 vs 为新关系留出空间", "好奇与靠近 vs 保护边界", "现实接触 vs 过早投射"],
+      allowedOutcomes: ["continue_getting_to_know", "keep_as_acquaintance", "decline_romantic_direction"],
+      emotionalTone: "opportunity"
+    }
+  },
+  {
+    id: "romance_connection_clarification",
+    category: "relationship",
+    routeLine: "romance",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "romance_formation_clarification",
+    requiredContextGroups: [["confirmed_romantic_connection"]],
+    title: "关系需要一个方向",
+    minAge: 18,
+    maxAge: 100,
+    hardAgeConstraint: { minAge: 18, reason: "只向成年人提供浪漫关系确认事件", basis: "legal" },
+    conditionDescription: "持续接触至少三个月后确认关系方向",
+    cooldown: 8,
+    baseProbability: 0.72,
+    tags: ["relationship", "romance", "clarification", "mutuality"],
+    trigger: {
+      eligibility: (_attribs, _userData, age, history = []) => {
+        const snapshot = [...history].reverse().find((item) => item.worldStateSnapshot)?.worldStateSnapshot;
+        const checkpoint = activeRelationshipCheckpoint(snapshot, age * 12);
+        return hasExploringRelationshipForAtLeastMonths(snapshot, age, 3)
+          && checkpoint?.progression.checkpointKind === "exploration_review"
+          && checkpoint.status !== "waiting"
+          && checkpoint.status !== "resolved"
+          && !explorationNeedsResolution(checkpoint.progression, age * 12);
+      }
+    },
+    intent: {
+      type: "romance_connection_clarification",
+      meaning: "持续接触后，双方需要确认是开始交往、继续慢慢了解，还是停止浪漫探索。",
+      tensionAxes: ["关系明确 vs 保持开放", "继续投入 vs 及时止损", "亲密期待 vs 现实节奏"],
+      allowedOutcomes: ["begin_mutual_dating", "continue_slow_exploration", "end_romantic_exploration"],
+      emotionalTone: "crossroads",
+      temporalProfile: { lifeIntensity: "normal", durationMonths: [1, 1], requiresFollowUp: false }
+    }
+  },
+  {
+    id: "romance_exploration_resolution",
+    category: "relationship",
+    routeLine: "romance",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "romance_exploration_resolution",
+    requiredContextGroups: [["confirmed_romantic_connection"]],
+    title: "关系需要落到现实",
+    minAge: 18,
+    maxAge: 100,
+    hardAgeConstraint: { minAge: 18, reason: "只向成年人提供浪漫关系收束事件", basis: "legal" },
+    conditionDescription: "探索达到复核次数或最长等待上限后，由用户决定关系方向",
+    cooldown: 1,
+    baseProbability: 1,
+    tags: ["relationship", "romance", "resolution", "mutuality"],
+    trigger: {
+      eligibility: (_attribs, _userData, age, history = []) => {
+        const snapshot = [...history].reverse().find((item) => item.worldStateSnapshot)?.worldStateSnapshot;
+        const checkpoint = activeRelationshipCheckpoint(snapshot, age * 12);
+        return checkpoint?.progression.checkpointKind === "exploration_review"
+          && checkpoint.relationship.stage === "exploring"
+          && explorationNeedsResolution(checkpoint.progression, age * 12);
+      }
+    },
+    intent: {
+      type: "romance_exploration_resolution",
+      meaning: "持续了解已经到达现实上限，双方需要决定开始交往、回到普通认识或结束浪漫探索。",
+      tensionAxes: ["明确关系 vs 回到普通认识", "继续投入 vs 结束悬挂", "尊重现实节奏 vs 回避决定"],
+      allowedOutcomes: ["begin_mutual_dating", "return_to_acquaintance", "end_romantic_exploration"],
+      emotionalTone: "crossroads",
+      temporalProfile: { lifeIntensity: "normal", durationMonths: [1, 1], requiresFollowUp: false }
+    }
+  },
+  {
     id: "relationship_material_commitment_test",
     category: "relationship",
+    routeLine: "romance",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "relationship_commitment",
     requiredContextGroups: [["confirmed_partner"]],
     title: "关系承诺与现实成本",
-    minAge: 24,
-    maxAge: 42,
-    conditionDescription: "幸福度尚可，关系进入现实承诺压力区",
+    minAge: 18,
+    maxAge: 100,
+    conditionDescription: "正式交往关系的承诺 checkpoint 已进入复核窗口",
     cooldown: 5,
     baseProbability: 0.65,
     tags: ["relationship", "commitment", "financial_pressure", "family_expectation"],
     trigger: {
-      eligibility: (_attribs, _userData, _age, history = []) => /共同计划|关系推进|同居|承诺|生活安排|长期计划/.test(history.slice(-8).map((item) => `${item.description} ${item.selectedChoice}`).join(" "))
+      eligibility: (_attribs, _userData, age, history = []) => {
+        const snapshot = [...history].reverse().find((item) => item.worldStateSnapshot)?.worldStateSnapshot;
+        const checkpoint = activeRelationshipCheckpoint(snapshot, age * 12);
+        return checkpoint?.progression.checkpointKind === "commitment_review"
+          && checkpoint.relationship.stage === "dating"
+          && (checkpoint.progression.delayCount || 0) < 1
+          && checkpoint.status !== "waiting"
+          && checkpoint.status !== "resolved";
+      }
     },
     intent: {
       type: "relationship_material_commitment_test",
       meaning: "亲密关系进入现实承诺阶段，情感愿望需要面对资源、家庭和长期责任。",
       tensionAxes: ["感情 vs 物质基础", "两人共识 vs 家庭期待", "自由感 vs 稳定承诺"],
       allowedOutcomes: ["make_shared_commitment_plan", "delay_with_clear_conditions", "reassess_relationship_fit"],
-      emotionalTone: "pressure"
+      emotionalTone: "pressure",
+      temporalProfile: { lifeIntensity: "normal", durationMonths: [1, 1], requiresFollowUp: false }
+    }
+  },
+  {
+    id: "relationship_commitment_resolution",
+    category: "relationship",
+    routeLine: "romance",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "relationship_commitment_resolution",
+    requiredContextGroups: [["confirmed_partner"]],
+    title: "长期关系需要明确安排",
+    minAge: 18,
+    maxAge: 100,
+    conditionDescription: "承诺 checkpoint 已使用一次有限延后，需要由用户明确收束",
+    cooldown: 1,
+    baseProbability: 1,
+    tags: ["relationship", "commitment", "resolution", "long_term_plan"],
+    trigger: {
+      eligibility: (_attribs, _userData, age, history = []) => {
+        const snapshot = [...history].reverse().find((item) => item.worldStateSnapshot)?.worldStateSnapshot;
+        const checkpoint = activeRelationshipCheckpoint(snapshot, age * 12);
+        return checkpoint?.progression.checkpointKind === "commitment_review"
+          && checkpoint.relationship.stage === "dating"
+          && (checkpoint.progression.delayCount || 0) >= 1
+          && checkpoint.status !== "waiting"
+          && checkpoint.status !== "resolved";
+      }
+    },
+    intent: {
+      type: "relationship_commitment_resolution",
+      meaning: "有限延后已经结束，双方需要明确共同安排、稳定维持但不结婚，或重新评估关系。",
+      tensionAxes: ["共同安排 vs 保持独立", "稳定伴侣关系 vs 婚姻脚本", "继续投入 vs 重新评估"],
+      allowedOutcomes: ["make_shared_commitment_plan", "maintain_committed_partnership_without_marriage", "reassess_relationship_fit"],
+      emotionalTone: "crossroads",
+      temporalProfile: { lifeIntensity: "normal", durationMonths: [1, 1], requiresFollowUp: false }
+    }
+  },
+  {
+    id: "family_ordinary_contact",
+    category: "relationship",
+    routeLine: "family",
+    narrativeMode: "stability_meaning",
+    semanticFamily: "family_ordinary_contact",
+    requiredContextGroups: [["confirmed_family"]],
+    title: "一次普通的家人联系",
+    minAge: 18,
+    maxAge: 100,
+    conditionDescription: "已确认父母关系中的日常联系，不预设支持或冲突",
+    cooldown: 6,
+    baseProbability: 0.62,
+    tags: ["relationship", "family", "contact", "everyday"],
+    trigger: { eligibility: () => true },
+    intent: {
+      type: "family_ordinary_contact",
+      meaning: "父母与你进行一次普通联系，重点是当下信息交换和边界，而非预设压力。",
+      tensionAxes: ["保持联系 vs 保留个人节奏", "分享近况 vs 选择隐私", "熟悉关系 vs 新的相处方式"],
+      allowedOutcomes: ["share_a_bounded_update", "arrange_a_later_contact", "keep_contact_brief"],
+      emotionalTone: "everyday"
+    }
+  },
+  {
+    id: "family_practical_support_exchange",
+    category: "relationship",
+    routeLine: "family",
+    narrativeMode: "stability_meaning",
+    semanticFamily: "family_practical_support",
+    requiredContextGroups: [["confirmed_family"]],
+    title: "现实支持如何安排",
+    minAge: 18,
+    maxAge: 100,
+    conditionDescription: "已确认父母关系中出现可讨论的具体支持或互助",
+    cooldown: 8,
+    baseProbability: 0.55,
+    tags: ["relationship", "family", "practical_support", "reciprocity"],
+    trigger: { eligibility: () => true },
+    intent: {
+      type: "family_practical_support_exchange",
+      meaning: "你与父母讨论一项具体而有限的现实支持，不把经济能力等同于情感态度。",
+      tensionAxes: ["接受帮助 vs 保持独立", "具体能力 vs 情感期待", "短期互助 vs 长期边界"],
+      allowedOutcomes: ["accept_specific_family_help", "offer_specific_help_with_limits", "decline_help_without_rejecting_contact"],
+      emotionalTone: "connection"
+    }
+  },
+  {
+    id: "family_value_difference_conversation",
+    category: "relationship",
+    routeLine: "family",
+    narrativeMode: "crossroads_opportunity",
+    semanticFamily: "family_value_difference",
+    requiredContextGroups: [["confirmed_family"]],
+    title: "不同看法的一次对话",
+    minAge: 18,
+    maxAge: 100,
+    conditionDescription: "已确认父母关系中出现针对具体议题的不同看法",
+    cooldown: 8,
+    baseProbability: 0.58,
+    tags: ["relationship", "family", "values", "autonomy"],
+    trigger: { eligibility: () => true },
+    intent: {
+      type: "family_value_difference_conversation",
+      meaning: "父母对一个具体决定表达看法，反应可以支持、担忧但尊重、中立或反对，由场景事实决定。",
+      tensionAxes: ["听取经验 vs 保留决定权", "解释计划 vs 不寻求许可", "关系亲近 vs 价值差异"],
+      allowedOutcomes: ["explain_plan_and_keep_authority", "ask_for_specific_concerns", "set_topic_boundary_respectfully"],
+      emotionalTone: "crossroads"
     }
   },
   {
     id: "relationship_family_obligation_pull",
     category: "relationship",
+    routeLine: "family",
     narrativeMode: "pressure_crisis",
     semanticFamily: "family_responsibility",
     requiredContextGroups: [["confirmed_family"]],
@@ -246,7 +480,9 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     baseProbability: 0.68,
     tags: ["relationship", "family_obligation", "boundary", "sacrifice"],
     trigger: {
-      eligibility: (_attribs, _userData, _age, history = []) => /家庭请求|家人.*请求|照护|赡养|家庭责任|家庭支出|资源压力/.test(history.slice(-8).map((item) => `${item.description} ${item.selectedChoice}`).join(" "))
+      eligibility: (_attribs, _userData, _age, history = []) => /家庭请求|家人.*请求|照护|赡养|家庭责任|家庭支出|资源压力/.test(
+        history.slice(-8).map((item) => `${item.selectedChoice} ${item.selectedDecisionIntent || ""}`).join(" ")
+      )
     },
     intent: {
       type: "relationship_family_obligation_pull",
@@ -259,9 +495,10 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "relationship_trust_interest_fracture",
     category: "relationship",
+    routeLine: "romance",
     narrativeMode: "pressure_crisis",
     semanticFamily: "relationship_trust_fracture",
-    requiredContextGroups: [["confirmed_partner"], ["confirmed_friend_or_colleague"]],
+    requiredContextGroups: [["confirmed_partner"]],
     title: "信任裂纹与利益考验",
     minAge: 20,
     maxAge: 55,
@@ -283,6 +520,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "health_system_warning",
     category: "health",
+    routeLine: "health",
     narrativeMode: "pressure_crisis",
     semanticFamily: "health_system_warning",
     title: "健康系统预警",
@@ -320,6 +558,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "health_forced_pause",
     category: "health",
+    routeLine: "health",
     narrativeMode: "pressure_crisis",
     semanticFamily: "health_acute_crisis",
     dispatchMode: "arc_only",
@@ -354,6 +593,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "health_recovery_observation",
     category: "health",
+    routeLine: "health",
     narrativeMode: "recovery_growth",
     semanticFamily: "health_recovery_observation",
     dispatchMode: "arc_only",
@@ -393,6 +633,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "opportunity_unstable_alliance",
     category: "opportunity",
+    routeLine: "opportunity",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "career_alliance_opportunity",
     requiredContextGroups: [["career_or_creation_direction"]],
@@ -417,6 +658,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "opportunity_escape_route",
     category: "opportunity",
+    routeLine: "opportunity",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "self_escape_route",
     requiredContextGroups: [["identified_life_constraint"]],
@@ -441,6 +683,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "financial_side_path_conflict",
     category: "financial",
+    routeLine: "financial",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "financial_side_path",
     requiredContextGroups: [["financial_state_available", "career_or_creation_direction"]],
@@ -465,6 +708,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
   {
     id: "life_normal_transition",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "stability_meaning",
     semanticFamily: "life_normal_accumulation",
     title: "平稳生活与长期积累",
@@ -543,13 +787,15 @@ function historyWithEventClassification(history: HistoryItem[]): HistoryItem[] {
     if (!item.eventMeta) return item;
     const eventMode = eventModeFromHistory(item);
     const eventSemanticFamily = semanticFamilyFromHistory(item);
-    if (item.eventMeta.eventMode === eventMode && item.eventMeta.eventSemanticFamily === eventSemanticFamily) return item;
+    const routeLine = item.eventMeta.routeLine || findEventById(item.eventMeta.eventId)?.routeLine;
+    if (item.eventMeta.eventMode === eventMode && item.eventMeta.eventSemanticFamily === eventSemanticFamily && item.eventMeta.routeLine === routeLine) return item;
     return {
       ...item,
       eventMeta: {
         ...item.eventMeta,
         eventMode,
-        eventSemanticFamily
+        eventSemanticFamily,
+        routeLine
       }
     };
   });
@@ -579,6 +825,10 @@ function isCategoryLimited(event: LifeEventSeed, history: HistoryItem[]): boolea
   const recent = history.slice(-2);
   if (recent.length < 2) return false;
 
+  if (event.category === "relationship") {
+    const lines = recent.map((item) => item.eventMeta?.routeLine).filter(Boolean);
+    return lines.length === 2 && lines[0] === lines[1] && lines[0] === event.routeLine;
+  }
   const categories = recent.map((item) => item.eventMeta?.eventCategory).filter(Boolean);
   if (categories.length < 2 || categories[0] !== categories[1]) return false;
 
@@ -616,8 +866,20 @@ function defaultAgeAffinity(event: LifeEventSeed): AgeAffinity {
   };
 }
 
-export function calculateAgeAffinityMultiplier(age: number, affinity: AgeAffinity | undefined, userDirected = false): number {
+export function calculateAgeAffinityMultiplier(
+  age: number,
+  affinity: AgeAffinity | undefined,
+  userDirected = false,
+  policyId?: LifeEventSeed["ageAffinityPolicyId"]
+): number {
   if (userDirected || !affinity?.preferredRange) return 1;
+  if (policyId === "romance_formation_age_v1") {
+    if (age <= 21) return 0.65;
+    if (age <= 35) return 1;
+    if (age <= 45) return 0.75;
+    if (age <= 60) return 0.45;
+    return 0.25;
+  }
   const [min, max] = affinity.preferredRange;
   if (age >= min && age <= max) return 1;
   const distance = age < min ? min - age : age - max;
@@ -659,6 +921,23 @@ export function isLifeEventCandidateEligible(
 }
 
 function isUserDirected(event: LifeEventSeed, userData: UserEventData, history: HistoryItem[]): boolean {
+  if (event.ageAffinityPolicyId === "romance_formation_age_v1") {
+    const latestPreference = [...history].reverse()
+      .find((item) => item.worldStateSnapshot?.routePreferences)
+      ?.worldStateSnapshot?.routePreferences?.find((preference) => preference.routeLine === "romance");
+    const sourceText = [
+      userData.currentSituation,
+      userData.regressionSituation,
+      userData.regressionChoices,
+      ...history.slice(-5).map((item) => item.selectedChoice)
+    ].filter(Boolean).join("\n");
+    const explicitlyOpen = latestPreference?.openness === "open"
+      || userData.coreStoryFocus === "romance"
+      || /(?:主动|愿意|希望|想要|重新).{0,12}(?:恋爱|约会|寻找伴侣|认识对象|开放关系)/.test(sourceText);
+    const reopenedAfterLoss = /(?:离异|离婚|丧偶|伴侣去世)/.test(sourceText)
+      && /(?:重新|愿意|希望|想要|开放).{0,12}(?:恋爱|约会|寻找|认识|关系)/.test(sourceText);
+    return explicitlyOpen || reopenedAfterLoss;
+  }
   const focusMatch = FOCUS_CATEGORY_BOOST[userData.coreStoryFocus || ""]?.[event.category];
   if (focusMatch && focusMatch > 1.2) return true;
   const recentChoiceText = history.slice(-3).map((item) => item.selectedChoice).join("\n");
@@ -674,20 +953,55 @@ function isUserDirected(event: LifeEventSeed, userData: UserEventData, history: 
   return categoryKeywords[event.category].some((keyword) => recentChoiceText.includes(keyword));
 }
 
-export function calculateEventSelectionWeight(event: LifeEventSeed, userData: UserEventData = {}, age?: number, userDirected = false): number {
+export function calculateEventSelectionWeight(
+  event: LifeEventSeed,
+  userData: UserEventData = {},
+  age?: number,
+  userDirected = false,
+  enableRomanceFormationAgeAffinity = true
+): number {
   const base = event.baseProbability ?? 0.5;
   const focusBoost = FOCUS_CATEGORY_BOOST[userData.coreStoryFocus || ""]?.[event.category] ?? 1;
-  const ageMultiplier = typeof age === "number" ? calculateAgeAffinityMultiplier(age, defaultAgeAffinity(event), userDirected) : 1;
+  const ageMultiplier = typeof age === "number"
+    ? calculateAgeAffinityMultiplier(
+        age,
+        defaultAgeAffinity(event),
+        userDirected,
+        enableRomanceFormationAgeAffinity ? event.ageAffinityPolicyId : undefined
+      )
+    : 1;
   return base * focusBoost * ageMultiplier;
 }
 
-function pickWeighted(candidates: LifeEventSeed[], userData: UserEventData, age: number, history: HistoryItem[]): LifeEventSeed | null {
-  const total = candidates.reduce((sum, event) => sum + calculateEventSelectionWeight(event, userData, age, isUserDirected(event, userData, history)), 0);
+function pickWeighted(
+  candidates: LifeEventSeed[],
+  userData: UserEventData,
+  age: number,
+  history: HistoryItem[],
+  randomValue = Math.random(),
+  enableRomanceFormationAgeAffinity = true
+): LifeEventSeed | null {
+  const snapshot = [...history].reverse().find((item) => item.worldStateSnapshot)?.worldStateSnapshot;
+  const checkpoint = activeRelationshipCheckpoint(snapshot, age * 12);
+  const weight = (event: LifeEventSeed) => {
+    const baseWeight = calculateEventSelectionWeight(
+      event,
+      userData,
+      age,
+      isUserDirected(event, userData, history),
+      enableRomanceFormationAgeAffinity
+    );
+    if (!checkpoint) return baseWeight;
+    const expectedEventId = relationshipLifecycleEventId(checkpoint, age * 12);
+    if (event.id !== expectedEventId) return baseWeight;
+    return baseWeight * relationshipProgressionWeightMultiplier(checkpoint.progression, age * 12);
+  };
+  const total = candidates.reduce((sum, event) => sum + weight(event), 0);
   if (total <= 0) return null;
 
-  let cursor = Math.random() * total;
+  let cursor = randomValue * total;
   for (const event of candidates) {
-    cursor -= calculateEventSelectionWeight(event, userData, age, isUserDirected(event, userData, history));
+    cursor -= weight(event);
     if (cursor <= 0) return event;
   }
 
@@ -700,11 +1014,26 @@ export function queryDynamicLifeEvent(
   userData: UserEventData,
   age: number,
   history: HistoryItem[] = [],
-  answers?: unknown
+  answers?: unknown,
+  options: {
+    entropy?: SelectionEntropy;
+    applyCareerLineMix?: boolean;
+    enableRomanceFormationEvents?: boolean;
+    excludeHighPressureEvents?: boolean;
+    excludedEventIds?: string[];
+    includedEventIds?: string[];
+    enableRomanceFormationAgeAffinity?: boolean;
+  } = {}
 ): LifeEventSeed | null {
+  const excludedEventIds = new Set(options.excludedEventIds || []);
+  const includedEventIds = options.includedEventIds ? new Set(options.includedEventIds) : undefined;
   const classifiedHistory = historyWithEventClassification(history);
   const candidates = LIFE_EVENTS_DATABASE.filter((event) => {
-    return satisfiesHardAgeConstraint(event, age)
+    return (!includedEventIds || includedEventIds.has(event.id))
+      && !excludedEventIds.has(event.id)
+      && (options.enableRomanceFormationEvents !== false || !["romance_new_connection", "romance_connection_clarification"].includes(event.id))
+      && (!options.excludeHighPressureEvents || !["critical", "high_tension"].includes(getEventTemporalProfile(event).lifeIntensity))
+      && satisfiesHardAgeConstraint(event, age)
       && isEligibleForCandidatePool(event, attribs, userData, age, classifiedHistory, answers);
   });
 
@@ -734,16 +1063,57 @@ export function queryDynamicLifeEvent(
     lastEventSelectionTrace.selectionReason = "all_candidates_category_limited";
     return null;
   }
-  lastEventSelectionTrace.candidateIdsAfterFilters = categoryAllowedCandidates.map((event) => event.id);
+  let finalCandidates = categoryAllowedCandidates;
+  if (options.applyCareerLineMix && options.entropy) {
+    let lineSelection: LineSelectionResult = selectCareerRouteLine({
+      history: classifiedHistory,
+      availableLines: new Set(categoryAllowedCandidates.map((event) => event.routeLine)),
+      entropy: options.entropy
+    });
+    finalCandidates = categoryAllowedCandidates.filter((event) => event.routeLine === lineSelection.selectedLine);
+    if (finalCandidates.length === 0 && lineSelection.selectionKind === "cross") {
+      const availableMainLines = new Set(categoryAllowedCandidates
+        .map((event) => event.routeLine)
+        .filter((line) => (CAREER_LINE_MIX_POLICY.mainPortfolio[line] || 0) > 0));
+      const fallbackLine = selectCareerMainPortfolioLine(options.entropy, CAREER_LINE_MIX_POLICY, availableMainLines);
+      lineSelection = {
+        ...lineSelection,
+        selectedLine: fallbackLine,
+        selectionKind: "main",
+        fallbackReason: "selected_cross_line_unavailable"
+      };
+      finalCandidates = categoryAllowedCandidates.filter((event) => event.routeLine === fallbackLine);
+    } else if (finalCandidates.length === 0 && lineSelection.selectionKind === "main") {
+      const availableMainLines = new Set(categoryAllowedCandidates
+        .map((event) => event.routeLine)
+        .filter((line) => (CAREER_LINE_MIX_POLICY.mainPortfolio[line] || 0) > 0));
+      const fallbackLine = selectCareerMainPortfolioLine(options.entropy, CAREER_LINE_MIX_POLICY, availableMainLines);
+      lineSelection = { ...lineSelection, selectedLine: fallbackLine, fallbackReason: "selected_main_line_unavailable" };
+      finalCandidates = categoryAllowedCandidates.filter((event) => event.routeLine === fallbackLine);
+    }
+    lastEventSelectionTrace.lineSelection = lineSelection;
+    if (finalCandidates.length === 0) {
+      lastEventSelectionTrace.selectionReason = "selected_route_line_unavailable";
+      return null;
+    }
+  }
+  lastEventSelectionTrace.candidateIdsAfterFilters = finalCandidates.map((event) => event.id);
 
   const candidatesByMode = new Map<NarrativeMode, LifeEventSeed[]>(
-    NARRATIVE_MODES.map((mode) => [mode, categoryAllowedCandidates.filter((event) => event.narrativeMode === mode)])
+    NARRATIVE_MODES.map((mode) => [mode, finalCandidates.filter((event) => event.narrativeMode === mode)])
   );
   const stabilityCandidates = candidatesByMode.get("stability_meaning") || [];
   lastEventSelectionTrace.availableModes = NARRATIVE_MODES.filter((mode) => (candidatesByMode.get(mode)?.length || 0) > 0);
 
   if (hasRecentMajorEvent(classifiedHistory) && hasStableBreathingRoom(attribs)) {
-    const selected = pickWeighted(stabilityCandidates, userData, age, classifiedHistory);
+    const selected = pickWeighted(
+      stabilityCandidates,
+      userData,
+      age,
+      classifiedHistory,
+      options.entropy?.sample("event_pick"),
+      options.enableRomanceFormationAgeAffinity !== false
+    );
     lastEventSelectionTrace.selectedMode = selected?.narrativeMode;
     lastEventSelectionTrace.selectedEventId = selected?.id;
     lastEventSelectionTrace.selectionReason = selected ? "post_major_breathing_room" : "post_major_no_stability_candidate";
@@ -760,13 +1130,20 @@ export function queryDynamicLifeEvent(
   const fatiguedWeights = applyModeFatigue(availableWeights, classifiedHistory);
   lastEventSelectionTrace.modeWeightsBeforeFatigue = { ...availableWeights };
   lastEventSelectionTrace.modeWeightsAfterFatigue = { ...fatiguedWeights };
-  const selectedMode = pickModeByWeight(fatiguedWeights);
+  const selectedMode = pickModeByWeight(fatiguedWeights, options.entropy?.sample("narrative_mode"));
   if (!selectedMode) {
     lastEventSelectionTrace.selectionReason = "no_weighted_mode";
     return null;
   }
 
-  const selected = pickWeighted(candidatesByMode.get(selectedMode) || [], userData, age, classifiedHistory);
+  const selected = pickWeighted(
+    candidatesByMode.get(selectedMode) || [],
+    userData,
+    age,
+    classifiedHistory,
+    options.entropy?.sample("event_pick"),
+    options.enableRomanceFormationAgeAffinity !== false
+  );
   lastEventSelectionTrace.selectedMode = selectedMode;
   lastEventSelectionTrace.selectedEventId = selected?.id;
   lastEventSelectionTrace.selectionReason = selected ? "weighted_mode_selection" : "selected_mode_without_candidate";
@@ -778,16 +1155,21 @@ export function queryHealthEscalationEvent(
   history: HistoryItem[] = []
 ): LifeEventSeed | null {
   const forcedPause = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_forced_pause");
+  const warning = LIFE_EVENTS_DATABASE.find((event) => event.id === "health_system_warning");
   if (!forcedPause || isEventInCooldown(forcedPause, history)) return null;
 
   if (attribs.health < 30) return forcedPause;
-  if (attribs.health >= 38) return null;
+  if (attribs.health >= 38) {
+    return attribs.health < 42 && warning && !isEventInCooldown(warning, history)
+      ? warning
+      : null;
+  }
 
   const recent = history.slice(-3);
-  if (recent.length < 3) return null;
+  if (recent.length < 3) return warning && !isEventInCooldown(warning, history) ? warning : null;
 
   const hasRecentWarning = recent.some((item) => item.eventMeta?.eventId === "health_system_warning");
-  if (!hasRecentWarning) return null;
+  if (!hasRecentWarning) return warning && !isEventInCooldown(warning, history) ? warning : null;
 
   const healthValues = [recent[0].attributes.health, recent[1].attributes.health, attribs.health];
   const continuouslyDeclining = healthValues[0] > healthValues[1] && healthValues[1] > healthValues[2];
@@ -807,7 +1189,9 @@ export function buildEventMeta(event: LifeEventSeed): EventMeta {
     eventIntensity: event.fingerprint?.intensity || (event.intent.emotionalTone === "crisis" ? "major" : "minor"),
     eventMode: event.narrativeMode,
     eventSemanticFamily: event.semanticFamily,
-    phasePolicyId: event.intent.phasePolicyId || "generic_pressure_v1"
+    phasePolicyId: event.intent.phasePolicyId || "generic_pressure_v1",
+    routeLine: event.routeLine,
+    selectionKind: "unmixed"
   };
 }
 

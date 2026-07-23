@@ -25,6 +25,13 @@ function hasDistinctWorldChanges(choices: SimulationChoice[]): boolean {
   return new Set(signatures.filter(Boolean)).size >= 2 || new Set(choices.map(normalizedIntent)).size >= 2;
 }
 
+export function removeBlockedChoicesAfterRepair(node: SimulationNode, blockedIntents: string[]): SimulationNode {
+  if (blockedIntents.length === 0) return node;
+  const blocked = new Set(blockedIntents);
+  const availableChoices = node.choices.filter((choice) => !blocked.has(normalizedIntent(choice)));
+  return availableChoices.length >= 2 ? { ...node, choices: availableChoices } : node;
+}
+
 function repeatedPreviousDecision(node: SimulationNode, previous?: HistoryItem): boolean {
   if (!previous) return false;
   const previousText = previous.selectedChoice.trim();
@@ -57,16 +64,40 @@ export function evaluateDecisionGate(input: {
   const changesFutureState = hasDistinctWorldChanges(choices);
   const repeatsPreviousDecision = repeatedPreviousDecision(input.candidateNode, input.previousNode);
   const cooledIntents = blockedDecisionIntents(input.recentHistory, input.recentHistory.length);
+  // Relationship lifecycle checkpoints intentionally reuse a small, stable
+  // outcome vocabulary across reviews (for example "continue slow
+  // exploration"). The relationship progression state, not generic option
+  // cooldown, limits how often those outcomes may recur and eventually swaps
+  // the event to a forced resolution. Applying the generic cooldown here
+  // rejects the whole deterministic checkpoint before that state machine can
+  // advance.
+  const isCausallyRequiredCheckpoint = ["relationship_follow_up", "forced"].includes(
+    input.candidateNode.eventMeta?.selectionKind || ""
+  );
   const repeatedPassedIntents = [...new Set(
     choices
       .map(normalizedIntent)
-      .filter((intent) => intent && cooledIntents.has(intent))
+      .filter((intent) => !isCausallyRequiredCheckpoint && intent && cooledIntents.has(intent))
   )];
   const repeatsRecentlyPassedOption = repeatedPassedIntents.length > 0;
+  const repeatedPassedIntentSet = new Set(repeatedPassedIntents);
+  const choicesAfterBlockedSuppression = choices.filter((choice) => (
+    !repeatedPassedIntentSet.has(normalizedIntent(choice))
+  ));
+  const retainsTwoDistinctActions = new Set(
+    choicesAfterBlockedSuppression.map(normalizedIntent).filter(Boolean)
+  ).size >= 2;
+  const retainsEventStrategyCoverage = !input.allowedOutcomeIds || new Set(
+    choicesAfterBlockedSuppression.map((choice) => choice.eventOutcomeId).filter(Boolean)
+  ).size >= 2;
+  const canSuppressBlockedChoices = choicesAfterBlockedSuppression.length >= 2
+    && retainsTwoDistinctActions
+    && retainsEventStrategyCoverage;
   const intensity: LifeIntensity = input.candidateNode.narrativeMeta?.lifeIntensity || "normal";
   const recentHigh = countRecentHighIntensityNodes(input.recentHistory, input.targetAgeInMonths);
   const pressureCriticalCount = input.pressureArc && intensity === "critical" ? input.pressureArc.phaseCheckpointCount : 0;
-  const densityExceeded = !input.independentCriticalEvent && (
+  const densityExceeded = !input.independentCriticalEvent
+    && (intensity === "critical" || intensity === "high_tension") && (
     recentHigh >= DEFAULT_NODE_DENSITY_POLICY.maxHighOrCriticalCheckpointsPerRolling12Months
     || pressureCriticalCount >= DEFAULT_NODE_DENSITY_POLICY.maxCriticalCheckpointsPerPressureArc
   );
@@ -74,7 +105,9 @@ export function evaluateDecisionGate(input: {
   if (distinctActionCount < 2) reasonCodes.push("insufficient-distinct-actions");
   if (!changesFutureState) reasonCodes.push("no-distinct-world-change");
   if (repeatsPreviousDecision) reasonCodes.push("repeats-previous-decision");
-  if (repeatsRecentlyPassedOption) reasonCodes.push("repeats-recently-passed-option");
+  if (repeatsRecentlyPassedOption && !canSuppressBlockedChoices) {
+    reasonCodes.push("repeats-recently-passed-option");
+  }
   if (densityExceeded) reasonCodes.push("node-density-exceeded");
 
   if (input.allowedOutcomeIds) {

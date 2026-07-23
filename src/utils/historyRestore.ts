@@ -24,6 +24,8 @@ export function createHistoryItemFromNode(node: SimulationNode, selectedChoice: 
     stage: node.stage,
     description: node.description,
     selectedChoice,
+    selectedChoiceId: selectedOption?.id,
+    selectedEventOutcomeId: selectedOption?.eventOutcomeId,
     selectedDecisionIntent: selectedOption
       ? normalizeDecisionIntent(selectedOption)
       : normalizeDecisionIntent({ id: "custom", text: selectedChoice, impactSummary: "自定义选择" }),

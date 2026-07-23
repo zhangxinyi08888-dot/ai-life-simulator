@@ -3,6 +3,9 @@ import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitia
 import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
+import { queryDynamicLifeEvent } from "../../data/lifeEvents";
+import { createSelectionEntropy } from "../../config/lineMixPolicy";
+import { buildBranchFingerprint } from "../../utils/timelineAdvance";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -310,6 +313,7 @@ const majorHealthDrop = await generateNextNode({
   })
 });
 assert.equal(majorHealthDrop.eventMeta?.eventId, "health_forced_pause");
+assert.equal(majorHealthDrop.eventMeta?.selectionKind, "forced");
 assert.equal(majorHealthDrop.attributes.health, 17);
 assert.equal(majorHealthDrop.narrativeMeta?.lifeIntensity, "high_tension");
 assert.equal(majorHealthDrop.worldStateSnapshot?.pressureArcs[0]?.phasePolicyId, "health_crisis_v1");
@@ -331,6 +335,7 @@ for (const testCase of degradedFinanceCases) {
     nodeIndex: 1,
     simulationSeed: `finance-${testCase.label}`
   }, {
+    relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
     callAiJson: async () => {
       callCount += 1;
       return {
@@ -583,6 +588,7 @@ const failedRepairNode = await generateNextNode({
   nodeIndex: 1,
   simulationSeed: "finance-repair-fallback"
 }, {
+  relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
   callAiJson: async (prompt) => {
     failedRepairCalls += 1;
     if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
@@ -1077,3 +1083,222 @@ try {
 } finally {
   Math.random = missingOutcomeRandom;
 }
+
+const relationshipOptionAHistory: HistoryItem[] = [{
+  age: 36,
+  ageInMonths: 36 * 12,
+  stage: "生活交汇",
+  title: "平淡中的细微抉择",
+  description: "公司给出华东分部半年的外派机会，你需要决定是否离开当前生活节奏。",
+  selectedChoice: "接受华东外派，拉近与陈曦的距离",
+  selectedDecisionIntent: "career:accept:regional_assignment",
+  attributes,
+  choices: [
+    { id: "A", text: "接受华东外派，拉近与陈曦的距离", impactSummary: "接受外派", eventOutcomeId: "accept_regional_assignment" },
+    { id: "B", text: "留在本地继续当前项目", impactSummary: "保持本地" },
+    { id: "C", text: "申请缩短外派周期", impactSummary: "折中安排" }
+  ],
+  isEndingNode: false
+}];
+const relationshipOptionADecision = relationshipOptionAHistory[0].selectedChoice!;
+const relationshipOptionABranch = buildBranchFingerprint(relationshipOptionAHistory, relationshipOptionADecision, 1);
+let romanceFallbackSeed = "";
+for (let index = 0; index < 2_000; index += 1) {
+  const candidateSeed = `relationship-option-a-${index}`;
+  const selected = queryDynamicLifeEvent(
+    attributes,
+    userData,
+    36,
+    relationshipOptionAHistory,
+    answers,
+    {
+      applyCareerLineMix: true,
+      enableRomanceFormationEvents: true,
+      entropy: createSelectionEntropy({ simulationSeed: candidateSeed, branchFingerprint: relationshipOptionABranch, nodeIndex: 1 })
+    }
+  );
+  if (selected?.id === "romance_new_connection") {
+    romanceFallbackSeed = candidateSeed;
+    break;
+  }
+}
+assert.ok(romanceFallbackSeed, "the regression must deterministically select romance_new_connection");
+
+let romanceFullNodeCalls = 0;
+let romanceCandidateRepairCalls = 0;
+let fallbackFullNodeCalls = 0;
+const optionAFallbackNode = await generateNextNode({
+  userData,
+  answers,
+  history: relationshipOptionAHistory,
+  currentAttributes: attributes,
+  selectedDecision: relationshipOptionADecision,
+  nodeIndex: 1,
+  simulationSeed: romanceFallbackSeed
+}, {
+  callAiJson: async (prompt) => {
+    if (/你只负责从既有正文中提取一个候选人物脚手架/.test(prompt)) {
+      romanceCandidateRepairCalls += 1;
+      return { text: JSON.stringify({ activeCharacters: [] }) };
+    }
+    const isRomanceNode = /type: romance_new_connection/.test(prompt);
+    if (isRomanceNode) romanceFullNodeCalls += 1;
+    else fallbackFullNodeCalls += 1;
+    return {
+      text: JSON.stringify({
+        age: 37,
+        stage: isRomanceNode ? "外派后的新节奏" : "外派安排落地",
+        title: isRomanceNode ? "业务交流中的新联系人" : "异地生活的第一轮调整",
+        description: isRomanceNode
+          ? "你在区域项目会上认识客户经理苏棠，会后加了微信，继续讨论合同和交付安排。"
+          : "你抵达华东分部后重新安排通勤、工作交接和固定休息时间，外派生活逐渐形成可执行的节奏。",
+        choices: [
+          { id: "A", text: "按原计划推进重点项目", impactSummary: "推进项目", decisionIntent: "career:continue:regional_project" },
+          { id: "B", text: "缩小项目范围并稳定生活", impactSummary: "稳定节奏", decisionIntent: "career:narrow:regional_project" },
+          { id: "C", text: "交接部分职责并重新评估外派", impactSummary: "重新评估", decisionIntent: "career:delegate:regional_project" }
+        ],
+        attributes,
+        narrativeMeta: { activeCharacters: [] },
+        isEndingNode: false
+      })
+    };
+  }
+});
+
+assert.equal(romanceFullNodeCalls, 1, "the failed romance event must not run three full-node retries");
+assert.equal(romanceCandidateRepairCalls, 1, "candidate extraction gets one localized repair attempt");
+assert.equal(fallbackFullNodeCalls, 1, "the original option A must continue through one ordinary redispatch");
+assert.notEqual(optionAFallbackNode.eventMeta?.eventId, "romance_new_connection");
+assert.equal(optionAFallbackNode.eventMeta?.requestedEventId, "romance_new_connection");
+assert.match(optionAFallbackNode.eventMeta?.fallbackReason || "", /^romance_contract_failed:/);
+assert.equal(optionAFallbackNode.eventMeta?.romanceRepairAttempted, true);
+assert.equal(optionAFallbackNode.eventMeta?.romanceRepairSucceeded, false);
+assert.equal(optionAFallbackNode.eventMeta?.romanceRescheduled, true);
+assert.equal(optionAFallbackNode.worldStateSnapshot?.relationships.length || 0, 0, "render-time fallback must not commit a relationship");
+
+const completedFallbackNode: HistoryItem = {
+  ...optionAFallbackNode,
+  selectedChoice: optionAFallbackNode.choices[0].text,
+  selectedDecisionIntent: optionAFallbackNode.choices[0].decisionIntent
+};
+const deferredBranch = buildBranchFingerprint([completedFallbackNode], completedFallbackNode.selectedChoice!, 2);
+let immediateRomanceSeed = "";
+for (let index = 0; index < 2_000; index += 1) {
+  const candidateSeed = `relationship-deferred-${index}`;
+  const selected = queryDynamicLifeEvent(
+    attributes,
+    userData,
+    completedFallbackNode.ageInMonths! / 12,
+    [completedFallbackNode],
+    answers,
+    {
+      applyCareerLineMix: true,
+      enableRomanceFormationEvents: true,
+      entropy: createSelectionEntropy({ simulationSeed: candidateSeed, branchFingerprint: deferredBranch, nodeIndex: 2 })
+    }
+  );
+  if (selected?.id === "romance_new_connection") {
+    immediateRomanceSeed = candidateSeed;
+    break;
+  }
+}
+assert.ok(immediateRomanceSeed, "control seed must otherwise select romance immediately");
+const deferredOnceNode = await generateNextNode({
+  userData,
+  answers,
+  history: [completedFallbackNode],
+  currentAttributes: attributes,
+  selectedDecision: completedFallbackNode.selectedChoice!,
+  nodeIndex: 2,
+  simulationSeed: immediateRomanceSeed
+}, {
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 38,
+      stage: "外派生活",
+      title: "先安顿眼前的生活",
+      description: "你先完成住所、通勤和工作交接安排，让外派后的日常重新稳定下来。",
+      choices: [
+        { id: "A", text: "维持当前安排", impactSummary: "保持节奏" },
+        { id: "B", text: "减少非必要任务", impactSummary: "降低负荷" },
+        { id: "C", text: "重新协调工作边界", impactSummary: "调整边界" }
+      ],
+      attributes,
+      isEndingNode: false
+    })
+  })
+});
+assert.notEqual(deferredOnceNode.eventMeta?.eventId, "romance_new_connection", "the owed event must not return immediately");
+assert.notEqual(deferredOnceNode.eventMeta?.romanceRescheduleFulfilled, true);
+
+const deferredOrdinaryNodes: HistoryItem[] = [1, 2].map((offset) => ({
+  age: 37 + offset,
+  ageInMonths: (37 + offset) * 12,
+  stage: "外派生活",
+  title: `外派后的普通节点 ${offset}`,
+  description: "你继续处理日常工作和生活安排。",
+  selectedChoice: "保持当前节奏",
+  selectedDecisionIntent: "career:continue:ordinary_rhythm",
+  attributes,
+  choices: [{ id: "A", text: "保持当前节奏", impactSummary: "保持节奏" }],
+  isEndingNode: false,
+  eventMeta: {
+    eventId: `ordinary_after_romance_fallback_${offset}`,
+    eventCategory: "career",
+    routeLine: "career",
+    eventTags: ["career"],
+    selectionKind: "main"
+  },
+  worldStateSnapshot: optionAFallbackNode.worldStateSnapshot
+}));
+let fulfilledRomanceCalls = 0;
+const fulfilledRomanceNode = await generateNextNode({
+  userData,
+  answers,
+  history: [completedFallbackNode, ...deferredOrdinaryNodes],
+  currentAttributes: attributes,
+  selectedDecision: "保持当前节奏",
+  nodeIndex: 3,
+  simulationSeed: "relationship-option-a-reschedule"
+}, {
+  callAiJson: async (prompt) => {
+    assert.match(prompt, /type: romance_new_connection/);
+    fulfilledRomanceCalls += 1;
+    const evidence = "周岚说她也常去城南旧书市集，你们约好下周在那里见面。";
+    return {
+      text: JSON.stringify({
+        age: 40,
+        stage: "生活里的新联系",
+        title: "旧书市集前的约定",
+        description: `外派结束前，你在书店活动认识了周岚。${evidence}`,
+        choices: [
+          { id: "A", text: "下周去旧书市集", impactSummary: "继续了解" },
+          { id: "B", text: "保持普通联系", impactSummary: "普通认识" },
+          { id: "C", text: "说明暂不考虑发展", impactSummary: "婉拒发展" }
+        ],
+        attributes,
+        narrativeMeta: {
+          activeCharacters: [{
+            candidateOrdinal: 0,
+            displayName: "周岚",
+            relation: "other",
+            presenceMode: "active_scene",
+            currentRole: "书店活动参与者",
+            encounterType: "new_connection",
+            encounterContext: "personal",
+            groundingEvidence: evidence
+          }]
+        },
+        isEndingNode: false
+      })
+    };
+  }
+});
+
+assert.equal(fulfilledRomanceCalls, 1);
+assert.equal(fulfilledRomanceNode.eventMeta?.eventId, "romance_new_connection");
+assert.equal(fulfilledRomanceNode.eventMeta?.romanceRescheduleFulfilled, true);
+assert.equal(fulfilledRomanceNode.eventMeta?.romanceRescheduleDelayNodes, 2);
+assert.equal(fulfilledRomanceNode.eventMeta?.selectionKind, "unmixed");
+assert.equal(fulfilledRomanceNode.narrativeMeta?.relationshipProposals?.length, 2);
+assert.equal(fulfilledRomanceNode.worldStateSnapshot?.relationships.length || 0, 0, "rescheduled rendering still waits for the user's outcome");

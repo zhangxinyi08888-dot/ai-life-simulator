@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, RecoveryState } from "../types";
-import { buildEventMeta, calculateAgeAffinityMultiplier, calculateEventSelectionWeight, getEventTemporalProfile, getLastEventSelectionTrace, isEventAgeEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "./lifeEvents";
+import { buildEventMeta, calculateAgeAffinityMultiplier, calculateEventSelectionWeight, getEventTemporalProfile, getLastEventSelectionTrace, isEventAgeEligible, isLifeEventCandidateEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "./lifeEvents";
+import { createSelectionEntropy } from "../config/lineMixPolicy";
 
 const lowHealth: LifeAttributes = {
   happiness: 45,
@@ -71,13 +72,43 @@ assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.intent));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.trigger?.eligibility));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.narrativeMode));
 assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.semanticFamily));
+assert.ok(LIFE_EVENTS_DATABASE.every((event) => event.routeLine));
+const deterministicEntropyInput = { simulationSeed: "same", branchFingerprint: "same", nodeIndex: 7 };
+const deterministicFirst = queryDynamicLifeEvent(stableAttributes, { coreStoryFocus: "career" }, 35, [], undefined, {
+  entropy: createSelectionEntropy(deterministicEntropyInput), applyCareerLineMix: true
+});
+const deterministicSecond = queryDynamicLifeEvent(stableAttributes, { coreStoryFocus: "career" }, 35, [], undefined, {
+  entropy: createSelectionEntropy(deterministicEntropyInput), applyCareerLineMix: true
+});
+assert.equal(deterministicFirst?.id, deterministicSecond?.id);
+assert.equal(getLastEventSelectionTrace()?.lineSelection?.policyId, "career_75_25_v1");
+
+const pressureFilteredEvent = queryDynamicLifeEvent(stableAttributes, { coreStoryFocus: "career" }, 35, [], undefined, {
+  entropy: createSelectionEntropy({ ...deterministicEntropyInput, nodeIndex: 8 }),
+  applyCareerLineMix: true,
+  excludeHighPressureEvents: true
+});
+const pressureFilteredTrace = getLastEventSelectionTrace();
+assert.ok(pressureFilteredEvent === null || !["critical", "high_tension"].includes(getEventTemporalProfile(pressureFilteredEvent).lifeIntensity));
+assert.ok(pressureFilteredTrace?.candidateIdsBeforeFilters.every((eventId) => {
+  const event = LIFE_EVENTS_DATABASE.find((candidate) => candidate.id === eventId);
+  return Boolean(event && !["critical", "high_tension"].includes(getEventTemporalProfile(event).lifeIntensity));
+}));
 assert.deepEqual(
-  Object.fromEntries(LIFE_EVENTS_DATABASE.slice(0, 14).map((event) => [event.id, [event.narrativeMode, event.semanticFamily]])),
+  Object.fromEntries(LIFE_EVENTS_DATABASE.filter((event) => [
+    "career_venture_pressure", "career_responsibility_shift", "career_structural_instability", "career_credit_ownership_conflict",
+    "romance_new_connection", "romance_connection_clarification", "relationship_material_commitment_test",
+    "relationship_family_obligation_pull", "relationship_trust_interest_fracture", "health_system_warning",
+    "health_forced_pause", "health_recovery_observation", "opportunity_unstable_alliance", "opportunity_escape_route",
+    "financial_side_path_conflict", "life_normal_transition"
+  ].includes(event.id)).map((event) => [event.id, [event.narrativeMode, event.semanticFamily]])),
   {
     career_venture_pressure: ["crossroads_opportunity", "career_transition"],
     career_responsibility_shift: ["pressure_crisis", "career_scope_change"],
     career_structural_instability: ["pressure_crisis", "career_structural_instability"],
     career_credit_ownership_conflict: ["pressure_crisis", "career_credit_ownership"],
+    romance_new_connection: ["crossroads_opportunity", "romance_formation"],
+    romance_connection_clarification: ["crossroads_opportunity", "romance_formation_clarification"],
     relationship_material_commitment_test: ["crossroads_opportunity", "relationship_commitment"],
     relationship_family_obligation_pull: ["pressure_crisis", "family_responsibility"],
     relationship_trust_interest_fracture: ["pressure_crisis", "relationship_trust_fracture"],
@@ -182,12 +213,70 @@ const ventureEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "career_v
 assert.ok(ventureEvent);
 assert.equal(isEventAgeEligible(ventureEvent, 70), true);
 assert.equal(isEventAgeEligible(ventureEvent, 15), false);
+const romanceFormationEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "romance_new_connection")!;
+assert.equal(isLifeEventCandidateEligible(romanceFormationEvent, stableAttributes, {}, 17, []), false);
+assert.equal(isLifeEventCandidateEligible(romanceFormationEvent, stableAttributes, {}, 18, []), true);
+
+const exploringPerson = {
+  id: "person_exploring",
+  identityKey: { namespace: "accepted_character" as const, key: "exploring" },
+  displayName: "林遥",
+  relation: "partner" as const,
+  lifeStatus: "active" as const,
+  source: "accepted_history" as const,
+  confidence: 0.9
+};
+const activeFamilyAndExploringHistory: HistoryItem[] = [{
+  ...historyItem({ eventId: "career_previous", eventCategory: "career", routeLine: "career", eventTags: ["career"] }),
+  age: 30,
+  ageInMonths: 360,
+  worldStateSnapshot: {
+    people: [exploringPerson],
+    directionArcs: [],
+    pressureArcs: [],
+    relationships: [{
+      id: "relationship_exploring", participantPersonIds: [exploringPerson.id], type: "romantic", stage: "exploring",
+      status: "active", effectiveFromAgeInMonths: 359, source: "accepted_history", confidence: 0.9
+    }],
+    familyRelationships: [{
+      id: "family_parent", role: "parent_unspecified", activation: "active", contact: "unknown",
+      emotionalSupport: "unknown", practicalSupport: "unknown", autonomyRespect: "unknown",
+      conflictIntensity: "unknown", topicStances: [], revision: 1
+    }],
+    relationshipRevision: 1,
+    familyRelationshipRevision: 1,
+    version: 2
+  }
+}];
+assert.equal(isLifeEventCandidateEligible(romanceFormationEvent, stableAttributes, {}, 30, activeFamilyAndExploringHistory), false);
+const unavailableRomanceResult = queryDynamicLifeEvent(
+  stableAttributes,
+  { coreStoryFocus: "career" },
+  30,
+  activeFamilyAndExploringHistory,
+  undefined,
+  {
+    applyCareerLineMix: true,
+    entropy: { sample: (slot) => slot === "route_line" ? 0.9 : slot === "cross_line" ? 0.1 : 0.3 }
+  }
+);
+assert.notEqual(unavailableRomanceResult?.routeLine, "family");
+assert.equal(getLastEventSelectionTrace()?.lineSelection?.fallbackReason, "selected_cross_line_unavailable");
 assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], minimumMultiplier: 0.4, outsideRangeAdaptations: [] }), 0.4);
 assert.equal(calculateAgeAffinityMultiplier(70, { preferredRange: [22, 45], minimumMultiplier: 0.4, outsideRangeAdaptations: [] }, true), 1);
 
 const selected = queryDynamicLifeEvent(lowHealth, {}, 55, []);
 assert.ok(selected?.intent);
 assert.notEqual(selected?.id, "health_forced_pause");
+
+queryDynamicLifeEvent(stableAttributes, { coreStoryFocus: "career" }, 30, [], undefined, {
+  excludedEventIds: ["romance_new_connection"]
+});
+assert.equal(
+  getLastEventSelectionTrace()?.candidateIdsBeforeFilters.includes("romance_new_connection"),
+  false,
+  "a deferred romance event must leave the candidate pool before redispatch"
+);
 
 const similarBlocked = queryDynamicLifeEvent(lowHealth, {}, 55, [
   historyItem({
@@ -224,7 +313,7 @@ try {
     28,
     []
   );
-  assert.notEqual(romanceFallbackEvent?.category, "relationship");
+  assert.ok(!romanceFallbackEvent || romanceFallbackEvent.id === "romance_new_connection");
 } finally {
   Math.random = originalRandom;
 }
@@ -244,7 +333,7 @@ try {
       }
     ]
   );
-  assert.notEqual(answerRelationshipEvent?.category, "relationship");
+  assert.ok(!answerRelationshipEvent || answerRelationshipEvent.id === "romance_new_connection");
 } finally {
   Math.random = originalRandom;
 }
@@ -279,6 +368,7 @@ try {
 }
 
 const cooldownExhausted = queryDynamicLifeEvent(stableAttributes, {}, 45, [
+  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "romance_new_connection")!)),
   historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_material_commitment_test")!)),
   historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_family_obligation_pull")!)),
   historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_trust_interest_fracture")!)),
@@ -292,6 +382,7 @@ const tagExhausted = queryDynamicLifeEvent(
   {},
   45,
   [
+    historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "romance_new_connection")!)),
     historyItem({ eventId: "past_health", eventCategory: "health", eventTags: ["health", "burnout", "instability"] }),
     historyItem({ eventId: "past_escape", eventCategory: "opportunity", eventTags: ["opportunity", "escape_route", "isolation"] }),
     historyItem({ eventId: "past_normal", eventCategory: "growth", eventTags: ["normal_life", "transition", "breathing_room"] })
@@ -304,18 +395,16 @@ const categoryExhausted = queryDynamicLifeEvent(
   {},
   45,
   [
-    historyItem({ eventId: "past_relationship_a", eventCategory: "relationship", eventTags: ["normal_life", "transition", "health", "routine", "maintenance"] }),
-    historyItem({ eventId: "past_relationship_b", eventCategory: "relationship", eventTags: ["unrelated"] })
+    historyItem({ eventId: "past_relationship_a", eventCategory: "relationship", routeLine: "romance", eventTags: ["normal_life", "transition", "health", "routine", "maintenance"] }),
+    historyItem({ eventId: "past_relationship_b", eventCategory: "relationship", routeLine: "romance", eventTags: ["unrelated"] })
   ]
 );
 assert.equal(categoryExhausted, null);
 
 Math.random = () => 0.99;
 try {
-  const pressureOnly = queryDynamicLifeEvent(
+  const pressureOnly = queryHealthEscalationEvent(
     { happiness: 44, intelligence: 40, wealth: 30, relation: 0, health: 40 },
-    {},
-    45,
     [historyItem({ eventId: "past_normal", eventCategory: "growth", eventTags: ["normal_life", "transition"] })]
   );
   assert.equal(pressureOnly?.id, "health_system_warning");
@@ -341,7 +430,9 @@ assert.deepEqual(
     eventIntensity: "minor",
     eventMode: "pressure_crisis",
     eventSemanticFamily: "health_system_warning",
-    phasePolicyId: "generic_pressure_v1"
+    phasePolicyId: "generic_pressure_v1",
+    routeLine: "health",
+    selectionKind: "unmixed"
   }
 );
 
