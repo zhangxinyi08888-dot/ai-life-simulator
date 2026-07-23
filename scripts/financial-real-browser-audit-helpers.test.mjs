@@ -80,6 +80,7 @@ test("extracts protagonist compensation without treating company revenue or staf
   assert.deepEqual(personalCompensationAnnualAmounts("猎头邀请你担任产品VP，年薪60万加期权。"), []);
   assert.deepEqual(personalCompensationAnnualAmounts("你决定接受VP offer，年薪65万加期权。"), [65]);
   assert.deepEqual(personalCompensationAnnualAmounts("你接受顾问工作，税后月薪0.8万元，并聘请护工，月薪0.25万元。"), [9.6]);
+  assert.deepEqual(personalCompensationAnnualAmounts("这意味着你要辞掉现在18万的稳定工作，去一个年薪22万但没有保障的新公司。你最终没有接受。"), []);
 });
 
 test("counts user-visible generation pauses once across app state and runner trace", () => {

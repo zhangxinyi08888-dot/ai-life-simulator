@@ -176,17 +176,24 @@ export function synthesizeSelectedCareerTransition(input: {
   narrativeText: string;
   acceptedOutcomeId?: string;
   effectiveAtAgeInMonths: number;
+  currentStatus?: CareerState["employmentStatus"];
 }): EmploymentTransitionProposal | undefined {
   if (!input.acceptedOutcomeId || !input.selectedDecision) return undefined;
   const decision = input.selectedDecision;
   const narrativeEvidence = input.narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
-    /(?:你|主角|本人).{0,40}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位))/iu.test(sentence)
+    /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|被任命|晋升|提升为|成为.{0,12}负责人)/iu.test(sentence)
   ));
   let toStatus: EmploymentTransitionProposal["toStatus"] | undefined;
   if (/辞职.{0,12}创业|离职.{0,12}创业|全职.{0,12}创业/u.test(decision)) toStatus = "self_employed";
   else if (/退休/u.test(decision)) toStatus = "retired";
   else if (/停止工作|不再工作/u.test(decision)) toStatus = "not_working";
   else if (/入职|接受.{0,20}(?:offer|工作|职位|岗位)|回.{0,8}职场/iu.test(decision)) toStatus = "employed";
+  else if (narrativeEvidence
+    && /转岗|转任|被任命|晋升|提升为|成为.{0,12}负责人/u.test(narrativeEvidence)
+    && input.currentStatus
+    && ["employed", "part_time", "self_employed"].includes(input.currentStatus)) {
+    toStatus = input.currentStatus;
+  }
   if (!toStatus) return undefined;
   // The accepted choice is itself authoritative action evidence. Narrative text
   // may use a synonym such as "递交辞呈", so a prose regex miss must not leave
@@ -288,8 +295,9 @@ export function detectNarrativeFinancialCoverageIssues(input: {
   const personalCompensationAnnuals = input.narrativeText.split(/(?<=[。！？；])/u).flatMap((sentence) => {
     if (!/你|你的|本人|自己/u.test(sentence)) return [];
     const candidateCompensation = /猎头|邀请|邀约|推荐|提出|offer|如果|可以给你|考虑|是否|至少|预计|建议|希望/iu.test(sentence);
+    const hypotheticalMoveCompensation = /(?:这意味着|如果|若)[^。；]{0,60}(?:辞掉|辞去|离开|去|加入|转到)[^。；]{0,40}(?:月薪|年薪)/u.test(sentence);
     const completedCompensation = /正式(?:加入|入职|受聘)|决定接受|接受了|签下|转为[^。；]{0,20}(?:顾问|兼职|全职)|月薪(?:降至|调整为|维持)|薪资调整为|工资调整为|给自己/u.test(sentence);
-    if (candidateCompensation && !completedCompensation) return [];
+    if ((candidateCompensation || hypotheticalMoveCompensation) && !completedCompensation) return [];
     const personalContext = /(?:你(?:的|本人|个人)?[^。；]{0,45}|给自己[^。；]{0,24})(?:薪资调整为|工资调整为|税后工资|税后月薪|月薪|年薪)|薪资调整为[^。；]{0,18}(?:年薪|月薪)/u.test(sentence);
     if (!personalContext) return [];
     const monthly = [...sentence.matchAll(/(?:税后)?月薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*(万|元)/gu)]
@@ -775,14 +783,19 @@ async function commitAuthoritativeFinancialProgress(input: {
       }
     }
   }
-  if (acceptedCareerTransitions.length === 0 && input.acceptedOutcomeId) {
+  if (input.acceptedOutcomeId) {
     const synthesizedTransition = synthesizeSelectedCareerTransition({
       selectedDecision: input.selectedDecision,
       narrativeText: input.node.description,
       acceptedOutcomeId: input.acceptedOutcomeId,
-      effectiveAtAgeInMonths: input.periodStartAgeInMonths
+      effectiveAtAgeInMonths: input.periodStartAgeInMonths,
+      currentStatus: currentCareer.employmentStatus
     });
-    if (synthesizedTransition) {
+    const conflictsWithSelectedChoice = synthesizedTransition
+      && acceptedCareerTransitions.some((transition) => (
+        transition.nextCareerState.employmentStatus !== synthesizedTransition.toStatus
+      ));
+    if (synthesizedTransition && (acceptedCareerTransitions.length === 0 || conflictsWithSelectedChoice)) {
       try {
         const proposal = adaptTransitionalEmploymentProposal({
           proposal: synthesizedTransition,
@@ -936,7 +949,8 @@ async function commitAuthoritativeFinancialProgress(input: {
   completenessIssues.push(...collectPersonalIncomeNarrativeContractIssues({
     narrativeText: input.node.description,
     acceptedFinancialEvents: validated.acceptedEvents,
-    ageInMonths: input.periodEndAgeInMonths
+    ageInMonths: input.periodEndAgeInMonths,
+    currentLedger: initialLedger
   }));
   validated = { ...validated, issues: [...validated.issues, ...careerValidationIssues, ...completenessIssues] };
   const blockingIssues = validated.issues.filter((issue) => issue.severity === "blocking");
@@ -1088,7 +1102,8 @@ async function commitAuthoritativeFinancialProgress(input: {
       return collectPersonalIncomeNarrativeContractIssues({
         narrativeText: input.node.description,
         acceptedFinancialEvents: validated.acceptedEvents,
-        ageInMonths: input.periodEndAgeInMonths
+        ageInMonths: input.periodEndAgeInMonths,
+        currentLedger: initialLedger
       }).length > 0;
     }
     return !(issue.relatedIncomeSourceIds || []).some((sourceId) => finalAcceptedIncomeIds.has(sourceId));
@@ -1246,7 +1261,8 @@ async function commitAuthoritativeFinancialProgress(input: {
     ...collectPersonalIncomeNarrativeContractIssues({
       narrativeText: committedNarrativeNode.description,
       acceptedFinancialEvents: validated.acceptedEvents,
-      ageInMonths: input.periodEndAgeInMonths
+      ageInMonths: input.periodEndAgeInMonths,
+      currentLedger: initialLedger
     })
   ];
   const closingNarrativeIssueIds = new Set(closingNarrativeContractIssues.map((issue) => issue.id));

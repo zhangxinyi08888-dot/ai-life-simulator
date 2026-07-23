@@ -32,6 +32,7 @@ export function collectPersonalIncomeNarrativeContractIssues(input: {
   narrativeText: string;
   acceptedFinancialEvents: AcceptedFinancialEvent[];
   ageInMonths: number;
+  currentLedger?: FinancialLedger;
 }): FinancialLedgerIssue[] {
   if (hasExplicitUnpaidPersonalIncomeStatement(input.narrativeText)) return [];
   const currentPersonalIncomeClaimed = input.narrativeText.split(/(?<=[。！？；])/u).some((sentence) => (
@@ -40,6 +41,14 @@ export function collectPersonalIncomeNarrativeContractIssues(input: {
   ));
   if (!currentPersonalIncomeClaimed) return [];
   if (input.acceptedFinancialEvents.some(acceptedPersonalIncomeEvent)) return [];
+  const hasCurrentPersonalIncomeAuthority = input.currentLedger?.incomeSources.some((source) => (
+    source.status === "active"
+    && Boolean(source.linkedCareerStateId)
+    && ["salary", "contract", "self_employment_draw", "other"].includes(source.type)
+    && source.accrualReviewStatus !== "quarantined"
+    && source.factStatus !== "needs_review"
+  ));
+  if (hasCurrentPersonalIncomeAuthority) return [];
   return [{
     id: `personal_income_claim_without_event_${input.ageInMonths}`,
     code: "CAREER_INCOME_CONFLICT",

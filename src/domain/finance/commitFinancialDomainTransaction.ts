@@ -225,7 +225,11 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
           && (event.kind === "business_holding_started" || event.kind === "business_option_granted"))
         || (issue.id.startsWith("narrative_coverage_personal_compensation_")
           && (event.kind === "income_source_started" || event.kind === "income_source_adjusted"));
-      if (!resolvesMissingExpense && !resolvesCoverage
+      const resolvesPersonalIncomeClaim = issue.id.startsWith("personal_income_claim_without_event_")
+        && (event.kind === "income_source_started"
+          || event.kind === "income_source_adjusted"
+          || event.kind === "business_distribution_received");
+      if (!resolvesMissingExpense && !resolvesCoverage && !resolvesPersonalIncomeClaim
         && !intersects(issue.relatedIncomeSourceIds, refs.incomeSourceIds)
         && !intersects(issue.relatedAccountIds, refs.accountIds)
         && !intersects(issue.relatedDebtAccountIds, refs.debtAccountIds)

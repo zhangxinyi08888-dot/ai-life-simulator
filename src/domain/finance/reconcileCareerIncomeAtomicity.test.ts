@@ -176,6 +176,28 @@ test("PB-CAREER-01 explicit personal income prose requires an Accepted income ev
     acceptedFinancialEvents: [acceptedOwnerDraw],
     ageInMonths: 660
   }).length, 0);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "你的个人税后年收入约为36万元。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 661,
+    currentLedger: current.ledger
+  }).length, 0);
+
+  const quarantinedLedger = {
+    ...current.ledger,
+    incomeSources: current.ledger.incomeSources.map((source) => (
+      source.id === "salary"
+        ? { ...source, accrualReviewStatus: "quarantined" as const, factStatus: "needs_review" as const }
+        : source
+    ))
+  };
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "你的个人税后年收入约为36万元。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 662,
+    currentLedger: quarantinedLedger
+  }).length, 1);
 });
 
 test("PB-CAREER-02 resignation, old wage closure, and new owner draw commit atomically", () => {

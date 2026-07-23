@@ -93,10 +93,16 @@ test("commits CareerState, ledger, WorldState and derived snapshot as one transa
         amountWan: 1
       })
     ],
-    financialIssues: [{
-      id: "career_transition_missing_prior", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
-      relatedProposalIds: [], summary: "先前节点缺少职业转换", createdAtAgeInMonths: 360
-    }]
+    financialIssues: [
+      {
+        id: "career_transition_missing_prior", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
+        relatedProposalIds: [], summary: "先前节点缺少职业转换", createdAtAgeInMonths: 360
+      },
+      {
+        id: "personal_income_claim_without_event_360", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
+        relatedProposalIds: [], summary: "先前正文收入没有 Accepted FinancialEvent", createdAtAgeInMonths: 360
+      }
+    ]
   });
   assert.equal(result.alreadyCommitted, false);
   assert.equal(result.career.currentCareerStateId, nextCareerStateId);
@@ -109,6 +115,7 @@ test("commits CareerState, ledger, WorldState and derived snapshot as one transa
   assert.equal(result.derivedFinancialState.compatibilityState.cashWan, 2.65);
   assert.deepEqual(result.worldState.committedTransactionIds, ["atomic_success"]);
   assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "career_transition_missing_prior")?.status, "resolved");
+  assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "personal_income_claim_without_event_360")?.status, "resolved");
 });
 
 test("a ledger failure returns no partial CareerState or WorldState mutation", () => {

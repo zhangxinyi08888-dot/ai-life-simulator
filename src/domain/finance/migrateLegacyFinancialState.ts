@@ -206,7 +206,7 @@ export function migrateLegacyFinancialState(input: {
       }, ...(input.openingFacts?.ownsProperty && input.openingFacts.propertyMarketValueWan === undefined ? [{
         id: `opening_property_value_pending_${state.asOfAgeInMonths}`,
         code: "PENDING_FACT" as const,
-        severity: "blocking" as const,
+        severity: "warning" as const,
         status: "open" as const,
         relatedProposalIds: [],
         relatedAccountIds: ["opening_property_value_pending"],
