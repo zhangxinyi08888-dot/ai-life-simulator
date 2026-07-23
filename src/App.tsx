@@ -18,6 +18,7 @@ import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeServic
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
+import { runWithInvalidAiResponseRetry } from "./utils/generationRetry";
 
 type AppStep = "initial" | "questioning" | "simulating" | "insight";
 
@@ -240,19 +241,36 @@ export default function App() {
 
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
+    const generationLabel = "生成背景补全问题";
+    const isVisibleRetry = generationEvents.at(-1)?.type === "visible_pause"
+      && generationEvents.at(-1)?.choiceText === generationLabel;
     setIsLoading(true);
     setErrorMsg(null);
     setUserData(data);
     setName(userName);
 
     try {
-      const body = await generateQuestions(data);
+      const body = await runWithInvalidAiResponseRetry(() => generateQuestions(data));
       setQuestions(body.questions || []);
       setStep("questioning");
+      if (isVisibleRetry) {
+        setGenerationEvents((events) => [...events, createGenerationEvent("recovered", {
+          choiceText: generationLabel,
+          historyLength: history.length
+        })]);
+      }
 
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(getSimulationErrorMessage(err, "生成背景补全问题失败，请检测网络环境。"));
+      const message = getSimulationErrorMessage(err, "生成背景补全问题失败，请检测网络环境。");
+      setErrorMsg(message);
+      setGenerationEvents((events) => [...events, createGenerationEvent("visible_pause", {
+        choiceText: generationLabel,
+        historyLength: history.length,
+        errorCode: isAiClientError(err) ? err.code : undefined,
+        message,
+        debug: err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+      })]);
     } finally {
       setIsLoading(false);
     }
@@ -260,21 +278,38 @@ export default function App() {
 
   const handleSoulAnswersSubmit = async (submittedAnswers: QuestionTurn[]) => {
     if (!userData) return;
+    const generationLabel = "开始生成平行人生";
+    const isVisibleRetry = generationEvents.at(-1)?.type === "visible_pause"
+      && generationEvents.at(-1)?.choiceText === generationLabel;
     setIsLoading(true);
     setErrorMsg(null);
     setAnswers(submittedAnswers);
 
     try {
-      const body = await startSimulation(userData, submittedAnswers);
+      const body = await runWithInvalidAiResponseRetry(() => startSimulation(userData, submittedAnswers));
       setAttributes(body.initialAttributes);
       setCurrentNode(body.startNode);
       setHistory([]);
       setNodeCount(1);
       setSimulationSeed(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`);
       setStep("simulating");
+      if (isVisibleRetry) {
+        setGenerationEvents((events) => [...events, createGenerationEvent("recovered", {
+          choiceText: generationLabel,
+          historyLength: history.length
+        })]);
+      }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(getSimulationErrorMessage(err, "降生时空传输通道异常，请复查您的契约答案。"));
+      const message = getSimulationErrorMessage(err, "降生时空传输通道异常，请复查您的契约答案。");
+      setErrorMsg(message);
+      setGenerationEvents((events) => [...events, createGenerationEvent("visible_pause", {
+        choiceText: generationLabel,
+        historyLength: history.length,
+        errorCode: isAiClientError(err) ? err.code : undefined,
+        message,
+        debug: err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+      })]);
     } finally {
       setIsLoading(false);
     }
@@ -282,6 +317,9 @@ export default function App() {
 
   const handleGenerateFinalOutcome = async (context: FinalOutcomeContext, terminalAction: string, terminalNode = currentNode) => {
     if (!terminalNode || !userData) return;
+    const generationLabel = "生成终局报告";
+    const isVisibleRetry = generationEvents.at(-1)?.type === "visible_pause"
+      && generationEvents.at(-1)?.choiceText === generationLabel;
     setErrorMsg(null);
     setIsLoading(true);
 
@@ -289,20 +327,34 @@ export default function App() {
     const updatedHistory = [...history, finalHistoryItem];
 
     try {
-      const body = await generateFinalOutcome({
+      const body = await runWithInvalidAiResponseRetry(() => generateFinalOutcome({
         userData,
         answers,
         history: updatedHistory,
         currentAttributes: attributes,
         context
-      });
+      }));
       setHistory(updatedHistory);
       setCurrentNode(terminalNode);
       setOutcome(body);
       setStep("insight");
+      if (isVisibleRetry) {
+        setGenerationEvents((events) => [...events, createGenerationEvent("recovered", {
+          choiceText: generationLabel,
+          historyLength: updatedHistory.length
+        })]);
+      }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(getSimulationErrorMessage(err, "宿命总结遭遇神识乱流，请重新请求结契。"));
+      const message = getSimulationErrorMessage(err, "宿命总结遭遇神识乱流，请重新请求结契。");
+      setErrorMsg(message);
+      setGenerationEvents((events) => [...events, createGenerationEvent("visible_pause", {
+        choiceText: generationLabel,
+        historyLength: updatedHistory.length,
+        errorCode: isAiClientError(err) ? err.code : undefined,
+        message,
+        debug: err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+      })]);
     } finally {
       setIsLoading(false);
     }
