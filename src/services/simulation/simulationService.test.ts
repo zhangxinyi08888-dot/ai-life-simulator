@@ -889,6 +889,7 @@ assert.equal(unresolvedOperationNode.committedArcMeta?.transitionAction, "resolv
 assert.equal(unresolvedOperationNode.reportInvitation, undefined);
 
 let lateOperationRepairCalls = 0;
+let lateOperationDecisionRepairCalls = 0;
 const lateOperationRepairNode = await generateNextNode({
   userData,
   answers,
@@ -904,7 +905,16 @@ const lateOperationRepairNode = await generateNextNode({
       return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId, includeResolvedSignal: true })) };
     }
     if (prompt.includes("DecisionGate 未通过")) {
-      return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId })) };
+      lateOperationDecisionRepairCalls += 1;
+      const repaired = healthArcRawNode({ arcId: operationArcId });
+      if (lateOperationDecisionRepairCalls === 1) {
+        repaired.choices = repaired.choices.map((choice) => ({
+          ...choice,
+          decisionIntent: "health:wait:same-plan",
+          expectedWorldDeltaTypes: ["health_state" as const]
+        }));
+      }
+      return { text: JSON.stringify(repaired) };
     }
     const initiallyValidButChoiceBlocked = healthArcRawNode({ arcId: operationArcId, includeResolvedSignal: true });
     initiallyValidButChoiceBlocked.choices = initiallyValidButChoiceBlocked.choices.map((choice) => ({
@@ -916,7 +926,8 @@ const lateOperationRepairNode = await generateNextNode({
   }
 });
 
-assert.equal(lateOperationRepairCalls, 3);
+assert.equal(lateOperationRepairCalls, 4);
+assert.equal(lateOperationDecisionRepairCalls, 2);
 assert.equal(lateOperationRepairNode.committedArcMeta?.transitionAction, "resolve");
 assert.equal(lateOperationRepairNode.reportInvitation?.reason, "arc_resolved");
 assert.notEqual(lateOperationRepairNode.eventMeta?.eventId, "health_forced_pause");

@@ -4,7 +4,7 @@ import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
 import { DEFAULT_REPORT_INVITATION_POLICY } from "../../config/reportInvitationPolicy";
 import { buildQuestionPrompt } from "../../utils/questionPrompt";
 import { normalizePersonalityInsight } from "../../utils/insightResponse";
-import { generateCompleteSimulationNode } from "../../utils/simulationNodeRetry";
+import { generateCompleteSimulationNode, isRetryableNodeGenerationError } from "../../utils/simulationNodeRetry";
 import { normalizeSimulationNode } from "../../utils/simulationResponse";
 import { buildStoryContextPack } from "../../utils/storyContext";
 import { buildAgeContext } from "../../utils/ageContext";
@@ -2092,14 +2092,22 @@ export async function generateNextNode(
     allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
     narrativeMode: nodeEvent?.narrativeMode
   });
-  if (!decisionGate.isDecisionCheckpoint) {
+  for (let decisionRepairAttempt = 1; !decisionGate.isDecisionCheckpoint && decisionRepairAttempt <= 2; decisionRepairAttempt += 1) {
     const blockedChoicePrompt = decisionGate.blockedDecisionIntents.length > 0
       ? `\n以下 decisionIntent 近期已被用户重复未采纳，处于冷却中：${decisionGate.blockedDecisionIntents.join("、")}。保留相关真实事实或人物关系，但不得改写文案后再次提供同一行动。`
       : "";
-    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。`;
-    const response = await callAiJson(repairPrompt);
-    latestRawNode = parseAiJsonResponse(response);
-    if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "DecisionGate 修复结果包含未授权的 Arc 状态修改。");
+    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过：第 ${decisionRepairAttempt} 次修复】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。不得只替换近义词；每个选项必须使用不同 decisionIntent${nodeEvent?.intent.allowedOutcomes?.length ? `，并从允许的 eventOutcomeId 中覆盖至少两个不同策略：${nodeEvent.intent.allowedOutcomes.join("、")}` : ""}。`;
+    try {
+      const response = await callAiJson(repairPrompt);
+      latestRawNode = parseAiJsonResponse(response);
+    } catch (error) {
+      if (isRetryableNodeGenerationError(error) && decisionRepairAttempt < 2) continue;
+      throw error;
+    }
+    if (containsForbiddenArcWrite(latestRawNode)) {
+      if (decisionRepairAttempt < 2) continue;
+      throw new AiClientError("AI_RESPONSE_INVALID", "DecisionGate 修复结果包含未授权的 Arc 状态修改。");
+    }
     node = normalizeSimulationNode(latestRawNode, {
       fallbackAge: timelineAdvance.targetAge,
       minAge: timelineAdvance.targetAge,
@@ -2124,6 +2132,7 @@ export async function generateNextNode(
       ledger: currentFinancialLedger
     });
     if (repeatsAcuteHealthCrisis || consistencyIssues.some((issue) => issue.severity === "error")) {
+      if (decisionRepairAttempt < 2) continue;
       throw new AiClientError(
         "AI_RESPONSE_INVALID",
         repeatsAcuteHealthCrisis
@@ -2140,7 +2149,9 @@ export async function generateNextNode(
       allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
       narrativeMode: nodeEvent?.narrativeMode
     });
-    if (!decisionGate.isDecisionCheckpoint) throw new AiClientError(
+  }
+  if (!decisionGate.isDecisionCheckpoint) {
+    throw new AiClientError(
       "AI_RESPONSE_INVALID",
       `生成结果没有形成真正不同的人生选择，请重试：${decisionGate.reasonCodes.join("、")}`
     );

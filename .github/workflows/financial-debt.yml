@@ -45,6 +45,9 @@ jobs:
       - name: P0-C2 — browser journey and invitation isolation
         run: pnpm test:financial-journey-isolation
 
+      - name: P0-C2.5 — generation retry and visible-pause audit
+        run: pnpm test:generation-recovery
+
       - name: P0-C3 — company-personal and career-income contracts
         run: pnpm test:financial-business-boundary
 

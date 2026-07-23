@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { duplicateSingletonExpenseTypes, personalCompensationAnnualAmounts, personalLedgerBusinessBoundaryViolations } from "./financial-real-browser-audit-helpers.mjs";
+import {
+  collectRecoveredGenerationAttempts,
+  collectVisibleGenerationPauses,
+  duplicateSingletonExpenseTypes,
+  personalCompensationAnnualAmounts,
+  personalLedgerBusinessBoundaryViolations
+} from "./financial-real-browser-audit-helpers.mjs";
 
 test("detects company revenue and team payroll in a personal ledger", () => {
   const result = personalLedgerBusinessBoundaryViolations({
@@ -47,4 +53,32 @@ test("extracts protagonist compensation without treating company revenue or staf
   assert.deepEqual(personalCompensationAnnualAmounts("猎头邀请你担任产品VP，年薪60万加期权。"), []);
   assert.deepEqual(personalCompensationAnnualAmounts("你决定接受VP offer，年薪65万加期权。"), [65]);
   assert.deepEqual(personalCompensationAnnualAmounts("你接受顾问工作，税后月薪0.8万元，并聘请护工，月薪0.25万元。"), [9.6]);
+});
+
+test("counts user-visible generation pauses once across app state and runner trace", () => {
+  const record = {
+    finalState: {
+      generationEvents: [
+        { id: "pause-1", type: "visible_pause", historyLength: 8, errorCode: "AI_RESPONSE_INVALID", message: "格式异常" },
+        { id: "recovered-1", type: "recovered", historyLength: 9 }
+      ]
+    },
+    interactionLog: [
+      { type: "recoverable_error", generationEventId: "pause-1", historyLength: 8, message: "格式异常" },
+      { type: "recoverable_retry_succeeded", generationEventId: "recovered-1", historyLength: 9 }
+    ]
+  };
+  const pauses = collectVisibleGenerationPauses(record);
+  assert.equal(pauses.length, 1);
+  assert.equal(pauses[0].generationEventId, "pause-1");
+  assert.equal(pauses[0].source, "app_state_and_runner");
+  assert.equal(collectRecoveredGenerationAttempts(record), 1);
+});
+
+test("keeps runner-only legacy pause evidence auditable", () => {
+  const pauses = collectVisibleGenerationPauses({
+    interactionLog: [{ type: "recoverable_error", historyLength: 3, debug: "AiClientError: invalid" }]
+  });
+  assert.equal(pauses.length, 1);
+  assert.equal(pauses[0].source, "runner");
 });

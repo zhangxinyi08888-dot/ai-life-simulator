@@ -5,7 +5,13 @@ import {
   extractFinancialNarrativeAuditMeta
 } from "./lib/financial-production-audit.mjs";
 import { execFile } from "node:child_process";
-import { duplicateSingletonExpenseTypes, personalCompensationAnnualAmounts, personalLedgerBusinessBoundaryViolations } from "./financial-real-browser-audit-helpers.mjs";
+import {
+  collectRecoveredGenerationAttempts,
+  collectVisibleGenerationPauses,
+  duplicateSingletonExpenseTypes,
+  personalCompensationAnnualAmounts,
+  personalLedgerBusinessBoundaryViolations
+} from "./financial-real-browser-audit-helpers.mjs";
 
 function runGit(args) {
   return new Promise((resolve, reject) => execFile("git", args, { cwd: process.cwd() }, (error, stdout) => (
@@ -97,6 +103,9 @@ let adultBelowPolicyExpenseNodes = 0;
 let invalidHoldingInstrumentNodes = 0;
 let personalLedgerBusinessBoundaryNodes = 0;
 let duplicateSingletonExpenseNodes = 0;
+let visibleGenerationPauseCount = 0;
+let generationRecoveredCount = 0;
+let generationPauseCaseCount = 0;
 
 for (const record of records) {
   const history = record.finalState?.history || [];
@@ -251,8 +260,11 @@ for (const record of records) {
   const invitationSequence = (record.interactionLog || [])
     .filter((item) => ["invitation_declined", "invitation_accepted"].includes(item.type))
     .map((item) => `${item.invitation?.id || "unknown"}:${item.type === "invitation_accepted" ? "accepted" : "declined"}`);
-  const recoverableEvents = (record.interactionLog || [])
-    .filter((item) => item.type === "recoverable_error" || item.type === "recoverable_timeout");
+  const recoverableEvents = collectVisibleGenerationPauses(record);
+  const recoveredGenerationAttempts = collectRecoveredGenerationAttempts(record);
+  visibleGenerationPauseCount += recoverableEvents.length;
+  generationRecoveredCount += recoveredGenerationAttempts;
+  if (recoverableEvents.length > 0) generationPauseCaseCount += 1;
   const realityMetrics = {
     invariantFailures: nodes.filter((item) => !item.invariantChecks.identityOk || !item.invariantChecks.disposableOk
       || !item.invariantChecks.cashFloorOk || !item.invariantChecks.ageOk || !item.invariantChecks.ledgerAgeOk).length,
@@ -277,6 +289,7 @@ for (const record of records) {
     invitationCount: record.finalState?.invitations?.length || 0,
     invitationSequence,
     recoverableEvents,
+    recoveredGenerationAttempts,
     firstFinancialState: first,
     finalFinancialState: last,
     openingFactMismatch,
@@ -327,6 +340,9 @@ const summary = {
   invalidHoldingInstrumentNodes,
   personalLedgerBusinessBoundaryNodes,
   duplicateSingletonExpenseNodes,
+  visibleGenerationPauseCount,
+  generationRecoveredCount,
+  generationPauseCaseCount,
   openIssues: openIssues.length,
   resolvedIssues: resolvedIssues.length,
   issueCodeCounts,
@@ -379,6 +395,7 @@ const blockers = [
   productionAudit.summary.companyOperatingFlowInPersonalLedgerCount > 0 && `公司经营收支进入个人账本：${productionAudit.summary.companyOperatingFlowInPersonalLedgerCount} 个账户节点`,
   productionAudit.summary.blackOrEmptyPosterExportCount > 0 && `海报导出为空或全黑：${productionAudit.summary.blackOrEmptyPosterExportCount} 张`,
   productionAudit.summary.duplicateFinalImageEvidenceCount > 0 && `海报与报告页证据重复：${productionAudit.summary.duplicateFinalImageEvidenceCount} 组`,
+  visibleGenerationPauseCount > 0 && `用户可见生成暂停：${visibleGenerationPauseCount} 次，涉及 ${generationPauseCaseCount} 组（恢复成功 ${generationRecoveredCount} 次）`,
   (!records.every((record) => record.passed) || records.length !== 5) && `固定五路线契约未全部通过：${records.filter((record) => record.passed).length}/${records.length}`,
   employedAt80PlusNodes > 0 && `80 岁以后仍为 employed：${employedAt80PlusNodes} 个节点（其中无近期工作证据 ${employedAt80PlusWithoutEvidenceNodes} 个）`,
   duplicateActiveShortfallNodes > 0 && `单路线同时存在多个活跃 shortfall 账户：${duplicateActiveShortfallNodes} 个节点`,
@@ -456,6 +473,8 @@ ${recoverableRows}
 | 公司经营收支进入个人账本 | ${productionAudit.summary.companyOperatingFlowInPersonalLedgerCount} | 目标 0 |
 | 空白/全黑海报导出 | ${productionAudit.summary.blackOrEmptyPosterExportCount} | 目标 0 |
 | 海报与报告页证据重复 | ${productionAudit.summary.duplicateFinalImageEvidenceCount} | 目标 0 |
+| 用户可见生成暂停 | ${visibleGenerationPauseCount} 次 / ${generationPauseCaseCount} 组 | 发布门禁必须为 0 |
+| 暂停后恢复成功 | ${generationRecoveredCount} 次 | 诊断项，不抵消暂停阻断 |
 | 多个活跃 shortfall 账户节点 | ${duplicateActiveShortfallNodes} | 目标 0 |
 | 系统 shortfall 自触发计划噪音 | ${systemShortfallScheduleIssueNodes} | 目标 0 |
 | issue 泄漏异常/undefined | ${issueUndefinedNodes} | 目标 0 |

@@ -234,6 +234,69 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     throw new Error(`Timed out waiting for ${description}`);
   }
 
+  async function waitForAdvanceState(predicate, description, timeoutMs = 180000, maxVisibleRetries = 1) {
+    const limit = Math.ceil(timeoutMs / 100);
+    const handledPauseIds = new Set();
+    let visibleRetryCount = 0;
+    for (let index = 0; index < limit; index += 1) {
+      await tab.playwright.waitForTimeout(100);
+      const state = await readState();
+      if (state.errorMsg) throw new Error(`${description}: ${state.errorMsg}`);
+      if (state.nextGenerationError) {
+        const pauseEvent = [...(state.generationEvents || [])]
+          .reverse()
+          .find((event) => event?.type === "visible_pause");
+        const pauseId = pauseEvent?.id
+          || `${state.history?.length || 0}:${state.nextGenerationErrorDebug || state.nextGenerationError}`;
+        if (handledPauseIds.has(pauseId)) continue;
+        handledPauseIds.add(pauseId);
+        visibleRetryCount += 1;
+        appendTrace({
+          type: "recoverable_error",
+          generationEventId: pauseEvent?.id,
+          errorCode: pauseEvent?.errorCode,
+          message: state.nextGenerationError,
+          debug: state.nextGenerationErrorDebug,
+          historyLength: state.history?.length || 0,
+          visibleRetryCount,
+          at: now()
+        });
+        await persist(state);
+        if (visibleRetryCount > maxVisibleRetries) {
+          throw new Error(`${description}: visible generation pause limit exceeded (${visibleRetryCount})`);
+        }
+        await snapshot();
+        const retry = await unique(tab.playwright.locator("#retry-next-generation-btn"), "visible generation retry button");
+        await retry.click();
+        appendTrace({
+          type: "recoverable_retry_started",
+          generationEventId: pauseEvent?.id,
+          historyLength: state.history?.length || 0,
+          visibleRetryCount,
+          at: now()
+        });
+        continue;
+      }
+      if (predicate(state)) {
+        if (visibleRetryCount > 0) {
+          const recoveredEvent = [...(state.generationEvents || [])]
+            .reverse()
+            .find((event) => event?.type === "recovered");
+          appendTrace({
+            type: "recoverable_retry_succeeded",
+            generationEventId: recoveredEvent?.id,
+            historyLength: state.history?.length || 0,
+            visibleRetryCount,
+            at: now()
+          });
+          await persist(state);
+        }
+        return state;
+      }
+    }
+    throw new Error(`Timed out waiting for ${description}`);
+  }
+
   async function persist(state, complete = false, extras = {}) {
     const payload = {
       schemaVersion: 2,
@@ -356,7 +419,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const beforeHistoryLength = before.history.length;
     const beforeNodeSignature = nodeCommitSignature(before.currentNode);
     await locator.click();
-    const after = await waitForState((state) => (
+    const after = await waitForAdvanceState((state) => (
       state.history.length > beforeHistoryLength
       && !state.isLoadingNext
       && state.currentNode
@@ -399,8 +462,8 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     };
   }
 
-  async function finishAdvance(pendingAdvance, timeoutMs = 20000) {
-    const after = await waitForState((state) => (
+  async function finishAdvance(pendingAdvance, timeoutMs = 180000) {
+    const after = await waitForAdvanceState((state) => (
       state.history.length > pendingAdvance.beforeHistoryLength
       && !state.isLoadingNext
       && state.currentNode
@@ -442,7 +505,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const beforeHistoryLength = before.history.length;
     const beforeNodeSignature = nodeCommitSignature(before.currentNode);
     await submit.click();
-    const after = await waitForState((state) => (
+    const after = await waitForAdvanceState((state) => (
       state.history.length > beforeHistoryLength
       && !state.isLoadingNext
       && state.currentNode

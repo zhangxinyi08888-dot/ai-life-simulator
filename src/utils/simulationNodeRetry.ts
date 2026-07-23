@@ -14,6 +14,13 @@ interface GenerateCompleteNodeOptions {
   allowedOutcomeIds?: string[];
 }
 
+export function isRetryableNodeGenerationError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  return candidate.code === "AI_RESPONSE_INVALID"
+    || (typeof candidate.message === "string" && candidate.message.startsWith("SIMULATION_NODE_INCOMPLETE:"));
+}
+
 export async function generateCompleteSimulationNode(
   generateRawNode: (attempt: number, previousIssues: string[]) => Promise<Record<string, any>>,
   options: GenerateCompleteNodeOptions = {}
@@ -21,9 +28,24 @@ export async function generateCompleteSimulationNode(
   const maxAttempts = options.maxAttempts ?? 3;
   let issues: string[] = [];
   let lastNode: Record<string, any> = {};
+  let lastRetryableError: unknown;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    lastNode = await generateRawNode(attempt, issues);
+    try {
+      lastNode = await generateRawNode(attempt, issues);
+      lastRetryableError = undefined;
+    } catch (error) {
+      if (!isRetryableNodeGenerationError(error) || attempt === maxAttempts) throw error;
+      const candidate = error as { code?: unknown; message?: unknown };
+      const reason = typeof candidate.code === "string"
+        ? candidate.code
+        : typeof candidate.message === "string"
+          ? candidate.message
+          : "unknown";
+      issues = [`generation-error:${reason}`];
+      lastRetryableError = error;
+      continue;
+    }
     issues = getSimulationNodeValidationIssues(lastNode, {
       allowedOutcomeIds: options.allowedOutcomeIds
     });
@@ -32,5 +54,6 @@ export async function generateCompleteSimulationNode(
     }
   }
 
+  if (lastRetryableError) throw lastRetryableError;
   throw new Error(`SIMULATION_NODE_INCOMPLETE:${issues.join(",") || "unknown"}`);
 }

@@ -18,6 +18,7 @@
     "test:financial-debt-recovery": "node --import tsx --test src/domain/finance/automaticShortfallRecovery.test.ts",
     "test:financial-final-narrative": "node --import tsx --test src/utils/finalFinancialNarrativeAuthority.test.ts src/services/finalOutcome/finalOutcomeService.test.ts",
     "test:financial-journey-isolation": "node --test scripts/real-browser-journey-runner.test.mjs",
+    "test:generation-recovery": "node --import tsx --test src/utils/simulationNodeRetry.test.ts scripts/real-browser-journey-runner.test.mjs scripts/financial-real-browser-audit-helpers.test.mjs",
     "test:financial-business-boundary": "node --import tsx --test src/domain/finance/validateFinancialProposals.test.ts src/domain/finance/reconcileCareerIncomeAtomicity.test.ts",
     "test:financial-opening-assets": "node --import tsx --test src/domain/finance/openingFinancialAuthority.test.ts src/domain/finance/openingFinancialFacts.test.ts src/domain/finance/assetTransaction.test.ts src/domain/finance/validateFinancialProposals.test.ts src/domain/finance/migrateFinancialLedgerV2ToV3.test.ts",
     "test:financial-m2": "node --import tsx --test src/domain/finance/reduceFinancialLedger.test.ts",
@@ -33,7 +34,7 @@
     "test:financial-debt-d4.5": "node --import tsx --test src/utils/debtNarrativeAuthority.test.ts src/utils/financialNarrative.test.ts src/services/simulation/prompts.test.ts src/services/simulation/simulationService.test.ts",
     "test:financial-debt": "pnpm test:financial-debt-d1 && pnpm test:financial-debt-d2 && pnpm test:financial-debt-d3 && pnpm test:financial-debt-d4 && pnpm test:financial-debt-d4.5",
     "analyze:financial-debt-browser": "node scripts/analyze-debt-real-browser-run.mjs",
-    "test:financial-production-blockers": "pnpm test:financial-production-audit && pnpm test:financial-debt-recovery && pnpm test:financial-final-narrative && pnpm test:financial-journey-isolation && pnpm test:financial-business-boundary && pnpm test:financial-opening-assets && pnpm test:financial-debt && pnpm test:financial-m5 && pnpm test:financial-m7"
+    "test:financial-production-blockers": "pnpm test:financial-production-audit && pnpm test:financial-debt-recovery && pnpm test:financial-final-narrative && pnpm test:financial-journey-isolation && pnpm test:generation-recovery && pnpm test:financial-business-boundary && pnpm test:financial-opening-assets && pnpm test:financial-debt && pnpm test:financial-m5 && pnpm test:financial-m7"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

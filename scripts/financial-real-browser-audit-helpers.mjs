@@ -52,3 +52,44 @@ export function personalCompensationAnnualAmounts(narrativeText = "") {
     return [...monthly, ...annual];
   });
 }
+
+export function collectVisibleGenerationPauses(record = {}) {
+  const pauses = new Map();
+  for (const event of record.finalState?.generationEvents || []) {
+    if (event?.type !== "visible_pause") continue;
+    const key = event.id || `state:${event.historyLength || 0}:${event.debug || event.message || ""}`;
+    pauses.set(key, {
+      type: "visible_pause",
+      generationEventId: event.id,
+      historyLength: event.historyLength || 0,
+      errorCode: event.errorCode,
+      message: event.message,
+      debug: event.debug,
+      at: event.at,
+      source: "app_state"
+    });
+  }
+  for (const event of record.interactionLog || []) {
+    if (event?.type !== "recoverable_error") continue;
+    const key = event.generationEventId || `trace:${event.historyLength || 0}:${event.debug || event.message || ""}`;
+    const existing = pauses.get(key) || {};
+    pauses.set(key, {
+      ...existing,
+      ...event,
+      type: "visible_pause",
+      source: event.generationEventId ? "app_state_and_runner" : "runner"
+    });
+  }
+  return [...pauses.values()];
+}
+
+export function collectRecoveredGenerationAttempts(record = {}) {
+  const recoveredIds = new Set((record.finalState?.generationEvents || [])
+    .filter((event) => event?.type === "recovered")
+    .map((event) => event.id || `state:${event.historyLength || 0}:${event.at || ""}`));
+  for (const event of record.interactionLog || []) {
+    if (event?.type !== "recoverable_retry_succeeded") continue;
+    recoveredIds.add(event.generationEventId || `trace:${event.historyLength || 0}:${event.at || ""}`);
+  }
+  return recoveredIds.size;
+}
