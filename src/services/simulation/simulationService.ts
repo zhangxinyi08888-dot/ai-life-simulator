@@ -9,7 +9,7 @@ import { normalizeSimulationNode } from "../../utils/simulationResponse";
 import { buildStoryContextPack } from "../../utils/storyContext";
 import { buildAgeContext } from "../../utils/ageContext";
 import { FINANCIAL_DEBT_PHASE_POLICY, HEALTH_CRISIS_PHASE_POLICY, preemptDebtArcForAcuteHealth, reducePressureArc, resolveDebtArcAfterHealth, resolvePhase, resolvePhasePolicy, resolvePressureArcPresentationEvent as resolvePolicyPressureArcPresentationEvent, validateNodeOutcomeProposal, type AcceptedNodeOutcome, type PhaseTransitionPolicy, type PressureArcTransitionDecision } from "../../utils/arcLifecycle";
-import { applyDecisionDensityDowngrade, evaluateDecisionGate } from "../../utils/decisionGate";
+import { applyDecisionDensityDowngrade, evaluateDecisionGate, pruneRecentlyPassedChoices } from "../../utils/decisionGate";
 import { evaluateEnding } from "../../utils/endingDecision";
 import { rebuildPersonStates } from "../../utils/personTimeline";
 import { commitSimulationTransaction, emptyWorldState } from "../../utils/simulationTransaction";
@@ -2092,6 +2092,19 @@ export async function generateNextNode(
     allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
     narrativeMode: nodeEvent?.narrativeMode
   });
+  const initiallyPrunedNode = pruneRecentlyPassedChoices(node, decisionGate);
+  if (initiallyPrunedNode !== node) {
+    node = initiallyPrunedNode;
+    decisionGate = evaluateDecisionGate({
+      candidateNode: node,
+      previousNode: lastNode,
+      pressureArc: workingPressureArc,
+      recentHistory: input.history,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
+      narrativeMode: nodeEvent?.narrativeMode
+    });
+  }
   for (let decisionRepairAttempt = 1; !decisionGate.isDecisionCheckpoint && decisionRepairAttempt <= 2; decisionRepairAttempt += 1) {
     const blockedChoicePrompt = decisionGate.blockedDecisionIntents.length > 0
       ? `\n以下 decisionIntent 近期已被用户重复未采纳，处于冷却中：${decisionGate.blockedDecisionIntents.join("、")}。保留相关真实事实或人物关系，但不得改写文案后再次提供同一行动。`
@@ -2149,6 +2162,19 @@ export async function generateNextNode(
       allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
       narrativeMode: nodeEvent?.narrativeMode
     });
+    const prunedNode = pruneRecentlyPassedChoices(node, decisionGate);
+    if (prunedNode !== node) {
+      node = prunedNode;
+      decisionGate = evaluateDecisionGate({
+        candidateNode: node,
+        previousNode: lastNode,
+        pressureArc: workingPressureArc,
+        recentHistory: input.history,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
+        narrativeMode: nodeEvent?.narrativeMode
+      });
+    }
   }
   if (!decisionGate.isDecisionCheckpoint) {
     throw new AiClientError(

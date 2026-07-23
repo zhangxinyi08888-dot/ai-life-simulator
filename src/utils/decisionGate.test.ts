@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { HistoryItem, SimulationChoice, SimulationNode } from "../types";
-import { applyDecisionDensityDowngrade, evaluateDecisionGate } from "./decisionGate";
+import { applyDecisionDensityDowngrade, evaluateDecisionGate, pruneRecentlyPassedChoices } from "./decisionGate";
 
 const base: SimulationNode = {
   age: 35,
@@ -101,6 +101,16 @@ test("a density-only repair can downgrade intensity without changing the event o
 assert.equal(cooledResult.repeatsRecentlyPassedOption, true);
 assert.deepEqual(cooledResult.blockedDecisionIntents, ["location:relocate_to:wuhan_guanggu"]);
 assert.ok(cooledResult.reasonCodes.includes("repeats-recently-passed-option"));
+const prunedCooledCandidate = pruneRecentlyPassedChoices(cooledCandidate, cooledResult);
+assert.deepEqual(prunedCooledCandidate.choices.map((choice) => choice.decisionIntent), [
+  "career:accept_role:internal_architect",
+  "career:seek_role:shenzhen_external"
+]);
+assert.equal(evaluateDecisionGate({
+  candidateNode: prunedCooledCandidate,
+  recentHistory: passedTwice,
+  targetAgeInMonths: 492
+}).isDecisionCheckpoint, true);
 
 const selectedLater = [...passedTwice, cityHistoryItem(41, cityChoices[1].text)];
 const restoredResult = evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: selectedLater, targetAgeInMonths: 504 });

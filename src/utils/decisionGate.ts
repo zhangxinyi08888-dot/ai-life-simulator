@@ -25,6 +25,20 @@ export function applyDecisionDensityDowngrade(
   };
 }
 
+export function pruneRecentlyPassedChoices(
+  node: SimulationNode,
+  gate: DecisionGateResult
+): SimulationNode {
+  if (!gate.repeatsRecentlyPassedOption || gate.blockedDecisionIntents.length === 0) return node;
+  const blocked = new Set(gate.blockedDecisionIntents);
+  const choices = node.choices.filter((choice) => !blocked.has(normalizedIntent(choice)));
+  // Two materially different choices are a complete checkpoint. If pruning
+  // would leave fewer than two, preserve the candidate so the model repair
+  // path can replace the whole invalid choice set.
+  if (choices.length < 2 || choices.length === node.choices.length) return node;
+  return { ...node, choices };
+}
+
 export const DEFAULT_NODE_DENSITY_POLICY = {
   maxCriticalCheckpointsPerPressureArc: 2,
   maxHighOrCriticalCheckpointsPerRolling12Months: 3
