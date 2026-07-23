@@ -198,7 +198,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       issues.push({
         id: `pending_fact_stale_late_career_${source.id}`,
         code: "CAREER_STATE_STALE",
-        severity: "blocking",
+        severity: "warning",
         status: "open",
         relatedProposalIds: [],
         relatedIncomeSourceIds: [source.id],
@@ -349,7 +349,7 @@ function addLegacyIncomeReconfirmation(ledger: FinancialLedger, ageInMonths: num
     addOrObserveIssue(ledger, {
       id: issueId,
       code: "PENDING_FACT",
-      severity: "blocking",
+      severity: "warning",
       status: "open",
       relatedProposalIds: [],
       relatedIncomeSourceIds: [source.id],

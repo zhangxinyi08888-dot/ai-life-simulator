@@ -122,6 +122,53 @@ test("consultant transition and adjusted wage migrate as one atomic group", () =
   assert.equal(result.issues.length, 0);
 });
 
+test("one exact evidence sentence cannot open two identical career income sources", () => {
+  const current = fixture();
+  const exactEvidence: FinancialEvidence[] = [{
+    ...evidence[0],
+    excerpt: "你开始接下一家教育科技公司的远程兼职咨询，税后月薪1.8万元。"
+  }];
+  const source = {
+    type: "contract" as const,
+    displayName: "远程兼职咨询收入",
+    monthlyNetAmountWan: 1.8,
+    accrualPolicy: "monthly" as const,
+    activeFromAgeInMonths: 331,
+    status: "active" as const,
+    linkedCareerStateId: current.currentCareer.id,
+    factStatus: "known" as const,
+    evidence: exactEvidence
+  };
+  const events: AcceptedFinancialEvent<"income_source_started">[] = [
+    {
+      id: "accepted_selected",
+      proposalId: "selected_personal_income_331",
+      kind: "income_source_started",
+      effectiveAtAgeInMonths: 331,
+      payload: { ...source, id: "career_income_generic", displayName: "用户确认的个人工资" },
+      evidence: exactEvidence,
+      acceptedByReasonCodes: ["TEST"]
+    },
+    {
+      id: "accepted_model",
+      proposalId: "consulting_income_331",
+      kind: "income_source_started",
+      effectiveAtAgeInMonths: 331,
+      payload: { ...source, id: "consulting_income_331" },
+      evidence: exactEvidence,
+      acceptedByReasonCodes: ["TEST"]
+    }
+  ];
+  const result = reconcileCareerIncomeAtomicity({
+    currentCareerStateId: current.currentCareer.id,
+    currentLedger: current.ledger,
+    careerTransitions: [],
+    financialEvents: events,
+    ageInMonths: 380
+  });
+  assert.deepEqual(result.acceptedFinancialEvents.map((event) => event.proposalId), ["consulting_income_331"]);
+});
+
 test("PB-CAREER-01 explicit personal income prose requires an Accepted income event", () => {
   const current = fixture();
   const missing = collectPersonalIncomeNarrativeContractIssues({

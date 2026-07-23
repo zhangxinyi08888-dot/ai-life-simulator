@@ -628,5 +628,9 @@ test("legacy estimated income is quarantined after three unconfirmed material no
     acceptedFinancialEvents: []
   });
   assert.equal(result.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
-  assert.ok(result.financialLedger.unresolvedIssues.some((issue) => issue.code === "PENDING_FACT" && issue.relatedIncomeSourceIds?.includes("legacy_recurring_income")));
+  assert.ok(result.financialLedger.unresolvedIssues.some((issue) => (
+    issue.code === "PENDING_FACT"
+    && issue.severity === "warning"
+    && issue.relatedIncomeSourceIds?.includes("legacy_recurring_income")
+  )));
 });

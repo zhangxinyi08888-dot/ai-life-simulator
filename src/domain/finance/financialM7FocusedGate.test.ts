@@ -120,7 +120,9 @@ test("M7 focused: stale late-career salary is paused before settlement", () => {
   const committed = commit({ ledger: initial, worldState: world(), start: age, end: age + 12, transactionId: "late_career" });
   assert.equal(committed.financialPeriodSummary?.incomeWan, 0);
   assert.equal(committed.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
-  assert.ok(committed.financialLedger.unresolvedIssues.some((issue) => issue.id === "pending_fact_stale_late_career_salary"));
+  assert.ok(committed.financialLedger.unresolvedIssues.some((issue) => (
+    issue.id === "pending_fact_stale_late_career_salary" && issue.severity === "warning"
+  )));
 });
 
 test("M7 focused: deterministic basic living persists without repeated issues", () => {

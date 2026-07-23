@@ -416,6 +416,27 @@ test("preserves policy evidence when an expense adjustment omits it", () => {
   assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_EVIDENCE_PRESERVED"), true);
 });
 
+test("does not replace the living baseline with rent-only evidence", () => {
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    proposals: [{
+      id: "project_dorm_rent",
+      kind: "expense_commitment_started",
+      effectiveAtAgeInMonths: 318,
+      payload: {
+        id: "expense_project_living",
+        type: "basic_living",
+        displayName: "乡村生活支出",
+        monthlyAmountWan: 0.03
+      },
+      evidence: "你住进学校旁的教师宿舍，月租仅300元。",
+      confidence: 0.9
+    }]
+  });
+  assert.equal((result.proposals[0].payload as any).type, "housing");
+  assert.equal(result.audit.some((item) => item.reasonCode === "RENT_ONLY_RECLASSIFIED_AS_HOUSING"), true);
+});
+
 test("normalizes a fixed option schedule and expiry into authoritative option terms", () => {
   const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], proposals: [{
     id: "grant", kind: "business_option_granted", effectiveAtAgeInMonths: 348,
@@ -430,6 +451,31 @@ test("normalizes a fixed option schedule and expiry into authoritative option te
   assert.deepEqual(terms.vestingPolicy, { totalMonths: 48, frequencyMonths: 12 });
   assert.equal(terms.expiresAtAgeInMonths, 408);
   assert.equal(result.audit.some((item) => item.reasonCode === "OPTION_TERMS_NORMALIZED"), true);
+});
+
+test("clamps a current option grant that carries a stale model timestamp", () => {
+  const currentLedger = initializeFinancialLedger({ id: "option_timing", asOfAgeInMonths: 324 });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    currentLedger,
+    proposals: [{
+      id: "stock_option_330",
+      kind: "business_option_granted",
+      effectiveAtAgeInMonths: 303,
+      payload: {
+        optionHolding: {
+          id: "personal_option",
+          business: { id: "employer" },
+          instrumentType: "stock_option",
+          status: "active"
+        }
+      },
+      evidence: "你获得公司授予的1%期权，具体份数待确认。",
+      confidence: 0.85
+    }]
+  });
+  assert.equal(result.proposals[0].effectiveAtAgeInMonths, 324);
+  assert.equal(result.audit.some((item) => item.reasonCode === "OPTION_EFFECTIVE_DATE_CLAMPED"), true);
 });
 
 test("does not turn a vesting period into an unsupported option expiry", () => {

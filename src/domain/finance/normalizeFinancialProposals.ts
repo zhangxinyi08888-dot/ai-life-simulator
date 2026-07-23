@@ -10,7 +10,8 @@ export interface FinancialProposalNormalizationAudit {
     | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
-    | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED"
+    | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
+    | "RENT_ONLY_RECLASSIFIED_AS_HOUSING"
     | "ASSET_ACCOUNT_SHAPE_COMPLETED" | "DEBT_ACCOUNT_SHAPE_COMPLETED";
   originalValue?: string;
   normalizedValue?: string;
@@ -432,6 +433,19 @@ export function normalizeFinancialProposals(input: {
         audit.push({ proposalId: id, reasonCode: "BUSINESS_HOLDING_SHAPE_COMPLETED", normalizedValue: holding.id });
       }
     }
+    if (kind === "business_option_granted"
+      && input.currentLedger
+      && Number(source.effectiveAtAgeInMonths) < input.currentLedger.asOfAgeInMonths
+      && /(?:你|主人公|主角)[^。；]{0,24}(?:获得|获授|被授予|接受|拿到)[^。；]{0,20}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权/u.test(evidenceText)) {
+      const originalEffectiveAt = Number(source.effectiveAtAgeInMonths);
+      source.effectiveAtAgeInMonths = input.currentLedger.asOfAgeInMonths;
+      audit.push({
+        proposalId: id,
+        reasonCode: "OPTION_EFFECTIVE_DATE_CLAMPED",
+        originalValue: String(originalEffectiveAt),
+        normalizedValue: String(input.currentLedger.asOfAgeInMonths)
+      });
+    }
     const incomeTypeAliases: Record<string, string> = {
       consulting: "contract",
       consultant: "contract",
@@ -534,6 +548,12 @@ export function normalizeFinancialProposals(input: {
       expensePayload.id ||= expensePayload.expenseCommitmentId || expensePayload.commitmentId || `${kind}_${id}`;
       const expenseAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
       expensePayload.type = expenseAliases[expensePayload.type] || expensePayload.type || (/房租|月供|住房/u.test(evidenceText) ? "housing" : /照护|护工|赡养/u.test(evidenceText) ? "dependent_support" : "other");
+      if (expensePayload.type === "basic_living"
+        && /(?:房租|月租|宿舍|租房)/u.test(evidenceText)
+        && !/(?:生活费|日常开销|基本生活|伙食|餐饮|水电|通勤|综合支出)/u.test(evidenceText)) {
+        expensePayload.type = "housing";
+        audit.push({ proposalId: id, reasonCode: "RENT_ONLY_RECLASSIFIED_AS_HOUSING", normalizedValue: expensePayload.id });
+      }
       const amount = expensePayload.monthlyAmountWan ?? expensePayload.amountWanPerMonth ?? expensePayload.monthlyCostWan ?? monthlyAmountFromEvidence();
       if (Number.isFinite(Number(amount))) expensePayload.monthlyAmountWan = Number(amount);
       expensePayload.displayName ||= expensePayload.name || expensePayload.label || "待确认持续支出";
@@ -638,6 +658,12 @@ export function normalizeFinancialProposals(input: {
         }
         const typeAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
         payload.nextCommitment.type = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
+        if (payload.nextCommitment.type === "basic_living"
+          && /(?:房租|月租|宿舍|租房)/u.test(evidenceText)
+          && !/(?:生活费|日常开销|基本生活|伙食|餐饮|水电|通勤|综合支出)/u.test(evidenceText)) {
+          payload.nextCommitment.type = "housing";
+          audit.push({ proposalId: id, reasonCode: "RENT_ONLY_RECLASSIFIED_AS_HOUSING", normalizedValue: payload.expenseCommitmentId });
+        }
         const nextAmount = payload.nextCommitment.monthlyAmountWan ?? payload.nextCommitment.amountWanPerMonth ?? payload.nextCommitment.monthlyCostWan ?? monthlyAmountFromEvidence();
         if (Number.isFinite(Number(nextAmount))) payload.nextCommitment.monthlyAmountWan = Number(nextAmount);
         audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: payload.expenseCommitmentId });

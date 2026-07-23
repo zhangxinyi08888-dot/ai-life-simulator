@@ -329,6 +329,40 @@ export function detectNarrativeFinancialCoverageIssues(input: {
   return issues;
 }
 
+const NARRATIVE_FINANCIAL_ISSUE_PREFIXES = [
+  "narrative_coverage_",
+  "personal_income_claim_without_event_"
+] as const;
+
+export function reconcileNarrativeFinancialIssues(input: {
+  issues: FinancialLedgerIssue[];
+  narrativeText: string;
+  ledger: FinancialLedger;
+  acceptedEvents: AcceptedFinancialEvent[];
+  ageInMonths: number;
+}): FinancialLedgerIssue[] {
+  const authoritativeIssues = [
+    ...detectNarrativeFinancialCoverageIssues({
+      narrativeText: input.narrativeText,
+      ledger: input.ledger,
+      acceptedEvents: input.acceptedEvents,
+      ageInMonths: input.ageInMonths
+    }),
+    ...collectPersonalIncomeNarrativeContractIssues({
+      narrativeText: input.narrativeText,
+      acceptedFinancialEvents: input.acceptedEvents,
+      ageInMonths: input.ageInMonths,
+      currentLedger: input.ledger
+    })
+  ];
+  const retained = input.issues.filter((issue) => (
+    !NARRATIVE_FINANCIAL_ISSUE_PREFIXES.some((prefix) => issue.id.startsWith(prefix))
+  ));
+  const byId = new Map<string, FinancialLedgerIssue>();
+  for (const issue of [...retained, ...authoritativeIssues]) byId.set(issue.id, issue);
+  return [...byId.values()];
+}
+
 function repairedNarrativeParagraphs(raw: unknown): string[] | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const source = raw as Record<string, unknown>;
@@ -663,12 +697,20 @@ export function narrativeRequiresCareerTransition(input: {
       || /你[^，。；]{0,20}(?:入职|离职|辞职|退休|换工作|跳槽|转岗|转任)/u.test(sentence))
     .join(" ");
   if (!protagonistText) return false;
-  const stopsWorking = /你[^。；]{0,24}(?:正式退休|办理退休|离职|辞职|辞去|停止工作|结束全职|不再工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(protagonistText);
+  const completedAction = /(?:已经|已|正式|最终|于是|随后|当场|决定|选择|接受|递交|办理|签下|签署|开始|转而)/u;
+  const hypotheticalAction = /(?:如果|若|一旦|是否|考虑|计划|准备|可能|可以|需要|必须|要求|条件|抉择|意向|希望|建议|承诺|未来|三个月内|尚未|还没|未决定|没有决定)/u;
+  const completedText = protagonistText
+    .split(/(?<=[。！？；])/u)
+    .filter((sentence) => !hypotheticalAction.test(sentence) || completedAction.test(sentence))
+    .join(" ");
+  const stopsWorking = /你[^。；]{0,24}(?:(?:正式|已经|已|决定|选择|递交)[^。；]{0,8})?(?:退休|办理退休|离职|辞职|辞去|停止工作|结束全职|不再工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(completedText)
+    && completedAction.test(completedText);
   if (stopsWorking && !["retired", "not_working"].includes(input.currentStatus)) return true;
-  const startsWorking = /你[^。；]{0,28}(?:正式入职|入职|受聘|开始全职工作|开始工作|加入[^。；]{0,12}(?:公司|机构|团队)|(?:接受|选择)[^。；]{0,16}(?:offer|新职位|新工作))/iu.test(protagonistText)
-    || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(protagonistText);
+  const startsWorking = /你[^。；]{0,28}(?:正式入职|已经入职|已入职|受聘|开始全职工作|开始工作|(?:决定|选择|正式)加入[^。；]{0,12}(?:公司|机构|团队)|(?:接受|选择)[^。；]{0,16}(?:offer|新职位|新工作))/iu.test(completedText)
+    || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(completedText);
   if (startsWorking && ["student", "not_working", "retired", "medical_leave"].includes(input.currentStatus)) return true;
-  return /你[^。；]{0,24}(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(protagonistText);
+  return /你[^。；]{0,24}(?:(?:决定|选择|正式|已经|已|开始)[^。；]{0,8})?(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(completedText)
+    && completedAction.test(completedText);
 }
 
 function attachPendingFinancialContext(input: {
@@ -1289,7 +1331,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     ageInMonths: input.periodEndAgeInMonths,
     narrativeRolledBack: rejectedNarrativeWasRolledBack
   });
-  const committed = commitFinancialDomainTransaction({
+  const transactionInput = {
     transactionId: input.transactionId,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
@@ -1305,6 +1347,29 @@ async function commitAuthoritativeFinancialProgress(input: {
       && !issue.id.startsWith("proposal_issue_stale_late_career_")
     )),
     liquidityPolicy: "auto_shortfall_debt"
+  } as const;
+  // Narrative grounding depends on the closing ledger, while narrative contract
+  // issues must describe the text the user actually sees. Trial the otherwise
+  // pure transaction first, sanitize against that closing state, then rebuild
+  // only the current node's narrative issues before the authoritative commit.
+  const previewCommitted = commitFinancialDomainTransaction(transactionInput);
+  const previewFinancialState = previewCommitted.derivedFinancialState.compatibilityState;
+  const previewDescription = sanitizeFinancialNarrative(
+    committedNarrativeNode.description,
+    previewFinancialState,
+    previewCommitted.financialLedger,
+    validated.acceptedEvents
+  );
+  const postSanitizationIssues = reconcileNarrativeFinancialIssues({
+    issues: transactionInput.financialIssues,
+    narrativeText: previewDescription,
+    ledger: initialLedger,
+    acceptedEvents: validated.acceptedEvents,
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  const committed = commitFinancialDomainTransaction({
+    ...transactionInput,
+    financialIssues: postSanitizationIssues
   });
   const financialState = committed.derivedFinancialState.compatibilityState;
   const debtHealthState = deriveDebtHealthState({
@@ -1314,7 +1379,7 @@ async function commitAuthoritativeFinancialProgress(input: {
   });
   const conservativeWealthBasis = deriveConservativeWealthBasis({ ledger: committed.financialLedger, financialState });
   const description = sanitizeFinancialNarrative(
-    committedNarrativeNode.description,
+    previewDescription,
     financialState,
     committed.financialLedger,
     validated.acceptedEvents
@@ -1336,7 +1401,9 @@ async function commitAuthoritativeFinancialProgress(input: {
         proposalCount: normalizedFinancial.proposals.length,
         acceptedEventCount: validated.acceptedEvents.length,
         acceptedCareerTransitionCount: acceptedCareerTransitions.length,
-        blockingIssueCount: validated.issues.filter((issue) => issue.severity === "blocking").length,
+        blockingIssueCount: postSanitizationIssues.filter((issue) => (
+          issue.severity === "blocking" && (issue.status ?? "open") === "open"
+        )).length,
         repairTriggered,
         repairLatencyMs,
         totalProcessingLatencyMs: Date.now() - processingStartedAt,

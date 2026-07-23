@@ -480,6 +480,30 @@ test("PB-BIZ-09 explicit personal consulting earnings can prove a self-employmen
   assert.equal(result.acceptedEvents.length, 1);
 });
 
+test("a consulting fee paid by a named company remains personal compensation", () => {
+  const consulting = proposal({
+    id: "medical_ai_consulting",
+    kind: "income_source_started",
+    evidence: "你接受AI医疗创业公司的顾问工作，顾问收入每月1万元，直接支付到你的个人账户。",
+    financialScope: "personal",
+    payload: {
+      id: "consultant_income_ai_tool_630",
+      type: "contract",
+      displayName: "AI医疗创业公司顾问费",
+      monthlyNetAmountWan: 1,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "known",
+      evidence: []
+    }
+  });
+  const result = validate([consulting], consulting.evidence);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), false);
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
 test("PB-BIZ-11 long-form personal consulting salary and owner draw evidence remain valid", () => {
   const consultantSalary = proposal({
     id: "long_consulting_salary",
@@ -627,6 +651,49 @@ test("rejects company revenue and team payroll at the personal-ledger boundary",
   ], "公司SaaS年费收入达到27万元。公司团队工资和运营成本每月3.8万元。你没有从公司领取分红。");
   assert.equal(result.acceptedEvents.length, 0);
   assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 2);
+});
+
+test("rejects nonprofit monthly donations from a personal career income source", () => {
+  const context = setup();
+  context.currentLedger.incomeSources.push({
+    id: "career_income_current",
+    type: "contract",
+    displayName: "个人咨询收入",
+    monthlyNetAmountWan: 1.8,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_current",
+    factStatus: "known",
+    evidence
+  });
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "donation_income_adjusted_554",
+      kind: "income_source_adjusted",
+      effectiveAtAgeInMonths: 312,
+      evidence: "机构月捐因协调员定期更新项目反馈，反而增至9500元。",
+      payload: {
+        incomeSourceId: "career_income_current",
+        nextSource: {
+          ...context.currentLedger.incomeSources.at(-1),
+          id: "career_income_current",
+          type: "other",
+          displayName: "机构月捐收入",
+          monthlyNetAmountWan: 0.95
+        }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "咨询业务方面，你月税后收入稳定在1.8万元；机构月捐因协调员定期更新项目反馈，反而增至9500元。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "nonprofit_donation_boundary",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true, JSON.stringify(result.issues));
 });
 
 test("does not confuse a salary at a SaaS company with company revenue", () => {

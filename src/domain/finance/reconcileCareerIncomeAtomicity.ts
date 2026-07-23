@@ -67,6 +67,42 @@ function incomeSourceId(event: AcceptedFinancialEvent): string | undefined {
   return undefined;
 }
 
+function dedupeSameEvidenceCareerIncome(events: AcceptedFinancialEvent[]): AcceptedFinancialEvent[] {
+  const result: AcceptedFinancialEvent[] = [];
+  const keyToIndex = new Map<string, number>();
+  for (const event of events) {
+    if (event.kind !== "income_source_started" || !event.payload.linkedCareerStateId) {
+      result.push(event);
+      continue;
+    }
+    const excerpt = event.evidence.map((item) => item.excerpt?.trim()).filter(Boolean).join("|");
+    if (!excerpt) {
+      result.push(event);
+      continue;
+    }
+    const amount = Number.isFinite(Number(event.payload.monthlyNetAmountWan))
+      ? `m:${Number(event.payload.monthlyNetAmountWan)}`
+      : `a:${Number(event.payload.annualNetAmountWan || 0)}`;
+    const key = [
+      event.payload.linkedCareerStateId,
+      event.effectiveAtAgeInMonths,
+      amount,
+      excerpt
+    ].join("::");
+    const existingIndex = keyToIndex.get(key);
+    if (existingIndex === undefined) {
+      keyToIndex.set(key, result.length);
+      result.push(event);
+      continue;
+    }
+    const existing = result[existingIndex];
+    const existingIsSynthetic = existing.proposalId.startsWith("selected_personal_income_");
+    const candidateIsSynthetic = event.proposalId.startsWith("selected_personal_income_");
+    if (existingIsSynthetic && !candidateIsSynthetic) result[existingIndex] = event;
+  }
+  return result;
+}
+
 /**
  * Career role changes are cross-domain facts. Retirement commits with closure of
  * the old wage; a new working role commits with settlement of the old wage and an
@@ -82,6 +118,7 @@ export function reconcileCareerIncomeAtomicity(input: {
   /** True only when prose claims an actual personal salary, draw or dividend. */
   personalIncomeClaimed?: boolean;
 }): CareerIncomeAtomicityResult {
+  const authoritativeFinancialEvents = dedupeSameEvidenceCareerIncome(input.financialEvents);
   const removedCareerStateIds = new Set<string>();
   const removedIncomeSourceIds = new Set<string>();
   const issues: FinancialLedgerIssue[] = [];
@@ -93,14 +130,14 @@ export function reconcileCareerIncomeAtomicity(input: {
     const linkedActiveSources = input.currentLedger.incomeSources.filter((source) => (
       source.status === "active" && source.linkedCareerStateId === input.currentCareerStateId
     ));
-    const settledIds = new Set(input.financialEvents.flatMap((event) => {
+    const settledIds = new Set(authoritativeFinancialEvents.flatMap((event) => {
       const sourceId = incomeSourceId(event);
       if (!sourceId) return [];
       if (event.kind !== "income_source_adjusted") return [sourceId];
       return event.payload.nextSource.linkedCareerStateId === transition.nextCareerState.id ? [sourceId] : [];
     }));
     const missing = linkedActiveSources.filter((source) => !settledIds.has(source.id));
-    const hasNextCareerIncome = input.financialEvents.some((event) => (
+    const hasNextCareerIncome = authoritativeFinancialEvents.some((event) => (
       (event.kind === "income_source_started" && event.payload.status === "active" && event.payload.linkedCareerStateId === transition.nextCareerState.id)
       || (event.kind === "income_source_adjusted" && event.payload.nextSource.status === "active" && event.payload.nextSource.linkedCareerStateId === transition.nextCareerState.id)
     ));
@@ -124,7 +161,7 @@ export function reconcileCareerIncomeAtomicity(input: {
     return false;
   });
 
-  const acceptedFinancialEvents = input.financialEvents.filter((event) => {
+  const acceptedFinancialEvents = authoritativeFinancialEvents.filter((event) => {
     const sourceId = incomeSourceId(event);
     if (sourceId && removedIncomeSourceIds.has(sourceId)) return false;
     if (event.kind === "income_source_started" && event.payload.linkedCareerStateId && removedCareerStateIds.has(event.payload.linkedCareerStateId)) return false;

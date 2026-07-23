@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { initializeFinancialLedger } from "../../domain/finance/initializeLedger";
-import { detectNarrativeFinancialCoverageIssues, narrativeRequiresCareerTransition } from "./simulationService";
+import { detectNarrativeFinancialCoverageIssues, narrativeRequiresCareerTransition, reconcileNarrativeFinancialIssues } from "./simulationService";
 
 const evidence = [{ source: "accepted_history" as const, reasonCode: "TEST", confidence: 1 }];
 const ledger = initializeFinancialLedger({
@@ -103,4 +103,30 @@ test("explicit protagonist job entry, role change and retirement require authori
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你办理退休，结束全职工作。", currentStatus: "employed" }), true);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你继续当前岗位，本期没有变化。", currentStatus: "employed" }), false);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "父亲正式退休，你为他庆祝。", currentStatus: "employed" }), false);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "投资人要求你全职投入产品。你面临抉择：是辞去稳定的UI/UX工作，还是保持现状。意向书条件是你必须在三个月内从现有公司离职并全职创业。",
+    currentStatus: "employed"
+  }), false);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "你最终决定辞去稳定的UI/UX工作，正式全职投入创业。",
+    currentStatus: "employed"
+  }), true);
+});
+
+test("post-sanitization narrative reconciliation drops stale coverage blockers", () => {
+  const staleIssue = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你的税后年薪调整为18万元。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 430
+  });
+  assert.equal(staleIssue.length, 1);
+  const reconciled = reconcileNarrativeFinancialIssues({
+    issues: staleIssue,
+    narrativeText: "你的个人收入仍以权威账本中已确认的记录为准。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 430
+  });
+  assert.equal(reconciled.length, 0);
 });
