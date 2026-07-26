@@ -55,7 +55,7 @@ function sanitizeRecurringIncomeClaims(description: string, ledger?: FinancialLe
     && isNarrativeEligibleFinancialFact(source)
   ));
   if (careerIncome.length === 0) return description.split(/(?<=[。！？])/u).map((sentence) => (
-    /(?:你|主角|本人|你的).{0,28}(?:月薪|年薪|工资|薪资)|(?:当前|税后)?(?:月薪|年薪)(?:约|为|达到|降至|降到|升至)?\s*\d/u.test(sentence)
+    /(?:你|主角|本人|你的).{0,28}(?:月薪|年薪|工资|薪资)|(?:当前|税后)?(?:月薪|年薪)(?:约|为|达到|调整为|调整至|提升至|降至|降到|升至)?\s*\d/u.test(sentence)
       ? "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。"
       : sentence
   )).join("");
@@ -141,6 +141,21 @@ function sanitizePersonalDebtClaims(description: string, state: FinancialState):
     .replace(/(?:个人总){2,}负债/gu, "个人总负债");
 }
 
+function sanitizeUnsupportedMortgageClaims(description: string, ledger?: FinancialLedger): string {
+  if (!ledger) return description;
+  if (ledger.debtAccounts.some((account) => account.type === "mortgage")) return description;
+  if (ledger.debtAccounts.length > 0) {
+    return description
+      .replace(/房贷|按揭/gu, "现有借款")
+      .replace(/月供/gu, "每月还款压力");
+  }
+  return description.split(/(?<=[。！？])/u).map((sentence) => (
+    /房贷|按揭|月供/u.test(sentence)
+      ? "你们继续根据实际现金流调整家庭支出与储蓄安排。"
+      : sentence
+  )).join("");
+}
+
 function sanitizeDebtServicingClaims(description: string, ledger?: FinancialLedger): string {
   if (!ledger) return description;
   const activeDebts = ledger.debtAccounts.filter((account) => account.status === "active" || account.status === "defaulted");
@@ -192,7 +207,7 @@ export function sanitizeFinancialNarrative(
     .replace(/持续支出正在消耗现金缓冲的(?:个人)?(?:税后)?(?:工资|薪资|收入)/gu, "已经到账的个人税后收入")
     .replace(new RegExp(`(?:你|主角|本人)(?:不得已|只好)?动用了?\s*${MONEY_AMOUNT}\s*(?:的)?(?:存款|积蓄|备用金)[^。！？]{0,12}(?:还贷|偿还房贷)`, "gu"), "你继续动用现金缓冲偿还房贷");
   const grounded = sanitizeDebtServicingClaims(
-    sanitizePersonalDebtClaims(sanitizeUnsupportedIncomeComposition(sanitizeUnconfirmedPersonalDrawClaims(sanitizeRecurringIncomeClaims(prepared, ledger), ledger, acceptedEvents), ledger), state),
+    sanitizePersonalDebtClaims(sanitizeUnsupportedMortgageClaims(sanitizeUnsupportedIncomeComposition(sanitizeUnconfirmedPersonalDrawClaims(sanitizeRecurringIncomeClaims(prepared, ledger), ledger, acceptedEvents), ledger), ledger), state),
     ledger
   );
   return sanitizeLongWanPrecision(grounded

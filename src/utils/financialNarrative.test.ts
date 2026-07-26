@@ -213,7 +213,7 @@ test("unconfirmed personal draws and assumed family members do not reach the sto
   );
   assert.equal(
     sanitizeFinancialNarrative("你不得已动用了35万积蓄来还贷。", state, ledger, []),
-    "你继续动用现金缓冲偿还房贷。"
+    "你们继续根据实际现金流调整家庭支出与储蓄安排。"
   );
 });
 
@@ -285,6 +285,39 @@ test("a current annual salary claim is removed when the closing ledger has no au
   );
   assert.equal(result.includes("60万"), false);
   assert.match(result, /实际到账的个人收入尚待确认/);
+  const adjusted = sanitizeFinancialNarrative(
+    "你被正式任命为ESG转型小组副负责人，年薪调整为36万元。",
+    { ...state, annualAfterTaxIncomeWan: 0 },
+    noIncomeLedger
+  );
+  assert.equal(adjusted.includes("36万"), false);
+  assert.match(adjusted, /实际到账的个人收入尚待确认/);
+});
+
+test("rewrites an unsupported mortgage type without discarding real debt servicing", () => {
+  const nonMortgageLedger = {
+    ...initializeFinancialLedger({ id: "non_mortgage_debt", asOfAgeInMonths: 649 }),
+    debtAccounts: [{
+      id: "partner_art_loan",
+      type: "family_or_personal_loan" as const,
+      displayName: "伴侣艺术项目借款",
+      principalWan: 3.8,
+      openedAtAgeInMonths: 631,
+      status: "active" as const,
+      repaymentPolicy: { mode: "known_schedule" as const, monthlyPaymentWan: 0.22 },
+      factStatus: "known" as const,
+      evidence: []
+    }]
+  };
+  assert.equal(
+    sanitizeFinancialNarrative("你们用存款提前还了部分房贷，月供减少。", { ...state, totalDebtWan: 3.8 }, nonMortgageLedger),
+    "你们用存款提前还了部分现有借款，每月还款压力减少。"
+  );
+  const noDebtLedger = initializeFinancialLedger({ id: "no_debt", asOfAgeInMonths: 649 });
+  assert.equal(
+    sanitizeFinancialNarrative("你们提前还了部分房贷，月供减少。", state, noDebtLedger),
+    "你们继续根据实际现金流调整家庭支出与储蓄安排。"
+  );
 });
 
 test("a generic protagonist annual-income claim is removed when the closing source is quarantined", () => {
