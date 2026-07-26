@@ -138,6 +138,38 @@ test("PB-CAREER-13 employee hiring salary cannot become protagonist income", () 
   assert.equal(result.length, 0);
 });
 
+test("PB-CAREER-14 exact recurring side-income prose starts a separate personal contract source", () => {
+  const ledger = initializeFinancialLedger({
+    id: "side_income",
+    asOfAgeInMonths: 589,
+    openingPosition: {
+      incomeSources: [{
+        id: "primary_salary", type: "salary", displayName: "主业工资",
+        monthlyNetAmountWan: 2, accrualPolicy: "monthly", activeFromAgeInMonths: 500,
+        status: "active", linkedCareerStateId: "career_current", factStatus: "needs_review",
+        accrualReviewStatus: "quarantined", evidence: []
+      }]
+    }
+  });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "保持主业与课程副业并行。",
+    narrativeText: "你的《零基础家庭财务Python课》加上一对一咨询，副业月收入稳定在6000元左右。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "maintain_side_income",
+    periodStartAgeInMonths: 589,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal(result[0].kind, "income_source_started");
+  assert.equal((result[0].payload as any).type, "contract");
+  assert.equal((result[0].payload as any).monthlyNetAmountWan, 0.6);
+  assert.equal((result[0].payload as any).id, "personal_side_income_career_current");
+  assert.equal(ledger.incomeSources[0].monthlyNetAmountWan, 2);
+});
+
 test("PB-CAREER-09 income confirmation remains linked to the current career when no transition occurs", () => {
   assert.deepEqual(resolveAllowedIncomeCareerStateIds("career_self_employed", []), ["career_self_employed"]);
   assert.deepEqual(resolveAllowedIncomeCareerStateIds("career_old", ["career_new"]), ["career_new"]);

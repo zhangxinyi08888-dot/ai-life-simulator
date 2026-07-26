@@ -43,7 +43,7 @@ function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string)
   if (String(type) === "self_employment_draw" || String(type) === "business_dividend") {
     return /(?:你|我|主角|本人).{0,80}(?:领取|提取|获得|收到|赚|挣|顾问费|咨询收入|转入个人|给自己发|个人可支配收入|个人收入|个人提款|个人账户|工资|薪资|降薪|涨薪|调薪|业主提款|分红)/u.test(evidence);
   }
-  return /(?:你|我|主角|本人).{0,80}(?:领取|获得|收到|赚|挣|顾问费|咨询收入|月薪|年薪|工资|薪资|降薪|涨薪|调薪|报酬|个人收入|个人进账|个人账户|可支配收入)/u.test(evidence);
+  return /(?:你|我|主角|本人).{0,80}(?:领取|获得|收到|赚|挣|顾问费|咨询收入|副业月收入|月薪|年薪|工资|薪资|降薪|涨薪|调薪|报酬|个人收入|个人进账|个人账户|可支配收入)/u.test(evidence);
 }
 
 function proposalIssue(input: {
@@ -131,6 +131,16 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
   const personalCompensation = ["salary", "contract", "self_employment_draw"].includes(String(subject?.type))
     && /(?:税后|到手)?(?:工资|薪资|月薪|年薪)|顾问费|咨询费/u.test(text);
   return (businessExpense || businessRevenue) && !explicitPersonal && !personalCompensation;
+}
+
+function unsupportedRecurringOtherIncome(proposal: FinancialEventProposal): boolean {
+  if (proposal.kind !== "income_source_started" && proposal.kind !== "income_source_adjusted") return false;
+  const payload = proposal.payload as Record<string, any>;
+  const source = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
+  if (source?.type !== "other" || source?.accrualPolicy === "event_only") return false;
+  const text = `${proposal.evidence || ""} ${source?.displayName || ""}`;
+  const hasRecurringCadence = /(?:每月|月均|按月|月收入|每年|年度|按年|年收入|稳定|固定|持续|定期|月薪|年薪)/u.test(text);
+  return !hasRecurringCadence;
 }
 
 function thirdPartyIncomeFact(proposal: FinancialEventProposal): boolean {
@@ -432,6 +442,15 @@ export function validateFinancialProposals(input: {
     if (["income_source_started", "income_source_adjusted", "one_off_income_received"].includes(proposal.kind)
       && businessOperatingFact(proposal)) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司营收、客户回款或产品年费不得进入主人公个人收入账本；只有个人工资、提款或已分配分红可以入账", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
+    if (unsupportedRecurringOtherIncome(proposal)) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: "一次到账、首笔资助或单次结算不能推导为长期月度/年度个人收入；需要明确持续频率，或改用一次性收入事件",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
       continue;
     }
     if (proposal.kind === "income_source_started" && payload.type === "business_dividend"

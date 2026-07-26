@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  adultBelowPolicyExpenseViolation,
   collectRecoveredGenerationAttempts,
   collectVisibleGenerationPauses,
   classifyTerminalFinancialIssues,
@@ -81,6 +82,42 @@ test("extracts protagonist compensation without treating company revenue or staf
   assert.deepEqual(personalCompensationAnnualAmounts("你决定接受VP offer，年薪65万加期权。"), [65]);
   assert.deepEqual(personalCompensationAnnualAmounts("你接受顾问工作，税后月薪0.8万元，并聘请护工，月薪0.25万元。"), [9.6]);
   assert.deepEqual(personalCompensationAnnualAmounts("这意味着你要辞掉现在18万的稳定工作，去一个年薪22万但没有保障的新公司。你最终没有接受。"), []);
+  assert.deepEqual(personalCompensationAnnualAmounts("你想起那种踏实感是以前年薪32万时才有的。"), []);
+  assert.deepEqual(personalCompensationAnnualAmounts("你辞去了年薪38万元的工作，开始创业。"), []);
+});
+
+test("accepts an exact evidence-backed low-cost living arrangement without weakening the adult default floor", () => {
+  const exactLowCostLedger = {
+    expenseCommitments: [{
+      id: "rural_living",
+      type: "basic_living",
+      monthlyAmountWan: 0.15,
+      status: "active",
+      factStatus: "known",
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "EVIDENCE_EXACT_MATCHED",
+        financialScope: "personal",
+        excerpt: "你住在父母家，生活成本降到每月1500元。"
+      }]
+    }]
+  };
+  assert.equal(adultBelowPolicyExpenseViolation({
+    ageInMonths: 360,
+    financialState: { employmentStatus: "self_employed", annualCoreExpenseWan: 1.8 },
+    ledger: exactLowCostLedger
+  }), false);
+  assert.equal(adultBelowPolicyExpenseViolation({
+    ageInMonths: 360,
+    financialState: { employmentStatus: "self_employed", annualCoreExpenseWan: 1.8 },
+    ledger: {
+      expenseCommitments: [{
+        ...exactLowCostLedger.expenseCommitments[0],
+        factStatus: "estimated",
+        evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1" }]
+      }]
+    }
+  }), true);
 });
 
 test("counts user-visible generation pauses once across app state and runner trace", () => {

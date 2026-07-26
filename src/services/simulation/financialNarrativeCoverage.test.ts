@@ -97,6 +97,21 @@ test("matching salary adjustment satisfies compensation coverage while staff pay
   assert.equal(staffPayroll.length, 0);
 });
 
+test("historical salary comparisons and a resigned salary do not become current compensation facts", () => {
+  for (const narrativeText of [
+    "你想起那种踏实感是以前年薪32万时才有的。",
+    "你辞去了年薪38万元的工作，开始创业。"
+  ]) {
+    const issues = detectNarrativeFinancialCoverageIssues({
+      narrativeText,
+      ledger,
+      acceptedEvents: [],
+      ageInMonths: 386
+    });
+    assert.equal(issues.length, 0);
+  }
+});
+
 test("explicit protagonist job entry, role change and retirement require authoritative transitions", () => {
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你正式入职一家软件公司。", currentStatus: "student" }), true);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你决定换工作，加入新的团队。", currentStatus: "employed" }), true);

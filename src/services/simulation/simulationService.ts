@@ -297,7 +297,9 @@ export function detectNarrativeFinancialCoverageIssues(input: {
     const candidateCompensation = /猎头|邀请|邀约|推荐|提出|offer|如果|可以给你|考虑|是否|至少|预计|建议|希望/iu.test(sentence);
     const hypotheticalMoveCompensation = /(?:这意味着|如果|若)[^。；]{0,60}(?:辞掉|辞去|离开|去|加入|转到)[^。；]{0,40}(?:月薪|年薪)/u.test(sentence);
     const completedCompensation = /正式(?:加入|入职|受聘)|决定接受|接受了|签下|转为[^。；]{0,20}(?:顾问|兼职|全职)|月薪(?:降至|调整为|维持)|薪资调整为|工资调整为|给自己/u.test(sentence);
+    const historicalCompensation = /(?:以前|曾经|当年|过去|原先|原来|上一份|此前)[^。；]{0,24}(?:月薪|年薪|工资|薪资)|(?:辞去|辞掉|离开|放弃|结束)[^。；]{0,24}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资)[^。；]{0,24}(?:的旧工作|的工作后|已经结束|成为过去)/u.test(sentence);
     if ((candidateCompensation || hypotheticalMoveCompensation) && !completedCompensation) return [];
+    if (historicalCompensation && !completedCompensation) return [];
     const personalContext = /(?:你(?:的|本人|个人)?[^。；]{0,45}|给自己[^。；]{0,24})(?:薪资调整为|工资调整为|税后工资|税后月薪|月薪|年薪)|薪资调整为[^。；]{0,18}(?:年薪|月薪)/u.test(sentence);
     if (!personalContext) return [];
     const monthly = [...sentence.matchAll(/(?:税后)?月薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*(万|元)/gu)]
@@ -700,7 +702,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   const narrativeEvidence = input.allowNarrativeEvidence
     ? input.narrativeText?.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
         (
-          /(?:你|主角|本人|你的个人账户).{0,48}(?:税后)?(?:月薪|年薪|工资|薪资).{0,12}\d+(?:\.\d+)?\s*万元?|(?:税后)?(?:月薪|年薪)(?:约|为|达到|降至|升至|涨到|调整为|维持在)?\s*\d+(?:\.\d+)?\s*万元?/u.test(sentence)
+          /(?:你|主角|本人|你的个人账户).{0,48}(?:税后)?(?:月薪|年薪|工资|薪资|副业月收入|个人月收入).{0,16}\d+(?:\.\d+)?\s*(?:万)?元|(?:税后)?(?:月薪|年薪|副业月收入|个人月收入)(?:约|为|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万)?元/u.test(sentence)
         )
         && !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:员工|助理|工程师|销售|运营|护工)[^。；]{0,35}(?:月薪|年薪)/u.test(sentence)
         && !/(?:如果|若|预计|计划|考虑|希望|目标|可以给你)[^。；]{0,50}(?:月薪|年薪)/iu.test(sentence)
@@ -709,13 +711,16 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   const evidenceText = /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|我(?:每月|开始|从本月起).{0,24}(?:工资|薪资|月薪)/u.test(decision)
     ? decision
     : narrativeEvidence;
-  const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪/u.test(evidenceText!);
-  const monthlyMatch = evidenceText?.match(/每月[^，。；]{0,28}?(?:支付|发放|领取|获得|拿到|为|达到|调整为|降至|升至)?\s*(\d+(?:\.\d+)?)\s*万元?(?:税后)?(?:工资|薪资|月薪)?/u)
-    || evidenceText?.match(/(?:税后)?月薪(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
+  const sideIncomeEvidence = Boolean(evidenceText) && /副业|课程|咨询|工作坊|稿费|版税/u.test(evidenceText!);
+  const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪|副业月收入|个人月收入/u.test(evidenceText!);
+  const monthlyMatch = evidenceText?.match(/每月[^，。；]{0,28}?(?:支付|发放|领取|获得|拿到|为|达到|调整为|降至|升至)?\s*(\d+(?:\.\d+)?)\s*(万|元)(?:税后)?(?:工资|薪资|月薪)?/u)
+    || evidenceText?.match(/(?:税后)?(?:月薪|副业月收入|个人月收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*(万|元)/u);
   const annualMatch = evidenceText?.match(/(?:税后)?年薪(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
   if (!explicitlyPersonal || (!monthlyMatch && !annualMatch)) return input.proposals;
 
-  const monthlyNetAmountWan = monthlyMatch ? Number(monthlyMatch[1]) : undefined;
+  const monthlyNetAmountWan = monthlyMatch
+    ? Number(monthlyMatch[1]) * (monthlyMatch[2] === "元" ? 0.0001 : 1)
+    : undefined;
   const annualNetAmountWan = annualMatch ? Number(annualMatch[1]) : undefined;
   if (!(Number(monthlyNetAmountWan ?? annualNetAmountWan) > 0)) return input.proposals;
   const careerIncomeTypes = new Set(["salary", "contract", "self_employment_draw"]);
@@ -726,15 +731,28 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     source.status === "active" && careerIncomeTypes.has(source.type) && source.linkedCareerStateId === input.currentCareerStateId
   ));
   const decisionChangesCareer = /辞职|离职|入职|就职|转岗|转行|回归职场|退休|停止工作/u.test(decision);
-  const existingSource = activeCareerSources.length === 1
-    ? activeCareerSources[0]
-    : (!decisionChangesCareer && allActiveCareerSources.length === 1 ? allActiveCareerSources[0] : undefined);
+  const sideIncomeSources = allActiveCareerSources.filter((source) => (
+    source.type === "contract"
+    && /副业|课程|咨询|工作坊|稿费|版税/u.test(`${source.displayName} ${source.evidence.map((item) => item.excerpt || "").join(" ")}`)
+  ));
+  const existingSource = sideIncomeEvidence
+    ? (sideIncomeSources.length === 1 ? sideIncomeSources[0] : undefined)
+    : (activeCareerSources.length === 1
+      ? activeCareerSources[0]
+      : (!decisionChangesCareer && allActiveCareerSources.length === 1 ? allActiveCareerSources[0] : undefined));
   const sourceCareerStateId = existingSource?.linkedCareerStateId || input.currentCareerStateId;
   const incomeType = existingSource?.type
+    || (sideIncomeEvidence ? "contract" : undefined)
     || (input.currentEmploymentStatus === "self_employed" ? "self_employment_draw" : "salary");
   const proposalsWithoutCompetingCareerIncome = input.proposals.filter((proposal) => {
-    if (proposal.kind === "income_source_started") return !careerIncomeTypes.has(String((proposal.payload as Record<string, unknown>)?.type));
-    if (proposal.kind === "income_source_adjusted") return !careerIncomeTypes.has(String((proposal.payload as Record<string, any>)?.nextSource?.type));
+    if (proposal.kind === "income_source_started") {
+      const type = String((proposal.payload as Record<string, unknown>)?.type);
+      return sideIncomeEvidence ? type !== "contract" : !careerIncomeTypes.has(type);
+    }
+    if (proposal.kind === "income_source_adjusted") {
+      const type = String((proposal.payload as Record<string, any>)?.nextSource?.type);
+      return sideIncomeEvidence ? type !== "contract" : !careerIncomeTypes.has(type);
+    }
     return true;
   });
   const source = existingSource ? {
@@ -749,9 +767,13 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     accrualReviewStatus: "normal" as const,
     lastConfirmedAtAgeInMonths: input.periodStartAgeInMonths
   } : {
-    id: `career_income_${input.currentCareerStateId}`,
+    id: sideIncomeEvidence
+      ? `personal_side_income_${input.currentCareerStateId}`
+      : `career_income_${input.currentCareerStateId}`,
     type: incomeType,
-    displayName: input.currentEmploymentStatus === "self_employed" ? "用户确认的创业个人工资" : "用户确认的个人工资",
+    displayName: sideIncomeEvidence
+      ? "正文确认的个人副业收入"
+      : (input.currentEmploymentStatus === "self_employed" ? "用户确认的创业个人工资" : "用户确认的个人工资"),
     monthlyNetAmountWan,
     annualNetAmountWan,
     accrualPolicy: monthlyMatch ? "monthly" as const : "annual" as const,

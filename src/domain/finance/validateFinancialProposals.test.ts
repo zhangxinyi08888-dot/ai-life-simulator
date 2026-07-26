@@ -115,6 +115,91 @@ test("low-confidence but otherwise determinate facts are accepted as estimated",
   assert.equal((result.acceptedEvents[0].payload as { factStatus: string }).factStatus, "estimated");
 });
 
+test("does not turn a single personal grant receipt into a permanent recurring other-income source", () => {
+  const result = validate([proposal({
+    id: "foundation_grant_recurring",
+    kind: "income_source_started",
+    evidence: "你收到第一笔资助款3000元。",
+    payload: {
+      id: "income_foundation_grant",
+      type: "other",
+      displayName: "基金会资助项目收入",
+      monthlyNetAmountWan: 0.3,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      factStatus: "known",
+      evidence
+    }
+  })], "你收到第一笔资助款3000元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0]?.code, "UNBALANCED_TRANSACTION");
+  assert.match(result.issues[0]?.summary || "", /不能推导为长期/);
+});
+
+test("accepts recurring other income only when the narrative states its cadence", () => {
+  const result = validate([proposal({
+    id: "recurring_other_income",
+    kind: "income_source_started",
+    evidence: "你每月稳定收到3000元个人创作资助。",
+    payload: {
+      id: "income_recurring_grant",
+      type: "other",
+      displayName: "个人创作资助",
+      monthlyNetAmountWan: 0.3,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      factStatus: "known",
+      evidence
+    }
+  })], "你每月稳定收到3000元个人创作资助。");
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("accepts an exact protagonist side-income contract alongside a primary salary", () => {
+  const current = setup();
+  current.currentLedger.incomeSources.push({
+    id: "primary_salary",
+    type: "salary",
+    displayName: "主业工资",
+    monthlyNetAmountWan: 2,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 280,
+    status: "active",
+    linkedCareerStateId: "career_current",
+    factStatus: "known",
+    evidence
+  });
+  const result = validateFinancialProposals({
+    ...current,
+    proposals: [proposal({
+      id: "personal_side_income",
+      kind: "income_source_started",
+      evidence: "你的线上课程加上一对一咨询，副业月收入稳定在6000元左右。",
+      payload: {
+        id: "personal_side_income_career_current",
+        type: "contract",
+        displayName: "正文确认的个人副业收入",
+        monthlyNetAmountWan: 0.6,
+        accrualPolicy: "monthly",
+        activeFromAgeInMonths: 300,
+        status: "active",
+        linkedCareerStateId: "career_current",
+        factStatus: "known",
+        evidence
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你的线上课程加上一对一咨询，副业月收入稳定在6000元左右。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "side_income_validation",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
 test("PB-ASSET-01 rejects an unsupported model asset type", () => {
   const result = validate([proposal({
     id: "bad_property",

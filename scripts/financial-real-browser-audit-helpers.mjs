@@ -56,7 +56,9 @@ export function personalCompensationAnnualAmounts(narrativeText = "") {
     const candidateCompensation = /猎头|邀请|邀约|推荐|提出|offer|如果|可以给你|考虑|是否|至少|预计|建议|希望/iu.test(sentence);
     const hypotheticalMoveCompensation = /(?:这意味着|如果|若)[^。；]{0,60}(?:辞掉|辞去|离开|去|加入|转到)[^。；]{0,40}(?:月薪|年薪)/u.test(sentence);
     const completedCompensation = /正式(?:加入|入职|受聘)|决定接受|接受了|签下|转为[^。；]{0,20}(?:顾问|兼职|全职)|月薪(?:降至|调整为|维持)|薪资调整为|工资调整为|给自己/u.test(sentence);
+    const historicalCompensation = /(?:以前|曾经|当年|过去|原先|原来|上一份|此前)[^。；]{0,24}(?:月薪|年薪|工资|薪资)|(?:辞去|辞掉|离开|放弃|结束)[^。；]{0,24}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资)[^。；]{0,24}(?:的旧工作|的工作后|已经结束|成为过去)/u.test(sentence);
     if ((candidateCompensation || hypotheticalMoveCompensation) && !completedCompensation) return [];
+    if (historicalCompensation && !completedCompensation) return [];
     if (!/(?:你(?:的|本人|个人)?[^。；]{0,45}|给自己[^。；]{0,24})(?:薪资调整为|工资调整为|税后工资|税后月薪|月薪|年薪)|薪资调整为[^。；]{0,18}(?:年薪|月薪)/u.test(sentence)) return [];
     const monthly = [...sentence.matchAll(/(?:税后)?月薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*(万|元)/gu)]
       .filter((match) => !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:会计|员工|助理|工程师|销售|运营|护工)[^。；]{0,35}$/u.test(sentence.slice(Math.max(0, Number(match.index) - 110), Number(match.index))))
@@ -65,6 +67,32 @@ export function personalCompensationAnnualAmounts(narrativeText = "") {
       .map((match) => Number(match[1]));
     return [...monthly, ...annual];
   });
+}
+
+export function adultBelowPolicyExpenseViolation(input = {}) {
+  const ageYears = Number(input.ageInMonths || 0) / 12;
+  const financialState = input.financialState || {};
+  const ledger = input.ledger || {};
+  const annualCoreExpenseWan = Number(financialState.annualCoreExpenseWan || 0);
+  if (ageYears < 23 || financialState.employmentStatus === "student" || annualCoreExpenseWan + 0.02 >= 4.2) {
+    return false;
+  }
+  const hasExactLowerLivingAuthority = (ledger.expenseCommitments || []).some((commitment) => (
+    commitment.status === "active"
+    && commitment.type === "basic_living"
+    && commitment.factStatus === "known"
+    && Number(commitment.monthlyAmountWan || 0) > 0
+    && Number(commitment.monthlyAmountWan || 0) * 12 + 0.02 < 4.2
+    && (commitment.evidence || []).some((evidence) => (
+      evidence?.financialScope === "personal"
+      && (
+        evidence?.source === "user_profile"
+        || (evidence?.source === "accepted_simulation_outcome" && evidence?.reasonCode === "EVIDENCE_EXACT_MATCHED")
+      )
+      && /(?:生活|日常|基本)[^。；]{0,24}(?:成本|支出|开销|花费)|(?:每月|月均)[^。；]{0,18}\d/u.test(String(evidence?.excerpt || ""))
+    ))
+  ));
+  return !hasExactLowerLivingAuthority;
 }
 
 export function collectVisibleGenerationPauses(record = {}) {

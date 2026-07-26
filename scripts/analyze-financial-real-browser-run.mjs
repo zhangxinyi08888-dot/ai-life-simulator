@@ -6,6 +6,7 @@ import {
 } from "./lib/financial-production-audit.mjs";
 import { execFile } from "node:child_process";
 import {
+  adultBelowPolicyExpenseViolation,
   classifyTerminalFinancialIssues,
   collectRecoveredGenerationAttempts,
   collectVisibleGenerationPauses,
@@ -174,8 +175,11 @@ for (const record of records) {
 
     const ageYears = Number(node.ageInMonths || 0) / 12;
     const adultZeroExpense = ageYears >= 18 && Number(fs.annualCoreExpenseWan || 0) === 0;
-    const adultBelowPolicyExpense = ageYears >= 23 && fs.employmentStatus !== "student"
-      && Number(fs.annualCoreExpenseWan || 0) + 0.02 < 4.2;
+    const adultBelowPolicyExpense = adultBelowPolicyExpenseViolation({
+      ageInMonths: node.ageInMonths,
+      financialState: fs,
+      ledger
+    });
     const careerIncomeSources = (ledger.incomeSources || []).filter((source) => source.status === "active" && source.linkedCareerStateId);
     const hasRecentCareerEvidence = careerIncomeSources.some((source) => Number.isFinite(source.lastConfirmedAtAgeInMonths)
       && Number(node.ageInMonths) - Number(source.lastConfirmedAtAgeInMonths) <= 36);
