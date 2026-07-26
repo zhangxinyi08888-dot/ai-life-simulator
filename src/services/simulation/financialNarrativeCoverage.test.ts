@@ -151,7 +151,7 @@ test("explicit protagonist job entry, role change and retirement require authori
   }), false);
 });
 
-test("post-sanitization narrative reconciliation drops stale coverage blockers", () => {
+test("post-sanitization narrative reconciliation resolves stale coverage blockers", () => {
   const staleIssue = detectNarrativeFinancialCoverageIssues({
     narrativeText: "你的税后年薪调整为18万元。",
     ledger,
@@ -166,5 +166,8 @@ test("post-sanitization narrative reconciliation drops stale coverage blockers",
     acceptedEvents: [],
     ageInMonths: 430
   });
-  assert.equal(reconciled.length, 0);
+  assert.equal(reconciled.length, 1);
+  assert.equal(reconciled[0].status, "resolved");
+  assert.equal(reconciled[0].resolvedAtAgeInMonths, 430);
+  assert.equal(reconciled[0].resolvedByEventId, "system:narrative_revalidated");
 });

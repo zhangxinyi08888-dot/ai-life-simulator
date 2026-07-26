@@ -381,9 +381,19 @@ export function reconcileNarrativeFinancialIssues(input: {
       currentLedger: input.ledger
     })
   ];
-  const retained = input.issues.filter((issue) => (
-    !NARRATIVE_FINANCIAL_ISSUE_PREFIXES.some((prefix) => issue.id.startsWith(prefix))
-  ));
+  const authoritativeIssueIds = new Set(authoritativeIssues.map((issue) => issue.id));
+  const retained = input.issues.flatMap((issue) => {
+    const isNarrativeIssue = NARRATIVE_FINANCIAL_ISSUE_PREFIXES.some((prefix) => issue.id.startsWith(prefix));
+    if (!isNarrativeIssue) return [issue];
+    if (authoritativeIssueIds.has(issue.id)) return [];
+    if ((issue.status ?? "open") === "resolved") return [issue];
+    return [{
+      ...issue,
+      status: "resolved" as const,
+      resolvedAtAgeInMonths: input.ageInMonths,
+      resolvedByEventId: "system:narrative_revalidated"
+    }];
+  });
   const byId = new Map<string, FinancialLedgerIssue>();
   for (const issue of [...retained, ...authoritativeIssues]) byId.set(issue.id, issue);
   return [...byId.values()];
