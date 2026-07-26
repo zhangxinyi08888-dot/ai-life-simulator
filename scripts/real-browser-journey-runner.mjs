@@ -5,6 +5,16 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 export const FINAL_IMAGE_VIEWPORT = Object.freeze({ width: 1280, height: 900 });
+
+export async function waitForUniqueLocator({ locator, label, wait, attempts = 40 }) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const count = await locator.count();
+    if (count === 1) return locator;
+    if (count > 1) throw new Error(`Expected one ${label}, got ${count}`);
+    if (attempt + 1 < attempts) await wait();
+  }
+  throw new Error(`Expected one ${label}, got 0`);
+}
 const execFileAsync = promisify(execFile);
 
 function now() {
@@ -203,9 +213,11 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
   }
 
   async function unique(locator, label) {
-    const count = await locator.count();
-    if (count !== 1) throw new Error(`Expected one ${label}, got ${count}`);
-    return locator;
+    return waitForUniqueLocator({
+      locator,
+      label,
+      wait: () => tab.playwright.waitForTimeout(50)
+    });
   }
 
   async function readState() {

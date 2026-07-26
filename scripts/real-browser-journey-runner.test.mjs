@@ -6,6 +6,7 @@ import {
   buildFinalPosterCropArgs,
   FINAL_IMAGE_VIEWPORT,
   initializeJourneyTrace,
+  waitForUniqueLocator,
   validateJourneyInvitationIsolation
 } from "./real-browser-journey-runner.mjs";
 
@@ -108,4 +109,18 @@ test("PB-RUN-06 final-image restore keeps the exact outcome without replaying he
   assert.deepEqual(payload.answers, []);
   assert.equal(payload.currentNode.id, "ending");
   assert.equal(payload.nodeCount, 68);
+});
+
+test("PB-RUN-07 invitation controls may render shortly after the pending state", async () => {
+  const counts = [0, 0, 1];
+  const locator = { count: async () => counts.shift() ?? 1 };
+  let waits = 0;
+  const result = await waitForUniqueLocator({
+    locator,
+    label: "accept invitation button",
+    wait: async () => { waits += 1; },
+    attempts: 4
+  });
+  assert.equal(result, locator);
+  assert.equal(waits, 2);
 });
