@@ -59,6 +59,14 @@ test("employee option grants do not create a protagonist option coverage issue",
   assert.equal(issues.length, 0);
 });
 
+test("a conditional option promise is not treated as a completed personal grant", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "股权激励计划尚未正式设立，CEO只给你口头承诺：如果融资成功，会优先考虑你的期权。",
+    ledger, acceptedEvents: [], ageInMonths: 373
+  });
+  assert.equal(issues.length, 0);
+});
+
 test("a protagonist accepting sweat equity requires a personal holding", () => {
   const issues = detectNarrativeFinancialCoverageIssues({
     narrativeText: "你接受老张的干股提议，正式成为公司的联合创始人。",

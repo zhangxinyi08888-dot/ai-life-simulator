@@ -84,6 +84,7 @@ test("extracts protagonist compensation without treating company revenue or staf
   assert.deepEqual(personalCompensationAnnualAmounts("这意味着你要辞掉现在18万的稳定工作，去一个年薪22万但没有保障的新公司。你最终没有接受。"), []);
   assert.deepEqual(personalCompensationAnnualAmounts("你想起那种踏实感是以前年薪32万时才有的。"), []);
   assert.deepEqual(personalCompensationAnnualAmounts("你辞去了年薪38万元的工作，开始创业。"), []);
+  assert.deepEqual(personalCompensationAnnualAmounts("你正式入职，税后月薪6000元，加上兼职收入每月总计约1.1万元。"), [13.2]);
 });
 
 test("accepts an exact evidence-backed low-cost living arrangement without weakening the adult default floor", () => {

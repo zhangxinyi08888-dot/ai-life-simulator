@@ -60,6 +60,9 @@ export function personalCompensationAnnualAmounts(narrativeText = "") {
     if ((candidateCompensation || hypotheticalMoveCompensation) && !completedCompensation) return [];
     if (historicalCompensation && !completedCompensation) return [];
     if (!/(?:你(?:的|本人|个人)?[^。；]{0,45}|给自己[^。；]{0,24})(?:薪资调整为|工资调整为|税后工资|税后月薪|月薪|年薪)|薪资调整为[^。；]{0,18}(?:年薪|月薪)/u.test(sentence)) return [];
+    const monthlyTotal = [...sentence.matchAll(/(?:每月总计|每月总收入|月总收入|个人每月总收入)(?:约为|约|达到|为)?\s*(\d+(?:\.\d+)?)\s*(万|元)/gu)]
+      .map((match) => Math.round(Number(match[1]) * (match[2] === "元" ? 0.0001 : 1) * 12 * 10000) / 10000);
+    if (monthlyTotal.length > 0) return monthlyTotal;
     const monthly = [...sentence.matchAll(/(?:税后)?月薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*(万|元)/gu)]
       .filter((match) => !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:会计|员工|助理|工程师|销售|运营|护工)[^。；]{0,35}$/u.test(sentence.slice(Math.max(0, Number(match.index) - 110), Number(match.index))))
       .map((match) => Math.round(Number(match[1]) * (match[2] === "元" ? 0.0001 : 1) * 12 * 10000) / 10000);

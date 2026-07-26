@@ -181,13 +181,18 @@ export function synthesizeSelectedCareerTransition(input: {
   if (!input.acceptedOutcomeId || !input.selectedDecision) return undefined;
   const decision = input.selectedDecision;
   const narrativeEvidence = input.narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
-    /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|被任命|晋升|提升为|成为.{0,12}负责人)/iu.test(sentence)
+    /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|转为.{0,12}顾问|顾问角色|被任命|晋升|提升为|成为.{0,12}负责人)/iu.test(sentence)
   ));
   let toStatus: EmploymentTransitionProposal["toStatus"] | undefined;
   if (/辞职.{0,12}创业|离职.{0,12}创业|全职.{0,12}创业/u.test(decision)) toStatus = "self_employed";
   else if (/退休/u.test(decision)) toStatus = "retired";
   else if (/停止工作|不再工作/u.test(decision)) toStatus = "not_working";
   else if (/入职|接受.{0,20}(?:offer|工作|职位|岗位)|回.{0,8}职场/iu.test(decision)) toStatus = "employed";
+  else if (narrativeEvidence
+    && /转为.{0,12}顾问|顾问角色/u.test(narrativeEvidence)
+    && !/保留.{0,16}(?:原工作|大公司工作|全职工作)|继续.{0,16}(?:双线|业余|兼职)/u.test(decision)) {
+    toStatus = "self_employed";
+  }
   else if (narrativeEvidence
     && /转岗|转任|被任命|晋升|提升为|成为.{0,12}负责人/u.test(narrativeEvidence)
     && input.currentStatus
@@ -246,6 +251,11 @@ export function validateSelectedDecisionConsistency(selectedDecision: string, na
   if (selectedResignation && protagonistKeptSameJob) {
     issues.push("用户已选择辞职或离职，正文却改写成主角保留原工作");
   }
+  const selectedKeepsCurrentJob = /保留.{0,16}(?:原工作|大公司工作|全职工作|现有工作)|继续.{0,16}(?:双线|业余时间|兼职)|暂不.{0,12}(?:辞职|离职)|拒绝.{0,16}(?:全职|投资).{0,16}(?:保留|继续)/u.test(decision);
+  const protagonistLeftCurrentJob = /(?:你|主角).{0,20}(?:提交了?辞职申请|递交了?辞呈|正式辞职|已经辞职|辞去|离职|离开原岗位|正式成为.{0,16}全职)/u.test(narrative);
+  if (selectedKeepsCurrentJob && protagonistLeftCurrentJob) {
+    issues.push("用户已选择保留当前工作或继续业余投入，正文却改写成主角辞职或全职转入另一条路线");
+  }
   return issues;
 }
 
@@ -280,7 +290,13 @@ export function detectNarrativeFinancialCoverageIssues(input: {
       && !hasKind("debt_drawn", "debt_balance_discovered")) push("mortgage", "正文包含已发生的主人公房贷事实，但没有房贷债务 Proposal");
   }
   const hasHolding = input.ledger.businessHoldings.some((item) => item.status === "active" || item.status === "partially_sold");
-  const hasProtagonistOptionFact = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u.test(input.narrativeText);
+  const hasProtagonistOptionFact = input.narrativeText.split(/(?<=[。！？；])/u).some((sentence) => {
+    const optionReference = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u.test(sentence);
+    if (!optionReference) return false;
+    const conditionalOnly = /尚未|还未|未正式|没有设立|口头承诺|未来|如果|若|计划|考虑|优先考虑|意向/u.test(sentence);
+    const completedGrant = /你(?:已经|已|正式)?(?:获得|获授|被授予|持有|拥有|行使|行权)(?:了)?[^。；]{0,24}期权|(?:正式)?(?:授予|发放)[^。；]{0,12}(?:给)?你/u.test(sentence);
+    return !conditionalOnly || completedGrant;
+  });
   const hasProtagonistEquityFact = /(?:你(?:持有|拥有|获得|接受)[^。；]{0,20}(?:股权|股份|持股|干股)|(?:股权|持股)结构[^。；]{0,32}你占\s*\d|你(?:成为|是|作为)[^。；]{0,12}(?:联合创始人|合伙人)|你的(?:创始人股权|干股))/u.test(input.narrativeText);
   if ((hasProtagonistOptionFact || hasProtagonistEquityFact)
     && !hasHolding

@@ -276,6 +276,17 @@ test("derives qualitative wording from the calculated state", () => {
   assert.equal(getFinancialStatusText({ ...state, cashWan: 20 }), "已经积累了一些储蓄");
 });
 
+test("a current annual salary claim is removed when the closing ledger has no authoritative career income", () => {
+  const noIncomeLedger = initializeFinancialLedger({ id: "no_income", asOfAgeInMonths: 526 });
+  const result = sanitizeFinancialNarrative(
+    "你正式调任区域总监，年薪升至60万。家庭生活保持稳定。",
+    { ...state, annualAfterTaxIncomeWan: 0 },
+    noIncomeLedger
+  );
+  assert.equal(result.includes("60万"), false);
+  assert.match(result, /实际到账的个人收入尚待确认/);
+});
+
 test("closing-ledger debt counts sanitize every user-visible narrative surface", () => {
   const debtLedger = {
     ...initializeFinancialLedger({ id: "surface_counts", asOfAgeInMonths: 480 }),

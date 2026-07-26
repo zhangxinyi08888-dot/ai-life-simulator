@@ -54,7 +54,7 @@ function sanitizeRecurringIncomeClaims(description: string, ledger?: FinancialLe
     && isNarrativeEligibleFinancialFact(source)
   ));
   if (careerIncome.length === 0) return description.split(/(?<=[。！？])/u).map((sentence) => (
-    /(?:你|主角|本人|你的).{0,28}(?:月薪|工资|薪资)|(?:当前|税后)?月薪(?:约|为|达到|降至|降到)?\s*\d/u.test(sentence)
+    /(?:你|主角|本人|你的).{0,28}(?:月薪|年薪|工资|薪资)|(?:当前|税后)?(?:月薪|年薪)(?:约|为|达到|降至|降到|升至)?\s*\d/u.test(sentence)
       ? "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。"
       : sentence
   )).join("");

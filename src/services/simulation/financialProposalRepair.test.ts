@@ -126,6 +126,35 @@ test("a borrowing decision cannot be rewritten as voluntarily refusing the loan"
   );
 });
 
+test("a keep-current-job decision cannot be rewritten as resignation and full-time entrepreneurship", () => {
+  assert.deepEqual(
+    validateSelectedDecisionConsistency(
+      "拒绝投资，保留大公司工作，继续以业余时间孵化项目",
+      "你向大公司提交了辞职申请，正式成为创业公司的全职联合创始人。"
+    ),
+    ["用户已选择保留当前工作或继续业余投入，正文却改写成主角辞职或全职转入另一条路线"]
+  );
+});
+
+test("a completed consultant transition is synthesized while a retained day job remains employed", () => {
+  const consultant = synthesizeSelectedCareerTransition({
+    selectedDecision: "B. 稳健巩固顾问",
+    narrativeText: "你将日常运营交给团队，自己转为顾问角色，每月只参加两次战略会。",
+    acceptedOutcomeId: "outcome_consultant",
+    effectiveAtAgeInMonths: 720,
+    currentStatus: "employed"
+  });
+  assert.equal(consultant?.toStatus, "self_employed");
+  const retained = synthesizeSelectedCareerTransition({
+    selectedDecision: "保留大公司工作，继续以业余时间担任顾问",
+    narrativeText: "你继续保留大公司岗位，以顾问角色参与创业项目。",
+    acceptedOutcomeId: "outcome_retained",
+    effectiveAtAgeInMonths: 720,
+    currentStatus: "employed"
+  });
+  assert.equal(retained, undefined);
+});
+
 test("loan balance and active monthly payment claims require an accepted debt draw", () => {
   assert.equal(stillClaimsRejectedDebtDraw("贷款还剩6期约3.65万元本金，月供0.6083万元。"), true);
   assert.equal(stillClaimsRejectedDebtDraw("贷款尚未获批，月供只是测算。"), false);
