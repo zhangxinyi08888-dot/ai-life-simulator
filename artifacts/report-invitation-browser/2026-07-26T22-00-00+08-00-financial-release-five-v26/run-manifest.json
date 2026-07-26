@@ -1,0 +1,52 @@
+{
+  "runId": "2026-07-26T22-00-00+08-00-financial-release-five-v26",
+  "runStartedAt": "2026-07-26T13:44:22.987Z",
+  "runCompletedAt": "2026-07-26T14:46:52.224Z",
+  "generatedAt": "2026-07-26T14:50:16.351Z",
+  "repositoryPath": "/Users/zz/Documents/new life/test---financial-debt-distress",
+  "repositoryCommit": "2e4d9835cc34826376dc92cbf62493f61ff18259",
+  "repositoryDirty": true,
+  "launchUrl": "http://127.0.0.1:4173/",
+  "commands": [
+    "pnpm exec tsx scripts/render-full-browser-test-data-markdown.ts <root>/cases <root>/full-test-data.md",
+    "node scripts/analyze-financial-real-browser-run.mjs <root>",
+    "node $HOME/.codex/skills/run-real-browser-ending-routes/scripts/verify-five-route-run.mjs --root <root> --started-after <runStartedAt> --full-data <root>/full-test-data.md --report <root>/evaluation-report.md"
+  ],
+  "artifacts": [
+    "aggregate.json",
+    "finance-audit.json",
+    "full-test-data.md",
+    "evaluation-report.md",
+    "visual-inspection.json",
+    "cases/",
+    "working/",
+    "images/"
+  ],
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "path": "cases/real-career-first.json"
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "path": "cases/real-custom-lifespan.json"
+    },
+    {
+      "caseSlug": "real-education-second",
+      "scenario": "accept_second",
+      "path": "cases/real-education-second.json"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "path": "cases/real-relationship-first.json"
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "scenario": "accept_second",
+      "path": "cases/real-venture-second.json"
+    }
+  ]
+}
