@@ -823,26 +823,34 @@ export function narrativeRequiresCareerTransition(input: {
   narrativeText: string;
   currentStatus: CareerState["employmentStatus"];
 }): boolean {
-  const protagonistText = input.narrativeText.split(/(?<=[。！？；])/u)
+  const protagonistSentences = input.narrativeText.split(/(?<=[。！？；])/u)
     .filter((sentence) => /你|你的|你们|本人|自己/u.test(sentence))
     .filter((sentence) => !/(?:母亲|父亲|妈妈|爸爸|伴侣|丈夫|妻子|朋友|同事)[^，。；]{0,20}(?:入职|离职|辞职|退休|换工作|跳槽)/u.test(sentence)
-      || /你[^，。；]{0,20}(?:入职|离职|辞职|退休|换工作|跳槽|转岗|转任)/u.test(sentence))
-    .join(" ");
-  if (!protagonistText) return false;
-  const completedAction = /(?:已经|已|正式|最终|于是|随后|当场|决定|选择|接受|递交|办理|签下|签署|开始|转而)/u;
-  const hypotheticalAction = /(?:如果|若|一旦|是否|考虑|计划|准备|可能|可以|需要|必须|要求|条件|抉择|意向|希望|建议|承诺|未来|三个月内|尚未|还没|未决定|没有决定)/u;
-  const completedText = protagonistText
-    .split(/(?<=[。！？；])/u)
-    .filter((sentence) => !hypotheticalAction.test(sentence) || completedAction.test(sentence))
-    .join(" ");
-  const stopsWorking = /你[^。；]{0,24}(?:(?:正式|已经|已|决定|选择|递交)[^。；]{0,8})?(?:退休|办理退休|离职|辞职|辞去|停止工作|结束全职|不再工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(completedText)
-    && completedAction.test(completedText);
+      || /你[^，。；]{0,20}(?:入职|离职|辞职|退休|换工作|跳槽|转岗|转任)/u.test(sentence));
+  if (protagonistSentences.length === 0) return false;
+  const hypotheticalOnly = (sentence: string) => (
+    /(?:如果|若|一旦|是否|考虑|计划|准备|可能|可以|需要|必须|要求|条件|抉择|意向|希望|建议|承诺|未来|三个月内|尚未|还没|未决定|没有决定)/u.test(sentence)
+    && !/(?:最终决定|正式|已经|已(?:经)?|于是|随后|当场|递交了?|提交了?|办理了?|签下了?|签署了?|接受了?|入职了?|离职了?|辞职了?|辞去了)/u.test(sentence)
+  );
+  const negatesExit = (sentence: string) => /(?:不敢|不想|不愿|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:辞职|离职|退休|停止工作|结束全职)/u.test(sentence);
+  const stopsWorking = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesExit(sentence)
+    && /(?:你|本人)[^。；]{0,24}(?:正式退休|办理退休|已经退休|已退休|最终决定[^。；]{0,8}(?:离职|辞职|辞去|停止工作)|递交了?辞呈|提交了?辞职申请|正式离职|正式辞职|已经离职|已经辞职|辞去了|停止了?工作|结束了?全职工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(sentence)
+  ));
   if (stopsWorking && !["retired", "not_working"].includes(input.currentStatus)) return true;
-  const startsWorking = /你[^。；]{0,28}(?:正式入职|已经入职|已入职|受聘|开始全职工作|开始工作|(?:决定|选择|正式)加入[^。；]{0,12}(?:公司|机构|团队)|(?:接受|选择)[^。；]{0,16}(?:offer|新职位|新工作))/iu.test(completedText)
-    || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(completedText);
+  const startsWorking = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && (
+      /你[^。；]{0,28}(?:正式入职|已经入职|已入职|受聘|开始全职工作|(?:决定|选择|正式)加入[^。；]{0,12}(?:公司|机构|团队)|(?:接受|选择)[^。；]{0,16}(?:offer|新职位|新工作))/iu.test(sentence)
+      || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(sentence)
+    )
+  ));
   if (startsWorking && ["student", "not_working", "retired", "medical_leave"].includes(input.currentStatus)) return true;
-  return /你[^。；]{0,24}(?:(?:决定|选择|正式|已经|已|开始)[^。；]{0,8})?(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(completedText)
-    && completedAction.test(completedText);
+  return protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && /你[^。；]{0,24}(?:(?:决定|选择|正式|已经|已)[^。；]{0,8})(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(sentence)
+  ));
 }
 
 function attachPendingFinancialContext(input: {

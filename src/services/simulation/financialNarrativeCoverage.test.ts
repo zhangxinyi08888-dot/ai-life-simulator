@@ -134,6 +134,10 @@ test("explicit protagonist job entry, role change and retirement require authori
     narrativeText: "你最终决定辞去稳定的UI/UX工作，正式全职投入创业。",
     currentStatus: "employed"
   }), true);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "你的本职工作保持稳定，但房贷压力让你不敢轻易辞职。你开始认真考虑是否应该未来全职投入创业。",
+    currentStatus: "employed"
+  }), false);
 });
 
 test("post-sanitization narrative reconciliation drops stale coverage blockers", () => {
