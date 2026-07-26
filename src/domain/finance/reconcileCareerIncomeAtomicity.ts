@@ -161,11 +161,33 @@ export function reconcileCareerIncomeAtomicity(input: {
     return false;
   });
 
+  const committedCareerStateIds = new Set([
+    input.currentCareerStateId,
+    ...acceptedCareerTransitions.map((transition) => transition.nextCareerState.id)
+  ]);
   const acceptedFinancialEvents = authoritativeFinancialEvents.filter((event) => {
     const sourceId = incomeSourceId(event);
     if (sourceId && removedIncomeSourceIds.has(sourceId)) return false;
     if (event.kind === "income_source_started" && event.payload.linkedCareerStateId && removedCareerStateIds.has(event.payload.linkedCareerStateId)) return false;
     if (event.kind === "income_source_adjusted" && event.payload.nextSource.linkedCareerStateId && removedCareerStateIds.has(event.payload.nextSource.linkedCareerStateId)) return false;
+    const linkedCareerStateId = event.kind === "income_source_started"
+      ? event.payload.linkedCareerStateId
+      : event.kind === "income_source_adjusted"
+        ? event.payload.nextSource.linkedCareerStateId
+        : undefined;
+    if (linkedCareerStateId && !committedCareerStateIds.has(linkedCareerStateId)) {
+      issues.push({
+        id: `career_income_uncommitted_state_${event.proposalId}_${input.ageInMonths}`,
+        code: "CAREER_INCOME_CONFLICT",
+        severity: "blocking",
+        status: "open",
+        relatedProposalIds: [event.proposalId],
+        relatedIncomeSourceIds: sourceId ? [sourceId] : [],
+        summary: `收入事件引用了未提交的 CareerState，已与职业转换一起拒绝：${linkedCareerStateId}`,
+        createdAtAgeInMonths: input.ageInMonths
+      });
+      return false;
+    }
     return true;
   });
 

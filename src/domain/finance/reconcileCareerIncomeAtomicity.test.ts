@@ -312,3 +312,35 @@ test("PB-CAREER-03 a founder can become self-employed before taking personal inc
   assert.deepEqual(result.acceptedFinancialEvents.map((event) => event.id), ["end_salary"]);
   assert.equal(result.issues.length, 0);
 });
+
+test("PB-CAREER-15 income cannot rebind to a CareerState that was not committed", () => {
+  const current = fixture();
+  const orphanAdjustment: AcceptedFinancialEvent<"income_source_adjusted"> = {
+    id: "adjust_salary_to_orphan_career",
+    proposalId: "adjust_salary_to_orphan_career_proposal",
+    kind: "income_source_adjusted",
+    effectiveAtAgeInMonths: 660,
+    payload: {
+      incomeSourceId: "salary",
+      nextSource: {
+        ...structuredClone(current.ledger.incomeSources[0]),
+        linkedCareerStateId: "career_consulting"
+      }
+    },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const result = reconcileCareerIncomeAtomicity({
+    currentCareerStateId: current.currentCareer.id,
+    currentLedger: current.ledger,
+    careerTransitions: [],
+    financialEvents: [orphanAdjustment],
+    ageInMonths: 660
+  });
+  assert.equal(result.acceptedCareerTransitions.length, 0);
+  assert.equal(result.acceptedFinancialEvents.length, 0);
+  assert.equal(result.issues.length, 1);
+  assert.equal(result.issues[0].code, "CAREER_INCOME_CONFLICT");
+  assert.deepEqual(result.issues[0].relatedProposalIds, ["adjust_salary_to_orphan_career_proposal"]);
+  assert.match(result.issues[0].summary, /career_consulting/);
+});
