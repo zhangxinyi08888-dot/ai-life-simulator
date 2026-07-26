@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FinancialState } from "../types";
-import { getFinancialStatusText, sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, validateDebtNarrativeConsistency } from "./financialNarrative";
+import { getFinancialStatusText, sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, validateDebtNarrativeConsistency } from "./financialNarrative";
 import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "../domain/finance/ledgerMath";
 
@@ -318,6 +318,17 @@ test("rewrites an unsupported mortgage type without discarding real debt servici
     sanitizeFinancialNarrative("你们提前还了部分房贷，月供减少。", state, noDebtLedger),
     "你们继续根据实际现金流调整家庭支出与储蓄安排。"
   );
+});
+
+test("closing coverage blockers rewrite only the unsupported fact sentences", () => {
+  const original = "你们买下了一套公寓。你背着房贷继续工作。公司承诺给你5%期权。你年薪调整为36万元。家人的生活节奏保持稳定。";
+  const sanitized = sanitizeUnsupportedFinancialCoverageClaims(original, [
+    "narrative_coverage_property_649",
+    "narrative_coverage_mortgage_649",
+    "narrative_coverage_personal_option_649",
+    "narrative_coverage_personal_compensation_649"
+  ]);
+  assert.equal(sanitized, "你们继续根据实际现金流评估居住安排与生活成本。你们继续根据实际现金流调整家庭支出与储蓄安排。相关权益仍在讨论与条件确认阶段，尚未真正落到你个人名下。这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。家人的生活节奏保持稳定。");
 });
 
 test("a generic protagonist annual-income claim is removed when the closing source is quarantined", () => {

@@ -18,7 +18,7 @@ import { stableHash } from "../../utils/stableRandom";
 import { containsForbiddenArcWrite, stripForbiddenArcWrites, validateStoryConsistency } from "../../utils/storyConsistency";
 import { estimateFinancialStateFromWealth, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
 import { resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
-import { sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedOpeningAccountClaims, validateDebtNarrativeConsistency } from "../../utils/financialNarrative";
+import { sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, sanitizeUnsupportedOpeningAccountClaims, validateDebtNarrativeConsistency } from "../../utils/financialNarrative";
 import { applyDebtNarrativeAuthorityToNode, applyDebtNarrativeFallback, collectDebtNarrativeSurfaceIssues, deriveDebtNarrativeAuthority, repairDebtNarrativeSurfaces } from "../../utils/debtNarrativeAuthority";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
@@ -1526,19 +1526,33 @@ async function commitAuthoritativeFinancialProgress(input: {
   // only the current node's narrative issues before the authoritative commit.
   const previewCommitted = commitFinancialDomainTransaction(transactionInput);
   const previewFinancialState = previewCommitted.derivedFinancialState.compatibilityState;
-  const previewDescription = sanitizeFinancialNarrative(
+  let previewDescription = sanitizeFinancialNarrative(
     committedNarrativeNode.description,
     previewFinancialState,
     previewCommitted.financialLedger,
     validated.acceptedEvents
   );
-  const postSanitizationIssues = reconcileNarrativeFinancialIssues({
+  let postSanitizationIssues = reconcileNarrativeFinancialIssues({
     issues: transactionInput.financialIssues,
     narrativeText: previewDescription,
     ledger: initialLedger,
     acceptedEvents: validated.acceptedEvents,
     ageInMonths: input.periodEndAgeInMonths
   });
+  const unsupportedCoverageIssueIds = postSanitizationIssues
+    .filter((issue) => (issue.status ?? "open") === "open" && issue.severity === "blocking")
+    .map((issue) => issue.id)
+    .filter((id) => id.startsWith("narrative_coverage_") || id.startsWith("personal_income_claim_without_event_"));
+  if (unsupportedCoverageIssueIds.length > 0) {
+    previewDescription = sanitizeUnsupportedFinancialCoverageClaims(previewDescription, unsupportedCoverageIssueIds);
+    postSanitizationIssues = reconcileNarrativeFinancialIssues({
+      issues: postSanitizationIssues,
+      narrativeText: previewDescription,
+      ledger: initialLedger,
+      acceptedEvents: validated.acceptedEvents,
+      ageInMonths: input.periodEndAgeInMonths
+    });
+  }
   const committed = commitFinancialDomainTransaction({
     ...transactionInput,
     financialIssues: postSanitizationIssues

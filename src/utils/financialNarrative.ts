@@ -242,6 +242,35 @@ export function sanitizeUnsupportedOpeningAccountClaims(description: string, led
   }).join("");
 }
 
+export function sanitizeUnsupportedFinancialCoverageClaims(
+  description: string,
+  issueIds: string[]
+): string {
+  const hasIssue = (prefix: string) => issueIds.some((id) => id.startsWith(prefix));
+  const unsupportedProperty = hasIssue("narrative_coverage_property_");
+  const unsupportedMortgage = hasIssue("narrative_coverage_mortgage_");
+  const unsupportedHolding = hasIssue("narrative_coverage_business_holding_")
+    || hasIssue("narrative_coverage_personal_option_");
+  const unsupportedCompensation = hasIssue("narrative_coverage_personal_compensation_")
+    || hasIssue("personal_income_claim_without_event_");
+  if (!unsupportedProperty && !unsupportedMortgage && !unsupportedHolding && !unsupportedCompensation) return description;
+  return description.split(/(?<=[。！？])/u).map((sentence) => {
+    if (unsupportedProperty && /(?:名下|自有|自己的).{0,16}(?:房|住房|公寓)|(?:买了|买下|购入|购买|卖掉|出售).{0,16}(?:房|住房|公寓)|房产升值/u.test(sentence)) {
+      return "你们继续根据实际现金流评估居住安排与生活成本。";
+    }
+    if (unsupportedMortgage && /房贷|按揭|月供/u.test(sentence)) {
+      return "你们继续根据实际现金流调整家庭支出与储蓄安排。";
+    }
+    if (unsupportedHolding && /股权|期权|持股|股份|联合创始人|合伙人/u.test(sentence)) {
+      return "相关权益仍在讨论与条件确认阶段，尚未真正落到你个人名下。";
+    }
+    if (unsupportedCompensation && /月薪|年薪|工资|薪资|个人收入|个人进账|个人净收入/u.test(sentence)) {
+      return "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
+    }
+    return sentence;
+  }).join("");
+}
+
 export function sanitizeOpeningFinancialTitle(title: string, ledger: FinancialLedger): string {
   const hasMortgage = ledger.debtAccounts.some((account) => (
     account.type === "mortgage" && isNarrativeEligibleFinancialFact(account)
