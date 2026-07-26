@@ -2,6 +2,7 @@ import { FinancialState, type SimulationNode } from "../types";
 import type { AcceptedFinancialEvent, FinancialLedger } from "../domain/finance/types";
 import type { DebtHealthState } from "../domain/finance/debtHealth";
 import { isNarrativeEligibleFinancialFact } from "../domain/finance/financialFactEligibility";
+import { narrativeClaimsExplicitPersonalIncome } from "../domain/finance/reconcileCareerIncomeAtomicity";
 
 const MONEY_AMOUNT = String.raw`(?:-?\d+(?:\.\d+)?\s*(?:万元?|万|元)(?:多|左右|上下)?|[零〇一二两三四五六七八九十百千]+万(?:元)?(?:多|左右|上下)?)`;
 const BALANCE_TERM = String.raw`(?:现金及存款|现金余额|银行余额|账户余额|个人账户|家庭备用金|备用金|存款|积蓄|净资产|净财富|身家|累计财富|现金(?!流))`;
@@ -123,6 +124,9 @@ function sanitizeUnconfirmedPersonalDrawClaims(
     }
     if (acceptedEvents && /(?:个人净收入|个人可支配收入|个人进账)(?:仅|约为|约|达到|为)?\s*\d+(?:\.\d+)?\s*万元?/u.test(sentence)) {
       return "公司经营已有进展，但个人可支配收入仍未形成稳定来源。";
+    }
+    if (narrativeClaimsExplicitPersonalIncome(sentence)) {
+      return "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
     }
     return sentence;
   }).join("");

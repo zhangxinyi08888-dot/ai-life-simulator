@@ -41,6 +41,9 @@ const PERSONAL_OPERATING_FLOW_KINDS = new Set<FinancialEventKind>([
 function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string): boolean {
   if (!["salary", "contract", "self_employment_draw", "business_dividend"].includes(String(type))) return true;
   if (String(type) === "self_employment_draw" || String(type) === "business_dividend") {
+    if (/(?:你|我|主角|本人).{0,32}(?:从|动用)[^。；]{0,20}(?:积蓄|存款|储蓄|备用金|个人账户)[^。；]{0,20}(?:提取|拿出|支取|取出)|(?:你|我|主角|本人).{0,20}(?:从积蓄中|从存款中|从储蓄中|从备用金中)(?:提取|拿出|支取|取出)/u.test(evidence)) {
+      return false;
+    }
     return /(?:你|我|主角|本人).{0,80}(?:领取|提取|获得|收到|赚|挣|顾问费|咨询收入|转入个人|给自己发|个人可支配收入|个人收入|个人提款|个人账户|工资|薪资|降薪|涨薪|调薪|业主提款|分红)/u.test(evidence);
   }
   return /(?:你|我|主角|本人).{0,80}(?:领取|获得|收到|赚|挣|顾问费|咨询收入|副业月收入|月薪|年薪|工资|薪资|降薪|涨薪|调薪|报酬|个人收入|个人进账|个人账户|可支配收入)/u.test(evidence);

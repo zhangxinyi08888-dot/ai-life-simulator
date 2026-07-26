@@ -287,6 +287,25 @@ test("a current annual salary claim is removed when the closing ledger has no au
   assert.match(result, /实际到账的个人收入尚待确认/);
 });
 
+test("a generic protagonist annual-income claim is removed when the closing source is quarantined", () => {
+  const quarantinedLedger = {
+    ...initializeFinancialLedger({ id: "quarantined_income", asOfAgeInMonths: 454 }),
+    incomeSources: [{
+      id: "legacy_income", type: "salary" as const, displayName: "旧工资", annualNetAmountWan: 42,
+      accrualPolicy: "annual" as const, activeFromAgeInMonths: 350, status: "active" as const,
+      linkedCareerStateId: "career_current", factStatus: "needs_review" as const,
+      accrualReviewStatus: "quarantined" as const, evidence: []
+    }]
+  };
+  const result = sanitizeFinancialNarrative(
+    "你已经在创新部门站稳脚跟，年收入稳定在52万左右，存款有所增加。",
+    { ...state, annualAfterTaxIncomeWan: 0 },
+    quarantinedLedger
+  );
+  assert.equal(result.includes("52万"), false);
+  assert.match(result, /实际到账的个人收入尚待确认/);
+});
+
 test("closing-ledger debt counts sanitize every user-visible narrative surface", () => {
   const debtLedger = {
     ...initializeFinancialLedger({ id: "surface_counts", asOfAgeInMonths: 480 }),

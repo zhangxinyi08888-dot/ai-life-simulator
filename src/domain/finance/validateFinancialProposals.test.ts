@@ -633,6 +633,23 @@ test("PB-BIZ-09 explicit personal consulting earnings can prove a self-employmen
   assert.equal(result.acceptedEvents.length, 1);
 });
 
+test("PB-BIZ-28 withdrawing personal savings for living costs is not recurring owner income", () => {
+  const falseDraw = proposal({
+    id: "personal_savings_false_draw",
+    kind: "income_source_started",
+    evidence: "母亲病情稳定，医疗支出维持每月4000元，你每月从积蓄中提取1.5万作为生活费用。",
+    financialScope: "personal",
+    payload: {
+      id: "cofounder_salary", type: "self_employment_draw", displayName: "创业公司联合创始人薪资",
+      monthlyNetAmountWan: 1.5, accrualPolicy: "monthly", activeFromAgeInMonths: 539,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence: []
+    }
+  });
+  const result = validate([falseDraw], falseDraw.evidence);
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+});
+
 test("a consulting fee paid by a named company remains personal compensation", () => {
   const consulting = proposal({
     id: "medical_ai_consulting",

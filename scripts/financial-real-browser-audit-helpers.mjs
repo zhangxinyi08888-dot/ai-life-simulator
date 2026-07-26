@@ -20,6 +20,17 @@ function hasExplicitPersonalServiceReceipt(source) {
   return /(?:个人)?(?:顾问|咨询)(?:费|收入|报酬|薪酬)|(?:顾问|咨询)(?:工作|服务)[^。；]{0,16}(?:收入|报酬|薪酬)/u.test(text);
 }
 
+function hasExplicitPersonalCompensationReceipt(source) {
+  const personalEvidence = (source?.evidence || [])
+    .filter((evidence) => evidence?.financialScope === "personal")
+    .map((evidence) => evidence?.excerpt)
+    .filter(Boolean)
+    .join(" ");
+  if (!personalEvidence) return false;
+  if (/(?:公司|企业|项目|平台|团队|工作室|机构|中心)(?:的)?(?:年收入|月收入|营收|销售额|回款)/u.test(personalEvidence)) return false;
+  return /(?:你|主角|本人).{0,80}(?:月薪|年薪|工资|薪资|年收入|月收入|个人收入|个人进账)/u.test(personalEvidence);
+}
+
 export function personalLedgerBusinessBoundaryViolations(ledger = {}) {
   const incomeSourceIds = (ledger.incomeSources || [])
     .filter((source) => source.status === "active")
@@ -27,9 +38,11 @@ export function personalLedgerBusinessBoundaryViolations(ledger = {}) {
       const text = ledgerFactText(source);
       const personalIncomeType = ["salary", "contract", "self_employment_draw", "business_dividend"].includes(source.type);
       const explicitPersonalServiceReceipt = hasExplicitPersonalServiceReceipt(source);
+      const explicitPersonalCompensationReceipt = hasExplicitPersonalCompensationReceipt(source);
       const thirdPartyIncome = thirdPartyIncomePattern.test(text) && !/(?:给你|向你|转入你的|转给你|汇给你|共同账户)/u.test(text);
       return thirdPartyIncome || (businessRevenuePattern.test(text) && !personalReceiptPattern.test(text)
         && !explicitPersonalServiceReceipt
+        && !explicitPersonalCompensationReceipt
         && !(personalIncomeType && /工资|薪酬|顾问|咨询|提款|分红|股息/u.test(text)));
     })
     .map((source) => source.id);

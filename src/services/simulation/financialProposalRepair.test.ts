@@ -671,3 +671,15 @@ test("PB-CAREER-09 an internal promotion preserves the authoritative working sta
   assert.equal(transition?.toStatus, "employed");
   assert.match(transition?.evidence || "", /转岗|任命/);
 });
+
+test("PB-CAREER-16 a completed internship conversion commits employed even when the choice described the attempt", () => {
+  const transition = synthesizeSelectedCareerTransition({
+    selectedDecision: "全力争取实习转正，减少个人项目投入，先拿一份稳定工作",
+    narrativeText: "你顺利通过面试，拿到录用通知。毕业典礼后，你正式入职，成为交互设计师。",
+    acceptedOutcomeId: "internship_conversion",
+    effectiveAtAgeInMonths: 298,
+    currentStatus: "student"
+  });
+  assert.equal(transition?.toStatus, "employed");
+  assert.match(transition?.evidence || "", /正式入职|录用通知/);
+});

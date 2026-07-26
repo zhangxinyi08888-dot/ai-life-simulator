@@ -55,6 +55,19 @@ test("keeps evidence-scoped personal consulting fees out of company revenue viol
   }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
 });
 
+test("keeps a protagonist annual salary at a named company out of company revenue violations", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "salary",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "你在这家公司的表现得到了认可，第三年又获得晋升，年收入达到了42万。"
+    }]
+  }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
 test("does not let personal scope relabel company operating revenue as consulting income", () => {
   assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
     id: "company_revenue",

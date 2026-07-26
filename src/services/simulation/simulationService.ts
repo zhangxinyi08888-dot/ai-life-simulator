@@ -189,6 +189,14 @@ export function synthesizeSelectedCareerTransition(input: {
   else if (/停止工作|不再工作/u.test(decision)) toStatus = "not_working";
   else if (/入职|接受.{0,20}(?:offer|工作|职位|岗位)|回.{0,8}职场/iu.test(decision)) toStatus = "employed";
   else if (narrativeEvidence
+    && /正式入职|已经入职|已入职|受聘|拿到.{0,16}(?:录用通知|offer)|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)/iu.test(narrativeEvidence)) {
+    // The accepted choice may describe the attempt (for example, “争取实习
+    // 转正”) while the generated outcome records the completed hire. Once the
+    // same accepted outcome says the protagonist formally started work, the
+    // CareerState must commit instead of leaving a working adult as student.
+    toStatus = "employed";
+  }
+  else if (narrativeEvidence
     && /转为.{0,12}顾问|顾问角色/u.test(narrativeEvidence)
     && !/保留.{0,16}(?:原工作|大公司工作|全职工作)|继续.{0,16}(?:双线|业余|兼职)/u.test(decision)) {
     toStatus = "self_employed";

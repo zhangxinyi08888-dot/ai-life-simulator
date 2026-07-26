@@ -10,6 +10,15 @@ export interface CareerIncomeAtomicityResult {
 const EXPLICIT_PERSONAL_INCOME_PATTERN = /(?:(?:你|主角|本人).{0,80}(?:(?:税后)?(?:月薪|年薪|月收入|年收入|工资|薪资|可支配收入|个人进账|业主提款|分红)(?:约为|约|达到|增至|稳定在|为)?\s*\d|(?:给自己发|领取|提取|获得|收到).{0,20}\d+(?:\.\d+)?\s*万元?.{0,20}(?:个人提款|工资|薪资|业主提款|分红))|(?:个人净收入|个人可支配收入|个人进账)(?:仅|约为|约|达到|为)?\s*\d)/u;
 const EXPLICIT_UNPAID_PATTERN = /(?:暂不|没有|未|不)(?:领取|提取|获得)(?:个人)?(?:工资|薪资|业主提款|分红|收入)|不领薪|无薪/u;
 
+export function narrativeClaimsExplicitPersonalIncome(narrativeText: string): boolean {
+  if (hasExplicitUnpaidPersonalIncomeStatement(narrativeText)) return false;
+  return narrativeText.split(/(?<=[。！？；])/u).some((sentence) => (
+    EXPLICIT_PERSONAL_INCOME_PATTERN.test(sentence)
+    && !/(?:公司|企业|项目|平台|团队|工作室|机构|中心)(?:的)?(?:年收入|月收入|营收|销售额|回款)/u.test(sentence)
+    && !/(?:辞职|辞去|离职|退休|离开|结束|中断|停发|上一份|原工作).{0,36}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资).{0,36}(?:辞职|辞去|离职|退休|结束|中断|停发)/u.test(sentence)
+  ));
+}
+
 export function hasExplicitUnpaidPersonalIncomeStatement(narrativeText: string): boolean {
   return EXPLICIT_UNPAID_PATTERN.test(narrativeText);
 }
@@ -35,10 +44,7 @@ export function collectPersonalIncomeNarrativeContractIssues(input: {
   currentLedger?: FinancialLedger;
 }): FinancialLedgerIssue[] {
   if (hasExplicitUnpaidPersonalIncomeStatement(input.narrativeText)) return [];
-  const currentPersonalIncomeClaimed = input.narrativeText.split(/(?<=[。！？；])/u).some((sentence) => (
-    EXPLICIT_PERSONAL_INCOME_PATTERN.test(sentence)
-    && !/(?:辞职|辞去|离职|退休|离开|结束|中断|停发|上一份|原工作).{0,36}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资).{0,36}(?:辞职|辞去|离职|退休|结束|中断|停发)/u.test(sentence)
-  ));
+  const currentPersonalIncomeClaimed = narrativeClaimsExplicitPersonalIncome(input.narrativeText);
   if (!currentPersonalIncomeClaimed) return [];
   if (input.acceptedFinancialEvents.some(acceptedPersonalIncomeEvent)) return [];
   const hasCurrentPersonalIncomeAuthority = input.currentLedger?.incomeSources.some((source) => (
