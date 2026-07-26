@@ -55,6 +55,19 @@ test("keeps evidence-scoped personal consulting fees out of company revenue viol
   }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
 });
 
+test("keeps an evidence-scoped annual advisory service fee out of company revenue violations", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "b2b_consulting_contract",
+    type: "other",
+    displayName: "AI创业公司顾问服务（6万/年）",
+    status: "active",
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "对方提出将内训升级为年度顾问服务，年费6万元"
+    }]
+  }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
 test("keeps a protagonist annual salary at a named company out of company revenue violations", () => {
   assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
     id: "legacy_recurring_income",

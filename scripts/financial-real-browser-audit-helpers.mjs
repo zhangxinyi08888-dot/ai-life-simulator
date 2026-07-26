@@ -17,7 +17,7 @@ function hasExplicitPersonalServiceReceipt(source) {
     .join(" ");
   if (!personalEvidence) return false;
   const text = [source?.displayName, personalEvidence].filter(Boolean).join(" ");
-  return /(?:个人)?(?:顾问|咨询)(?:费|收入|报酬|薪酬)|(?:顾问|咨询)(?:工作|服务)[^。；]{0,16}(?:收入|报酬|薪酬)/u.test(text);
+  return /(?:个人)?(?:顾问|咨询)(?:费|收入|报酬|薪酬)|(?:顾问|咨询)(?:工作|服务|合同|协议)[^。；]{0,20}(?:收入|报酬|薪酬|费用|年费)/u.test(text);
 }
 
 function hasExplicitPersonalCompensationReceipt(source) {
