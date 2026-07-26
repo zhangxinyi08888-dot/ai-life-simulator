@@ -15,7 +15,7 @@ import { rebuildPersonStates } from "../../utils/personTimeline";
 import { commitSimulationTransaction, emptyWorldState } from "../../utils/simulationTransaction";
 import { buildBranchFingerprint, calculateTimelineAdvance, constrainTemporalProfileForDebtDistress, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
-import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
+import { containsForbiddenArcWrite, stripForbiddenArcWrites, validateStoryConsistency } from "../../utils/storyConsistency";
 import { estimateFinancialStateFromWealth, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
 import { resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
 import { sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedOpeningAccountClaims, validateDebtNarrativeConsistency } from "../../utils/financialNarrative";
@@ -2203,7 +2203,7 @@ export async function generateNextNode(
         }
       }
     );
-    latestRawNode = parseAiJsonResponse(response);
+    latestRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
     return latestRawNode;
   }, {
     fallbackAge: timelineAdvance.targetAge,
@@ -2234,7 +2234,7 @@ export async function generateNextNode(
   let selectedDecisionIssues = validateSelectedDecisionConsistency(input.selectedDecision, node.description);
   if (selectedDecisionIssues.length > 0) {
     const response = await callAiJson(`${prompt}\n\n【已接受选择一致性修复】\n${selectedDecisionIssues.join("；")}。\n用户的选择是已经接受的行动权限，不能改写成主角选择了另一条分支。行动可以因银行拒绝、交易条件未满足等客观原因失败，但正文必须明确写出主角确实执行或尝试了已选行动及其结果。请重新生成完整节点。`);
-    latestRawNode = parseAiJsonResponse(response);
+    latestRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
     if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "选择一致性修复结果包含未授权的 Arc 状态修改。");
     node = normalizeSimulationNode(latestRawNode, {
       fallbackAge: timelineAdvance.targetAge,
@@ -2270,7 +2270,7 @@ export async function generateNextNode(
       ...consistencyIssues.map((issue) => issue.message)
     ].filter(Boolean).join("；");
     const response = await callAiJson(`${prompt}\n\n【年龄与状态一致性修复】\n${issueText}\n请重新生成完整节点，不得修改 Arc 状态。`);
-    latestRawNode = parseAiJsonResponse(response);
+    latestRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
     if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回包含未授权的 Arc 状态修改，请重试。");
     node = normalizeSimulationNode(latestRawNode, {
       fallbackAge: timelineAdvance.targetAge,
@@ -2421,7 +2421,7 @@ export async function generateNextNode(
     const repairPrompt = `${prompt}\n\n【DecisionGate 未通过：第 ${decisionRepairAttempt} 次修复】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。不得只替换近义词；每个选项必须使用不同 decisionIntent${nodeEvent?.intent.allowedOutcomes?.length ? `，并从允许的 eventOutcomeId 中覆盖至少两个不同策略：${nodeEvent.intent.allowedOutcomes.join("、")}` : ""}。`;
     try {
       const response = await callAiJson(repairPrompt);
-      latestRawNode = parseAiJsonResponse(response);
+      latestRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
     } catch (error) {
       if (isRetryableNodeGenerationError(error) && decisionRepairAttempt < 2) continue;
       throw error;
@@ -2504,7 +2504,7 @@ export async function generateNextNode(
     const originalNode = node;
     try {
       const response = await callAiJson(`${prompt}\n\n【健康 operation 结果证据修复】\n上一次最终候选节点缺少可校验的 pressure_resolved，请重新生成完整节点。\n硬性要求：\n1. description 必须原样包含完整句子：“这次健康危机已经从急性停摆转为需要长期管理的稳定阶段。”\n2. narrativeMeta.arcSignals 必须是非空数组，并至少包含：{ "pressureArcId": "${workingPressureArc.id}", "type": "pressure_resolved", "evidence": "这次健康危机已经从急性停摆转为需要长期管理的稳定阶段。", "confidence": 0.95 }。\n3. 不得把阶段结果写成完全治愈，不得修改 PressureArc 状态。\n返回前逐字检查 evidence 能在 description 中找到。`);
-      let repairedRawNode = parseAiJsonResponse(response);
+      let repairedRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
       if (containsForbiddenArcWrite(repairedRawNode)) {
         throw new AiClientError("AI_RESPONSE_INVALID", "健康 operation 证据修复结果包含未授权的 Arc 状态修改。");
       }

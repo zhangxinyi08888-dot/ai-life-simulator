@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { SimulationNode } from "../types";
-import { containsForbiddenArcWrite, validateStoryConsistency } from "./storyConsistency";
+import { containsForbiddenArcWrite, stripForbiddenArcWrites, validateStoryConsistency } from "./storyConsistency";
 
 const node: SimulationNode = {
   age: 82,
@@ -26,3 +26,20 @@ const funnel = { ...node, choices: [
 ] };
 assert.ok(validateStoryConsistency({ node: funnel, targetAgeInMonths: 984, people: [] }).some((issue) => issue.code === "age_script_funneling"));
 assert.equal(containsForbiddenArcWrite({ narrativeMeta: { nextPhaseId: "growth" } }), true);
+const sanitizedArcOutput = stripForbiddenArcWrites({
+  title: "保留的节点",
+  nextPhaseId: "growth",
+  narrativeMeta: {
+    phaseCheckpointCount: 2,
+    arcSignals: [{ type: "pressure_resolved", evidence: "压力趋稳", nextPressureArcStatus: "resolved" }]
+  },
+  choices: [{ id: "A", foregroundPressureArcId: "arc-model-write" }]
+});
+assert.deepEqual(sanitizedArcOutput, {
+  title: "保留的节点",
+  narrativeMeta: {
+    arcSignals: [{ type: "pressure_resolved", evidence: "压力趋稳" }]
+  },
+  choices: [{ id: "A" }]
+});
+assert.equal(containsForbiddenArcWrite(sanitizedArcOutput), false);
