@@ -38,6 +38,28 @@ assert.equal(attempts[1], "description,attributes");
 assert.match(node.description, /合同续签/);
 assert.equal(node.attributes.health, 38);
 
+let invalidJsonAttempts = 0;
+const recoveredAfterInvalidJson = await generateCompleteSimulationNode(async (_attempt, issues) => {
+  invalidJsonAttempts += 1;
+  if (invalidJsonAttempts === 1) throw new Error("malformed json");
+  assert.deepEqual(issues, ["invalidJson"]);
+  return {
+    age: 31,
+    stage: "日常转折",
+    title: "结构恢复后的节点",
+    description: "上一次返回的 JSON 尾部损坏，这一次完整保留用户选择造成的现实后果。",
+    choices: [
+      { id: "A", text: "继续当前计划", impactSummary: "稳步推进" },
+      { id: "B", text: "调整执行节奏", impactSummary: "控制风险" },
+      { id: "C", text: "重新评估方向", impactSummary: "保留弹性" }
+    ],
+    attributes: { happiness: 50, intelligence: 60, wealth: 55, relation: 50, health: 58 },
+    isEndingNode: false
+  };
+}, { fallbackAge: 31, maxAttempts: 2 });
+assert.equal(invalidJsonAttempts, 2);
+assert.equal(recoveredAfterInvalidJson.title, "结构恢复后的节点");
+
 let romanceAttempts = 0;
 const romanceNode = await generateCompleteSimulationNode(async () => {
   romanceAttempts += 1;

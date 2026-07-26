@@ -135,3 +135,31 @@ test("legacy romantic stages migrate once without losing relationship meaning", 
   assert.equal(migrated.relationships?.[0].progression?.checkpointKind, "commitment_review");
   assert.equal(ensureRelationshipWorldState(migrated, 360).relationshipRevision, 4);
 });
+
+test("relationship migration does not resurrect an ended user-fact partner", () => {
+  const romanticPerson = {
+    ...father,
+    id: "person_former_partner",
+    identityKey: { namespace: "user_role" as const, key: "partner:current" },
+    relation: "partner" as const,
+    source: "user_fact" as const
+  };
+  const ended: WorldStateSnapshot = {
+    ...world(),
+    people: [romanticPerson],
+    relationships: [{
+      id: "relationship_former_partner",
+      participantPersonIds: [romanticPerson.id],
+      type: "romantic",
+      stage: "separated",
+      status: "ended",
+      effectiveFromAgeInMonths: 312,
+      source: "accepted_history",
+      confidence: 0.95
+    }],
+    relationshipRevision: 1
+  };
+  const migrated = ensureRelationshipWorldState(ended, 324);
+  assert.equal(migrated.relationships.length, 1);
+  assert.equal(migrated.relationships[0].status, "ended");
+});

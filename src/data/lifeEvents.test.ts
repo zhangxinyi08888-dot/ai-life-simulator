@@ -368,12 +368,12 @@ try {
 }
 
 const cooldownExhausted = queryDynamicLifeEvent(stableAttributes, {}, 45, [
-  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "romance_new_connection")!)),
   historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_material_commitment_test")!)),
   historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_family_obligation_pull")!)),
   historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "relationship_trust_interest_fracture")!)),
   historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "health_sustainable_routine")!)),
-  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "life_normal_transition")!))
+  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "life_normal_transition")!)),
+  historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "romance_new_connection")!))
 ]);
 assert.equal(cooldownExhausted, null);
 
@@ -382,10 +382,10 @@ const tagExhausted = queryDynamicLifeEvent(
   {},
   45,
   [
-    historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "romance_new_connection")!)),
-    historyItem({ eventId: "past_health", eventCategory: "health", eventTags: ["health", "burnout", "instability"] }),
     historyItem({ eventId: "past_escape", eventCategory: "opportunity", eventTags: ["opportunity", "escape_route", "isolation"] }),
-    historyItem({ eventId: "past_normal", eventCategory: "growth", eventTags: ["normal_life", "transition", "breathing_room"] })
+    historyItem({ eventId: "past_health", eventCategory: "health", eventTags: ["health", "burnout", "instability"] }),
+    historyItem({ eventId: "past_normal", eventCategory: "growth", eventTags: ["normal_life", "transition", "breathing_room"] }),
+    historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "romance_new_connection")!))
   ]
 );
 assert.equal(tagExhausted, null);

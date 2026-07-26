@@ -15,6 +15,7 @@ import {
   delayCommitmentProgression,
   ROMANCE_COMMITMENT_POLICY
 } from "./relationshipLifecycle";
+import { isValidRomanceDisplayName } from "../../utils/romanceCandidateName";
 import { stableHash } from "../../utils/stableRandom";
 
 export const ROMANCE_OUTCOME_TRANSITIONS = {
@@ -23,6 +24,15 @@ export const ROMANCE_OUTCOME_TRANSITIONS = {
   continue_slow_exploration: { toStage: "exploring", confidence: 0.9 },
   end_romantic_exploration: { toStatus: "ended", confidence: 0.95 }
 } as const;
+
+export const END_EXISTING_ROMANTIC_RELATIONSHIP_OUTCOME = "end_existing_romantic_relationship";
+
+export function deriveOpeningRomanticOutcomeId(choiceText: string): string | undefined {
+  const normalized = choiceText.replace(/\s+/g, "");
+  const explicitlyEndsRelationship = /(结束|终止|离开|分手|离婚).{0,18}(关系|恋爱|婚姻|伴侣)/.test(normalized)
+    || /(关系|恋爱|婚姻|伴侣).{0,18}(结束|终止|分手|离婚)/.test(normalized);
+  return explicitlyEndsRelationship ? END_EXISTING_ROMANTIC_RELATIONSHIP_OUTCOME : undefined;
+}
 
 export interface RelationshipOutcomeCommitInput {
   current: WorldStateSnapshot;
@@ -192,14 +202,54 @@ export function applySelectedRelationshipOutcome(input: RelationshipOutcomeCommi
     return { worldStateSnapshot: input.current, committed: false, reason: "already_committed" };
   }
 
+  if (outcomeId === END_EXISTING_ROMANTIC_RELATIONSHIP_OUTCOME) {
+    const currentRelationship = activeRomanticRelationship(input.current);
+    if (!currentRelationship) {
+      return { worldStateSnapshot: input.current, committed: false, reason: "missing_active_romantic_relationship" };
+    }
+    try {
+      const participantIds = new Set(currentRelationship.participantPersonIds);
+      const withFormerPartner = {
+        ...input.current,
+        people: input.current.people.map((person) => participantIds.has(person.id)
+          ? {
+              ...person,
+              relation: "other" as const,
+              relationshipSummary: "前伴侣，关系已结束"
+            }
+          : person)
+      };
+      const next = reduceRelationshipState({
+        current: withFormerPartner,
+        expectedRevision: withFormerPartner.relationshipRevision || 0,
+        nextState: {
+          ...currentRelationship,
+          stage: "separated",
+          status: "ended",
+          progression: undefined,
+          source: "accepted_history",
+          confidence: 0.95
+        }
+      });
+      return { worldStateSnapshot: withCommittedId(next, transactionId), committed: true };
+    } catch {
+      return { worldStateSnapshot: input.current, committed: false, reason: "transition_rejected" };
+    }
+  }
+
   if (eventId === "romance_new_connection") {
     if (["keep_as_acquaintance", "decline_romantic_direction"].includes(outcomeId)) {
       const currentPreference = input.current.routePreferences?.find((preference) => preference.routeLine === "romance");
       const refusalCount = (currentPreference?.refusalCount || 0) + (outcomeId === "decline_romantic_direction" ? 1 : 0);
+      const cooldownMonths = outcomeId === "keep_as_acquaintance"
+        ? 12
+        : refusalCount >= 2
+          ? 240
+          : 120;
       const preference = withRomancePreference(input.current, {
         openness: refusalCount >= 2 ? "closed" : "neutral",
         refusalCount,
-        cooldownUntilAgeInMonths: input.effectiveAtAgeInMonths + (refusalCount >= 2 ? 240 : 120)
+        cooldownUntilAgeInMonths: input.effectiveAtAgeInMonths + cooldownMonths
       });
       return { worldStateSnapshot: withCommittedId(preference, transactionId), committed: true };
     }
@@ -211,7 +261,13 @@ export function applySelectedRelationshipOutcome(input: RelationshipOutcomeCommi
     }
     const personProposal = validProposal(input.selectedHistoryItem, outcomeId, "person_introduction");
     const transitionProposal = validProposal(input.selectedHistoryItem, outcomeId, "romantic_transition");
-    if (!personProposal || !Number.isInteger(personProposal.candidateOrdinal) || personProposal.candidateOrdinal < 0 || !transitionProposal) {
+    if (
+      !personProposal
+      || !isValidRomanceDisplayName(personProposal.displayName)
+      || !Number.isInteger(personProposal.candidateOrdinal)
+      || personProposal.candidateOrdinal < 0
+      || !transitionProposal
+    ) {
       return { worldStateSnapshot: input.current, committed: false, reason: "invalid_or_missing_proposal" };
     }
     const candidateKey = stableCandidateKey(input, personProposal);

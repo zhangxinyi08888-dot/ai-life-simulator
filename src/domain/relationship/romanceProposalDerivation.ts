@@ -1,4 +1,5 @@
 import type { NarrativeMeta, RelationshipProposal, SimulationNode, WorldStateSnapshot } from "../../types";
+import { isValidRomanceDisplayName } from "../../utils/romanceCandidateName";
 import { stableHash } from "../../utils/stableRandom";
 
 export type DeterministicRomanceIntent =
@@ -64,9 +65,14 @@ function exactEvidence(node: SimulationNode, displayName?: string): string {
 
 export function romanceCandidate(node: SimulationNode): ActiveCharacter | undefined {
   const characters = node.narrativeMeta?.activeCharacters || [];
-  const explicit = characters.find((character) => character.candidateOrdinal === 0);
+  const explicit = characters.find((character) => (
+    character.candidateOrdinal === 0
+    && isValidRomanceDisplayName(character.displayName)
+  ));
   if (explicit) return explicit;
-  const unboundNamed = characters.filter((character) => !character.personId && Boolean(character.displayName?.trim()));
+  const unboundNamed = characters.filter((character) => (
+    !character.personId && isValidRomanceDisplayName(character.displayName)
+  ));
   return unboundNamed.length === 1 ? { ...unboundNamed[0], candidateOrdinal: 0 } : undefined;
 }
 

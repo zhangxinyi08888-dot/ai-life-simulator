@@ -1,4 +1,5 @@
 import type {
+  HistoryItem,
   RelationshipCheckpointStatus,
   RelationshipProgressionState,
   RelationshipState,
@@ -148,7 +149,8 @@ export function relationshipProgressionWeightMultiplier(
 ): number {
   const status = deriveRelationshipCheckpointStatus(progression, currentAgeInMonths);
   if (status === "waiting" || status === "resolved") return 0;
-  if (status === "due" || status === "overdue") return 1;
+  if (status === "due") return 8;
+  if (status === "overdue") return 12;
   const elapsedSinceEligible = currentAgeInMonths - progression.eligibleAtAgeInMonths;
   if (elapsedSinceEligible < 3) return 1.5;
   if (elapsedSinceEligible < 6) return 3;
@@ -159,6 +161,71 @@ export interface ActiveRelationshipCheckpoint {
   relationship: RelationshipState;
   progression: RelationshipProgressionState;
   status: RelationshipCheckpointStatus;
+}
+
+export interface RelationshipDeferralState {
+  checkpointKey: string;
+  consecutiveDeferredNodes: number;
+  mustRestore: boolean;
+}
+
+export function relationshipCheckpointKey(
+  checkpoint: Pick<ActiveRelationshipCheckpoint, "relationship" | "progression">
+): string {
+  const { relationship, progression } = checkpoint;
+  return [
+    relationship.id,
+    progression.checkpointKind,
+    progression.startedAtAgeInMonths,
+    progression.dueAtAgeInMonths,
+    progression.maxAtAgeInMonths
+  ].join(":");
+}
+
+function relationshipCheckpointKeyFromHistoryItem(item: HistoryItem): string | undefined {
+  if (item.eventMeta?.relationshipCheckpointKey) {
+    return item.eventMeta.relationshipCheckpointKey;
+  }
+  const checkpointKind = item.eventMeta?.relationshipCheckpointKind;
+  const dueAtAgeInMonths = item.eventMeta?.relationshipCheckpointDueAtAgeInMonths;
+  const maxAtAgeInMonths = item.eventMeta?.relationshipCheckpointMaxAtAgeInMonths;
+  const relationship = item.worldStateSnapshot?.relationships?.find((candidate) => (
+    candidate.type === "romantic"
+    && candidate.progression?.checkpointKind === checkpointKind
+    && (
+      dueAtAgeInMonths === undefined
+      || candidate.progression.dueAtAgeInMonths === dueAtAgeInMonths
+    )
+    && (
+      maxAtAgeInMonths === undefined
+      || candidate.progression.maxAtAgeInMonths === maxAtAgeInMonths
+    )
+  ));
+  return relationship?.progression
+    ? relationshipCheckpointKey({
+        relationship,
+        progression: relationship.progression
+      })
+    : undefined;
+}
+
+export function deriveRelationshipDeferralState(
+  history: HistoryItem[],
+  checkpoint: ActiveRelationshipCheckpoint
+): RelationshipDeferralState {
+  const checkpointKey = relationshipCheckpointKey(checkpoint);
+  let consecutiveDeferredNodes = 0;
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const item = history[index];
+    if (!item.eventMeta?.relationshipCheckpointDeferred) break;
+    if (relationshipCheckpointKeyFromHistoryItem(item) !== checkpointKey) break;
+    consecutiveDeferredNodes += 1;
+  }
+  return {
+    checkpointKey,
+    consecutiveDeferredNodes,
+    mustRestore: checkpoint.status === "overdue" || consecutiveDeferredNodes >= 3
+  };
 }
 
 export interface RelationshipCheckpointDeferral {
@@ -233,7 +300,6 @@ export function earliestRelationshipCheckpointTimelineBoundary(
       relationship.type === "romantic"
       && ["active", "strained"].includes(relationship.status)
       && relationship.progression?.lifecycleStatus === "active"
-      && relationship.progression.maxAtAgeInMonths > currentAgeInMonths
     ))
     .map((relationship) => {
       const progression = relationship.progression!;
@@ -242,6 +308,9 @@ export function earliestRelationshipCheckpointTimelineBoundary(
       }
       if (currentAgeInMonths < progression.dueAtAgeInMonths) {
         return progression.dueAtAgeInMonths;
+      }
+      if (currentAgeInMonths >= progression.maxAtAgeInMonths) {
+        return currentAgeInMonths + 1;
       }
       return Math.max(currentAgeInMonths + 1, progression.maxAtAgeInMonths - 1);
     });

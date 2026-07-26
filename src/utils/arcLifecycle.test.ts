@@ -24,6 +24,19 @@ assert.equal(resolvePhase(DEFAULT_PHASE_POLICY, growth.nextPhaseId!).lifeIntensi
 const repeated = reducePressureArc({ currentArc: responseArc, selectedDecision: "接受投资", acceptedOutcome: accepted, attributes, timelineAdvance: { elapsedMonths: 8, targetAgeInMonths: 36 * 12 } });
 assert.deepEqual(repeated, growth);
 
+const interleaved = reducePressureArc({
+  currentArc: responseArc,
+  interleave: true,
+  selectedDecision: "处理关系检查点后继续原有压力主线",
+  acceptedOutcome: { worldDeltas: [], arcSignals: [] },
+  attributes,
+  timelineAdvance: { elapsedMonths: 1, targetAgeInMonths: 35 * 12 + 7 }
+});
+assert.equal(interleaved.action, "interleave");
+assert.deepEqual(interleaved.nextArcState, responseArc);
+assert.equal(interleaved.nextArcState?.phaseCheckpointCount, responseArc.phaseCheckpointCount);
+assert.equal(interleaved.nextArcState?.totalCheckpointCount, responseArc.totalCheckpointCount);
+
 const invalidSignal = validateNodeOutcomeProposal({ arcSignals: [{ type: "next_phase_growth", evidence: "模型想跳阶段", confidence: 1 }] });
 assert.equal(invalidSignal.arcSignals.length, 0);
 

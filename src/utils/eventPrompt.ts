@@ -15,7 +15,7 @@ function formatEventSpecificRules(event: LifeEventSeed): string {
 - “加微信、周末见面、喝咖啡”本身不构成私人关系证据；如果互动仍围绕项目、合作、产品、投资或客户，必须继续视为职业联系，不得改写成爱情选项
 - 三个选项分别对应继续了解、保持普通认识、拒绝浪漫方向，不能要求用户放弃事业主线
 - 在写正文前先确定一个候选人物脚手架：姓名、当前身份、初遇场景，以及交流属于 personal 或 mixed；职业身份可以存在，但 encounterContext 不得是 professional
-- narrativeMeta.activeCharacters 必须包含正文中的这位新认识的人：candidateOrdinal=0，并提供 displayName、relation、presenceMode、currentRole、encounterType="new_connection"、encounterContext="personal" 或 "mixed"、groundingEvidence；groundingEvidence 必须逐字来自正文中该人物出现并离开纯业务语境的一句；presenceMode 必须是 active_scene 或 remote_contact，禁止把仅在职业背景中出现的间接人物标成候选人；禁止返回 candidateKey、personId 或 relationshipId
+- narrativeMeta.activeCharacters 必须包含正文中的这位新认识的人：candidateOrdinal=0，并提供真实姓名或明确昵称形式的 displayName、relation、presenceMode、currentRole、encounterType="new_connection"、encounterContext="personal" 或 "mixed"、groundingEvidence；displayName 禁止使用“你、我、他、她、对方、朋友、同事、教练”等代词或泛称；groundingEvidence 必须逐字来自正文中该人物出现并离开纯业务语境的一句；presenceMode 必须是 active_scene 或 remote_contact，禁止把仅在职业背景中出现的间接人物标成候选人；禁止返回 candidateKey、personId 或 relationshipId
 - 爱情状态迁移由代码根据 eventOutcomeId 确定性派生，不要返回 person_introduction 或 romantic_transition proposal`;
   }
   if (event.intent.type === "romance_connection_clarification") {

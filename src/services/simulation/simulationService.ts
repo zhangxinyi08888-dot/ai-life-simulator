@@ -14,13 +14,14 @@ import {
 import { buildStoryContextPack } from "../../utils/storyContext";
 import { buildAgeContext } from "../../utils/ageContext";
 import { HEALTH_CRISIS_PHASE_POLICY, reducePressureArc, resolvePhase, resolvePhasePolicy, validateNodeOutcomeProposal, type AcceptedNodeOutcome, type PhaseTransitionPolicy } from "../../utils/arcLifecycle";
-import { evaluateDecisionGate, removeBlockedChoicesAfterRepair } from "../../utils/decisionGate";
+import { downgradeDensityLimitedNode, evaluateDecisionGate, removeBlockedChoicesAfterRepair } from "../../utils/decisionGate";
 import { evaluateEnding } from "../../utils/endingDecision";
 import { rebuildPersonStates } from "../../utils/personTimeline";
 import { commitSimulationTransaction, emptyWorldState } from "../../utils/simulationTransaction";
 import { buildBranchFingerprint, calculateTimelineAdvance, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
-import { containsForbiddenArcWrite, validateStoryConsistency } from "../../utils/storyConsistency";
+import { isValidRomanceDisplayName } from "../../utils/romanceCandidateName";
+import { containsForbiddenArcWrite, stripUnauthorizedRomanticCharacters, validateStoryConsistency } from "../../utils/storyConsistency";
 import { estimateFinancialStateFromWealth, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
 import { resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
 import { sanitizeFinancialNarrative } from "../../utils/financialNarrative";
@@ -31,12 +32,15 @@ import type { CareerState } from "../../domain/career/types";
 import {
   applySelectedRelationshipOutcome,
   activeRelationshipCheckpoint,
+  deriveRelationshipDeferralState,
   deriveRelationshipCheckpointDeferral,
   deriveDeterministicRomanceProposals,
+  deriveOpeningRomanticOutcomeId,
   earliestRelationshipCheckpointTimelineBoundary,
   ensureRelationshipWorldState,
   isDeterministicRomanceIntent,
   relationshipLifecycleEventId,
+  relationshipCheckpointKey,
   withAuthoritativeRomanceCharacter,
   withRomanceCandidate
 } from "../../domain/relationship";
@@ -860,6 +864,20 @@ export async function startSimulation(
   startWorldState.directionArcs = ensureDirectionArcs(startWorldState, userData, startNode.ageInMonths ?? startNode.age * 12);
   startWorldState.people = rebuildPersonStates(userData, [], startNode.ageInMonths ?? startNode.age * 12, [], answers);
   startWorldState = ensureRelationshipWorldState(startWorldState, startAgeInMonths);
+  const hasOpeningRomanticRelationship = startWorldState.relationships.some((relationship) => (
+    relationship.type === "romantic" && ["active", "strained"].includes(relationship.status)
+  ));
+  const authoritativeOpeningChoices = userData.regressionChoices
+    .split(/[\n；;]+/u)
+    .map((item) => item.trim().replace(/^[A-CＡ-Ｃ][.．、]\s*/u, ""))
+    .filter(Boolean);
+  const openingChoices = startNode.choices.map((choice, index) => {
+    if (choice.eventOutcomeId || !hasOpeningRomanticRelationship) return choice;
+    const relationshipOutcomeId = deriveOpeningRomanticOutcomeId(authoritativeOpeningChoices[index] || choice.text);
+    return relationshipOutcomeId
+      ? { ...choice, eventOutcomeId: relationshipOutcomeId, expectedWorldDeltaTypes: ["relationship_change" as const] }
+      : choice;
+  });
   const openingResult = initializeOpeningFinancialLedger({
     id: `financial_opening_${startAgeInMonths}`,
     proposedState: proposedFinancialState,
@@ -875,6 +893,7 @@ export async function startSimulation(
   const startDescription = sanitizeFinancialNarrative(startNode.description, financialState, openingFinancialLedger);
   const initializedStartNodeWithFinance = {
     ...startNode,
+    choices: openingChoices,
     description: startDescription,
     descriptionParagraphs: splitNarrativeParagraphs(startDescription),
     attributes: startAttributes,
@@ -1063,7 +1082,7 @@ function readRomanceCandidateRepair(value: unknown): NonNullable<SimulationNode[
   const characters = Array.isArray(record.activeCharacters) ? record.activeCharacters : [record];
   const raw = characters.find((character) => character && typeof character === "object") as Record<string, unknown> | undefined;
   const displayName = typeof raw?.displayName === "string" ? raw.displayName.trim() : "";
-  if (!displayName) return undefined;
+  if (!isValidRomanceDisplayName(displayName)) return undefined;
   const encounterContext = ["personal", "mixed", "professional"].includes(String(raw?.encounterContext || ""))
     ? raw?.encounterContext as "personal" | "mixed" | "professional"
     : "professional";
@@ -1099,7 +1118,7 @@ async function prepareDeterministicRomanceCandidate(
   }
   let prepared = node;
   try {
-    const response = await callAiJson(`你只负责从既有正文中提取一个候选人物脚手架，不得改写正文、选项或关系状态。\n\n正文：\n${node.description}\n\n只返回以下 JSON：\n{"activeCharacters":[{"candidateOrdinal":0,"displayName":"正文中的人物称呼","relation":"other","presenceMode":"active_scene","currentRole":"人物当前身份","encounterType":"new_connection","encounterContext":"personal或mixed或professional","groundingEvidence":"正文中逐字出现、能证明交流离开纯业务语境的一句"}]}\n\n规则：displayName 与 groundingEvidence 必须逐字来自正文；只有正文明确出现个人话题、共同兴趣或私人邀约时 encounterContext 才能是 personal 或 mixed；纯项目、客户、投资、合同或合作交流必须返回 professional；无法识别时返回 {"activeCharacters":[]}。`);
+    const response = await callAiJson(`你只负责从既有正文中提取一个候选人物脚手架，不得改写正文、选项或关系状态。\n\n正文：\n${node.description}\n\n只返回以下 JSON：\n{"activeCharacters":[{"candidateOrdinal":0,"displayName":"正文中的真实姓名或明确昵称","relation":"other","presenceMode":"active_scene","currentRole":"人物当前身份","encounterType":"new_connection","encounterContext":"personal或mixed或professional","groundingEvidence":"正文中逐字出现、能证明交流离开纯业务语境的一句"}]}\n\n规则：displayName 与 groundingEvidence 必须逐字来自正文；displayName 禁止使用“你、我、他、她、对方、朋友、同事、教练”等代词或泛称；正文没有真实姓名或明确昵称时必须返回 {"activeCharacters":[]}；只有正文明确出现个人话题、共同兴趣或私人邀约时 encounterContext 才能是 personal 或 mixed；纯项目、客户、投资、合同或合作交流必须返回 professional；无法识别时返回 {"activeCharacters":[]}。`);
     const repaired = readRomanceCandidateRepair(parseAiJsonResponse(response));
     if (repaired) prepared = withRomanceCandidate(prepared, repaired);
   } catch {
@@ -1208,6 +1227,9 @@ export async function generateNextNode(
   const relationshipCheckpoint = dispatchFlags.enableRomanceLifecycleScheduling
     ? activeRelationshipCheckpoint(currentWorldState, currentAgeInMonths)
     : undefined;
+  const relationshipDeferralState = relationshipCheckpoint
+    ? deriveRelationshipDeferralState(selectionHistory, relationshipCheckpoint)
+    : undefined;
   const relationshipFollowUpDue = relationshipCheckpoint
     && !deps.romanceFallbackContext
     && ["due", "overdue"].includes(relationshipCheckpoint.status)
@@ -1236,8 +1258,22 @@ export async function generateNextNode(
         }
       )
     : null;
-  const dynamicEvent = !existingPressureArc && e2eEventOverride === undefined && !healthEscalationEvent
-    ? relationshipFollowUpDue || rescheduledRomanceEvent || queryDynamicLifeEvent(
+  const independentCriticalHealthEvent = healthEscalationEvent?.id === "health_forced_pause"
+    ? healthEscalationEvent
+    : null;
+  const relationshipDispatchDeadlineReached = Boolean(
+    relationshipCheckpoint
+    && currentAgeInMonths >= relationshipCheckpoint.progression.maxAtAgeInMonths
+  );
+  const relationshipRestorationRequired = Boolean(
+    relationshipFollowUpDue
+    && (
+      relationshipDispatchDeadlineReached
+      || relationshipDeferralState?.mustRestore
+    )
+  );
+  const dynamicEvent = !existingPressureArc && e2eEventOverride === undefined && !independentCriticalHealthEvent
+    ? relationshipFollowUpDue || (healthEscalationEvent ? null : rescheduledRomanceEvent || queryDynamicLifeEvent(
         input.currentAttributes,
         input.userData,
         currentAgeInMonths / 12,
@@ -1253,7 +1289,7 @@ export async function generateNextNode(
             ...(deps.romanceFallbackContext ? [deps.romanceFallbackContext.requestedEventId] : [])
           ]
         }
-      )
+      ))
     : null;
   const dynamicSelectionTrace = !relationshipFollowUpDue && (dynamicEvent || (!existingPressureArc && e2eEventOverride === undefined && !healthEscalationEvent))
     ? getLastEventSelectionTrace()
@@ -1262,7 +1298,9 @@ export async function generateNextNode(
     ? null
     : e2eEventOverride !== undefined
       ? LIFE_EVENTS_DATABASE.find((event) => event.id === e2eEventOverride) || null
-      : healthEscalationEvent || dynamicEvent;
+      : relationshipRestorationRequired
+        ? relationshipFollowUpDue
+        : independentCriticalHealthEvent || relationshipFollowUpDue || healthEscalationEvent || dynamicEvent;
   const selectedEventProfile = selectedEvent ? getEventTemporalProfile(selectedEvent) : undefined;
   const startPolicy = resolvePhasePolicy(selectedEvent?.intent.phasePolicyId);
   const startArcDecision = !existingPressureArc && selectedEvent && selectedEventProfile?.requiresFollowUp
@@ -1276,7 +1314,18 @@ export async function generateNextNode(
     : undefined;
   const workingPressureArc = existingPressureArc || startArcDecision?.nextArcState;
   const pressureArcPolicy = resolvePhasePolicy(workingPressureArc?.phasePolicyId);
-  const nodeEvent = workingPressureArc
+  const isPressureArcInterleave = Boolean(
+    existingPressureArc
+    && relationshipFollowUpDue
+    && relationshipCheckpoint
+    && (
+      relationshipDispatchDeadlineReached
+      || relationshipDeferralState?.mustRestore
+    )
+  );
+  const nodeEvent = isPressureArcInterleave
+    ? relationshipFollowUpDue
+    : workingPressureArc
     ? selectArcContinuationEvent({
         arc: workingPressureArc,
         attributes: input.currentAttributes,
@@ -1289,7 +1338,7 @@ export async function generateNextNode(
     : selectedEvent;
   const isSelectedRelationshipFollowUp = Boolean(
     relationshipFollowUpDue
-    && !workingPressureArc
+    && (!workingPressureArc || isPressureArcInterleave)
     && nodeEvent?.id === relationshipFollowUpDue.id
   );
   let nodeEventMeta: EventMeta | undefined = nodeEvent ? {
@@ -1313,9 +1362,14 @@ export async function generateNextNode(
       relationshipCheckpointStatus: relationshipCheckpoint.status,
       relationshipCheckpointWaitMonths: Math.max(0, currentAgeInMonths - relationshipCheckpoint.progression.startedAtAgeInMonths),
       relationshipCheckpointDueAtAgeInMonths: relationshipCheckpoint.progression.dueAtAgeInMonths,
-      relationshipCheckpointMaxAtAgeInMonths: relationshipCheckpoint.progression.maxAtAgeInMonths
+      relationshipCheckpointMaxAtAgeInMonths: relationshipCheckpoint.progression.maxAtAgeInMonths,
+      relationshipCheckpointKey: relationshipCheckpointKey(relationshipCheckpoint),
+      relationshipCheckpointDeferredCount: relationshipDeferralState?.consecutiveDeferredNodes || 0,
+      relationshipCheckpointMustRestore: relationshipDeferralState?.mustRestore || false,
+      pressureArcInterleaved: isPressureArcInterleave
     } : {}),
-    ...((existingPressureArc || healthEscalationEvent || e2eEventOverride !== undefined)
+    ...(!isSelectedRelationshipFollowUp
+      && (existingPressureArc || healthEscalationEvent || e2eEventOverride !== undefined)
       && relationshipCheckpoint
       && ["due", "overdue"].includes(relationshipCheckpoint.status)
       ? {
@@ -1352,7 +1406,9 @@ export async function generateNextNode(
     romanceRescheduled: true
   } : undefined;
   const eventProfile = nodeEvent ? getEventTemporalProfile(nodeEvent) : selectedEventProfile;
-  const pressurePhaseProfile = workingPressureArc ? resolvePhase(pressureArcPolicy, workingPressureArc.phaseId) : undefined;
+  const pressurePhaseProfile = workingPressureArc && !isPressureArcInterleave
+    ? resolvePhase(pressureArcPolicy, workingPressureArc.phaseId)
+    : undefined;
   const stableNodeCount = input.history.slice(-2).filter((item) => item.narrativeMeta?.lifeIntensity === "stable").length;
   const temporalProfile = deriveTemporalProfile({
     pressurePhaseProfile,
@@ -1367,17 +1423,17 @@ export async function generateNextNode(
     simulationSeed,
     branchFingerprint,
     hardMaximumAge: DEFAULT_ENDING_POLICY.hardMaximumAge,
-    nextMilestoneAgeInMonths: existingPressureArc || healthEscalationEvent || e2eEventOverride !== undefined
-      ? undefined
-      : deps.romanceFallbackContext && relationshipCheckpoint
+    nextMilestoneAgeInMonths: deps.romanceFallbackContext && relationshipCheckpoint
         ? currentAgeInMonths + 1
       : earliestRelationshipCheckpointTimelineBoundary(currentWorldState, currentAgeInMonths)
   });
   const relationshipCheckpointDeferral = relationshipCheckpoint
+    && !isSelectedRelationshipFollowUp
     && (existingPressureArc || healthEscalationEvent || e2eEventOverride !== undefined)
     ? deriveRelationshipCheckpointDeferral(relationshipCheckpoint.progression, timelineAdvance.targetAgeInMonths)
     : undefined;
   if (nodeEventMeta && relationshipCheckpointDeferral) {
+    const deferredCount = (relationshipDeferralState?.consecutiveDeferredNodes || 0) + 1;
     nodeEventMeta = {
       ...nodeEventMeta,
       relationshipCheckpointKind: relationshipCheckpointDeferral.checkpointKind,
@@ -1385,7 +1441,13 @@ export async function generateNextNode(
       relationshipCheckpointWaitMonths: relationshipCheckpointDeferral.waitMonths,
       relationshipCheckpointDueAtAgeInMonths: relationshipCheckpointDeferral.dueAtAgeInMonths,
       relationshipCheckpointMaxAtAgeInMonths: relationshipCheckpointDeferral.maxAtAgeInMonths,
-      relationshipCheckpointDeferred: true
+      relationshipCheckpointDeferred: true,
+      relationshipCheckpointKey: relationshipCheckpoint
+        ? relationshipCheckpointKey(relationshipCheckpoint)
+        : undefined,
+      relationshipCheckpointDeferredCount: deferredCount,
+      relationshipCheckpointMustRestore: relationshipCheckpointDeferral.status === "overdue"
+        || deferredCount >= 3
     };
   }
   const people = rebuildPersonStates(input.userData, input.history, timelineAdvance.targetAgeInMonths, currentWorldState.people, input.answers);
@@ -1410,7 +1472,8 @@ export async function generateNextNode(
     timelineAdvance,
     ageContext,
     worldState,
-    foregroundPressureArc: workingPressureArc
+    foregroundPressureArc: workingPressureArc,
+    pressureArcInterleaved: isPressureArcInterleave
   });
 
   let latestRawNode: any = {};
@@ -1459,6 +1522,7 @@ export async function generateNextNode(
     node,
     previousState: currentFinancialState
   });
+  node = stripUnauthorizedRomanticCharacters(node, worldState);
 
   let consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people, worldState });
   let repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
@@ -1493,8 +1557,80 @@ export async function generateNextNode(
       node,
       previousState: currentFinancialState
     });
+    node = stripUnauthorizedRomanticCharacters(node, worldState);
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people, worldState });
     repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
+    const onlyRelationshipAuthorityConflict = nodeEvent?.routeLine !== "romance"
+      && !repeatsAcuteHealthCrisis
+      && consistencyIssues.some((issue) => issue.severity === "error")
+      && consistencyIssues.filter((issue) => issue.severity === "error").every((issue) => issue.code === "relationship_authority_conflict");
+    if (onlyRelationshipAuthorityConflict) {
+      const response = await callAiJson(`${prompt}\n\n【关系权威最终修复】\n上一次修复仍然让爱情正文或选项超前于权威关系状态。请重新生成完整节点，并严格执行：\n1. 只写上一步 selectedDecision 和本次事件种子的现实后果；\n2. 当前事件不是爱情形成或关系 checkpoint，description 与 choices 必须删除新伴侣、具体爱情候选、约会、追求、表白、正式交往、复合、同居、结婚或分手；\n3. 可以写普通社交、参加活动、认识普通朋友，但不得让某个具体人物成为发展对象；\n4. 返回完整合法 JSON，不要解释。`);
+      latestRawNode = parseAiJsonResponse(response);
+      if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "关系权威修复结果包含未授权的 Arc 状态修改。");
+      node = normalizeSimulationNode(latestRawNode, {
+        fallbackAge: timelineAdvance.targetAge,
+        minAge: timelineAdvance.targetAge,
+        maxAge: timelineAdvance.targetAge,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        previousAgeInMonths: currentAgeInMonths,
+        elapsedMonths: timelineAdvance.elapsedMonths,
+        lifeIntensity: timelineAdvance.lifeIntensity,
+        pressureArcId: workingPressureArc?.id
+      });
+      node = { ...node, isEndingNode: false, eventMeta: nodeEventMeta };
+      node = attachPendingFinancialContext({ node, previousState: currentFinancialState });
+      node = stripUnauthorizedRomanticCharacters(node, worldState);
+      consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people, worldState });
+      repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
+      const relationshipConflictRemains = !repeatsAcuteHealthCrisis
+        && consistencyIssues.some((issue) => issue.severity === "error")
+        && consistencyIssues.filter((issue) => issue.severity === "error").every((issue) => issue.code === "relationship_authority_conflict");
+      if (relationshipConflictRemains) {
+        const fallbackOutcomes = nodeEvent?.intent.allowedOutcomes?.length
+          ? nodeEvent.intent.allowedOutcomes
+          : ["maintain_current_direction", "adjust_execution_rhythm", "reassess_current_direction"];
+        const fallbackChoiceTexts = [
+          "按当前方向继续推进，同时保留必要的时间和资源缓冲",
+          "降低短期投入强度，先验证现实反馈再决定下一步",
+          "调整执行路径，把精力转向更可持续的替代方案"
+        ];
+        const fallbackDescription = `接下来的 ${timelineAdvance.elapsedMonths} 个月里，你继续处理当前选择带来的现实后果。本轮事件关注的是：${nodeEvent?.intent.meaning || "如何在现有生活条件下形成新的可执行方向"}。工作、家庭、健康和资源约束仍然存在，你没有把普通社交接触解释成已经成立的亲密关系。\n\n到了新的决策节点，真正需要确认的是执行强度、风险边界和替代路径。你可以继续推进，也可以降低投入或调整方向；任何关系阶段变化仍需等待对应事件和你的明确选择。`;
+        nodeEventMeta = {
+          ...(nodeEventMeta || { eventTags: [] }),
+          fallbackReason: "relationship_authority_deterministic_fallback"
+        };
+        node = {
+          ...node,
+          title: nodeEvent?.title || "现实路径的重新校准",
+          description: fallbackDescription,
+          descriptionParagraphs: splitNarrativeParagraphs(fallbackDescription),
+          eventMeta: nodeEventMeta,
+          choices: fallbackChoiceTexts.map((text, index) => {
+            const outcome = fallbackOutcomes[index % fallbackOutcomes.length];
+            return {
+              id: `relationship_authority_fallback_${String.fromCharCode(65 + index)}`,
+              text,
+              impactSummary: ["继续推进", "控制风险", "调整方向"][index],
+              eventOutcomeId: outcome,
+              decisionIntent: `fallback:${nodeEvent?.intent.type || "ordinary"}:${outcome}`,
+              expectedWorldDeltaTypes: fallbackWorldDeltaTypes({ ...node, eventMeta: nodeEventMeta })
+            };
+          }),
+          narrativeMeta: node.narrativeMeta ? {
+            ...node.narrativeMeta,
+            activeCharacters: [],
+            relationshipProposals: [],
+            worldDeltas: (node.narrativeMeta.worldDeltas || []).filter((delta) => delta.type !== "relationship_change"),
+            storyEpisode: {
+              ...node.narrativeMeta.storyEpisode,
+              summary: fallbackDescription
+            }
+          } : node.narrativeMeta
+        };
+        consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people, worldState });
+      }
+    }
     if (repeatsAcuteHealthCrisis || consistencyIssues.some((issue) => issue.severity === "error")) {
       throw new AiClientError(
         "AI_RESPONSE_INVALID",
@@ -1598,9 +1734,24 @@ export async function generateNextNode(
     pressureArc: workingPressureArc,
     recentHistory: input.history,
     targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
     allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
     narrativeMode: nodeEvent?.narrativeMode
   });
+  const densityLimitedNode = downgradeDensityLimitedNode(node, decisionGate.reasonCodes);
+  if (densityLimitedNode !== node) {
+    node = densityLimitedNode;
+    decisionGate = evaluateDecisionGate({
+      candidateNode: node,
+      previousNode: lastNode,
+      pressureArc: workingPressureArc,
+      recentHistory: input.history,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
+      allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
+      narrativeMode: nodeEvent?.narrativeMode
+    });
+  }
   if (decisionGate.isDecisionCheckpoint && decisionGate.blockedDecisionIntents.length > 0) {
     node = removeBlockedChoicesAfterRepair(node, decisionGate.blockedDecisionIntents);
     decisionGate = evaluateDecisionGate({
@@ -1609,6 +1760,7 @@ export async function generateNextNode(
       pressureArc: workingPressureArc,
       recentHistory: input.history,
       targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
       allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
       narrativeMode: nodeEvent?.narrativeMode
     });
@@ -1636,6 +1788,7 @@ export async function generateNextNode(
       node,
       previousState: currentFinancialState
     });
+    node = stripUnauthorizedRomanticCharacters(node, worldState);
     node = removeBlockedChoicesAfterRepair(node, decisionGate.blockedDecisionIntents);
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people, worldState });
     repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
@@ -1653,9 +1806,24 @@ export async function generateNextNode(
       pressureArc: workingPressureArc,
       recentHistory: input.history,
       targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
       allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
       narrativeMode: nodeEvent?.narrativeMode
     });
+    const repairedDensityLimitedNode = downgradeDensityLimitedNode(node, decisionGate.reasonCodes);
+    if (repairedDensityLimitedNode !== node) {
+      node = repairedDensityLimitedNode;
+      decisionGate = evaluateDecisionGate({
+        candidateNode: node,
+        previousNode: lastNode,
+        pressureArc: workingPressureArc,
+        recentHistory: input.history,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
+        allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
+        narrativeMode: nodeEvent?.narrativeMode
+      });
+    }
     if (!decisionGate.isDecisionCheckpoint) {
       throw new AiClientError(
         "AI_RESPONSE_INVALID",
@@ -1668,6 +1836,8 @@ export async function generateNextNode(
   // Otherwise a later consistency or DecisionGate rewrite can silently remove
   // a valid pressure_resolved signal and prevent the reflection invitation.
   if (
+    !isPressureArcInterleave
+    &&
     workingPressureArc?.phasePolicyId === HEALTH_CRISIS_PHASE_POLICY.id
     && workingPressureArc.phaseId === "operation"
     && !hasMatchingPressureResolvedSignal(node, workingPressureArc, pressureArcPolicy)
@@ -1705,6 +1875,7 @@ export async function generateNextNode(
         node: repairedNode,
         previousState: currentFinancialState
       });
+      repairedNode = stripUnauthorizedRomanticCharacters(repairedNode, worldState);
       const repairedConsistencyIssues = validateStoryConsistency({
         node: repairedNode,
         targetAgeInMonths: timelineAdvance.targetAgeInMonths,
@@ -1729,6 +1900,7 @@ export async function generateNextNode(
         pressureArc: workingPressureArc,
         recentHistory: input.history,
         targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
         allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
         narrativeMode: nodeEvent?.narrativeMode
       });
@@ -1799,6 +1971,7 @@ export async function generateNextNode(
   const pressureArcTransition = reducePressureArc({
     currentArc: workingPressureArc,
     policy: pressureArcPolicy,
+    interleave: isPressureArcInterleave,
     selectedDecision: input.selectedDecision,
     acceptedOutcome,
     attributes: node.attributes,

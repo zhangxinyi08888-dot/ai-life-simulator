@@ -194,6 +194,10 @@ export interface EventMeta {
   relationshipCheckpointDueAtAgeInMonths?: number;
   relationshipCheckpointMaxAtAgeInMonths?: number;
   relationshipCheckpointDeferred?: boolean;
+  relationshipCheckpointKey?: string;
+  relationshipCheckpointDeferredCount?: number;
+  relationshipCheckpointMustRestore?: boolean;
+  pressureArcInterleaved?: boolean;
 }
 
 export type WorldDelta =
@@ -484,7 +488,7 @@ export interface SimulationNode {
   committedArcMeta?: {
     pressureArcId?: string;
     phaseId?: string;
-    transitionAction?: "start" | "stay" | "advance" | "fallback" | "suspend" | "resume" | "resolve";
+    transitionAction?: "start" | "stay" | "advance" | "fallback" | "suspend" | "resume" | "interleave" | "resolve";
   };
   reportInvitation?: ReportInvitationMeta;
 }

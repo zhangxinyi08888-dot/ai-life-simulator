@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { LifeEventSeed } from "../../data/lifeEvents";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData, WorldStateSnapshot } from "../../types";
-import { buildNextNodePrompt } from "./prompts";
+import { buildNextNodePrompt, buildNodePromptWithRetryNotice } from "./prompts";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -87,6 +87,7 @@ assert.match(prompt, /年龄约束执行条件，不约束人生愿望/);
 assert.match(prompt, /55岁创业/);
 assert.match(prompt, /temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId/);
 assert.match(prompt, /每个 choice 必须返回 eventOutcomeId/);
+assert.match(buildNodePromptWithRetryNotice(prompt, ["invalidJson"]), /返回内容不是可解析的完整 JSON/);
 assert.match(prompt, /decisionIntent 是代码识别行动方向的稳定指纹/);
 assert.match(prompt, /领域:动作:对象/);
 assert.match(prompt, /语义相同的行动必须复用已有 decisionIntent/);
@@ -104,6 +105,8 @@ assert.match(prompt, /employmentStatus 不属于财务 Proposal/);
 assert.doesNotMatch(prompt, /financialSignals 必须放在返回 JSON 顶层/);
 assert.match(prompt, /最终金额由系统统一计算和展示/);
 assert.match(prompt, /不得凭空提交就业状态转换/);
+assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
+assert.match(prompt, /没有 relationship outcome id 时/);
 assert.match(prompt, /career_state worldDelta 才能增加 employmentTransition/);
 assert.match(prompt, /sourceOutcomeId 必须等于上方已接受 outcome id/);
 assert.match(prompt, /其他人物上学、退休、工作/);

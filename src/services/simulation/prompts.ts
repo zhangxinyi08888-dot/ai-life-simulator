@@ -72,6 +72,7 @@ export function buildNodePromptWithRetryNotice(prompt: string, previousIssues: s
   if (previousIssues.length === 0) return prompt;
 
   const issueLabels: Record<string, string> = {
+    invalidJson: "返回内容不是可解析的完整 JSON",
     description: "descriptionParagraphs 剧情正文段落",
     attributes: "attributes 五维数值",
     choices: "choices 选项",
@@ -185,10 +186,11 @@ interface NextNodePromptInput {
   ageContext?: AgeContext;
   worldState?: WorldStateSnapshot;
   foregroundPressureArc?: PressureArcState;
+  pressureArcInterleaved?: boolean;
 }
 
 export function buildNextNodePrompt(input: NextNodePromptInput): string {
-  const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc } = input;
+  const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc, pressureArcInterleaved } = input;
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
   const selectedOutcomeId = input.selectedOutcomeId;
@@ -224,10 +226,12 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
         return `- familyRelationshipId=${relationship.id}，role=${relationship.role}，人物=${person?.displayName || "未具名父母"}，activation=${relationship.activation}，contact=${relationship.contact}，emotionalSupport=${relationship.emotionalSupport}，practicalSupport=${relationship.practicalSupport}，autonomyRespect=${relationship.autonomyRespect}，conflictIntensity=${relationship.conflictIntensity}，topicStances=${stances}`;
       }).join("\n")
     : "- 暂无权威家庭关系状态；不得根据一般家庭想象补写父母立场或压力";
-  const pressurePrompt = foregroundPressureArc
+  const pressurePrompt = foregroundPressureArc && pressureArcInterleaved
+    ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点是为避免关系 checkpoint 饥饿或越过硬截止而插入 PressureArc 的关系 checkpoint：压力主线只作为背景保留，不得推进、解决或切换 phase；arcSignals 必须返回空数组。`
+    : foregroundPressureArc
     ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点事件只提供场景，不得替换这条压力主线；模型不得修改 PressureArc 的 id、eventId、phase 或 status，只能返回 arcSignals。`
     : "当前没有前台 PressureArc；事件只能提出事实结果，不能自行创建或修改 Arc 状态。";
-  const pressureResolutionRule = foregroundPressureArc?.phaseId === "operation"
+  const pressureResolutionRule = !pressureArcInterleaved && foregroundPressureArc?.phaseId === "operation"
     ? `
 【当前阶段收束要求】
 - 本节点必须写清当前阶段压力最终形成了什么结果。
@@ -236,7 +240,7 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
 - pressureArcId 必须为 ${foregroundPressureArc.id}。
 - 这里只表示阶段压力解决，不表示 DirectionArc 或长期人生方向完成。`
     : "";
-  const healthPhaseRule = foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
+  const healthPhaseRule = !pressureArcInterleaved && foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
     ? foregroundPressureArc.phaseId === "trigger"
       ? `
 【健康危机触发阶段】
@@ -311,6 +315,8 @@ ${healthPhaseRule}
 【上一步做出的命运裁决】
 用户在刚才的十字路口选择了：【${selectedDecision}】
 ${selectedOutcomeId ? `该选择对应的已接受 outcome id：【${selectedOutcomeId}】` : "该选择没有结构化 outcome id；不得凭空提交就业状态转换。"}
+- 上述 selectedDecision 是本轮唯一获授权执行的分支。正文必须写它造成的现实后果，禁止执行、拼接或暗中延续同一节点里用户没有选择的其他选项。
+- 没有 relationship outcome id 时，可以描述普通社交、相亲尝试或未深入的接触，但不得让某个具体人物进入追求、深入交往、感情升温、正式交往、共同生活或婚姻；这些变化只能由对应爱情事件及用户接受的 outcome 提交。
 ${eventSeedPrompt}
 
 【本次推演任务】
@@ -326,6 +332,8 @@ ${FINANCIAL_NARRATIVE_RULE}
 ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、relationshipProposals、activeCharacters、primaryActivity、storyEpisode。
 - 爱情人物素材只放入 activeCharacters；新爱情候选必须使用 candidateOrdinal=0。爱情状态 Proposal 由代码根据事件和用户实际选择确定性派生，模型不得返回 person_introduction、romantic_transition、candidateKey、人物 id 或关系 id。
+- 权威 relationship stage 是唯一关系事实。普通事业、家庭、健康或生活节点不得把专业联系人写成爱情对象，也不得让选项现在或未来必然执行正式交往、同居、领证、结婚或婚礼；只能讨论、评估或考虑是否推进。只有当前爱情 lifecycle 事件列出的 allowedOutcomes 才能改变 stage。
+- 如果权威 stage 是 acquaintance/exploring，不得写成现任伴侣或正式交往；如果 stage 是 dating，不得写成共同生活、婚后、妻子或丈夫。不得因为时间流逝或此前计划自动视为已经同居或结婚。
 - relationshipProposals 仅用于需要语义判断的家庭候选事实；没有明确的家庭关系变化时返回空数组。
 - 只有当某个选项明确让父亲、母亲或父母进入后续生活时，才可为该选项返回 family_activation；sourceOutcomeId 必须等于该选项 eventOutcomeId，evidence 必须逐字摘自正文或该选项。正文单独提到父母、未被选择的选项、模型补写的家庭背景都不能激活父母线。
 - parent_topic_stance 只能记录正文已经发生的具体回应，并绑定对应 outcome；担忧但尊重决定必须写 concerned_but_respectful，不能写 opposed。一次担忧不能推出“一贯保守”，一次争吵不能推出“控制型家庭”，经济上无法帮助不能推出情感不支持。

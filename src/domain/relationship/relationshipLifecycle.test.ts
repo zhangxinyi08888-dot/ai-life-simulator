@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { RelationshipState, WorldStateSnapshot } from "../../types";
+import type { HistoryItem, RelationshipState, WorldStateSnapshot } from "../../types";
 import {
   advanceExplorationProgression,
   createCommitmentProgression,
   createExplorationProgression,
+  deriveRelationshipDeferralState,
   deriveRelationshipCheckpointStatus,
   deriveRelationshipCheckpointDeferral,
   explorationNeedsResolution,
+  relationshipCheckpointKey,
   relationshipProgressionWeightMultiplier
 } from "./relationshipLifecycle";
 import { ensureRelationshipWorldState, reduceRelationshipState } from "./relationshipState";
@@ -49,7 +51,73 @@ test("eligible exploration weight grows without changing due and max timestamps"
   assert.equal(relationshipProgressionWeightMultiplier(progression, 363), 1.5);
   assert.equal(relationshipProgressionWeightMultiplier(progression, 366), 3);
   assert.equal(relationshipProgressionWeightMultiplier(progression, 369), 6);
-  assert.equal(relationshipProgressionWeightMultiplier(progression, 372), 1);
+  assert.equal(relationshipProgressionWeightMultiplier(progression, 372), 8);
+  assert.equal(relationshipProgressionWeightMultiplier(progression, 379), 12);
+});
+
+test("deferral state is derived from one stable checkpoint key and supports legacy metadata", () => {
+  const progression = createExplorationProgression(360);
+  const relationship: RelationshipState = {
+    id: "relationship_person",
+    participantPersonIds: ["person"],
+    type: "romantic",
+    stage: "exploring",
+    status: "active",
+    effectiveFromAgeInMonths: 360,
+    progression,
+    source: "accepted_history",
+    confidence: 0.9
+  };
+  const checkpoint = {
+    relationship,
+    progression,
+    status: deriveRelationshipCheckpointStatus(progression, 379)
+  } as const;
+  const checkpointKey = relationshipCheckpointKey(checkpoint);
+  const deferredItem = (ageInMonths: number, includeKey: boolean): HistoryItem => ({
+    age: Math.floor(ageInMonths / 12),
+    ageInMonths,
+    stage: "early_adulthood",
+    title: "强制事件",
+    description: "关系检查点被强制事件推迟。",
+    selectedChoice: "继续",
+    attributes: { happiness: 50, intelligence: 60, wealth: 50, relation: 50, health: 50 },
+    choices: [],
+    isEndingNode: false,
+    eventMeta: {
+      eventTags: ["forced"],
+      relationshipCheckpointKind: "exploration_review",
+      relationshipCheckpointDueAtAgeInMonths: progression.dueAtAgeInMonths,
+      relationshipCheckpointMaxAtAgeInMonths: progression.maxAtAgeInMonths,
+      relationshipCheckpointDeferred: true,
+      ...(includeKey ? { relationshipCheckpointKey: checkpointKey } : {})
+    },
+    worldStateSnapshot: {
+      people: [],
+      directionArcs: [],
+      pressureArcs: [],
+      relationships: [relationship],
+      version: 2
+    }
+  });
+  const history = [
+    deferredItem(373, false),
+    deferredItem(376, true),
+    deferredItem(379, true)
+  ];
+  assert.deepEqual(deriveRelationshipDeferralState(history, checkpoint), {
+    checkpointKey,
+    consecutiveDeferredNodes: 3,
+    mustRestore: true
+  });
+
+  const nextProgression = advanceExplorationProgression(progression, 379);
+  const nextCheckpoint = {
+    relationship: { ...relationship, progression: nextProgression },
+    progression: nextProgression,
+    status: deriveRelationshipCheckpointStatus(nextProgression, 379)
+  } as const;
+  assert.equal(deriveRelationshipDeferralState(history, nextCheckpoint).consecutiveDeferredNodes, 0);
 });
 
 test("legacy exploring and dating relationships receive one-time progression migration", () => {

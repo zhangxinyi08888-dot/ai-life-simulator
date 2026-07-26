@@ -32,6 +32,16 @@ export function removeBlockedChoicesAfterRepair(node: SimulationNode, blockedInt
   return availableChoices.length >= 2 ? { ...node, choices: availableChoices } : node;
 }
 
+export function downgradeDensityLimitedNode(node: SimulationNode, reasonCodes: string[]): SimulationNode {
+  if (!reasonCodes.includes("node-density-exceeded")) return node;
+  return {
+    ...node,
+    narrativeMeta: node.narrativeMeta
+      ? { ...node.narrativeMeta, lifeIntensity: "normal" }
+      : node.narrativeMeta
+  };
+}
+
 function repeatedPreviousDecision(node: SimulationNode, previous?: HistoryItem): boolean {
   if (!previous) return false;
   const previousText = previous.selectedChoice.trim();

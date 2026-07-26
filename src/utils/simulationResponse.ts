@@ -1,6 +1,7 @@
 import { LifeIntensity, RecoveryState, SimulationChoice, SimulationNode, WorldDelta } from "../types";
 import { deriveLifeStage } from "./timelineAdvance";
 import { stableHash } from "./stableRandom";
+import { isValidRomanceDisplayName } from "./romanceCandidateName";
 
 interface NormalizeOptions {
   fallbackAge?: number;
@@ -281,8 +282,7 @@ export function groundedRomanceCharacter(node: Record<string, any>, eventIntentT
   const description = readNodeDescription(node);
   const candidate = activeCharacters.find((character) => (
     character.candidateOrdinal === 0
-    && typeof character.displayName === "string"
-    && character.displayName.trim().length > 0
+    && isValidRomanceDisplayName(character.displayName)
     && ["active_scene", "remote_contact"].includes(String(character.presenceMode || ""))
   ));
   if (!candidate) return undefined;

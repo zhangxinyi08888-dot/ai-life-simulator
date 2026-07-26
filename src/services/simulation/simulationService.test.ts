@@ -6,6 +6,10 @@ import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFi
 import { queryDynamicLifeEvent } from "../../data/lifeEvents";
 import { createSelectionEntropy } from "../../config/lineMixPolicy";
 import { buildBranchFingerprint } from "../../utils/timelineAdvance";
+import {
+  createExplorationProgression,
+  relationshipCheckpointKey
+} from "../../domain/relationship/relationshipLifecycle";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -150,6 +154,38 @@ assert.equal(started.startNode.age, 22);
 assert.equal(started.startNode.financialLedgerMode, "authoritative");
 assert.equal(started.startNode.financialLedger?.asOfAgeInMonths, 22 * 12);
 assert.equal(started.startNode.financialLedger?.incomeSources[0]?.linkedCareerStateId, started.startNode.worldStateSnapshot?.currentCareerStateId);
+
+const relationshipStarted = await startSimulation({
+  ...userData,
+  regressionAge: 26,
+  regressionNodeKey: "relationship",
+  regressionSituation: "伴侣希望我放弃外地晋升，我们正在讨论是否继续这段关系",
+  regressionChoices: "留在本地；短期外派；结束关系",
+  coreStoryFocus: "relationship"
+}, [{ id: 1, question: "关系背景？", answer: "我们交往四年，目前仍是伴侣。" }], {
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      initialAttributes: { happiness: 50, intelligence: 70, wealth: 45, relation: 60, health: 68 },
+      startNode: {
+        age: 26,
+        stage: "关系选择",
+        title: "外派与关系",
+        description: "你拿到外派机会，伴侣希望你留在本地，你们需要决定是否继续这段关系。",
+        choices: [
+          { id: "A", text: "放弃外派，继续和伴侣共同生活", impactSummary: "留守关系" },
+          { id: "B", text: "接受一年外派，年底再评估关系", impactSummary: "短期分隔" },
+          { id: "C", text: "接受长期调任，如果对方无法接受就和平分手", impactSummary: "远调发展" }
+        ],
+        attributes: { happiness: 50, intelligence: 70, wealth: 45, relation: 60, health: 68 },
+        isEndingNode: false
+      }
+    })
+  })
+});
+assert.equal(relationshipStarted.startNode.worldStateSnapshot?.relationships[0]?.status, "active");
+assert.equal(relationshipStarted.startNode.choices[0].eventOutcomeId, undefined);
+assert.equal(relationshipStarted.startNode.choices[2].eventOutcomeId, "end_existing_romantic_relationship");
+assert.deepEqual(relationshipStarted.startNode.choices[2].expectedWorldDeltaTypes, ["relationship_change"]);
 
 const mortgageStarted = await startSimulation({
   ...userData,
@@ -1017,6 +1053,359 @@ assert.equal(genericOperationNode.narrativeMeta?.lifeIntensity, "stable");
 } finally {
   Math.random = originalMathRandom;
 }
+
+function pressureDenseRelationshipHistory(input: {
+  deferredCount: number;
+  atPhaseGap: boolean;
+  currentAgeInMonths?: number;
+}): HistoryItem[] {
+  const currentAgeInMonths = input.currentAgeInMonths ?? 378;
+  const progression = createExplorationProgression(360);
+  const relationship = {
+    id: "relationship_pressure_interleave",
+    participantPersonIds: ["person_pressure_interleave"],
+    type: "romantic" as const,
+    stage: "exploring" as const,
+    status: "active" as const,
+    effectiveFromAgeInMonths: 360,
+    progression,
+    source: "accepted_history" as const,
+    confidence: 0.95
+  };
+  const checkpointKey = relationshipCheckpointKey({ relationship, progression });
+  const arc: PressureArcState = {
+    id: "pressure_dense_relationship",
+    eventId: "career_venture_pressure",
+    eventIntentType: "career_venture_pressure",
+    phasePolicyId: "generic_pressure_v1",
+    phaseId: "growth",
+    status: "active",
+    startedAtAgeInMonths: 340,
+    phaseStartedAtAgeInMonths: 370,
+    phaseCheckpointCount: 0,
+    totalCheckpointCount: 2,
+    unresolvedSummary: "高压事业推进仍需分阶段处理"
+  };
+
+  return Array.from({ length: input.deferredCount }, (_, index) => ({
+    age: Math.floor(currentAgeInMonths / 12),
+    ageInMonths: currentAgeInMonths,
+    stage: "压力密集期",
+    title: `关系检查点推迟 ${index + 1}`,
+    description: "事业压力事件占用了这一节点，关系检查点保留等待恢复。",
+    selectedChoice: "继续处理当前压力",
+    selectedDecisionIntent: "career:continue:pressure_arc",
+    attributes,
+    choices: [{
+      id: "A",
+      text: "继续处理当前压力",
+      impactSummary: "推进压力事件",
+      decisionIntent: "career:continue:pressure_arc"
+    }],
+    eventMeta: {
+      eventId: "career_pressure_continuation",
+      eventCategory: "career",
+      eventTags: ["career", "pressure"],
+      selectionKind: "forced",
+      relationshipCheckpointKind: "exploration_review",
+      relationshipCheckpointStatus: "due",
+      relationshipCheckpointWaitMonths: currentAgeInMonths - progression.startedAtAgeInMonths,
+      relationshipCheckpointDueAtAgeInMonths: progression.dueAtAgeInMonths,
+      relationshipCheckpointMaxAtAgeInMonths: progression.maxAtAgeInMonths,
+      relationshipCheckpointDeferred: true,
+      relationshipCheckpointKey: checkpointKey,
+      relationshipCheckpointDeferredCount: index + 1,
+      relationshipCheckpointMustRestore: index + 1 >= 3
+    },
+    committedArcMeta: {
+      pressureArcId: arc.id,
+      phaseId: arc.phaseId,
+      transitionAction: index === input.deferredCount - 1 && input.atPhaseGap
+        ? "advance"
+        : "stay"
+    },
+    isEndingNode: false,
+    worldStateSnapshot: {
+      people: [{
+        id: "person_pressure_interleave",
+        identityKey: { namespace: "accepted_character", key: "candidate_pressure_interleave" },
+        displayName: "林遥",
+        relation: "partner",
+        lifeStatus: "active",
+        relationshipSummary: "正在持续了解的同一人物",
+        source: "accepted_history",
+        confidence: 0.95
+      }],
+      directionArcs: [],
+      pressureArcs: [{ ...arc }],
+      foregroundPressureArcId: arc.id,
+      relationships: [{ ...relationship, progression: { ...progression } }],
+      relationshipProgressionVersion: 1,
+      committedTransactionIds: [],
+      version: 2
+    }
+  }));
+}
+
+function relationshipCheckpointRawNode() {
+  return {
+    age: 31,
+    stage: "关系复盘",
+    title: "需要确认的相处方向",
+    description: "你和林遥持续联系了一段时间。现在你们需要决定正式交往、继续慢慢了解，还是结束浪漫探索。",
+    choices: [
+      { id: "A", text: "确认接下来的关系方向", impactSummary: "确认方向" },
+      { id: "B", text: "讨论彼此的现实节奏", impactSummary: "讨论节奏" },
+      { id: "C", text: "说明各自的边界", impactSummary: "说明边界" }
+    ],
+    attributes,
+    narrativeMeta: {
+      activeCharacters: []
+    },
+    isEndingNode: false
+  };
+}
+
+const directRelationshipHistory = pressureDenseRelationshipHistory({
+  deferredCount: 1,
+  atPhaseGap: false,
+  currentAgeInMonths: 372
+}).map((item) => ({
+  ...item,
+  eventMeta: {
+    eventId: "ordinary_before_relationship_checkpoint",
+    eventCategory: "career" as const,
+    eventTags: ["career"],
+    selectionKind: "main" as const
+  },
+  committedArcMeta: undefined,
+  worldStateSnapshot: {
+    ...item.worldStateSnapshot!,
+    pressureArcs: [],
+    foregroundPressureArcId: undefined
+  }
+}));
+const directRelationshipNode = await generateNextNode({
+  userData,
+  answers,
+  history: directRelationshipHistory,
+  currentAttributes: attributes,
+  selectedDecision: "继续当前生活",
+  nodeIndex: directRelationshipHistory.length,
+  simulationSeed: "relationship-due-without-forced-event"
+}, {
+  callAiJson: async () => ({ text: JSON.stringify(relationshipCheckpointRawNode()) })
+});
+
+assert.equal(directRelationshipNode.eventMeta?.eventId, "romance_connection_clarification");
+assert.equal(directRelationshipNode.eventMeta?.selectionKind, "relationship_follow_up");
+assert.equal(directRelationshipNode.eventMeta?.relationshipCheckpointStatus, "due");
+assert.equal(directRelationshipNode.eventMeta?.relationshipCheckpointDeferredCount, 0);
+assert.notEqual(directRelationshipNode.eventMeta?.relationshipCheckpointMustRestore, true);
+
+const deadlineBeforeNewHealthArcHistory = pressureDenseRelationshipHistory({
+  deferredCount: 1,
+  atPhaseGap: false,
+  currentAgeInMonths: 378
+}).map((item) => ({
+  ...item,
+  eventMeta: {
+    eventId: "ordinary_at_relationship_deadline",
+    eventCategory: "career" as const,
+    eventTags: ["career"],
+    selectionKind: "main" as const
+  },
+  committedArcMeta: undefined,
+  worldStateSnapshot: {
+    ...item.worldStateSnapshot!,
+    pressureArcs: [],
+    foregroundPressureArcId: undefined
+  }
+}));
+const deadlineBeforeNewHealthArcNode = await generateNextNode({
+  userData,
+  answers,
+  history: deadlineBeforeNewHealthArcHistory,
+  currentAttributes: { ...attributes, health: 20 },
+  selectedDecision: "继续当前生活",
+  nodeIndex: deadlineBeforeNewHealthArcHistory.length,
+  simulationSeed: "relationship-deadline-before-new-health-arc"
+}, {
+  callAiJson: async () => ({ text: JSON.stringify(relationshipCheckpointRawNode()) })
+});
+
+assert.equal(deadlineBeforeNewHealthArcNode.eventMeta?.eventId, "romance_connection_clarification");
+assert.equal(deadlineBeforeNewHealthArcNode.eventMeta?.selectionKind, "relationship_follow_up");
+assert.equal(deadlineBeforeNewHealthArcNode.ageInMonths, 379, "a new health arc must not push restoration past maxAt + 1");
+assert.equal(deadlineBeforeNewHealthArcNode.worldStateSnapshot?.foregroundPressureArcId, undefined);
+
+let pressureInterleavePrompt = "";
+const pressureInterleaveHistory = pressureDenseRelationshipHistory({
+  deferredCount: 3,
+  atPhaseGap: true
+});
+const pressureArcBeforeInterleave = pressureInterleaveHistory.at(-1)!.worldStateSnapshot!.pressureArcs[0]!;
+const restoredRelationshipNode = await generateNextNode({
+  userData,
+  answers,
+  history: pressureInterleaveHistory,
+  currentAttributes: attributes,
+  selectedDecision: "继续处理当前压力",
+  nodeIndex: pressureInterleaveHistory.length,
+  simulationSeed: "pressure-relationship-starvation-free"
+}, {
+  callAiJson: async (prompt) => {
+    pressureInterleavePrompt = prompt;
+    return { text: JSON.stringify(relationshipCheckpointRawNode()) };
+  }
+});
+
+assert.equal(restoredRelationshipNode.eventMeta?.eventId, "romance_connection_clarification");
+assert.equal(restoredRelationshipNode.eventMeta?.selectionKind, "relationship_follow_up");
+assert.equal(restoredRelationshipNode.eventMeta?.relationshipCheckpointDeferredCount, 3);
+assert.equal(restoredRelationshipNode.eventMeta?.relationshipCheckpointMustRestore, true);
+assert.notEqual(restoredRelationshipNode.eventMeta?.relationshipCheckpointDeferred, true);
+assert.equal(restoredRelationshipNode.eventMeta?.pressureArcInterleaved, true);
+assert.equal(restoredRelationshipNode.committedArcMeta?.transitionAction, "interleave");
+assert.equal(restoredRelationshipNode.ageInMonths, 379, "the overdue restoration advances only one month");
+assert.match(pressureInterleavePrompt, /为避免关系 checkpoint 饥饿或越过硬截止而插入 PressureArc/);
+const pressureArcAfterInterleave = restoredRelationshipNode.worldStateSnapshot?.pressureArcs.find(
+  (arc) => arc.id === pressureArcBeforeInterleave.id
+);
+assert.deepEqual(pressureArcAfterInterleave, pressureArcBeforeInterleave, "interleave must not advance or resolve the active pressure arc");
+assert.equal(
+  restoredRelationshipNode.narrativeMeta?.activeCharacters.find((character) => character.personId === "person_pressure_interleave")?.displayName,
+  "林遥",
+  "the restored checkpoint must keep the authoritative romantic person"
+);
+
+const noGapMustRestoreHistory = pressureDenseRelationshipHistory({
+  deferredCount: 3,
+  atPhaseGap: false,
+  currentAgeInMonths: 376
+});
+const noGapPressureArcBeforeInterleave = noGapMustRestoreHistory.at(-1)!.worldStateSnapshot!.pressureArcs[0]!;
+const noGapMustRestoreNode = await generateNextNode({
+  userData,
+  answers,
+  history: noGapMustRestoreHistory,
+  currentAttributes: attributes,
+  selectedDecision: "继续处理当前压力",
+  nodeIndex: noGapMustRestoreHistory.length,
+  simulationSeed: "pressure-relationship-hard-three-node-bound"
+}, {
+  callAiJson: async () => ({ text: JSON.stringify(relationshipCheckpointRawNode()) })
+});
+
+assert.equal(noGapMustRestoreNode.eventMeta?.eventId, "romance_connection_clarification");
+assert.equal(noGapMustRestoreNode.eventMeta?.selectionKind, "relationship_follow_up");
+assert.equal(noGapMustRestoreNode.eventMeta?.relationshipCheckpointDeferredCount, 3);
+assert.equal(noGapMustRestoreNode.eventMeta?.relationshipCheckpointMustRestore, true);
+assert.equal(noGapMustRestoreNode.eventMeta?.pressureArcInterleaved, true);
+assert.equal(noGapMustRestoreNode.committedArcMeta?.transitionAction, "interleave");
+assert.equal(noGapMustRestoreNode.ageInMonths, 377, "three deferrals must restore even before the pressure phase gap");
+assert.deepEqual(
+  noGapMustRestoreNode.worldStateSnapshot?.pressureArcs.find((arc) => arc.id === noGapPressureArcBeforeInterleave.id),
+  noGapPressureArcBeforeInterleave,
+  "hard-bound interleave must preserve the active pressure arc"
+);
+
+const postHealthResolutionHistory = pressureDenseRelationshipHistory({
+  deferredCount: 3,
+  atPhaseGap: false
+});
+const postHealthResolutionLast = postHealthResolutionHistory.at(-1)!;
+postHealthResolutionLast.committedArcMeta = {
+  pressureArcId: "pressure_dense_relationship",
+  phaseId: "operation",
+  transitionAction: "resolve"
+};
+postHealthResolutionLast.worldStateSnapshot = {
+  ...postHealthResolutionLast.worldStateSnapshot!,
+  pressureArcs: [{
+    ...postHealthResolutionLast.worldStateSnapshot!.pressureArcs[0],
+    phaseId: "operation",
+    status: "resolved"
+  }],
+  foregroundPressureArcId: undefined
+};
+const postHealthRestorationNode = await generateNextNode({
+  userData,
+  answers,
+  history: postHealthResolutionHistory,
+  currentAttributes: { ...attributes, health: 45 },
+  selectedDecision: "继续恢复后的生活",
+  nodeIndex: postHealthResolutionHistory.length,
+  simulationSeed: "relationship-restored-after-health-resolution"
+}, {
+  callAiJson: async () => ({ text: JSON.stringify(relationshipCheckpointRawNode()) })
+});
+
+assert.equal(postHealthRestorationNode.eventMeta?.eventId, "romance_connection_clarification");
+assert.equal(postHealthRestorationNode.eventMeta?.selectionKind, "relationship_follow_up");
+assert.equal(postHealthRestorationNode.eventMeta?.relationshipCheckpointDeferredCount, 3);
+assert.equal(postHealthRestorationNode.eventMeta?.relationshipCheckpointMustRestore, true);
+assert.equal(postHealthRestorationNode.worldStateSnapshot?.foregroundPressureArcId, undefined);
+
+const boundedPressureHistory = pressureDenseRelationshipHistory({
+  deferredCount: 1,
+  atPhaseGap: false,
+  currentAgeInMonths: 377
+});
+const boundedPressureNode = await generateNextNode({
+  userData,
+  answers,
+  history: boundedPressureHistory,
+  currentAttributes: attributes,
+  selectedDecision: "继续处理当前压力",
+  nodeIndex: boundedPressureHistory.length,
+  simulationSeed: "pressure-relationship-boundary-clamp"
+}, {
+  callAiJson: async () => ({
+    text: JSON.stringify(genericArcRawNode({ arcId: "pressure_dense_relationship" }))
+  })
+});
+
+assert.equal(boundedPressureNode.ageInMonths, 378, "forced-event duration must be clamped to the relationship maxAt boundary");
+assert.equal(boundedPressureNode.eventMeta?.relationshipCheckpointDeferred, true);
+assert.equal(boundedPressureNode.eventMeta?.relationshipCheckpointDeferredCount, 2);
+assert.notEqual(boundedPressureNode.committedArcMeta?.transitionAction, "interleave");
+
+const deadlinePressureHistory = [
+  ...boundedPressureHistory,
+  {
+    ...boundedPressureNode,
+    selectedChoice: boundedPressureNode.choices[0].text,
+    selectedDecisionIntent: boundedPressureNode.choices[0].decisionIntent,
+    selectedEventOutcomeId: boundedPressureNode.choices[0].eventOutcomeId
+  } as HistoryItem
+];
+const deadlinePressureArcBeforeInterleave = deadlinePressureHistory.at(-1)!
+  .worldStateSnapshot!.pressureArcs.find((arc) => arc.status === "active")!;
+const deadlineRestorationNode = await generateNextNode({
+  userData,
+  answers,
+  history: deadlinePressureHistory,
+  currentAttributes: boundedPressureNode.attributes,
+  selectedDecision: boundedPressureNode.choices[0].text,
+  nodeIndex: deadlinePressureHistory.length,
+  simulationSeed: "pressure-relationship-dispatch-deadline"
+}, {
+  callAiJson: async () => ({ text: JSON.stringify(relationshipCheckpointRawNode()) })
+});
+
+assert.equal(deadlineRestorationNode.eventMeta?.eventId, "romance_connection_clarification");
+assert.equal(deadlineRestorationNode.eventMeta?.selectionKind, "relationship_follow_up");
+assert.equal(deadlineRestorationNode.eventMeta?.relationshipCheckpointDeferredCount, 2);
+assert.equal(deadlineRestorationNode.eventMeta?.relationshipCheckpointMustRestore, false);
+assert.equal(deadlineRestorationNode.eventMeta?.pressureArcInterleaved, true);
+assert.equal(deadlineRestorationNode.committedArcMeta?.transitionAction, "interleave");
+assert.equal(deadlineRestorationNode.ageInMonths, 379, "dispatch must occur no later than maxAt + 1");
+assert.deepEqual(
+  deadlineRestorationNode.worldStateSnapshot?.pressureArcs.find((arc) => arc.id === deadlinePressureArcBeforeInterleave.id),
+  deadlinePressureArcBeforeInterleave,
+  "deadline interleave must preserve the active pressure arc without advancing its phase"
+);
 
 const legacyHealthHistory = healthArcHistory("operation", 1);
 const legacyHealthArc = legacyHealthHistory.at(-1)!.worldStateSnapshot!.pressureArcs[0]!;

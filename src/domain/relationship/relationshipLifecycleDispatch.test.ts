@@ -126,3 +126,31 @@ test("ordinary timeline cannot cross an active checkpoint maxAt boundary", () =>
   assert.equal(advance.targetAgeInMonths, 371);
   assert.ok(advance.reasonCodes.includes("timeline-boundary"));
 });
+
+test("commitment timeline is clamped at its own due and max boundaries", () => {
+  const progression = createCommitmentProgression(360);
+  const snapshot = historyWithProgression(progression, "dating", 361)[0].worldStateSnapshot;
+  const beforeDueBoundary = earliestRelationshipCheckpointTimelineBoundary(snapshot, 361);
+  assert.equal(beforeDueBoundary, 383);
+  const beforeDueAdvance = calculateTimelineAdvance({
+    currentAgeInMonths: 361,
+    temporalProfile: { lifeIntensity: "stable", durationMonths: [36, 60], requiresFollowUp: false },
+    simulationSeed: "commitment-before-due",
+    branchFingerprint: "branch",
+    hardMaximumAge: 100,
+    nextMilestoneAgeInMonths: beforeDueBoundary
+  });
+  assert.equal(beforeDueAdvance.targetAgeInMonths, 383);
+
+  const beforeMaxBoundary = earliestRelationshipCheckpointTimelineBoundary(snapshot, 407);
+  assert.equal(beforeMaxBoundary, 408);
+  const beforeMaxAdvance = calculateTimelineAdvance({
+    currentAgeInMonths: 407,
+    temporalProfile: { lifeIntensity: "stable", durationMonths: [24, 60], requiresFollowUp: false },
+    simulationSeed: "commitment-before-max",
+    branchFingerprint: "branch",
+    hardMaximumAge: 100,
+    nextMilestoneAgeInMonths: beforeMaxBoundary
+  });
+  assert.equal(beforeMaxAdvance.targetAgeInMonths, progression.maxAtAgeInMonths);
+});

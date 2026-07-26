@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, SimulationChoice, SimulationNode } from "../types";
-import { evaluateDecisionGate, removeBlockedChoicesAfterRepair } from "./decisionGate";
+import { downgradeDensityLimitedNode, evaluateDecisionGate, removeBlockedChoicesAfterRepair } from "./decisionGate";
 
 const base: SimulationNode = {
   age: 35,
@@ -160,6 +160,29 @@ assert.equal(evaluateDecisionGate({
   recentHistory: denseHistory,
   targetAgeInMonths: 492
 }).reasonCodes.includes("node-density-exceeded"), true);
+assert.equal(evaluateDecisionGate({
+  candidateNode: { ...base, narrativeMeta: denseHistory[0].narrativeMeta },
+  recentHistory: denseHistory,
+  targetAgeInMonths: 492,
+  independentCriticalEvent: true
+}).reasonCodes.includes("node-density-exceeded"), false, "causally required arc continuations must not soft-lock on density history");
+
+const densityLimitedCandidate = { ...base, narrativeMeta: denseHistory[0].narrativeMeta };
+const densityLimitedGate = evaluateDecisionGate({
+  candidateNode: densityLimitedCandidate,
+  recentHistory: denseHistory,
+  targetAgeInMonths: 492
+});
+const downgradedDensityCandidate = downgradeDensityLimitedNode(
+  densityLimitedCandidate,
+  densityLimitedGate.reasonCodes
+);
+assert.equal(downgradedDensityCandidate.narrativeMeta?.lifeIntensity, "normal");
+assert.equal(evaluateDecisionGate({
+  candidateNode: downgradedDensityCandidate,
+  recentHistory: denseHistory,
+  targetAgeInMonths: 492
+}).reasonCodes.includes("node-density-exceeded"), false, "density history must be resolved deterministically instead of asking the model to rewrite fixed history");
 
 const allowedOutcomeIds = ["consolidate_recovery_plan", "resume_activity_gradually", "adjust_plan_based_on_remaining_limits"];
 const validEventNode: SimulationNode = {

@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HistoryItem, WorldStateSnapshot } from "../../types";
-import { applySelectedRelationshipOutcome } from "./relationshipOutcome";
+import {
+  applySelectedRelationshipOutcome,
+  deriveOpeningRomanticOutcomeId,
+  END_EXISTING_ROMANTIC_RELATIONSHIP_OUTCOME
+} from "./relationshipOutcome";
 
 const baseWorld = (): WorldStateSnapshot => ({ people: [], directionArcs: [], pressureArcs: [], relationships: [], relationshipRevision: 0, version: 2 });
 
@@ -60,6 +64,21 @@ test("formation is rejected when evidence is not in the event narrative", () => 
   assert.equal(result.worldStateSnapshot.relationships?.length, 0);
 });
 
+test("formation is rejected when the proposed display name is a pronoun or generic role", () => {
+  const history = formationHistory();
+  const proposal = history.narrativeMeta!.relationshipProposals![0];
+  if (proposal.type !== "person_introduction") throw new Error("expected person proposal");
+  proposal.displayName = "你";
+  const result = applySelectedRelationshipOutcome({
+    current: baseWorld(), selectedHistoryItem: history, simulationSeed: "seed", branchFingerprint: "branch",
+    nodeIndex: 4, effectiveAtAgeInMonths: 363
+  });
+  assert.equal(result.committed, false);
+  assert.equal(result.reason, "invalid_or_missing_proposal");
+  assert.equal(result.worldStateSnapshot.people.length, 0);
+  assert.equal(result.worldStateSnapshot.relationships?.length, 0);
+});
+
 test("clarification advances only begin dating and keeps the same identity", () => {
   const formed = applySelectedRelationshipOutcome({
     current: baseWorld(), selectedHistoryItem: formationHistory(), simulationSeed: "seed", branchFingerprint: "branch",
@@ -110,12 +129,15 @@ test("declining romance records opt-down without creating a person or relationsh
   assert.equal(first.worldStateSnapshot.people.length, 0);
   assert.equal(first.worldStateSnapshot.relationships?.length, 0);
   assert.equal(first.worldStateSnapshot.routePreferences?.[0].openness, "neutral");
+  assert.equal(first.worldStateSnapshot.routePreferences?.[0].refusalCount, 1);
+  assert.equal(first.worldStateSnapshot.routePreferences?.[0].cooldownUntilAgeInMonths, 480);
   const second = applySelectedRelationshipOutcome({
     current: first.worldStateSnapshot, selectedHistoryItem: history, simulationSeed: "seed", branchFingerprint: "branch",
     nodeIndex: 15, effectiveAtAgeInMonths: 480
   });
   assert.equal(second.worldStateSnapshot.routePreferences?.[0].openness, "closed");
   assert.equal(second.worldStateSnapshot.routePreferences?.[0].refusalCount, 2);
+  assert.equal(second.worldStateSnapshot.routePreferences?.[0].cooldownUntilAgeInMonths, 720);
 });
 
 test("keeping a new contact as an acquaintance does not create a romantic relationship", () => {
@@ -125,6 +147,8 @@ test("keeping a new contact as an acquaintance does not create a romantic relati
   });
   assert.equal(result.worldStateSnapshot.relationships?.length, 0);
   assert.equal(result.worldStateSnapshot.routePreferences?.[0].openness, "neutral");
+  assert.equal(result.worldStateSnapshot.routePreferences?.[0].refusalCount, 0);
+  assert.equal(result.worldStateSnapshot.routePreferences?.[0].cooldownUntilAgeInMonths, 379);
 });
 
 test("parent wording in model narrative without a selected proposal cannot activate family", () => {
@@ -159,6 +183,56 @@ test("ending exploration keeps the person but ends the authoritative relationshi
   assert.equal(result.worldStateSnapshot.people.length, 1);
   assert.equal(result.worldStateSnapshot.relationships?.[0].status, "ended");
   assert.equal(result.worldStateSnapshot.relationships?.[0].progression, undefined);
+});
+
+test("an accepted opening breakup ends the authoritative partner relationship", () => {
+  const partner = {
+    id: "person_partner_current",
+    identityKey: { namespace: "user_role" as const, key: "partner:current" },
+    displayName: "伴侣",
+    relation: "partner" as const,
+    lifeStatus: "active" as const,
+    source: "user_fact" as const,
+    confidence: 0.9
+  };
+  const current: WorldStateSnapshot = {
+    ...baseWorld(),
+    people: [partner],
+    relationships: [{
+      id: "relationship_person_partner_current",
+      participantPersonIds: [partner.id],
+      type: "romantic",
+      stage: "dating",
+      status: "active",
+      effectiveFromAgeInMonths: 312,
+      source: "user",
+      confidence: 0.9
+    }]
+  };
+  const history = formationHistory(END_EXISTING_ROMANTIC_RELATIONSHIP_OUTCOME);
+  history.eventMeta = undefined;
+  history.selectedChoice = "接受长期调任，结束这段无法兼顾的关系";
+  history.choices = [{
+    id: "C",
+    text: history.selectedChoice,
+    impactSummary: "事业优先",
+    eventOutcomeId: END_EXISTING_ROMANTIC_RELATIONSHIP_OUTCOME
+  }];
+  history.selectedChoiceId = "C";
+  const result = applySelectedRelationshipOutcome({
+    current,
+    selectedHistoryItem: history,
+    simulationSeed: "seed",
+    branchFingerprint: "opening-breakup",
+    nodeIndex: 0,
+    effectiveAtAgeInMonths: 312
+  });
+  assert.equal(deriveOpeningRomanticOutcomeId(history.selectedChoice), END_EXISTING_ROMANTIC_RELATIONSHIP_OUTCOME);
+  assert.equal(result.committed, true);
+  assert.equal(result.worldStateSnapshot.relationships[0].stage, "separated");
+  assert.equal(result.worldStateSnapshot.relationships[0].status, "ended");
+  assert.equal(result.worldStateSnapshot.relationships[0].progression, undefined);
+  assert.equal(result.worldStateSnapshot.people[0].relation, "other");
 });
 
 test("formation is suppressed when an active romantic relationship already exists", () => {

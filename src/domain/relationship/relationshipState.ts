@@ -289,6 +289,10 @@ export function ensureRelationshipWorldState(snapshot: WorldStateSnapshot, ageIn
       && ["user_fact", "answer"].includes(person.source)
       && person.confidence >= 0.75
       && !["distant", "deceased"].includes(person.lifeStatus)
+      && !next.relationships.some((relationship) => (
+        relationship.type === "romantic"
+        && relationship.participantPersonIds.includes(person.id)
+      ))
     ));
     if (partner) {
       next.relationships.push({

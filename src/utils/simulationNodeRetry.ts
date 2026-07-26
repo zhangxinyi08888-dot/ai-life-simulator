@@ -36,11 +36,17 @@ export async function generateCompleteSimulationNode(
   let lastNode: Record<string, any> = {};
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    lastNode = repairDeterministicRomanceChoices(
-      await generateRawNode(attempt, issues),
-      options.eventIntentType,
-      options.allowedOutcomeIds
-    );
+    try {
+      lastNode = repairDeterministicRomanceChoices(
+        await generateRawNode(attempt, issues),
+        options.eventIntentType,
+        options.allowedOutcomeIds
+      );
+    } catch (error) {
+      issues = ["invalidJson"];
+      if (attempt === maxAttempts) throw error;
+      continue;
+    }
     issues = getSimulationNodeValidationIssues(lastNode, {
       allowedOutcomeIds: options.allowedOutcomeIds,
       eventIntentType: options.eventIntentType

@@ -159,6 +159,27 @@ assert.deepEqual(getSimulationNodeValidationIssues({
     { id: "C", text: "明确不发展浪漫关系，保持边界", impactSummary: "拒绝发展", eventOutcomeId: "decline_romantic_direction" }
   ]
 }, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), []);
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  description: "你在朋友聚会上认识了另一位瑜伽教练，对方邀请你以后一起参加活动。",
+  narrativeMeta: {
+    activeCharacters: [{
+      candidateOrdinal: 0,
+      displayName: "你",
+      relation: "other",
+      presenceMode: "active_scene",
+      currentRole: "瑜伽教练",
+      encounterType: "new_connection",
+      encounterContext: "personal",
+      groundingEvidence: "你在朋友聚会上认识了另一位瑜伽教练，对方邀请你以后一起参加活动。"
+    }]
+  },
+  choices: [
+    { id: "A", text: "继续和你私下见面，进一步了解彼此", impactSummary: "继续了解", eventOutcomeId: "continue_getting_to_know" },
+    { id: "B", text: "与你保持普通认识", impactSummary: "普通认识", eventOutcomeId: "keep_as_acquaintance" },
+    { id: "C", text: "明确不发展浪漫关系", impactSummary: "拒绝发展", eventOutcomeId: "decline_romantic_direction" }
+  ]
+}, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), ["romanceNarrativeGrounding"]);
 
 assert.deepEqual(getSimulationNodeValidationIssues({
   ...eventContractNode,

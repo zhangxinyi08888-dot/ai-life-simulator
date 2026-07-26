@@ -65,13 +65,20 @@ test("one unbound named character becomes candidate zero without relying on arra
   assert.equal(deriveDeterministicRomanceProposals(source, "romance_new_connection").narrativeMeta?.activeCharacters[0].candidateOrdinal, 0);
 });
 
-test("missing identity material degrades to a stable anonymous candidate without dropping exploring outcome", () => {
+test("missing or generic identity material cannot create an authoritative romance candidate", () => {
   const prepared = withRomanceCandidate(node());
-  assert.equal(romanceCandidate(prepared)?.candidateOrdinal, 0);
+  assert.equal(romanceCandidate(prepared), undefined);
   const derived = deriveDeterministicRomanceProposals(prepared, "romance_new_connection");
   const person = derived.narrativeMeta?.relationshipProposals?.find((proposal) => proposal.type === "person_introduction");
-  assert.ok(person);
-  assert.equal(person?.type === "person_introduction" ? person.displayName : "unexpected", undefined);
+  assert.equal(person, undefined);
+
+  const pronoun = node([{ candidateOrdinal: 0, displayName: "你", relation: "other", presenceMode: "active_scene" }]);
+  assert.equal(romanceCandidate(pronoun), undefined);
+  assert.equal(
+    deriveDeterministicRomanceProposals(pronoun, "romance_new_connection")
+      .narrativeMeta?.relationshipProposals?.some((proposal) => proposal.type === "person_introduction"),
+    false
+  );
 });
 
 test("clarification transitions are derived for every selectable outcome", () => {

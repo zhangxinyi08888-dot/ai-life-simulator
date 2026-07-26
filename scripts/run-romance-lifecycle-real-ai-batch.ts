@@ -4,6 +4,7 @@ import path from "node:path";
 import { callDeepSeekJson } from "../src/utils/deepseek";
 import { generateNextNode, startSimulation } from "../src/services/simulation/simulationService";
 import { createHistoryItemFromNode } from "../src/utils/historyRestore";
+import { isValidRomanceDisplayName } from "../src/utils/romanceCandidateName";
 import type {
   HistoryItem,
   QuestionTurn,
@@ -15,6 +16,7 @@ import type {
 const requestedRoutes = Number(process.env.ROUTE_COUNT || process.argv[2] || 30);
 const concurrency = Math.max(1, Number(process.env.ROUTE_CONCURRENCY || 2));
 const maxDecisionCount = Math.max(12, Number(process.env.ROUTE_MAX_DECISIONS || 32));
+const aiRequestTimeoutMs = Math.max(30_000, Number(process.env.ROUTE_AI_TIMEOUT_MS || 120_000));
 const runId = process.env.ROUTE_RUN_ID || new Date().toISOString().replace(/[:.]/g, "-");
 const recordRoot = path.resolve(
   process.env.ROUTE_RECORD_ROOT
@@ -26,10 +28,19 @@ const apiKey = process.env.DEEPSEEK_API_KEY || process.env.VITE_DEEPSEEK_API_KEY
 if (!apiKey) throw new Error("缺少 DEEPSEEK_API_KEY 或 VITE_DEEPSEEK_API_KEY");
 const baseUrl = process.env.DEEPSEEK_BASE_URL || process.env.VITE_DEEPSEEK_BASE_URL || "https://api.deepseek.com";
 const model = process.env.DEEPSEEK_MODEL || process.env.VITE_DEEPSEEK_MODEL || "deepseek-v4-flash";
-const callAiJson = (prompt: string) => callDeepSeekJson({ apiKey, baseUrl, model }, prompt);
+const callAiJson = async (prompt: string) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), aiRequestTimeoutMs);
+  try {
+    return await callDeepSeekJson({ apiKey, baseUrl, model }, prompt, fetch, controller.signal);
+  } finally {
+    clearTimeout(timeout);
+  }
+};
 
 interface Persona {
   slug: string;
+  pressureDense?: boolean;
   userData: UserInitialData;
   answers: QuestionTurn[];
 }
@@ -103,6 +114,7 @@ const personas: Persona[] = [
   },
   {
     slug: "venture-shenzhen",
+    pressureDense: true,
     userData: {
       birthday: "1991-11-03",
       birthtime: "17:00",
@@ -125,6 +137,7 @@ const personas: Persona[] = [
   },
   {
     slug: "balance-chengdu",
+    pressureDense: true,
     userData: {
       birthday: "1997-04-20",
       birthtime: "05:00",
@@ -195,9 +208,11 @@ interface RouteRecord {
   currentNode: SimulationNode;
   metrics: {
     encounterAgeInMonths?: number;
+    developmentEncounterAgeInMonths?: number;
     firstConfirmationAgeInMonths?: number;
     firstConfirmationWaitMonths?: number;
     datingStartedAtAgeInMonths?: number;
+    explorationTotalMonths?: number;
     firstCommitmentReviewAgeInMonths?: number;
     commitmentWaitMonths?: number;
     commitmentResolutionAgeInMonths?: number;
@@ -207,6 +222,12 @@ interface RouteRecord {
     romanceFallbackCount: number;
     checkpointObservedCount: number;
     checkpointDeferredCount: number;
+    checkpointMaxDeferredCount: number;
+    checkpointMaxOverdueMonths: number;
+    checkpointKeyMissingCount: number;
+    checkpointBoundViolationCount: number;
+    mustRestoreObservedCount: number;
+    pressureInterleaveCount: number;
     overdueCount: number;
     relationshipFollowUpCount: number;
     generationErrorCount: number;
@@ -215,6 +236,10 @@ interface RouteRecord {
     personIds: string[];
     displayNames: string[];
     identityDrift: boolean;
+    invalidRomanceDisplayNameCount: number;
+    keepAsAcquaintanceSelected: boolean;
+    keepAsAcquaintanceAtAgeInMonths?: number;
+    reencounterAfterKeep: boolean;
   };
   errors: string[];
 }
@@ -232,6 +257,7 @@ async function runRoute(index: number): Promise<RouteRecord> {
   const personIds = new Set<string>();
   const displayNames = new Set<string>();
   let encounterAgeInMonths: number | undefined;
+  let developmentEncounterAgeInMonths: number | undefined;
   let firstConfirmationAgeInMonths: number | undefined;
   let datingStartedAtAgeInMonths: number | undefined;
   let firstCommitmentReviewAgeInMonths: number | undefined;
@@ -241,16 +267,34 @@ async function runRoute(index: number): Promise<RouteRecord> {
   let romanceFallbackCount = 0;
   let checkpointObservedCount = 0;
   let checkpointDeferredCount = 0;
+  let checkpointMaxDeferredCount = 0;
+  let checkpointMaxOverdueMonths = 0;
+  let checkpointKeyMissingCount = 0;
+  let checkpointBoundViolationCount = 0;
+  let mustRestoreObservedCount = 0;
+  let pressureInterleaveCount = 0;
   let overdueCount = 0;
   let relationshipFollowUpCount = 0;
   let generationErrorCount = 0;
   let generationRetryRecoveredCount = 0;
+  let invalidRomanceDisplayNameCount = 0;
+  const shouldKeepFirstEncounter = index % 5 === 0;
+  let keepAsAcquaintanceSelected = false;
+  let keepAsAcquaintanceAtAgeInMonths: number | undefined;
+  let reencounterAfterKeep = false;
   let stopReason = "decision_limit";
 
   for (let decision = 0; decision < maxDecisionCount; decision += 1) {
     const eventMeta = currentNode.eventMeta;
     if (eventMeta?.eventId === "romance_new_connection" && encounterAgeInMonths === undefined) {
       encounterAgeInMonths = currentNode.ageInMonths;
+    }
+    if (
+      eventMeta?.eventId === "romance_new_connection"
+      && keepAsAcquaintanceAtAgeInMonths !== undefined
+      && currentNode.ageInMonths > keepAsAcquaintanceAtAgeInMonths
+    ) {
+      reencounterAfterKeep = true;
     }
     if (
       ["romance_connection_clarification", "romance_exploration_resolution"].includes(eventMeta?.eventId || "")
@@ -273,13 +317,46 @@ async function runRoute(index: number): Promise<RouteRecord> {
       || eventMeta?.requestedEventId?.startsWith("romance_")
     ) romanceFallbackCount += 1;
     if (eventMeta?.relationshipCheckpointStatus) checkpointObservedCount += 1;
-    if (eventMeta?.relationshipCheckpointDeferred) checkpointDeferredCount += 1;
+    if (eventMeta?.relationshipCheckpointStatus && !eventMeta.relationshipCheckpointKey) checkpointKeyMissingCount += 1;
+    if (eventMeta?.relationshipCheckpointDeferred) {
+      checkpointDeferredCount += 1;
+      checkpointMaxDeferredCount = Math.max(
+        checkpointMaxDeferredCount,
+        eventMeta.relationshipCheckpointDeferredCount || 0
+      );
+    }
+    if (eventMeta?.relationshipCheckpointMustRestore) mustRestoreObservedCount += 1;
+    if (eventMeta?.pressureArcInterleaved) pressureInterleaveCount += 1;
     if (eventMeta?.relationshipCheckpointStatus === "overdue") overdueCount += 1;
+    if (
+      eventMeta?.relationshipCheckpointStatus === "overdue"
+      && Number.isFinite(eventMeta.relationshipCheckpointMaxAtAgeInMonths)
+    ) {
+      checkpointMaxOverdueMonths = Math.max(
+        checkpointMaxOverdueMonths,
+        currentNode.ageInMonths - eventMeta.relationshipCheckpointMaxAtAgeInMonths!
+      );
+    }
+    if (
+      (eventMeta?.relationshipCheckpointDeferredCount || 0) > 3
+      || (
+        eventMeta?.selectionKind === "relationship_follow_up"
+        && Number.isFinite(eventMeta.relationshipCheckpointMaxAtAgeInMonths)
+        && currentNode.ageInMonths > eventMeta.relationshipCheckpointMaxAtAgeInMonths! + 1
+      )
+    ) checkpointBoundViolationCount += 1;
     if (eventMeta?.selectionKind === "relationship_follow_up") relationshipFollowUpCount += 1;
 
     const identity = activeRomanticIdentity(currentNode);
     if (identity.personId) personIds.add(identity.personId);
     if (identity.displayName) displayNames.add(identity.displayName);
+    const formationCandidate = eventMeta?.eventId === "romance_new_connection"
+      ? currentNode.narrativeMeta?.activeCharacters?.find((character) => character.candidateOrdinal === 0)
+      : undefined;
+    if (
+      (identity.displayName && !isValidRomanceDisplayName(identity.displayName))
+      || (formationCandidate && !isValidRomanceDisplayName(formationCandidate.displayName))
+    ) invalidRomanceDisplayNameCount += 1;
     const activeRelationship = currentNode.worldStateSnapshot?.relationships?.find((relationship) => (
       relationship.type === "romantic" && ["active", "strained"].includes(relationship.status)
     ));
@@ -299,10 +376,22 @@ async function runRoute(index: number): Promise<RouteRecord> {
       stopReason = "age_65_reached";
       break;
     }
-    const choice = pickChoice(currentNode);
+    const choice = shouldKeepFirstEncounter
+      && eventMeta?.eventId === "romance_new_connection"
+      && !keepAsAcquaintanceSelected
+      ? currentNode.choices.find((candidate) => candidate.eventOutcomeId === "keep_as_acquaintance")
+      : pickChoice(currentNode);
     if (!choice) {
       stopReason = "no_choice";
       break;
+    }
+    if (eventMeta?.eventId === "romance_new_connection") {
+      if (choice.eventOutcomeId === "keep_as_acquaintance") {
+        keepAsAcquaintanceSelected = true;
+        keepAsAcquaintanceAtAgeInMonths = currentNode.ageInMonths;
+      } else if (choice.eventOutcomeId === "continue_getting_to_know" && developmentEncounterAgeInMonths === undefined) {
+        developmentEncounterAgeInMonths = currentNode.ageInMonths;
+      }
     }
     const historyItem = createHistoryItemFromNode(currentNode, choice.text);
     history.push(historyItem);
@@ -346,11 +435,15 @@ async function runRoute(index: number): Promise<RouteRecord> {
     currentNode,
     metrics: {
       encounterAgeInMonths,
+      developmentEncounterAgeInMonths,
       firstConfirmationAgeInMonths,
-      firstConfirmationWaitMonths: encounterAgeInMonths !== undefined && firstConfirmationAgeInMonths !== undefined
-        ? firstConfirmationAgeInMonths - encounterAgeInMonths
+      firstConfirmationWaitMonths: developmentEncounterAgeInMonths !== undefined && firstConfirmationAgeInMonths !== undefined
+        ? firstConfirmationAgeInMonths - developmentEncounterAgeInMonths
         : undefined,
       datingStartedAtAgeInMonths,
+      explorationTotalMonths: developmentEncounterAgeInMonths !== undefined && datingStartedAtAgeInMonths !== undefined
+        ? datingStartedAtAgeInMonths - developmentEncounterAgeInMonths
+        : undefined,
       firstCommitmentReviewAgeInMonths,
       commitmentWaitMonths: datingStartedAtAgeInMonths !== undefined && firstCommitmentReviewAgeInMonths !== undefined
         ? firstCommitmentReviewAgeInMonths - datingStartedAtAgeInMonths
@@ -364,6 +457,12 @@ async function runRoute(index: number): Promise<RouteRecord> {
       romanceFallbackCount,
       checkpointObservedCount,
       checkpointDeferredCount,
+      checkpointMaxDeferredCount,
+      checkpointMaxOverdueMonths,
+      checkpointKeyMissingCount,
+      checkpointBoundViolationCount,
+      mustRestoreObservedCount,
+      pressureInterleaveCount,
       overdueCount,
       relationshipFollowUpCount,
       generationErrorCount,
@@ -371,7 +470,11 @@ async function runRoute(index: number): Promise<RouteRecord> {
       generationPaused: stopReason === "generation_error",
       personIds: [...personIds],
       displayNames: [...displayNames],
-      identityDrift: personIds.size > 1 || displayNames.size > 1
+      identityDrift: personIds.size > 1 || displayNames.size > 1,
+      invalidRomanceDisplayNameCount,
+      keepAsAcquaintanceSelected,
+      keepAsAcquaintanceAtAgeInMonths,
+      reencounterAfterKeep
     },
     errors
   };
@@ -394,6 +497,7 @@ function average(values: number[]): number | undefined {
 function summarize(records: RouteRecord[]) {
   const encounterAges = records.flatMap((record) => record.metrics.encounterAgeInMonths === undefined ? [] : [record.metrics.encounterAgeInMonths]);
   const confirmationWaits = records.flatMap((record) => record.metrics.firstConfirmationWaitMonths === undefined ? [] : [record.metrics.firstConfirmationWaitMonths]);
+  const explorationDurations = records.flatMap((record) => record.metrics.explorationTotalMonths === undefined ? [] : [record.metrics.explorationTotalMonths]);
   const commitmentWaits = records.flatMap((record) => record.metrics.commitmentWaitMonths === undefined ? [] : [record.metrics.commitmentWaitMonths]);
   const resolutionWaits = records.flatMap((record) => record.metrics.commitmentResolutionWaitMonths === undefined ? [] : [record.metrics.commitmentResolutionWaitMonths]);
   const routeNodes = (record: RouteRecord) => [...record.history, record.currentNode];
@@ -426,9 +530,11 @@ function summarize(records: RouteRecord[]) {
     definitions: {
       routeStop: `commitment resolution, ending, age 65, generation error, or ${maxDecisionCount} decisions`,
       encounterAge: "age at first romance_new_connection",
-      firstConfirmationWait: "months from romance_new_connection to first clarification/resolution checkpoint",
+      firstConfirmationWait: "months from the accepted continue_getting_to_know encounter to first clarification/resolution checkpoint",
+      explorationTotal: "months from accepted continue_getting_to_know encounter to authoritative dating start",
       commitmentWait: "months from dating start to first material commitment review",
-      commitmentResolutionWait: "months from dating start to forced commitment resolution after one delay"
+      commitmentResolutionWait: "months from dating start to forced commitment resolution after one delay",
+      pressureDenseRoute: "persona explicitly marked pressureDense in the current collector"
     },
     coverage: {
       encounterCount: encounterAges.length,
@@ -448,6 +554,12 @@ function summarize(records: RouteRecord[]) {
       p50: quantile(confirmationWaits, 0.5),
       p90: quantile(confirmationWaits, 0.9),
       max: confirmationWaits.length ? Math.max(...confirmationWaits) : undefined
+    },
+    explorationTotalMonths: {
+      average: average(explorationDurations),
+      p50: quantile(explorationDurations, 0.5),
+      p90: quantile(explorationDurations, 0.9),
+      max: explorationDurations.length ? Math.max(...explorationDurations) : undefined
     },
     commitmentWaitMonths: {
       average: average(commitmentWaits),
@@ -500,12 +612,46 @@ function summarize(records: RouteRecord[]) {
           / records.reduce((sum, record) => sum + record.metrics.checkpointObservedCount, 0)
         : 0
     },
+    checkpointRestoration: {
+      maxConsecutiveDeferredNodes: records.length
+        ? Math.max(...records.map((record) => record.metrics.checkpointMaxDeferredCount))
+        : 0,
+      maxOverdueMonths: records.length
+        ? Math.max(...records.map((record) => record.metrics.checkpointMaxOverdueMonths))
+        : 0,
+      checkpointKeyMissingCount: records.reduce((sum, record) => sum + record.metrics.checkpointKeyMissingCount, 0),
+      boundViolationCount: records.reduce((sum, record) => sum + record.metrics.checkpointBoundViolationCount, 0),
+      mustRestoreObservedCount: records.reduce((sum, record) => sum + record.metrics.mustRestoreObservedCount, 0),
+      pressureInterleaveCount: records.reduce((sum, record) => sum + record.metrics.pressureInterleaveCount, 0)
+    },
+    pressureDense: {
+      routeCount: records.filter((record) => personas.find((persona) => persona.slug === record.persona)?.pressureDense).length,
+      pausedRouteCount: records.filter((record) => (
+        personas.find((persona) => persona.slug === record.persona)?.pressureDense
+        && record.metrics.generationPaused
+      )).length,
+      boundViolationCount: records.filter((record) => (
+        personas.find((persona) => persona.slug === record.persona)?.pressureDense
+      )).reduce((sum, record) => sum + record.metrics.checkpointBoundViolationCount, 0)
+    },
+    keepAsAcquaintance: {
+      selectedRouteCount: records.filter((record) => record.metrics.keepAsAcquaintanceSelected).length,
+      reencounterRouteCount: records.filter((record) => record.metrics.reencounterAfterKeep).length,
+      reencounterRate: records.some((record) => record.metrics.keepAsAcquaintanceSelected)
+        ? records.filter((record) => record.metrics.reencounterAfterKeep).length
+          / records.filter((record) => record.metrics.keepAsAcquaintanceSelected).length
+        : 0
+    },
     generation: {
       pausedRouteCount: records.filter((record) => record.metrics.generationPaused).length,
       errorCount: records.reduce((sum, record) => sum + record.metrics.generationErrorCount, 0),
       retryRecoveredCount: records.reduce((sum, record) => sum + record.metrics.generationRetryRecoveredCount, 0)
     },
     identityDriftRouteCount: records.filter((record) => record.metrics.identityDrift).length,
+    invalidRomanceDisplayNameCount: records.reduce(
+      (sum, record) => sum + (record.metrics.invalidRomanceDisplayNameCount || 0),
+      0
+    ),
     stopReasons: Object.fromEntries([...new Set(records.map((record) => record.stopReason))].map((reason) => [
       reason,
       records.filter((record) => record.stopReason === reason).length
@@ -528,6 +674,7 @@ async function main() {
       requestedRoutes,
       concurrency,
       maxDecisionCount,
+      aiRequestTimeoutMs,
       startedAt: batchStartedAt
     }, null, 2)}\n`, "utf8");
   }
@@ -584,6 +731,7 @@ async function main() {
     completedRoutes: records.length,
     concurrency,
     maxDecisionCount,
+    aiRequestTimeoutMs,
     startedAt: batchStartedAt,
     completedAt: new Date().toISOString(),
     summaryPath: path.join(recordRoot, "summary.json")

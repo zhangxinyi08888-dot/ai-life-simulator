@@ -762,8 +762,67 @@ nextTimelineBoundaryAgeInMonths = Math.min(
 - `eligibleAt` 和 `dueAt` 不必硬截断每一个普通节点；
 - `maxAt` 必须成为硬时间边界；
 - 当前年龄已超过 `maxAt` 时，下一安全节点必须先处理 overdue checkpoint；
-- PressureArc、健康危机或其他强制因果事件可以暂时越过 `maxAt`，但必须记录 deferral，强制事件结束后立即恢复关系 checkpoint；
+- PressureArc、健康危机或其他强制因果事件可以暂时推迟关系 checkpoint，但时间推进仍必须读取关系边界，不得再通过 `nextMilestoneAgeInMonths=undefined` 绕开 `maxAt`；
+- 强制事件的目标年龄必须钳制到最近的关系边界；到达边界后，只允许独立重大危机继续优先，且必须记录 deferral；
+- 正在运行的 PressureArc 不得被普通关系节点后台结束或推进；需要插入关系恢复节点时，使用显式 `interleave` no-op：保留 foreground arc，不增加 checkpointCount，不改变 phase/status；
+- overdue checkpoint 或同一 checkpoint 连续 deferred 达到 3 个节点时进入 `mustRestore`；下一节点必须直接以 `interleave` 插入，即使当前 PressureArc 尚未进入相位间隙，也不得再消费第 4 个 continuation；
+- 当前年龄已经等于 `maxAt` 时，下一节点就是满足 `dispatchAge <= maxAt + 1` 的最后派发时隙；除独立重大危机外，即使 PressureArc 尚未进入普通相位间隙，也必须用同一 `interleave` no-op 插入 checkpoint，不能再消费一次 continuation 后才恢复；
+- 强制弧 resolve 后的第一个安全节点必须恢复 `mustRestore` checkpoint；
 - 结局或死亡可以关闭未完成 checkpoint，但必须记录明确 closure reason，不能伪装成用户主动结束关系。
+
+调度优先级固定为：
+
+```text
+独立重大危机
+→ 当前 PressureArc continuation
+→ mustRestore relationship follow-up（连续 deferred 达到 3 时可打断当前相位）
+→ 普通 due relationship follow-up
+→ 新 PressureArc / 普通健康升级
+→ 普通事件
+```
+
+其中“当前 PressureArc continuation”在派发前必须先检查 mustRestore；命中时本节点改为
+relationship interleave，原 PressureArc 从下一节点继续。浏览器 E2E override 只属于测试设施，
+不改变生产优先级语义。`currentAgeInMonths >= maxAtAgeInMonths` 是独立于 mustRestore 的硬截止
+保护：它不改写 `mustRestore = overdue || consecutiveDeferredNodes >= 3` 的定义，但会在最后派发
+时隙直接触发 interleave。
+
+### 11.9 Starvation-free deferral 观测合同
+
+deferral 不写入 `RelationshipState`，也不要求旧存档迁移。调度器从历史节点派生：
+
+```ts
+checkpointKey = [
+  relationship.id,
+  progression.checkpointKind,
+  progression.startedAtAgeInMonths,
+  progression.dueAtAgeInMonths,
+  progression.maxAtAgeInMonths
+].join(":");
+
+mustRestore = checkpointStatus === "overdue"
+  || consecutiveDeferredNodes >= 3;
+```
+
+`consecutiveDeferredNodes` 从最新历史节点向前扫描，只累计同一 `checkpointKey` 且
+`relationshipCheckpointDeferred=true` 的连续节点。新字段缺失的旧存档从该节点的
+`worldStateSnapshot` 回退派生 checkpointKey。
+
+EventMeta 增加可选观测字段：
+
+```ts
+relationshipCheckpointKey?: string;
+relationshipCheckpointDeferredCount?: number;
+relationshipCheckpointMustRestore?: boolean;
+pressureArcInterleaved?: boolean;
+```
+
+节点数和月份必须分别验收：
+
+- `consecutiveDeferredNodes <= 3`；
+- checkpoint 实际派发年龄不得超过自身 `maxAtAgeInMonths + 1`；
+- exploration 总时长仍不得超过 `startedAt + 36`（允许派发节点本身的 1 个月决策跨度）；
+- commitment 使用自己的 48/60 个月合同，不得套用 exploration 的 36 个月上限。
 
 ## 12. 爱情形成事件
 
@@ -1152,6 +1211,14 @@ interface RoutePreferenceState {
 
 连续拒绝形成事件可进入 cooldown 或 `closed`；未使用的爱情份额回到主线。重新开放只能来自用户主动编辑、后续回答明确表达开放，或用户选择重新开放关系方向。冷却自然结束最多从 `closed` 回到 `neutral`，不能自动变为 `open`。
 
+形成事件的两个冷却层必须分工，不能重复封锁同一时间窗口：
+
+- `keep_as_acquaintance` 只表达本次不发展，写入 12 个月 RoutePreference 冷却；
+- 第一次 `decline_romantic_direction` 表达明确拒绝，写入 120 个月冷却；
+- 第二次明确拒绝写入 240 个月冷却并将 openness 设为 `closed`；
+- 事件 ID 自身 cooldown 仅用于避免紧邻节点重复，固定为 2 个普通节点；
+- “保持普通认识”不得增加 `refusalCount`，也不得继承明确拒绝的长期冷却。
+
 ### 15.4 灰度开关
 
 ```ts
@@ -1327,7 +1394,10 @@ interface EventSelectionTrace {
    - eligible 阶段 romance 池内渐进加权；
    - due 阶段进入因果跟进队列；
    - maxAt 硬时间边界；
-   - 强制事件 deferral 后补回；
+   - 历史派生 checkpointKey、连续 deferral 与 mustRestore；
+   - 强制事件时间跨度钳制到关系边界；
+   - PressureArc 允许 `interleave` no-op；连续 deferred 达到 3 或命中硬截止时无需等待相位间隙，且关系节点不得推进或结束 arc；
+   - overdue 或连续 deferred 达到 3 后必达，强制弧结束后第一个安全节点补回；
    - `EventSelectionKind` 显式扩展 `relationship_follow_up`；
    - scheduled follow-up 与普通 75/25 统计隔离。
 4. **E4 探索衰减与承诺节点**
@@ -1343,6 +1413,10 @@ interface EventSelectionTrace {
 
 - checkpoint 到期仍可能被普通事件无限推迟；
 - 普通节点可以跨过 `maxAt` 且没有 deferral 记录；
+- 强制节点通过 `nextMilestoneAgeInMonths=undefined` 跨过关系边界；
+- 同一 checkpoint 连续 deferred 超过 3 个节点；
+- interleave 关系节点增加 PressureArc checkpointCount、切换 phase 或 resolve arc；
+- mustRestore 存在时仍可启动新的普通 PressureArc；
 - exploring 能超过 36 个月并继续无限选择慢速探索；
 - checkpoint 到期会后台静默改变或结束关系；
 - fallback、强制事件或回滚会清除 progression；
@@ -1410,8 +1484,15 @@ interface EventSelectionTrace {
 15. maxAt 后下一安全节点必须处理 checkpoint。
 16. PressureArc 推迟 checkpoint 后 progression 仍存在，并记录 deferral。
 17. clarification fallback 后 checkpoint 仍为 pending/overdue，后续能够补回。
-18. 两次 slow review 或总探索 36 个月后，不再提供无限 slow outcome。
-19. 收束 outcome 只有在用户选择后结束关系，人物仍存在。
+18. `keep_as_acquaintance` 只冷却 12 个月且不增加 refusalCount；第一次/第二次明确拒绝分别保持 120/240 个月语义。
+19. 形成事件自身只冷却 2 个普通节点，不再与 RoutePreference 形成十年级双重冷却。
+20. 两次 slow review 或总探索 36 个月后，不再提供无限 slow outcome。
+21. 收束 outcome 只有在用户选择后结束关系，人物仍存在。
+22. checkpointKey 同时包含 relationship id、kind、startedAt、dueAt 和 maxAt；同一人物的两个 review 窗口不得混算 deferral。
+23. 连续 deferred 达到 3 时进入 mustRestore，下一节点必须插入，不得产生第 4 个 deferred 节点。
+24. interleave 不增加 PressureArc 的 phaseCheckpointCount/totalCheckpointCount，不改变 phase/status。
+25. 强制事件目标年龄不得大跨度跨过关系 maxAt；当前年龄等于 maxAt 时，除独立重大危机外不得再消费 PressureArc continuation，checkpoint 必须以 no-op interleave 在 maxAt+1 派发。
+26. 强制弧 resolve 后第一个安全节点必须是 pending relationship follow-up。
 
 ### 18.4 R2：调度分布
 
@@ -1439,6 +1520,15 @@ interface EventSelectionTrace {
 - `datingToCommitmentReviewMonths` 的 P50 初始目标为 18–36 个月；
 - P90 初始目标不超过 60 个月；
 - 所有阈值先作为校准门槛，不能由本轮两条成功发展路线反推为最终产品常量。
+
+另设压力密集型调度矩阵：
+
+- 至少覆盖 3 条连续创业、普通 PressureArc、健康危机叠加路线；
+- `consecutiveDeferredNodes` 最大值不得超过 3；
+- `dispatchAgeInMonths - maxAtAgeInMonths` 最大值不得超过 1；
+- mustRestore 或硬截止插入后 PressureArc id、phase、status 与两个 checkpointCount 必须保持不变；
+- mustRestore 未清除前不得启动新的普通 PressureArc；
+- relationship 生成 fallback 后原 checkpointKey 和 mustRestore 仍可恢复。
 
 若确定性调度本身不能满足上限，不得用模型叙事质量或五路线 R4 结果掩盖。
 

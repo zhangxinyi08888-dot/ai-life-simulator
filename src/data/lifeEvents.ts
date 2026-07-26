@@ -236,7 +236,7 @@ export const LIFE_EVENTS_DATABASE: LifeEventSeed[] = [
     hardAgeConstraint: { minAge: 18, reason: "只向成年人提供浪漫关系形成事件", basis: "legal" },
     ageAffinityPolicyId: "romance_formation_age_v1",
     conditionDescription: "正常生活场景中出现一个可以继续了解的人",
-    cooldown: 10,
+    cooldown: 2,
     baseProbability: 0.65,
     tags: ["relationship", "romance", "new_connection", "boundaries"],
     trigger: {

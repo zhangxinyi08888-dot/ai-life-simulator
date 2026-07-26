@@ -25,7 +25,12 @@ function chooseId(state, strategy, offset = 0) {
       || choice.temporalHint?.lifeIntensity === "high_tension"
     ))?.id || choices[offset % choices.length].id;
   }
-  return choices.find((choice) => choice.id === strategy)?.id || choices[offset % choices.length].id;
+  const normalizedStrategy = String(strategy || "").trim().toUpperCase();
+  return choices.find((choice) => {
+    if (choice.id === strategy) return true;
+    const labelMatch = String(choice.id || "").match(/(?:^|_)([ABC])$/i);
+    return labelMatch?.[1].toUpperCase() === normalizedStrategy;
+  })?.id || choices[offset % choices.length].id;
 }
 
 export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }) {
