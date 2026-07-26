@@ -67,6 +67,17 @@ test("a conditional option promise is not treated as a completed personal grant"
   assert.equal(issues.length, 0);
 });
 
+test("an option requiring future performance is not treated as a completed grant", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "新公司给你的年薪是42万，但期权部分需要等事业部业绩连续两年达标后才能兑现。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 433
+  });
+  assert.equal(issues.some((issue) => issue.id.includes("personal_option")), false);
+  assert.equal(issues.some((issue) => issue.id.includes("business_holding")), false);
+});
+
 test("a protagonist accepting sweat equity requires a personal holding", () => {
   const issues = detectNarrativeFinancialCoverageIssues({
     narrativeText: "你接受老张的干股提议，正式成为公司的联合创始人。",

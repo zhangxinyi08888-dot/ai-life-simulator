@@ -293,7 +293,7 @@ export function detectNarrativeFinancialCoverageIssues(input: {
   const hasProtagonistOptionFact = input.narrativeText.split(/(?<=[。！？；])/u).some((sentence) => {
     const optionReference = /(?:你(?:获得|获授|被授予|持有|拥有|行使|行权)[^。；]{0,24}期权|(?:授予|发放)[^。；]{0,12}(?:给)?你[^。；]{0,12}期权|你的[^。；]{0,16}期权)/u.test(sentence);
     if (!optionReference) return false;
-    const conditionalOnly = /尚未|还未|未正式|没有设立|口头承诺|未来|如果|若|计划|考虑|优先考虑|意向/u.test(sentence);
+    const conditionalOnly = /尚未|还未|未正式|没有设立|口头承诺|未来|如果|若|计划|考虑|优先考虑|意向|争取|需要[^。；]{0,24}(?:达标|满足)[^。；]{0,12}(?:才|后)|达标后[^。；]{0,12}(?:才|方可)|才能兑现|等待[^。；]{0,16}兑现/u.test(sentence);
     const completedGrant = /你(?:已经|已|正式)?(?:获得|获授|被授予|持有|拥有|行使|行权)(?:了)?[^。；]{0,24}期权|(?:正式)?(?:授予|发放)[^。；]{0,12}(?:给)?你/u.test(sentence);
     return !conditionalOnly || completedGrant;
   });
@@ -711,6 +711,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   periodStartAgeInMonths: number;
   currentCareerStateId: string;
   currentEmploymentStatus: string;
+  migrateToCurrentCareerState?: boolean;
   ledger: FinancialLedger;
 }): FinancialEventProposal[] {
   const decision = input.selectedDecision?.trim();
@@ -756,7 +757,12 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     : (activeCareerSources.length === 1
       ? activeCareerSources[0]
       : (!decisionChangesCareer && allActiveCareerSources.length === 1 ? allActiveCareerSources[0] : undefined));
-  const sourceCareerStateId = existingSource?.linkedCareerStateId || input.currentCareerStateId;
+  // During a completed authoritative transition an adjusted existing source
+  // migrates to the accepted next state. Without that authority, keep the
+  // existing link so an unsupported candidate CareerState cannot hijack wages.
+  const sourceCareerStateId = input.migrateToCurrentCareerState
+    ? input.currentCareerStateId
+    : existingSource?.linkedCareerStateId || input.currentCareerStateId;
   const incomeType = existingSource?.type
     || (sideIncomeEvidence ? "contract" : undefined)
     || (input.currentEmploymentStatus === "self_employed" ? "self_employment_draw" : "salary");
@@ -1075,6 +1081,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     currentEmploymentStatus: acceptedCareerTransitions.length === 1
       ? acceptedCareerTransitions[0].nextCareerState.employmentStatus
       : currentCareer.employmentStatus,
+    migrateToCurrentCareerState: acceptedCareerTransitions.length === 1,
     ledger: initialLedger
   });
   normalizedFinancial.proposals = completeCareerIncomeReplacementProposals({

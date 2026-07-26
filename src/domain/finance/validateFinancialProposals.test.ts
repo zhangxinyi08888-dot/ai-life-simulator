@@ -889,6 +889,28 @@ test("rejects a spouse salary from the protagonist ledger", () => {
   assert.match(result.issues[0].summary, /其他人物/);
 });
 
+test("rejects a parent's business earnings from the protagonist ledger", () => {
+  const parentIncome = proposal({
+    id: "parent_business_income",
+    kind: "income_source_started",
+    evidence: "母亲的小作坊每年稳定多赚1.2万元。",
+    payload: {
+      id: "income_parent_business",
+      type: "other",
+      displayName: "家庭小作坊收入",
+      annualNetAmountWan: 1.2,
+      accrualPolicy: "annual",
+      activeFromAgeInMonths: 360,
+      status: "active",
+      factStatus: "known",
+      evidence: []
+    }
+  });
+  const result = validate([parentIncome], "母亲的小作坊每年稳定多赚1.2万元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.ok(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"));
+});
+
 test("rejects a spouse recurring transfer as protagonist income and requires family support events", () => {
   const result = validate([proposal({
     id: "wife_med_contribution", kind: "income_source_started",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
-import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation } from "./simulationService";
+import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 
@@ -1158,7 +1158,43 @@ try {
   assert.equal(missingOutcomeAttempts, 2);
   assert.match(missingOutcomeRetryPrompt, /choice\.eventOutcomeId 缺失或不在本事件 allowedOutcomes 中/);
   assert.match(missingOutcomeRetryPrompt, /每个 choice 都必须从当前事件 allowedOutcomes 中原样选择/);
-  assert.ok(repairedMissingOutcomeNode.choices.every((choice) => choice.eventOutcomeId));
+assert.ok(repairedMissingOutcomeNode.choices.every((choice) => choice.eventOutcomeId));
 } finally {
   Math.random = missingOutcomeRandom;
+}
+
+{
+  const proposals = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "接受全职前端职位",
+    narrativeText: "你正式入职，税后月薪7000元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "accept_frontend_role",
+    periodStartAgeInMonths: 286,
+    currentCareerStateId: "career_frontend_286",
+    currentEmploymentStatus: "employed",
+    migrateToCurrentCareerState: true,
+    ledger: {
+      ...structuredClone(history.at(-1)!.financialLedger!),
+      incomeSources: [{
+        id: "old_internship_income",
+        type: "salary",
+        displayName: "旧实习工资",
+        monthlyNetAmountWan: 0.1,
+        accrualPolicy: "monthly",
+        activeFromAgeInMonths: 250,
+        status: "active",
+        linkedCareerStateId: "career_internship",
+        factStatus: "known",
+        evidence: []
+      }]
+    }
+  });
+  const adjusted = proposals.find((proposal) => proposal.kind === "income_source_adjusted");
+  if (!adjusted || adjusted.kind !== "income_source_adjusted") {
+    throw new Error("expected an income adjustment for the confirmed new salary");
+  }
+  const adjustedPayload = adjusted.payload as { nextSource: { monthlyNetAmountWan?: number; linkedCareerStateId?: string } };
+  assert.ok(Math.abs(Number(adjustedPayload.nextSource.monthlyNetAmountWan) - 0.7) < 1e-9);
+  assert.equal(adjustedPayload.nextSource.linkedCareerStateId, "career_frontend_286");
 }
