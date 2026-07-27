@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { HistoryItem, LifeAttributes, WorldStateSnapshot } from "../types";
 import {
   evaluateHistoryCondition,
+  hasExploringRelationshipForAtLeastMonths,
   matchesHistoryConditionGroups,
   matchesRequiredContext,
   matchesRequiredContextGroups,
@@ -38,6 +39,10 @@ assert.equal(evaluateHistoryCondition({
 assert.equal(evaluateHistoryCondition({
   type: "selected_intent_count", intentPrefixes: ["health:reduce_load"], minCount: 2, withinNodes: 2
 }, history, current, 50), false);
+history[1].selectedEventOutcomeId = "continue_getting_to_know";
+assert.equal(evaluateHistoryCondition({
+  type: "selected_outcome_count", outcomeIds: ["continue_getting_to_know"], minCount: 1, withinNodes: 3
+}, history, current, 50), true);
 assert.equal(evaluateHistoryCondition({
   type: "elapsed_since_event", eventIds: ["health_forced_pause"], minMonths: 6
 }, history, current, 50), true);
@@ -96,4 +101,105 @@ assert.equal(matchesRequiredContext("confirmed_partner", {
   ...contextInput,
   history: [],
   userData: { milestoneRelationship: "大学时谈过恋爱，后来已经分手。" }
+}), false);
+
+const exploringHistory = history.map((entry) => ({ ...entry, worldStateSnapshot: {
+  ...snapshot,
+  relationships: [{
+    id: "exploring", participantPersonIds: ["partner"], type: "romantic" as const, stage: "exploring" as const,
+    status: "strained" as const, effectiveFromAgeInMonths: 540, source: "accepted_history" as const, confidence: 0.9
+  }]
+} }));
+assert.equal(matchesRequiredContext("confirmed_romantic_connection", { ...contextInput, history: exploringHistory }), true);
+assert.equal(matchesRequiredContext("confirmed_partner", { ...contextInput, history: exploringHistory }), false);
+assert.equal(matchesRequiredContext("no_active_romantic_connection", { ...contextInput, history: exploringHistory }), false);
+
+const longExploringHistory = Array.from({ length: 15 }, (_, index) => ({
+  ...item(540 + index * 3, "career:continue_project", 55),
+  worldStateSnapshot: exploringHistory[0].worldStateSnapshot
+}));
+assert.equal(matchesRequiredContext("confirmed_romantic_connection", {
+  ...contextInput, age: 49, history: longExploringHistory
+}), true);
+assert.equal(hasExploringRelationshipForAtLeastMonths(
+  longExploringHistory.at(-1)?.worldStateSnapshot,
+  49,
+  3
+), true);
+
+const datingStrainedHistory = history.map((entry) => ({ ...entry, worldStateSnapshot: {
+  ...snapshot,
+  relationships: [{
+    id: "dating", participantPersonIds: ["partner"], type: "romantic" as const, stage: "dating" as const,
+    status: "strained" as const, effectiveFromAgeInMonths: 540, source: "accepted_history" as const, confidence: 0.9
+  }]
+} }));
+assert.equal(matchesRequiredContext("confirmed_partner", { ...contextInput, history: datingStrainedHistory }), true);
+
+const endedHistory = history.map((entry) => ({ ...entry, worldStateSnapshot: {
+  ...snapshot,
+  relationships: [{
+    id: "ended", participantPersonIds: ["partner"], type: "romantic" as const, stage: "separated" as const,
+    status: "ended" as const, effectiveFromAgeInMonths: 540, source: "accepted_history" as const, confidence: 0.95
+  }]
+} }));
+assert.equal(matchesRequiredContext("confirmed_romantic_connection", { ...contextInput, history: endedHistory }), false);
+assert.equal(matchesRequiredContext("confirmed_partner", { ...contextInput, history: endedHistory }), false);
+assert.equal(matchesRequiredContext("no_active_romantic_connection", { ...contextInput, history: endedHistory }), true);
+
+const emptySnapshot: WorldStateSnapshot = { people: [], directionArcs: [], pressureArcs: [], relationships: [], version: 2 };
+const familyNeutralHistory = [
+  { ...item(360, "career:continue_project", 60), worldStateSnapshot: emptySnapshot }
+];
+assert.equal(matchesRequiredContext("confirmed_family", {
+  ...contextInput,
+  age: 30,
+  history: familyNeutralHistory,
+  userData: { currentSituation: "父母希望我留在本地工作。" }
+}), true);
+assert.equal(matchesRequiredContext("confirmed_family", {
+  ...contextInput,
+  age: 30,
+  history: familyNeutralHistory,
+  userData: {},
+  answers: [{ answer: "我现在每月给父母 2000 元。" }]
+}), true);
+assert.equal(matchesRequiredContext("confirmed_family", {
+  ...contextInput,
+  age: 30,
+  history: familyNeutralHistory,
+  userData: { currentSituation: "考虑回老家发展。" }
+}), false);
+assert.equal(matchesRequiredContext("confirmed_family", {
+  ...contextInput,
+  age: 30,
+  history: familyNeutralHistory,
+  userData: { currentSituation: "家庭现金流最近比较紧张。" }
+}), false);
+
+const unselectedParentOption = {
+  ...familyNeutralHistory[0],
+  description: "工作项目进入稳定阶段。",
+  selectedChoice: "继续推进事业",
+  choices: [
+    { id: "A", text: "继续推进事业", impactSummary: "保持方向" },
+    { id: "B", text: "听从父母安排", impactSummary: "改变方向" }
+  ]
+};
+assert.equal(matchesRequiredContext("confirmed_family", {
+  ...contextInput,
+  age: 30,
+  history: [unselectedParentOption],
+  userData: {}
+}), false);
+
+const proseOnlyParent = {
+  ...familyNeutralHistory[0],
+  description: "模型临时写道父母可能会担心。"
+};
+assert.equal(matchesRequiredContext("confirmed_family", {
+  ...contextInput,
+  age: 30,
+  history: [proseOnlyParent],
+  userData: {}
 }), false);

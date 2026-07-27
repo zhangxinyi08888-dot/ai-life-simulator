@@ -142,13 +142,17 @@ export function calculateTimelineAdvance(input: {
     : Number.POSITIVE_INFINITY;
   const targetAgeInMonths = Math.min(input.currentAgeInMonths + sampledMonths, hardMaximum, milestoneMaximum);
   const elapsedMonths = Math.max(1, targetAgeInMonths - input.currentAgeInMonths);
+  const reasonCodes = [`intensity:${input.temporalProfile.lifeIntensity}`, `stage:${stage}`];
+  if (Number.isFinite(milestoneMaximum) && targetAgeInMonths === milestoneMaximum) {
+    reasonCodes.push("timeline-boundary");
+  }
 
   return {
     elapsedMonths,
     targetAgeInMonths,
     targetAge: Math.floor(targetAgeInMonths / 12),
     lifeIntensity: input.temporalProfile.lifeIntensity,
-    reasonCodes: [`intensity:${input.temporalProfile.lifeIntensity}`, `stage:${stage}`]
+    reasonCodes
   };
 }
 

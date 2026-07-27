@@ -166,6 +166,8 @@ export interface ChoiceTemporalHint extends TemporalProfile {
 
 export type LifeEventCategory = "career" | "relationship" | "health" | "financial" | "growth" | "opportunity" | "community";
 export type NarrativeMode = "pressure_crisis" | "crossroads_opportunity" | "recovery_growth" | "stability_meaning";
+export type RouteLine = "career" | "romance" | "family" | "friendship" | "health" | "financial" | "opportunity" | "growth" | "community";
+export type EventSelectionKind = "main" | "cross" | "forced" | "override" | "unmixed" | "relationship_follow_up";
 
 export interface EventMeta {
   eventId?: string;
@@ -175,6 +177,28 @@ export interface EventMeta {
   eventMode?: NarrativeMode;
   eventSemanticFamily?: string;
   phasePolicyId?: string;
+  routeLine?: RouteLine;
+  selectionKind?: EventSelectionKind;
+  linePolicyId?: string;
+  fallbackReason?: string;
+  lineFallbackReason?: string;
+  crossLineCandidateAvailable?: boolean;
+  requestedEventId?: string;
+  romanceRepairAttempted?: boolean;
+  romanceRepairSucceeded?: boolean;
+  romanceRescheduled?: boolean;
+  romanceRescheduleFulfilled?: boolean;
+  romanceRescheduleDelayNodes?: number;
+  relationshipCheckpointKind?: RelationshipCheckpointKind;
+  relationshipCheckpointStatus?: RelationshipCheckpointStatus;
+  relationshipCheckpointWaitMonths?: number;
+  relationshipCheckpointDueAtAgeInMonths?: number;
+  relationshipCheckpointMaxAtAgeInMonths?: number;
+  relationshipCheckpointDeferred?: boolean;
+  relationshipCheckpointKey?: string;
+  relationshipCheckpointDeferredCount?: number;
+  relationshipCheckpointMustRestore?: boolean;
+  pressureArcInterleaved?: boolean;
 }
 
 export type WorldDelta =
@@ -196,8 +220,16 @@ export type PersonRelation = "parent" | "grandparent" | "partner" | "child" | "s
 export type PersonLifeStatus = "active" | "retired" | "limited" | "distant" | "deceased" | "unknown";
 export type PersonPresenceMode = "active_scene" | "remote_contact" | "indirect_update" | "memory" | "legacy";
 
+export type PersonIdentityNamespace = "user_role" | "named_person" | "accepted_character";
+
+export interface PersonIdentityKey {
+  namespace: PersonIdentityNamespace;
+  key: string;
+}
+
 export interface PersonState {
   id: string;
+  identityKey?: PersonIdentityKey;
   displayName?: string;
   relation: PersonRelation;
   explicitAge?: number;
@@ -209,9 +241,134 @@ export interface PersonState {
   healthStatus?: "stable" | "fragile" | "care_dependent" | "unknown";
   lastSeenNodeIndex?: number;
   relationshipSummary?: string;
-  source: "user_fact" | "answer" | "history" | "model_inferred";
+  source: "user_fact" | "answer" | "history" | "accepted_history" | "model_inferred";
   confidence: number;
 }
+
+export type RomanticRelationshipStage =
+  | "acquaintance"
+  | "exploring"
+  | "dating"
+  | "cohabiting"
+  | "married"
+  | "separated"
+  | "divorced"
+  | "widowed";
+
+export type LegacyRelationshipStage = "active" | "distant" | "ended";
+
+export type RelationshipCheckpointKind = "exploration_review" | "commitment_review";
+export type RelationshipProgressionPolicyId = "romance_exploration_v1" | "romance_commitment_v1";
+export type RelationshipCheckpointStatus = "waiting" | "eligible" | "due" | "overdue" | "resolved";
+
+export interface RelationshipProgressionState {
+  policyId: RelationshipProgressionPolicyId;
+  checkpointKind: RelationshipCheckpointKind;
+  startedAtAgeInMonths: number;
+  eligibleAtAgeInMonths: number;
+  dueAtAgeInMonths: number;
+  maxAtAgeInMonths: number;
+  reviewCount: number;
+  lastReviewAtAgeInMonths?: number;
+  lifecycleStatus: "active" | "resolved";
+  startTimeEstimated?: boolean;
+  migrationCreated?: boolean;
+  delayCount?: number;
+}
+
+export interface RelationshipState {
+  id: string;
+  participantPersonIds: string[];
+  type: "romantic" | "family" | "friendship" | "professional" | "community";
+  stage?: RomanticRelationshipStage | LegacyRelationshipStage;
+  status: "active" | "strained" | "distant" | "ended";
+  livingTogether?: boolean;
+  financialConnection?: boolean;
+  responsibilitySummary?: string;
+  effectiveFromAgeInMonths: number;
+  progression?: RelationshipProgressionState;
+  source: "user" | "answer" | "accepted_history";
+  confidence: number;
+}
+
+export type ParentRole = "father" | "mother" | "parent_unspecified";
+export type ParentTopic = "career_change" | "entrepreneurship" | "romance" | "marriage" | "relocation" | "finance" | "caregiving";
+export type ParentTopicStanceValue = "supportive" | "conditionally_supportive" | "concerned_but_respectful" | "neutral" | "opposed" | "unknown";
+
+export interface RelationshipEvidenceRef {
+  nodeIndex: number;
+  sourceOutcomeId: string;
+  evidence: string;
+}
+
+export interface ParentTopicStance {
+  id: string;
+  topic: ParentTopic;
+  stance: ParentTopicStanceValue;
+  reasons: string[];
+  effectiveFromAgeInMonths: number;
+  evidence: RelationshipEvidenceRef[];
+  source: "user_fact" | "accepted_history";
+  confidence: number;
+}
+
+export interface FamilyRelationshipState {
+  id: string;
+  participantPersonId?: string;
+  role: ParentRole;
+  activation: "active" | "distant" | "ended";
+  contact: "unknown" | "frequent" | "occasional" | "rare" | "distant";
+  emotionalSupport: "unknown" | "supportive" | "mixed" | "limited";
+  practicalSupport: "unknown" | "available" | "conditional" | "unavailable";
+  autonomyRespect: "unknown" | "high" | "mixed" | "low";
+  conflictIntensity: "unknown" | "low" | "moderate" | "high";
+  topicStances: ParentTopicStance[];
+  revision: number;
+}
+
+export interface RoutePreferenceState {
+  routeLine: "romance";
+  openness: "open" | "neutral" | "closed";
+  refusalCount: number;
+  cooldownUntilAgeInMonths?: number;
+  source: "user" | "accepted_history";
+}
+
+interface RelationshipProposalEnvelope {
+  id: string;
+  sourceOutcomeId: string;
+  evidence: string;
+}
+
+export interface PersonIntroductionProposal extends RelationshipProposalEnvelope {
+  type: "person_introduction";
+  displayName?: string;
+  candidateOrdinal: number;
+}
+
+export interface RomanticRelationshipTransitionProposal extends RelationshipProposalEnvelope {
+  type: "romantic_transition";
+  relationshipId?: string;
+  personId?: string;
+  fromStage?: RomanticRelationshipStage;
+  toStage?: RomanticRelationshipStage;
+  toStatus?: RelationshipState["status"];
+}
+
+export interface FamilyActivationProposal extends RelationshipProposalEnvelope {
+  type: "family_activation";
+  parentRole: ParentRole;
+}
+
+export interface ParentTopicStanceProposal extends RelationshipProposalEnvelope {
+  type: "parent_topic_stance";
+  parentRole: ParentRole;
+  topic: ParentTopic;
+  stance: ParentTopicStanceValue;
+  reasons: string[];
+}
+
+export type RelationshipProposal = PersonIntroductionProposal | RomanticRelationshipTransitionProposal | FamilyActivationProposal | ParentTopicStanceProposal;
 
 export interface DirectionArc {
   id: string;
@@ -271,16 +428,21 @@ export interface NarrativeMeta {
   activeCharacters: Array<{
     personId?: string;
     displayName?: string;
+    candidateOrdinal?: number;
     relation: PersonRelation;
     estimatedAge?: number;
     presenceMode: PersonPresenceMode;
     currentRole?: string;
+    encounterType?: "new_connection" | "existing_connection" | "unknown";
+    encounterContext?: "personal" | "mixed" | "professional";
+    groundingEvidence?: string;
   }>;
   primaryActivity?: {
     domain: "education" | "career" | "family" | "health" | "community" | "leisure" | "legacy";
     intensity: "low" | "moderate" | "high";
   };
   worldDeltas: WorldDelta[];
+  relationshipProposals?: RelationshipProposal[];
 }
 
 export interface WorldStateSnapshot {
@@ -296,6 +458,12 @@ export interface WorldStateSnapshot {
   careerStates?: CareerState[];
   currentCareerStateId?: string;
   careerRevision?: number;
+  relationships?: RelationshipState[];
+  relationshipRevision?: number;
+  familyRelationships?: FamilyRelationshipState[];
+  familyRelationshipRevision?: number;
+  routePreferences?: RoutePreferenceState[];
+  relationshipProgressionVersion?: 1;
   committedTransactionIds?: string[];
   version: 1 | 2;
 }
@@ -326,7 +494,7 @@ export interface SimulationNode {
   committedArcMeta?: {
     pressureArcId?: string;
     phaseId?: string;
-    transitionAction?: "start" | "stay" | "advance" | "fallback" | "suspend" | "resume" | "resolve";
+    transitionAction?: "start" | "stay" | "advance" | "fallback" | "suspend" | "resume" | "interleave" | "resolve";
   };
   reportInvitation?: ReportInvitationMeta;
 }
@@ -339,6 +507,8 @@ export interface HistoryItem {
   stage: string;
   description: string;
   selectedChoice: string;
+  selectedChoiceId?: string;
+  selectedEventOutcomeId?: string;
   selectedDecisionIntent?: string;
   attributes: LifeAttributes;   // 存储该历史节点当时的属性状态，支持高保真时光回溯
   financialLedger?: FinancialLedger;

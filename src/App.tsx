@@ -82,7 +82,12 @@ function getSimulationErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof DOMException && error.name === "AbortError") {
     return "本次推演已暂停，新的章节尚未写入时间线。";
   }
-  if (!isAiClientError(error)) return fallback;
+  if (!isAiClientError(error)) {
+    if (error instanceof Error && error.message.startsWith("SIMULATION_NODE_INCOMPLETE:")) {
+      return `生成结果未通过校验：${error.message.slice("SIMULATION_NODE_INCOMPLETE:".length)}。请继续生成。`;
+    }
+    return fallback;
+  }
 
   if (error.code === "API_KEY_MISSING") {
     return "未检测到 VITE_DEEPSEEK_API_KEY，请在本地或构建环境中配置 DeepSeek API Key。";
@@ -97,7 +102,7 @@ function getSimulationErrorMessage(error: unknown, fallback: string): string {
     return "本次推演已暂停，新的章节尚未写入时间线。";
   }
   if (error.code === "AI_RESPONSE_INVALID") {
-    return "AI 返回内容格式异常，请重新生成。";
+    return error.message || "AI 返回内容格式异常，请重新生成。";
   }
   if (error.code === "AI_NETWORK_FAILED") {
     return "网络异常：无法连接至命理计算中枢，请检查网络配置或稍后再试。";

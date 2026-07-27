@@ -69,19 +69,25 @@ function formatDecisionIntentRules(): string {
 - 语义实质不同的行动必须使用不同 decisionIntent。`;
 }
 
-export function buildNodePromptWithRetryNotice(prompt: string, previousIssues: string[]): string {
+export function buildNodePromptWithRetryNotice(prompt: string, previousIssues: string[], eventIntentType?: string): string {
   if (previousIssues.length === 0) return prompt;
 
   const issueLabels: Record<string, string> = {
+    invalidJson: "返回内容不是可解析的完整 JSON",
     description: "descriptionParagraphs 剧情正文段落",
     attributes: "attributes 五维数值",
     choices: "choices 选项",
     eventOutcomeId: "choice.eventOutcomeId 缺失或不在本事件 allowedOutcomes 中",
-    eventOutcomeCoverage: "三个 choice 没有覆盖至少两个不同的 eventOutcomeId"
+    eventOutcomeCoverage: "三个 choice 没有按当前事件要求覆盖不同的 eventOutcomeId",
+    romanceChoiceSemantics: "爱情选项文案没有直接表达对应的继续了解、普通认识、拒绝发展或关系确认动作",
+    romanceNarrativeGrounding: "爱情正文没有呈现可验证的新认识场景，或把既有职业联系人误标为爱情候选"
   };
   const missingFields = previousIssues.map((issue) => issueLabels[issue] || issue).join("、");
-  const outcomeRetryRule = previousIssues.some((issue) => issue === "eventOutcomeId" || issue === "eventOutcomeCoverage")
-    ? "\n- eventOutcomeId：每个 choice 都必须从当前事件 allowedOutcomes 中原样选择；三个 choice 至少覆盖两个不同值。"
+  const romanceRetryInstruction = eventIntentType === "romance_connection_clarification"
+    ? "当前事件是 romance_connection_clarification，必须沿用权威关系状态中的 personId，不得创建新人；三个选项必须分别表达正式交往、继续慢慢了解、结束浪漫探索。"
+    : "当前事件是 romance_new_connection，不能退回纯事业节点。事业进展可以保留为背景，但必须单独写出新人物，以及离开纯项目/合作语境的个人交流、共同兴趣或轻量私人邀约；让 candidateOrdinal=0 指向这位人物，并返回结构化 encounterType、encounterContext 与 groundingEvidence。";
+  const outcomeRetryRule = previousIssues.some((issue) => ["eventOutcomeId", "eventOutcomeCoverage", "romanceChoiceSemantics", "romanceNarrativeGrounding"].includes(issue))
+    ? `\n- eventOutcomeId：每个 choice 都必须从当前事件 allowedOutcomes 中原样选择。爱情形成或确认事件的三个 choice 必须一一覆盖三个 outcome，不能重复；每条文案必须直接表达对应的关系动作，不能用事业、扩张或行业人脉行动承载爱情 outcome。\n- ${romanceRetryInstruction}`
     : "";
 
   return `${prompt}
@@ -183,10 +189,11 @@ interface NextNodePromptInput {
   ageContext?: AgeContext;
   worldState?: WorldStateSnapshot;
   foregroundPressureArc?: PressureArcState;
+  pressureArcInterleaved?: boolean;
 }
 
 export function buildNextNodePrompt(input: NextNodePromptInput): string {
-  const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, currentDebtHealthState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc } = input;
+  const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, currentDebtHealthState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc, pressureArcInterleaved } = input;
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
   const selectedOutcomeId = input.selectedOutcomeId;
@@ -199,10 +206,35 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
   const peoplePrompt = worldState?.people.length
     ? worldState.people.map(formatPersonStateForPrompt).map((item) => `- ${item}`).join("\n")
     : "- 暂无结构化人物状态";
-  const pressurePrompt = foregroundPressureArc
+  const relationshipPrompt = worldState?.relationships?.length
+    ? worldState.relationships.map((relationship) => {
+        const people = relationship.participantPersonIds.map((personId) => worldState.people.find((person) => person.id === personId));
+        const identities = people.map((person) => `${person?.displayName || person?.relation || "人物"}(personId=${person?.id || "unknown"}, candidateKey=${person?.identityKey?.namespace === "accepted_character" ? person.identityKey.key : "n/a"})`).join("、");
+        const progression = relationship.progression
+          ? `，checkpoint=${relationship.progression.checkpointKind}，policy=${relationship.progression.policyId}，reviewCount=${relationship.progression.reviewCount}，eligibleAt=${relationship.progression.eligibleAtAgeInMonths}，dueAt=${relationship.progression.dueAtAgeInMonths}，maxAt=${relationship.progression.maxAtAgeInMonths}`
+          : "";
+        return `- relationshipId=${relationship.id}，type=${relationship.type}，stage=${relationship.stage || "unknown"}，status=${relationship.status}${progression}，人物=${identities}`;
+      }).join("\n")
+    : "- 暂无权威关系状态";
+  const familyRelationshipPrompt = worldState?.familyRelationships?.length
+    ? worldState.familyRelationships.map((relationship) => {
+        const person = relationship.participantPersonId
+          ? worldState.people.find((candidate) => candidate.id === relationship.participantPersonId)
+          : undefined;
+        const stances = relationship.topicStances.length
+          ? relationship.topicStances.map((stance) => (
+              `${stance.topic}=${stance.stance}${stance.reasons.length ? `（${stance.reasons.join("；")}）` : ""}`
+            )).join("；")
+          : "暂无已接受的具体议题立场";
+        return `- familyRelationshipId=${relationship.id}，role=${relationship.role}，人物=${person?.displayName || "未具名父母"}，activation=${relationship.activation}，contact=${relationship.contact}，emotionalSupport=${relationship.emotionalSupport}，practicalSupport=${relationship.practicalSupport}，autonomyRespect=${relationship.autonomyRespect}，conflictIntensity=${relationship.conflictIntensity}，topicStances=${stances}`;
+      }).join("\n")
+    : "- 暂无权威家庭关系状态；不得根据一般家庭想象补写父母立场或压力";
+  const pressurePrompt = foregroundPressureArc && pressureArcInterleaved
+    ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点是为避免关系 checkpoint 饥饿或越过硬截止而插入 PressureArc 的关系 checkpoint：压力主线只作为背景保留，不得推进、解决或切换 phase；arcSignals 必须返回空数组。`
+    : foregroundPressureArc
     ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点事件只提供场景，不得替换这条压力主线；模型不得修改 PressureArc 的 id、eventId、phase 或 status，只能返回 arcSignals。`
     : "当前没有前台 PressureArc；事件只能提出事实结果，不能自行创建或修改 Arc 状态。";
-  const pressureResolutionRule = foregroundPressureArc?.phaseId === "operation"
+  const pressureResolutionRule = !pressureArcInterleaved && foregroundPressureArc?.phaseId === "operation"
     ? `
 【当前阶段收束要求】
 - 本节点必须写清当前阶段压力最终形成了什么结果。
@@ -211,7 +243,7 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
 - pressureArcId 必须为 ${foregroundPressureArc.id}。
 - 这里只表示阶段压力解决，不表示 DirectionArc 或长期人生方向完成。`
     : "";
-  const healthPhaseRule = foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
+  const healthPhaseRule = !pressureArcInterleaved && foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
     ? foregroundPressureArc.phaseId === "trigger"
       ? `
 【健康危机触发阶段】
@@ -289,6 +321,14 @@ ${ageContextPrompt}
 【当前人物状态】
 ${peoplePrompt}
 
+【当前权威关系状态】
+${relationshipPrompt}
+
+【当前权威家庭关系状态】
+${familyRelationshipPrompt}
+- unknown 表示尚无已接受事实，不得解释为反对、保守、冷漠或控制；具体议题只能沿用已列出的 topicStances。
+- description 只能沿用这里的已接受状态。没有已经提交的 parent_topic_stance 时，不得写“从反对转为观望/支持”“不再反对”“态度软化”或相反方向的立场变化；关系变化必须先经过用户选择和权威状态提交。
+
 【PressureArc 单写者边界】
 ${pressurePrompt}
 ${pressureResolutionRule}
@@ -297,6 +337,8 @@ ${healthPhaseRule}
 【上一步做出的命运裁决】
 用户在刚才的十字路口选择了：【${selectedDecision}】
 ${selectedOutcomeId ? `该选择对应的已接受 outcome id：【${selectedOutcomeId}】` : "该选择没有结构化 outcome id；不得凭空提交就业状态转换。"}
+- 上述 selectedDecision 是本轮唯一获授权执行的分支。正文必须写它造成的现实后果，禁止执行、拼接或暗中延续同一节点里用户没有选择的其他选项。
+- 没有 relationship outcome id 时，可以描述普通社交、相亲尝试或未深入的接触，但不得让某个具体人物进入追求、深入交往、感情升温、正式交往、共同生活或婚姻；这些变化只能由对应爱情事件及用户接受的 outcome 提交。
 ${eventSeedPrompt}
 
 【本次推演任务】
@@ -311,7 +353,13 @@ ${FINANCIAL_NARRATIVE_RULE}
 - 只有真正改变未来的选择才能成为节点；复查、等待、恢复等无新分歧过程放入 storyEpisode.internalTransitions。
 - 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId。
 ${formatDecisionIntentRules()}
-- narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、activeCharacters、primaryActivity、storyEpisode。
+- narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、relationshipProposals、activeCharacters、primaryActivity、storyEpisode。
+- 爱情人物素材只放入 activeCharacters；新爱情候选必须使用 candidateOrdinal=0。爱情状态 Proposal 由代码根据事件和用户实际选择确定性派生，模型不得返回 person_introduction、romantic_transition、candidateKey、人物 id 或关系 id。
+- 权威 relationship stage 是唯一关系事实。普通事业、家庭、健康或生活节点不得把专业联系人写成爱情对象，也不得让选项现在或未来必然执行正式交往、同居、领证、结婚或婚礼；只能讨论、评估或考虑是否推进。只有当前爱情 lifecycle 事件列出的 allowedOutcomes 才能改变 stage。
+- 如果权威 stage 是 acquaintance/exploring，不得写成现任伴侣或正式交往；如果 stage 是 dating，不得写成共同生活、婚后、妻子或丈夫。不得因为时间流逝或此前计划自动视为已经同居或结婚。
+- relationshipProposals 仅用于需要语义判断的家庭候选事实；没有明确的家庭关系变化时返回空数组。
+- 只有当某个选项明确让父亲、母亲或父母进入后续生活时，才可为该选项返回 family_activation；sourceOutcomeId 必须等于该选项 eventOutcomeId，evidence 必须逐字摘自正文或该选项。正文单独提到父母、未被选择的选项、模型补写的家庭背景都不能激活父母线。
+- parent_topic_stance 只能记录正文已经发生的具体回应，并绑定对应 outcome；担忧但尊重决定必须写 concerned_but_respectful，不能写 opposed。一次担忧不能推出“一贯保守”，一次争吵不能推出“控制型家庭”，经济上无法帮助不能推出情感不支持。
 - 只有主角在本阶段已经明确入职、离职、创业、停工休养或退休时，career_state worldDelta 才能增加 employmentTransition；必须返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、正文原句 evidence 和 confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时不得返回 employmentTransition。
 - 已接受选择明确写有“辞职”“离职”“开始创业”或“全职创业”时，本轮必须提交 employmentTransition；辞职创业的 toStatus 使用 self_employed，不能只在正文写成已完成。
 - 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。

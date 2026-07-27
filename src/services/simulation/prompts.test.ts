@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { LifeEventSeed } from "../../data/lifeEvents";
-import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
+import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData, WorldStateSnapshot } from "../../types";
 import { initializeFinancialLedger } from "../../domain/finance";
-import { buildFinancialNarrativeRepairPrompt, buildFinancialProposalRepairPrompt, buildNextNodePrompt } from "./prompts";
+import { buildFinancialNarrativeRepairPrompt, buildFinancialProposalRepairPrompt, buildNextNodePrompt, buildNodePromptWithRetryNotice } from "./prompts";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -47,6 +47,7 @@ const history: HistoryItem[] = [
 const healthWarningEvent: LifeEventSeed = {
   id: "health_system_warning",
   category: "health",
+  routeLine: "health",
   narrativeMode: "pressure_crisis",
   semanticFamily: "health_system_warning",
   title: "健康系统预警",
@@ -87,6 +88,7 @@ assert.match(prompt, /年龄约束执行条件，不约束人生愿望/);
 assert.match(prompt, /55岁创业/);
 assert.match(prompt, /temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId/);
 assert.match(prompt, /每个 choice 必须返回 eventOutcomeId/);
+assert.match(buildNodePromptWithRetryNotice(prompt, ["invalidJson"]), /返回内容不是可解析的完整 JSON/);
 assert.match(prompt, /decisionIntent 是代码识别行动方向的稳定指纹/);
 assert.match(prompt, /领域:动作:对象/);
 assert.match(prompt, /语义相同的行动必须复用已有 decisionIntent/);
@@ -111,6 +113,8 @@ assert.match(prompt, /债务叙事权威契约/);
 assert.match(prompt, /permittedInstitutionActions/);
 assert.match(prompt, /descriptionParagraphs、choices、storyEpisode、arcSignals evidence/);
 assert.match(prompt, /不得凭空提交就业状态转换/);
+assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
+assert.match(prompt, /没有 relationship outcome id 时/);
 assert.match(prompt, /career_state worldDelta 才能增加 employmentTransition/);
 assert.match(prompt, /sourceOutcomeId 必须等于上方已接受 outcome id/);
 assert.match(prompt, /其他人物上学、退休、工作/);
@@ -153,6 +157,61 @@ const lateCareerPrompt = buildNextNodePrompt({
 });
 assert.match(lateCareerPrompt, /主角已满 80 岁：本节点不得继续沿用 employed/);
 assert.match(lateCareerPrompt, /self_employed/);
+
+const mother = {
+  id: "person_mother",
+  identityKey: { namespace: "user_role" as const, key: "parent:mother" },
+  displayName: "母亲",
+  relation: "parent" as const,
+  lifeStatus: "active" as const,
+  source: "user_fact" as const,
+  confidence: 1
+};
+const familyWorldState: WorldStateSnapshot = {
+  people: [mother],
+  directionArcs: [],
+  pressureArcs: [],
+  relationships: [],
+  familyRelationships: [{
+    id: "family_mother",
+    participantPersonId: mother.id,
+    role: "mother",
+    activation: "active",
+    contact: "frequent",
+    emotionalSupport: "supportive",
+    practicalSupport: "conditional",
+    autonomyRespect: "high",
+    conflictIntensity: "low",
+    topicStances: [{
+      id: "stance_relocation",
+      topic: "relocation",
+      stance: "concerned_but_respectful",
+      reasons: ["担心搬家成本，但尊重最终决定"],
+      effectiveFromAgeInMonths: 288,
+      evidence: [{ nodeIndex: 3, sourceOutcomeId: "discuss_relocation", evidence: "我有些担心，但你自己决定。" }],
+      source: "accepted_history",
+      confidence: 0.9
+    }],
+    revision: 1
+  }],
+  version: 2
+};
+const familyPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "继续推进职业计划",
+  eventSeed: null,
+  worldState: familyWorldState
+});
+assert.match(familyPrompt, /【当前权威家庭关系状态】/);
+assert.match(familyPrompt, /role=mother/);
+assert.match(familyPrompt, /emotionalSupport=supportive/);
+assert.match(familyPrompt, /autonomyRespect=high/);
+assert.match(familyPrompt, /relocation=concerned_but_respectful/);
+assert.match(familyPrompt, /担心搬家成本，但尊重最终决定/);
+assert.match(familyPrompt, /unknown 表示尚无已接受事实，不得解释为反对、保守、冷漠或控制/);
 
 const healthArcBase: PressureArcState = {
   id: "pressure_health_test",

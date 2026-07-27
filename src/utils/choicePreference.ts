@@ -10,6 +10,7 @@ export interface ChoicePreferenceSignal {
   lastOfferedNodeIndex: number;
   lastSelectedNodeIndex?: number;
   cooldownUntilNodeIndex?: number;
+  dormantUntilNodeIndex?: number;
   state: ChoicePreferenceState;
   recentOptionTexts: string[];
 }
@@ -18,6 +19,7 @@ export const CHOICE_PREFERENCE_POLICY = {
   cooldownAfterPassedOffers: 2,
   dormantAfterPassedOffers: 3,
   cooldownDecisionNodes: 3,
+  dormantDecisionNodes: 8,
   maxRecentOptionTexts: 3
 } as const;
 
@@ -108,9 +110,11 @@ export function buildChoicePreferenceSignals(
 
   return [...signals.values()].map((signal) => {
     const cooldownUntilNodeIndex = signal.lastOfferedNodeIndex + CHOICE_PREFERENCE_POLICY.cooldownDecisionNodes;
+    const dormantUntilNodeIndex = signal.lastOfferedNodeIndex + CHOICE_PREFERENCE_POLICY.dormantDecisionNodes;
     const state: ChoicePreferenceState = signal.lastEvidence === "selected"
       ? "available"
       : signal.consecutivePassedOfferCount >= CHOICE_PREFERENCE_POLICY.dormantAfterPassedOffers
+        && currentNodeIndex <= dormantUntilNodeIndex
         ? "dormant"
         : signal.consecutivePassedOfferCount >= CHOICE_PREFERENCE_POLICY.cooldownAfterPassedOffers
           && currentNodeIndex <= cooldownUntilNodeIndex
@@ -121,7 +125,8 @@ export function buildChoicePreferenceSignals(
     return {
       ...publicSignal,
       state,
-      cooldownUntilNodeIndex: state === "cooldown" ? cooldownUntilNodeIndex : undefined
+      cooldownUntilNodeIndex: state === "cooldown" ? cooldownUntilNodeIndex : undefined,
+      dormantUntilNodeIndex: state === "dormant" ? dormantUntilNodeIndex : undefined
     };
   }).sort((left, right) => right.lastOfferedNodeIndex - left.lastOfferedNodeIndex);
 }

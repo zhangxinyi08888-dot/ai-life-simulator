@@ -47,6 +47,20 @@ const outcomeNode = normalizeSimulationNode({
 });
 assert.equal(outcomeNode.choices[0].eventOutcomeId, "resume_activity_gradually");
 
+const relationshipProposalNode = normalizeSimulationNode({
+  description: "你们在活动结束后交换了联系方式。",
+  narrativeMeta: {
+    relationshipProposals: [{
+      id: "person",
+      type: "person_introduction",
+      candidateOrdinal: 0,
+      sourceOutcomeId: "continue_getting_to_know",
+      evidence: "你们在活动结束后交换了联系方式。"
+    }]
+  }
+});
+assert.equal(relationshipProposalNode.narrativeMeta?.relationshipProposals?.[0].id, "person");
+
 const clamped = normalizeSimulationNode({ age: 28, choices: [] }, { fallbackAge: 19, minAge: 19, maxAge: 20 });
 assert.equal(clamped.age, 20);
 
@@ -123,3 +137,85 @@ assert.deepEqual(getSimulationNodeValidationIssues({
   ...eventContractNode,
   choices: eventContractNode.choices.map((choice) => ({ ...choice, eventOutcomeId: "consolidate_recovery_plan" }))
 }, { allowedOutcomeIds: recoveryOutcomes }), ["eventOutcomeCoverage"]);
+
+const romanceOutcomes = ["continue_getting_to_know", "keep_as_acquaintance", "decline_romantic_direction"];
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  choices: [
+    { id: "A", text: "继续扩大团队并争取更多客户", impactSummary: "扩大业务", eventOutcomeId: "continue_getting_to_know" },
+    { id: "B", text: "放慢扩张并打磨产品", impactSummary: "打磨产品", eventOutcomeId: "keep_as_acquaintance" },
+    { id: "C", text: "与林悦保持专业联系并拓展行业人脉", impactSummary: "专业联系", eventOutcomeId: "continue_getting_to_know" }
+  ]
+}, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), ["romanceNarrativeGrounding", "eventOutcomeCoverage", "romanceChoiceSemantics"]);
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  description: "活动结束后，你认识了林悦并交换了联系方式，约好改天继续聊彼此的生活。",
+  narrativeMeta: {
+    activeCharacters: [{ candidateOrdinal: 0, displayName: "林悦", relation: "other", presenceMode: "active_scene", currentRole: "活动参与者" }]
+  },
+  choices: [
+    { id: "A", text: "继续和林悦接触，在生活里进一步了解彼此", impactSummary: "继续了解", eventOutcomeId: "continue_getting_to_know" },
+    { id: "B", text: "与林悦保持普通认识和专业联系", impactSummary: "普通认识", eventOutcomeId: "keep_as_acquaintance" },
+    { id: "C", text: "明确不发展浪漫关系，保持边界", impactSummary: "拒绝发展", eventOutcomeId: "decline_romantic_direction" }
+  ]
+}, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), []);
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  description: "你在朋友聚会上认识了另一位瑜伽教练，对方邀请你以后一起参加活动。",
+  narrativeMeta: {
+    activeCharacters: [{
+      candidateOrdinal: 0,
+      displayName: "你",
+      relation: "other",
+      presenceMode: "active_scene",
+      currentRole: "瑜伽教练",
+      encounterType: "new_connection",
+      encounterContext: "personal",
+      groundingEvidence: "你在朋友聚会上认识了另一位瑜伽教练，对方邀请你以后一起参加活动。"
+    }]
+  },
+  choices: [
+    { id: "A", text: "继续和你私下见面，进一步了解彼此", impactSummary: "继续了解", eventOutcomeId: "continue_getting_to_know" },
+    { id: "B", text: "与你保持普通认识", impactSummary: "普通认识", eventOutcomeId: "keep_as_acquaintance" },
+    { id: "C", text: "明确不发展浪漫关系", impactSummary: "拒绝发展", eventOutcomeId: "decline_romantic_direction" }
+  ]
+}, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), ["romanceNarrativeGrounding"]);
+
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  description: "你在行业峰会中结识了产品总监林悦，两人因本地化挑战聊得投机，会后互换了微信。\n\n几次行业交流后，你与林悦从职业交流延伸到周末一起看展、吃饭，两人都感受到了微妙的吸引力。",
+  narrativeMeta: {
+    activeCharacters: [{ candidateOrdinal: 0, displayName: "林悦", relation: "other", presenceMode: "active_scene", currentRole: "SaaS 公司产品总监" }]
+  },
+  choices: [
+    { id: "A", text: "继续和林悦私下见面，进一步了解彼此", impactSummary: "继续了解", eventOutcomeId: "continue_getting_to_know" },
+    { id: "B", text: "与林悦保持普通认识，不发展浪漫关系", impactSummary: "普通认识", eventOutcomeId: "keep_as_acquaintance" },
+    { id: "C", text: "明确婉拒与林悦发展浪漫关系", impactSummary: "拒绝发展", eventOutcomeId: "decline_romantic_direction" }
+  ]
+}, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), []);
+
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  description: "你在峰会上认识了华东代理商并加了微信，之后双方只讨论产品、合同和公司安排。",
+  narrativeMeta: {
+    activeCharacters: [{ candidateOrdinal: 0, displayName: "华东代理商", relation: "business_partner", presenceMode: "remote_contact", currentRole: "创业合伙人" }]
+  },
+  choices: [
+    { id: "A", text: "继续和华东代理商私下见面，进一步了解彼此", impactSummary: "继续了解", eventOutcomeId: "continue_getting_to_know" },
+    { id: "B", text: "与华东代理商保持普通认识和专业联系", impactSummary: "普通认识", eventOutcomeId: "keep_as_acquaintance" },
+    { id: "C", text: "明确婉拒与华东代理商发展浪漫关系", impactSummary: "拒绝发展", eventOutcomeId: "decline_romantic_direction" }
+  ]
+}, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), ["romanceNarrativeGrounding"]);
+
+assert.deepEqual(getSimulationNodeValidationIssues({
+  ...eventContractNode,
+  description: "你在行业交流会上认识了一位教育信息化创业者。对方正在搭建SaaS平台，邀请你周末喝咖啡深谈项目，你认为双方在技术和商业上互补。",
+  narrativeMeta: {
+    activeCharacters: [{ candidateOrdinal: 0, displayName: "创业者", relation: "business_partner", presenceMode: "active_scene", currentRole: "潜在合作伙伴/新朋友" }]
+  },
+  choices: [
+    { id: "A", text: "继续和创业者私下见面，进一步了解彼此", impactSummary: "继续了解", eventOutcomeId: "continue_getting_to_know" },
+    { id: "B", text: "与创业者保持普通认识和专业联系", impactSummary: "普通认识", eventOutcomeId: "keep_as_acquaintance" },
+    { id: "C", text: "明确婉拒与创业者发展浪漫关系", impactSummary: "拒绝发展", eventOutcomeId: "decline_romantic_direction" }
+  ]
+}, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), ["romanceNarrativeGrounding"]);

@@ -42,7 +42,7 @@ export interface AcceptedNodeOutcome {
 }
 
 export interface PressureArcTransitionDecision {
-  action: "start" | "stay" | "advance" | "fallback" | "suspend" | "resume" | "resolve";
+  action: "start" | "stay" | "advance" | "fallback" | "suspend" | "resume" | "interleave" | "resolve";
   previousPhaseId?: string;
   nextPhaseId?: string;
   nextArcState?: PressureArcState;
@@ -309,6 +309,7 @@ export function reducePressureArc(input: {
   currentArc?: PressureArcState;
   startProposal?: { eventId: string; eventIntentType: string; currentAgeInMonths: number; summary?: string };
   policy?: PhaseTransitionPolicy;
+  interleave?: boolean;
   selectedDecision: string;
   acceptedOutcome?: AcceptedNodeOutcome;
   acceptedFinancialEvents?: AcceptedFinancialEvent[];
@@ -329,6 +330,16 @@ export function reducePressureArc(input: {
     };
   }
   if (!input.currentArc) return { action: "stay", reasonCodes: ["no-pressure-arc"] };
+  if (input.interleave) {
+    return {
+      action: "interleave",
+      previousPhaseId: input.currentArc.phaseId,
+      nextPhaseId: input.currentArc.phaseId,
+      nextArcState: { ...input.currentArc },
+      foregroundPressureArcId: input.currentArc.id,
+      reasonCodes: ["relationship-checkpoint-interleaved", "pressure-arc-preserved"]
+    };
+  }
 
   if (input.currentArc.status === "suspended") {
     return {

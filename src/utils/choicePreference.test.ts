@@ -91,6 +91,11 @@ assert.equal(restoredWuhan?.selectedCount, 1);
 assert.equal(restoredWuhan?.consecutivePassedOfferCount, 0);
 assert.equal(restoredWuhan?.state, "available");
 
+const afterDormantWindow = buildChoicePreferenceSignals(thirdPassHistory, thirdPassHistory.length + 9)
+  .find((signal) => signal.decisionIntent === moveToWuhan.decisionIntent);
+assert.equal(afterDormantWindow?.state, "available");
+assert.equal(afterDormantWindow?.dormantUntilNodeIndex, undefined);
+
 assert.equal(
   normalizeDecisionIntent({ id: "C", text: "去一个从未配置过的城市", impactSummary: "迁居尝试" }),
   "去一个从未配置过的城市"
