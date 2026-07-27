@@ -579,9 +579,35 @@ export function validateFinancialProposals(input: {
     acceptedProposals.push(proposal);
   }
 
-  const candidatesByProposalId = new Map(acceptedEvents.map((event) => [event.proposalId!, event]));
+  const hasActiveProperty = input.currentLedger.assetAccounts.some((account) => account.status === "active" && account.type === "property");
+  const hasAcceptedPropertyFact = acceptedEvents.some((event) => (
+    (event.kind === "asset_purchased" || event.kind === "asset_balance_discovered")
+    && event.payload.assetAccount.type === "property"
+  ));
+  const purchaseNarrative = /(?:首付|买下|买了|购买|购入|购置|购房|婚房)/u.test(input.narrativeText);
+  const orphanPropertyPurchaseProposalIds = new Set<string>();
+  if (!hasActiveProperty && !hasAcceptedPropertyFact && purchaseNarrative) {
+    for (const proposal of acceptedProposals) {
+      const payload = proposal.payload as Record<string, unknown>;
+      const mortgageDraw = proposal.kind === "debt_drawn"
+        && (payload.debtAccount as Record<string, unknown> | undefined)?.type === "mortgage";
+      const downPayment = proposal.kind === "one_off_expense_paid" && /(?:首付|购房款|买房款)/u.test(proposal.evidence);
+      if (!mortgageDraw && !downPayment) continue;
+      orphanPropertyPurchaseProposalIds.add(proposal.id);
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: "购房首付或新房贷必须与同批已通过校验的 property 资产事件一起提交，不能只记支出和债务",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+    }
+  }
+  const trialProposals = acceptedProposals.filter((proposal) => !orphanPropertyPurchaseProposalIds.has(proposal.id));
+  const candidatesByProposalId = new Map(acceptedEvents
+    .filter((event) => !orphanPropertyPurchaseProposalIds.has(event.proposalId!))
+    .map((event) => [event.proposalId!, event]));
   const acceptedAfterTrial: AcceptedFinancialEvent[] = [];
-  for (const group of proposalGroups(acceptedProposals, input.currentLedger)) {
+  for (const group of proposalGroups(trialProposals, input.currentLedger)) {
     const groupEvents = group.map((proposal) => candidatesByProposalId.get(proposal.id)!);
     try {
       reduceFinancialLedger({

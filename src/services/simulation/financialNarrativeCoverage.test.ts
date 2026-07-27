@@ -89,6 +89,16 @@ test("future home plans and relationship metaphors are not completed property fa
   }
 });
 
+test("a completed home down payment requires a property asset fact", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你们用20万元存款支付了15万元婚房首付，并办理了房贷。",
+    ledger,
+    acceptedEvents: [{ kind: "debt_drawn" }],
+    ageInMonths: 342
+  });
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_342"), true);
+});
+
 test("employee option grants do not create a protagonist option coverage issue", () => {
   const issues = detectNarrativeFinancialCoverageIssues({
     narrativeText: "你决定建立期权池，并授予销售总监和技术骨干各2%的期权。",

@@ -255,7 +255,7 @@ export function sanitizeUnsupportedFinancialCoverageClaims(
     || hasIssue("personal_income_claim_without_event_");
   if (!unsupportedProperty && !unsupportedMortgage && !unsupportedHolding && !unsupportedCompensation) return description;
   return description.split(/(?<=[。！？])/u).map((sentence) => {
-    if (unsupportedProperty && /(?:名下|自有|自己的).{0,16}(?:房|住房|公寓)|(?:买了|买下|购入|购买|卖掉|出售).{0,16}(?:房|住房|公寓)|房产升值/u.test(sentence)) {
+    if (unsupportedProperty && /(?:名下|自有|自己的).{0,16}(?:房|住房|公寓)|(?:买了|买下|购入|购买|卖掉|出售).{0,16}(?:房|住房|公寓)|(?:婚房|住房|房子|公寓)?首付|房产升值/u.test(sentence)) {
       return "你们继续根据实际现金流评估居住安排与生活成本。";
     }
     if (unsupportedMortgage && /房贷|按揭|月供/u.test(sentence)) {

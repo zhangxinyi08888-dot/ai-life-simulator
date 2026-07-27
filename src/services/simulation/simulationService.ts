@@ -290,7 +290,7 @@ export function detectNarrativeFinancialCoverageIssues(input: {
     .filter((sentence) => !/(?:母亲|父亲|妈妈|爸爸|表哥|表姐|堂哥|堂姐|朋友|同事|伴侣|丈夫|妻子)[^，。；]{0,24}(?:房贷|按揭)/u.test(sentence)
       || /你(?:本人)?[^，。；]{0,24}(?:房贷|按揭)|(?:你的|你名下)[^，。；]{0,24}(?:房产|住房|房子|公寓)/u.test(sentence));
   const protagonistPropertyText = protagonistSentences.join(" ");
-  const hasCompletedPropertyFact = /(?:买下|购入|购买了|名下已有|自有|拥有)(?:[^。；]{0,20})(?:房产|住房|房子|公寓)/u.test(protagonistPropertyText);
+  const hasCompletedPropertyFact = /(?:买下|购入|购买了|名下已有|自有|拥有)(?:[^。；]{0,20})(?:房产|住房|房子|公寓)|(?:你|你们)[^。；]{0,48}(?:付了|支付了|交了|拿出)[^。；]{0,16}(?:婚房|住房|房子|公寓)?首付/u.test(protagonistPropertyText);
   const hasCompletedMortgageFact = /(?:还完|偿还|还清|背上|尚有|剩余)[^。；]{0,12}(?:房贷|按揭)|(?:房贷|按揭)[^。；]{0,12}(?:月供|本金|余额)/u.test(protagonistPropertyText);
   if (hasCompletedPropertyFact
     && !input.ledger.assetAccounts.some((item) => item.status === "active" && item.type === "property")

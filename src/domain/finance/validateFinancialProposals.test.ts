@@ -992,6 +992,41 @@ test("rewrites an accepted asset dependency from proposal id to event id", () =>
   assert.equal((result.acceptedEvents[1].payload as any).linkedDebtDrawEventId, "accepted_mortgage_draw");
 });
 
+test("rejects an orphan mortgage and down payment when a completed home purchase has no property event", () => {
+  const context = setup();
+  context.currentLedger.cashAccounts[0].balanceWan = 20;
+  const proposals = [
+    proposal({
+      id: "orphan_mortgage", kind: "debt_drawn", evidence: "你们付了婚房首付，办理80万元房贷。",
+      payload: {
+        debtAccount: { id: "orphan_mortgage", type: "mortgage", displayName: "婚房按揭", principalWan: 80, openedAtAgeInMonths: 312, status: "active", repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.45, remainingTermMonths: 300 }, factStatus: "estimated", evidence },
+        destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+        principalDrawnWan: 80
+      }
+    }),
+    proposal({
+      id: "orphan_down_payment", kind: "one_off_expense_paid", evidence: "你们支付了15万元婚房首付。",
+      payload: { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 15 }
+    })
+  ];
+  const result = validateFinancialProposals({
+    ...context,
+    proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你们用20万元存款支付了15万元婚房首付，并办理80万元房贷。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "orphan_home_purchase",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.deepEqual(new Set(result.issues.map((issue) => issue.id)), new Set([
+    "proposal_issue_orphan_mortgage_312",
+    "proposal_issue_orphan_down_payment_312"
+  ]));
+  assert.ok(result.issues.every((issue) => issue.code === "UNBALANCED_TRANSACTION"));
+});
+
 test("allows compensation explicitly offered to the protagonist by another person", () => {
   const result = validate([proposal({
     id: "consulting_offer", kind: "income_source_started", evidence: "张哥问你要不要以技术顾问身份加入，每周远程工作十小时，月薪8000元；你最终决定接下兼职。",
