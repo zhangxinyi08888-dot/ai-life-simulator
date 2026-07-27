@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
-import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 import { queryDynamicLifeEvent } from "../../data/lifeEvents";
@@ -38,6 +38,13 @@ assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你辞别成都来到深圳。新公司做跨境电商SaaS，你负责前端开发。",
   currentStatus: "student"
 }), true);
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "继续稳步提升技术深度，争取明年带团队",
+  narrativeText: "36岁2个月，你正式成为数据可视化组的技术负责人，带4个人的小组。",
+  acceptedOutcomeId: "continue_technical_depth",
+  effectiveAtAgeInMonths: 444,
+  currentStatus: "student"
+})?.toStatus, "employed");
 
 const questions = await generateQuestions(userData, {
   callAiJson: async (prompt) => {

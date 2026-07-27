@@ -437,6 +437,10 @@ test("rewrites monthly-versus-annual salary contradictions from the authoritativ
     "你的当前税后月薪约1.25万元，但仍决定加入。"
   );
   assert.equal(
+    sanitizeFinancialNarrative("你的年薪将从43万元调整至48万元左右，税后月薪约0.4万元。", state, ledger),
+    "你的当前税后年薪约15万元，税后月薪约1.25万元。"
+  );
+  assert.equal(
     sanitizeFinancialNarrative("到年底，你个人累计债务约18万元，公司仍在融资。", { ...state, totalDebtWan: 44.6651 }, ledger),
     "到年底，你个人总负债为44.67万元，公司仍在融资。"
   );

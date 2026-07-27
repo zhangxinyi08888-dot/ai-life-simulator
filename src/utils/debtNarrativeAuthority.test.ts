@@ -507,3 +507,19 @@ test("PB-NARR-20 a claimed partial debt reduction must match the closing ledger"
   assert.doesNotMatch(repaired.description, /负债降到5\.6万元/u);
   assert.match(repaired.description, /20\.5万元/u);
 });
+
+test("PB-NARR-21 restructure becoming effective requires an accepted event", () => {
+  const authority = deriveDebtNarrativeAuthority({
+    ledger: debtLedger(),
+    debtHealthState: debtHealth(),
+    periodStartAgeInMonths: 396
+  });
+  const unsafe = node({
+    description: "你已经尝试申请调整还款安排，但尚未形成生效协议。重组生效的第一个月，现金流有了喘息空间。",
+    descriptionParagraphs: ["你已经尝试申请调整还款安排，但尚未形成生效协议。", "重组生效的第一个月，现金流有了喘息空间。"]
+  });
+  const issues = collectDebtNarrativeSurfaceIssues({ node: unsafe, authority });
+  assert.equal(issues.some((issue) => issue.reasonCode === "UNACCEPTED_RESTRUCTURE_COMPLETION"), true);
+  const repaired = repairDebtNarrativeSurfaces({ node: unsafe, authority, issues });
+  assert.doesNotMatch(repaired.description, /重组生效/u);
+});

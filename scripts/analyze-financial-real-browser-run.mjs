@@ -10,6 +10,7 @@ import {
   classifyTerminalFinancialIssues,
   collectRecoveredGenerationAttempts,
   collectVisibleGenerationPauses,
+  compensationConversionMismatches,
   duplicateSingletonExpenseTypes,
   personalCompensationAnnualAmounts,
   personalLedgerBusinessBoundaryViolations
@@ -92,6 +93,7 @@ let financeNarrativeNodes = 0;
 let acceptedCoverageNodes = 0;
 let staleFinanceNodes = 0;
 let salaryMismatchNodes = 0;
+let salaryConversionMismatchNodes = 0;
 let missingHoldingNodes = 0;
 let missingOptionHoldingNodes = 0;
 let missingPropertyNodes = 0;
@@ -170,6 +172,9 @@ for (const record of records) {
     const salaryMismatch = impliedAnnual.length > 0 && !impliedAnnual.some((value) => activeIncomeAnnuals
       .some((candidate) => Math.abs(value - candidate) <= Math.max(2, value * 0.12)));
     if (salaryMismatch) salaryMismatchNodes += 1;
+    const salaryConversionMismatches = compensationConversionMismatches(description);
+    const salaryConversionMismatch = salaryConversionMismatches.length > 0;
+    if (salaryConversionMismatch) salaryConversionMismatchNodes += 1;
     const completedPersonalOptionFact = hasCompletedPersonalOptionFact(description);
     const holdingMissing = (completedPersonalOptionFact || personalEquityText.test(description))
       && (ledger.businessHoldings?.length || 0) === 0 && Number(fs.businessAndOtherAssetsWan || 0) === 0;
@@ -254,7 +259,7 @@ for (const record of records) {
       financialState: fs,
       attributes: node.attributes,
       invariantChecks: { identityOk, disposableOk, cashFloorOk, ageOk, ledgerAgeOk, expectedNetWorth, annualDebtInterestWan, annualCashInflowWan },
-      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, holdingMissing, optionHoldingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80Plus, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, invalidHoldingInstrument, personalLedgerBusinessBoundary, businessBoundaryViolations, duplicateSingletonExpense, duplicateSingletonExpenses, wealthDirectionMismatch },
+      narrativeChecks: { hasFinanceNarrative, acceptedCoverage, stale, monthlyAmounts, impliedAnnual, activeIncomeAnnuals, salaryMismatch, salaryConversionMismatch, salaryConversionMismatches, holdingMissing, optionHoldingMissing, propertyMissing, adultZeroExpense, adultBelowPolicyExpense, employedAt80Plus, employedAt80PlusWithoutEvidence, duplicateActiveShortfall, systemShortfallScheduleIssue, issueUndefined, valuedOptionCarryingWan, valuedOptionOmitted, contingentOptionInflated, staleOptionLifecycle, invalidHoldingInstrument, personalLedgerBusinessBoundary, businessBoundaryViolations, duplicateSingletonExpense, duplicateSingletonExpenses, wealthDirectionMismatch },
       financialNarrativeAudit: extractFinancialNarrativeAuditMeta(node),
       issueIds: (ledger.unresolvedIssues || []).map((issue) => issue.id)
     });
@@ -281,6 +286,7 @@ for (const record of records) {
     invariantFailures: nodes.filter((item) => !item.invariantChecks.identityOk || !item.invariantChecks.disposableOk
       || !item.invariantChecks.cashFloorOk || !item.invariantChecks.ageOk || !item.invariantChecks.ledgerAgeOk).length,
     salaryMismatchNodes: nodes.filter((item) => item.narrativeChecks.salaryMismatch).length,
+    salaryConversionMismatchNodes: nodes.filter((item) => item.narrativeChecks.salaryConversionMismatch).length,
     adultZeroExpenseNodes: nodes.filter((item) => item.narrativeChecks.adultZeroExpense).length,
     personalLedgerBusinessBoundaryNodes: nodes.filter((item) => item.narrativeChecks.personalLedgerBusinessBoundary).length,
     duplicateSingletonExpenseNodes: nodes.filter((item) => item.narrativeChecks.duplicateSingletonExpense).length,
@@ -345,6 +351,7 @@ const summary = {
   staleFinanceRatePct: percent(staleFinanceNodes, financeNarrativeNodes),
   salaryMismatchNodes,
   salaryMismatchRatePct: percent(salaryMismatchNodes, financeNarrativeNodes),
+  salaryConversionMismatchNodes,
   missingHoldingNodes,
   missingOptionHoldingNodes,
   missingPropertyNodes,
@@ -405,6 +412,7 @@ const blockers = [
   invariantFailures > 0 && `账本/派生状态不变量失败：${invariantFailures} 个节点`,
   openingFactMismatchCases > 0 && `人物明确提供房产/房贷但开局账本资产和负债均为 0：${openingFactMismatchCases} 组`,
   salaryMismatchNodes > 0 && `正文个人薪资/收入与权威个人账本不一致：${salaryMismatchNodes} 个节点`,
+  salaryConversionMismatchNodes > 0 && `正文年薪/月薪换算自相矛盾：${salaryConversionMismatchNodes} 个节点`,
   missingHoldingNodes > 0 && `正文持股但缺少结构化 BusinessHolding/公司事实：${missingHoldingNodes} 个节点`,
   productionAudit.summary.fallbackWithoutRepairRecordCount > 0 && `fallback 缺少 repair/fallback 审计记录：${productionAudit.summary.fallbackWithoutRepairRecordCount} 个`,
   productionAudit.summary.userVisibleInternalLedgerTextCount > 0 && `用户可见内部账本文本：${productionAudit.summary.userVisibleInternalLedgerTextCount} 个`,

@@ -237,6 +237,15 @@ export function synthesizeSelectedCareerTransition(input: {
     && ["employed", "part_time", "self_employed"].includes(input.currentStatus)) {
     toStatus = input.currentStatus;
   }
+  else if (narrativeEvidence
+    && /被任命|晋升|提升为|成为.{0,12}负责人/u.test(narrativeEvidence)
+    && input.currentStatus
+    && ["student", "not_working", "retired", "medical_leave"].includes(input.currentStatus)) {
+    // A completed employed role is stronger authority than a stale compatibility
+    // status. This closes the student-at-mid-career gap even when the selected
+    // choice described skill growth rather than the eventual promotion itself.
+    toStatus = "employed";
+  }
   if (!toStatus) return undefined;
   // The accepted choice is itself authoritative action evidence. Narrative text
   // may use a synonym such as "递交辞呈", so a prose regex miss must not leave

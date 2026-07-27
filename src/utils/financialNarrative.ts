@@ -70,6 +70,7 @@ function sanitizeRecurringIncomeClaims(description: string, ledger?: FinancialLe
   if (monthlyWan <= 0 || annualWan <= 0) return description;
   return description
     .replace(/(?:税后)?月薪(?:从|由)\s*\d+(?:\.\d+)?\s*万(?:元)?[^，。；！？]{0,16}?(?:降至|降到|增至|增加到|变为|达到)\s*\d+(?:\.\d+)?\s*万(?:元)?/gu, `当前税后月薪约${formatWan(monthlyWan)}万元`)
+    .replace(/(?:税后)?年薪(?:将)?(?:从|由)\s*\d+(?:\.\d+)?\s*万(?:元)?[^，。；！？]{0,16}?(?:调整至|提升至|升至|降至|降到|增至|增加到|变为|达到)\s*\d+(?:\.\d+)?\s*万(?:元)?(?:左右)?/gu, `当前税后年薪约${formatWan(annualWan)}万元`)
     .replace(/((?:税后)?月薪(?:约|为|达到|降至|降到)?\s*)(\d+(?:\.\d+)?)\s*万(?:元)?/gu, (match, prefix: string, raw: string) => (
       Math.abs(Number(raw) - monthlyWan) <= Math.max(0.01, monthlyWan * 0.01)
         ? match

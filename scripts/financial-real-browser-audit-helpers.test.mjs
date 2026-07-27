@@ -4,6 +4,7 @@ import {
   adultBelowPolicyExpenseViolation,
   collectRecoveredGenerationAttempts,
   collectVisibleGenerationPauses,
+  compensationConversionMismatches,
   classifyTerminalFinancialIssues,
   duplicateSingletonExpenseTypes,
   personalCompensationAnnualAmounts,
@@ -111,6 +112,26 @@ test("extracts protagonist compensation without treating company revenue or staf
   assert.deepEqual(personalCompensationAnnualAmounts("你想起那种踏实感是以前年薪32万时才有的。"), []);
   assert.deepEqual(personalCompensationAnnualAmounts("你辞去了年薪38万元的工作，开始创业。"), []);
   assert.deepEqual(personalCompensationAnnualAmounts("你正式入职，税后月薪6000元，加上兼职收入每月总计约1.1万元。"), [13.2]);
+});
+
+test("extracts the closing annual salary from an adjustment range", () => {
+  assert.deepEqual(
+    personalCompensationAnnualAmounts("你的年薪将从43万元调整至48万元左右，税后月薪约0.4万元。"),
+    [4.8, 48]
+  );
+});
+
+test("detects an internally inconsistent annual and monthly salary conversion", () => {
+  assert.deepEqual(
+    compensationConversionMismatches("如果通过，你的年薪将从43万元调整至48万元左右，税后月薪约0.4万元。"),
+    [{
+      sentence: "如果通过，你的年薪将从43万元调整至48万元左右，税后月薪约0.4万元。",
+      annualWan: 48,
+      monthlyWan: 0.4,
+      impliedAnnualWan: 4.800000000000001
+    }]
+  );
+  assert.deepEqual(compensationConversionMismatches("你的年薪为48万元，税后月薪约4万元。"), []);
 });
 
 test("accepts an exact evidence-backed low-cost living arrangement without weakening the adult default floor", () => {

@@ -81,7 +81,26 @@ export function personalCompensationAnnualAmounts(narrativeText = "") {
       .map((match) => Math.round(Number(match[1]) * (match[2] === "元" ? 0.0001 : 1) * 12 * 10000) / 10000);
     const annual = [...sentence.matchAll(/(?:税后)?年薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/gu)]
       .map((match) => Number(match[1]));
-    return [...monthly, ...annual];
+    const annualRange = [...sentence.matchAll(/(?:税后)?年薪(?:将)?(?:从|由)\s*\d+(?:\.\d+)?\s*万(?:元)?[^，。；！？]{0,16}?(?:调整至|提升至|升至|降至|降到|增至|增加到|变为|达到)\s*(\d+(?:\.\d+)?)\s*万/gu)]
+      .map((match) => Number(match[1]));
+    return [...monthly, ...annual, ...annualRange];
+  });
+}
+
+export function compensationConversionMismatches(narrativeText = "") {
+  return String(narrativeText).split(/(?<=[。！？；])/u).flatMap((sentence) => {
+    const monthly = [...sentence.matchAll(/(?:税后)?月薪(?:达到|提升至|升至|降至|降到|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/gu)]
+      .map((match) => Number(match[1]));
+    const annualDirect = [...sentence.matchAll(/(?:税后)?年薪(?:达到|提升至|升至|降至|降到|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/gu)]
+      .map((match) => Number(match[1]));
+    const annualRange = [...sentence.matchAll(/(?:税后)?年薪(?:将)?(?:从|由)\s*\d+(?:\.\d+)?\s*万(?:元)?[^，。；！？]{0,16}?(?:调整至|提升至|升至|降至|降到|增至|增加到|变为|达到)\s*(\d+(?:\.\d+)?)\s*万/gu)]
+      .map((match) => Number(match[1]));
+    const annual = annualRange.at(-1) ?? annualDirect.at(-1);
+    const monthlyWan = monthly.at(-1);
+    if (!Number.isFinite(annual) || !Number.isFinite(monthlyWan)) return [];
+    const impliedAnnualWan = Number(monthlyWan) * 12;
+    if (Math.abs(Number(annual) - impliedAnnualWan) <= Math.max(0.1, Number(annual) * 0.02)) return [];
+    return [{ sentence, annualWan: Number(annual), monthlyWan: Number(monthlyWan), impliedAnnualWan }];
   });
 }
 
