@@ -51,6 +51,44 @@ test("another person's mortgage does not create protagonist coverage", () => {
   assert.equal(issues.length, 0);
 });
 
+test("an authoritative mortgage fact does not imply a separately owned property", () => {
+  const mortgageLedger = structuredClone(ledger);
+  mortgageLedger.debtAccounts.push({
+    id: "mortgage_existing",
+    type: "mortgage",
+    displayName: "现有住房按揭",
+    principalWan: 35.5,
+    openedAtAgeInMonths: 300,
+    status: "active",
+    repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.35, remainingTermMonths: 120 },
+    factStatus: "known",
+    evidence
+  });
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你继续承担房贷，月供压力仍在可控范围内。",
+    ledger: mortgageLedger,
+    acceptedEvents: [],
+    ageInMonths: 467
+  });
+  assert.equal(issues.some((issue) => issue.id.includes("property")), false);
+  assert.equal(issues.some((issue) => issue.id.includes("mortgage")), false);
+});
+
+test("future home plans and relationship metaphors are not completed property facts", () => {
+  for (const narrativeText of [
+    "你们正式讨论两年后共同购买三居室的计划。",
+    "林姐的女儿每周来你家住一天，你终于拥有了一个可以称之为家的关系。"
+  ]) {
+    const issues = detectNarrativeFinancialCoverageIssues({
+      narrativeText,
+      ledger,
+      acceptedEvents: [],
+      ageInMonths: 563
+    });
+    assert.equal(issues.some((issue) => issue.id.includes("property")), false);
+  }
+});
+
 test("employee option grants do not create a protagonist option coverage issue", () => {
   const issues = detectNarrativeFinancialCoverageIssues({
     narrativeText: "你决定建立期权池，并授予销售总监和技术骨干各2%的期权。",
