@@ -2570,7 +2570,10 @@ export async function generateNextNode(
         }
       }
     );
-    latestRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
+    // Keep the first raw payload intact until the authority check below. If we
+    // strip an attempted Arc write here, the model violation becomes invisible
+    // and the bounded consistency repair never runs.
+    latestRawNode = parseAiJsonResponse(response);
     return latestRawNode;
   }, {
     fallbackAge: timelineAdvance.targetAge,
