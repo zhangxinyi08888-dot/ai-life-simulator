@@ -476,6 +476,52 @@ test("system liquidity shortfall reuses one revolving account, avoids schedule n
   assert.equal(recovered.transaction.eventIds.some((id) => id.startsWith("auto_shortfall_recovery_")), false);
 });
 
+test("proposal-created liquidity shortfall merges into the canonical revolving account", () => {
+  const opening = ledgerAt(240, 0);
+  const first = reduceFinancialLedger({
+    ledger: opening,
+    transactionId: "canonical_shortfall_open",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 240,
+    periodEndAgeInMonths: 241,
+    events: [{
+      ...accepted("essential_expense", "one_off_expense_paid", 241, {
+        sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+        amountWan: 1
+      }),
+      liquidityTreatment: "allow_system_shortfall"
+    }],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  const canonicalId = first.ledger.debtAccounts.find((item) => item.type === "liquidity_shortfall")!.id;
+  const second = reduceFinancialLedger({
+    ledger: first.ledger,
+    transactionId: "canonical_shortfall_proposal",
+    expectedLedgerRevision: first.ledger.revision,
+    periodStartAgeInMonths: 241,
+    periodEndAgeInMonths: 242,
+    events: [accepted("proposal_shortfall", "liquidity_shortfall_created", 242, {
+      debtAccount: {
+        ...debt("proposal_shortfall_account", 0.5, "liquidity_shortfall"),
+        openedAtAgeInMonths: 242
+      },
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      principalDrawnWan: 0.5
+    })],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+
+  const active = second.ledger.debtAccounts.filter((item) => item.type === "liquidity_shortfall" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].id, canonicalId);
+  assert.equal(active[0].origin, "system_auto_shortfall");
+  assert.equal(active[0].principalWan, 1.5);
+  assert.equal(second.ledger.cashAccounts[0].balanceWan, 0.5);
+  const merged = second.ledger.debtAccounts.find((item) => item.id === "proposal_shortfall_account")!;
+  assert.equal(merged.status, "restructured");
+  assert.equal(merged.principalWan, 0);
+});
+
 test("does not let a later inflow retroactively fund an earlier expense", () => {
   assert.throws(() => reduceFinancialLedger({
     ledger: ledgerAt(240, 1),

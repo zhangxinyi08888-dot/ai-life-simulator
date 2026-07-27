@@ -93,6 +93,30 @@ test("migration is safe to call at a restore boundary more than once", () => {
   assert.deepEqual(second, first);
 });
 
+test("v3 restore consolidates an explicit-tagged shortfall with the system facility", () => {
+  const input = v2Ledger() as any;
+  input.version = 3;
+  input.debtAccounts[0].origin = "explicit";
+  input.debtAccounts[1].origin = "system_auto_shortfall";
+  const before = {
+    cash: input.cashAccounts[0].balanceWan,
+    debt: totalDebtWan(input),
+    netWorth: ledgerNetWorthWan(input)
+  };
+
+  const migrated = migrateFinancialLedgerV2ToV3(input);
+  const active = migrated.debtAccounts.filter((debt) => debt.type === "liquidity_shortfall" && debt.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].id, "earliest");
+  assert.equal(active[0].origin, "system_auto_shortfall");
+  assert.equal(active[0].principalWan, 3);
+  assert.deepEqual({
+    cash: migrated.cashAccounts[0].balanceWan,
+    debt: totalDebtWan(migrated),
+    netWorth: ledgerNetWorthWan(migrated)
+  }, before);
+});
+
 test("restore migration repairs missing recurring-fact effective dates without retroactive accrual", () => {
   const input = v2Ledger() as any;
   input.version = 3;

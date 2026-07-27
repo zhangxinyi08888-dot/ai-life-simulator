@@ -83,16 +83,13 @@ export function migrateFinancialLedgerV2ToV3(input: FinancialLedgerInput): Finan
     };
   });
 
-  // V2 had no origin marker. Its liquidity_shortfall accounts were created by
-  // the system cash-floor mechanism, so all active instances are one facility.
-  // Also repair already-upgraded ledgers that still carry the old proliferation.
+  // liquidity_shortfall is the canonical cash-floor facility, not an explicit
+  // bridge-loan type. Consolidate every active instance, including v3 records
+  // produced by older model proposals that incorrectly marked one as explicit.
+  // Actual accepted borrowing remains separate under its concrete debt type.
   const activeShortfalls = ledger.debtAccounts
     .filter((account) => account.type === "liquidity_shortfall"
-      && account.status === "active"
-      && (isPersistedV2
-        || account.origin === "system_auto_shortfall"
-        // Transitional fixtures/snapshots created before v3 used this stable prefix.
-        || account.id.startsWith("legacy_shortfall")))
+      && account.status === "active")
     .sort((left, right) => left.openedAtAgeInMonths - right.openedAtAgeInMonths);
 
   if (activeShortfalls.length > 0) {

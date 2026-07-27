@@ -232,18 +232,16 @@ type AutomaticShortfallDebt = DebtAccount & {
 };
 
 function isAutomaticShortfallDebt(debt: DebtAccount): debt is AutomaticShortfallDebt {
-  const candidate = debt as AutomaticShortfallDebt;
-  return debt.type === "liquidity_shortfall" && (
-    candidate.origin === "system_auto_shortfall"
-    || debt.evidence.some((item) => item.reasonCode === "AUTOMATIC_LIQUIDITY_SHORTFALL")
-  );
+  return debt.type === "liquidity_shortfall";
 }
 
 /**
  * The reducer is a mechanical boundary: even an old or partially migrated
- * ledger must not be able to keep multiple live system-created shortfall
- * accounts. Explicit bridge loans remain separate because they represent an
- * accepted user/world fact rather than the liquidity-floor policy.
+ * ledger must not be able to keep multiple live shortfall accounts. A real
+ * accepted bridge loan belongs to a concrete debt type such as
+ * family_or_personal_loan; liquidity_shortfall is the single revolving
+ * cash-floor facility regardless of whether an older proposal marked its
+ * origin as explicit.
  */
 function consolidateAutomaticShortfallAccounts(ledger: FinancialLedger): AutomaticShortfallDebt | undefined {
   // liquidity_shortfall is a policy-created/event-created balance, never a
@@ -262,7 +260,7 @@ function consolidateAutomaticShortfallAccounts(ledger: FinancialLedger): Automat
   }
   const active = ledger.debtAccounts.filter(
     (debt): debt is AutomaticShortfallDebt => debt.status === "active" && isAutomaticShortfallDebt(debt)
-  );
+  ).sort((left, right) => left.openedAtAgeInMonths - right.openedAtAgeInMonths);
   if (active.length === 0) return undefined;
 
   const canonical = active[0];
