@@ -862,6 +862,7 @@ export function narrativeRequiresCareerTransition(input: {
     && !/(?:最终决定|正式|已经|已(?:经)?|于是|随后|当场|递交了?|提交了?|办理了?|签下了?|签署了?|接受了?|入职了?|离职了?|辞职了?|辞去了)/u.test(sentence)
   );
   const negatesExit = (sentence: string) => /(?:不敢|不想|不愿|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:辞职|离职|退休|停止工作|结束全职)/u.test(sentence);
+  const negatesCareerMove = (sentence: string) => /(?:不|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(sentence);
   const stopsWorking = protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesExit(sentence)
@@ -878,6 +879,7 @@ export function narrativeRequiresCareerTransition(input: {
   if (startsWorking && ["student", "not_working", "retired", "medical_leave"].includes(input.currentStatus)) return true;
   return protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
+    && !negatesCareerMove(sentence)
     && /你[^。；]{0,24}(?:(?:决定|选择|正式|已经|已)[^。；]{0,8})(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(sentence)
   ));
 }

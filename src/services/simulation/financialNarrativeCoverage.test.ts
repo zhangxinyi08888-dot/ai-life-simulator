@@ -187,6 +187,10 @@ test("explicit protagonist job entry, role change and retirement require authori
     narrativeText: "你的本职工作保持稳定，但房贷压力让你不敢轻易辞职。你开始认真考虑是否应该未来全职投入创业。",
     currentStatus: "employed"
   }), false);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "你利用业余时间联系了两位猎头，了解到其他岗位的薪资区间。你决定暂不跳槽，先积累一年行业经验。",
+    currentStatus: "employed"
+  }), false);
 });
 
 test("post-sanitization narrative reconciliation resolves stale coverage blockers", () => {
