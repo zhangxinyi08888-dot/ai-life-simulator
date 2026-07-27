@@ -415,6 +415,26 @@ test("PB-NARR-18 a payoff claim is rejected when debt was already zero before th
   assert.match(repaired.description, /现金缓冲与生活安排/u);
 });
 
+test("PB-NARR-19 debt-free career legal language is outside debt authority", () => {
+  const ledger = initializeFinancialLedger({ id: "debt_free_career_conflict", asOfAgeInMonths: 508 });
+  const authority = deriveDebtNarrativeAuthority({
+    ledger,
+    debtHealthState: { ...debtHealth(), level: "none", consecutiveMissedPaymentMonths: 0 },
+    periodStartAgeInMonths: 502
+  });
+  const careerConflict = node({
+    description: "顾问团出现利益冲突，你拒绝利用内部数据，并书面向公司法务报备责任边界。",
+    descriptionParagraphs: ["顾问团出现利益冲突，你拒绝利用内部数据，并书面向公司法务报备责任边界。"],
+    choices: [{
+      id: "career_legal_review",
+      text: "通过公司法务和规则化调解处理利益冲突",
+      impactSummary: "明确顾问责任边界",
+      decisionIntent: "career:formalize_advisory_boundary"
+    }]
+  });
+  assert.deepEqual(collectDebtNarrativeSurfaceIssues({ node: careerConflict, authority }), []);
+});
+
 test("PB-NARR-18 a hypothetical future payoff is not a completed claim", () => {
   const authority = deriveDebtNarrativeAuthority({ ledger: debtLedger(), debtHealthState: debtHealth(), periodStartAgeInMonths: 396 });
   const hypothetical = node({ description: "这10万元意味着你可以提前还清计划中的个人债务。", descriptionParagraphs: ["这10万元意味着你可以提前还清计划中的个人债务。"] });

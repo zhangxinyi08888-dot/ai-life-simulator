@@ -296,6 +296,13 @@ const EXACT_TOTAL_DEBT_PATTERN = /(?:个人(?:总)?|累计|当前|总计|整体|
 const EXACT_PREFIXED_DEBT_AMOUNT_PATTERN = /这笔\s*(\d+(?:\.\d+)?)\s*万(?:元)?(?:的)?(?:债务|负债)/gu;
 const EXACT_LOAN_BALANCE_PATTERN = /(?:房贷|贷款|按揭)(?:(?:剩余)?(?:本金|余额)(?:约|为|达到|升至|降至|减少到|还有)?|还剩)\s*(\d+(?:\.\d+)?)\s*万(?:元)?/gu;
 const EXACT_LOAN_REMAINING_PATTERN = /(?:房贷|贷款|按揭)(?:还有|尚有|剩下)\s*(\d+(?:\.\d+)?)\s*万(?:元)?(?:本金)?/gu;
+const DEBT_SENTENCE_CONTEXT_PATTERN = /债务|负债|借款|贷款|房贷|按揭|月供|还款|偿付|逾期|拖欠|欠款|债权|银行|信用卡|征信|催收|贷后|清收|罚息/u;
+
+function debtScopedPatternMatches(text: string, pattern: RegExp, authoritativeDebtContext = false): boolean {
+  return text.split(/[。！？\n]/u).some((sentence) =>
+    (authoritativeDebtContext || DEBT_SENTENCE_CONTEXT_PATTERN.test(sentence)) && pattern.test(sentence)
+  );
+}
 
 function containsCompletedDebtClaim(text: string): boolean {
   return text.split(/[。！？\n]/u).some((sentence) => {
@@ -309,10 +316,14 @@ function containsCompletedDebtClaim(text: string): boolean {
 function issuesForText(text: string, surface: DebtNarrativeSurface, authority: DebtNarrativeAuthority, path?: string): DebtNarrativeSurfaceIssue[] {
   const issues: DebtNarrativeSurfaceIssue[] = [];
   const push = (reasonCode: DebtNarrativeSurfaceIssue["reasonCode"]) => issues.push({ surface, path, reasonCode, text });
-  if (!authority.permittedInstitutionActions.includes("formal_collection") && COLLECTION_PATTERN.test(text)) push("UNAUTHORIZED_COLLECTION");
-  if (!authority.permittedInstitutionActions.includes("legal_action") && LEGAL_PATTERN.test(text)) push("UNAUTHORIZED_LEGAL_ACTION");
-  if (!authority.permittedInstitutionActions.includes("credit_reporting") && CREDIT_PATTERN.test(text)) push("UNAUTHORIZED_CREDIT_CONSEQUENCE");
-  if (PENALTY_PATTERN.test(text)) push("UNAUTHORIZED_PENALTY");
+  const authoritativeDebtContext = surface === "arcSignal.evidence"
+    && (authority.healthLevel !== "none"
+      || authority.deltaBreakdown.openingDebtWan > 0.01
+      || authority.deltaBreakdown.closingDebtWan > 0.01);
+  if (!authority.permittedInstitutionActions.includes("formal_collection") && debtScopedPatternMatches(text, COLLECTION_PATTERN)) push("UNAUTHORIZED_COLLECTION");
+  if (!authority.permittedInstitutionActions.includes("legal_action") && debtScopedPatternMatches(text, LEGAL_PATTERN, authoritativeDebtContext)) push("UNAUTHORIZED_LEGAL_ACTION");
+  if (!authority.permittedInstitutionActions.includes("credit_reporting") && debtScopedPatternMatches(text, CREDIT_PATTERN)) push("UNAUTHORIZED_CREDIT_CONSEQUENCE");
+  if (debtScopedPatternMatches(text, PENALTY_PATTERN)) push("UNAUTHORIZED_PENALTY");
   if (authority.consecutiveMissedPaymentMonths > 0 && FIRST_DELINQUENCY_PATTERN.test(text)) push("FALSE_FIRST_DELINQUENCY");
   if (!authority.acceptedCompletedEventKinds.includes("debt_restructured") && RESTRUCTURE_COMPLETED_PATTERN.test(text)) push("UNACCEPTED_RESTRUCTURE_COMPLETION");
   if (!authority.acceptedCompletedEventKinds.includes("debt_principal_repaid") && ARREARS_CATCHUP_PATTERN.test(text)) push("UNACCEPTED_ARREARS_CATCHUP");
@@ -326,7 +337,7 @@ function issuesForText(text: string, surface: DebtNarrativeSurface, authority: D
     push("UNACCEPTED_DEBT_COMPLETION");
   }
   if (authority.canonicalFacts.some((fact) => fact.kind === "debt_outstanding") && DENIED_DEBT_PATTERN.test(text)) push("DENIED_EXISTING_DEBT");
-  if (STIGMA_PATTERN.test(text)) push("DEBT_STIGMA");
+  if (debtScopedPatternMatches(text, STIGMA_PATTERN)) push("DEBT_STIGMA");
   for (const match of text.matchAll(EXACT_MISSED_PATTERN)) {
     if (Number(match[1]) !== authority.consecutiveMissedPaymentMonths) {
       push("MISMATCHED_MISSED_PAYMENT_COUNT");
