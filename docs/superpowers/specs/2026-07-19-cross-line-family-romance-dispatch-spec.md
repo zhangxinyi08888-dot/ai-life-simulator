@@ -838,7 +838,7 @@ pressureArcInterleaved?: boolean;
   requiredContextGroups: [["no_active_romantic_connection"]],
   hardAgeConstraint: { minAge: 18, basis: "legal" },
   ageAffinityPolicyId: "romance_formation_age_v1",
-  cooldown: 10,
+  cooldown: 2,
   baseProbability: 0.65,
   intent: {
     type: "romance_new_connection",
@@ -872,8 +872,9 @@ Render 约束：
 
 | 年龄 | 默认乘数 |
 |---|---:|
-| 18–21 | 0.65 |
-| 22–35 | 1.00 |
+| 18–21 | 1.15 |
+| 22–29 | 1.25 |
+| 30–35 | 1.00 |
 | 36–45 | 0.75 |
 | 46–60 | 0.45 |
 | 60+ | 0.25 |
@@ -881,10 +882,18 @@ Render 约束：
 边界：
 
 - 18 岁以上永远保留候选资格，年龄不得成为硬排除条件；
-- 用户明确选择爱情主线、主动寻找伴侣、离异或丧偶后明确重新开放关系时，乘数恢复为 1；
+- 用户明确选择爱情主线、主动寻找伴侣、离异或丧偶后明确重新开放关系时，乘数不得低于 1；18–29 岁的自然相遇提升仍保留；
 - 用户初始材料已有 active relationship 时不走新相遇年龄权重，而读取权威关系；
 - 当前仅有单一 `preferredRange` 的年龄接口无法表达上述分段曲线；实现时必须增加独立的分段软权重 resolver，不得借用 hard min/max 拼接出等价的硬门槛；
 - 该策略最后实施，并在更大样本校准后才能冻结具体乘数，不能用五条 R4 路线直接拟合。
+
+为防止爱情形成线在事业/教育长路线中只有理论候选、用户实际永远看不到，增加一次性形成机会保底：
+
+- 仅适用于 `career` 主线和 `education` 回溯路线；
+- 从回溯起点累计至少 24 个月，且历史中从未展示过 `romance_new_connection` 时，在下一个安全普通节点派发一次；
+- 已展示即清账，用户选择继续了解、保持普通认识或明确拒绝都不得再次触发该保底；
+- active romance、关系关闭/冷却、最近重大危机和事业线连续跨线已达上限时不得强插，条件解除后继续保留欠付机会；
+- 该规则保证的是一次自然相遇选择，不保证恋爱、确认、承诺或结婚。
 
 ### 12.2 事件二：关系确认窗口
 

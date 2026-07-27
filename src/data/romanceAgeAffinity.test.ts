@@ -9,12 +9,14 @@ const affinity = {
 };
 
 test("romance formation uses a piecewise soft age curve without excluding late life", () => {
-  assert.equal(calculateAgeAffinityMultiplier(18, affinity, false, "romance_formation_age_v1"), 0.65);
+  assert.equal(calculateAgeAffinityMultiplier(18, affinity, false, "romance_formation_age_v1"), 1.15);
+  assert.equal(calculateAgeAffinityMultiplier(25, affinity, false, "romance_formation_age_v1"), 1.25);
   assert.equal(calculateAgeAffinityMultiplier(30, affinity, false, "romance_formation_age_v1"), 1);
   assert.equal(calculateAgeAffinityMultiplier(40, affinity, false, "romance_formation_age_v1"), 0.75);
   assert.equal(calculateAgeAffinityMultiplier(50, affinity, false, "romance_formation_age_v1"), 0.45);
   assert.equal(calculateAgeAffinityMultiplier(70, affinity, false, "romance_formation_age_v1"), 0.25);
   assert.equal(calculateAgeAffinityMultiplier(70, affinity, true, "romance_formation_age_v1"), 1);
+  assert.equal(calculateAgeAffinityMultiplier(25, affinity, true, "romance_formation_age_v1"), 1.25);
 });
 
 test("romance age affinity can roll back independently and explicit direction restores full weight", () => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, RecoveryState } from "../types";
-import { buildEventMeta, calculateAgeAffinityMultiplier, calculateEventSelectionWeight, getEventTemporalProfile, getLastEventSelectionTrace, isEventAgeEligible, isLifeEventCandidateEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "./lifeEvents";
+import { buildEventMeta, calculateAgeAffinityMultiplier, calculateEventSelectionWeight, getEventTemporalProfile, getLastEventSelectionTrace, isEventAgeEligible, isFirstRomanceOpportunityDue, isLifeEventCandidateEligible, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent } from "./lifeEvents";
 import { createSelectionEntropy } from "../config/lineMixPolicy";
 
 const lowHealth: LifeAttributes = {
@@ -82,6 +82,72 @@ const deterministicSecond = queryDynamicLifeEvent(stableAttributes, { coreStoryF
 });
 assert.equal(deterministicFirst?.id, deterministicSecond?.id);
 assert.equal(getLastEventSelectionTrace()?.lineSelection?.policyId, "career_75_25_v1");
+
+const careerWithoutRomance = [
+  { ...historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "career_gradual_transition_window")!)), age: 24, ageInMonths: 288 },
+  { ...historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "career_craft_meaning")!)), age: 25, ageInMonths: 300 }
+];
+assert.equal(isFirstRomanceOpportunityDue({ coreStoryFocus: "career", regressionAge: 24 }, 26, careerWithoutRomance), true);
+const guaranteedCareerEncounter = queryDynamicLifeEvent(
+  stableAttributes,
+  { coreStoryFocus: "career", regressionAge: 24 },
+  26,
+  careerWithoutRomance,
+  undefined,
+  {
+    entropy: createSelectionEntropy({ simulationSeed: "romance-opportunity", branchFingerprint: "career", nodeIndex: 2 }),
+    applyCareerLineMix: true,
+    includedEventIds: ["romance_new_connection", "career_craft_meaning"]
+  }
+);
+assert.equal(guaranteedCareerEncounter?.id, "romance_new_connection");
+assert.equal(getLastEventSelectionTrace()?.selectionReason, "career_education_first_romance_opportunity_v1");
+assert.equal(getLastEventSelectionTrace()?.lineSelection?.selectedLine, "romance");
+
+const crossLineSaturatedHistory = careerWithoutRomance.map((item, index) => ({
+  ...item,
+  eventMeta: {
+    ...item.eventMeta!,
+    eventId: `recent_cross_${index}`,
+    routeLine: "family" as const,
+    selectionKind: "cross" as const,
+    linePolicyId: "career_75_25_v1"
+  }
+}));
+const deferredGuaranteedEncounter = queryDynamicLifeEvent(
+  stableAttributes,
+  { coreStoryFocus: "career", regressionAge: 24 },
+  26,
+  crossLineSaturatedHistory,
+  undefined,
+  {
+    entropy: createSelectionEntropy({ simulationSeed: "romance-opportunity", branchFingerprint: "cross-saturated", nodeIndex: 2 }),
+    applyCareerLineMix: true,
+    includedEventIds: ["romance_new_connection", "career_craft_meaning"]
+  }
+);
+assert.notEqual(deferredGuaranteedEncounter?.id, "romance_new_connection");
+
+const educationWithoutRomance = [
+  { ...historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "career_gradual_transition_window")!)), age: 18, ageInMonths: 216 },
+  { ...historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "career_craft_meaning")!)), age: 19, ageInMonths: 228 }
+];
+assert.equal(isFirstRomanceOpportunityDue({ coreStoryFocus: "selftruth", regressionNodeKey: "education", regressionAge: 18 }, 20, educationWithoutRomance), true);
+const guaranteedEducationEncounter = queryDynamicLifeEvent(
+  stableAttributes,
+  { coreStoryFocus: "selftruth", regressionNodeKey: "education", regressionAge: 18 },
+  20,
+  educationWithoutRomance,
+  undefined,
+  { includedEventIds: ["romance_new_connection", "career_craft_meaning"] }
+);
+assert.equal(guaranteedEducationEncounter?.id, "romance_new_connection");
+
+const alreadyShownRomance = [
+  ...careerWithoutRomance,
+  { ...historyItem(buildEventMeta(LIFE_EVENTS_DATABASE.find((event) => event.id === "romance_new_connection")!)), age: 26, ageInMonths: 312 }
+];
+assert.equal(isFirstRomanceOpportunityDue({ coreStoryFocus: "career", regressionAge: 24 }, 29, alreadyShownRomance), false);
 
 const pressureFilteredEvent = queryDynamicLifeEvent(stableAttributes, { coreStoryFocus: "career" }, 35, [], undefined, {
   entropy: createSelectionEntropy({ ...deterministicEntropyInput, nodeIndex: 8 }),

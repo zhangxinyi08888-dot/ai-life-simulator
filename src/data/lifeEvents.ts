@@ -872,19 +872,65 @@ export function calculateAgeAffinityMultiplier(
   userDirected = false,
   policyId?: LifeEventSeed["ageAffinityPolicyId"]
 ): number {
-  if (userDirected || !affinity?.preferredRange) return 1;
+  if (!affinity?.preferredRange) return 1;
   if (policyId === "romance_formation_age_v1") {
-    if (age <= 21) return 0.65;
-    if (age <= 35) return 1;
-    if (age <= 45) return 0.75;
-    if (age <= 60) return 0.45;
-    return 0.25;
+    const multiplier = age <= 21
+      ? 1.15
+      : age <= 29
+        ? 1.25
+        : age <= 35
+          ? 1
+          : age <= 45
+            ? 0.75
+            : age <= 60
+              ? 0.45
+              : 0.25;
+    return userDirected ? Math.max(1, multiplier) : multiplier;
   }
+  if (userDirected) return 1;
   const [min, max] = affinity.preferredRange;
   if (age >= min && age <= max) return 1;
   const distance = age < min ? min - age : age - max;
   const multiplier = distance <= 10 ? 0.8 : distance <= 20 ? 0.6 : 0.4;
   return Math.max(multiplier, affinity.minimumMultiplier);
+}
+
+export const ROMANCE_FORMATION_OPPORTUNITY_POLICY = {
+  id: "career_education_first_romance_opportunity_v1",
+  minimumElapsedMonths: 24
+} as const;
+
+function isCareerOrEducationRoute(userData: UserEventData): boolean {
+  return userData.coreStoryFocus === "career"
+    || userData.regressionNodeKey === "education"
+    || Boolean(userData.milestoneGaokao);
+}
+
+export function isFirstRomanceOpportunityDue(
+  userData: UserEventData,
+  age: number,
+  history: HistoryItem[]
+): boolean {
+  if (!isCareerOrEducationRoute(userData) || age < 18) return false;
+  if (history.some((item) => item.eventMeta?.eventId === "romance_new_connection")) return false;
+
+  const currentAgeInMonths = Math.round(age * 12);
+  const possibleStarts = [
+    typeof userData.regressionAge === "number" ? userData.regressionAge * 12 : undefined,
+    ...history.map((item) => item.ageInMonths ?? (Number.isFinite(item.age) ? item.age * 12 : undefined))
+  ].filter((value): value is number => typeof value === "number" && value <= currentAgeInMonths);
+  if (possibleStarts.length === 0) return false;
+
+  return currentAgeInMonths - Math.min(...possibleStarts)
+    >= ROMANCE_FORMATION_OPPORTUNITY_POLICY.minimumElapsedMonths;
+}
+
+function canInsertGuaranteedCareerCrossLine(history: HistoryItem[]): boolean {
+  const ordinary = history.filter((item) => item.eventMeta?.linePolicyId === CAREER_LINE_MIX_POLICY.id);
+  const recentCrossCount = [...ordinary].reverse()
+    .findIndex((item) => item.eventMeta?.selectionKind !== "cross");
+  const consecutiveCross = recentCrossCount < 0 ? ordinary.length : recentCrossCount;
+  return consecutiveCross < CAREER_LINE_MIX_POLICY.maxConsecutiveCrossLineNodes;
 }
 
 function defaultHardAgeConstraint(event: LifeEventSeed): HardAgeConstraint | undefined {
@@ -1023,6 +1069,7 @@ export function queryDynamicLifeEvent(
     excludedEventIds?: string[];
     includedEventIds?: string[];
     enableRomanceFormationAgeAffinity?: boolean;
+    allowGuaranteedRomanceFormation?: boolean;
   } = {}
 ): LifeEventSeed | null {
   const excludedEventIds = new Set(options.excludedEventIds || []);
@@ -1050,6 +1097,37 @@ export function queryDynamicLifeEvent(
   if (nonCooledCandidates.length === 0) {
     lastEventSelectionTrace.selectionReason = "all_candidates_in_cooldown";
     return null;
+  }
+
+  const dueFirstRomanceOpportunity = nonCooledCandidates.find((event) => event.id === "romance_new_connection");
+  if (
+    dueFirstRomanceOpportunity
+    && options.allowGuaranteedRomanceFormation !== false
+    && isFirstRomanceOpportunityDue(userData, age, classifiedHistory)
+    && !hasRecentMajorEvent(classifiedHistory)
+    && (
+      userData.coreStoryFocus !== "career"
+      || !options.applyCareerLineMix
+      || canInsertGuaranteedCareerCrossLine(classifiedHistory)
+    )
+  ) {
+    lastEventSelectionTrace.availableModes = [dueFirstRomanceOpportunity.narrativeMode];
+    lastEventSelectionTrace.candidateIdsAfterFilters = [dueFirstRomanceOpportunity.id];
+    lastEventSelectionTrace.selectedMode = dueFirstRomanceOpportunity.narrativeMode;
+    lastEventSelectionTrace.selectedEventId = dueFirstRomanceOpportunity.id;
+    lastEventSelectionTrace.selectionReason = ROMANCE_FORMATION_OPPORTUNITY_POLICY.id;
+    if (options.applyCareerLineMix && options.entropy && userData.coreStoryFocus === "career") {
+      lastEventSelectionTrace.lineSelection = {
+        mainLine: "career",
+        selectedLine: "romance",
+        selectionKind: "cross",
+        policyId: CAREER_LINE_MIX_POLICY.id,
+        randomSample: options.entropy.sample("route_line"),
+        fallbackReason: ROMANCE_FORMATION_OPPORTUNITY_POLICY.id,
+        crossLineCandidateAvailable: true
+      };
+    }
+    return dueFirstRomanceOpportunity;
   }
 
   const tagAllowedCandidates = nonCooledCandidates.filter((event) => !isTagSimilarToRecent(event, classifiedHistory));

@@ -1032,7 +1032,7 @@ function selectArcContinuationEvent(input: {
     input.age,
     input.history,
     input.answers,
-    { entropy: input.entropy }
+    { entropy: input.entropy, allowGuaranteedRomanceFormation: false }
   );
   if (dynamicEvent && isSafeArcContinuationEvent(dynamicEvent, input.arc)) {
     return dynamicEvent;

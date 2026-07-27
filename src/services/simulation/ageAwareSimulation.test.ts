@@ -230,6 +230,7 @@ try {
     nodeIndex: 1,
     simulationSeed: "forbidden-seed"
   }, {
+    relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
     callAiJson: async () => {
       forbiddenAttempts += 1;
       return { text: JSON.stringify(forbiddenAttempts === 1 ? { ...rawNode(), nextPhaseId: "growth" } : rawNode("公司经营稳定，规则由状态机决定。")) };
