@@ -3177,6 +3177,14 @@ export async function generateNextNode(
   // more against the closing ledger so canonical debt totals also obey the
   // public two-decimal display contract.
   node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger);
+  // Financial grounding can remove or rewrite a paragraph that contained the
+  // evidence selected by the earlier deterministic romance proposal pass. The
+  // accepted choice and event contract are unchanged, so re-derive against the
+  // final user-visible text instead of persisting a proposal whose evidence no
+  // longer exists and silently repeating the same relationship checkpoint.
+  if (isDeterministicRomanceIntent(nodeEvent?.intent.type)) {
+    node = deriveDeterministicRomanceProposals(node, nodeEvent!.intent.type);
+  }
   const committedDebtNarrativeIssues = validateDebtNarrativeConsistency({
     description: node.description,
     debtHealthState: node.debtHealthState,
