@@ -490,3 +490,20 @@ test("PB-NARR-12 exact mortgage balance is checked against total closing debt", 
     true
   );
 });
+
+test("PB-NARR-20 a claimed partial debt reduction must match the closing ledger", () => {
+  const authority = deriveDebtNarrativeAuthority({
+    ledger: debtLedger(),
+    debtHealthState: debtHealth(),
+    periodStartAgeInMonths: 396
+  });
+  const unsafe = node({
+    description: "工作半年后，你攒了1.8万元还掉部分债务，负债降到5.6万元。",
+    descriptionParagraphs: ["工作半年后，你攒了1.8万元还掉部分债务，负债降到5.6万元。"]
+  });
+  const issues = collectDebtNarrativeSurfaceIssues({ node: unsafe, authority });
+  assert.equal(issues.some((issue) => issue.reasonCode === "MISMATCHED_DEBT_AMOUNT"), true);
+  const repaired = repairDebtNarrativeSurfaces({ node: unsafe, authority, issues });
+  assert.doesNotMatch(repaired.description, /负债降到5\.6万元/u);
+  assert.match(repaired.description, /20\.5万元/u);
+});
