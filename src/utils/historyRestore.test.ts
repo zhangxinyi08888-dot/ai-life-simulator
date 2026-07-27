@@ -7,7 +7,7 @@ const financialLedger = initializeFinancialLedger({ id: "ledger_history", asOfAg
 
 const choices = [
   { id: "A", text: "留在本城继续试错", impactSummary: "稳中求变" },
-  { id: "B", text: "去外地接受新机会", impactSummary: "异地重启" },
+  { id: "B", text: "去外地接受新机会", impactSummary: "异地重启", eventOutcomeId: "accept_relocation" },
   { id: "C", text: "暂停一年整理方向", impactSummary: "蓄力观察" }
 ];
 
@@ -68,6 +68,8 @@ const item = createHistoryItemFromNode(node, "去外地接受新机会");
 assert.deepEqual(item.choices, choices);
 assert.equal(item.isEndingNode, false);
 assert.equal(item.selectedChoice, "去外地接受新机会");
+assert.equal(item.selectedChoiceId, "B");
+assert.equal(item.selectedEventOutcomeId, "accept_relocation");
 assert.equal(item.selectedDecisionIntent, "去外地接受新机会");
 assert.equal(item.financialState?.netWorthWan, 90);
 assert.equal(item.financialLedger?.id, "ledger_history");

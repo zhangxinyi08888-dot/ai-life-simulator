@@ -23,6 +23,7 @@ const storyContext = buildStoryContextPack(
 const intentPrompt = buildEventIntentPrompt({
   id: "health_system_warning",
   category: "health",
+  routeLine: "health",
   narrativeMode: "pressure_crisis",
   semanticFamily: "health_system_warning",
   title: "健康系统预警",
@@ -66,6 +67,13 @@ for (const [eventId, pattern] of modePromptCases) {
   assert.ok(event);
   assert.match(buildEventIntentPrompt(event), pattern);
 }
+const romanceFormationEvent = LIFE_EVENTS_DATABASE.find((candidate) => candidate.id === "romance_new_connection");
+assert.ok(romanceFormationEvent);
+const romanceFormationPrompt = buildEventIntentPrompt(romanceFormationEvent, storyContext);
+assert.match(romanceFormationPrompt, /encounterType/);
+assert.match(romanceFormationPrompt, /encounterContext/);
+assert.match(romanceFormationPrompt, /groundingEvidence/);
+assert.match(romanceFormationPrompt, /personal 或 mixed/);
 assert.match(intentPrompt, /allowedOutcomes 是行动原语/);
 assert.match(intentPrompt, /不得把继续事业目标等同于维持原有负荷/);
 assert.match(intentPrompt, /也允许暂停、离职或退出当前工作进行调养/);

@@ -91,12 +91,12 @@ const expectedContexts: Record<string, string[][]> = {
   career_sustainable_work_rhythm: [["career_active"]], career_mentorship_reciprocity: [["career_active"]],
   career_craft_meaning: [["career_active"], ["career_or_creation_direction"]],
   relationship_mutual_commitment_window: [["confirmed_partner"]],
-  relationship_release_and_reorientation: [["confirmed_partner"], ["confirmed_friend_or_colleague"]],
-  relationship_shared_problem_solving: [["confirmed_partner"], ["confirmed_family"]],
-  relationship_trust_rebuilding: [["confirmed_partner"], ["confirmed_friend_or_colleague"]],
-  relationship_boundary_aftercare: [["confirmed_partner"], ["confirmed_family"], ["confirmed_friend_or_colleague"]],
+  relationship_release_and_reorientation: [["confirmed_partner"]],
+  relationship_shared_problem_solving: [["confirmed_partner"]],
+  relationship_trust_rebuilding: [["confirmed_partner"]],
+  relationship_boundary_aftercare: [["confirmed_partner"]],
   relationship_family_responsibility_rebalanced: [["confirmed_family"]],
-  relationship_daily_companionship: [["confirmed_partner"], ["confirmed_family"]],
+  relationship_daily_companionship: [["confirmed_partner"]],
   relationship_friendship_deepening: [["confirmed_friend_or_colleague"]],
   health_support_plan_choice: [["health_recovery_context"]], health_recovery_progress: [["health_recovery_context"]],
   health_function_return: [["health_recovery_context"]], health_recovery_milestone: [["health_recovery_context"]],
@@ -117,7 +117,8 @@ const expectedContexts: Record<string, string[][]> = {
 const events = PHASE2_IDS.map((id) => LIFE_EVENTS_DATABASE.find((event) => event.id === id)!);
 assert.equal(events.length, 37);
 assert.equal(new Set(LIFE_EVENTS_DATABASE.map((event) => event.id)).size, LIFE_EVENTS_DATABASE.length);
-assert.equal(LIFE_EVENTS_DATABASE.length, 51);
+assert.equal(LIFE_EVENTS_DATABASE.length, 58);
+assert.ok(LIFE_EVENTS_DATABASE.some((event) => event.id === "romance_exploration_resolution"));
 assert.equal(events.some((event) => event.category === "community"), false);
 assert.deepEqual(events.map((event) => event.id), [...PHASE2_IDS]);
 assert.deepEqual(events.reduce((counts, event) => {
@@ -347,7 +348,7 @@ const legacyContracts = {
     outcomes: ["offer_bounded_family_support", "set_firm_family_boundary", "renegotiate_family_support_terms"]
   },
   relationship_trust_interest_fracture: {
-    contexts: [["confirmed_partner"], ["confirmed_friend_or_colleague"]],
+    contexts: [["confirmed_partner"]],
     outcomes: ["verify_issue_and_set_safeguards", "attempt_bounded_trust_repair", "end_shared_interest_arrangement"]
   },
   opportunity_unstable_alliance: {

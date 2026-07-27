@@ -10,6 +10,13 @@ import { normalizeDecisionIntent } from "./choicePreference";
 
 export type EventHistoryCondition =
   | {
+      type: "selected_outcome_count";
+      outcomeIds: string[];
+      minCount: number;
+      withinNodes?: number;
+      withinMonths?: number;
+    }
+  | {
       type: "selected_intent_count";
       intentPrefixes: string[];
       minCount: number;
@@ -60,6 +67,9 @@ export type RequiredContextKey =
   | "active_project_context"
   | "identified_life_constraint"
   | "confirmed_partner"
+  | "no_confirmed_partner"
+  | "no_active_romantic_connection"
+  | "confirmed_romantic_connection"
   | "confirmed_family"
   | "confirmed_friend_or_colleague"
   | "financial_state_available"
@@ -153,6 +163,11 @@ export function evaluateHistoryCondition(
     return count >= condition.minCount;
   }
 
+  if (condition.type === "selected_outcome_count") {
+    const window = windowedHistory(history, nowInMonths, condition.withinNodes, condition.withinMonths);
+    return window.filter((item) => condition.outcomeIds.includes(item.selectedEventOutcomeId || "")).length >= condition.minCount;
+  }
+
   if (condition.type === "elapsed_since_event") {
     const matches = history.filter((item) => (
       condition.eventIds?.includes(item.eventMeta?.eventId || "")
@@ -230,6 +245,40 @@ function hasReliablePerson(
   )));
 }
 
+function continuingRomanticRelationships(snapshot: WorldStateSnapshot | undefined) {
+  return (snapshot?.relationships || []).filter((relationship) => (
+    relationship.type === "romantic" && ["active", "strained"].includes(relationship.status)
+  ));
+}
+
+export function hasConfirmedRomanticConnection(snapshot: WorldStateSnapshot | undefined): boolean {
+  return continuingRomanticRelationships(snapshot).some((relationship) => (
+    ["exploring", "dating", "cohabiting", "married"].includes(relationship.stage || "")
+    && relationship.confidence >= 0.75
+  ));
+}
+
+export function hasConfirmedPartner(snapshot: WorldStateSnapshot | undefined): boolean {
+  return continuingRomanticRelationships(snapshot).some((relationship) => (
+    ["dating", "cohabiting", "married"].includes(relationship.stage || "")
+    && relationship.confidence >= 0.75
+  ));
+}
+
+export function hasNoActiveRomanticConnection(snapshot: WorldStateSnapshot | undefined): boolean {
+  return !continuingRomanticRelationships(snapshot).some((relationship) => (
+    ["exploring", "dating", "cohabiting", "married"].includes(relationship.stage || "")
+  ));
+}
+
+export function hasExploringRelationshipForAtLeastMonths(snapshot: WorldStateSnapshot | undefined, age: number, months: number): boolean {
+  const nowInMonths = Math.round(age * 12);
+  return continuingRomanticRelationships(snapshot).some((relationship) => (
+    relationship.stage === "exploring"
+    && nowInMonths - relationship.effectiveFromAgeInMonths >= months
+  ));
+}
+
 function hasActiveDirection(snapshot: WorldStateSnapshot | undefined, pattern: RegExp): boolean {
   return Boolean(snapshot?.directionArcs.some((arc) => (
     ["active", "background"].includes(arc.status)
@@ -270,11 +319,18 @@ export function matchesRequiredContext(
     return /困局|限制|冲突|难以|无法|压力|异地|通勤|地点|城市|债务|照护|失业|裁员|不稳定|受限|瓶颈/.test(combinedText);
   }
   if (key === "confirmed_partner") {
-    return hasReliablePerson(snapshot, ["partner"], 0.75)
+    if (hasConfirmedPartner(snapshot)) return true;
+    if (snapshot?.relationships?.some((relationship) => relationship.type === "romantic")) return false;
+    return hasReliablePerson(snapshot ? { ...snapshot, people: snapshot.people.filter((person) => ["user_fact", "answer"].includes(person.source)) } : undefined, ["partner"], 0.75)
       || /丈夫|妻子|老公|老婆|现任伴侣|现任男友|现任女友|未婚夫|未婚妻|已婚|正在恋爱|恋爱中/.test(userText);
   }
+  if (key === "no_confirmed_partner") return !matchesRequiredContext("confirmed_partner", input);
+  if (key === "no_active_romantic_connection") return hasNoActiveRomanticConnection(snapshot)
+    && !matchesRequiredContext("confirmed_partner", input);
+  if (key === "confirmed_romantic_connection") return hasConfirmedRomanticConnection(snapshot);
   if (key === "confirmed_family") {
-    return hasReliablePerson(snapshot, ["parent", "grandparent", "child", "sibling"], 0.75)
+    return Boolean(snapshot?.familyRelationships?.some((relationship) => relationship.activation === "active"))
+      || hasReliablePerson(snapshot, ["parent", "grandparent", "child", "sibling"], 0.75)
       || /父母|父亲|母亲|爸爸|妈妈|孩子|女儿|儿子|兄弟|姐妹|祖父|祖母|家庭照护/.test(userText);
   }
   if (key === "confirmed_friend_or_colleague") {

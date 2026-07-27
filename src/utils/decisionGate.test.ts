@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, SimulationChoice, SimulationNode } from "../types";
-import { evaluateDecisionGate } from "./decisionGate";
+import { downgradeDensityLimitedNode, evaluateDecisionGate, removeBlockedChoicesAfterRepair } from "./decisionGate";
 
 const base: SimulationNode = {
   age: 35,
@@ -64,14 +64,125 @@ assert.equal(evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistor
 
 const passedTwice = [...passedOnce, cityHistoryItem(40, cityChoices[0].text)];
 const cooledResult = evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: passedTwice, targetAgeInMonths: 492 });
-assert.equal(cooledResult.isDecisionCheckpoint, false);
+assert.equal(cooledResult.isDecisionCheckpoint, true);
 assert.equal(cooledResult.repeatsRecentlyPassedOption, true);
 assert.deepEqual(cooledResult.blockedDecisionIntents, ["location:relocate_to:wuhan_guanggu"]);
-assert.ok(cooledResult.reasonCodes.includes("repeats-recently-passed-option"));
+assert.equal(cooledResult.reasonCodes.includes("repeats-recently-passed-option"), false);
+
+const repairedWithoutRepeatedChoice = removeBlockedChoicesAfterRepair(cooledCandidate, cooledResult.blockedDecisionIntents);
+assert.equal(repairedWithoutRepeatedChoice.choices.length, 2);
+assert.equal(evaluateDecisionGate({
+  candidateNode: repairedWithoutRepeatedChoice,
+  recentHistory: passedTwice,
+  targetAgeInMonths: 492
+}).isDecisionCheckpoint, true);
+
+const insufficientChoicesAfterSuppression = evaluateDecisionGate({
+  candidateNode: {
+    ...base,
+    choices: [
+      cityChoices[1],
+      { ...cityChoices[1], id: "B", text: "再次接受武汉光谷 offer" },
+      { id: "C", text: "继续留在深圳发展", impactSummary: "留深发展", decisionIntent: "location:stay_in:shenzhen", expectedWorldDeltaTypes: ["career_state"] }
+    ]
+  },
+  recentHistory: passedTwice,
+  targetAgeInMonths: 492
+});
+assert.equal(insufficientChoicesAfterSuppression.isDecisionCheckpoint, false);
+assert.ok(insufficientChoicesAfterSuppression.reasonCodes.includes("repeats-recently-passed-option"));
 
 const selectedLater = [...passedTwice, cityHistoryItem(41, cityChoices[1].text)];
 const restoredResult = evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: selectedLater, targetAgeInMonths: 504 });
 assert.equal(restoredResult.repeatsRecentlyPassedOption, false);
+
+const relationshipFollowUpWithRepeatedLifecycleChoices: SimulationNode = {
+  ...cooledCandidate,
+  eventMeta: {
+    eventId: "romance_connection_clarification",
+    eventCategory: "relationship",
+    eventTags: ["relationship", "romance", "clarification"],
+    eventIntensity: "minor",
+    eventMode: "crossroads_opportunity",
+    eventSemanticFamily: "romance_formation_clarification",
+    phasePolicyId: "generic_pressure_v1",
+    routeLine: "romance",
+    selectionKind: "relationship_follow_up"
+  }
+};
+const relationshipFollowUpResult = evaluateDecisionGate({
+  candidateNode: relationshipFollowUpWithRepeatedLifecycleChoices,
+  recentHistory: passedTwice,
+  targetAgeInMonths: 492
+});
+assert.equal(relationshipFollowUpResult.isDecisionCheckpoint, true);
+assert.equal(relationshipFollowUpResult.repeatsRecentlyPassedOption, false);
+assert.deepEqual(relationshipFollowUpResult.blockedDecisionIntents, []);
+
+const forcedCausalResult = evaluateDecisionGate({
+  candidateNode: {
+    ...cooledCandidate,
+    eventMeta: {
+      eventId: "health_recovery_observation",
+      eventCategory: "health",
+      eventTags: ["health", "recovery"],
+      eventIntensity: "minor",
+      eventMode: "recovery_growth",
+      eventSemanticFamily: "health_recovery",
+      phasePolicyId: "health_crisis_v1",
+      routeLine: "health",
+      selectionKind: "forced"
+    }
+  },
+  recentHistory: passedTwice,
+  targetAgeInMonths: 492
+});
+assert.equal(forcedCausalResult.isDecisionCheckpoint, true);
+assert.equal(forcedCausalResult.repeatsRecentlyPassedOption, false);
+
+const denseHistory = Array.from({ length: 3 }, (_, index): HistoryItem => ({
+  ...cityHistoryItem(40 + index / 12, cityChoices[0].text),
+  ageInMonths: 480 + index * 4,
+  narrativeMeta: {
+    elapsedMonths: 4, elapsedYears: 1 / 3, lifeIntensity: "high_tension",
+    nodeMateriality: "decision_checkpoint",
+    storyEpisode: { id: `dense_${index}`, startAgeInMonths: 480 + index * 4, endAgeInMonths: 484 + index * 4, internalTransitions: [], decisionCheckpointId: `checkpoint_${index}`, summary: "高压节点" },
+    recoveryState: "neutral", recoveryEvidence: [], arcSignals: [], activeCharacters: [], worldDeltas: []
+  }
+}));
+assert.equal(evaluateDecisionGate({
+  candidateNode: base,
+  recentHistory: denseHistory,
+  targetAgeInMonths: 492
+}).reasonCodes.includes("node-density-exceeded"), false);
+assert.equal(evaluateDecisionGate({
+  candidateNode: { ...base, narrativeMeta: denseHistory[0].narrativeMeta },
+  recentHistory: denseHistory,
+  targetAgeInMonths: 492
+}).reasonCodes.includes("node-density-exceeded"), true);
+assert.equal(evaluateDecisionGate({
+  candidateNode: { ...base, narrativeMeta: denseHistory[0].narrativeMeta },
+  recentHistory: denseHistory,
+  targetAgeInMonths: 492,
+  independentCriticalEvent: true
+}).reasonCodes.includes("node-density-exceeded"), false, "causally required arc continuations must not soft-lock on density history");
+
+const densityLimitedCandidate = { ...base, narrativeMeta: denseHistory[0].narrativeMeta };
+const densityLimitedGate = evaluateDecisionGate({
+  candidateNode: densityLimitedCandidate,
+  recentHistory: denseHistory,
+  targetAgeInMonths: 492
+});
+const downgradedDensityCandidate = downgradeDensityLimitedNode(
+  densityLimitedCandidate,
+  densityLimitedGate.reasonCodes
+);
+assert.equal(downgradedDensityCandidate.narrativeMeta?.lifeIntensity, "normal");
+assert.equal(evaluateDecisionGate({
+  candidateNode: downgradedDensityCandidate,
+  recentHistory: denseHistory,
+  targetAgeInMonths: 492
+}).reasonCodes.includes("node-density-exceeded"), false, "density history must be resolved deterministically instead of asking the model to rewrite fixed history");
 
 const allowedOutcomeIds = ["consolidate_recovery_plan", "resume_activity_gradually", "adjust_plan_based_on_remaining_limits"];
 const validEventNode: SimulationNode = {

@@ -117,6 +117,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "career_gradual_transition_window",
     category: "career",
+    routeLine: "career",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "career_transition",
     title: "渐进式转型窗口",
@@ -140,6 +141,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "career_scope_redefinition",
     category: "career",
+    routeLine: "career",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "career_scope_change",
     title: "重新定义工作边界",
@@ -166,6 +168,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "career_skill_compounding",
     category: "career",
+    routeLine: "career",
     narrativeMode: "recovery_growth",
     semanticFamily: "career_skill_growth",
     title: "能力开始形成复利",
@@ -189,6 +192,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "career_project_recognition",
     category: "career",
+    routeLine: "career",
     narrativeMode: "recovery_growth",
     semanticFamily: "career_recognition",
     title: "项目获得真实认可",
@@ -219,6 +223,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "career_long_project_completion",
     category: "career",
+    routeLine: "career",
     narrativeMode: "recovery_growth",
     semanticFamily: "career_completion",
     title: "长期项目阶段完成",
@@ -245,6 +250,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "career_sustainable_work_rhythm",
     category: "career",
+    routeLine: "career",
     narrativeMode: "stability_meaning",
     semanticFamily: "career_sustainable_rhythm",
     title: "可持续的工作节奏",
@@ -268,6 +274,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "career_mentorship_reciprocity",
     category: "career",
+    routeLine: "career",
     narrativeMode: "stability_meaning",
     semanticFamily: "career_mentorship",
     title: "经验开始流动",
@@ -295,6 +302,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "career_craft_meaning",
     category: "career",
+    routeLine: "career",
     narrativeMode: "stability_meaning",
     semanticFamily: "career_craft_meaning",
     title: "在专业日常中找到意义",
@@ -321,6 +329,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "relationship_mutual_commitment_window",
     category: "relationship",
+    routeLine: "romance",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "relationship_commitment",
     title: "双方承诺窗口",
@@ -346,6 +355,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "relationship_release_and_reorientation",
     category: "relationship",
+    routeLine: "romance",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "relationship_release",
     title: "放手与重新定向",
@@ -354,7 +364,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
     cooldown: 8,
     baseProbability: 0.54,
     tags: ["relationship", "release", "boundary", "reflection"],
-    requiredContextGroups: [["confirmed_partner"], ["confirmed_friend_or_colleague"]],
+    requiredContextGroups: [["confirmed_partner"]],
     trigger: { eligibility: (attribs, _userData, _age, history = []) => textInHistory(history, /不匹配|距离|异地|边界冲突|长期冲突|关系疏远/, 8) && !attributeChanged(history.slice(-3), attribs, "relation", 3, "up") && !attributeChanged(history.slice(-3), attribs, "happiness", 3, "up") },
     historyConditionGroups: [[{ type: "selected_intent_count", intentPrefixes: ["relationship:adjust", "relationship:communicate", "relationship:set_boundary", "relationship:repair", "relationship:reduce_contact"], minCount: 2, withinNodes: 8 }]],
     intent: {
@@ -369,6 +379,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "relationship_shared_problem_solving",
     category: "relationship",
+    routeLine: "romance",
     narrativeMode: "recovery_growth",
     semanticFamily: "relationship_cooperation",
     title: "共同解决现实问题",
@@ -377,7 +388,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
     cooldown: 5,
     baseProbability: 0.7,
     tags: ["relationship", "cooperation", "responsibility", "repair"],
-    requiredContextGroups: [["confirmed_partner"], ["confirmed_family"]],
+    requiredContextGroups: [["confirmed_partner"]],
     trigger: { eligibility: (_attribs, _userData, age, history = []) => (elapsedSinceMatchingIntent(history, age, /relationship:(communicate|share_responsibility|set_boundary)/i) ?? -1) >= 3 },
     historyConditionGroups: [[{ type: "selected_intent_count", intentPrefixes: ["relationship:communicate", "relationship:share_responsibility", "relationship:set_boundary"], minCount: 1, withinNodes: 8 }]],
     intent: {
@@ -392,6 +403,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "relationship_trust_rebuilding",
     category: "relationship",
+    routeLine: "romance",
     narrativeMode: "recovery_growth",
     semanticFamily: "relationship_trust_repair",
     title: "信任逐步重建",
@@ -400,7 +412,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
     cooldown: 7,
     baseProbability: 0.56,
     tags: ["relationship", "trust_repair", "connection", "recovery"],
-    requiredContextGroups: [["confirmed_partner"], ["confirmed_friend_or_colleague"]],
+    requiredContextGroups: [["confirmed_partner"]],
     trigger: { eligibility: (attribs, _userData, _age, history = []) => textInHistory(history, /信任|裂纹|背叛|边界|共同利益|trust|boundary/, 10) && !attributeChanged(history.slice(-3), attribs, "relation", 1, "down") },
     historyConditionGroups: [[
       { type: "selected_intent_count", intentPrefixes: ["relationship:repair", "relationship:communicate", "relationship:honesty"], minCount: 2, withinNodes: 10 }
@@ -417,6 +429,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "relationship_boundary_aftercare",
     category: "relationship",
+    routeLine: "romance",
     narrativeMode: "recovery_growth",
     semanticFamily: "relationship_boundary_growth",
     title: "建立边界后的关系变化",
@@ -425,7 +438,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
     cooldown: 6,
     baseProbability: 0.66,
     tags: ["relationship", "boundary", "aftercare", "growth"],
-    requiredContextGroups: [["confirmed_partner"], ["confirmed_family"], ["confirmed_friend_or_colleague"]],
+    requiredContextGroups: [["confirmed_partner"]],
     historyConditionGroups: [[{ type: "selected_intent_count", intentPrefixes: ["relationship:set_boundary", "relationship:reduce_contact", "relationship:renegotiate_support"], minCount: 1, withinNodes: 8 }]],
     intent: {
       type: "relationship_boundary_aftercare",
@@ -439,6 +452,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "relationship_family_responsibility_rebalanced",
     category: "relationship",
+    routeLine: "family",
     narrativeMode: "recovery_growth",
     semanticFamily: "family_responsibility_rebalance",
     title: "家庭责任重新分配",
@@ -462,6 +476,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "relationship_daily_companionship",
     category: "relationship",
+    routeLine: "romance",
     narrativeMode: "stability_meaning",
     semanticFamily: "relationship_companionship",
     title: "稳定陪伴的日常",
@@ -470,7 +485,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
     cooldown: 5,
     baseProbability: 0.7,
     tags: ["relationship", "companionship", "routine", "connection"],
-    requiredContextGroups: [["confirmed_partner"], ["confirmed_family"]],
+    requiredContextGroups: [["confirmed_partner"]],
     trigger: { eligibility: (_attribs, _userData, _age, history = []) => !hasRecentMajor(history, "relationship") },
     historyConditionGroups: [],
     intent: {
@@ -485,6 +500,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "relationship_friendship_deepening",
     category: "relationship",
+    routeLine: "friendship",
     narrativeMode: "stability_meaning",
     semanticFamily: "friendship_deepening",
     title: "友谊与同行连接深化",
@@ -507,6 +523,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "health_support_plan_choice",
     category: "health",
+    routeLine: "health",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "health_support_plan",
     title: "支持与治疗安排选择",
@@ -533,6 +550,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "health_recovery_progress",
     category: "health",
+    routeLine: "health",
     narrativeMode: "recovery_growth",
     semanticFamily: "health_recovery_progress",
     title: "恢复开始出现证据",
@@ -569,6 +587,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "health_function_return",
     category: "health",
+    routeLine: "health",
     narrativeMode: "recovery_growth",
     semanticFamily: "health_function_return",
     title: "生活能力逐步恢复",
@@ -595,6 +614,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "health_recovery_milestone",
     category: "health",
+    routeLine: "health",
     narrativeMode: "recovery_growth",
     semanticFamily: "health_recovery_closure",
     title: "健康危机阶段收束",
@@ -621,6 +641,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "health_sustainable_routine",
     category: "health",
+    routeLine: "health",
     narrativeMode: "stability_meaning",
     semanticFamily: "health_sustainable_routine",
     title: "可持续的健康日常",
@@ -644,6 +665,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "health_adapted_life_balance",
     category: "health",
+    routeLine: "health",
     narrativeMode: "stability_meaning",
     semanticFamily: "health_adapted_balance",
     title: "带着限制建立稳定生活",
@@ -667,6 +689,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "financial_resource_priority_choice",
     category: "financial",
+    routeLine: "financial",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "financial_priority_choice",
     title: "资源优先级选择",
@@ -693,6 +716,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "financial_cautious_opportunity",
     category: "financial",
+    routeLine: "financial",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "financial_cautious_opportunity",
     title: "可控规模的财务机会",
@@ -719,6 +743,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "financial_emergency_buffer",
     category: "financial",
+    routeLine: "financial",
     narrativeMode: "recovery_growth",
     semanticFamily: "financial_buffer_growth",
     title: "应急缓冲开始形成",
@@ -747,6 +772,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "financial_debt_reduction_progress",
     category: "financial",
+    routeLine: "financial",
     narrativeMode: "recovery_growth",
     semanticFamily: "financial_debt_recovery",
     title: "债务压力逐步下降",
@@ -775,6 +801,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "financial_income_stabilization",
     category: "financial",
+    routeLine: "financial",
     narrativeMode: "recovery_growth",
     semanticFamily: "financial_income_stability",
     title: "收入结构趋于稳定",
@@ -804,6 +831,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "financial_long_term_order",
     category: "financial",
+    routeLine: "financial",
     narrativeMode: "stability_meaning",
     semanticFamily: "financial_long_term_order",
     title: "长期财务秩序",
@@ -827,6 +855,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "financial_shared_household_plan",
     category: "financial",
+    routeLine: "financial",
     narrativeMode: "stability_meaning",
     semanticFamily: "financial_household_cooperation",
     title: "共同生活的财务协作",
@@ -850,6 +879,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "self_new_direction_choice",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "self_direction_choice",
     title: "新的个人方向",
@@ -873,6 +903,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "self_value_reorientation",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "crossroads_opportunity",
     semanticFamily: "self_value_reorientation",
     title: "重新排序重要的事",
@@ -905,6 +936,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "self_confidence_rebuilding",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "recovery_growth",
     semanticFamily: "self_confidence_recovery",
     title: "信心逐步恢复",
@@ -934,6 +966,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "self_skill_validation",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "recovery_growth",
     semanticFamily: "self_skill_validation",
     title: "学习成果得到验证",
@@ -960,6 +993,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "self_failure_becomes_method",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "recovery_growth",
     semanticFamily: "self_failure_integration",
     title: "失败经验形成方法",
@@ -983,6 +1017,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "self_interest_becomes_practice",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "stability_meaning",
     semanticFamily: "self_interest_practice",
     title: "兴趣成为稳定实践",
@@ -1008,6 +1043,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "self_daily_meaning",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "stability_meaning",
     semanticFamily: "self_daily_meaning",
     title: "普通生活中的意义感",
@@ -1037,6 +1073,7 @@ export const PHASE2_LIFE_EVENTS: LifeEventSeed[] = [
   phase2Event({
     id: "self_long_term_creation",
     category: "growth",
+    routeLine: "growth",
     narrativeMode: "stability_meaning",
     semanticFamily: "self_long_term_creation",
     title: "长期创作与表达",
