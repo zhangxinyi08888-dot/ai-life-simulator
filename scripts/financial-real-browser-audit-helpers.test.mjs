@@ -69,6 +69,32 @@ test("keeps an evidence-scoped annual advisory service fee out of company revenu
   }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
 });
 
+test("does not treat a parent who introduced a customer as the income recipient", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "corporate_purchase_income_498",
+    type: "other",
+    displayName: "电商物流企业课程包采购",
+    status: "active",
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "父亲通过镇商会帮你联系到一家做电商物流的老板，对方同意以每年1.5万元采购课程包"
+    }]
+  }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
+test("still flags income that the evidence assigns to a parent", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "parent_income",
+    type: "salary",
+    displayName: "家庭持续收入",
+    status: "active",
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "父亲的年收入为20万元"
+    }]
+  }] }), { incomeSourceIds: ["parent_income"], expenseCommitmentIds: [] });
+});
+
 test("keeps a protagonist annual salary at a named company out of company revenue violations", () => {
   assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
     id: "legacy_recurring_income",
