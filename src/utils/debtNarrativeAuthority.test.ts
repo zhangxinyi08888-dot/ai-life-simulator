@@ -377,6 +377,19 @@ test("PB-NARR-08 mortgage payoff prose is rejected while the closing account rem
   assert.match(repaired.description, /仍有.*需要处理|仍需继续处理|偿还/u);
 });
 
+test("PB-NARR-08 debt-free idiom is rejected while the closing account remains active", () => {
+  const authority = deriveDebtNarrativeAuthority({ ledger: debtLedger(), debtHealthState: debtHealth(), periodStartAgeInMonths: 396 });
+  const unsafe = node({
+    description: "虽然存款几乎为零，但无债一身轻的感觉让你松了口气。",
+    descriptionParagraphs: ["虽然存款几乎为零，但无债一身轻的感觉让你松了口气。"]
+  });
+  const issues = collectDebtNarrativeSurfaceIssues({ node: unsafe, authority });
+  assert.equal(issues.some((issue) => issue.reasonCode === "UNACCEPTED_DEBT_COMPLETION"), true);
+  const repaired = repairDebtNarrativeSurfaces({ node: unsafe, authority, issues });
+  assert.doesNotMatch(repaired.description, /无债一身轻|不再欠债/u);
+  assert.match(repaired.description, /仍有.*需要处理|仍需继续处理|偿还/u);
+});
+
 test("PB-NARR-18 a payoff claim is rejected when debt was already zero before the period", () => {
   const ledger = initializeFinancialLedger({ id: "already_debt_free", asOfAgeInMonths: 593 });
   ledger.recentTransactions = [{

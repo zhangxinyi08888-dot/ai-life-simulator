@@ -863,10 +863,14 @@ export function narrativeRequiresCareerTransition(input: {
   );
   const negatesExit = (sentence: string) => /(?:不敢|不想|不愿|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:辞职|离职|退休|停止工作|结束全职)/u.test(sentence);
   const negatesCareerMove = (sentence: string) => /(?:不|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(sentence);
+  const employmentRelevantText = (sentence: string) => sentence.replace(
+    /辞去(?:了)?[^。；]{0,20}(?:外部合伙人|董事|监事|股东)(?:身份|席位|职务)?/gu,
+    "退出非雇佣治理角色"
+  );
   const stopsWorking = protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesExit(sentence)
-    && /(?:你|本人)[^。；]{0,24}(?:正式退休|办理退休|已经退休|已退休|最终决定[^。；]{0,8}(?:离职|辞职|辞去|停止工作)|递交了?辞呈|提交了?辞职申请|正式离职|正式辞职|已经离职|已经辞职|辞去了|停止了?工作|结束了?全职工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(sentence)
+    && /(?:你|本人)[^。；]{0,24}(?:正式退休|办理退休|已经退休|已退休|最终决定[^。；]{0,8}(?:离职|辞职|辞去|停止工作)|递交了?辞呈|提交了?辞职申请|正式离职|正式辞职|已经离职|已经辞职|辞去了|停止了?工作|结束了?全职工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(employmentRelevantText(sentence))
   ));
   if (stopsWorking && !["retired", "not_working"].includes(input.currentStatus)) return true;
   const startsWorking = protagonistSentences.some((sentence) => (

@@ -201,6 +201,10 @@ test("explicit protagonist job entry, role change and retirement require authori
     narrativeText: "你利用业余时间联系了两位猎头，了解到其他岗位的薪资区间。你决定暂不跳槽，先积累一年行业经验。",
     currentStatus: "employed"
   }), false);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "你认购B公司子公司股份后，辞去了创业公司外部合伙人身份，将全部精力投入事业部。",
+    currentStatus: "employed"
+  }), false);
 });
 
 test("post-sanitization narrative reconciliation resolves stale coverage blockers", () => {
