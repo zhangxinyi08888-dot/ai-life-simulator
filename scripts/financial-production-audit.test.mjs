@@ -219,3 +219,23 @@ test("PB-AUDIT-13 a zero-debt state may describe a historically grounded payoff"
   }]);
   assert.equal(audit.summary.unsupportedRepaymentCompletionNodeCount, 0);
 });
+
+test("PB-AUDIT-14 generation telemetry exposes visible pauses, unknown calls, and retry budget violations", () => {
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "generation-gate",
+    finalState: {
+      history: [node({ title: "节点", ageInMonths: 500 })],
+      generationEvents: [{ type: "visible_pause", message: "生成暂停" }],
+      generationCallTraces: [
+        { transactionId: "tx-1", kind: "initial_generation", outcome: "succeeded" },
+        { transactionId: "tx-1", kind: "candidate_patch", outcome: "succeeded" },
+        { transactionId: "tx-1", kind: "candidate_patch", outcome: "failed" },
+        { transactionId: "tx-2", kind: "unknown", outcome: "failed" }
+      ]
+    }
+  }]);
+  assert.equal(audit.summary.visibleGenerationPauseCount, 1);
+  assert.equal(audit.summary.unclassifiedGenerationCallCount, 1);
+  assert.equal(audit.summary.excessivePatchNodeCount, 1);
+  assert.equal(audit.summary.completedGenerationNodeCount, 2);
+});

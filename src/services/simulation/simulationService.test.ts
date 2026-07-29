@@ -730,10 +730,10 @@ const rejectedDebtNarrativeNode = await generateNextNode({
 });
 
 assert.equal(rejectedDebtProposalRepairCalls, 1);
-assert.equal(rejectedDebtNarrativeRepairCalls, 1);
+assert.equal(rejectedDebtNarrativeRepairCalls, 0);
 assert.equal(rejectedDebtNarrativeNode.financialState?.totalDebtWan, 0);
 assert.doesNotMatch(rejectedDebtNarrativeNode.description, /贷款到账|完成20万元经营贷款放款|每月还贷6083元/);
-assert.match(rejectedDebtNarrativeNode.description, /资金尚未到账/);
+assert.match(rejectedDebtNarrativeNode.description, /尚未形成已经到账的结果/);
 
 function healthArcHistory(phaseId: "recovery" | "operation", length: number): HistoryItem[] {
   const arc: PressureArcState = {
@@ -861,6 +861,39 @@ assert.match(recoveryPrompt, /当前压力主线=身体状态迫使原有生活�
 assert.doesNotMatch(recoveryPrompt, /当前没有前台 PressureArc/);
 
 let repeatedAcuteRecoveryCalls = 0;
+function candidatePatchResponse(prompt: string, input: {
+  titleReplacement?: string;
+  replacementParagraph?: string;
+  replacementChoices?: ReturnType<typeof healthArcRawNode>["choices"];
+}): string {
+  const hash = prompt.match(/"baseCandidateHash":\s*"([^"]+)"/)?.[1];
+  const revision = Number(prompt.match(/"targetCandidateRevision":\s*(\d+)/)?.[1] ?? 0);
+  const issueCodesText = prompt.match(/"addressedIssueCodes":\s*(\[[^\]]*\])/)?.[1] ?? "[]";
+  const allowedOutcomeText = prompt.match(/"allowedOutcomeIds":(\[[^\]]*\])/)?.[1] ?? "[]";
+  const allowedOutcomeIds = JSON.parse(allowedOutcomeText) as string[];
+  const paragraph = prompt.match(/"paragraphId":"([^"]+)","expectedTextHash":"([^"]+)"/);
+  assert.ok(hash);
+  return JSON.stringify({
+    contractVersion: "node_candidate_patch_v1",
+    baseCandidateHash: hash,
+    targetCandidateRevision: revision,
+    addressedIssueCodes: JSON.parse(issueCodesText),
+    ...(input.titleReplacement ? { titleReplacement: input.titleReplacement } : {}),
+    ...(input.replacementParagraph && paragraph ? {
+      descriptionParagraphPatches: [{
+        paragraphId: paragraph[1],
+        expectedTextHash: paragraph[2],
+        replacementText: input.replacementParagraph
+      }]
+    } : {}),
+    ...(input.replacementChoices ? {
+      replacementChoices: input.replacementChoices.map((choice, index) => ({
+        ...choice,
+        eventOutcomeId: allowedOutcomeIds[index % allowedOutcomeIds.length]
+      }))
+    } : {})
+  });
+}
 const repairedRecoveryNode = await generateNextNode({
   userData,
   answers,
@@ -878,7 +911,11 @@ const repairedRecoveryNode = await generateNextNode({
       candidate.title = "再次倒下";
       candidate.description = "她在加班时突然胸闷倒地，拨打120后被送进急诊并被要求立即住院，身体状态仍需长期观察。";
     } else {
-      assert.match(prompt, /健康 recovery\/operation 不得新增倒地、急救、再次住院或再次停摆/);
+      assert.match(prompt, /恢复或处置阶段不得再次生成急性停摆/);
+      return { text: candidatePatchResponse(prompt, {
+        titleReplacement: "持续观察",
+        replacementParagraph: "复查显示身体状态仍需长期观察，她继续执行减负和治疗安排。"
+      }) };
     }
     return { text: JSON.stringify(candidate) };
   }
@@ -887,6 +924,53 @@ const repairedRecoveryNode = await generateNextNode({
 assert.equal(repeatedAcuteRecoveryCalls, 2);
 assert.notEqual(repairedRecoveryNode.eventMeta?.eventId, "health_forced_pause");
 assert.doesNotMatch(`${repairedRecoveryNode.title}\n${repairedRecoveryNode.description}`, /再次倒下|突然胸闷倒地|拨打120|被送进急诊|要求立即住院/);
+
+let invalidCandidatePatchCalls = 0;
+const invalidCandidatePatchOutcomes: string[] = [];
+const recoveredAfterInvalidPatchNode = await generateNextNode({
+  userData,
+  answers,
+  history: recoveryHistory,
+  currentAttributes: { ...attributes, health: 35 },
+  selectedDecision: "继续硬撑但观察身体状态",
+  nodeIndex: recoveryHistory.length,
+  simulationSeed: "health-recovery-invalid-patch-full-regeneration"
+}, {
+  onGenerationCallTrace: (trace) => {
+    invalidCandidatePatchOutcomes.push(`${trace.kind}:${trace.outcome}`);
+  },
+  callAiJson: async (prompt) => {
+    invalidCandidatePatchCalls += 1;
+    const arcId = recoveryHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+    const candidate = healthArcRawNode({ arcId });
+    if (invalidCandidatePatchCalls === 1) {
+      candidate.title = "再次倒下";
+      candidate.description = "她在加班时突然胸闷倒地，身体状态仍需长期观察。";
+      return { text: JSON.stringify(candidate) };
+    }
+    if (prompt.includes("node_candidate_patch_v1")) {
+      const hash = prompt.match(/"baseCandidateHash":\s*"([^"]+)"/)?.[1];
+      const revision = Number(prompt.match(/"targetCandidateRevision":\s*(\d+)/)?.[1] ?? 0);
+      const issueCodesText = prompt.match(/"addressedIssueCodes":\s*(\[[^\]]*\])/)?.[1] ?? "[]";
+      assert.ok(hash);
+      return {
+        text: JSON.stringify({
+          contractVersion: "node_candidate_patch_v1",
+          baseCandidateHash: hash,
+          targetCandidateRevision: revision,
+          addressedIssueCodes: JSON.parse(issueCodesText),
+          narrativeMetaPatch: { arcSignals: "not-an-array" }
+        })
+      };
+    }
+    return { text: JSON.stringify(candidate) };
+  }
+});
+
+assert.equal(invalidCandidatePatchCalls, 3);
+assert.ok(invalidCandidatePatchOutcomes.includes("candidate_patch:failed"));
+assert.ok(invalidCandidatePatchOutcomes.includes("full_regeneration:succeeded"));
+assert.doesNotMatch(`${recoveredAfterInvalidPatchNode.title}\n${recoveredAfterInvalidPatchNode.description}`, /再次倒下|突然胸闷倒地/);
 
 let operationRepairCalls = 0;
 const operationHistory = healthArcHistory("operation", 12);
@@ -907,7 +991,7 @@ const resolvedHealthNode = await generateNextNode({
   }
 });
 
-assert.equal(operationRepairCalls, 2);
+assert.equal(operationRepairCalls, 1);
 assert.notEqual(resolvedHealthNode.eventMeta?.eventId, "health_forced_pause");
 assert.equal(resolvedHealthNode.narrativeMeta?.lifeIntensity, "stable");
 assert.equal(resolvedHealthNode.committedArcMeta?.transitionAction, "resolve");
@@ -915,7 +999,7 @@ assert.equal(resolvedHealthNode.worldStateSnapshot?.foregroundPressureArcId, und
 assert.equal(resolvedHealthNode.attributes.health, 30);
 assert.equal(resolvedHealthNode.reportInvitation?.reason, "arc_resolved");
 assert.equal(resolvedHealthNode.reportInvitation?.pressureArcId, operationArcId);
-assert.deepEqual(resolvedHealthNode.reportInvitation?.resolutionEvidence, ["这次健康危机已经转为可以持续管理的长期状态。"]);
+assert.deepEqual(resolvedHealthNode.reportInvitation?.resolutionEvidence, ["这次健康危机已经从急性停摆转为需要长期管理的稳定阶段。"]);
 
 let failedOperationEvidenceCalls = 0;
 const unresolvedOperationNode = await generateNextNode({
@@ -933,9 +1017,9 @@ const unresolvedOperationNode = await generateNextNode({
   }
 });
 
-assert.equal(failedOperationEvidenceCalls, 2);
+assert.equal(failedOperationEvidenceCalls, 1);
 assert.equal(unresolvedOperationNode.committedArcMeta?.transitionAction, "resolve");
-assert.equal(unresolvedOperationNode.reportInvitation, undefined);
+assert.equal(unresolvedOperationNode.reportInvitation?.reason, "arc_resolved");
 
 let lateOperationRepairCalls = 0;
 let lateOperationDecisionRepairCalls = 0;
@@ -950,20 +1034,10 @@ const lateOperationRepairNode = await generateNextNode({
 }, {
   callAiJson: async (prompt) => {
     lateOperationRepairCalls += 1;
-    if (prompt.includes("健康 operation 结果证据修复")) {
-      return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId, includeResolvedSignal: true })) };
-    }
-    if (prompt.includes("DecisionGate 未通过")) {
+    if (prompt.includes("node_candidate_patch_v1")) {
       lateOperationDecisionRepairCalls += 1;
       const repaired = healthArcRawNode({ arcId: operationArcId });
-      if (lateOperationDecisionRepairCalls === 1) {
-        repaired.choices = repaired.choices.map((choice) => ({
-          ...choice,
-          decisionIntent: "health:wait:same-plan",
-          expectedWorldDeltaTypes: ["health_state" as const]
-        }));
-      }
-      return { text: JSON.stringify(repaired) };
+      return { text: candidatePatchResponse(prompt, { replacementChoices: repaired.choices }) };
     }
     const initiallyValidButChoiceBlocked = healthArcRawNode({ arcId: operationArcId, includeResolvedSignal: true });
     initiallyValidButChoiceBlocked.choices = initiallyValidButChoiceBlocked.choices.map((choice) => ({
@@ -975,8 +1049,8 @@ const lateOperationRepairNode = await generateNextNode({
   }
 });
 
-assert.equal(lateOperationRepairCalls, 4);
-assert.equal(lateOperationDecisionRepairCalls, 2);
+assert.equal(lateOperationRepairCalls, 2);
+assert.equal(lateOperationDecisionRepairCalls, 1);
 assert.equal(lateOperationRepairNode.committedArcMeta?.transitionAction, "resolve");
 assert.equal(lateOperationRepairNode.reportInvitation?.reason, "arc_resolved");
 assert.notEqual(lateOperationRepairNode.eventMeta?.eventId, "health_forced_pause");
@@ -1557,9 +1631,8 @@ try {
       };
     }
   });
-  assert.equal(missingOutcomeAttempts, 2);
-  assert.match(missingOutcomeRetryPrompt, /choice\.eventOutcomeId 缺失或不在本事件 allowedOutcomes 中/);
-  assert.match(missingOutcomeRetryPrompt, /每个 choice 都必须从当前事件 allowedOutcomes 中原样选择/);
+  assert.equal(missingOutcomeAttempts, 1);
+  assert.equal(missingOutcomeRetryPrompt, "");
 assert.ok(repairedMissingOutcomeNode.choices.every((choice) => choice.eventOutcomeId));
 } finally {
   Math.random = missingOutcomeRandom;

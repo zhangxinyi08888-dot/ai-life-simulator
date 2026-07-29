@@ -19,6 +19,8 @@ import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/hi
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
 import { runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import { createNodeGenerationBudget } from "./services/simulation/nodeGenerationBudget";
+import type { GenerationCallTrace } from "./services/simulation/generationTelemetry";
 
 type AppStep = "initial" | "questioning" | "simulating" | "insight";
 
@@ -35,6 +37,7 @@ interface DevRecordedAppState {
   simulationSeed?: string;
   outcome?: FinalLifeOutcome | null;
   generationEvents?: GenerationEvent[];
+  generationCallTraces?: GenerationCallTrace[];
 }
 
 interface GenerationEvent {
@@ -145,6 +148,7 @@ export default function App() {
   const [simulationSeed, setSimulationSeed] = useState(() => devRecordedState?.simulationSeed ?? (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`));
   const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(devRecordedState?.outcome ?? null);
   const [generationEvents, setGenerationEvents] = useState<GenerationEvent[]>(devRecordedState?.generationEvents ?? []);
+  const [generationCallTraces, setGenerationCallTraces] = useState<GenerationCallTrace[]>(devRecordedState?.generationCallTraces ?? []);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
@@ -182,6 +186,7 @@ export default function App() {
       setSimulationSeed(restored.simulationSeed ?? `${Date.now()}`);
       setOutcome(restored.outcome ?? null);
       setGenerationEvents(restored.generationEvents ?? []);
+      setGenerationCallTraces(restored.generationCallTraces ?? []);
       setIsLoading(false);
       setIsLoadingNext(false);
       setNextNarrativePreview(null);
@@ -218,6 +223,7 @@ export default function App() {
       simulationSeed,
       outcome,
       generationEvents,
+      generationCallTraces,
       isLoading,
       isLoadingNext,
       nextNarrativePreview,
@@ -242,7 +248,7 @@ export default function App() {
         // The filesystem record remains the source of truth if browser storage is unavailable.
       }
     }
-  }, [answers, attributes, currentNode, errorMsg, generationEvents, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
+  }, [answers, attributes, currentNode, errorMsg, generationCallTraces, generationEvents, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
 
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
@@ -417,6 +423,10 @@ export default function App() {
     setHistory(updatedHistory);
     const abortController = new AbortController();
     nextGenerationAbortRef.current = abortController;
+    // One budget spans the service's structural retry and this outer recovery.
+    // This prevents 2x3 nested full generations while retaining one bounded
+    // regeneration for invalid JSON or a failed candidate Patch.
+    const generationBudget = createNodeGenerationBudget();
 
     try {
       const body = await runWithInvalidAiResponseRetry(async (attempt) => {
@@ -437,6 +447,10 @@ export default function App() {
           },
           {
             onGenerationStage: setNextGenerationStage,
+            generationBudget,
+            onGenerationCallTrace: (trace) => {
+              setGenerationCallTraces((traces) => [...traces, trace]);
+            },
             onNarrativeProgress: (preview) => {
               const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
               nextNarrativePreviewRef.current = merged;
@@ -445,7 +459,7 @@ export default function App() {
             signal: abortController.signal
           }
         );
-      });
+      }, 1);
 
       setNextGenerationStage("revealing");
       const revealFrames = buildNarrativeRevealFrames(body.title, body.description);

@@ -256,12 +256,28 @@ export function auditFinancialProductionRecords(records) {
   const financialPrecisionViolations = [];
   const crossJourneyInvitationEntries = [];
   const companyOperatingFlowsInPersonalLedger = [];
+  const visibleGenerationPauses = [];
+  const unclassifiedGenerationCalls = [];
+  const generationTraceGroups = new Map();
   const fallbackCaseSlugs = new Set();
   let fallbackWithoutRepairRecordCount = 0;
   let knownRateDebtExposureNodeCount = 0;
 
   for (const record of records) {
     const history = record?.finalState?.history || [];
+    const generationEvents = record?.finalState?.generationEvents || record?.generationEvents || [];
+    for (const event of generationEvents) {
+      if (event?.type === "visible_pause") visibleGenerationPauses.push({ caseSlug: record.caseSlug, ...event });
+    }
+    const generationTraces = record?.finalState?.generationCallTraces || record?.generationCallTraces || [];
+    for (const trace of generationTraces) {
+      if (!trace?.kind || trace.kind === "unknown") unclassifiedGenerationCalls.push({ caseSlug: record.caseSlug, ...trace });
+      if (trace?.outcome === "started") continue;
+      const key = `${record.caseSlug}:${trace.transactionId || `node-${trace.nodeIndex ?? "unknown"}`}`;
+      const group = generationTraceGroups.get(key) || [];
+      group.push(trace);
+      generationTraceGroups.set(key, group);
+    }
     const visibleEntries = flattenTextEntries({
       history: history.map((node) => ({ title: node.title, description: node.description, choices: node.choices })),
       share: record?.finalState?.outcome?.share,
@@ -333,6 +349,14 @@ export function auditFinancialProductionRecords(records) {
     for (const conflict of collectFinalReportFinancialConflicts(record)) finalReportConflicts.push({ caseSlug: record.caseSlug, ...conflict });
   }
 
+  const generationGroups = [...generationTraceGroups.values()];
+  const completedGenerationNodeCount = generationGroups.length;
+  const singleFullGenerationNodeCount = generationGroups.filter((group) => (
+    group.filter((trace) => trace.kind === "initial_generation" || trace.kind === "full_regeneration").length === 1
+  )).length;
+  const excessivePatchNodeCount = generationGroups.filter((group) => (
+    group.filter((trace) => trace.kind === "candidate_patch").length > 1
+  )).length;
   return {
     summary: {
       narrativeFallbackNodeCount: fallbackNodes.length,
@@ -353,7 +377,14 @@ export function auditFinancialProductionRecords(records) {
       financialAmountPrecisionViolationCount: financialPrecisionViolations.length,
       crossJourneyInvitationEntryCount: crossJourneyInvitationEntries.length,
       companyOperatingFlowInPersonalLedgerCount: companyOperatingFlowsInPersonalLedger.length,
-      knownRateDebtExposureNodeCount
+      knownRateDebtExposureNodeCount,
+      visibleGenerationPauseCount: visibleGenerationPauses.length,
+      unclassifiedGenerationCallCount: unclassifiedGenerationCalls.length,
+      completedGenerationNodeCount,
+      singleFullGenerationNodeRate: completedGenerationNodeCount > 0
+        ? singleFullGenerationNodeCount / completedGenerationNodeCount
+        : 1,
+      excessivePatchNodeCount
     },
     fallbackNodes,
     internalLedgerTextNodes,
@@ -369,7 +400,9 @@ export function auditFinancialProductionRecords(records) {
     orphanFinancialAmounts,
     financialPrecisionViolations,
     crossJourneyInvitationEntries,
-    companyOperatingFlowsInPersonalLedger
+    companyOperatingFlowsInPersonalLedger,
+    visibleGenerationPauses,
+    unclassifiedGenerationCalls
   };
 }
 
