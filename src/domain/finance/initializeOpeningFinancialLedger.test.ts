@@ -17,9 +17,9 @@ test("opening facts become accepted events before the ledger is authoritative", 
     }
   });
   assert.deepEqual(result.ledger.openingAcceptedEventIds, result.acceptedEvents.map((event) => event.id));
-  assert.ok(result.acceptedEvents.some((event) => event.kind === "asset" && event.payload.factStatus === "estimated"));
+  assert.ok(result.acceptedEvents.some((event) => event.kind === "asset" && event.payload.factStatus === "needs_review"));
   assert.ok(result.acceptedEvents.some((event) => event.kind === "debt"));
   assert.ok(result.acceptedEvents.some((event) => event.kind === "expense_commitment"));
   assert.equal(result.ledger.debtAccounts[0].principalWan, 210);
-  assert.equal(result.ledger.assetAccounts.find((item) => item.type === "property")?.marketValueWan, 210);
+  assert.equal(result.ledger.assetAccounts.find((item) => item.type === "property")?.marketValueWan, 0);
 });

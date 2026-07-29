@@ -46,7 +46,7 @@ test("explicit user facts override only matching aggregate fields", () => {
   assert.equal(merged.netWorthWan, -170);
 });
 
-test("captures compact free-text mortgage wording and preserves every known opening fact", () => {
+test("captures compact mortgage wording without using debt balance as property value", () => {
   const facts = extractOpeningFinancialFacts({
     ...userData,
     regressionSituation: "刚背上210万元房贷、月供1.3万元，住进自有住房。"
@@ -64,7 +64,15 @@ test("captures compact free-text mortgage wording and preserves every known open
   const ledger = migrateLegacyFinancialState({ id: "opening", legacyState: state, openingFacts: facts });
   assert.equal(ledger.debtAccounts[0]?.id, "opening_mortgage");
   assert.equal(ledger.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
-  assert.ok(ledger.assetAccounts.some((account) => account.type === "property" && account.factStatus === "estimated" && account.marketValueWan === 210));
+  const property = ledger.assetAccounts.find((account) => account.type === "property");
+  assert.equal(property?.id, "opening_property_value_pending");
+  assert.equal(property?.factStatus, "needs_review");
+  assert.equal(property?.marketValueWan, 0);
+  assert.equal(property?.evidence[0]?.source, "user");
+  assert.equal(
+    ledger.unresolvedIssues.find((issue) => issue.id === "opening_property_value_pending_288")?.severity,
+    "warning"
+  );
 });
 
 test("creates deterministic estimated basic living for an adult opening with zero expenses", () => {

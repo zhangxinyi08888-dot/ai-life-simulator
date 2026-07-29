@@ -86,8 +86,8 @@ test("M7 focused: explicit mortgage opens debt, repayment policy and a property 
   assert.equal(migrated.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
   const property = migrated.assetAccounts.find((account) => account.type === "property");
   assert.equal(property?.type, "property");
-  assert.equal(property?.factStatus, "estimated");
-  assert.equal(property?.marketValueWan, 210);
+  assert.equal(property?.factStatus, "needs_review");
+  assert.equal(property?.marketValueWan, 0);
 });
 
 test("M7 focused: missing adult expenses receive a deterministic estimate without quarantining income", () => {
@@ -120,7 +120,9 @@ test("M7 focused: stale late-career salary is paused before settlement", () => {
   const committed = commit({ ledger: initial, worldState: world(), start: age, end: age + 12, transactionId: "late_career" });
   assert.equal(committed.financialPeriodSummary?.incomeWan, 0);
   assert.equal(committed.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
-  assert.ok(committed.financialLedger.unresolvedIssues.some((issue) => issue.id === "pending_fact_stale_late_career_salary"));
+  assert.ok(committed.financialLedger.unresolvedIssues.some((issue) => (
+    issue.id === "pending_fact_stale_late_career_salary" && issue.severity === "warning"
+  )));
 });
 
 test("M7 focused: deterministic basic living persists without repeated issues", () => {

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-07-28T01-54-32+08-00-financial-release-five-v44",
+  "inspectedAt": "2026-07-28T02:55:00+08:00",
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "caseCount": 5,
+  "imageCount": 10,
+  "passed": true,
+  "checks": {
+    "allImagesVisible": true,
+    "noBlackOrEmptyImages": true,
+    "posterAndReportPageDistinct": true,
+    "noFinancialPlaceholders": true,
+    "noLongFloatingPointAmounts": true,
+    "titlesReadableAndComplete": true,
+    "noObviousLedgerNarrativeConflict": true
+  },
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "poster": "images/real-career-first/poster.jpg",
+      "reportPage": "images/real-career-first/report-page.jpg",
+      "passed": true
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "poster": "images/real-relationship-first/poster.jpg",
+      "reportPage": "images/real-relationship-first/report-page.jpg",
+      "passed": true
+    },
+    {
+      "caseSlug": "real-education-second",
+      "poster": "images/real-education-second/poster.jpg",
+      "reportPage": "images/real-education-second/report-page.jpg",
+      "passed": true
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "poster": "images/real-venture-second/poster.jpg",
+      "reportPage": "images/real-venture-second/report-page.jpg",
+      "passed": true
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "poster": "images/real-custom-lifespan/poster.jpg",
+      "reportPage": "images/real-custom-lifespan/report-page.jpg",
+      "passed": true
+    }
+  ]
+}

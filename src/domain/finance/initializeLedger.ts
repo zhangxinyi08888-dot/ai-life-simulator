@@ -20,6 +20,24 @@ export interface AcceptedOpeningFinancialPosition {
   unresolvedIssues?: FinancialLedgerIssue[];
 }
 
+export function normalizeDebtAccountV3(account: DebtAccount): DebtAccount {
+  const isAutomaticShortfall = account.type === "liquidity_shortfall"
+    && account.origin !== "explicit"
+    && account.origin !== "legacy_migration";
+  return {
+    ...structuredClone(account),
+    repaymentPolicy: isAutomaticShortfall
+      ? { mode: "event_driven" }
+      : structuredClone(account.repaymentPolicy),
+    origin: account.origin ?? (account.type === "liquidity_shortfall" ? "system_auto_shortfall" : "explicit"),
+    accruedUnpaidInterestWan: roundWan(account.accruedUnpaidInterestWan ?? 0),
+    servicingStatus: account.servicingStatus ?? "current",
+    consecutiveMissedPaymentMonths: account.consecutiveMissedPaymentMonths ?? 0,
+    totalMissedPaymentMonths: account.totalMissedPaymentMonths ?? 0,
+    recentMissedPaymentAgeInMonths: [...(account.recentMissedPaymentAgeInMonths ?? [])]
+  };
+}
+
 export function initializeFinancialLedger(input: {
   id: string;
   asOfAgeInMonths: number;
@@ -43,7 +61,7 @@ export function initializeFinancialLedger(input: {
     asOfAgeInMonths: input.asOfAgeInMonths,
     cashAccounts,
     assetAccounts: structuredClone(opening.assetAccounts || []),
-    debtAccounts: structuredClone(opening.debtAccounts || []),
+    debtAccounts: (opening.debtAccounts || []).map(normalizeDebtAccountV3),
     incomeSources: structuredClone(opening.incomeSources || []),
     expenseCommitments: structuredClone(opening.expenseCommitments || []),
     businessHoldings: structuredClone(opening.businessHoldings || []),
@@ -51,7 +69,7 @@ export function initializeFinancialLedger(input: {
     committedTransactionIds: [],
     unresolvedIssues: structuredClone(opening.unresolvedIssues || []),
     revision: 0,
-    version: 2
+    version: 3
   };
   assertFinancialLedgerInvariants(ledger);
   return ledger;

@@ -105,6 +105,41 @@ test("bounded commitment resolution cannot regenerate an unlimited delay outcome
   );
 });
 
+test("deterministic commitment proposals can be re-anchored after financial prose grounding", () => {
+  const finalParagraphs = [
+    "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。",
+    "你们最终达成一个可执行的共同计划。"
+  ];
+  const source = node();
+  const grounded = deriveDeterministicRomanceProposals({
+    ...source,
+    description: finalParagraphs.join("\n\n"),
+    descriptionParagraphs: finalParagraphs,
+    choices: [
+      { id: "A", text: "形成共同计划", impactSummary: "共同安排", eventOutcomeId: "make_shared_commitment_plan" },
+      { id: "B", text: "延后复核", impactSummary: "明确条件", eventOutcomeId: "delay_with_clear_conditions" },
+      { id: "C", text: "重新评估", impactSummary: "评估适配", eventOutcomeId: "reassess_relationship_fit" }
+    ],
+    narrativeMeta: {
+      ...source.narrativeMeta!,
+      relationshipProposals: [{
+        id: "stale",
+        type: "romantic_transition",
+        sourceOutcomeId: "make_shared_commitment_plan",
+        evidence: "你的主业年收入18万，目前存款70.5万。",
+        toStage: "dating",
+        toStatus: "active"
+      }]
+    }
+  }, "relationship_material_commitment_test");
+
+  assert.equal(grounded.narrativeMeta?.relationshipProposals?.length, 3);
+  for (const proposal of grounded.narrativeMeta?.relationshipProposals || []) {
+    assert.equal(grounded.description.includes(proposal.evidence), true);
+    assert.notEqual(proposal.evidence, "你的主业年收入18万，目前存款70.5万。");
+  }
+});
+
 test("derived proposal commits only after the matching outcome is selected", () => {
   const rendered = deriveDeterministicRomanceProposals(
     node([{ candidateOrdinal: 0, displayName: "小苏", relation: "other", presenceMode: "active_scene" }]),

@@ -15,7 +15,9 @@ const PHASE2_IDS = [
   "relationship_friendship_deepening", "health_support_plan_choice", "health_recovery_progress",
   "health_function_return", "health_recovery_milestone", "health_sustainable_routine",
   "health_adapted_life_balance", "financial_resource_priority_choice", "financial_cautious_opportunity",
-  "financial_emergency_buffer", "financial_debt_reduction_progress", "financial_income_stabilization",
+  "financial_emergency_buffer", "financial_debt_pressure_emerges", "financial_repayment_tradeoff",
+  "financial_payment_strain", "financial_debt_restructuring", "financial_life_under_repayment",
+  "financial_debt_reduction_progress", "financial_income_stabilization",
   "financial_long_term_order", "financial_shared_household_plan", "self_new_direction_choice",
   "self_value_reorientation", "self_confidence_rebuilding", "self_skill_validation",
   "self_failure_becomes_method", "self_interest_becomes_practice", "self_daily_meaning",
@@ -48,6 +50,11 @@ const expectedModes = {
   financial_resource_priority_choice: "crossroads_opportunity",
   financial_cautious_opportunity: "crossroads_opportunity",
   financial_emergency_buffer: "recovery_growth",
+  financial_debt_pressure_emerges: "pressure_crisis",
+  financial_repayment_tradeoff: "crossroads_opportunity",
+  financial_payment_strain: "pressure_crisis",
+  financial_debt_restructuring: "recovery_growth",
+  financial_life_under_repayment: "stability_meaning",
   financial_debt_reduction_progress: "recovery_growth",
   financial_income_stabilization: "recovery_growth",
   financial_long_term_order: "stability_meaning",
@@ -76,6 +83,11 @@ const expectedFamilies = {
   health_sustainable_routine: "health_sustainable_routine", health_adapted_life_balance: "health_adapted_balance",
   financial_resource_priority_choice: "financial_priority_choice", financial_cautious_opportunity: "financial_cautious_opportunity",
   financial_emergency_buffer: "financial_buffer_growth", financial_debt_reduction_progress: "financial_debt_recovery",
+  financial_debt_pressure_emerges: "financial_debt_pressure",
+  financial_repayment_tradeoff: "financial_debt_tradeoff",
+  financial_payment_strain: "financial_debt_crisis",
+  financial_debt_restructuring: "financial_debt_restructuring",
+  financial_life_under_repayment: "financial_debt_sustainable_life",
   financial_income_stabilization: "financial_income_stability", financial_long_term_order: "financial_long_term_order",
   financial_shared_household_plan: "financial_household_cooperation", self_new_direction_choice: "self_direction_choice",
   self_value_reorientation: "self_value_reorientation", self_confidence_rebuilding: "self_confidence_recovery",
@@ -104,7 +116,12 @@ const expectedContexts: Record<string, string[][]> = {
   financial_resource_priority_choice: [["financial_state_available"]],
   financial_cautious_opportunity: [["financial_state_available", "career_or_creation_direction"]],
   financial_emergency_buffer: [["financial_state_available"]],
-  financial_debt_reduction_progress: [["financial_state_available", "debt_present"]],
+  financial_debt_pressure_emerges: [["debt_health_available", "debt_watch"], ["debt_health_available", "debt_distressed"]],
+  financial_repayment_tradeoff: [["debt_distressed"]],
+  financial_payment_strain: [["debt_default_risk"], ["debt_defaulted"]],
+  financial_debt_restructuring: [],
+  financial_life_under_repayment: [["debt_manageable"], ["debt_watch"]],
+  financial_debt_reduction_progress: [["debt_health_available", "debt_recovering"]],
   financial_income_stabilization: [["financial_state_available", "career_active"]],
   financial_long_term_order: [["financial_state_available"]],
   financial_shared_household_plan: [["financial_state_available", "confirmed_partner"], ["financial_state_available", "confirmed_family"]],
@@ -115,9 +132,9 @@ const expectedContexts: Record<string, string[][]> = {
 };
 
 const events = PHASE2_IDS.map((id) => LIFE_EVENTS_DATABASE.find((event) => event.id === id)!);
-assert.equal(events.length, 37);
+assert.equal(events.length, 42);
 assert.equal(new Set(LIFE_EVENTS_DATABASE.map((event) => event.id)).size, LIFE_EVENTS_DATABASE.length);
-assert.equal(LIFE_EVENTS_DATABASE.length, 58);
+assert.equal(LIFE_EVENTS_DATABASE.length, 63);
 assert.ok(LIFE_EVENTS_DATABASE.some((event) => event.id === "romance_exploration_resolution"));
 assert.equal(events.some((event) => event.category === "community"), false);
 assert.deepEqual(events.map((event) => event.id), [...PHASE2_IDS]);
@@ -125,9 +142,10 @@ assert.deepEqual(events.reduce((counts, event) => {
   counts[event.narrativeMode] = (counts[event.narrativeMode] || 0) + 1;
   return counts;
 }, {} as Record<string, number>), {
-  crossroads_opportunity: 9,
-  recovery_growth: 16,
-  stability_meaning: 12
+  pressure_crisis: 2,
+  crossroads_opportunity: 10,
+  recovery_growth: 17,
+  stability_meaning: 13
 });
 
 for (const event of events) {
@@ -136,15 +154,18 @@ for (const event of events) {
   assert.equal(event.narrativeMode, expectedModes[event.id as keyof typeof expectedModes]);
   assert.equal(event.semanticFamily, expectedFamilies[event.id as keyof typeof expectedFamilies]);
   assert.deepEqual(event.requiredContextGroups || [], expectedContexts[event.id]);
-  assert.equal(event.dispatchMode, "random");
+  assert.equal(event.dispatchMode, event.id === "financial_payment_strain" ? "arc_only" : "random");
   assert.equal(event.fingerprint?.category, event.category);
   assert.deepEqual(event.fingerprint?.tags, event.tags);
-  assert.equal(event.fingerprint?.intensity, "minor");
-  assert.equal(event.intent.allowedOutcomes.length, 3);
-  assert.equal(new Set(event.intent.allowedOutcomes).size, 3);
+  assert.equal(event.fingerprint?.intensity, event.id === "financial_payment_strain" ? "major" : "minor");
+  assert.equal(event.intent.allowedOutcomes.length, ["financial_payment_strain", "financial_debt_restructuring"].includes(event.id) ? 4 : 3);
+  assert.equal(new Set(event.intent.allowedOutcomes).size, event.intent.allowedOutcomes.length);
   assert.equal(event.ageAffinity?.minimumMultiplier, 0.4);
   assert.deepEqual(event.ageAffinity?.preferredRange, [event.minAge, event.maxAge]);
-  assert.equal(event.intent.temporalProfile?.requiresFollowUp, false);
+  assert.equal(event.intent.temporalProfile?.requiresFollowUp, event.id === "financial_payment_strain");
+  if (event.id === "financial_payment_strain") {
+    assert.equal(event.intent.temporalProfile?.lifeIntensity, "high_tension");
+  }
   if (event.narrativeMode === "recovery_growth") assert.ok(event.historyConditionGroups?.length);
   if (event.narrativeMode === "stability_meaning") assert.equal(getEventTemporalProfile(event).requiresFollowUp, false);
   assert.ok(event.intent.allowedOutcomes.some((outcome) => !/^(?:continue|maintain)_/.test(outcome)));
@@ -288,6 +309,35 @@ function satisfyingHistory(event: typeof events[number]): HistoryItem[] {
         unresolvedSummary: "结构化状态证据"
       });
     }
+  }
+  const debtLevelByEvent: Record<string, "watch" | "distressed" | "default_risk"> = {
+    financial_debt_pressure_emerges: "watch",
+    financial_repayment_tradeoff: "distressed",
+    financial_payment_strain: "default_risk",
+    financial_life_under_repayment: "watch",
+    financial_debt_reduction_progress: "watch"
+  };
+  const debtLevel = debtLevelByEvent[event.id];
+  if (debtLevel) {
+    const latest = history.at(-1)!;
+    latest.financialLedger = { version: 3 } as HistoryItem["financialLedger"];
+    latest.debtHealthState = {
+      asOfAgeInMonths: latest.ageInMonths!,
+      level: debtLevel,
+      trend: event.id === "financial_debt_reduction_progress" ? "improving" : "stable",
+      totalDebtWan: 10,
+      scheduledDebtServiceNext12MonthsWan: 3,
+      availableCashForDebtNext12MonthsWan: debtLevel === "default_risk" ? 1 : 4,
+      debtServiceCoverageRatio: debtLevel === "default_risk" ? 0.33 : 1.33,
+      cashBufferMonths: 1,
+      liquidityShortfallDebtWan: 0,
+      consecutiveMissedPaymentMonths: debtLevel === "default_risk" ? 2 : 0,
+      missedPaymentMonthsLast12: debtLevel === "default_risk" ? 2 : 0,
+      activeDefaultedDebtCount: 0,
+      reasonCodes: debtLevel === "default_risk" ? ["CONSECUTIVE_MISSED_PAYMENTS"] : ["PAYMENTS_CURRENT"],
+      source: "authoritative_ledger",
+      sourceLedgerRevision: 1
+    };
   }
   return history;
 }

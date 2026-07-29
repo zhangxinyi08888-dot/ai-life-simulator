@@ -58,7 +58,7 @@ export type EventHistoryCondition =
       type: "pressure_arc_state";
       phasePolicyIds?: string[];
       phaseIds?: string[];
-      statuses?: Array<"active" | "stabilizing" | "resolved">;
+      statuses?: Array<"active" | "stabilizing" | "suspended" | "resolved">;
     };
 
 export type RequiredContextKey =
@@ -74,6 +74,13 @@ export type RequiredContextKey =
   | "confirmed_friend_or_colleague"
   | "financial_state_available"
   | "debt_present"
+  | "debt_health_available"
+  | "debt_manageable"
+  | "debt_watch"
+  | "debt_distressed"
+  | "debt_default_risk"
+  | "debt_defaulted"
+  | "debt_recovering"
   | "learning_or_creation_direction"
   | "health_recovery_context";
 
@@ -232,6 +239,10 @@ function latestWorldState(history: HistoryItem[]): WorldStateSnapshot | undefine
   return [...history].reverse().find((item) => item.worldStateSnapshot)?.worldStateSnapshot;
 }
 
+function latestDebtHealthItem(history: HistoryItem[]): HistoryItem | undefined {
+  return [...history].reverse().find((item) => item.debtHealthState);
+}
+
 function hasReliablePerson(
   snapshot: WorldStateSnapshot | undefined,
   relations: PersonRelation[],
@@ -339,6 +350,26 @@ export function matchesRequiredContext(
   if (key === "financial_state_available") return Boolean(input.history[input.history.length - 1]?.financialState);
   if (key === "debt_present") {
     return (input.history[input.history.length - 1]?.financialState?.totalDebtWan ?? 0) > 0;
+  }
+  if (key.startsWith("debt_")) {
+    const item = latestDebtHealthItem(input.history);
+    const debtHealth = item?.debtHealthState;
+    // Risk events may only consume a health snapshot that can be tied back to
+    // the authoritative ledger committed in the same immutable history item.
+    // Legacy compatibility (including `unknown`) remains display-only.
+    const isAuthoritative = Boolean(
+      item?.financialLedger
+      && debtHealth?.source === "authoritative_ledger"
+    );
+    if (key === "debt_health_available") return isAuthoritative;
+    if (!isAuthoritative || !debtHealth) return false;
+    if (key === "debt_manageable") return debtHealth.level === "manageable";
+    if (key === "debt_watch") return debtHealth.level === "watch";
+    if (key === "debt_distressed") return debtHealth.level === "distressed";
+    if (key === "debt_default_risk") return debtHealth.level === "default_risk";
+    if (key === "debt_defaulted") return debtHealth.level === "defaulted";
+    return debtHealth.trend === "improving"
+      && (debtHealth.level === "manageable" || debtHealth.level === "watch");
   }
   if (key === "learning_or_creation_direction") {
     return hasActiveDirection(snapshot, /learning|creation|research|study|学习|技能|研究|写作|创作|艺术|手艺|作品/i)

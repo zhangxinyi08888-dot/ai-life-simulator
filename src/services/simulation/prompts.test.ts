@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { LifeEventSeed } from "../../data/lifeEvents";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData, WorldStateSnapshot } from "../../types";
-import { buildNextNodePrompt, buildNodePromptWithRetryNotice } from "./prompts";
+import { initializeFinancialLedger } from "../../domain/finance";
+import { buildFinancialNarrativeRepairPrompt, buildFinancialProposalRepairPrompt, buildNextNodePrompt, buildNodePromptWithRetryNotice } from "./prompts";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -100,10 +101,17 @@ assert.match(prompt, /正文禁止描述当前存款、积蓄、银行余额、�
 assert.match(prompt, /允许描述本阶段实际发生的交易金额/);
 assert.match(prompt, /financialEventProposals 必须放在返回 JSON 顶层/);
 assert.match(prompt, /不得返回债务净变化、资产净变化或最终余额/);
+assert.match(prompt, /debtAccount.*destinationCashAccountId.*principalDrawnWan/s);
+assert.match(prompt, /debtAccount\.principalWan 必须严格等于 principalDrawnWan/);
 assert.match(prompt, /公司融资只能用 business_financing_recorded/);
 assert.match(prompt, /employmentStatus 不属于财务 Proposal/);
 assert.doesNotMatch(prompt, /financialSignals 必须放在返回 JSON 顶层/);
 assert.match(prompt, /最终金额由系统统一计算和展示/);
+assert.match(prompt, /不得自行写“连续 N 个月逾期\/拖欠”/);
+assert.match(prompt, /default_risk 只能描述风险、通知或协商压力/);
+assert.match(prompt, /债务叙事权威契约/);
+assert.match(prompt, /permittedInstitutionActions/);
+assert.match(prompt, /descriptionParagraphs、choices、storyEpisode、arcSignals evidence/);
 assert.match(prompt, /不得凭空提交就业状态转换/);
 assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
 assert.match(prompt, /没有 relationship outcome id 时/);
@@ -114,6 +122,30 @@ assert.match(prompt, /descriptionParagraphs 返回 2-4 个完整自然段/);
 assert.match(prompt, /每个数组项只能包含一个完整段落/);
 assert.match(prompt, /不要重复返回 description 字符串/);
 assert.doesNotMatch(prompt, /达到 73 岁及以上/);
+
+const repairLedger = initializeFinancialLedger({ id: "prompt_repair", asOfAgeInMonths: 300 });
+const debtRepairPrompt = buildFinancialProposalRepairPrompt({
+  rejectedProposals: [],
+  issues: [],
+  ledger: repairLedger,
+  acceptedOutcomeId: "borrow",
+  narrativeText: "银行完成20万元贷款放款。",
+  periodStartAgeInMonths: 300,
+  periodEndAgeInMonths: 306
+});
+assert.match(debtRepairPrompt, /debt_drawn 的 payload 必须是/);
+assert.match(debtRepairPrompt, /不得返回把 id、type、principalAmountWan/);
+
+const narrativeRepairPrompt = buildFinancialNarrativeRepairPrompt({
+  narrativeText: "银行完成20万元贷款放款，你开始每月还贷。",
+  rejectedProposals: [{
+    id: "loan", kind: "debt_drawn", effectiveAtAgeInMonths: 306, payload: {},
+    sourceOutcomeId: "borrow", evidence: "银行完成20万元贷款放款。", confidence: 0.9
+  }],
+  acceptedEvents: []
+});
+assert.match(narrativeRepairPrompt, /不得继续声称贷款已经获批、放款、到账/);
+assert.match(narrativeRepairPrompt, /不得继续声称已经产生该笔贷款的月供、还贷或欠款/);
 
 const lateCareerPrompt = buildNextNodePrompt({
   userData,

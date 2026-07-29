@@ -7,11 +7,106 @@ export interface CareerIncomeAtomicityResult {
   issues: FinancialLedgerIssue[];
 }
 
+const EXPLICIT_PERSONAL_INCOME_PATTERN = /(?:(?:你|主角|本人).{0,80}(?:(?:税后)?(?:月薪|年薪|月收入|年收入|工资|薪资|可支配收入|个人进账|业主提款|分红)(?:约为|约|达到|增至|稳定在|为)?\s*\d|(?:给自己发|领取|提取|获得|收到).{0,20}\d+(?:\.\d+)?\s*万元?.{0,20}(?:个人提款|工资|薪资|业主提款|分红))|(?:个人净收入|个人可支配收入|个人进账)(?:仅|约为|约|达到|为)?\s*\d)/u;
+const EXPLICIT_UNPAID_PATTERN = /(?:暂不|没有|未|不)(?:领取|提取|获得)(?:个人)?(?:工资|薪资|业主提款|分红|收入)|不领薪|无薪/u;
+
+export function narrativeClaimsExplicitPersonalIncome(narrativeText: string): boolean {
+  if (hasExplicitUnpaidPersonalIncomeStatement(narrativeText)) return false;
+  return narrativeText.split(/(?<=[。！？；])/u).some((sentence) => (
+    EXPLICIT_PERSONAL_INCOME_PATTERN.test(sentence)
+    && !/(?:公司|企业|项目|平台|团队|工作室|机构|中心)(?:的)?(?:年收入|月收入|营收|销售额|回款)/u.test(sentence)
+    && !/(?:辞职|辞去|离职|退休|离开|结束|中断|停发|上一份|原工作).{0,36}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资).{0,36}(?:辞职|辞去|离职|退休|结束|中断|停发)/u.test(sentence)
+  ));
+}
+
+export function hasExplicitUnpaidPersonalIncomeStatement(narrativeText: string): boolean {
+  return EXPLICIT_UNPAID_PATTERN.test(narrativeText);
+}
+
+function acceptedPersonalIncomeEvent(event: AcceptedFinancialEvent): boolean {
+  if (event.kind === "business_distribution_received") return true;
+  if (event.kind === "income_source_started") {
+    return ["salary", "contract", "self_employment_draw", "business_dividend"].includes(event.payload.type)
+      && event.payload.status === "active";
+  }
+  if (event.kind === "income_source_adjusted") {
+    return ["salary", "contract", "self_employment_draw", "business_dividend"].includes(event.payload.nextSource.type)
+      && event.payload.nextSource.status === "active";
+  }
+  return false;
+}
+
+/** Audits prose claims; it never creates income or changes CareerState. */
+export function collectPersonalIncomeNarrativeContractIssues(input: {
+  narrativeText: string;
+  acceptedFinancialEvents: AcceptedFinancialEvent[];
+  ageInMonths: number;
+  currentLedger?: FinancialLedger;
+}): FinancialLedgerIssue[] {
+  if (hasExplicitUnpaidPersonalIncomeStatement(input.narrativeText)) return [];
+  const currentPersonalIncomeClaimed = narrativeClaimsExplicitPersonalIncome(input.narrativeText);
+  if (!currentPersonalIncomeClaimed) return [];
+  if (input.acceptedFinancialEvents.some(acceptedPersonalIncomeEvent)) return [];
+  const hasCurrentPersonalIncomeAuthority = input.currentLedger?.incomeSources.some((source) => (
+    source.status === "active"
+    && Boolean(source.linkedCareerStateId)
+    && ["salary", "contract", "self_employment_draw", "other"].includes(source.type)
+    && source.accrualReviewStatus !== "quarantined"
+    && source.factStatus !== "needs_review"
+  ));
+  if (hasCurrentPersonalIncomeAuthority) return [];
+  return [{
+    id: `personal_income_claim_without_event_${input.ageInMonths}`,
+    code: "CAREER_INCOME_CONFLICT",
+    severity: "blocking",
+    status: "open",
+    relatedProposalIds: [],
+    summary: "正文明确声明主角个人收入，但本节点没有对应的已接受工资、业主提款或分红事件",
+    createdAtAgeInMonths: input.ageInMonths
+  }];
+}
+
 function incomeSourceId(event: AcceptedFinancialEvent): string | undefined {
   if (event.kind === "income_source_ended" || event.kind === "income_source_paused" || event.kind === "income_source_adjusted") {
     return event.payload.incomeSourceId;
   }
   return undefined;
+}
+
+function dedupeSameEvidenceCareerIncome(events: AcceptedFinancialEvent[]): AcceptedFinancialEvent[] {
+  const result: AcceptedFinancialEvent[] = [];
+  const keyToIndex = new Map<string, number>();
+  for (const event of events) {
+    if (event.kind !== "income_source_started" || !event.payload.linkedCareerStateId) {
+      result.push(event);
+      continue;
+    }
+    const excerpt = event.evidence.map((item) => item.excerpt?.trim()).filter(Boolean).join("|");
+    if (!excerpt) {
+      result.push(event);
+      continue;
+    }
+    const amount = Number.isFinite(Number(event.payload.monthlyNetAmountWan))
+      ? `m:${Number(event.payload.monthlyNetAmountWan)}`
+      : `a:${Number(event.payload.annualNetAmountWan || 0)}`;
+    const key = [
+      event.payload.linkedCareerStateId,
+      event.effectiveAtAgeInMonths,
+      amount,
+      excerpt
+    ].join("::");
+    const existingIndex = keyToIndex.get(key);
+    if (existingIndex === undefined) {
+      keyToIndex.set(key, result.length);
+      result.push(event);
+      continue;
+    }
+    const existing = result[existingIndex];
+    const existingIsSynthetic = existing.proposalId.startsWith("selected_personal_income_");
+    const candidateIsSynthetic = event.proposalId.startsWith("selected_personal_income_");
+    if (existingIsSynthetic && !candidateIsSynthetic) result[existingIndex] = event;
+  }
+  return result;
 }
 
 /**
@@ -25,7 +120,11 @@ export function reconcileCareerIncomeAtomicity(input: {
   careerTransitions: AcceptedCareerTransition[];
   financialEvents: AcceptedFinancialEvent[];
   ageInMonths: number;
+  explicitUnpaid?: boolean;
+  /** True only when prose claims an actual personal salary, draw or dividend. */
+  personalIncomeClaimed?: boolean;
 }): CareerIncomeAtomicityResult {
+  const authoritativeFinancialEvents = dedupeSameEvidenceCareerIncome(input.financialEvents);
   const removedCareerStateIds = new Set<string>();
   const removedIncomeSourceIds = new Set<string>();
   const issues: FinancialLedgerIssue[] = [];
@@ -37,18 +136,19 @@ export function reconcileCareerIncomeAtomicity(input: {
     const linkedActiveSources = input.currentLedger.incomeSources.filter((source) => (
       source.status === "active" && source.linkedCareerStateId === input.currentCareerStateId
     ));
-    const settledIds = new Set(input.financialEvents.flatMap((event) => {
+    const settledIds = new Set(authoritativeFinancialEvents.flatMap((event) => {
       const sourceId = incomeSourceId(event);
       if (!sourceId) return [];
       if (event.kind !== "income_source_adjusted") return [sourceId];
       return event.payload.nextSource.linkedCareerStateId === transition.nextCareerState.id ? [sourceId] : [];
     }));
     const missing = linkedActiveSources.filter((source) => !settledIds.has(source.id));
-    const hasNextCareerIncome = input.financialEvents.some((event) => (
+    const hasNextCareerIncome = authoritativeFinancialEvents.some((event) => (
       (event.kind === "income_source_started" && event.payload.status === "active" && event.payload.linkedCareerStateId === transition.nextCareerState.id)
       || (event.kind === "income_source_adjusted" && event.payload.nextSource.status === "active" && event.payload.nextSource.linkedCareerStateId === transition.nextCareerState.id)
     ));
-    if (missing.length === 0 && (!continuesWorking || hasNextCareerIncome)) return true;
+    const selfEmployedWithoutPersonalIncome = nextStatus === "self_employed" && input.personalIncomeClaimed === false;
+    if (missing.length === 0 && (!continuesWorking || hasNextCareerIncome || input.explicitUnpaid || selfEmployedWithoutPersonalIncome)) return true;
 
     removedCareerStateIds.add(transition.nextCareerState.id);
     for (const source of linkedActiveSources) removedIncomeSourceIds.add(source.id);
@@ -67,11 +167,33 @@ export function reconcileCareerIncomeAtomicity(input: {
     return false;
   });
 
-  const acceptedFinancialEvents = input.financialEvents.filter((event) => {
+  const committedCareerStateIds = new Set([
+    input.currentCareerStateId,
+    ...acceptedCareerTransitions.map((transition) => transition.nextCareerState.id)
+  ]);
+  const acceptedFinancialEvents = authoritativeFinancialEvents.filter((event) => {
     const sourceId = incomeSourceId(event);
     if (sourceId && removedIncomeSourceIds.has(sourceId)) return false;
     if (event.kind === "income_source_started" && event.payload.linkedCareerStateId && removedCareerStateIds.has(event.payload.linkedCareerStateId)) return false;
     if (event.kind === "income_source_adjusted" && event.payload.nextSource.linkedCareerStateId && removedCareerStateIds.has(event.payload.nextSource.linkedCareerStateId)) return false;
+    const linkedCareerStateId = event.kind === "income_source_started"
+      ? event.payload.linkedCareerStateId
+      : event.kind === "income_source_adjusted"
+        ? event.payload.nextSource.linkedCareerStateId
+        : undefined;
+    if (linkedCareerStateId && !committedCareerStateIds.has(linkedCareerStateId)) {
+      issues.push({
+        id: `career_income_uncommitted_state_${event.proposalId}_${input.ageInMonths}`,
+        code: "CAREER_INCOME_CONFLICT",
+        severity: "blocking",
+        status: "open",
+        relatedProposalIds: [event.proposalId],
+        relatedIncomeSourceIds: sourceId ? [sourceId] : [],
+        summary: `收入事件引用了未提交的 CareerState，已与职业转换一起拒绝：${linkedCareerStateId}`,
+        createdAtAgeInMonths: input.ageInMonths
+      });
+      return false;
+    }
     return true;
   });
 

@@ -32,7 +32,13 @@ function eventReferences(event: AcceptedFinancialEvent): {
     incomeSourceIds: incomeSourceIds.filter((value): value is string => typeof value === "string"),
     expenseCommitmentIds: expenseCommitmentIds.filter((value): value is string => typeof value === "string"),
     debtAccountIds: [payload.debtAccountId, payload.oldDebtAccountId, payload.debtAccount?.id, payload.replacementDebtAccount?.id].filter((value): value is string => typeof value === "string"),
-    businessHoldingIds: [payload.businessHoldingId, event.kind === "business_holding_started" ? payload.id : undefined, event.kind === "business_option_granted" ? payload.optionHolding?.id : undefined]
+    businessHoldingIds: [
+      payload.businessHoldingId,
+      payload.businessHolding?.id,
+      event.kind === "business_holding_started" ? payload.id : undefined,
+      event.kind === "business_option_granted" ? payload.optionHolding?.id : undefined,
+      payload.resultingEquityHolding?.id
+    ]
       .filter((value): value is string => typeof value === "string"),
     accountIds: [payload.sourceCashAccountId, payload.destinationCashAccountId, payload.assetAccountId, payload.assetAccount?.id, ...expenseCommitmentIds].filter((value): value is string => typeof value === "string")
   };
@@ -99,6 +105,12 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   employmentStatus: EmploymentStatus;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
+  const isPolicyOrLegacyEstimate = (commitment: FinancialLedger["expenseCommitments"][number]) => (
+    commitment.status === "active"
+    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
+    && commitment.evidence.some((item) => item.source === "system_policy"
+      || (item.source === "legacy_migration" && item.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION"))
+  );
   const isPolicyManagedBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
     commitment.type === "basic_living"
     && commitment.status === "active"
@@ -113,6 +125,18 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     event.kind === "expense_commitment_started"
     && (event.payload as { type?: string }).type === "basic_living"
   ));
+  const authoritativeSingletonStarts = input.events.filter((event) => (
+    event.kind === "expense_commitment_started"
+    && ["basic_living", "housing"].includes((event.payload as { type?: string }).type || "")
+  ));
+  for (const event of authoritativeSingletonStarts) {
+    const nextType = (event.payload as { type: string }).type;
+    for (const commitment of input.ledger.expenseCommitments) {
+      if (commitment.type !== nextType || !isPolicyOrLegacyEstimate(commitment)) continue;
+      commitment.status = "ended";
+      commitment.activeUntilAgeInMonths = event.effectiveAtAgeInMonths;
+    }
+  }
   const touchesExistingBasicLiving = input.events.some((event) => {
     if (event.kind !== "expense_commitment_adjusted" && event.kind !== "expense_commitment_ended") return false;
     const commitmentId = (event.payload as { expenseCommitmentId?: string }).expenseCommitmentId;
@@ -192,7 +216,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       issues.push({
         id: `pending_fact_stale_late_career_${source.id}`,
         code: "CAREER_STATE_STALE",
-        severity: "blocking",
+        severity: "warning",
         status: "open",
         relatedProposalIds: [],
         relatedIncomeSourceIds: [source.id],
@@ -219,7 +243,11 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
           && (event.kind === "business_holding_started" || event.kind === "business_option_granted"))
         || (issue.id.startsWith("narrative_coverage_personal_compensation_")
           && (event.kind === "income_source_started" || event.kind === "income_source_adjusted"));
-      if (!resolvesMissingExpense && !resolvesCoverage
+      const resolvesPersonalIncomeClaim = issue.id.startsWith("personal_income_claim_without_event_")
+        && (event.kind === "income_source_started"
+          || event.kind === "income_source_adjusted"
+          || event.kind === "business_distribution_received");
+      if (!resolvesMissingExpense && !resolvesCoverage && !resolvesPersonalIncomeClaim
         && !intersects(issue.relatedIncomeSourceIds, refs.incomeSourceIds)
         && !intersects(issue.relatedAccountIds, refs.accountIds)
         && !intersects(issue.relatedDebtAccountIds, refs.debtAccountIds)
@@ -237,6 +265,12 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
     for (const sourceId of refs.incomeSourceIds) {
       const source = ledger.incomeSources.find((item) => item.id === sourceId);
       if (source) {
+        const acceptedSource = event.kind === "income_source_started"
+          ? event.payload
+          : event.kind === "income_source_adjusted"
+            ? event.payload.nextSource
+            : undefined;
+        if (acceptedSource?.factStatus) source.factStatus = acceptedSource.factStatus;
         source.accrualReviewStatus = "normal";
         source.lastConfirmedAtAgeInMonths = event.effectiveAtAgeInMonths;
       }
@@ -257,7 +291,7 @@ function resolveCareerTransitionIssues(ledger: FinancialLedger, transitions: Acc
 }
 
 function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedgerIssue[], ageInMonths: number): void {
-  for (const issue of issues.filter((item) => item.severity === "blocking")) {
+  for (const issue of issues.filter((item) => item.severity === "blocking" && item.status !== "resolved")) {
     // A failed cross-domain career transaction is rolled back atomically. The
     // previously accepted career and wage therefore remain authoritative; the
     // repair issue must stay visible without turning that unchanged wage off.
@@ -300,7 +334,19 @@ function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedger
     }
     for (const debtId of issue.relatedDebtAccountIds || []) {
       const debt = ledger.debtAccounts.find((item) => item.id === debtId);
-      if (debt) debt.factStatus = "needs_review";
+      if (!debt) continue;
+      const hasAcceptedAuthority = debt.evidence.some((item) => (
+        item.source === "user"
+        || item.source === "accepted_history"
+        || item.source === "accepted_simulation_outcome"
+      ));
+      // A rejected proposal describes an attempted change, not a revocation of
+      // an already accepted balance. In particular, an invalid debt_drawn
+      // proposal must never erase an explicit opening mortgage from debt-health
+      // calculations. Only genuinely non-authoritative debt facts are put back
+      // into review.
+      if (debt.origin === "system_auto_shortfall" || (debt.factStatus === "known" && hasAcceptedAuthority)) continue;
+      debt.factStatus = "needs_review";
     }
     for (const holdingId of issue.relatedBusinessHoldingIds || []) {
       const holding = ledger.businessHoldings.find((item) => item.id === holdingId);
@@ -321,13 +367,40 @@ function addLegacyIncomeReconfirmation(ledger: FinancialLedger, ageInMonths: num
     addOrObserveIssue(ledger, {
       id: issueId,
       code: "PENDING_FACT",
-      severity: "blocking",
+      severity: "warning",
       status: "open",
       relatedProposalIds: [],
       relatedIncomeSourceIds: [source.id],
       summary: `旧版估算收入 ${source.displayName} 已连续多个实质节点未获确认，确定性计提已隔离；下一节点需要确认当前收入`,
       createdAtAgeInMonths: ageInMonths
     }, ageInMonths);
+  }
+}
+
+function resolveRecoveredDebtDelinquencyIssues(
+  ledger: FinancialLedger,
+  ageInMonths: number,
+  transactionId: string
+): void {
+  for (const issue of ledger.unresolvedIssues) {
+    if ((issue.code !== "DEBT_PAYMENT_MISSED" && issue.code !== "DEBT_PAYMENT_DELINQUENT")
+      || (issue.status ?? "open") !== "open") continue;
+    const relatedIds = new Set(issue.relatedDebtAccountIds ?? []);
+    const relatedAccounts = ledger.debtAccounts.filter((account) => relatedIds.has(account.id));
+    if (relatedAccounts.length === 0) continue;
+    const recovered = relatedAccounts.every((account) => (
+      account.status === "repaid"
+      || account.status === "restructured"
+      || (
+        account.status !== "defaulted"
+        && account.servicingStatus === "current"
+        && (account.consecutiveMissedPaymentMonths ?? 0) === 0
+      )
+    ));
+    if (!recovered) continue;
+    issue.status = "resolved";
+    issue.resolvedAtAgeInMonths = ageInMonths;
+    issue.resolvedByEventId = `system:servicing_recovered:${transactionId}`;
   }
 }
 
@@ -445,15 +518,16 @@ export function commitFinancialDomainTransaction(
     }
   }
   const newIssues = [...completenessIssues, ...(input.financialIssues || [])];
-  for (const issue of newIssues) addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths);
-  applyPendingFactPolicy(committedLedger, newIssues, input.periodEndAgeInMonths);
-  // An Accepted Event is the authority for its referenced fact even when a
-  // malformed sibling Proposal produced an issue in the same model response.
-  // Resolve after issue insertion/pending policy so the rejected sibling cannot
-  // immediately quarantine the just-accepted source.
+  const observedIssues = newIssues.map((issue) => addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths));
+  // Preserve the rejected sibling as an auditable pending fact first, then let
+  // the accepted event resolve both records in the same transaction. This keeps
+  // the history honest without allowing the rejected sibling to quarantine an
+  // income source that was authoritatively confirmed.
+  applyPendingFactPolicy(committedLedger, observedIssues, input.periodEndAgeInMonths);
   resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
   resolveCareerTransitionIssues(committedLedger, input.acceptedCareerTransitions, input.periodEndAgeInMonths);
   addLegacyIncomeReconfirmation(committedLedger, input.periodEndAgeInMonths);
+  resolveRecoveredDebtDelinquencyIssues(committedLedger, input.periodEndAgeInMonths, input.transactionId);
   const nextWorldState: WorldStateSnapshot = {
     ...structuredClone(input.currentWorldState),
     careerStates: structuredClone(nextCareer.careerStates),

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
-import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation } from "./simulationService";
+import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 import { queryDynamicLifeEvent } from "../../data/lifeEvents";
@@ -38,6 +38,13 @@ assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你辞别成都来到深圳。新公司做跨境电商SaaS，你负责前端开发。",
   currentStatus: "student"
 }), true);
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "继续稳步提升技术深度，争取明年带团队",
+  narrativeText: "36岁2个月，你正式成为数据可视化组的技术负责人，带4个人的小组。",
+  acceptedOutcomeId: "continue_technical_depth",
+  effectiveAtAgeInMonths: 444,
+  currentStatus: "student"
+})?.toStatus, "employed");
 
 const questions = await generateQuestions(userData, {
   callAiJson: async (prompt) => {
@@ -218,6 +225,7 @@ assert.equal(mortgageStarted.startNode.financialState?.totalDebtWan, 210);
 assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.id, "opening_mortgage");
 assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
 assert.equal(mortgageStarted.startNode.financialLedger?.assetAccounts.some((account) => account.type === "property"), true);
+assert.equal(mortgageStarted.startNode.financialState?.annualDisposableIncomeWan, 14.9);
 
 const attributes: LifeAttributes = { happiness: 50, intelligence: 70, wealth: 42, relation: 55, health: 64 };
 const history: HistoryItem[] = [
@@ -654,6 +662,79 @@ assert.equal(failedRepairNode.financialSignals, undefined);
 assert.equal(failedRepairNode.financialChange, undefined);
 assert.equal(failedRepairNode.financialLedgerMode, "authoritative");
 
+let rejectedDebtProposalRepairCalls = 0;
+let rejectedDebtNarrativeRepairCalls = 0;
+const rejectedDebtNarrativeNode = await generateNextNode({
+  userData,
+  answers,
+  history,
+  currentAttributes: attributes,
+  selectedDecision: "转向内容行业实习",
+  nodeIndex: 1,
+  simulationSeed: "rejected-debt-narrative-repair"
+}, {
+  callAiJson: async (prompt) => {
+    if (prompt.includes("你只修复财务 Proposal")) {
+      rejectedDebtProposalRepairCalls += 1;
+      return { text: JSON.stringify({ employmentTransition: null, financialEventProposals: [] }) };
+    }
+    if (prompt.includes("你只修复故事正文中的财务完成事实")) {
+      rejectedDebtNarrativeRepairCalls += 1;
+      return {
+        text: JSON.stringify({
+          descriptionParagraphs: [
+            "银行仍在审核20万元经营贷款，资金尚未到账。你保留原工作，并继续用小项目验证需求。",
+            "在融资没有完成前，你没有承担月供，也没有把计划中的贷款当作可用现金。"
+          ]
+        })
+      };
+    }
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 23 * 12);
+    return {
+      text: JSON.stringify({
+        age: 23,
+        ageInMonths: targetAgeInMonths,
+        stage: "创业试探",
+        title: "贷款与项目",
+        descriptionParagraphs: [
+          "银行已经完成20万元经营贷款放款，你开始用这笔资金推进项目。",
+          "贷款到账后，你每月还贷6083元，同时继续寻找稳定客户。"
+        ],
+        choices: [
+          { id: "A", text: "保留工作继续验证", impactSummary: "控制风险" },
+          { id: "B", text: "缩小项目等待审批", impactSummary: "缩小投入" },
+          { id: "C", text: "寻找无需借款的合作", impactSummary: "替代融资" }
+        ],
+        attributes,
+        financialEventProposals: [{
+          id: "invalid_loan",
+          kind: "debt_drawn",
+          effectiveAtAgeInMonths: targetAgeInMonths,
+          payload: {
+            debtAccount: {
+              id: "loan_invalid_destination", type: "family_or_personal_loan", displayName: "经营贷款",
+              principalWan: 20, openedAtAgeInMonths: targetAgeInMonths, status: "active",
+              repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.6083, remainingTermMonths: 36 },
+              factStatus: "estimated", evidence: []
+            },
+            destinationCashAccountId: "missing_cash_account",
+            principalDrawnWan: 20
+          },
+          evidence: "银行已经完成20万元经营贷款放款，你开始用这笔资金推进项目。",
+          confidence: 0.9
+        }],
+        isEndingNode: false
+      })
+    };
+  }
+});
+
+assert.equal(rejectedDebtProposalRepairCalls, 1);
+assert.equal(rejectedDebtNarrativeRepairCalls, 1);
+assert.equal(rejectedDebtNarrativeNode.financialState?.totalDebtWan, 0);
+assert.doesNotMatch(rejectedDebtNarrativeNode.description, /贷款到账|完成20万元经营贷款放款|每月还贷6083元/);
+assert.match(rejectedDebtNarrativeNode.description, /资金尚未到账/);
+
 function healthArcHistory(phaseId: "recovery" | "operation", length: number): HistoryItem[] {
   const arc: PressureArcState = {
     id: `pressure_health_${phaseId}`,
@@ -857,6 +938,7 @@ assert.equal(unresolvedOperationNode.committedArcMeta?.transitionAction, "resolv
 assert.equal(unresolvedOperationNode.reportInvitation, undefined);
 
 let lateOperationRepairCalls = 0;
+let lateOperationDecisionRepairCalls = 0;
 const lateOperationRepairNode = await generateNextNode({
   userData,
   answers,
@@ -872,7 +954,16 @@ const lateOperationRepairNode = await generateNextNode({
       return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId, includeResolvedSignal: true })) };
     }
     if (prompt.includes("DecisionGate 未通过")) {
-      return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId })) };
+      lateOperationDecisionRepairCalls += 1;
+      const repaired = healthArcRawNode({ arcId: operationArcId });
+      if (lateOperationDecisionRepairCalls === 1) {
+        repaired.choices = repaired.choices.map((choice) => ({
+          ...choice,
+          decisionIntent: "health:wait:same-plan",
+          expectedWorldDeltaTypes: ["health_state" as const]
+        }));
+      }
+      return { text: JSON.stringify(repaired) };
     }
     const initiallyValidButChoiceBlocked = healthArcRawNode({ arcId: operationArcId, includeResolvedSignal: true });
     initiallyValidButChoiceBlocked.choices = initiallyValidButChoiceBlocked.choices.map((choice) => ({
@@ -884,7 +975,8 @@ const lateOperationRepairNode = await generateNextNode({
   }
 });
 
-assert.equal(lateOperationRepairCalls, 3);
+assert.equal(lateOperationRepairCalls, 4);
+assert.equal(lateOperationDecisionRepairCalls, 2);
 assert.equal(lateOperationRepairNode.committedArcMeta?.transitionAction, "resolve");
 assert.equal(lateOperationRepairNode.reportInvitation?.reason, "arc_resolved");
 assert.notEqual(lateOperationRepairNode.eventMeta?.eventId, "health_forced_pause");
@@ -1468,11 +1560,46 @@ try {
   assert.equal(missingOutcomeAttempts, 2);
   assert.match(missingOutcomeRetryPrompt, /choice\.eventOutcomeId 缺失或不在本事件 allowedOutcomes 中/);
   assert.match(missingOutcomeRetryPrompt, /每个 choice 都必须从当前事件 allowedOutcomes 中原样选择/);
-  assert.ok(repairedMissingOutcomeNode.choices.every((choice) => choice.eventOutcomeId));
+assert.ok(repairedMissingOutcomeNode.choices.every((choice) => choice.eventOutcomeId));
 } finally {
   Math.random = missingOutcomeRandom;
 }
 
+{
+  const proposals = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "接受全职前端职位",
+    narrativeText: "你正式入职，税后月薪7000元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "accept_frontend_role",
+    periodStartAgeInMonths: 286,
+    currentCareerStateId: "career_frontend_286",
+    currentEmploymentStatus: "employed",
+    migrateToCurrentCareerState: true,
+    ledger: {
+      ...structuredClone(history.at(-1)!.financialLedger!),
+      incomeSources: [{
+        id: "old_internship_income",
+        type: "salary",
+        displayName: "旧实习工资",
+        monthlyNetAmountWan: 0.1,
+        accrualPolicy: "monthly",
+        activeFromAgeInMonths: 250,
+        status: "active",
+        linkedCareerStateId: "career_internship",
+        factStatus: "known",
+        evidence: []
+      }]
+    }
+  });
+  const adjusted = proposals.find((proposal) => proposal.kind === "income_source_adjusted");
+  if (!adjusted || adjusted.kind !== "income_source_adjusted") {
+    throw new Error("expected an income adjustment for the confirmed new salary");
+  }
+  const adjustedPayload = adjusted.payload as { nextSource: { monthlyNetAmountWan?: number; linkedCareerStateId?: string } };
+  assert.ok(Math.abs(Number(adjustedPayload.nextSource.monthlyNetAmountWan) - 0.7) < 1e-9);
+  assert.equal(adjustedPayload.nextSource.linkedCareerStateId, "career_frontend_286");
+}
 const relationshipOptionAHistory: HistoryItem[] = [{
   age: 36,
   ageInMonths: 36 * 12,

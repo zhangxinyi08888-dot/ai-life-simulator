@@ -1,8 +1,148 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { promisify } from "node:util";
+
+export const FINAL_IMAGE_VIEWPORT = Object.freeze({ width: 1280, height: 900 });
+
+export async function waitForUniqueLocator({ locator, label, wait, attempts = 40 }) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const count = await locator.count();
+    if (count === 1) return locator;
+    if (count > 1) throw new Error(`Expected one ${label}, got ${count}`);
+    if (attempt + 1 < attempts) await wait();
+  }
+  throw new Error(`Expected one ${label}, got 0`);
+}
+const execFileAsync = promisify(execFile);
 
 function now() {
   return new Date().toISOString();
+}
+
+export function assertDistinctFinalImageEvidence({ poster, page }) {
+  const posterBytes = Buffer.from(poster || []);
+  const pageBytes = Buffer.from(page || []);
+  if (posterBytes.length === 0 || pageBytes.length === 0) {
+    throw new Error("Final poster and report-page evidence must both be non-empty");
+  }
+  if (posterBytes.equals(pageBytes)) {
+    throw new Error("Final poster and report-page evidence are identical viewport captures");
+  }
+}
+
+export function buildFinalPosterCropArgs({ pagePath, posterPath, posterRect }) {
+  return [
+    "--cropToHeightWidth",
+    String(Math.round(posterRect.height)),
+    String(Math.round(posterRect.width)),
+    "--cropOffset",
+    String(Math.round(posterRect.y)),
+    String(Math.round(posterRect.x)),
+    pagePath,
+    "--out",
+    posterPath
+  ];
+}
+
+export function buildFinalImageRestorePayload(saved) {
+  const state = saved?.latestState ?? saved;
+  if (state?.step !== "insight" || !state?.outcome || !state?.userData || !state?.currentNode) {
+    throw new Error("Final-image checkpoint must contain an insight state, outcome, userData, and currentNode");
+  }
+  const node = state.currentNode;
+  return {
+    step: state.step,
+    userName: state.userName,
+    userData: state.userData,
+    questions: [],
+    answers: [],
+    currentAttributes: state.currentAttributes ?? node.attributes,
+    currentNode: {
+      id: node.id,
+      title: node.title,
+      description: node.description,
+      age: node.age,
+      ageInMonths: node.ageInMonths,
+      stage: node.stage,
+      attributes: node.attributes,
+      choices: node.choices,
+      selectedChoice: node.selectedChoice,
+      isEndingNode: node.isEndingNode,
+      reportInvitation: node.reportInvitation
+    },
+    history: [],
+    nodeCount: state.nodeCount,
+    simulationSeed: state.simulationSeed,
+    outcome: state.outcome
+  };
+}
+
+export function initializeJourneyTrace({ identity, previousRecord, resume = false }) {
+  const previousIdentity = previousRecord?.identity;
+  const canResume = resume
+    && previousIdentity?.runId === identity.runId
+    && previousIdentity?.journeyId === identity.journeyId
+    && previousIdentity?.caseSlug === identity.caseSlug
+    && previousIdentity?.scenario === identity.scenario
+    && Array.isArray(previousRecord?.interactionLog);
+  if (canResume) {
+    return previousRecord.interactionLog.map((entry) => ({
+      ...entry,
+      runId: identity.runId,
+      journeyId: identity.journeyId
+    }));
+  }
+  return [{
+    type: "case_started",
+    caseSlug: identity.caseSlug,
+    scenario: identity.scenario,
+    runId: identity.runId,
+    journeyId: identity.journeyId,
+    at: identity.startedAt
+  }];
+}
+
+function invitationIds(values) {
+  return values.map((item) => item?.id).filter(Boolean);
+}
+
+export function validateJourneyInvitationIsolation({ identity, trace, finalState, expectedInvitations = [] }) {
+  const issues = [];
+  const validArcIds = new Set((finalState?.history || []).flatMap((item) => (
+    item?.worldStateSnapshot?.pressureArcs || []
+  )).map((arc) => arc.id));
+  for (const arc of finalState?.currentNode?.worldStateSnapshot?.pressureArcs || []) validArcIds.add(arc.id);
+  const expectedIds = new Set(invitationIds(expectedInvitations));
+  const stateIds = invitationIds(finalState?.invitations || []);
+  const traceInvitations = trace.filter((entry) => entry.type?.startsWith("invitation_") && entry.invitation?.id);
+  for (const entry of trace) {
+    if (entry.journeyId && entry.journeyId !== identity.journeyId) {
+      issues.push({ code: "CROSS_JOURNEY_TRACE", id: entry.journeyId });
+    }
+  }
+  for (const entry of traceInvitations) {
+    if (!expectedIds.has(entry.invitation.id)) {
+      issues.push({ code: "CROSS_JOURNEY_INVITATION", id: entry.invitation.id });
+    }
+    if (entry.invitation.pressureArcId && !validArcIds.has(entry.invitation.pressureArcId)) {
+      issues.push({ code: "CROSS_JOURNEY_PRESSURE_ARC", id: entry.invitation.pressureArcId });
+    }
+  }
+  const expectedIdList = invitationIds(expectedInvitations);
+  if (JSON.stringify(stateIds) !== JSON.stringify(expectedIdList)) {
+    issues.push({ code: "INVITATION_STATE_MISMATCH", expectedIds: expectedIdList, actualIds: stateIds });
+  }
+  for (const id of expectedIdList) {
+    const events = traceInvitations.filter((entry) => entry.invitation.id === id).map((entry) => entry.type);
+    const shownIndex = events.indexOf("invitation_shown");
+    const terminalIndex = Math.max(events.indexOf("invitation_declined"), events.indexOf("invitation_accepted"));
+    if (shownIndex < 0 || terminalIndex <= shownIndex) {
+      issues.push({ code: "INVITATION_SEQUENCE_INCOMPLETE", id, events });
+    }
+  }
+  return issues;
 }
 
 function chooseId(state, strategy, offset = 0) {
@@ -33,7 +173,16 @@ function chooseId(state, strategy, offset = 0) {
   })?.id || choices[offset % choices.length].id;
 }
 
-export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }) {
+function nodeCommitSignature(node) {
+  if (!node) return "";
+  return JSON.stringify({
+    ageInMonths: node.ageInMonths,
+    title: node.title,
+    description: node.description
+  });
+}
+
+export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, resume = false }) {
   const workingDir = path.join(recordRoot, "working");
   const casesDir = path.join(recordRoot, "cases");
   const imagesDir = path.join(recordRoot, "images", config.slug);
@@ -43,22 +192,37 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
   await mkdir(casesDir, { recursive: true });
   await mkdir(imagesDir, { recursive: true });
 
-  let trace = [{ type: "case_started", caseSlug: config.slug, scenario: config.scenario, at: now() }];
-  try {
-    const previous = JSON.parse(await readFile(workingPath, "utf8"));
-    if (Array.isArray(previous.interactionLog)) trace = previous.interactionLog;
-  } catch {
-    // A missing working file means this is a new case.
+  let previousRecord;
+  if (resume) {
+    try {
+      previousRecord = JSON.parse(await readFile(workingPath, "utf8"));
+    } catch {
+      previousRecord = undefined;
+    }
   }
+  const startedAt = previousRecord?.identity?.startedAt || now();
+  const identity = resume && previousRecord?.identity
+    ? previousRecord.identity
+    : {
+        runId: path.basename(recordRoot),
+        journeyId: randomUUID(),
+        caseSlug: config.slug,
+        scenario: config.scenario,
+        startedAt
+      };
+  let trace = initializeJourneyTrace({ identity, previousRecord, resume });
+  const appendTrace = (entry) => trace.push({ ...entry, runId: identity.runId, journeyId: identity.journeyId });
 
   async function snapshot() {
     return tab.playwright.domSnapshot();
   }
 
   async function unique(locator, label) {
-    const count = await locator.count();
-    if (count !== 1) throw new Error(`Expected one ${label}, got ${count}`);
-    return locator;
+    return waitForUniqueLocator({
+      locator,
+      label,
+      wait: () => tab.playwright.waitForTimeout(50)
+    });
   }
 
   async function readState() {
@@ -81,7 +245,71 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       await tab.playwright.waitForTimeout(100);
       const state = await readState();
       if (state.errorMsg) throw new Error(`${description}: ${state.errorMsg}`);
+      if (state.nextGenerationError) throw new Error(`${description}: ${state.nextGenerationError}`);
       if (predicate(state)) return state;
+    }
+    throw new Error(`Timed out waiting for ${description}`);
+  }
+
+  async function waitForAdvanceState(predicate, description, timeoutMs = 180000, maxVisibleRetries = 1) {
+    const limit = Math.ceil(timeoutMs / 100);
+    const handledPauseIds = new Set();
+    let visibleRetryCount = 0;
+    for (let index = 0; index < limit; index += 1) {
+      await tab.playwright.waitForTimeout(100);
+      const state = await readState();
+      if (state.errorMsg) throw new Error(`${description}: ${state.errorMsg}`);
+      if (state.nextGenerationError) {
+        const pauseEvent = [...(state.generationEvents || [])]
+          .reverse()
+          .find((event) => event?.type === "visible_pause");
+        const pauseId = pauseEvent?.id
+          || `${state.history?.length || 0}:${state.nextGenerationErrorDebug || state.nextGenerationError}`;
+        if (handledPauseIds.has(pauseId)) continue;
+        handledPauseIds.add(pauseId);
+        visibleRetryCount += 1;
+        appendTrace({
+          type: "recoverable_error",
+          generationEventId: pauseEvent?.id,
+          errorCode: pauseEvent?.errorCode,
+          message: state.nextGenerationError,
+          debug: state.nextGenerationErrorDebug,
+          historyLength: state.history?.length || 0,
+          visibleRetryCount,
+          at: now()
+        });
+        await persist(state);
+        if (visibleRetryCount > maxVisibleRetries) {
+          throw new Error(`${description}: visible generation pause limit exceeded (${visibleRetryCount})`);
+        }
+        await snapshot();
+        const retry = await unique(tab.playwright.locator("#retry-next-generation-btn"), "visible generation retry button");
+        await retry.click();
+        appendTrace({
+          type: "recoverable_retry_started",
+          generationEventId: pauseEvent?.id,
+          historyLength: state.history?.length || 0,
+          visibleRetryCount,
+          at: now()
+        });
+        continue;
+      }
+      if (predicate(state)) {
+        if (visibleRetryCount > 0) {
+          const recoveredEvent = [...(state.generationEvents || [])]
+            .reverse()
+            .find((event) => event?.type === "recovered");
+          appendTrace({
+            type: "recoverable_retry_succeeded",
+            generationEventId: recoveredEvent?.id,
+            historyLength: state.history?.length || 0,
+            visibleRetryCount,
+            at: now()
+          });
+          await persist(state);
+        }
+        return state;
+      }
     }
     throw new Error(`Timed out waiting for ${description}`);
   }
@@ -90,6 +318,8 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     const payload = {
       schemaVersion: 2,
       runId: path.basename(recordRoot),
+      journeyId: identity.journeyId,
+      identity,
       dataSource: "real_ai_browser",
       caseSlug: config.slug,
       scenario: config.scenario,
@@ -104,21 +334,37 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     return complete ? casePath : workingPath;
   }
 
-  async function importCheckpoint() {
-    const raw = await readFile(workingPath, "utf8");
-    const saved = JSON.parse(raw);
+  async function importCheckpoint({ finalImageOnly = false } = {}) {
+    const storedRaw = await readFile(workingPath, "utf8");
+    const saved = JSON.parse(storedRaw);
+    const importPayload = finalImageOnly ? buildFinalImageRestorePayload(saved) : saved;
+    const raw = finalImageOnly ? JSON.stringify(importPayload) : storedRaw;
     await snapshot();
     const input = await unique(tab.playwright.getByRole("textbox", { name: "测试状态 JSON", exact: true }), "test state import textbox");
-    await input.fill(raw);
+    // Large authoritative ledgers can exceed the browser bridge's default
+    // action window. Give the controlled textarea enough time, then let React
+    // commit the onChange state before clicking the importer button.
+    try {
+      await input.fill(raw, { timeoutMs: 60000 });
+    } catch (error) {
+      // Very long lifespan checkpoints can exceed the extension bridge's
+      // direct fill payload limit. Preserve the same visible import contract
+      // by focusing the textarea and pasting the exact serialized checkpoint.
+      await tab.clipboard.writeText(raw);
+      await input.click();
+      await input.press("ControlOrMeta+V", { timeoutMs: 10000 });
+    }
+    await tab.playwright.waitForTimeout(300);
     await snapshot();
     const button = await unique(tab.playwright.locator("#test-state-import-btn"), "test state import button");
     await button.click();
-    const expectedHistoryLength = saved.latestState?.history?.length || 0;
+    const expectedState = importPayload.latestState ?? importPayload;
+    const expectedHistoryLength = expectedState.history?.length || 0;
     return waitForState((state) => (
-      state.step === saved.latestState?.step
+      state.step === expectedState.step
       && state.history?.length === expectedHistoryLength
       && state.currentNode
-    ), "imported browser checkpoint", 20000);
+    ), "imported browser checkpoint", 30000);
   }
 
   async function clickRole(role, name) {
@@ -128,6 +374,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
   }
 
   async function startJourney() {
+    trace = initializeJourneyTrace({ identity, resume: false });
     await snapshot();
     const birthday = await unique(tab.playwright.getByLabel("出生日期", { exact: true }), "birth date field");
     await birthday.fill(config.birthday);
@@ -155,7 +402,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     }
     await clickRole("button", "确认，从这里开始");
     const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length === 3, "real AI background questions", 120000);
-    trace.push({ type: "questions_generated", questions: questioning.questions, at: now() });
+    appendTrace({ type: "questions_generated", questions: questioning.questions, at: now() });
     await persist(questioning);
     await tab.playwright.waitForTimeout(300);
 
@@ -167,7 +414,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       if (index < 2) await tab.playwright.waitForTimeout(350);
     }
     const started = await waitForState((state) => state.step === "simulating" && state.currentNode && !state.isLoading, "real AI simulation start", 120000);
-    trace.push({ type: "simulation_started", node: started.currentNode, at: now() });
+    appendTrace({ type: "simulation_started", node: started.currentNode, at: now() });
     await persist(started);
     return started;
   }
@@ -187,13 +434,15 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       `choice ${choiceId}`
     );
     const beforeHistoryLength = before.history.length;
+    const beforeNodeSignature = nodeCommitSignature(before.currentNode);
     await locator.click();
-    const after = await waitForState((state) => (
+    const after = await waitForAdvanceState((state) => (
       state.history.length > beforeHistoryLength
       && !state.isLoadingNext
       && state.currentNode
+      && nodeCommitSignature(state.currentNode) !== beforeNodeSignature
     ), "next real story node");
-    trace.push({
+    appendTrace({
       type: "choice_completed",
       sourceNodeTitle: before.currentNode.title,
       sourceAgeInMonths: before.currentNode.ageInMonths,
@@ -221,16 +470,23 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     const choice = before.currentNode.choices.find((item) => item.id === choiceId);
     const locator = await unique(tab.playwright.locator(`[id=${JSON.stringify(`choice-btn-${choiceId}`)}]`), `choice ${choiceId}`);
     await locator.click();
-    return { before, choiceId, choice, beforeHistoryLength: before.history.length };
+    return {
+      before,
+      choiceId,
+      choice,
+      beforeHistoryLength: before.history.length,
+      beforeNodeSignature: nodeCommitSignature(before.currentNode)
+    };
   }
 
-  async function finishAdvance(pendingAdvance, timeoutMs = 20000) {
-    const after = await waitForState((state) => (
+  async function finishAdvance(pendingAdvance, timeoutMs = 180000) {
+    const after = await waitForAdvanceState((state) => (
       state.history.length > pendingAdvance.beforeHistoryLength
       && !state.isLoadingNext
       && state.currentNode
+      && nodeCommitSignature(state.currentNode) !== pendingAdvance.beforeNodeSignature
     ), "next real story node", timeoutMs);
-    trace.push({
+    appendTrace({
       type: "choice_completed",
       sourceNodeTitle: pendingAdvance.before.currentNode.title,
       sourceAgeInMonths: pendingAdvance.before.currentNode.ageInMonths,
@@ -264,14 +520,16 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     await snapshot();
     const submit = await unique(tab.playwright.locator("#submit-custom-action-btn"), "custom choice submit");
     const beforeHistoryLength = before.history.length;
+    const beforeNodeSignature = nodeCommitSignature(before.currentNode);
     await submit.click();
-    const after = await waitForState((state) => (
+    const after = await waitForAdvanceState((state) => (
       state.history.length > beforeHistoryLength
       && !state.isLoadingNext
       && state.currentNode
+      && nodeCommitSignature(state.currentNode) !== beforeNodeSignature
     ), "next real story node from custom choice");
     const selectedChoice = `自定义抉择: ${customText.trim()}`;
-    trace.push({
+    appendTrace({
       type: "choice_completed",
       sourceNodeTitle: before.currentNode.title,
       sourceAgeInMonths: before.currentNode.ageInMonths,
@@ -294,7 +552,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     const invitation = state.currentNode?.reportInvitation;
     if (invitation?.status !== "pending") throw new Error("No pending invitation to record");
     if (!trace.some((item) => item.type === "invitation_shown" && item.invitation?.id === invitation.id)) {
-      trace.push({ type: "invitation_shown", invitation, nodeTitle: state.currentNode.title, historyLength: state.history.length, at: now() });
+      appendTrace({ type: "invitation_shown", invitation, nodeTitle: state.currentNode.title, historyLength: state.history.length, at: now() });
       await persist(state);
     }
     return state;
@@ -306,7 +564,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     const locator = await unique(tab.playwright.locator("#report-invitation-continue-btn"), "continue invitation button");
     await locator.click();
     const after = await waitForState((state) => state.currentNode?.reportInvitation?.status === "declined", "declined invitation", 10000);
-    trace.push({ type: "invitation_declined", invitation: after.currentNode.reportInvitation, historyLength: after.history.length, at: now() });
+    appendTrace({ type: "invitation_declined", invitation: after.currentNode.reportInvitation, historyLength: after.history.length, at: now() });
     await persist(after);
     return { before, after, invitation: before.currentNode.reportInvitation };
   }
@@ -318,7 +576,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     const locator = await unique(tab.playwright.locator("#report-invitation-accept-btn"), "accept invitation button");
     await locator.click();
     const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real reflection report");
-    trace.push({ type: "invitation_accepted", invitation, historyLength: after.history.length, closureType: after.outcome.meta.closureType, at: now() });
+    appendTrace({ type: "invitation_accepted", invitation, historyLength: after.history.length, closureType: after.outcome.meta.closureType, at: now() });
     return { before, after, invitation };
   }
 
@@ -329,7 +587,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     const locator = await unique(tab.playwright.locator("#ending-report-btn"), "ending report button");
     await locator.click();
     const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real mortality report");
-    trace.push({ type: "mortality_report_opened", historyLength: after.history.length, closureType: after.outcome.meta.closureType, at: now() });
+    appendTrace({ type: "mortality_report_opened", historyLength: after.history.length, closureType: after.outcome.meta.closureType, at: now() });
     return { before, after };
   }
 
@@ -345,54 +603,74 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     await tab.playwright.waitForTimeout(1500);
     const poster = tab.playwright.locator("#share-ending-poster");
     const posterCount = await poster.count();
-    let posterRect;
-    if (posterCount === 1) try {
-      posterRect = await poster.evaluate((element) => {
-        const rect = element.getBoundingClientRect();
-        return {
-          // Browser screenshot clips use viewport coordinates. Adding the
-          // document scroll offset moves the clip away from the visible card
-          // and produced all-black poster evidence on long report pages.
-          x: Math.max(0, rect.x),
-          y: Math.max(0, rect.y),
-          width: rect.width,
-          height: rect.height
-        };
-      });
-    } catch {
-      // Fall through to the centered report-card crop below.
+    if (posterCount !== 1) throw new Error(`Expected one final report poster, got ${posterCount}`);
+    const viewport = await tab.playwright.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight
+    }));
+    if (viewport.width !== FINAL_IMAGE_VIEWPORT.width || viewport.height !== FINAL_IMAGE_VIEWPORT.height) {
+      throw new Error(`Final image capture requires the ${FINAL_IMAGE_VIEWPORT.width}x${FINAL_IMAGE_VIEWPORT.height} mobile viewport; received ${viewport.width}x${viewport.height}`);
     }
-    if (!posterRect) {
-      const viewport = await tab.playwright.evaluate(() => ({
-        width: window.innerWidth,
-        height: window.innerHeight
-      }));
-      const width = Math.min(356, viewport.width - 32);
-      posterRect = {
-        x: Math.max(0, (viewport.width - width) / 2),
-        y: 20,
-        width,
-        height: Math.min(632, viewport.height - 40)
-      };
+    const readPosterRect = () => poster.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    });
+    let posterRect = await readPosterRect();
+    if (posterRect.y < 0 || posterRect.y + posterRect.height > viewport.height) {
+      // The report owns an internal scroll container, so browser page scroll
+      // state cannot reset it. Scroll the visible report surface decisively to
+      // its top before measuring the poster crop again.
+      await tab.cua.scroll({
+        x: Math.round(viewport.width / 2),
+        y: Math.round(viewport.height / 2),
+        scrollX: 0,
+        scrollY: -1_000_000
+      });
+      await tab.playwright.waitForTimeout(150);
+      posterRect = await readPosterRect();
     }
     if (posterRect.width <= 0 || posterRect.height <= 0) {
       throw new Error("Final report poster has no visible bounds");
     }
+    if (posterRect.x < 0 || posterRect.y < 0
+      || posterRect.x + posterRect.width > viewport.width
+      || posterRect.y + posterRect.height > viewport.height) {
+      throw new Error(`Final report poster is not fully visible for capture: ${JSON.stringify({ posterRect, viewport })}`);
+    }
 
     const posterPath = path.join(imagesDir, "poster.jpg");
     const pagePath = path.join(imagesDir, "report-page.jpg");
-    await writeFile(posterPath, await tab.screenshot({ clip: posterRect }));
-    // Preserve the actual terminal page viewport. fullPage screenshots of the
-    // horizontally centered report can repeat transformed content in Chromium.
-    await writeFile(pagePath, await tab.screenshot({}));
-    trace.push({ type: "final_images_saved", posterPath, pagePath, at: now() });
+    // The app is a fixed-height mobile canvas inside the browser viewport.
+    // `fullPage` applies a second coordinate scale in controlled Chromium, so
+    // capture the complete 1280x900 viewport after the internal report surface
+    // has been returned to its top.
+    const pageImage = await tab.screenshot({});
+    await writeFile(pagePath, pageImage);
+    // Controlled Chromium applies clip coordinates in a different scale from
+    // the returned viewport pixels. Crop the authoritative full-page pixels
+    // instead, using the DOM bounds measured in the fixed capture viewport.
+    await execFileAsync("/usr/bin/sips", buildFinalPosterCropArgs({ pagePath, posterPath, posterRect }));
+    const posterImage = await readFile(posterPath);
+    assertDistinctFinalImageEvidence({ poster: posterImage, page: pageImage });
+    appendTrace({ type: "final_images_saved", posterPath, pagePath, at: now() });
     await persist(state, false, { imagePaths: { posterPath, pagePath } });
     return { posterPath, pagePath };
+  }
+
+  async function captureCheckpointImage(label = "checkpoint") {
+    await snapshot();
+    await tab.playwright.waitForTimeout(300);
+    const pagePath = path.join(imagesDir, `${label}.jpg`);
+    await writeFile(pagePath, await tab.screenshot({}));
+    appendTrace({ type: "checkpoint_image_saved", label, pagePath, at: now() });
+    return pagePath;
   }
 
   async function complete(finalState, { firstInvitation, secondInvitation, extraInvitations = [], imagePaths }) {
     const history = finalState.history || [];
     const invitations = finalState.invitations || [];
+    const expectedInvitations = [firstInvitation, secondInvitation, ...extraInvitations].filter(Boolean);
+    const invitationIsolationIssues = validateJourneyInvitationIsolation({ identity, trace, finalState, expectedInvitations });
     const expectedClosure = config.scenario === "natural_lifespan" ? "mortality" : "user_reflection";
     const genericTemplatePattern = /第\s*\d+\s*个阶段带来了新的现实反馈/;
     const validation = {
@@ -404,7 +682,8 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       allUserChoicesPreserved: history.every((item) => typeof item.selectedChoice === "string" && item.selectedChoice.length > 0),
       allAttributesPreserved: history.every((item) => item.attributes && ["happiness", "intelligence", "wealth", "relation", "health"].every((key) => Number.isFinite(item.attributes[key]))),
       allFinancialStatesPreserved: history.every((item) => item.financialState && Number.isFinite(item.financialState.netWorthWan)),
-      allInvitationsPreserved: invitations.length >= [firstInvitation, secondInvitation, ...extraInvitations].filter(Boolean).length,
+      allInvitationsPreserved: JSON.stringify(invitationIds(invitations)) === JSON.stringify(invitationIds(expectedInvitations)),
+      invitationJourneyIsolation: invitationIsolationIssues.length === 0,
       expectedClosureType: finalState.outcome?.meta?.closureType === expectedClosure,
       finalReportPresent: Boolean(finalState.outcome?.share && finalState.outcome?.report),
       finalImagesPresent: Boolean(imagePaths?.posterPath && imagePaths?.pagePath)
@@ -412,6 +691,8 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     const record = {
       schemaVersion: 2,
       runId: path.basename(recordRoot),
+      journeyId: identity.journeyId,
+      identity,
       dataSource: "real_ai_browser",
       caseSlug: config.slug,
       scenario: config.scenario,
@@ -422,6 +703,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
       secondInvitation,
       extraInvitations,
       interactionLog: trace,
+      invitationIsolationIssues,
       imagePaths,
       validation,
       passed: Object.values(validation).every(Boolean),
@@ -463,6 +745,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config }
     acceptInvitation,
     openMortalityReport,
     captureFinalImages,
+    captureCheckpointImage,
     complete
   };
 }

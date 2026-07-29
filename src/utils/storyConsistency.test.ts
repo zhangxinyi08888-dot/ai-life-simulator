@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { SimulationNode } from "../types";
-import { containsForbiddenArcWrite, stripUnauthorizedRomanticCharacters, validateStoryConsistency } from "./storyConsistency";
+import { containsForbiddenArcWrite, stripForbiddenArcWrites, stripUnauthorizedRomanticCharacters, validateStoryConsistency } from "./storyConsistency";
 
 const node: SimulationNode = {
   age: 82,
@@ -629,3 +629,20 @@ assert.equal(validateStoryConsistency({
 }).some((issue) => issue.code === "relationship_authority_conflict"), false);
 
 assert.equal(containsForbiddenArcWrite({ narrativeMeta: { nextPhaseId: "growth" } }), true);
+const sanitizedArcOutput = stripForbiddenArcWrites({
+  title: "保留的节点",
+  nextPhaseId: "growth",
+  narrativeMeta: {
+    phaseCheckpointCount: 2,
+    arcSignals: [{ type: "pressure_resolved", evidence: "压力趋稳", nextPressureArcStatus: "resolved" }]
+  },
+  choices: [{ id: "A", foregroundPressureArcId: "arc-model-write" }]
+});
+assert.deepEqual(sanitizedArcOutput, {
+  title: "保留的节点",
+  narrativeMeta: {
+    arcSignals: [{ type: "pressure_resolved", evidence: "压力趋稳" }]
+  },
+  choices: [{ id: "A" }]
+});
+assert.equal(containsForbiddenArcWrite(sanitizedArcOutput), false);

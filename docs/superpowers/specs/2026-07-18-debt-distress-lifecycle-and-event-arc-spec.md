@@ -689,6 +689,10 @@ eventIds: ["financial_major_crisis"]
 - `wealth` 只影响软权重，不参与硬 eligibility。
 - 事件选择读取上一已提交节点的 debt health；本节点结果由 closing debt health 决定。
 
+真实路线补强：当 opening debt health 已为 `distressed`，但本节点选中的不是本节定义的债务困境事件时，时间跨度强制收敛为 high-tension、最多 3 个月，避免普通 stable 事件一次跨越数年并积累几十次 missed。债务困境事件继续使用各自明确的 temporal profile。
+
+债务正文不得在 closing ledger 提交前自行断言“连续 N 个月未还”，不得在无正式 default 事实时虚构罚息、复利、极端催收、强制处置或债务人格污名。模型首次违反时进入完整节点 repair；repair 后仍违反则拒绝节点。最终正文中的连续 missed 月数由 closing ledger 统一校正。
+
 ### 10.1 `financial_debt_pressure_emerges`｜债务开始挤压生活
 
 - narrativeMode：`pressure_crisis`
@@ -1007,12 +1011,13 @@ closingDebtHealthState?: DebtHealthState;
 
 ```text
 active health_crisis_v1
-> new acute health escalation
 > active financial_debt_v1
 > other active PressureArc
 > new debt default-risk escalation
 > ordinary dynamic event
 ```
+
+唯一例外：当 `active financial_debt_v1` 与 `new acute health escalation` 同时存在时，急性健康抢占并暂停债务 Arc。已有 generic PressureArc 时仍沿用单前台规则，不在本期引入通用 Arc 抢占。
 
 ### 13.2 状态扩展
 
@@ -1434,3 +1439,84 @@ partial transaction commits = 0
 债务不是一个触发惩罚剧情的数字，而是一组有来源、有合同、有支付事实和生活后果的长期义务。
 
 账本负责回答“实际欠多少、到期多少、支付多少、为什么没付”；`DebtHealthState` 负责回答“是否可持续”；事件系统负责让这些事实进入工作、健康、关系和生活选择；模型只负责提出有证据的叙事与 Proposal。任何一层都不得替代另一层重新猜测。
+
+## 23. Phase D4.5：债务压力叙事权威契约
+
+### 23.1 问题与边界
+
+账本、偿付记录和 `DebtHealthState` 已经是封闭世界，但债务事实的自然语言含义仍由模型开放推断。`default_risk` 不能被模型自动扩写为正式催收、诉讼、征信后果或强制处置；这些外部事实必须拥有独立的权威事件。
+
+D4.5 只解决压力节点的权威事实约束和安全降级，不在本阶段：
+
+- 自动创建正式违约；
+- 改变债务健康阈值；
+- 拆分为两次模型调用；
+- 修改偿债 waterfall 或账本金额语义。
+
+### 23.2 `DebtNarrativeAuthority`
+
+代码从 closing ledger、closing `DebtHealthState` 和本期 `DebtServiceRecord` 派生只读契约：
+
+```ts
+interface DebtNarrativeAuthority {
+  version: "debt_narrative_v1";
+  asOfAgeInMonths: number;
+  lifecycle: "current" | "delinquent" | "defaulted";
+  healthLevel: DebtHealthLevel;
+  consecutiveMissedPaymentMonths: number;
+  permittedInstitutionActions: InstitutionActionKind[];
+  canonicalFacts: DebtNarrativeFact[];
+  timeline: DebtNarrativeTimelineFact[];
+}
+```
+
+`InstitutionActionKind` 是封闭枚举。账户没有正式 `defaulted` 事实时，只允许 `payment_reminder`、`documents_requested`、`negotiation_invited` 和 `internal_account_review`。重组生效、正式催收、法律行动和征信后果必须分别拥有 Accepted Event，不能从 `default_risk` 或 `defaulted` 自动推导。
+
+### 23.3 代码拥有事实句
+
+每个 canonical fact 由代码文案库渲染。模型可以描述人物感受、生活影响和行动权衡，但不得润色或改写银行行为、偿付状态、连续拖欠月数和完成结果。最终节点把代码事实句与模型体验文本组合，而不是让模型重新复述权威事实。
+
+契约覆盖所有用户可见或会被后续系统消费的文字：
+
+- `descriptionParagraphs` / `description`；
+- `choices[].text`、`impactSummary`、`decisionIntent`；
+- `storyEpisode.summary` 与 `internalTransitions[].summary`；
+- `arcSignals[].evidence`；
+- 财务 Proposal evidence 和 attempt/result 文本。
+
+正则 denylist 继续作为最后安全门，但不得再承担生成架构职责。
+
+### 23.4 失败与降级
+
+Proposal 被拒后，由代码将完成事实改为 `attempted_not_completed`，不得重新生成整个节点。债务叙事第一次违规时只修复违规文字；仍不合格时，由 `DebtNarrativeAuthority` 参数化生成安全节点正文和选项。降级不得修改账本、Accepted Event、DebtHealth 或 Arc 状态。
+
+节点必须记录：
+
+```ts
+{
+  debtNarrativeAuthorityVersion: "debt_narrative_v1",
+  narrativeFallback: boolean,
+  narrativeFallbackReasonCodes: string[],
+  rejectedDebtClaimKinds: string[]
+}
+```
+
+### 23.5 月度事实时间线
+
+时间线从本期真实 `DebtServiceRecord` 和现金事实中提取关键转折：paid、partial、missed、现金归零和风险级别变化。只向叙事暴露真实记录，不根据 opening/closing 两端猜测中间过程。
+
+### 23.6 Gate D4.5
+
+必须覆盖以下失败测试：
+
+1. 非正式违约状态不能生成催收升级、法务、诉讼、征信或强制处置事实。
+2. 正文、选项、过程摘要和 evidence 使用同一事实边界。
+3. closing ledger 的连续拖欠数字只能由 canonical renderer 输出。
+4. 被拒重组只能显示已尝试但尚未完成。
+5. 模型修复失败后节点仍可继续，且 `narrativeFallback=true`。
+6. 降级前后 ledger、DebtHealth、Accepted Event 和 Arc transition 不变。
+7. 专项真实路线的关键压力节点不得使用 fallback；不少于 30 个压力节点的批量评估降级率低于 10%。
+
+### 23.7 后续 D4.6
+
+D4.5 路线通过后再拆分生成管线：第一段只返回结构化行动、Proposal 和 signal 候选；Validator 形成 Accepted Event 与 closing ledger；第二段仅依据 closing `DebtNarrativeAuthority` 渲染体验文本。两段共享 `branchFingerprint`，第二段原样接收第一段结构化结果，避免段间漂移。
