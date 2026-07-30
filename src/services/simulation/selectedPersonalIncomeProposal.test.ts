@@ -204,3 +204,36 @@ test("PB-CAREER-10 salary reconfirmation cannot be hijacked by an unsupported ca
   assert.equal((result[0].payload as any).nextSource.type, "self_employment_draw");
   assert.equal((result[0].payload as any).nextSource.monthlyNetAmountWan, 4.5);
 });
+
+test("a migration-only annual income is deterministically reconfirmed from accepted narrative", () => {
+  const ledger = initializeFinancialLedger({
+    id: "legacy_annual_income_reconfirmation",
+    asOfAgeInMonths: 347,
+    openingPosition: {
+      incomeSources: [{
+        id: "legacy_recurring_income", type: "other", displayName: "旧版持续收入聚合",
+        annualNetAmountWan: 30, accrualPolicy: "annual", activeFromAgeInMonths: 312,
+        status: "active", linkedCareerStateId: "career_opening", factStatus: "estimated",
+        evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+      }]
+    }
+  });
+
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续全力冲刺下一个项目。",
+    narrativeText: "连续18个月高强度运转，你主导的区域方案被列为集团标杆，年税后收入稳定在30万元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "continue_current_career",
+    periodStartAgeInMonths: 347,
+    currentCareerStateId: "career_opening",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].kind, "income_source_adjusted");
+  assert.equal((result[0].payload as any).incomeSourceId, "legacy_recurring_income");
+  assert.equal((result[0].payload as any).nextSource.annualNetAmountWan, 30);
+  assert.match(result[0].evidence, /年税后收入稳定在30万元/);
+});
