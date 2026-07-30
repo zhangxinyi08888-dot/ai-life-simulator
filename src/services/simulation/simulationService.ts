@@ -176,6 +176,8 @@ export interface SimulationServiceDeps {
   onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
   /** Internal bounded-regeneration counter; callers should not set it. */
   financialGateRegenerationCount?: number;
+  /** Internal feedback from the previous rejected financial preview. */
+  financialGateRetryReasonCodes?: string[];
   /** Internal recursion guard and evidence for a failed romance event redispatch. */
   romanceFallbackContext?: {
     requestedEventId: string;
@@ -2708,7 +2710,8 @@ async function generateNextNodeAttempt(
     ageContext,
     worldState,
     foregroundPressureArc: workingPressureArc,
-    pressureArcInterleaved: isPressureArcInterleave
+    pressureArcInterleaved: isPressureArcInterleave,
+    financialGateRetryReasonCodes: deps.financialGateRetryReasonCodes
   });
 
   let latestRawNode: any = {};
@@ -3444,7 +3447,8 @@ export async function generateNextNode(
       return await generateNextNodeAttempt(input, {
         ...deps,
         financialNodeGateMode: gateMode,
-        financialGateRegenerationCount: regenerationCount
+        financialGateRegenerationCount: regenerationCount,
+        financialGateRetryReasonCodes: lastGateError?.decision.reasonCodes
       });
     } catch (error) {
       if (!(error instanceof FinancialNodeGateError) || gateMode !== "enforced") throw error;

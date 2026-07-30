@@ -85,6 +85,15 @@ const prompt = buildNextNodePrompt({
   selectedDecision: "接一个短期高薪项目",
   eventSeed: healthWarningEvent
 });
+const financialGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
 
 assert.doesNotMatch(prompt, /高薪不是必然伤健康/);
 assert.doesNotMatch(prompt, /高强度、长期、无恢复机制/);
@@ -137,6 +146,9 @@ assert.match(prompt, /债务叙事权威契约/);
 assert.match(prompt, /permittedInstitutionActions/);
 assert.match(prompt, /descriptionParagraphs、choices、storyEpisode、arcSignals evidence/);
 assert.match(prompt, /不得凭空提交就业状态转换/);
+assert.match(financialGateRetryPrompt, /财务接受门重生修正/);
+assert.match(financialGateRetryPrompt, /EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME/);
+assert.match(financialGateRetryPrompt, /不得返回 income_source_ended、income_source_paused/);
 assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
 assert.match(prompt, /没有 relationship outcome id 时/);
 assert.match(prompt, /career_state worldDelta 才能增加 employmentTransition/);
