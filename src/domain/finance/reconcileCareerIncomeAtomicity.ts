@@ -171,7 +171,7 @@ export function reconcileCareerIncomeAtomicity(input: {
     input.currentCareerStateId,
     ...acceptedCareerTransitions.map((transition) => transition.nextCareerState.id)
   ]);
-  const acceptedFinancialEvents = authoritativeFinancialEvents.filter((event) => {
+  let acceptedFinancialEvents = authoritativeFinancialEvents.filter((event) => {
     const sourceId = incomeSourceId(event);
     if (sourceId && removedIncomeSourceIds.has(sourceId)) return false;
     if (event.kind === "income_source_started" && event.payload.linkedCareerStateId && removedCareerStateIds.has(event.payload.linkedCareerStateId)) return false;
@@ -196,6 +196,49 @@ export function reconcileCareerIncomeAtomicity(input: {
     }
     return true;
   });
+
+  const transitionsAwayFromCurrentCareer = acceptedCareerTransitions.some((transition) => (
+    transition.fromCareerStateId === input.currentCareerStateId
+  ));
+  if (!transitionsAwayFromCurrentCareer) {
+    const activeCurrentCareerIncomeIds = new Set(input.currentLedger.incomeSources
+      .filter((source) => (
+        source.status === "active"
+        && source.accrualReviewStatus !== "quarantined"
+        && source.linkedCareerStateId === input.currentCareerStateId
+      ))
+      .map((source) => source.id));
+    const previewActiveCurrentCareerIncomeIds = new Set(activeCurrentCareerIncomeIds);
+    for (const event of acceptedFinancialEvents) {
+      if (event.kind === "income_source_ended" || event.kind === "income_source_paused") {
+        previewActiveCurrentCareerIncomeIds.delete(event.payload.incomeSourceId);
+      } else if (event.kind === "income_source_adjusted") {
+        previewActiveCurrentCareerIncomeIds.delete(event.payload.incomeSourceId);
+        if (event.payload.nextSource.status === "active"
+          && event.payload.nextSource.accrualReviewStatus !== "quarantined"
+          && event.payload.nextSource.linkedCareerStateId === input.currentCareerStateId) {
+          previewActiveCurrentCareerIncomeIds.add(event.payload.nextSource.id);
+        }
+      } else if (event.kind === "income_source_started"
+        && event.payload.status === "active"
+        && event.payload.accrualReviewStatus !== "quarantined"
+        && event.payload.linkedCareerStateId === input.currentCareerStateId) {
+        previewActiveCurrentCareerIncomeIds.add(event.payload.id);
+      }
+    }
+    if (activeCurrentCareerIncomeIds.size > 0 && previewActiveCurrentCareerIncomeIds.size === 0) {
+      acceptedFinancialEvents = acceptedFinancialEvents.filter((event) => {
+        if (event.kind === "income_source_ended" || event.kind === "income_source_paused") {
+          return !activeCurrentCareerIncomeIds.has(event.payload.incomeSourceId);
+        }
+        if (event.kind !== "income_source_adjusted"
+          || !activeCurrentCareerIncomeIds.has(event.payload.incomeSourceId)) return true;
+        return event.payload.nextSource.status === "active"
+          && event.payload.nextSource.accrualReviewStatus !== "quarantined"
+          && event.payload.nextSource.linkedCareerStateId === input.currentCareerStateId;
+      });
+    }
+  }
 
   return { acceptedCareerTransitions, acceptedFinancialEvents, issues };
 }
