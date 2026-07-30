@@ -116,9 +116,41 @@ let duplicateSingletonExpenseNodes = 0;
 let visibleGenerationPauseCount = 0;
 let generationRecoveredCount = 0;
 let generationPauseCaseCount = 0;
+let financialGateDecisionCount = 0;
+let financialGateWouldBlockCount = 0;
+let financialGateShadowWouldBlockCount = 0;
+let financialGateEnforcedRejectedAttemptCount = 0;
+let financialGateCommittedBlockViolationCount = 0;
+let financialGateCriticalFactGroupCount = 0;
+let financialGateSatisfiedFactGroupCount = 0;
+let expenseLifecycleTriggerCount = 0;
+let expenseLifecycleCoveredTriggerCount = 0;
+const financialGateWouldBlockEvidence = [];
 
 for (const record of records) {
   const history = record.finalState?.history || [];
+  const gateEvents = record.finalState?.financialGateEvents || [];
+  for (const event of gateEvents) {
+    financialGateDecisionCount += 1;
+    if (!event?.wouldBlock) continue;
+    financialGateWouldBlockCount += 1;
+    if (event.mode === "shadow") financialGateShadowWouldBlockCount += 1;
+    if (event.mode === "enforced" && event.allowDomainCommit === false) financialGateEnforcedRejectedAttemptCount += 1;
+    financialGateWouldBlockEvidence.push({
+      caseSlug: record.caseSlug,
+      historyLength: event.historyLength,
+      mode: event.mode,
+      regenerationCount: event.regenerationCount,
+      transactionId: event.transactionId,
+      reasonCodes: event.reasonCodes || [],
+      relatedIssueIds: event.relatedIssueIds || [],
+      relatedProposalIds: event.relatedProposalIds || [],
+      authoritativeAgeBefore: event.authoritativeAgeBefore,
+      previewAgeInMonths: event.previewAgeInMonths,
+      previewPeriodIncomeWan: event.previewPeriodIncomeWan,
+      previewPeriodExpenseWan: event.previewPeriodExpenseWan
+    });
+  }
   totalNodes += history.length;
   const nodes = [];
   let previous;
@@ -245,6 +277,14 @@ for (const record of records) {
     const wealthDelta = previous ? Number(node.attributes?.wealth || 0) - Number(previous.node.attributes?.wealth || 0) : 0;
     const wealthDirectionMismatch = Boolean(previous && ((netWorthDelta > 0.02 && wealthDelta < 0) || (netWorthDelta < -0.02 && wealthDelta > 0)));
     if (wealthDirectionMismatch) wealthDirectionMismatches += 1;
+    const financialMeta = node.financialProcessingMeta || {};
+    financialGateCriticalFactGroupCount += Number(financialMeta.financialGateCriticalFactGroupCount || 0);
+    financialGateSatisfiedFactGroupCount += Number(financialMeta.financialGateSatisfiedCriticalFactGroupCount || 0);
+    expenseLifecycleTriggerCount += Number(financialMeta.expenseLifecycleTriggerCount || 0);
+    expenseLifecycleCoveredTriggerCount += Number(financialMeta.expenseLifecycleCoveredTriggerCount || 0);
+    if (financialMeta.financialGateMode === "enforced" && financialMeta.financialGateWouldBlock === true) {
+      financialGateCommittedBlockViolationCount += 1;
+    }
 
     for (const issue of ledger.unresolvedIssues || []) {
       const key = `${record.caseSlug}:${issue.id}`;
@@ -356,6 +396,23 @@ const summary = {
   missingOptionHoldingNodes,
   missingPropertyNodes,
   wealthDirectionMismatches,
+  financialGateDecisionCount,
+  financialGateWouldBlockCount,
+  financialGateShadowWouldBlockCount,
+  financialGateEnforcedRejectedAttemptCount,
+  financialGateCommittedBlockViolationCount,
+  rejectedNodeTimelineAdvanceCount: financialGateCommittedBlockViolationCount,
+  rejectedNodePeriodAccrualCount: financialGateCommittedBlockViolationCount,
+  financialGateCriticalFactGroupCount,
+  financialGateSatisfiedFactGroupCount,
+  criticalFactGroupCoverageRatePct: financialGateCriticalFactGroupCount === 0
+    ? 100
+    : percent(financialGateSatisfiedFactGroupCount, financialGateCriticalFactGroupCount),
+  expenseLifecycleTriggerCount,
+  expenseLifecycleCoveredTriggerCount,
+  adultResponsibilityExpenseCoverageRatePct: expenseLifecycleTriggerCount === 0
+    ? 100
+    : percent(expenseLifecycleCoveredTriggerCount, expenseLifecycleTriggerCount),
   adultZeroExpenseNodes,
   employedAt80PlusNodes,
   employedAt80PlusWithoutEvidenceNodes,
@@ -383,7 +440,7 @@ const summary = {
   issueCodeCounts,
   ...productionAudit.summary
 };
-const audit = { generatedAt: new Date().toISOString(), root, summary, cases, issues, productionAudit };
+const audit = { generatedAt: new Date().toISOString(), root, summary, cases, issues, productionAudit, financialGateWouldBlockEvidence };
 await writeFile(path.join(root, "finance-audit.json"), `${JSON.stringify(audit, null, 2)}\n`);
 
 const routeRows = cases.map((item) => {
@@ -407,6 +464,9 @@ const routeRealityRows = cases.map((item) => {
 const recoverableRows = cases.flatMap((item) => item.recoverableEvents.map((event) => (
   `| ${item.caseSlug} | ${event.type} | ${event.historyLength ?? 0} | ${String(event.message || "页面可恢复错误").replace(/\|/g, "\\|")} |`
 ))).join("\n") || "| 无 | — | — | 无 |";
+const financialGateEvidenceRows = financialGateWouldBlockEvidence.map((event) => (
+  `| ${event.caseSlug} | ${event.historyLength ?? 0} | ${event.mode} | ${event.regenerationCount ?? 0} | ${(event.reasonCodes || []).join("+") || "—"} | ${(event.relatedIssueIds || []).join("+") || "—"} | ${event.authoritativeAgeBefore ?? "—"} → ${event.previewAgeInMonths ?? "—"} | ${event.previewPeriodIncomeWan ?? 0} / ${event.previewPeriodExpenseWan ?? 0} |`
+)).join("\n") || "| 无 | — | — | — | — | — | — | — |";
 const issueRows = Object.entries(issueCodeCounts).map(([code, count]) => `| ${code} | ${count} |`).join("\n") || "| 无 | 0 |";
 const blockers = [
   invariantFailures > 0 && `账本/派生状态不变量失败：${invariantFailures} 个节点`,
@@ -448,6 +508,10 @@ const blockers = [
   personalLedgerBusinessBoundaryNodes > 0 && `公司营收或经营成本进入个人收支：${personalLedgerBusinessBoundaryNodes} 个节点`,
   duplicateSingletonExpenseNodes > 0 && `basic_living 或 housing 存在重复 active 基线：${duplicateSingletonExpenseNodes} 个节点`,
   adultBelowPolicyExpenseNodes > 0 && `23 岁后生活支出仍低于成年保守政策下限：${adultBelowPolicyExpenseNodes} 个节点`,
+  financialGateCommittedBlockViolationCount > 0 && `接受门阻断候选仍进入历史并发生计提：${financialGateCommittedBlockViolationCount} 个节点`,
+  summary.criticalFactGroupCoverageRatePct < 100 && `重大财务事实组覆盖率 ${summary.criticalFactGroupCoverageRatePct}%，低于 100%`,
+  summary.adultResponsibilityExpenseCoverageRatePct < 100 && `成年责任支出覆盖率 ${summary.adultResponsibilityExpenseCoverageRatePct}%，低于 100%`,
+  wealthDirectionMismatches > 0 && `财富属性与净资产变化方向相反：${wealthDirectionMismatches} 个节点`,
   blockingOpenIssues.length > 0 && `终局仍存在 blocking open issue：${blockingOpenIssues.length} 个`,
   issueHealth.servicingWarningOverflow > 0 && `偿付 warning 超过真实困境债务账户：${servicingWarnings.length}/${distressedDebtAccountKeys.size}`,
   issueHealth.orphanServicingWarnings.length > 0 && `已恢复或不存在的债务仍挂偿付 warning：${issueHealth.orphanServicingWarnings.length} 个账户`,
@@ -483,6 +547,13 @@ ${recoverableRows}
 | 指标 | 结果 | 判断 |
 |---|---:|---|
 | 算术/现金/年龄不变量失败 | ${invariantFailures} | ${invariantFailures === 0 ? "通过" : "失败"} |
+| 财务接受门决定 | ${financialGateDecisionCount} | shadow 与 enforced 使用同一判断 |
+| shadow would-block | ${financialGateShadowWouldBlockCount} | 必须逐项复核召回与误报 |
+| enforced 拒绝尝试 | ${financialGateEnforcedRejectedAttemptCount} | 允许内部恢复，不得进入历史 |
+| 阻断候选仍提交/推进/计提 | ${financialGateCommittedBlockViolationCount} | 发布门禁必须为 0 |
+| 重大事实组覆盖率 | ${summary.criticalFactGroupCoverageRatePct}%（${financialGateSatisfiedFactGroupCount}/${financialGateCriticalFactGroupCount}） | 目标 100% |
+| 成年责任支出覆盖率 | ${summary.adultResponsibilityExpenseCoverageRatePct}%（${expenseLifecycleCoveredTriggerCount}/${expenseLifecycleTriggerCount}） | 目标 100% |
+| 财富/净资产方向冲突 | ${wealthDirectionMismatches} | 目标 0 |
 | 财务叙述节点 | ${financeNarrativeNodes} | 样本基数 |
 | Accepted 覆盖率 | ${summary.acceptedCoverageRatePct}%（${acceptedCoverageNodes}/${financeNarrativeNodes}） | 目标 ≥80% |
 | stale 节点率 | ${summary.staleFinanceRatePct}%（${staleFinanceNodes}/${financeNarrativeNodes}） | 越低越好 |
@@ -529,6 +600,12 @@ ${recoverableRows}
 | 偿付 warning / 真实困境债务账户 | ${servicingWarnings.length} / ${distressedDebtAccountKeys.size} | warning 不得超过真实困境账户，且不得指向已恢复账户 |
 
 Accepted 覆盖率以“包含财务叙述的节点中，本节点新增已提交交易或核心财务签名发生变化”为可审计代理口径；它不把纯时间计提误算为新事实接受。
+
+## 财务接受门 would-block 明细
+
+| 人物 | 历史节点 | 模式 | 重生次数 | 原因 | issue | 权威年龄 → Preview 年龄（月） | Preview 收入 / 支出（万） |
+|---|---:|---|---:|---|---|---|---:|
+${financialGateEvidenceRows}
 
 ## 五条路线终局快照
 

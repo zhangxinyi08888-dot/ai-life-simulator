@@ -544,6 +544,20 @@ export interface FinancialProcessingMeta {
   narrativeRepairAttempts?: number;
   narrativeRepairSucceeded?: boolean;
   narrativeFallbackSurfacePaths?: string[];
+  financialGateMode?: "off" | "shadow" | "enforced";
+  financialGateDisposition?: "accept" | "accept_with_review" | "regenerate";
+  financialGateWouldBlock?: boolean;
+  financialGateReasonCodes?: string[];
+  financialGateRequiredFactGroupCount?: number;
+  financialGateSatisfiedFactGroupCount?: number;
+  financialGateCriticalFactGroupCount?: number;
+  financialGateSatisfiedCriticalFactGroupCount?: number;
+  financialGateUnsatisfiedCriticalFactGroupCount?: number;
+  financialGateRegenerationCount?: number;
+  expenseLifecycleTriggerCount?: number;
+  expenseLifecycleCoveredTriggerCount?: number;
+  expenseLifecycleEstimatedAccountCount?: number;
+  expenseLifecycleResponsibilityCodes?: string[];
 }
 
 export interface PersonalityInsight {

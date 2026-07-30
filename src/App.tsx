@@ -19,6 +19,8 @@ import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/hi
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
 import { runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import type { FinancialNodeAcceptanceDecision } from "./domain/finance";
+import { resolveFinancialNodeGateMode } from "./config/financialGatePolicy";
 
 type AppStep = "initial" | "questioning" | "simulating" | "insight";
 
@@ -35,6 +37,7 @@ interface DevRecordedAppState {
   simulationSeed?: string;
   outcome?: FinalLifeOutcome | null;
   generationEvents?: GenerationEvent[];
+  financialGateEvents?: FinancialGateEvent[];
 }
 
 interface GenerationEvent {
@@ -46,6 +49,12 @@ interface GenerationEvent {
   errorCode?: string;
   message?: string;
   debug?: string;
+}
+
+interface FinancialGateEvent extends FinancialNodeAcceptanceDecision {
+  id: string;
+  at: string;
+  historyLength: number;
 }
 
 function createGenerationEvent(
@@ -145,6 +154,7 @@ export default function App() {
   const [simulationSeed, setSimulationSeed] = useState(() => devRecordedState?.simulationSeed ?? (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`));
   const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(devRecordedState?.outcome ?? null);
   const [generationEvents, setGenerationEvents] = useState<GenerationEvent[]>(devRecordedState?.generationEvents ?? []);
+  const [financialGateEvents, setFinancialGateEvents] = useState<FinancialGateEvent[]>(devRecordedState?.financialGateEvents ?? []);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
@@ -182,6 +192,7 @@ export default function App() {
       setSimulationSeed(restored.simulationSeed ?? `${Date.now()}`);
       setOutcome(restored.outcome ?? null);
       setGenerationEvents(restored.generationEvents ?? []);
+      setFinancialGateEvents(restored.financialGateEvents ?? []);
       setIsLoading(false);
       setIsLoadingNext(false);
       setNextNarrativePreview(null);
@@ -218,6 +229,7 @@ export default function App() {
       simulationSeed,
       outcome,
       generationEvents,
+      financialGateEvents,
       isLoading,
       isLoadingNext,
       nextNarrativePreview,
@@ -242,7 +254,7 @@ export default function App() {
         // The filesystem record remains the source of truth if browser storage is unavailable.
       }
     }
-  }, [answers, attributes, currentNode, errorMsg, generationEvents, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
+  }, [answers, attributes, currentNode, errorMsg, financialGateEvents, generationEvents, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
 
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
@@ -442,7 +454,18 @@ export default function App() {
               nextNarrativePreviewRef.current = merged;
               setNextNarrativePreview(merged);
             },
-            signal: abortController.signal
+            signal: abortController.signal,
+            financialNodeGateMode: import.meta.env.DEV && typeof window !== "undefined"
+              ? resolveFinancialNodeGateMode(new URLSearchParams(window.location.search).get("financialGateMode"))
+              : undefined,
+            onFinancialGateDecision: (decision) => {
+              setFinancialGateEvents((events) => [...events, {
+                ...decision,
+                id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                at: new Date().toISOString(),
+                historyLength: updatedHistory.length
+              }]);
+            }
           }
         );
       });
