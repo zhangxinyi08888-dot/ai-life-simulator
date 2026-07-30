@@ -575,6 +575,18 @@ function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, t
   if (targetAgeInMonths >= 18 * 12 && !hasActiveExpense) {
     rules.push("- 当前是成年阶段，但账本没有任何有效生活支出。description 必须根据本阶段明确的住房、家庭和生活方式写出保守的每月核心支出，并提交 factStatus=estimated 的 expense_commitment_started；不得继续填 0，也不得把无法证明的精确金额标 known。");
   }
+  const staleLegacyIncomeSources = ledger.incomeSources.filter((source) => {
+    if (source.status !== "active" || !source.id.startsWith("legacy_") || source.factStatus !== "estimated") return false;
+    if (!source.evidence.length || !source.evidence.every((item) => item.source === "legacy_migration")) return false;
+    const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
+    const materialTransactions = ledger.recentTransactions.filter((transaction) => (
+      transaction.periodEndAgeInMonths > lastConfirmedAt
+    )).length;
+    return targetAgeInMonths - lastConfirmedAt >= 36 || materialTransactions >= 3;
+  });
+  if (staleLegacyIncomeSources.length) {
+    rules.push(`- 以下仍在职的迁移估算收入需要本节点明确确认：${staleLegacyIncomeSources.map((source) => source.id).join("、")}。description 必须写明主角当前实际税后月薪或年薪；若金额与账本相同，也必须提交 income_source_adjusted，引用原 incomeSourceId 并保持同一金额，用本节点原文证据替换 legacy_migration 依据。若已停薪、离职或换岗，则提交完整职业转换和收入结束/新收入事件。不得让 employed 状态落入收入为 0。`);
+  }
   if (targetAgeInMonths >= 55 * 12) {
     const staleCareerSources = ledger.incomeSources.filter((source) => (
       source.status === "active"
