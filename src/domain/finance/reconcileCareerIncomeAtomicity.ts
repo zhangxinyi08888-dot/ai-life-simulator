@@ -73,6 +73,34 @@ function incomeSourceId(event: AcceptedFinancialEvent): string | undefined {
   return undefined;
 }
 
+function activeCareerIncomeSourceIdsAfterEvents(input: {
+  ledger: FinancialLedger;
+  events: AcceptedFinancialEvent[];
+  careerStateId: string;
+}): Set<string> {
+  const sources = new Map(input.ledger.incomeSources.map((source) => [source.id, structuredClone(source)]));
+  for (const event of input.events) {
+    if (event.kind === "income_source_started") {
+      sources.set(event.payload.id, structuredClone(event.payload));
+    } else if (event.kind === "income_source_adjusted") {
+      sources.set(event.payload.incomeSourceId, structuredClone(event.payload.nextSource));
+    } else if (event.kind === "income_source_ended" || event.kind === "income_source_paused") {
+      const source = sources.get(event.payload.incomeSourceId);
+      if (source) sources.set(source.id, {
+        ...source,
+        status: event.kind === "income_source_ended" ? "ended" : "paused"
+      });
+    }
+  }
+  return new Set([...sources.values()]
+    .filter((source) => (
+      source.status === "active"
+      && source.accrualReviewStatus !== "quarantined"
+      && source.linkedCareerStateId === input.careerStateId
+    ))
+    .map((source) => source.id));
+}
+
 function dedupeSameEvidenceCareerIncome(events: AcceptedFinancialEvent[]): AcceptedFinancialEvent[] {
   const result: AcceptedFinancialEvent[] = [];
   const keyToIndex = new Map<string, number>();
@@ -143,15 +171,29 @@ export function reconcileCareerIncomeAtomicity(input: {
       return event.payload.nextSource.linkedCareerStateId === transition.nextCareerState.id ? [sourceId] : [];
     }));
     const missing = linkedActiveSources.filter((source) => !settledIds.has(source.id));
-    const hasNextCareerIncome = authoritativeFinancialEvents.some((event) => (
-      (event.kind === "income_source_started" && event.payload.status === "active" && event.payload.linkedCareerStateId === transition.nextCareerState.id)
-      || (event.kind === "income_source_adjusted" && event.payload.nextSource.status === "active" && event.payload.nextSource.linkedCareerStateId === transition.nextCareerState.id)
-    ));
+    const finalNextCareerIncomeIds = activeCareerIncomeSourceIdsAfterEvents({
+      ledger: input.currentLedger,
+      events: authoritativeFinancialEvents,
+      careerStateId: transition.nextCareerState.id
+    });
+    const hasNextCareerIncome = finalNextCareerIncomeIds.size > 0;
+    const hasExactEmployedIncome = nextStatus !== "employed" || finalNextCareerIncomeIds.size === 1;
     const selfEmployedWithoutPersonalIncome = nextStatus === "self_employed" && input.personalIncomeClaimed === false;
-    if (missing.length === 0 && (!continuesWorking || hasNextCareerIncome || input.explicitUnpaid || selfEmployedWithoutPersonalIncome)) return true;
+    if (missing.length === 0 && hasExactEmployedIncome
+      && (!continuesWorking || hasNextCareerIncome || input.explicitUnpaid || selfEmployedWithoutPersonalIncome)) return true;
 
     removedCareerStateIds.add(transition.nextCareerState.id);
     for (const source of linkedActiveSources) removedIncomeSourceIds.add(source.id);
+    for (const event of authoritativeFinancialEvents) {
+      if (event.kind === "income_source_started"
+        && event.payload.linkedCareerStateId === transition.nextCareerState.id) {
+        removedIncomeSourceIds.add(event.payload.id);
+      }
+      if (event.kind === "income_source_adjusted"
+        && event.payload.nextSource.linkedCareerStateId === transition.nextCareerState.id) {
+        removedIncomeSourceIds.add(event.payload.nextSource.id);
+      }
+    }
     issues.push({
       id: `career_income_atomicity_${transition.proposalId}_${input.ageInMonths}`,
       code: "CAREER_INCOME_CONFLICT",
@@ -159,8 +201,10 @@ export function reconcileCareerIncomeAtomicity(input: {
       status: "open",
       relatedProposalIds: [transition.proposalId],
       relatedIncomeSourceIds: linkedActiveSources.map((source) => source.id),
-      summary: continuesWorking && !hasNextCareerIncome
-        ? `职业转换缺少关联到新 CareerState 的有效收入来源：${transition.nextCareerState.id}`
+      summary: nextStatus === "employed" && finalNextCareerIncomeIds.size !== 1
+        ? `职业转换后的 employed CareerState 必须且只能有一个有效收入来源：${transition.nextCareerState.id}（实际 ${finalNextCareerIncomeIds.size} 个）`
+        : continuesWorking && !hasNextCareerIncome
+          ? `职业转换缺少关联到新 CareerState 的有效收入来源：${transition.nextCareerState.id}`
         : `职业转换缺少旧收入来源的结束、暂停或迁移事件：${missing.map((source) => source.id).join("、")}`,
       createdAtAgeInMonths: input.ageInMonths
     });
