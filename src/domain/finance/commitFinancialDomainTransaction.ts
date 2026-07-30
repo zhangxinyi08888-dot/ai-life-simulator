@@ -361,6 +361,13 @@ function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedger
 function addLegacyIncomeReconfirmation(ledger: FinancialLedger, ageInMonths: number): void {
   for (const source of ledger.incomeSources) {
     if (source.status !== "active" || !source.id.startsWith("legacy_") || source.factStatus !== "estimated" || source.accrualReviewStatus === "quarantined") continue;
+    const stillMigrationOnly = source.evidence.length === 0
+      || source.evidence.every((item) => item.source === "legacy_migration");
+    // A migrated account keeps its legacy id for referential stability. Once
+    // an accepted simulation outcome has re-confirmed that exact source, it is
+    // no longer an unverified migration estimate and must follow the ordinary
+    // recurring-income lifecycle instead of being quarantined by its id.
+    if (!stillMigrationOnly) continue;
     const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
     const materialTransactions = ledger.recentTransactions.filter((transaction) => transaction.periodEndAgeInMonths > lastConfirmedAt).length;
     if (ageInMonths - lastConfirmedAt < 36 && materialTransactions < 3) continue;
