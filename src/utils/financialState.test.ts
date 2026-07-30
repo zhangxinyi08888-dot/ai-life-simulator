@@ -13,7 +13,8 @@ import {
   inferFinancialSignalsFromNarrative,
   normalizeInitialFinancialState,
   reconcileLiquidityShortfall,
-  reconcileStudentFinancialSignals
+  reconcileStudentFinancialSignals,
+  withCalculatedWealth
 } from "./financialState";
 
 test("calculates cumulative net worth from assets minus debt", () => {
@@ -106,6 +107,37 @@ test("wealth score is deterministic and responds to financial capacity", () => {
   assert.equal(deriveWealthScore(high), deriveWealthScore(high));
   assert.ok(deriveWealthScore(high) > deriveWealthScore(low));
   assert.ok(deriveWealthScore(high) <= 100);
+});
+
+test("authoritative wealth never moves opposite a material net-worth change", () => {
+  const attributes = { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 };
+  const previous = normalizeInitialFinancialState({
+    cashWan: 100, investmentAssetsWan: 0, propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0, totalDebtWan: 0,
+    annualAfterTaxIncomeWan: 60, annualDisposableIncomeWan: 40,
+    annualCoreExpenseWan: 20, incomeStability: "very_stable", isEstimated: false
+  }, 30 * 12, 50);
+  const higherNetWorthButWeakerCashFlow = {
+    ...previous,
+    cashWan: 120,
+    netWorthWan: 120,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: -20,
+    incomeStability: "unstable" as const
+  };
+  const lowerNetWorthButStrongerCashFlow = {
+    ...previous,
+    cashWan: 80,
+    netWorthWan: 80,
+    annualAfterTaxIncomeWan: 200,
+    annualDisposableIncomeWan: 180,
+    incomeStability: "very_stable" as const
+  };
+
+  assert.ok(deriveWealthScore(higherNetWorthButWeakerCashFlow) < 50, "composite score alone would fall");
+  assert.equal(withCalculatedWealth(attributes, higherNetWorthButWeakerCashFlow, 50, 12, previous).wealth, 50);
+  assert.ok(deriveWealthScore(lowerNetWorthButStrongerCashFlow) > 50, "composite score alone would rise");
+  assert.equal(withCalculatedWealth(attributes, lowerNetWorthButStrongerCashFlow, 50, 12, previous).wealth, 50);
 });
 
 test("zero or unknown living expense does not receive a perfect liquidity score", () => {

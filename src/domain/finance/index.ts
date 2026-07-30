@@ -18,5 +18,8 @@ export * from "./normalizeFinancialProposals";
 export * from "./evidenceMatching";
 export * from "./reconcileCareerIncomeAtomicity";
 export * from "./commitFinancialDomainTransaction";
+export * from "./previewFinancialDomainTransaction";
+export * from "./financialNodeAcceptanceGate";
+export * from "./lifeStageExpenseLifecycle";
 export * from "./openingFinancialFacts";
 export * from "./financialEstimationPolicy";

@@ -671,6 +671,55 @@ assert.equal(
   estimateFinancialStateFromWealth(attributes.wealth, history[0].age * 12).propertyMarketValueWan
 );
 
+const enforcedHistorySnapshot = structuredClone(history);
+const enforcedGateDecisions: Array<{ disposition: string; regenerationCount?: number; previewIncome?: number }> = [];
+let enforcedAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    selectedDecision: "购入住房并办理房贷",
+    nodeIndex: 1,
+    simulationSeed: "financial-gate-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    onFinancialGateDecision: (decision) => enforcedGateDecisions.push({
+      disposition: decision.disposition,
+      regenerationCount: decision.regenerationCount,
+      previewIncome: decision.previewPeriodIncomeWan
+    }),
+    callAiJson: async (prompt) => {
+      enforcedAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: 23,
+          stage: "安家选择",
+          title: "房产已经成交",
+          description: "你购入一套价值180万的住房，并背上120万房贷。",
+          choices: [
+            { id: "A", text: "稳定工作并按期还贷", impactSummary: "稳步还贷" },
+            { id: "B", text: "出租房间增加收入", impactSummary: "补充现金" },
+            { id: "C", text: "控制支出建立应急金", impactSummary: "建立缓冲" }
+          ],
+          attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  /财务节点接受门拒绝候选/
+);
+assert.equal(enforcedAiCalls, 6, "three bounded full-node attempts plus one proposal repair per attempt");
+assert.deepEqual(enforcedGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.deepEqual(enforcedGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(history, enforcedHistorySnapshot, "a rejected preview never advances History or mutates its financial snapshots");
+
 let failedRepairCalls = 0;
 const failedRepairNode = await generateNextNode({
   userData,

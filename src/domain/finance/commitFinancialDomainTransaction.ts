@@ -233,6 +233,9 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
     const refs = eventReferences(event);
     for (const issue of ledger.unresolvedIssues) {
       if (issue.status === "resolved") continue;
+      const isLifecycleEstimateThatCreatedTheReview = issue.id.startsWith("expense_lifecycle_review_")
+        && event.evidence.some((evidence) => evidence.source === "system_policy");
+      if (isLifecycleEstimateThatCreatedTheReview) continue;
       const resolvesMissingExpense = issue.id === "pending_fact_missing_adult_expense"
         && event.kind === "expense_commitment_started";
       const resolvesCoverage = (issue.id.startsWith("narrative_coverage_property_") && (event.kind === "asset_purchased" || event.kind === "asset_balance_discovered"))
