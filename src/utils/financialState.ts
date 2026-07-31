@@ -588,12 +588,19 @@ export function withCalculatedWealth(
   attributes: LifeAttributes,
   financialState: FinancialState,
   previousWealth?: number,
-  maxOrdinaryDelta = 12
+  maxOrdinaryDelta = 12,
+  previousFinancialState?: FinancialState,
+  netWorthDirectionToleranceWan = 0.02
 ): LifeAttributes {
   const calculated = deriveWealthScore(financialState);
-  const wealth = typeof previousWealth === "number"
+  let wealth = typeof previousWealth === "number"
     ? clamp(calculated, previousWealth - maxOrdinaryDelta, previousWealth + maxOrdinaryDelta)
     : calculated;
+  if (typeof previousWealth === "number" && previousFinancialState) {
+    const netWorthDeltaWan = financialState.netWorthWan - previousFinancialState.netWorthWan;
+    if (netWorthDeltaWan > netWorthDirectionToleranceWan && wealth < previousWealth) wealth = previousWealth;
+    if (netWorthDeltaWan < -netWorthDirectionToleranceWan && wealth > previousWealth) wealth = previousWealth;
+  }
   return { ...attributes, wealth: clamp(Math.round(wealth), 0, 100) };
 }
 

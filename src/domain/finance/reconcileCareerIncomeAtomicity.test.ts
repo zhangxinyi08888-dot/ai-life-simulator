@@ -344,3 +344,118 @@ test("PB-CAREER-15 income cannot rebind to a CareerState that was not committed"
   assert.deepEqual(result.issues[0].relatedProposalIds, ["adjust_salary_to_orphan_career_proposal"]);
   assert.match(result.issues[0].summary, /career_consulting/);
 });
+
+test("an orphan income closure cannot erase the last wage of an employed CareerState", () => {
+  const current = fixture();
+  const endSalary: AcceptedFinancialEvent<"income_source_ended"> = {
+    id: "orphan_end_salary",
+    proposalId: "orphan_end_salary_proposal",
+    kind: "income_source_ended",
+    effectiveAtAgeInMonths: 660,
+    payload: { incomeSourceId: "salary" },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const result = reconcileCareerIncomeAtomicity({
+    currentCareerStateId: current.currentCareer.id,
+    currentLedger: current.ledger,
+    careerTransitions: [],
+    financialEvents: [endSalary],
+    ageInMonths: 660
+  });
+  assert.equal(result.acceptedCareerTransitions.length, 0);
+  assert.deepEqual(result.acceptedFinancialEvents, []);
+});
+
+test("a same-career salary replacement can close the old wage without a CareerTransition", () => {
+  const current = fixture();
+  const endSalary: AcceptedFinancialEvent<"income_source_ended"> = {
+    id: "replace_end_salary",
+    proposalId: "replace_end_salary_proposal",
+    kind: "income_source_ended",
+    effectiveAtAgeInMonths: 660,
+    payload: { incomeSourceId: "salary" },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const startReplacement: AcceptedFinancialEvent<"income_source_started"> = {
+    id: "replace_start_salary",
+    proposalId: "replace_start_salary_proposal",
+    kind: "income_source_started",
+    effectiveAtAgeInMonths: 660,
+    payload: {
+      id: "replacement_salary",
+      type: "salary",
+      displayName: "调整后的工资",
+      monthlyNetAmountWan: 3.5,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 660,
+      status: "active",
+      linkedCareerStateId: current.currentCareer.id,
+      factStatus: "known",
+      evidence
+    },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const result = reconcileCareerIncomeAtomicity({
+    currentCareerStateId: current.currentCareer.id,
+    currentLedger: current.ledger,
+    careerTransitions: [],
+    financialEvents: [endSalary, startReplacement],
+    ageInMonths: 660
+  });
+  assert.deepEqual(result.acceptedFinancialEvents.map((event) => event.id), [
+    "replace_end_salary",
+    "replace_start_salary"
+  ]);
+});
+
+test("an employed transition is rejected when its new salary is ended again in the same candidate", () => {
+  const current = fixture();
+  const nextCareerState = initializeCareerState({
+    id: "career_promoted",
+    employmentStatus: "employed",
+    occupation: "区域负责人",
+    effectiveFromAgeInMonths: 660
+  });
+  const transition: AcceptedCareerTransition = {
+    ...current.transition,
+    id: "accepted_promotion",
+    proposalId: "promotion",
+    nextCareerState
+  };
+  const endOld: AcceptedFinancialEvent<"income_source_ended"> = {
+    id: "end_old_salary", proposalId: "end_old_salary_proposal", kind: "income_source_ended",
+    effectiveAtAgeInMonths: 660, payload: { incomeSourceId: "salary" }, evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const startNew: AcceptedFinancialEvent<"income_source_started"> = {
+    id: "start_new_salary", proposalId: "start_new_salary_proposal", kind: "income_source_started",
+    effectiveAtAgeInMonths: 660,
+    payload: {
+      id: "new_salary", type: "salary", displayName: "新工资", monthlyNetAmountWan: 5,
+      accrualPolicy: "monthly", activeFromAgeInMonths: 660, status: "active",
+      linkedCareerStateId: nextCareerState.id, factStatus: "known", evidence
+    },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const endNew: AcceptedFinancialEvent<"income_source_ended"> = {
+    id: "end_new_salary", proposalId: "end_new_salary_proposal", kind: "income_source_ended",
+    effectiveAtAgeInMonths: 660, payload: { incomeSourceId: "new_salary" }, evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+
+  const result = reconcileCareerIncomeAtomicity({
+    currentCareerStateId: current.currentCareer.id,
+    currentLedger: current.ledger,
+    careerTransitions: [transition],
+    financialEvents: [endOld, startNew, endNew],
+    ageInMonths: 660
+  });
+
+  assert.equal(result.acceptedCareerTransitions.length, 0);
+  assert.deepEqual(result.acceptedFinancialEvents, []);
+  assert.match(result.issues[0].summary, /实际 0 个/);
+});

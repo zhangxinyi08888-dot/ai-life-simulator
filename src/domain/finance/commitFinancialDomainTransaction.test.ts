@@ -627,6 +627,11 @@ test("a same-transaction accepted income event supersedes a rejected competing p
 
 test("legacy estimated income is quarantined after three unconfirmed material nodes", () => {
   const current = setup();
+  const legacyEvidence: FinancialEvidence[] = [{
+    source: "legacy_migration",
+    reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION",
+    confidence: 0.5
+  }];
   current.ledger.incomeSources.push({
     id: "legacy_recurring_income",
     type: "other",
@@ -637,7 +642,7 @@ test("legacy estimated income is quarantined after three unconfirmed material no
     status: "active",
     factStatus: "estimated",
     lastConfirmedAtAgeInMonths: 359,
-    evidence
+    evidence: legacyEvidence
   });
   current.ledger.recentTransactions.push(...[1, 2, 3].map((index) => ({
     id: `legacy_material_${index}`,
@@ -673,4 +678,48 @@ test("legacy estimated income is quarantined after three unconfirmed material no
     && issue.severity === "warning"
     && issue.relatedIncomeSourceIds?.includes("legacy_recurring_income")
   )));
+});
+
+test("an accepted outcome reconfirmed legacy account follows the normal recurring lifecycle", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "legacy_recurring_income",
+    type: "salary",
+    displayName: "已确认工资",
+    annualNetAmountWan: 35,
+    monthlyNetAmountWan: 35 / 12,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 336,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "estimated",
+    lastConfirmedAtAgeInMonths: 336,
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      sourceEventId: "accepted_promotion",
+      excerpt: "你升职后税后年薪为35万元。",
+      reasonCode: "EVIDENCE_EXACT_MATCHED",
+      confidence: 0.9
+    }]
+  });
+
+  const result = commitFinancialDomainTransaction({
+    transactionId: "accepted_legacy_source_continues",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 383,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+
+  const salary = result.financialLedger.incomeSources[0];
+  assert.equal(result.financialPeriodSummary?.incomeWan, 67.0841);
+  assert.equal(salary.accrualReviewStatus ?? "normal", "normal");
+  assert.equal(result.financialLedger.unresolvedIssues.some((issue) => (
+    issue.id === "pending_fact_legacy_income_legacy_recurring_income"
+  )), false);
 });

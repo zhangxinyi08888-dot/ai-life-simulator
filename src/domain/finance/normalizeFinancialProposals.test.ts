@@ -3,6 +3,7 @@ import test from "node:test";
 import { normalizeFinancialProposals, normalizeRepairedFinancialProposals } from "./normalizeFinancialProposals";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
+import type { FinancialEvidence } from "./types";
 
 test("normalizes kind fields, fills a unique outcome id and deduplicates temporary ids", () => {
   const result = normalizeFinancialProposals({
@@ -114,6 +115,47 @@ test("drops a no-op income adjustment instead of quarantining the authoritative 
   });
   assert.equal(result.proposals.length, 0);
   assert.equal(result.audit.some((item) => item.reasonCode === "NO_OP_PROPOSAL_DROPPED"), true);
+});
+
+test("preserves an explicit same-amount confirmation for a migration-only income source", () => {
+  const legacyEvidence: FinancialEvidence[] = [{
+    source: "legacy_migration",
+    reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION",
+    confidence: 0.5
+  }];
+  const currentLedger = initializeFinancialLedger({
+    id: "legacy_income_confirmation",
+    asOfAgeInMonths: 327,
+    openingPosition: {
+      incomeSources: [{
+        id: "legacy_recurring_income", type: "salary", displayName: "迁移工资",
+        monthlyNetAmountWan: 2.5, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+        status: "active", linkedCareerStateId: "career_current", factStatus: "estimated",
+        evidence: legacyEvidence
+      }]
+    }
+  });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    currentLedger,
+    currentCareerStateId: "career_current",
+    proposals: [{
+      id: "confirm_legacy_salary",
+      kind: "income_source_adjusted",
+      effectiveAtAgeInMonths: 357,
+      sourceOutcomeId: "selected",
+      payload: {
+        incomeSourceId: "legacy_recurring_income",
+        nextSource: { ...currentLedger.incomeSources[0] }
+      },
+      evidence: "你目前仍在原岗位，税后月薪为2.5万元。",
+      confidence: 0.9
+    }]
+  });
+
+  assert.equal(result.proposals.length, 1);
+  assert.equal(result.proposals[0].kind, "income_source_adjusted");
+  assert.equal(result.audit.some((item) => item.reasonCode === "LEGACY_INCOME_RECONFIRMATION_PRESERVED"), true);
 });
 
 test("normalizes a repeated income start for the same source id into an adjustment", () => {

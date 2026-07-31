@@ -85,6 +85,43 @@ const prompt = buildNextNodePrompt({
   selectedDecision: "接一个短期高薪项目",
   eventSeed: healthWarningEvent
 });
+const financialGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const staleLegacyIncomeLedger = initializeFinancialLedger({
+  id: "stale_legacy_income_prompt",
+  asOfAgeInMonths: 288,
+  openingPosition: {
+    incomeSources: [{
+      id: "legacy_recurring_income",
+      type: "salary",
+      displayName: "迁移工资",
+      monthlyNetAmountWan: 2.5,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 200,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "estimated",
+      lastConfirmedAtAgeInMonths: 200,
+      evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+    }]
+  }
+});
+const staleLegacyIncomePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: staleLegacyIncomeLedger
+});
 
 assert.doesNotMatch(prompt, /高薪不是必然伤健康/);
 assert.doesNotMatch(prompt, /高强度、长期、无恢复机制/);
@@ -137,6 +174,11 @@ assert.match(prompt, /债务叙事权威契约/);
 assert.match(prompt, /permittedInstitutionActions/);
 assert.match(prompt, /descriptionParagraphs、choices、storyEpisode、arcSignals evidence/);
 assert.match(prompt, /不得凭空提交就业状态转换/);
+assert.match(financialGateRetryPrompt, /财务接受门重生修正/);
+assert.match(financialGateRetryPrompt, /EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME/);
+assert.match(financialGateRetryPrompt, /不得返回 income_source_ended、income_source_paused/);
+assert.match(staleLegacyIncomePrompt, /仍在职的迁移估算收入需要本节点明确确认/);
+assert.match(staleLegacyIncomePrompt, /若金额与账本相同，也必须提交 income_source_adjusted/);
 assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
 assert.match(prompt, /没有 relationship outcome id 时/);
 assert.match(prompt, /career_state worldDelta 才能增加 employmentTransition/);

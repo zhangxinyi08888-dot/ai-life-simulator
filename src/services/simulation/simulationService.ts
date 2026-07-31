@@ -2,6 +2,11 @@ import { buildEventMeta, getEventTemporalProfile, getLastEventSelectionTrace, LI
 import { ChoiceTemporalHint, EmploymentTransitionProposal, EventMeta, FinancialState, HistoryItem, LifeAttributes, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
 import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
 import { DEFAULT_REPORT_INVITATION_POLICY } from "../../config/reportInvitationPolicy";
+import {
+  DEFAULT_FINANCIAL_NODE_GATE_MODE,
+  FINANCIAL_GATE_MAX_REGENERATIONS,
+  type FinancialNodeGateMode
+} from "../../config/financialGatePolicy";
 import { buildQuestionPrompt } from "../../utils/questionPrompt";
 import { normalizePersonalityInsight } from "../../utils/insightResponse";
 import { generateCompleteSimulationNode, isRetryableNodeGenerationError } from "../../utils/simulationNodeRetry";
@@ -52,6 +57,10 @@ import { createSelectionEntropy, type SelectionEntropy } from "../../config/line
 import { relationshipDispatchFeatureFlags, type RelationshipDispatchFeatureFlags } from "../../config/relationshipDispatchFlags";
 import {
   commitFinancialDomainTransaction,
+  previewFinancialDomainTransaction,
+  buildRequiredFinancialFactGroups,
+  evaluateFinancialNodeAcceptance,
+  applyLifeStageExpenseLifecycle,
   deriveDebtHealthState,
   deriveFinancialState,
   deriveConservativeWealthBasis,
@@ -78,6 +87,7 @@ import {
   type FinancialLedgerInput,
   type FinancialLedgerIssue
 } from "../../domain/finance";
+import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
 import { callDeepSeekJsonFromBrowser, callDeepSeekJsonStreamFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
@@ -162,12 +172,28 @@ export interface SimulationServiceDeps {
   onNarrativeProgress?: (preview: StreamedNodePreview) => void;
   signal?: AbortSignal;
   relationshipDispatchFeatureFlags?: Partial<RelationshipDispatchFeatureFlags>;
+  financialNodeGateMode?: FinancialNodeGateMode;
+  onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
+  /** Internal bounded-regeneration counter; callers should not set it. */
+  financialGateRegenerationCount?: number;
+  /** Internal feedback from the previous rejected financial preview. */
+  financialGateRetryReasonCodes?: string[];
   /** Internal recursion guard and evidence for a failed romance event redispatch. */
   romanceFallbackContext?: {
     requestedEventId: string;
     reason: string;
     repairAttempted: boolean;
   };
+}
+
+class FinancialNodeGateError extends AiClientError {
+  readonly decision: FinancialNodeAcceptanceDecision;
+
+  constructor(decision: FinancialNodeAcceptanceDecision) {
+    super("AI_RESPONSE_INVALID", `财务节点接受门拒绝候选：${decision.reasonCodes.join(",")}`);
+    this.name = "FinancialNodeGateError";
+    this.decision = decision;
+  }
 }
 
 export interface GenerateQuestionsResult {
@@ -784,7 +810,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   const narrativeEvidence = input.allowNarrativeEvidence
     ? input.narrativeText?.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
         (
-          /(?:你|主角|本人|你的个人账户).{0,48}(?:税后)?(?:月薪|年薪|工资|薪资|副业月收入|个人月收入).{0,16}\d+(?:\.\d+)?\s*(?:万)?元|(?:税后)?(?:月薪|年薪|副业月收入|个人月收入)(?:约|为|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万)?元/u.test(sentence)
+          /(?:你|主角|本人|你的个人账户).{0,48}(?:(?:税后)?(?:月薪|年薪|年收入|工资|薪资|副业月收入|个人月收入)|年税后收入).{0,16}\d+(?:\.\d+)?\s*(?:万)?元|(?:(?:税后)?(?:月薪|年薪|年收入|副业月收入|个人月收入)|年税后收入)(?:约|为|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万)?元/u.test(sentence)
         )
         && !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:员工|助理|工程师|销售|运营|护工)[^。；]{0,35}(?:月薪|年薪)/u.test(sentence)
         && !/(?:如果|若|预计|计划|考虑|希望|目标|可以给你)[^。；]{0,50}(?:月薪|年薪)/iu.test(sentence)
@@ -797,7 +823,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪|副业月收入|个人月收入/u.test(evidenceText!);
   const monthlyMatch = evidenceText?.match(/每月[^，。；]{0,28}?(?:支付|发放|领取|获得|拿到|为|达到|调整为|降至|升至)?\s*(\d+(?:\.\d+)?)\s*(万|元)(?:税后)?(?:工资|薪资|月薪)?/u)
     || evidenceText?.match(/(?:税后)?(?:月薪|副业月收入|个人月收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*(万|元)/u);
-  const annualMatch = evidenceText?.match(/(?:税后)?年薪(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
+  const annualMatch = evidenceText?.match(/(?:(?:税后)?(?:年薪|年收入)|年税后收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
   if (!explicitlyPersonal || (!monthlyMatch && !annualMatch)) return input.proposals;
 
   const monthlyNetAmountWan = monthlyMatch
@@ -807,10 +833,12 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   if (!(Number(monthlyNetAmountWan ?? annualNetAmountWan) > 0)) return input.proposals;
   const careerIncomeTypes = new Set(["salary", "contract", "self_employment_draw"]);
   const allActiveCareerSources = input.ledger.incomeSources.filter((source) => (
-    source.status === "active" && careerIncomeTypes.has(source.type)
+    source.status === "active"
+    && (careerIncomeTypes.has(source.type)
+      || (source.id === "legacy_recurring_income" && Boolean(source.linkedCareerStateId)))
   ));
   const activeCareerSources = allActiveCareerSources.filter((source) => (
-    source.status === "active" && careerIncomeTypes.has(source.type) && source.linkedCareerStateId === input.currentCareerStateId
+    source.status === "active" && source.linkedCareerStateId === input.currentCareerStateId
   ));
   const decisionChangesCareer = /辞职|离职|入职|就职|转岗|转行|回归职场|退休|停止工作/u.test(decision);
   const sideIncomeSources = allActiveCareerSources.filter((source) => (
@@ -837,6 +865,8 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
       return sideIncomeEvidence ? type !== "contract" : !careerIncomeTypes.has(type);
     }
     if (proposal.kind === "income_source_adjusted") {
+      if (existingSource
+        && (proposal.payload as Record<string, any>)?.incomeSourceId === existingSource.id) return false;
       const type = String((proposal.payload as Record<string, any>)?.nextSource?.type);
       return sideIncomeEvidence ? type !== "contract" : !careerIncomeTypes.has(type);
     }
@@ -960,6 +990,9 @@ async function commitAuthoritativeFinancialProgress(input: {
   transactionId: string;
   previousWealth: number;
   callAiJson: AiJsonCaller;
+  financialNodeGateMode: FinancialNodeGateMode;
+  onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
+  financialGateRegenerationCount: number;
 }): Promise<{
   node: SimulationNode;
   worldState: ReturnType<typeof emptyWorldState>;
@@ -1460,6 +1493,16 @@ async function commitAuthoritativeFinancialProgress(input: {
     acceptedEvents: atomicCareerIncome.acceptedFinancialEvents,
     issues: [...validated.issues, ...atomicCareerIncome.issues]
   };
+  const expenseLifecycle = applyLifeStageExpenseLifecycle({
+    narrativeText: input.node.description,
+    ledger: initialLedger,
+    acceptedFinancialEvents: validated.acceptedEvents,
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  validated = {
+    acceptedEvents: [...validated.acceptedEvents, ...expenseLifecycle.acceptedEvents],
+    issues: [...validated.issues, ...expenseLifecycle.issues]
+  };
   const finalAcceptedProposalIds = new Set(validated.acceptedEvents.map((event) => event.proposalId));
   const finalRejectedFinancialProposalIds = [...new Set([
     ...validated.issues
@@ -1577,7 +1620,7 @@ async function commitAuthoritativeFinancialProgress(input: {
   // issues must describe the text the user actually sees. Trial the otherwise
   // pure transaction first, sanitize against that closing state, then rebuild
   // only the current node's narrative issues before the authoritative commit.
-  const previewCommitted = commitFinancialDomainTransaction(transactionInput);
+  const previewCommitted = previewFinancialDomainTransaction(transactionInput);
   const previewFinancialState = previewCommitted.derivedFinancialState.compatibilityState;
   let previewDescription = sanitizeFinancialNarrative(
     committedNarrativeNode.description,
@@ -1606,6 +1649,23 @@ async function commitAuthoritativeFinancialProgress(input: {
       ageInMonths: input.periodEndAgeInMonths
     });
   }
+  const requiredFactGroups = buildRequiredFinancialFactGroups({
+    issues: finalizedFinancialIssues,
+    rejectedCompletedProposals,
+    reviewReasonCodes: expenseLifecycle.reviewReasonCodes,
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  const gateDecision = evaluateFinancialNodeAcceptance({
+    mode: input.financialNodeGateMode,
+    preview: previewCommitted,
+    requiredFactGroups,
+    expectedAgeInMonths: input.periodEndAgeInMonths,
+    transactionId: input.transactionId,
+    regenerationCount: input.financialGateRegenerationCount,
+    authoritativeAgeBefore: input.periodStartAgeInMonths
+  });
+  input.onFinancialGateDecision?.(gateDecision);
+  if (!gateDecision.allowDomainCommit) throw new FinancialNodeGateError(gateDecision);
   const committed = commitFinancialDomainTransaction({
     ...transactionInput,
     financialIssues: postSanitizationIssues
@@ -1615,6 +1675,14 @@ async function commitAuthoritativeFinancialProgress(input: {
     ledger: committed.financialLedger,
     derivedFinancialState: committed.derivedFinancialState.state,
     previousDebtHealthState: input.previousDebtHealthState
+  });
+  const previousDerivedFinancialState = deriveFinancialState({
+    ledger: initialLedger,
+    employmentStatus: currentCareer.employmentStatus
+  }).compatibilityState;
+  const previousConservativeWealthBasis = deriveConservativeWealthBasis({
+    ledger: initialLedger,
+    financialState: previousDerivedFinancialState
   });
   const conservativeWealthBasis = deriveConservativeWealthBasis({ ledger: committed.financialLedger, financialState });
   const description = sanitizeFinancialNarrative(
@@ -1628,7 +1696,13 @@ async function commitAuthoritativeFinancialProgress(input: {
       ...committedNarrativeNode,
       description,
       descriptionParagraphs: splitNarrativeParagraphs(description),
-      attributes: withCalculatedWealth(input.node.attributes, conservativeWealthBasis, input.previousWealth),
+      attributes: withCalculatedWealth(
+        input.node.attributes,
+        conservativeWealthBasis,
+        input.previousWealth,
+        12,
+        previousConservativeWealthBasis
+      ),
       financialLedger: committed.financialLedger,
       financialLedgerMode: "authoritative",
       financialState,
@@ -1649,7 +1723,21 @@ async function commitAuthoritativeFinancialProgress(input: {
         debtNarrativeAuthorityVersion: "debt_narrative_v1",
         narrativeFallback: narrativeFallbackReasonCodes.length > 0,
         narrativeFallbackReasonCodes,
-        rejectedDebtClaimKinds: narrativeFallbackReasonCodes
+        rejectedDebtClaimKinds: narrativeFallbackReasonCodes,
+        financialGateMode: gateDecision.mode,
+        financialGateDisposition: gateDecision.disposition,
+        financialGateWouldBlock: gateDecision.wouldBlock,
+        financialGateReasonCodes: gateDecision.reasonCodes,
+        financialGateRequiredFactGroupCount: gateDecision.requiredFactGroupCount,
+        financialGateSatisfiedFactGroupCount: gateDecision.satisfiedFactGroupCount,
+        financialGateCriticalFactGroupCount: gateDecision.criticalFactGroupCount,
+        financialGateSatisfiedCriticalFactGroupCount: gateDecision.satisfiedCriticalFactGroupCount,
+        financialGateUnsatisfiedCriticalFactGroupCount: gateDecision.unsatisfiedCriticalFactGroupCount,
+        financialGateRegenerationCount: input.financialGateRegenerationCount,
+        expenseLifecycleTriggerCount: expenseLifecycle.triggers.length,
+        expenseLifecycleCoveredTriggerCount: expenseLifecycle.coveredTriggerCount,
+        expenseLifecycleEstimatedAccountCount: expenseLifecycle.acceptedEvents.length,
+        expenseLifecycleResponsibilityCodes: expenseLifecycle.triggers.map((trigger) => trigger.reasonCode)
       }
     },
     worldState: committed.worldState,
@@ -2265,7 +2353,7 @@ function deferredRomanceEventIds(history: HistoryItem[]): string[] {
   return pending && pending.nodesSinceFallback < 2 ? [pending.requestedEventId] : [];
 }
 
-export async function generateNextNode(
+async function generateNextNodeAttempt(
   input: GenerateNextNodeInput,
   deps: SimulationServiceDeps = {}
 ): Promise<SimulationNode> {
@@ -2626,7 +2714,8 @@ export async function generateNextNode(
     ageContext,
     worldState,
     foregroundPressureArc: workingPressureArc,
-    pressureArcInterleaved: isPressureArcInterleave
+    pressureArcInterleaved: isPressureArcInterleave,
+    financialGateRetryReasonCodes: deps.financialGateRetryReasonCodes
   });
 
   let latestRawNode: any = {};
@@ -2917,7 +3006,10 @@ export async function generateNextNode(
       periodEndAgeInMonths: timelineAdvance.targetAgeInMonths,
       transactionId: endingTransactionId,
       previousWealth: input.currentAttributes.wealth,
-      callAiJson
+      callAiJson,
+      financialNodeGateMode: deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE,
+      onFinancialGateDecision: deps.onFinancialGateDecision,
+      financialGateRegenerationCount: deps.financialGateRegenerationCount ?? 0
     });
     endingNode = authoritativeFinance.node;
     return commitSimulationTransaction({
@@ -3222,7 +3314,10 @@ export async function generateNextNode(
     periodEndAgeInMonths: timelineAdvance.targetAgeInMonths,
     transactionId,
     previousWealth: input.currentAttributes.wealth,
-    callAiJson
+    callAiJson,
+    financialNodeGateMode: deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE,
+    onFinancialGateDecision: deps.onFinancialGateDecision,
+    financialGateRegenerationCount: deps.financialGateRegenerationCount ?? 0
   });
   node = authoritativeFinance.node;
   node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger);
@@ -3338,6 +3433,34 @@ export async function generateNextNode(
   return invitationDecision.invitation
     ? { ...committed.node, reportInvitation: invitationDecision.invitation }
     : committed.node;
+}
+
+export async function generateNextNode(
+  input: GenerateNextNodeInput,
+  deps: SimulationServiceDeps = {}
+): Promise<SimulationNode> {
+  const gateMode = deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE;
+  const initialRegenerationCount = deps.financialGateRegenerationCount ?? 0;
+  let lastGateError: FinancialNodeGateError | undefined;
+  for (
+    let regenerationCount = initialRegenerationCount;
+    regenerationCount <= FINANCIAL_GATE_MAX_REGENERATIONS;
+    regenerationCount += 1
+  ) {
+    try {
+      return await generateNextNodeAttempt(input, {
+        ...deps,
+        financialNodeGateMode: gateMode,
+        financialGateRegenerationCount: regenerationCount,
+        financialGateRetryReasonCodes: lastGateError?.decision.reasonCodes
+      });
+    } catch (error) {
+      if (!(error instanceof FinancialNodeGateError) || gateMode !== "enforced") throw error;
+      lastGateError = error;
+      if (regenerationCount === FINANCIAL_GATE_MAX_REGENERATIONS) throw error;
+    }
+  }
+  throw lastGateError || new AiClientError("AI_RESPONSE_INVALID", "财务节点未通过接受门");
 }
 
 export interface AnalyzePersonalityInput {

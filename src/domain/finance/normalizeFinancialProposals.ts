@@ -7,7 +7,7 @@ export interface FinancialProposalNormalizationAudit {
   reasonCode: "KIND_FIELD_NORMALIZED" | "SOURCE_OUTCOME_FILLED" | "DUPLICATE_ID_RENAMED" | "CAREER_LINK_FILLED" | "CASH_ACCOUNT_FILLED"
     | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED"
     | "DEBT_DRAW_PAYLOAD_NORMALIZED" | "DEBT_TYPE_NORMALIZED" | "ASSET_PURCHASE_PAYLOAD_NORMALIZED"
-    | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED"
+    | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED" | "LEGACY_INCOME_RECONFIRMATION_PRESERVED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED" | "EXPENSE_TYPE_PRESERVED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
@@ -726,14 +726,26 @@ export function normalizeFinancialProposals(input: {
     if (payload && kind === "income_source_adjusted" && payload.nextSource) {
       const existingSource = input.currentLedger?.incomeSources.find((item) => item.id === payload.incomeSourceId);
       const nextSource = payload.nextSource as Record<string, any>;
+      const explicitlyReconfirmsLegacyMigration = Boolean(existingSource?.id.startsWith("legacy_"))
+        && Boolean(existingSource?.evidence.length)
+        && existingSource!.evidence.every((item) => item.source === "legacy_migration")
+        && (monthlyAmountFromEvidence() !== undefined || annualAmountFromEvidence() !== undefined);
       if (existingSource
         && String(nextSource.type) === existingSource.type
         && String(nextSource.status) === existingSource.status
         && String(nextSource.accrualPolicy) === existingSource.accrualPolicy
         && Number(nextSource.monthlyNetAmountWan || 0) === Number(existingSource.monthlyNetAmountWan || 0)
-        && Number(nextSource.annualNetAmountWan || 0) === Number(existingSource.annualNetAmountWan || 0)) {
+        && Number(nextSource.annualNetAmountWan || 0) === Number(existingSource.annualNetAmountWan || 0)
+        && !explicitlyReconfirmsLegacyMigration) {
         audit.push({ proposalId: id, reasonCode: "NO_OP_PROPOSAL_DROPPED", originalValue: kind });
         return [];
+      }
+      if (explicitlyReconfirmsLegacyMigration) {
+        audit.push({
+          proposalId: id,
+          reasonCode: "LEGACY_INCOME_RECONFIRMATION_PRESERVED",
+          normalizedValue: existingSource!.id
+        });
       }
     }
     const primaryCashId = input.currentLedger?.cashAccounts.find((item) => item.id === PRIMARY_CASH_ACCOUNT_ID && item.status === "active")?.id
