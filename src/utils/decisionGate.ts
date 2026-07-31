@@ -11,6 +11,42 @@ export interface DecisionGateResult {
   reasonCodes: string[];
 }
 
+const REQUIRED_CHOICE_IDS = ["A", "B", "C"] as const;
+
+const SEMANTIC_CANONICALIZATIONS: Array<[RegExp, string]> = [
+  [/(?:focus|concentrate|maintain|keep|stay|continue|专注|聚焦|集中|保持|维持|继续|留在|坚守)/giu, " maintain "],
+  [/(?:internal|existing|current|内部|现有|当前)/giu, " current "],
+  [/(?:seek|search|explore|寻找|寻求|探索|物色)/giu, " explore "],
+  [/(?:accept|join|take|接受|加入|转入)/giu, " accept "],
+  [/(?:leave|exit|resign|sell|离开|退出|辞职|出售)/giu, " exit "],
+  [/(?:team|团队)/giu, " team "],
+  [/(?:growth|development|成长|发展)/giu, " growth "]
+];
+
+function semanticChoiceTokens(choice: SimulationChoice): Set<string> {
+  let source = `${normalizedIntent(choice)} ${choice.text}`.toLowerCase();
+  for (const [pattern, replacement] of SEMANTIC_CANONICALIZATIONS) {
+    source = source.replace(pattern, replacement);
+  }
+  return new Set(source.split(/[^a-z0-9\u4e00-\u9fff]+/u).filter((token) => token.length > 1));
+}
+
+function areSemanticallyEquivalent(left: SimulationChoice, right: SimulationChoice): boolean {
+  const leftTokens = semanticChoiceTokens(left);
+  const rightTokens = semanticChoiceTokens(right);
+  const smallerSize = Math.min(leftTokens.size, rightTokens.size);
+  if (smallerSize === 0) return false;
+  const sharedCount = [...leftTokens].filter((token) => rightTokens.has(token)).length;
+  return sharedCount >= 2 && sharedCount / smallerSize >= 2 / 3;
+}
+
+function hasThreeSemanticallyDistinctChoices(choices: SimulationChoice[]): boolean {
+  if (choices.length !== REQUIRED_CHOICE_IDS.length) return false;
+  return choices.every((choice, index) => (
+    choices.slice(index + 1).every((other) => !areSemanticallyEquivalent(choice, other))
+  ));
+}
+
 export function applyDecisionDensityDowngrade(
   node: SimulationNode,
   gate: DecisionGateResult
@@ -25,20 +61,6 @@ export function applyDecisionDensityDowngrade(
   };
 }
 
-export function pruneRecentlyPassedChoices(
-  node: SimulationNode,
-  gate: DecisionGateResult
-): SimulationNode {
-  if (!gate.repeatsRecentlyPassedOption || gate.blockedDecisionIntents.length === 0) return node;
-  const blocked = new Set(gate.blockedDecisionIntents);
-  const choices = node.choices.filter((choice) => !blocked.has(normalizedIntent(choice)));
-  // Two materially different choices are a complete checkpoint. If pruning
-  // would leave fewer than two, preserve the candidate so the model repair
-  // path can replace the whole invalid choice set.
-  if (choices.length < 2 || choices.length === node.choices.length) return node;
-  return { ...node, choices };
-}
-
 export const DEFAULT_NODE_DENSITY_POLICY = {
   maxCriticalCheckpointsPerPressureArc: 2,
   maxHighOrCriticalCheckpointsPerRolling12Months: 3
@@ -51,13 +73,6 @@ function normalizedIntent(choice: SimulationChoice): string {
 function hasDistinctWorldChanges(choices: SimulationChoice[]): boolean {
   const signatures = choices.map((choice) => [...(choice.expectedWorldDeltaTypes || [])].sort().join(","));
   return new Set(signatures.filter(Boolean)).size >= 2 || new Set(choices.map(normalizedIntent)).size >= 2;
-}
-
-export function removeBlockedChoicesAfterRepair(node: SimulationNode, blockedIntents: string[]): SimulationNode {
-  if (blockedIntents.length === 0) return node;
-  const blocked = new Set(blockedIntents);
-  const availableChoices = node.choices.filter((choice) => !blocked.has(normalizedIntent(choice)));
-  return availableChoices.length >= 2 ? { ...node, choices: availableChoices } : node;
 }
 
 export function downgradeDensityLimitedNode(node: SimulationNode, reasonCodes: string[]): SimulationNode {
@@ -99,6 +114,17 @@ export function evaluateDecisionGate(input: {
 }): DecisionGateResult {
   const choices = input.candidateNode.choices;
   const distinctActionCount = new Set(choices.map(normalizedIntent).filter(Boolean)).size;
+  const hasRequiredChoiceCount = choices.length === REQUIRED_CHOICE_IDS.length;
+  const hasRequiredChoiceIds = hasRequiredChoiceCount && choices.every((choice, index) => (
+    choice.id === REQUIRED_CHOICE_IDS[index]
+  ));
+  const allowedOutcomeSet = new Set(input.allowedOutcomeIds || []);
+  const authorizedOutcomeIds = choices.map((choice) => choice.eventOutcomeId || "");
+  const hasThreeDistinctAuthorizedOutcomes = Boolean(input.allowedOutcomeIds?.length)
+    && authorizedOutcomeIds.every((outcomeId) => allowedOutcomeSet.has(outcomeId))
+    && new Set(authorizedOutcomeIds).size === REQUIRED_CHOICE_IDS.length;
+  const hasSemanticDiversity = hasThreeDistinctAuthorizedOutcomes
+    || hasThreeSemanticallyDistinctChoices(choices);
   const changesFutureState = hasDistinctWorldChanges(choices);
   const repeatsPreviousDecision = repeatedPreviousDecision(input.candidateNode, input.previousNode);
   const cooledIntents = blockedDecisionIntents(input.recentHistory, input.recentHistory.length);
@@ -118,19 +144,6 @@ export function evaluateDecisionGate(input: {
       .filter((intent) => !isCausallyRequiredCheckpoint && intent && cooledIntents.has(intent))
   )];
   const repeatsRecentlyPassedOption = repeatedPassedIntents.length > 0;
-  const repeatedPassedIntentSet = new Set(repeatedPassedIntents);
-  const choicesAfterBlockedSuppression = choices.filter((choice) => (
-    !repeatedPassedIntentSet.has(normalizedIntent(choice))
-  ));
-  const retainsTwoDistinctActions = new Set(
-    choicesAfterBlockedSuppression.map(normalizedIntent).filter(Boolean)
-  ).size >= 2;
-  const retainsEventStrategyCoverage = !input.allowedOutcomeIds || new Set(
-    choicesAfterBlockedSuppression.map((choice) => choice.eventOutcomeId).filter(Boolean)
-  ).size >= 2;
-  const canSuppressBlockedChoices = choicesAfterBlockedSuppression.length >= 2
-    && retainsTwoDistinctActions
-    && retainsEventStrategyCoverage;
   const intensity: LifeIntensity = input.candidateNode.narrativeMeta?.lifeIntensity || "normal";
   const recentHigh = countRecentHighIntensityNodes(input.recentHistory, input.targetAgeInMonths);
   const pressureCriticalCount = input.pressureArc && intensity === "critical" ? input.pressureArc.phaseCheckpointCount : 0;
@@ -140,10 +153,13 @@ export function evaluateDecisionGate(input: {
     || pressureCriticalCount >= DEFAULT_NODE_DENSITY_POLICY.maxCriticalCheckpointsPerPressureArc
   );
   const reasonCodes: string[] = [];
-  if (distinctActionCount < 2) reasonCodes.push("insufficient-distinct-actions");
+  if (!hasRequiredChoiceCount) reasonCodes.push("invalid-choice-count");
+  if (!hasRequiredChoiceIds) reasonCodes.push("invalid-choice-ids");
+  if (distinctActionCount < REQUIRED_CHOICE_IDS.length) reasonCodes.push("insufficient-distinct-actions");
+  if (!hasSemanticDiversity) reasonCodes.push("insufficient-semantic-diversity");
   if (!changesFutureState) reasonCodes.push("no-distinct-world-change");
   if (repeatsPreviousDecision) reasonCodes.push("repeats-previous-decision");
-  if (repeatsRecentlyPassedOption && !canSuppressBlockedChoices) {
+  if (repeatsRecentlyPassedOption) {
     reasonCodes.push("repeats-recently-passed-option");
   }
   if (densityExceeded) reasonCodes.push("node-density-exceeded");
@@ -154,7 +170,7 @@ export function evaluateDecisionGate(input: {
     if (outcomeIds.some((outcomeId) => !outcomeId || !allowed.has(outcomeId))) {
       reasonCodes.push("event-outcome-not-allowed");
     }
-    if (new Set(outcomeIds.filter(Boolean)).size < 2 || distinctActionCount < 2) {
+    if (new Set(outcomeIds.filter(Boolean)).size < 2 || distinctActionCount < REQUIRED_CHOICE_IDS.length) {
       reasonCodes.push("insufficient-event-strategy-coverage");
     }
     if (input.narrativeMode === "recovery_growth") {

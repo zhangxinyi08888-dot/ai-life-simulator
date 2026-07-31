@@ -16,7 +16,7 @@ import {
 import { buildStoryContextPack } from "../../utils/storyContext";
 import { buildAgeContext } from "../../utils/ageContext";
 import { FINANCIAL_DEBT_PHASE_POLICY, HEALTH_CRISIS_PHASE_POLICY, preemptDebtArcForAcuteHealth, reducePressureArc, resolveDebtArcAfterHealth, resolvePhase, resolvePhasePolicy, resolvePressureArcPresentationEvent as resolvePolicyPressureArcPresentationEvent, validateNodeOutcomeProposal, type AcceptedNodeOutcome, type PhaseTransitionPolicy, type PressureArcTransitionDecision } from "../../utils/arcLifecycle";
-import { applyDecisionDensityDowngrade, downgradeDensityLimitedNode, evaluateDecisionGate, removeBlockedChoicesAfterRepair } from "../../utils/decisionGate";
+import { applyDecisionDensityDowngrade, downgradeDensityLimitedNode, evaluateDecisionGate } from "../../utils/decisionGate";
 import { evaluateEnding } from "../../utils/endingDecision";
 import { rebuildPersonStates } from "../../utils/personTimeline";
 import { commitSimulationTransaction, emptyWorldState } from "../../utils/simulationTransaction";
@@ -2955,24 +2955,13 @@ export async function generateNextNode(
       narrativeMode: nodeEvent?.narrativeMode
     });
   }
-  if (decisionGate.isDecisionCheckpoint && decisionGate.blockedDecisionIntents.length > 0) {
-    node = removeBlockedChoicesAfterRepair(node, decisionGate.blockedDecisionIntents);
-    decisionGate = evaluateDecisionGate({
-      candidateNode: node,
-      previousNode: lastNode,
-      pressureArc: workingPressureArc,
-      recentHistory: input.history,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-      independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
-      allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
-      narrativeMode: nodeEvent?.narrativeMode
-    });
-  }
+  const blockedIntentsForRepair = new Set(decisionGate.blockedDecisionIntents);
   for (let decisionRepairAttempt = 1; !decisionGate.isDecisionCheckpoint && decisionRepairAttempt <= 2; decisionRepairAttempt += 1) {
-    const blockedChoicePrompt = decisionGate.blockedDecisionIntents.length > 0
-      ? `\n以下 decisionIntent 近期已被用户重复未采纳，处于冷却中：${decisionGate.blockedDecisionIntents.join("、")}。保留相关真实事实或人物关系，但不得改写文案后再次提供同一行动。`
+    for (const blockedIntent of decisionGate.blockedDecisionIntents) blockedIntentsForRepair.add(blockedIntent);
+    const blockedChoicePrompt = blockedIntentsForRepair.size > 0
+      ? `\n以下 decisionIntent 近期已被用户重复未采纳，处于冷却中：${[...blockedIntentsForRepair].join("、")}。保留相关真实事实或人物关系，但三个新选项均不得包含或改写为这些行动。`
       : "";
-    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过：第 ${decisionRepairAttempt} 次修复】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。不得只替换近义词；每个选项必须使用不同 decisionIntent${nodeEvent?.intent.allowedOutcomes?.length ? `，并从允许的 eventOutcomeId 中覆盖至少两个不同策略：${nodeEvent.intent.allowedOutcomes.join("、")}` : ""}。`;
+    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过：第 ${decisionRepairAttempt} 次修复】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并重新生成完整节点。最终 choices 必须正好三个，按顺序使用 id=A、B、C；三个选项必须是语义不同、会改变未来状态的实质方向，并分别使用不同 decisionIntent。不得只替换近义词或用同一行动的不同措辞凑数${nodeEvent?.intent.allowedOutcomes?.length ? `；同时从允许的 eventOutcomeId 中覆盖至少两个不同策略：${nodeEvent.intent.allowedOutcomes.join("、")}` : ""}。`;
     try {
       const response = await callAiJson(repairPrompt);
       latestRawNode = await ensureGeneratedChoiceTexts(
@@ -3004,7 +2993,6 @@ export async function generateNextNode(
     });
     node = applyDecisionDensityDowngrade(node, decisionGate);
     node = stripUnauthorizedRomanticCharacters(node, worldState);
-    node = removeBlockedChoicesAfterRepair(node, decisionGate.blockedDecisionIntents);
     node = downgradeDensityLimitedNode(node, decisionGate.reasonCodes);
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people, worldState });
     repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
@@ -3035,19 +3023,6 @@ export async function generateNextNode(
     const repairedDensityLimitedNode = downgradeDensityLimitedNode(node, decisionGate.reasonCodes);
     if (repairedDensityLimitedNode !== node) {
       node = repairedDensityLimitedNode;
-      decisionGate = evaluateDecisionGate({
-        candidateNode: node,
-        previousNode: lastNode,
-        pressureArc: workingPressureArc,
-        recentHistory: input.history,
-        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-        independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
-        allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
-        narrativeMode: nodeEvent?.narrativeMode
-      });
-    }
-    if (decisionGate.isDecisionCheckpoint && decisionGate.blockedDecisionIntents.length > 0) {
-      node = removeBlockedChoicesAfterRepair(node, decisionGate.blockedDecisionIntents);
       decisionGate = evaluateDecisionGate({
         candidateNode: node,
         previousNode: lastNode,

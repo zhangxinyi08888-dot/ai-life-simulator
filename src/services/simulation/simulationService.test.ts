@@ -351,6 +351,108 @@ assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating",
 assert.equal(nextNarrativePreviews.at(-1)?.title, "新行业的第一年");
 assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /小团队做基础内容执行/);
 
+const cooledExternalIntent = "career:accept_external_role:startup_data_lead";
+const cooldownHistoryChoices = [
+  { id: "A", text: "继续负责现有团队", impactSummary: "稳住团队", decisionIntent: "career:maintain_current_team", expectedWorldDeltaTypes: ["career_state" as const] },
+  { id: "B", text: "接受创业公司的数据负责人岗位", impactSummary: "外部跳槽", decisionIntent: cooledExternalIntent, expectedWorldDeltaTypes: ["career_state" as const, "location_change" as const] },
+  { id: "C", text: "申请内部架构师岗位", impactSummary: "内部晋升", decisionIntent: "career:accept_internal_architect", expectedWorldDeltaTypes: ["career_state" as const] }
+];
+const cooldownHistory: HistoryItem[] = [0, 1].map((index) => ({
+  age: 23 + index,
+  ageInMonths: (23 + index) * 12,
+  stage: "职业发展",
+  title: "外部岗位邀请",
+  description: "前同事介绍了创业公司的岗位，你决定先继续负责现有团队。",
+  selectedChoice: cooldownHistoryChoices[0].text,
+  attributes,
+  choices: cooldownHistoryChoices,
+  isEndingNode: false
+}));
+let cooldownDecisionRepairCalls = 0;
+const repairedCooldownNode = await generateNextNode({
+  userData,
+  answers,
+  history: cooldownHistory,
+  currentAttributes: attributes,
+  selectedDecision: cooldownHistoryChoices[0].text,
+  nodeIndex: cooldownHistory.length,
+  simulationSeed: "replace-cooled-choice-with-third-direction"
+}, {
+  relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
+  callAiJson: async (prompt) => {
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 25 * 12);
+    const isDecisionRepair = prompt.includes("DecisionGate 未通过");
+    if (isDecisionRepair) {
+      cooldownDecisionRepairCalls += 1;
+      assert.match(prompt, new RegExp(cooledExternalIntent));
+      assert.match(prompt, /choices 必须正好三个/);
+      assert.match(prompt, /id=A、B、C/);
+    }
+    return {
+      text: JSON.stringify({
+        age: targetAgeInMonths / 12,
+        ageInMonths: targetAgeInMonths,
+        stage: "职业发展",
+        title: "团队进入新阶段",
+        description: "你继续负责现有团队，并开始为下一阶段安排明确的成长路径。",
+        choices: isDecisionRepair ? [
+          { id: "A", text: "牵头跨团队平台项目并承担技术决策", impactSummary: "平台主导", decisionIntent: "career:lead_cross_team_platform", expectedWorldDeltaTypes: ["career_state"] },
+          { id: "B", text: "系统学习数据架构并完成行业认证", impactSummary: "进修转型", decisionIntent: "education:upskill:data_architecture", expectedWorldDeltaTypes: ["career_state"] },
+          { id: "C", text: "缩减管理职责并尝试独立咨询项目", impactSummary: "咨询试水", decisionIntent: "career:explore_consulting:side_project", expectedWorldDeltaTypes: ["career_state", "relationship_change"] }
+        ] : [
+          { id: "A", text: "聚焦内部成长", impactSummary: "内部成长", decisionIntent: "career:focus_internal_growth", expectedWorldDeltaTypes: ["career_state"] },
+          { id: "B", text: "接受创业公司的数据负责人岗位", impactSummary: "外部跳槽", decisionIntent: cooledExternalIntent, expectedWorldDeltaTypes: ["career_state", "location_change"] },
+          { id: "C", text: "专注现有团队", impactSummary: "稳住团队", decisionIntent: "career:focus_existing_team", expectedWorldDeltaTypes: ["career_state"] }
+        ],
+        attributes,
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(cooldownDecisionRepairCalls, 1);
+assert.equal(repairedCooldownNode.choices.length, 3);
+assert.deepEqual(repairedCooldownNode.choices.map((choice) => choice.id), ["A", "B", "C"]);
+assert.equal(repairedCooldownNode.choices.some((choice) => choice.decisionIntent === cooledExternalIntent), false);
+
+let exhaustedCooldownRepairCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: cooldownHistory,
+    currentAttributes: attributes,
+    selectedDecision: cooldownHistoryChoices[0].text,
+    nodeIndex: cooldownHistory.length,
+    simulationSeed: "reject-node-after-two-cooled-choice-repairs"
+  }, {
+    relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
+    callAiJson: async (prompt) => {
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 25 * 12);
+      if (prompt.includes("DecisionGate 未通过")) exhaustedCooldownRepairCalls += 1;
+      return {
+        text: JSON.stringify({
+          age: targetAgeInMonths / 12,
+          ageInMonths: targetAgeInMonths,
+          stage: "职业发展",
+          title: "团队进入新阶段",
+          description: "你继续负责现有团队，并开始为下一阶段安排明确的成长路径。",
+          choices: [
+            { id: "A", text: "聚焦内部成长", impactSummary: "内部成长", decisionIntent: "career:focus_internal_growth", expectedWorldDeltaTypes: ["career_state"] },
+            { id: "B", text: "接受创业公司的数据负责人岗位", impactSummary: "外部跳槽", decisionIntent: cooledExternalIntent, expectedWorldDeltaTypes: ["career_state", "location_change"] },
+            { id: "C", text: "专注现有团队", impactSummary: "稳住团队", decisionIntent: "career:focus_existing_team", expectedWorldDeltaTypes: ["career_state"] }
+          ],
+          attributes,
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => error instanceof Error
+    && /生成结果没有形成真正不同的人生选择/.test(error.message)
+);
+assert.equal(exhaustedCooldownRepairCalls, 2);
+
 const ordinaryHealthDrop = await generateNextNode({
   userData,
   answers,

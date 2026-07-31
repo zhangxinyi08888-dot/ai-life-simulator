@@ -175,7 +175,7 @@ for (const event of events) {
   const candidateNode: SimulationNode = {
     age: 40, stage: "事件契约", title: event.title, description: event.intent.meaning,
     attributes: { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 },
-    choices: event.intent.allowedOutcomes.map((outcome, index) => ({
+    choices: event.intent.allowedOutcomes.slice(0, 3).map((outcome, index) => ({
       id: String.fromCharCode(65 + index), text: `执行 ${outcome}`, impactSummary: "形成结果",
       decisionIntent: `${event.category}:${outcome}:current_event`, eventOutcomeId: outcome
     })),
