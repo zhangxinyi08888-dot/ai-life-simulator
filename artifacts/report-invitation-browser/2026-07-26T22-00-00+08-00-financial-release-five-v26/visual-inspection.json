@@ -1,0 +1,46 @@
+{
+  "inspectedAt": "2026-07-26T23:36:00+08:00",
+  "method": "manual_original_image_review",
+  "passed": true,
+  "summary": {
+    "posterCount": 5,
+    "reportPageCount": 5,
+    "blankOrBlackCount": 0,
+    "loadingOrErrorPageCount": 0,
+    "unreadablePosterCount": 0,
+    "mismatchedReportPageCount": 0,
+    "placeholderOrTruncatedFinancialTitleCount": 0
+  },
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "poster": "images/real-career-first/poster.jpg",
+      "reportPage": "images/real-career-first/report-page.jpg",
+      "passed": true
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "poster": "images/real-relationship-first/poster.jpg",
+      "reportPage": "images/real-relationship-first/report-page.jpg",
+      "passed": true
+    },
+    {
+      "caseSlug": "real-education-second",
+      "poster": "images/real-education-second/poster.jpg",
+      "reportPage": "images/real-education-second/report-page.jpg",
+      "passed": true
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "poster": "images/real-venture-second/poster.jpg",
+      "reportPage": "images/real-venture-second/report-page.jpg",
+      "passed": true
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "poster": "images/real-custom-lifespan/poster.jpg",
+      "reportPage": "images/real-custom-lifespan/report-page.jpg",
+      "passed": true
+    }
+  ]
+}

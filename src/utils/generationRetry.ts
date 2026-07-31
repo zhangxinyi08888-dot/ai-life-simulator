@@ -1,0 +1,34 @@
+export function isRetryableGenerationError(error: unknown): boolean {
+  return Boolean(error)
+    && typeof error === "object"
+    && (
+      (error as { code?: unknown }).code === "AI_RESPONSE_INVALID"
+      || (error as { code?: unknown }).code === "AI_NETWORK_FAILED"
+      || (
+        typeof (error as { message?: unknown }).message === "string"
+        && (error as { message: string }).message.startsWith("SIMULATION_NODE_INCOMPLETE:")
+      )
+    );
+}
+
+/**
+ * Retries malformed/incomplete structured output and one transient network
+ * failure before either becomes a user-visible pause. Authentication,
+ * rate-limit, quota, abort, and domain rejection failures remain immediately
+ * visible because retrying them cannot heal the underlying condition.
+ */
+export async function runWithInvalidAiResponseRetry<T>(
+  operation: (attempt: number) => Promise<T>,
+  maxAttempts = 2
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation(attempt);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableGenerationError(error) || attempt === maxAttempts) throw error;
+    }
+  }
+  throw lastError;
+}

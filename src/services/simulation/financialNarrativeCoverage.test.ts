@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { initializeFinancialLedger } from "../../domain/finance/initializeLedger";
-import { detectNarrativeFinancialCoverageIssues, narrativeRequiresCareerTransition } from "./simulationService";
+import { detectNarrativeFinancialCoverageIssues, narrativeRequiresCareerTransition, reconcileNarrativeFinancialIssues } from "./simulationService";
 
 const evidence = [{ source: "accepted_history" as const, reasonCode: "TEST", confidence: 1 }];
 const ledger = initializeFinancialLedger({
@@ -51,12 +51,79 @@ test("another person's mortgage does not create protagonist coverage", () => {
   assert.equal(issues.length, 0);
 });
 
+test("an authoritative mortgage fact does not imply a separately owned property", () => {
+  const mortgageLedger = structuredClone(ledger);
+  mortgageLedger.debtAccounts.push({
+    id: "mortgage_existing",
+    type: "mortgage",
+    displayName: "现有住房按揭",
+    principalWan: 35.5,
+    openedAtAgeInMonths: 300,
+    status: "active",
+    repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.35, remainingTermMonths: 120 },
+    factStatus: "known",
+    evidence
+  });
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你继续承担房贷，月供压力仍在可控范围内。",
+    ledger: mortgageLedger,
+    acceptedEvents: [],
+    ageInMonths: 467
+  });
+  assert.equal(issues.some((issue) => issue.id.includes("property")), false);
+  assert.equal(issues.some((issue) => issue.id.includes("mortgage")), false);
+});
+
+test("future home plans and relationship metaphors are not completed property facts", () => {
+  for (const narrativeText of [
+    "你们正式讨论两年后共同购买三居室的计划。",
+    "林姐的女儿每周来你家住一天，你终于拥有了一个可以称之为家的关系。"
+  ]) {
+    const issues = detectNarrativeFinancialCoverageIssues({
+      narrativeText,
+      ledger,
+      acceptedEvents: [],
+      ageInMonths: 563
+    });
+    assert.equal(issues.some((issue) => issue.id.includes("property")), false);
+  }
+});
+
+test("a completed home down payment requires a property asset fact", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你们用20万元存款支付了15万元婚房首付，并办理了房贷。",
+    ledger,
+    acceptedEvents: [{ kind: "debt_drawn" }],
+    ageInMonths: 342
+  });
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_342"), true);
+});
+
 test("employee option grants do not create a protagonist option coverage issue", () => {
   const issues = detectNarrativeFinancialCoverageIssues({
     narrativeText: "你决定建立期权池，并授予销售总监和技术骨干各2%的期权。",
     ledger, acceptedEvents: [], ageInMonths: 372
   });
   assert.equal(issues.length, 0);
+});
+
+test("a conditional option promise is not treated as a completed personal grant", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "股权激励计划尚未正式设立，CEO只给你口头承诺：如果融资成功，会优先考虑你的期权。",
+    ledger, acceptedEvents: [], ageInMonths: 373
+  });
+  assert.equal(issues.length, 0);
+});
+
+test("an option requiring future performance is not treated as a completed grant", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "新公司给你的年薪是42万，但期权部分需要等事业部业绩连续两年达标后才能兑现。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 433
+  });
+  assert.equal(issues.some((issue) => issue.id.includes("personal_option")), false);
+  assert.equal(issues.some((issue) => issue.id.includes("business_holding")), false);
 });
 
 test("a protagonist accepting sweat equity requires a personal holding", () => {
@@ -97,10 +164,66 @@ test("matching salary adjustment satisfies compensation coverage while staff pay
   assert.equal(staffPayroll.length, 0);
 });
 
+test("historical salary comparisons and a resigned salary do not become current compensation facts", () => {
+  for (const narrativeText of [
+    "你想起那种踏实感是以前年薪32万时才有的。",
+    "你辞去了年薪38万元的工作，开始创业。"
+  ]) {
+    const issues = detectNarrativeFinancialCoverageIssues({
+      narrativeText,
+      ledger,
+      acceptedEvents: [],
+      ageInMonths: 386
+    });
+    assert.equal(issues.length, 0);
+  }
+});
+
 test("explicit protagonist job entry, role change and retirement require authoritative transitions", () => {
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你正式入职一家软件公司。", currentStatus: "student" }), true);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你决定换工作，加入新的团队。", currentStatus: "employed" }), true);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你办理退休，结束全职工作。", currentStatus: "employed" }), true);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你继续当前岗位，本期没有变化。", currentStatus: "employed" }), false);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "父亲正式退休，你为他庆祝。", currentStatus: "employed" }), false);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "投资人要求你全职投入产品。你面临抉择：是辞去稳定的UI/UX工作，还是保持现状。意向书条件是你必须在三个月内从现有公司离职并全职创业。",
+    currentStatus: "employed"
+  }), false);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "你最终决定辞去稳定的UI/UX工作，正式全职投入创业。",
+    currentStatus: "employed"
+  }), true);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "你的本职工作保持稳定，但房贷压力让你不敢轻易辞职。你开始认真考虑是否应该未来全职投入创业。",
+    currentStatus: "employed"
+  }), false);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "你利用业余时间联系了两位猎头，了解到其他岗位的薪资区间。你决定暂不跳槽，先积累一年行业经验。",
+    currentStatus: "employed"
+  }), false);
+  assert.equal(narrativeRequiresCareerTransition({
+    narrativeText: "你认购B公司子公司股份后，辞去了创业公司外部合伙人身份，将全部精力投入事业部。",
+    currentStatus: "employed"
+  }), false);
+});
+
+test("post-sanitization narrative reconciliation resolves stale coverage blockers", () => {
+  const staleIssue = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你的税后年薪调整为18万元。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 430
+  });
+  assert.equal(staleIssue.length, 1);
+  const reconciled = reconcileNarrativeFinancialIssues({
+    issues: staleIssue,
+    narrativeText: "你的个人收入仍以权威账本中已确认的记录为准。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 430
+  });
+  assert.equal(reconciled.length, 1);
+  assert.equal(reconciled[0].status, "resolved");
+  assert.equal(reconciled[0].resolvedAtAgeInMonths, 430);
+  assert.equal(reconciled[0].resolvedByEventId, "system:narrative_revalidated");
 });

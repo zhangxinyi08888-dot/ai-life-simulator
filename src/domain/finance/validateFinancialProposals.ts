@@ -17,13 +17,37 @@ const FINANCIAL_EVENT_KINDS = new Set<FinancialEventKind>([
   "income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended",
   "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended",
   "one_off_expense_paid", "asset_purchased", "asset_balance_discovered", "asset_sold", "asset_revalued", "debt_drawn", "debt_balance_discovered",
-  "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven",
+  "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven", "debt_default_recorded",
   "business_holding_started",
   "business_option_granted", "business_option_vested", "business_option_revalued",
   "business_option_exercised", "business_option_expired", "business_option_cancelled",
   "business_financing_recorded", "business_holding_revalued", "business_distribution_received",
   "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"
 ]);
+const ASSET_TYPES = new Set(["investment", "property", "annuity", "insurance_cash_value", "other_personal_asset"]);
+const PERSONAL_INCOME_SOURCE_TYPES = new Set(["salary", "contract", "self_employment_draw", "rent", "pension", "annuity_payment", "royalty", "investment_distribution", "business_dividend", "family_support", "other"]);
+const PERSONAL_OPERATING_FLOW_KINDS = new Set<FinancialEventKind>([
+  "income_source_started",
+  "income_source_adjusted",
+  "income_source_paused",
+  "income_source_ended",
+  "one_off_income_received",
+  "expense_commitment_started",
+  "expense_commitment_adjusted",
+  "expense_commitment_ended",
+  "one_off_expense_paid"
+]);
+
+function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string): boolean {
+  if (!["salary", "contract", "self_employment_draw", "business_dividend"].includes(String(type))) return true;
+  if (String(type) === "self_employment_draw" || String(type) === "business_dividend") {
+    if (/(?:你|我|主角|本人).{0,32}(?:从|动用)[^。；]{0,20}(?:积蓄|存款|储蓄|备用金|个人账户)[^。；]{0,20}(?:提取|拿出|支取|取出)|(?:你|我|主角|本人).{0,20}(?:从积蓄中|从存款中|从储蓄中|从备用金中)(?:提取|拿出|支取|取出)/u.test(evidence)) {
+      return false;
+    }
+    return /(?:你|我|主角|本人).{0,80}(?:领取|提取|获得|收到|赚|挣|顾问费|咨询收入|转入个人|给自己发|个人可支配收入|个人收入|个人提款|个人账户|工资|薪资|降薪|涨薪|调薪|业主提款|分红)/u.test(evidence);
+  }
+  return /(?:你|我|主角|本人).{0,80}(?:领取|获得|收到|赚|挣|顾问费|咨询收入|副业月收入|月薪|年薪|工资|薪资|降薪|涨薪|调薪|报酬|个人收入|个人进账|个人账户|可支配收入)/u.test(evidence);
+}
 
 function proposalIssue(input: {
   proposal?: FinancialEventProposal;
@@ -39,7 +63,13 @@ function proposalIssue(input: {
   const relatedAccountIds = [payload.sourceCashAccountId, payload.destinationCashAccountId, payload.assetAccountId, payload.assetAccount?.id, payload.expenseCommitmentId, payload.nextCommitment?.id].filter((value): value is string => typeof value === "string" && value.length > 0);
   const relatedDebtAccountIds = [payload.debtAccountId, payload.oldDebtAccountId, payload.debtAccount?.id, payload.replacementDebtAccount?.id].filter((value): value is string => typeof value === "string" && value.length > 0);
   const isHoldingPayload = input.proposal?.kind === "business_holding_started";
-  const relatedBusinessHoldingIds = [payload.businessHoldingId, isHoldingPayload ? payload.id : undefined, payload.optionHolding?.id, payload.resultingEquityHolding?.id]
+  const relatedBusinessHoldingIds = [
+    payload.businessHoldingId,
+    payload.businessHolding?.id,
+    isHoldingPayload ? payload.id : undefined,
+    payload.optionHolding?.id,
+    payload.resultingEquityHolding?.id
+  ]
     .filter((value): value is string => typeof value === "string" && value.length > 0);
   const safeSummary = String(input.summary || "财务 Proposal 校验失败")
     .replace(/\bundefined\b/gi, "缺失值")
@@ -78,14 +108,14 @@ function typedReferenceIssue(input: { proposal: FinancialEventProposal; ledger: 
     "business_option_vested", "business_option_revalued", "business_option_exercised", "business_option_expired", "business_option_cancelled"
   ].includes(input.proposal.kind)) references.push({ id: payload.businessHoldingId, label: "企业持股", ids: activeHoldings });
   const destinationCashKinds: FinancialEventKind[] = ["one_off_income_received", "family_support_received", "asset_sold", "debt_drawn", "liquidity_shortfall_created", "business_distribution_received", "business_holding_sold"];
-  const sourceCashKinds: FinancialEventKind[] = ["one_off_expense_paid", "family_support_paid", "asset_purchased", "debt_principal_repaid", "debt_interest_paid", "business_option_exercised"];
+  const sourceCashKinds: FinancialEventKind[] = ["one_off_expense_paid", "family_support_paid", "asset_purchased", "debt_principal_repaid", "debt_interest_paid", "business_holding_started", "business_option_exercised"];
   if (destinationCashKinds.includes(input.proposal.kind)) references.push({ id: payload.destinationCashAccountId, label: "现金账户", ids: activeCash });
   if (sourceCashKinds.includes(input.proposal.kind) || (input.proposal.kind === "debt_restructured" && payload.sourceCashAccountId)) references.push({ id: payload.sourceCashAccountId, label: "现金账户", ids: activeCash });
   const invalid = references.find((reference) => typeof reference.id === "string" && !reference.ids.includes(reference.id));
   if (!invalid) return undefined;
   return proposalIssue({
     proposal: input.proposal,
-    code: "ACCOUNT_TYPE_MISMATCH",
+    code: input.proposal.kind === "asset_sold" ? "UNBALANCED_TRANSACTION" : "ACCOUNT_TYPE_MISMATCH",
     summary: `${invalid.label} ID 类型错误或不存在：${String(invalid.id)}；合法候选：${invalid.ids.length ? invalid.ids.join("、") : "无可用候选"}`,
     ageInMonths: input.ageInMonths
   });
@@ -96,7 +126,7 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
   const subject = proposal.kind === "expense_commitment_adjusted" ? payload.nextCommitment : payload;
   const text = `${proposal.evidence || ""} ${subject?.displayName || ""}`;
   const businessExpense = /(?:公司|团队|项目|门店|工作室|机构|中心)[^。；]{0,40}(?:工资|薪酬|人力成本|运营成本|服务器|市场推广|采购|办公成本|仓库|场地|审计费)|(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,30}(?:会计|员工|助理|工程师|销售|运营)[^。；]{0,20}(?:月薪|工资|薪酬)|(?:专职会计|员工|助理|工程师|销售|运营)[^。；]{0,16}(?:月薪|工资|薪酬)|(?:仓库|办公室|门店|场地)(?:月租|租金)|(?:团队工资|员工工资|助理补贴|企业运营)/u.test(text);
-  const businessRevenue = /(?:公司|SaaS|产品|平台|客户合同|客户年费|工作室|机构|中心|基金会|协会|公益项目)[^。；]{0,45}(?:营收|收入|年费|回款|销售额|资助|拨款|赞助|项目款|首期款|可支配资金)|(?:订阅收入|公司月收入|项目营收|项目资助|项目拨款)/u.test(text);
+  const businessRevenue = /(?:公司|SaaS|产品|平台|客户合同|客户年费|工作室|机构|中心|基金会|协会|公益项目)[^。；]{0,45}(?:营收|收入|年费|回款|销售额|资助|拨款|赞助|捐款|月捐|会费|项目款|首期款|可支配资金)|(?:订阅收入|公司月收入|项目营收|项目资助|项目拨款|机构月捐|项目捐款)/u.test(text);
   const explicitlyNegatedReceipt = /你(?:个人)?[^。；]{0,12}(?:没有|未|并未|不曾)[^。；]{0,12}(?:领取|获得|收到|分红|股息)/u.test(text);
   const isIncomeProposal = ["income_source_started", "income_source_adjusted", "one_off_income_received"].includes(proposal.kind);
   const explicitPersonal = isIncomeProposal && !explicitlyNegatedReceipt
@@ -106,12 +136,22 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
   return (businessExpense || businessRevenue) && !explicitPersonal && !personalCompensation;
 }
 
+function unsupportedRecurringOtherIncome(proposal: FinancialEventProposal): boolean {
+  if (proposal.kind !== "income_source_started" && proposal.kind !== "income_source_adjusted") return false;
+  const payload = proposal.payload as Record<string, any>;
+  const source = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
+  if (source?.type !== "other" || source?.accrualPolicy === "event_only") return false;
+  const text = `${proposal.evidence || ""} ${source?.displayName || ""}`;
+  const hasRecurringCadence = /(?:每月|月均|按月|月收入|每年|年度|按年|年收入|稳定|固定|持续|定期|月薪|年薪)/u.test(text);
+  return !hasRecurringCadence;
+}
+
 function thirdPartyIncomeFact(proposal: FinancialEventProposal): boolean {
   if (!["income_source_started", "income_source_adjusted", "one_off_income_received", "family_support_received"].includes(proposal.kind)) return false;
   const payload = proposal.payload as Record<string, any>;
   const subject = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
   const text = `${proposal.evidence || ""} ${subject?.displayName || ""}`;
-  const thirdParty = /(?:妻子|丈夫|伴侣|配偶|女友|男友|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|岳父|岳母|公公|婆婆|小余|她|他)[^。；]{0,45}(?:月薪|年薪|工资|薪资|收入|到手|分红|股息)/u.test(text)
+  const thirdParty = /(?:妻子|丈夫|伴侣|配偶|女友|男友|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|岳父|岳母|公公|婆婆|小余|她|他)[^。；]{0,45}(?:月薪|年薪|工资|薪资|收入|到手|分红|股息|赚|盈利|利润)/u.test(text)
     || /^(?:妻子|丈夫|伴侣|配偶|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|小余)/u.test(String(subject?.displayName || ""));
   const transferredToProtagonist = /(?:给你|向你|转入你的|转给你|汇给你|进入你(?:的)?账户|转[^。；]{0,16}(?:进|入)你(?:建立的|的)?[^。；]{0,16}账户|共同账户)/u.test(text);
   const protagonistIsRecipient = /(?:邀请|邀约|问|聘请|雇佣|希望)[^。；]{0,18}你[^。；]{0,28}(?:月薪|年薪|工资|薪资|顾问费|咨询费)|你[^。；]{0,28}(?:加入|担任|受聘|接受)[^。；]{0,28}(?:月薪|年薪|工资|薪资|顾问费|咨询费)/u.test(text);
@@ -121,6 +161,46 @@ function thirdPartyIncomeFact(proposal: FinancialEventProposal): boolean {
   if (thirdParty && ["income_source_started", "income_source_adjusted"].includes(proposal.kind)) return true;
   if (thirdParty && proposal.kind === "family_support_received") return !transferredToProtagonist;
   return thirdParty && !protagonistIsRecipient;
+}
+
+function duplicateDebtBalanceDiscovery(
+  proposal: FinancialEventProposal,
+  ledger: FinancialLedger
+): { id: string; principalWan: number } | undefined {
+  if (proposal.kind !== "debt_balance_discovered") return undefined;
+  const candidate = (proposal.payload as FinancialEventPayloadMap["debt_balance_discovered"]).debtAccount;
+  const activeDebts = ledger.debtAccounts.filter((account) => account.status === "active" || account.status === "defaulted");
+  const exactId = activeDebts.find((account) => account.id === candidate.id);
+  if (exactId) return exactId;
+
+  // A repeated mention of the sole opening mortgage is not a new balance fact.
+  // Multiple mortgages remain distinguishable and therefore require an
+  // explicit account id instead of being collapsed by type.
+  if (candidate.type !== "mortgage") return undefined;
+  const activeMortgages = activeDebts.filter((account) => account.type === "mortgage");
+  if (activeMortgages.length !== 1) return undefined;
+  const existing = activeMortgages[0];
+  const toleranceWan = Math.max(0.01, Math.abs(existing.principalWan) * 0.001);
+  return Math.abs(existing.principalWan - candidate.principalWan) <= toleranceWan
+    ? existing
+    : undefined;
+}
+
+function debtBalanceEvidenceSupportsPrincipal(proposal: FinancialEventProposal): boolean {
+  if (proposal.kind !== "debt_balance_discovered") return true;
+  const principalWan = Number(
+    (proposal.payload as FinancialEventPayloadMap["debt_balance_discovered"]).debtAccount.principalWan
+  );
+  const debtEvidence = proposal.evidence?.split(/(?<=[。！？；])/u).find((sentence) => (
+    /房贷|按揭|贷款|借款|欠款|负债|债务|本金/u.test(sentence)
+    && /余额|尚欠|还欠|剩余|本金|欠款|负债|债务/u.test(sentence)
+  ));
+  if (!debtEvidence) return false;
+  const explicitBalancesWan = [...debtEvidence.matchAll(/(\d+(?:\.\d+)?)\s*万元?/gu)]
+    .map((match) => Number(match[1]));
+  return explicitBalancesWan.some((amount) => (
+    Math.abs(amount - principalWan) <= Math.max(0.01, Math.abs(principalWan) * 0.001)
+  ));
 }
 
 function markEstimatedFacts<T>(value: T): T {
@@ -147,7 +227,7 @@ function acceptedEvent(proposal: FinancialEventProposal, evidenceReason: Evidenc
       purchase.linkedDebtDrawEventId = `accepted_${linkedId}`;
     }
   }
-  return {
+  const event = {
     id: `accepted_${proposal.id}`,
     proposalId: proposal.id,
     kind: proposal.kind,
@@ -158,9 +238,82 @@ function acceptedEvent(proposal: FinancialEventProposal, evidenceReason: Evidenc
       sourceEventId: proposal.sourceOutcomeId,
       excerpt: proposal.evidence.trim(),
       reasonCode: evidenceReason,
-      confidence: proposal.confidence
+      confidence: proposal.confidence,
+      financialScope: proposal.financialScope ?? "personal"
     }],
     acceptedByReasonCodes: ["SCHEMA", "OUTCOME_AUTHORITY", "SUBJECT", "TEMPORAL", evidenceReason, "ACCOUNTING_INVARIANTS"]
+  } as AcceptedFinancialEvent;
+  if (event.kind === "asset_purchased") {
+    const account = event.payload.assetAccount;
+    if (!Array.isArray(account.evidence) || account.evidence.length === 0) {
+      account.evidence = structuredClone(event.evidence);
+    }
+  }
+  if (event.kind === "business_holding_started") {
+    const holding = event.payload.businessHolding;
+    if (!Array.isArray(holding.evidence) || holding.evidence.length === 0) holding.evidence = structuredClone(event.evidence);
+    if (!Array.isArray(holding.business.evidence) || holding.business.evidence.length === 0) holding.business.evidence = structuredClone(event.evidence);
+  }
+  if (event.kind === "business_holding_revalued" && (!Array.isArray(event.payload.valuationEvidence) || event.payload.valuationEvidence.length === 0)) {
+    event.payload.valuationEvidence = structuredClone(event.evidence);
+  }
+  if (event.kind === "income_source_started" && (!Array.isArray(event.payload.evidence) || event.payload.evidence.length === 0)) {
+    event.payload.evidence = structuredClone(event.evidence);
+  }
+  if (event.kind === "income_source_adjusted" && (!Array.isArray(event.payload.nextSource.evidence) || event.payload.nextSource.evidence.length === 0)) {
+    event.payload.nextSource.evidence = structuredClone(event.evidence);
+  }
+  if (event.kind === "expense_commitment_started" && (!Array.isArray(event.payload.evidence) || event.payload.evidence.length === 0)) {
+    event.payload.evidence = structuredClone(event.evidence);
+  }
+  if (event.kind === "expense_commitment_adjusted" && (!Array.isArray(event.payload.nextCommitment.evidence) || event.payload.nextCommitment.evidence.length === 0)) {
+    event.payload.nextCommitment.evidence = structuredClone(event.evidence);
+  }
+  if (event.kind === "debt_drawn" || event.kind === "liquidity_shortfall_created") {
+    const account = event.payload.debtAccount;
+    if (!Array.isArray(account.evidence) || account.evidence.length === 0) {
+      account.evidence = structuredClone(event.evidence);
+    }
+  }
+  if (event.kind === "debt_restructured") {
+    const account = event.payload.replacementDebtAccount;
+    if (!Array.isArray(account.evidence) || account.evidence.length === 0) {
+      account.evidence = structuredClone(event.evidence);
+    }
+  }
+  return event;
+}
+
+/**
+ * Automatic liquidity is an exception for an expense that the narrative says
+ * has already happened and that cannot reasonably be cancelled.  The model
+ * cannot opt into this path: the marker is added only after ordinary evidence
+ * matching and the first explicit-funding trial have both run.
+ *
+ * Keep this deliberately conservative. Generic consumption and future intent
+ * are repairable proposals, not system-authorised borrowing.
+ */
+function isIncurredEssentialOneOffExpense(
+  proposal: FinancialEventProposal,
+  narrativeText: string
+): boolean {
+  if (proposal.kind !== "one_off_expense_paid") return false;
+  const evidence = proposal.evidence.trim();
+  if (!evidence || !matchFinancialEvidence({ proposal, narrativeText }).matched) return false;
+
+  const isAttemptOrFuture = /(?:尝试|试图|打算|计划|准备|考虑|申请|协商|报价|预算|尚未|还未|未能|没有|取消|可退|attempt|plan|intend|consider|apply|negotiate|not yet|cancel)/iu.test(evidence);
+  if (isAttemptOrFuture) return false;
+  const isCompleted = /(?:已经|已(?:经)?(?:支付|缴纳|结清|发生|产生|接受|完成)|支付了|缴纳了|花费了|住院|急诊|手术|治疗|抢救|丧葬|paid|incurred|completed|underwent|hospitali[sz]ed)/iu.test(evidence);
+  const isEssential = /(?:必要|必需|无法撤回|不可撤回|医疗|医药|治疗|住院|急诊|手术|抢救|护理|丧葬|基本住房|房租|学费|教育|保险|抚养|赡养|essential|necessary|unavoidable|medical|hospital|surgery|funeral|tuition|insurance|dependent care)/iu.test(evidence);
+  return isCompleted && isEssential;
+}
+
+function markSystemShortfallAllowed(event: AcceptedFinancialEvent): AcceptedFinancialEvent {
+  return {
+    ...event,
+    // This field is intentionally absent from Proposal. It is validator-owned.
+    liquidityTreatment: "allow_system_shortfall",
+    acceptedByReasonCodes: [...event.acceptedByReasonCodes, "INCURRED_ESSENTIAL_EXPENSE"]
   } as AcceptedFinancialEvent;
 }
 
@@ -245,9 +398,13 @@ export function validateFinancialProposals(input: {
     ids.add(proposal.id);
     const schemaErrors = validateFinancialPayloadSchema(proposal.kind, proposal.payload);
     if (schemaErrors.length > 0) {
+      const invalidAssetType = proposal.kind === "asset_purchased"
+        && schemaErrors.some((error) => error.path === "payload.assetAccount.type");
+      const invalidPersonalIncomeType = proposal.kind === "income_source_started"
+        && schemaErrors.some((error) => error.path === "payload.type");
       issues.push(proposalIssue({
         proposal,
-        code: "UNBALANCED_TRANSACTION",
+        code: invalidAssetType ? "INVALID_ASSET_TYPE" : invalidPersonalIncomeType ? "BUSINESS_PERSONAL_BOUNDARY_CONFLICT" : "UNBALANCED_TRANSACTION",
         summary: `财务 Proposal payload schema 无效：${schemaErrors.map((error) => `${error.path} ${error.reason}`).join("；")}`,
         ageInMonths: input.periodEndAgeInMonths
       }));
@@ -255,6 +412,16 @@ export function validateFinancialProposals(input: {
     }
     const referenceIssue = typedReferenceIssue({ proposal, ledger: input.currentLedger, ageInMonths: proposal.effectiveAtAgeInMonths });
     if (referenceIssue) { issues.push(referenceIssue); continue; }
+    const duplicateDebt = duplicateDebtBalanceDiscovery(proposal, input.currentLedger);
+    if (duplicateDebt) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: `债务账户 ${duplicateDebt.id} 已存在且余额一致；正文重复提及不能再次创建 debt_balance_discovered`,
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
     if (!input.acceptedOutcomeId || proposal.sourceOutcomeId !== input.acceptedOutcomeId) {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal 未关联本轮已接受结果", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
@@ -280,6 +447,15 @@ export function validateFinancialProposals(input: {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司营收、客户回款或产品年费不得进入主人公个人收入账本；只有个人工资、提款或已分配分红可以入账", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
     }
+    if (unsupportedRecurringOtherIncome(proposal)) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: "一次到账、首笔资助或单次结算不能推导为长期月度/年度个人收入；需要明确持续频率，或改用一次性收入事件",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
     if (proposal.kind === "income_source_started" && payload.type === "business_dividend"
       && !/分红|股息|利润分配|个人领取|转入个人/u.test(`${proposal.evidence} ${String(payload.displayName || "")}`)) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "business_dividend 必须有已向主人公分配利润的证据，不能用公司年费或营收替代", ageInMonths: proposal.effectiveAtAgeInMonths }));
@@ -289,6 +465,31 @@ export function validateFinancialProposals(input: {
     if (!evidenceMatch.matched || !evidenceMatch.reasonCode || !Number.isFinite(proposal.confidence) || proposal.confidence < 0.6 || proposal.confidence > 1) {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal 缺少可靠正文证据或 confidence", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
+    }
+    if (!debtBalanceEvidenceSupportsPrincipal(proposal)) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: "债务余额发现必须有正文明确余额或本金金额；不能从月供、期限或利率反推本金",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
+    if (proposal.financialScope === "business_operating" && PERSONAL_OPERATING_FLOW_KINDS.has(proposal.kind)) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT",
+        summary: "公司营业收入、员工工资和运营成本不得作为主角个人收支入账",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
+    if (proposal.kind === "asset_purchased") {
+      const assetAccount = payload.assetAccount as Record<string, unknown> | undefined;
+      if (!assetAccount || !ASSET_TYPES.has(String(assetAccount.type))) {
+        issues.push(proposalIssue({ proposal, code: "INVALID_ASSET_TYPE", summary: "资产购买包含不受支持的资产类型", ageInMonths: proposal.effectiveAtAgeInMonths }));
+        continue;
+      }
     }
     if (proposal.kind === "expense_commitment_started") {
       const durableType = String(payload.type);
@@ -315,8 +516,16 @@ export function validateFinancialProposals(input: {
       continue;
     }
     if (proposal.kind === "income_source_started") {
+      if (!PERSONAL_INCOME_SOURCE_TYPES.has(String(payload.type))) {
+        issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司营业收入类型不能进入个人收入来源账本", ageInMonths: proposal.effectiveAtAgeInMonths }));
+        continue;
+      }
       const linkedCareerStateId = payload.linkedCareerStateId;
       const isCareerIncome = ["salary", "self_employment_draw"].includes(String(payload.type));
+      if (!personalCareerIncomeEvidenceIsExplicit(payload.type, proposal.evidence)) {
+        issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额或营业收入不能证明主角已经领取个人工资、提款或分红", ageInMonths: proposal.effectiveAtAgeInMonths }));
+        continue;
+      }
       if (isCareerIncome && typeof linkedCareerStateId !== "string") {
         issues.push(proposalIssue({ proposal, code: "CAREER_INCOME_CONFLICT", summary: "职业收入来源必须引用当前或本轮已接受的 CareerState", ageInMonths: proposal.effectiveAtAgeInMonths }));
         continue;
@@ -350,6 +559,16 @@ export function validateFinancialProposals(input: {
         }
       }
     }
+    if (proposal.kind === "income_source_adjusted"
+      && !personalCareerIncomeEvidenceIsExplicit((payload.nextSource as Record<string, unknown> | undefined)?.type, proposal.evidence)) {
+      issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额或营业收入不能证明主角个人收入已经调整", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
+    if (proposal.kind === "income_source_adjusted"
+      && !PERSONAL_INCOME_SOURCE_TYPES.has(String((payload.nextSource as Record<string, unknown> | undefined)?.type))) {
+      issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司营业收入类型不能进入个人收入来源账本", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
     const amount = typeof payload.amountWan === "number" ? payload.amountWan : 0;
     const plausibilityLimit = Math.max(100, Math.abs(input.currentLedger.cashAccounts.reduce((sum, account) => sum + account.balanceWan, 0)) * 5);
     if ((proposal.kind === "one_off_income_received" || proposal.kind === "one_off_expense_paid") && amount > plausibilityLimit) {
@@ -360,9 +579,35 @@ export function validateFinancialProposals(input: {
     acceptedProposals.push(proposal);
   }
 
-  const candidatesByProposalId = new Map(acceptedEvents.map((event) => [event.proposalId!, event]));
+  const hasActiveProperty = input.currentLedger.assetAccounts.some((account) => account.status === "active" && account.type === "property");
+  const hasAcceptedPropertyFact = acceptedEvents.some((event) => (
+    (event.kind === "asset_purchased" || event.kind === "asset_balance_discovered")
+    && event.payload.assetAccount.type === "property"
+  ));
+  const purchaseNarrative = /(?:首付|买下|买了|购买|购入|购置|购房|婚房)/u.test(input.narrativeText);
+  const orphanPropertyPurchaseProposalIds = new Set<string>();
+  if (!hasActiveProperty && !hasAcceptedPropertyFact && purchaseNarrative) {
+    for (const proposal of acceptedProposals) {
+      const payload = proposal.payload as Record<string, unknown>;
+      const mortgageDraw = proposal.kind === "debt_drawn"
+        && (payload.debtAccount as Record<string, unknown> | undefined)?.type === "mortgage";
+      const downPayment = proposal.kind === "one_off_expense_paid" && /(?:首付|购房款|买房款)/u.test(proposal.evidence);
+      if (!mortgageDraw && !downPayment) continue;
+      orphanPropertyPurchaseProposalIds.add(proposal.id);
+      issues.push(proposalIssue({
+        proposal,
+        code: "UNBALANCED_TRANSACTION",
+        summary: "购房首付或新房贷必须与同批已通过校验的 property 资产事件一起提交，不能只记支出和债务",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+    }
+  }
+  const trialProposals = acceptedProposals.filter((proposal) => !orphanPropertyPurchaseProposalIds.has(proposal.id));
+  const candidatesByProposalId = new Map(acceptedEvents
+    .filter((event) => !orphanPropertyPurchaseProposalIds.has(event.proposalId!))
+    .map((event) => [event.proposalId!, event]));
   const acceptedAfterTrial: AcceptedFinancialEvent[] = [];
-  for (const group of proposalGroups(acceptedProposals, input.currentLedger)) {
+  for (const group of proposalGroups(trialProposals, input.currentLedger)) {
     const groupEvents = group.map((proposal) => candidatesByProposalId.get(proposal.id)!);
     try {
       reduceFinancialLedger({
@@ -372,10 +617,34 @@ export function validateFinancialProposals(input: {
         periodStartAgeInMonths: input.periodStartAgeInMonths,
         periodEndAgeInMonths: input.periodEndAgeInMonths,
         events: [...acceptedAfterTrial, ...groupEvents],
-        liquidityPolicy: input.liquidityPolicy
+        // Proposal trials are always strict. Production's broad liquidity
+        // policy must never make an unfunded model proposal appear valid.
+        liquidityPolicy: "require_explicit"
       });
       acceptedAfterTrial.push(...groupEvents);
     } catch (error) {
+      const missingFunding = error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE";
+      const mayUseSystemShortfall = missingFunding
+        && group.length > 0
+        && group.every((proposal) => isIncurredEssentialOneOffExpense(proposal, input.narrativeText));
+      if (mayUseSystemShortfall) {
+        const markedEvents = groupEvents.map(markSystemShortfallAllowed);
+        try {
+          reduceFinancialLedger({
+            ledger: input.currentLedger,
+            transactionId: `validation_essential_${input.simulationTransactionId}_${acceptedAfterTrial.length}`,
+            expectedLedgerRevision: input.currentLedger.revision,
+            periodStartAgeInMonths: input.periodStartAgeInMonths,
+            periodEndAgeInMonths: input.periodEndAgeInMonths,
+            events: [...acceptedAfterTrial, ...markedEvents],
+            liquidityPolicy: "auto_shortfall_debt"
+          });
+          acceptedAfterTrial.push(...markedEvents);
+          continue;
+        } catch (secondTrialError) {
+          error = secondTrialError;
+        }
+      }
       if (!(error instanceof FinancialLedgerInvariantError)) throw error;
       const code = error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE"
         ? "MISSING_FUNDING_SOURCE"

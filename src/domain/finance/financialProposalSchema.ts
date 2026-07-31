@@ -123,7 +123,8 @@ export function validateFinancialPayloadSchema(kind: FinancialEventKind, value: 
     case "debt_interest_paid": string("debtAccountId"); string("sourceCashAccountId"); positive("interestPaidWan"); break;
     case "debt_restructured": string("oldDebtAccountId"); debtAccount(payload.replacementDebtAccount, "payload.replacementDebtAccount", errors); nonNegative("transactionFeeWan"); if (Number(payload.transactionFeeWan) > 0) string("sourceCashAccountId"); break;
     case "debt_forgiven": string("debtAccountId"); positive("principalForgivenWan"); break;
-    case "business_holding_started": businessHolding(payload, "payload", errors); break;
+    case "debt_default_recorded": string("debtAccountId"); string("reason"); break;
+    case "business_holding_started": string("sourceCashAccountId"); nonNegative("personalCashInvestedWan"); businessHolding(payload.businessHolding, "payload.businessHolding", errors); break;
     case "business_financing_recorded": string("businessHoldingId"); positive("financingAmountWan"); nonNegative("personalCashReceivedWan"); optionalNumber(payload.postMoneyValuationWan, "payload.postMoneyValuationWan", errors); optionalNumber(payload.ownershipRateAfterFinancing, "payload.ownershipRateAfterFinancing", errors); break;
     case "business_option_granted": businessHolding(payload.optionHolding, "payload.optionHolding", errors, true); break;
     case "business_option_vested": string("businessHoldingId"); positive("unitsVested"); break;

@@ -390,3 +390,39 @@ test("commitment review supports one bounded delay then resolves the checkpoint"
   assert.equal(resolved.worldStateSnapshot.relationships?.[0].progression, undefined);
   assert.equal(resolved.worldStateSnapshot.relationships?.[0].stage, "dating");
 });
+
+test("commitment evidence survives presentation-only paragraph insertion", () => {
+  const formed = applySelectedRelationshipOutcome({
+    current: baseWorld(), selectedHistoryItem: formationHistory(), simulationSeed: "seed", branchFingerprint: "branch",
+    nodeIndex: 4, effectiveAtAgeInMonths: 360
+  }).worldStateSnapshot;
+  const datingEvidence = "相处一段时间后，你们确认开始正式交往。";
+  const dating = formationHistory("begin_mutual_dating");
+  dating.eventMeta!.eventId = "romance_connection_clarification";
+  dating.description = datingEvidence;
+  dating.narrativeMeta!.relationshipProposals = [{
+    id: "dating", type: "romantic_transition", sourceOutcomeId: "begin_mutual_dating",
+    evidence: datingEvidence, toStage: "dating", toStatus: "active"
+  }];
+  const withCommitment = applySelectedRelationshipOutcome({
+    current: formed, selectedHistoryItem: dating, simulationSeed: "seed", branchFingerprint: "branch",
+    nodeIndex: 8, effectiveAtAgeInMonths: 369
+  }).worldStateSnapshot;
+
+  const evidence = "共同计划执行到第二个月，你发现现实更复杂。伴侣开始谈起下一步安排。";
+  const reassess = formationHistory("reassess_relationship_fit");
+  reassess.eventMeta!.eventId = "relationship_material_commitment_test";
+  reassess.description = "共同计划执行到第二个月，你发现现实更复杂。\n\n伴侣开始谈起下一步安排。";
+  reassess.narrativeMeta!.relationshipProposals = [{
+    id: "reassess", type: "romantic_transition", sourceOutcomeId: "reassess_relationship_fit",
+    evidence, toStage: "dating", toStatus: "strained"
+  }];
+  const committed = applySelectedRelationshipOutcome({
+    current: withCommitment, selectedHistoryItem: reassess, simulationSeed: "seed", branchFingerprint: "branch",
+    nodeIndex: 12, effectiveAtAgeInMonths: 393
+  });
+
+  assert.equal(committed.committed, true);
+  assert.equal(committed.worldStateSnapshot.relationships?.[0].status, "strained");
+  assert.equal(committed.worldStateSnapshot.relationships?.[0].progression, undefined);
+});

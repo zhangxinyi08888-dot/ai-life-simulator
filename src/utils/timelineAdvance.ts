@@ -83,6 +83,32 @@ export function deriveTemporalProfile(input: {
   return { ...profile, durationMonths: [...profile.durationMonths] as [number, number] };
 }
 
+/**
+ * Do not let an unrelated long-horizon event hide a newly distressed debt
+ * state for years. Debt-specific watch/distress events retain their authored
+ * profiles; other events get a short high-tension checkpoint so the next
+ * committed node can deterministically evaluate default risk.
+ */
+export function constrainTemporalProfileForDebtDistress(input: {
+  temporalProfile: TemporalProfile;
+  debtHealthLevel?: string;
+  isDebtDistressEvent: boolean;
+}): TemporalProfile {
+  const profile = input.temporalProfile;
+  if (input.debtHealthLevel !== "distressed" || input.isDebtDistressEvent) {
+    return { ...profile, durationMonths: [...profile.durationMonths] as [number, number] };
+  }
+  const maximumMonths = 3;
+  return {
+    lifeIntensity: "high_tension",
+    durationMonths: [
+      Math.min(profile.durationMonths[0], maximumMonths),
+      Math.min(profile.durationMonths[1], maximumMonths)
+    ],
+    requiresFollowUp: profile.requiresFollowUp
+  };
+}
+
 function clampDurationByStage(range: [number, number], stage: LifeStage): [number, number] {
   const maxMonths = stage === "childhood" || stage === "adolescence"
     ? 12

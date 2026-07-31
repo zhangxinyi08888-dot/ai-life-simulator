@@ -74,11 +74,11 @@ function debt(id: string, principalWan: number, type: DebtAccount["type"] = "fam
   };
 }
 
-test("initializes a version 2 protagonist ledger and derives the compatibility snapshot", () => {
+test("initializes a version 3 protagonist ledger and derives the compatibility snapshot", () => {
   const ledger = ledgerAt(240, 12.5);
   const derived = deriveFinancialState({ ledger, employmentStatus: "employed" });
 
-  assert.equal(ledger.version, 2);
+  assert.equal(ledger.version, 3);
   assert.equal(ledger.revision, 0);
   assert.equal(derived.state.cashWan, 12.5);
   assert.equal(derived.state.netWorthWan, 12.5);
@@ -152,6 +152,43 @@ test("accrues recurring income and commitments only for their actual active mont
   assert.equal(derived.state.annualizedRecurringIncomeWan, 0);
   assert.equal(derived.state.annualizedCoreExpenseWan, 12);
   assert.equal(derived.state.annualizedDisposableCashFlowWan, -12);
+});
+
+test("accepted income facts replace stale account evidence on start and adjustment", () => {
+  const staleEvidence: FinancialEvidence[] = [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "stale_outcome",
+    excerpt: "前三个月没有任何个人收入。",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    confidence: 0.9
+  }];
+  const ledger = ledgerAt(240, 10);
+  ledger.incomeSources.push({
+    id: "owner_draw",
+    type: "self_employment_draw",
+    displayName: "创业个人工资",
+    monthlyNetAmountWan: 0.5,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 240,
+    status: "active",
+    linkedCareerStateId: "career_founder",
+    factStatus: "known",
+    evidence: staleEvidence
+  });
+  const result = reduceFinancialLedger({
+    ledger,
+    transactionId: "tx_income_evidence_refresh",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 240,
+    periodEndAgeInMonths: 241,
+    events: [accepted("owner_draw_adjusted", "income_source_adjusted", 240, {
+      incomeSourceId: "owner_draw",
+      nextSource: { ...ledger.incomeSources[0], monthlyNetAmountWan: 4 }
+    })]
+  });
+  assert.deepEqual(result.ledger.incomeSources[0].evidence, evidence);
+  assert.equal(result.ledger.incomeSources[0].monthlyNetAmountWan, 4);
+  assert.equal(result.ledger.incomeSources[0].lastConfirmedAtAgeInMonths, 240);
 });
 
 test("cash purchase plus linked borrowing preserves principal transfer and charges only real loss", () => {
@@ -372,12 +409,15 @@ test("authoritative liquidity policy converts negative cash into an auditable de
     expectedLedgerRevision: 0,
     periodStartAgeInMonths: 360,
     periodEndAgeInMonths: 361,
-    events: [accepted(
-      "unfunded_expense",
-      "one_off_expense_paid",
-      361,
-      { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 3 }
-    )],
+    events: [{
+      ...accepted(
+        "unfunded_expense",
+        "one_off_expense_paid",
+        361,
+        { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 3 }
+      ),
+      liquidityTreatment: "allow_system_shortfall"
+    }],
     liquidityPolicy: "auto_shortfall_debt"
   });
   assert.equal(result.alreadyCommitted, false);
@@ -385,11 +425,11 @@ test("authoritative liquidity policy converts negative cash into an auditable de
   assert.equal(result.ledger.cashAccounts[0].balanceWan, 0);
   assert.equal(result.ledger.debtAccounts[0].principalWan, 2);
   assert.equal(result.ledger.debtAccounts[0].type, "liquidity_shortfall");
-  assert.ok(result.transaction.eventIds.some((id) => id.startsWith("auto_shortfall_draw_")));
+  assert.ok(result.transaction.eventIds.some((id) => id.startsWith("auto_shortfall_")));
   assert.equal(result.periodSummary.netWorthChangeWan, -3);
 });
 
-test("system liquidity shortfall reuses one revolving account, avoids schedule noise and sweeps surplus", () => {
+test("system liquidity shortfall reuses one revolving account, avoids schedule noise and preserves cash when reserve facts are missing", () => {
   const opening = initializeFinancialLedger({
     id: "revolving_shortfall",
     asOfAgeInMonths: 360,
@@ -400,13 +440,19 @@ test("system liquidity shortfall reuses one revolving account, avoids schedule n
   const first = reduceFinancialLedger({
     ledger: opening, transactionId: "shortfall_one", expectedLedgerRevision: 0,
     periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
-    events: [accepted("expense_one", "one_off_expense_paid", 361, { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 3 })],
+    events: [{
+      ...accepted("expense_one", "one_off_expense_paid", 361, { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 3 }),
+      liquidityTreatment: "allow_system_shortfall"
+    }],
     liquidityPolicy: "auto_shortfall_debt"
   });
   const second = reduceFinancialLedger({
     ledger: first.ledger, transactionId: "shortfall_two", expectedLedgerRevision: 1,
     periodStartAgeInMonths: 361, periodEndAgeInMonths: 362,
-    events: [accepted("expense_two", "one_off_expense_paid", 362, { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 1 })],
+    events: [{
+      ...accepted("expense_two", "one_off_expense_paid", 362, { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 1 }),
+      liquidityTreatment: "allow_system_shortfall"
+    }],
     liquidityPolicy: "auto_shortfall_debt"
   });
   assert.equal(second.ledger.debtAccounts.filter((debt) => debt.type === "liquidity_shortfall").length, 1);
@@ -423,11 +469,57 @@ test("system liquidity shortfall reuses one revolving account, avoids schedule n
     liquidityPolicy: "auto_shortfall_debt"
   });
   if (!("periodSummary" in recovered)) return;
-  assert.equal(recovered.ledger.debtAccounts[0].status, "repaid");
-  assert.equal(recovered.ledger.debtAccounts[0].principalWan, 0);
-  assert.equal(recovered.ledger.cashAccounts[0].balanceWan, 2);
-  assert.equal(recovered.periodSummary.debtPrincipalPaidWan, 3);
-  assert.ok(recovered.transaction.eventIds.some((id) => id.startsWith("auto_shortfall_repayment_")));
+  assert.equal(recovered.ledger.debtAccounts[0].status, "active");
+  assert.equal(recovered.ledger.debtAccounts[0].principalWan, 3);
+  assert.equal(recovered.ledger.cashAccounts[0].balanceWan, 5);
+  assert.equal(recovered.periodSummary.debtPrincipalPaidWan, 0);
+  assert.equal(recovered.transaction.eventIds.some((id) => id.startsWith("auto_shortfall_recovery_")), false);
+});
+
+test("proposal-created liquidity shortfall merges into the canonical revolving account", () => {
+  const opening = ledgerAt(240, 0);
+  const first = reduceFinancialLedger({
+    ledger: opening,
+    transactionId: "canonical_shortfall_open",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 240,
+    periodEndAgeInMonths: 241,
+    events: [{
+      ...accepted("essential_expense", "one_off_expense_paid", 241, {
+        sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+        amountWan: 1
+      }),
+      liquidityTreatment: "allow_system_shortfall"
+    }],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  const canonicalId = first.ledger.debtAccounts.find((item) => item.type === "liquidity_shortfall")!.id;
+  const second = reduceFinancialLedger({
+    ledger: first.ledger,
+    transactionId: "canonical_shortfall_proposal",
+    expectedLedgerRevision: first.ledger.revision,
+    periodStartAgeInMonths: 241,
+    periodEndAgeInMonths: 242,
+    events: [accepted("proposal_shortfall", "liquidity_shortfall_created", 242, {
+      debtAccount: {
+        ...debt("proposal_shortfall_account", 0.5, "liquidity_shortfall"),
+        openedAtAgeInMonths: 242
+      },
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      principalDrawnWan: 0.5
+    })],
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+
+  const active = second.ledger.debtAccounts.filter((item) => item.type === "liquidity_shortfall" && item.status === "active");
+  assert.equal(active.length, 1);
+  assert.equal(active[0].id, canonicalId);
+  assert.equal(active[0].origin, "system_auto_shortfall");
+  assert.equal(active[0].principalWan, 1.5);
+  assert.equal(second.ledger.cashAccounts[0].balanceWan, 0.5);
+  const merged = second.ledger.debtAccounts.find((item) => item.id === "proposal_shortfall_account")!;
+  assert.equal(merged.status, "restructured");
+  assert.equal(merged.principalWan, 0);
 });
 
 test("does not let a later inflow retroactively fund an earlier expense", () => {

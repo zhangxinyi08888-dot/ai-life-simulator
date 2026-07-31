@@ -2,6 +2,10 @@ import { formatAnswerTurns } from "../../utils/answerFormatting";
 import { formatAgeInMonths } from "../../utils/timelineAdvance";
 import { FinalOutcomeContext, HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
 import { getAuthoritativeFinalFinancialContext } from "../../utils/finalOutcomeFinancialSanitizer";
+import {
+  deriveFinalFinancialNarrativeAuthority,
+  formatFinalFinancialNarrativeAuthorityForPrompt
+} from "../../utils/finalFinancialNarrativeAuthority";
 
 function focusLabel(value: string): string {
   if (value === "career") return "事业发展与职场长征";
@@ -112,6 +116,11 @@ ${history.at(-1)?.financialState ? `${history.at(-1)!.financialState!.netWorthWa
 ${formatAuthoritativeFinance(history)}
 - 报告和海报中的现金、净资产、收入、支出、债务、回报等数字只能逐项引用本区；历史正文里的财务数字不是报告事实源。
 - 本区没有提供的金额、估值、倍数或回报率必须改为定性表述，不得从叙事推算或补写。
+
+【报告财务语义硬约束】
+${formatFinalFinancialNarrativeAuthorityForPrompt(deriveFinalFinancialNarrativeAuthority(history))}
+- 上述 debt、netWorth、property 是封闭事实集合。海报标题、称号、摘要、时间线和报告正文都必须服从。
+- 仍有债务时不得写已经还清、结清或摆脱债务；净资产为负时不得写财务自由或经济无忧；没有已确认房产时不得写名下房产、卖房或房产升值。
 
 【输出要求】
 请严格返回 JSON，不要 Markdown，不要解释。返回字段：

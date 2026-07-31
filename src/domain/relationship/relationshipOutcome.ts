@@ -58,6 +58,12 @@ function selectedOutcome(item: HistoryItem): string | undefined {
   return selected?.eventOutcomeId;
 }
 
+function containsNormalizedEvidence(surface: string, evidence: string): boolean {
+  const normalizedEvidence = evidence.trim().replace(/\s+/gu, "");
+  return normalizedEvidence.length > 0
+    && surface.replace(/\s+/gu, "").includes(normalizedEvidence);
+}
+
 function validProposal<T extends RelationshipProposal["type"]>(
   item: HistoryItem,
   outcomeId: string,
@@ -67,7 +73,10 @@ function validProposal<T extends RelationshipProposal["type"]>(
     proposal.type === type
     && proposal.sourceOutcomeId === outcomeId
     && Boolean(proposal.evidence.trim())
-    && item.description.includes(proposal.evidence.trim())
+    // Financial narrative grounding can insert paragraph boundaries after the
+    // relationship proposal is derived. Whitespace-only presentation changes
+    // must not invalidate otherwise verbatim authority evidence.
+    && containsNormalizedEvidence(item.description, proposal.evidence)
   ));
 }
 
@@ -80,7 +89,10 @@ function validFamilyProposal<T extends "family_activation" | "parent_topic_stanc
     proposal.type === type
     && proposal.sourceOutcomeId === outcomeId
     && Boolean(proposal.evidence.trim())
-    && (item.description.includes(proposal.evidence.trim()) || item.selectedChoice.includes(proposal.evidence.trim()))
+    && (
+      containsNormalizedEvidence(item.description, proposal.evidence)
+      || containsNormalizedEvidence(item.selectedChoice, proposal.evidence)
+    )
   ));
 }
 

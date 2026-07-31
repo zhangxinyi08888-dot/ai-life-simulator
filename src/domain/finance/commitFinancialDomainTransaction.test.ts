@@ -3,6 +3,7 @@ import test from "node:test";
 import { initializeCareerState, validateAndAcceptCareerTransition } from "../career/careerState";
 import type { CareerStateCollection } from "../career/types";
 import { commitFinancialDomainTransaction } from "./commitFinancialDomainTransaction";
+import { deriveDebtHealthState } from "./debtHealth";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { FinancialLedgerInvariantError, PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import type { AcceptedFinancialEvent, FinancialEventKind, FinancialEventPayloadMap, FinancialEvidence, FinancialLedgerIssue } from "./types";
@@ -92,10 +93,16 @@ test("commits CareerState, ledger, WorldState and derived snapshot as one transa
         amountWan: 1
       })
     ],
-    financialIssues: [{
-      id: "career_transition_missing_prior", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
-      relatedProposalIds: [], summary: "先前节点缺少职业转换", createdAtAgeInMonths: 360
-    }]
+    financialIssues: [
+      {
+        id: "career_transition_missing_prior", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
+        relatedProposalIds: [], summary: "先前节点缺少职业转换", createdAtAgeInMonths: 360
+      },
+      {
+        id: "personal_income_claim_without_event_360", code: "CAREER_INCOME_CONFLICT", severity: "blocking", status: "open",
+        relatedProposalIds: [], summary: "先前正文收入没有 Accepted FinancialEvent", createdAtAgeInMonths: 360
+      }
+    ]
   });
   assert.equal(result.alreadyCommitted, false);
   assert.equal(result.career.currentCareerStateId, nextCareerStateId);
@@ -108,6 +115,7 @@ test("commits CareerState, ledger, WorldState and derived snapshot as one transa
   assert.equal(result.derivedFinancialState.compatibilityState.cashWan, 2.65);
   assert.deepEqual(result.worldState.committedTransactionIds, ["atomic_success"]);
   assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "career_transition_missing_prior")?.status, "resolved");
+  assert.equal(result.financialLedger.unresolvedIssues.find((item) => item.id === "personal_income_claim_without_event_360")?.status, "resolved");
 });
 
 test("a ledger failure returns no partial CareerState or WorldState mutation", () => {
@@ -132,6 +140,46 @@ test("a ledger failure returns no partial CareerState or WorldState mutation", (
   assert.equal(current.ledger.revision, 0);
   assert.equal(current.ledger.cashAccounts[0].balanceWan, 2);
   assert.deepEqual(current.worldState.committedTransactionIds, []);
+});
+
+test("an authoritative housing start closes the prior policy or legacy housing estimate", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "estimated_housing",
+    type: "housing",
+    displayName: "系统估计住房支出",
+    monthlyAmountWan: 0.35,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "replace_estimated_housing",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("known_housing", "expense_commitment_started", 361, {
+      id: "mortgage_housing",
+      type: "housing",
+      displayName: "用户确认的住房月供",
+      monthlyAmountWan: 0.38,
+      activeFromAgeInMonths: 361,
+      status: "active",
+      factStatus: "known",
+      evidence
+    })]
+  });
+  const estimated = result.financialLedger.expenseCommitments.find((item) => item.id === "estimated_housing");
+  const activeHousing = result.financialLedger.expenseCommitments.filter((item) => item.status === "active" && item.type === "housing");
+  assert.equal(estimated?.status, "ended");
+  assert.equal(estimated?.activeUntilAgeInMonths, 361);
+  assert.deepEqual(activeHousing.map((item) => item.id), ["mortgage_housing"]);
 });
 
 test("repeated domain transaction is idempotent only when ledger and WorldState agree", () => {
@@ -220,6 +268,154 @@ test("a rejected fact quarantines only the affected recurring income and opens a
     acceptedFinancialEvents: []
   });
   assert.equal(second.financialPeriodSummary?.incomeWan, 0);
+});
+
+test("a rejected debt proposal cannot revoke an existing user-authoritative debt balance", () => {
+  const current = setup();
+  current.ledger.debtAccounts.push({
+    id: "opening_mortgage",
+    type: "mortgage",
+    displayName: "用户明确的住房按揭",
+    principalWan: 210,
+    openedAtAgeInMonths: 300,
+    status: "active",
+    repaymentPolicy: { mode: "estimated_amortizing", monthlyPrincipalWan: 0.875, remainingTermMonths: 240 },
+    factStatus: "known",
+    origin: "explicit",
+    accruedUnpaidInterestWan: 0,
+    servicingStatus: "current",
+    consecutiveMissedPaymentMonths: 0,
+    totalMissedPaymentMonths: 0,
+    recentMissedPaymentAgeInMonths: [],
+    evidence: [{ source: "user", reasonCode: "EXPLICIT_OPENING_FINANCIAL_FACT", confidence: 1 }]
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "rejected_duplicate_debt",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    financialIssues: [{
+      id: "bad_duplicate_debt",
+      code: "UNBALANCED_TRANSACTION",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["missing_debt_drawn"],
+      relatedDebtAccountIds: ["opening_mortgage"],
+      summary: "债务变化缺少可靠证据",
+      createdAtAgeInMonths: 361
+    }]
+  });
+  assert.equal(result.financialLedger.debtAccounts[0].factStatus, "known");
+  const health = deriveDebtHealthState({
+    ledger: result.financialLedger,
+    derivedFinancialState: result.derivedFinancialState.state
+  });
+  assert.equal(health.totalDebtWan, result.financialLedger.debtAccounts[0].principalWan);
+  assert.notEqual(health.level, "none");
+});
+
+test("a current debt account immediately closes its active servicing issue", () => {
+  const current = setup();
+  current.ledger.debtAccounts.push({
+    id: "recovered_loan",
+    type: "consumer_loan",
+    displayName: "已恢复履约的贷款",
+    principalWan: 5,
+    openedAtAgeInMonths: 300,
+    status: "active",
+    repaymentPolicy: { mode: "known_schedule", monthlyPrincipalWan: 0.2, monthlyInterestWan: 0.02, remainingTermMonths: 25 },
+    factStatus: "known",
+    origin: "explicit",
+    accruedUnpaidInterestWan: 0,
+    servicingStatus: "current",
+    consecutiveMissedPaymentMonths: 0,
+    totalMissedPaymentMonths: 1,
+    recentMissedPaymentAgeInMonths: [359],
+    evidence
+  });
+  current.ledger.unresolvedIssues.push({
+    id: "debt_payment_servicing_recovered_loan",
+    code: "DEBT_PAYMENT_MISSED",
+    severity: "warning",
+    status: "open",
+    relatedProposalIds: [],
+    relatedDebtAccountIds: ["recovered_loan"],
+    summary: "债务已出现未足额履约",
+    createdAtAgeInMonths: 359,
+    lastObservedAtAgeInMonths: 359,
+    occurrenceCount: 1
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "servicing_recovered",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+  const issue = result.financialLedger.unresolvedIssues.find((item) => item.id === "debt_payment_servicing_recovered_loan");
+  assert.equal(issue?.status, "resolved");
+  assert.equal(issue?.resolvedAtAgeInMonths, 361);
+  assert.equal(issue?.resolvedByEventId, "system:servicing_recovered:servicing_recovered");
+});
+
+test("a rejected proposal cannot revoke a deterministic automatic-shortfall debt", () => {
+  const current = setup();
+  current.ledger.debtAccounts.push({
+    id: "auto_shortfall",
+    type: "liquidity_shortfall",
+    displayName: "自动流动性缺口",
+    principalWan: 3,
+    openedAtAgeInMonths: 360,
+    status: "active",
+    repaymentPolicy: { mode: "event_driven" },
+    factStatus: "known",
+    origin: "system_auto_shortfall",
+    accruedUnpaidInterestWan: 0,
+    servicingStatus: "current",
+    consecutiveMissedPaymentMonths: 0,
+    totalMissedPaymentMonths: 0,
+    recentMissedPaymentAgeInMonths: [],
+    evidence: [{ source: "system_policy", reasonCode: "AUTOMATIC_LIQUIDITY_SHORTFALL", confidence: 1 }]
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "rejected_shortfall_change",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    financialIssues: [{
+      id: "bad_shortfall_change",
+      code: "UNBALANCED_TRANSACTION",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["bad_change"],
+      relatedDebtAccountIds: ["auto_shortfall"],
+      summary: "缺口债变化缺少可靠证据",
+      createdAtAgeInMonths: 361
+    }]
+  });
+  assert.equal(result.financialLedger.debtAccounts[0].factStatus, "known");
+  const health = deriveDebtHealthState({
+    ledger: result.financialLedger,
+    derivedFinancialState: result.derivedFinancialState.state
+  });
+  assert.notEqual(health.level, "unknown");
 });
 
 test("a rolled-back career transaction keeps the previously accepted wage active", () => {
@@ -371,6 +567,64 @@ test("a later accepted event resolves the matching issue and releases the quaran
   assert.equal(result.financialLedger.unresolvedIssues[0].resolvedByEventId, "salary_adjusted");
 });
 
+test("a same-transaction accepted income event supersedes a rejected competing proposal", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "living",
+    type: "basic_living",
+    displayName: "生活支出",
+    monthlyAmountWan: 1,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "known",
+    evidence
+  });
+  current.ledger.incomeSources.push({
+    id: "owner_draw",
+    type: "self_employment_draw",
+    displayName: "创业工资",
+    monthlyNetAmountWan: 1,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "known",
+    evidence
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "same_tx_income_confirmation",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("owner_draw_confirmed", "income_source_adjusted", 360, {
+      incomeSourceId: "owner_draw",
+      nextSource: { ...current.ledger.incomeSources[0], monthlyNetAmountWan: 4.5, factStatus: "known" }
+    })],
+    financialIssues: [{
+      id: "proposal_issue_competing_owner_draw",
+      code: "UNBALANCED_TRANSACTION",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["bad_owner_draw"],
+      relatedIncomeSourceIds: ["owner_draw"],
+      summary: "竞争 Proposal 未通过校验",
+      createdAtAgeInMonths: 361
+    }]
+  });
+  const source = result.financialLedger.incomeSources.find((item) => item.id === "owner_draw");
+  const issue = result.financialLedger.unresolvedIssues.find((item) => item.id === "proposal_issue_competing_owner_draw");
+  assert.equal(source?.monthlyNetAmountWan, 4.5);
+  assert.equal(source?.factStatus, "known");
+  assert.equal(source?.accrualReviewStatus, "normal");
+  assert.equal(issue?.status, "resolved");
+  assert.equal(issue?.resolvedByEventId, "owner_draw_confirmed");
+});
+
 test("legacy estimated income is quarantined after three unconfirmed material nodes", () => {
   const current = setup();
   current.ledger.incomeSources.push({
@@ -414,5 +668,9 @@ test("legacy estimated income is quarantined after three unconfirmed material no
     acceptedFinancialEvents: []
   });
   assert.equal(result.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
-  assert.ok(result.financialLedger.unresolvedIssues.some((issue) => issue.code === "PENDING_FACT" && issue.relatedIncomeSourceIds?.includes("legacy_recurring_income")));
+  assert.ok(result.financialLedger.unresolvedIssues.some((issue) => (
+    issue.code === "PENDING_FACT"
+    && issue.severity === "warning"
+    && issue.relatedIncomeSourceIds?.includes("legacy_recurring_income")
+  )));
 });

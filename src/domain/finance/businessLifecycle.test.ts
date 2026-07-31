@@ -74,10 +74,14 @@ test("a confirmed founder stake creates a holding even when valuation is pending
   const result = reduceFinancialLedger({
     ledger, transactionId: "founder_start", expectedLedgerRevision: 0,
     periodStartAgeInMonths: 360, periodEndAgeInMonths: 361,
-    events: [accepted("holding_started", "business_holding_started", 361, holding({
-      instrumentType: "equity", ownershipRate: undefined, attributableValueWan: undefined,
-      personalCarryingValueWan: 0, factStatus: "needs_review"
-    }))]
+    events: [accepted("holding_started", "business_holding_started", 361, {
+      sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      personalCashInvestedWan: 0,
+      businessHolding: holding({
+        instrumentType: "equity", ownershipRate: undefined, attributableValueWan: undefined,
+        personalCarryingValueWan: 0, factStatus: "needs_review"
+      })
+    })]
   });
   assert.equal(result.ledger.businessHoldings.length, 1);
   assert.equal(result.ledger.businessHoldings[0].factStatus, "needs_review");
@@ -168,6 +172,68 @@ test("a business distribution is personal cash income without changing equity va
   assert.equal(result.ledger.businessHoldings[0].personalCarryingValueWan, 10);
   assert.equal(result.periodSummary.incomeWan, 5);
   assert.equal(result.periodSummary.netWorthChangeWan, 5);
+});
+
+test("PB-BIZ-04 starting a company records founder equity and the matching personal contribution", () => {
+  const input = businessLedger(holding(), 35);
+  input.businessHoldings = [];
+  const newHolding = holding({
+    id: "new_founder_holding",
+    business: {
+      id: "new_company",
+      displayName: "供应链软件公司",
+      status: "operating",
+      factStatus: "known",
+      evidence
+    },
+    ownershipRate: 1,
+    attributableValueWan: 10,
+    personalCarryingValueWan: 10
+  });
+  const result = reduceFinancialLedger({
+    ledger: input,
+    transactionId: "tx_start_business",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    events: [accepted("start", "business_holding_started", 361, {
+      sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      businessHolding: newHolding,
+      personalCashInvestedWan: 10
+    })]
+  });
+  assert.equal(result.alreadyCommitted, false);
+  if (result.alreadyCommitted) throw new Error("expected a committed business start transaction");
+  assert.equal(result.ledger.cashAccounts[0].balanceWan, 25);
+  assert.equal(result.ledger.businessHoldings[0].id, "new_founder_holding");
+  assert.equal(result.ledger.businessHoldings[0].personalCarryingValueWan, 10);
+  assert.equal(result.periodSummary.netWorthChangeWan, 0);
+});
+
+test("PB-BIZ-07 an explicitly founded company can create a zero-carrying-value holding when no contribution is known", () => {
+  const input = businessLedger(holding(), 35);
+  input.businessHoldings = [];
+  const newHolding = holding({
+    id: "unpriced_founder_holding",
+    ownershipRate: undefined,
+    attributableValueWan: undefined,
+    personalCarryingValueWan: 0
+  });
+  const result = reduceFinancialLedger({
+    ledger: input,
+    transactionId: "tx_register_business",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    events: [accepted("register", "business_holding_started", 361, {
+      sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      businessHolding: newHolding,
+      personalCashInvestedWan: 0
+    })]
+  });
+  assert.equal(result.ledger.cashAccounts[0].balanceWan, 35);
+  assert.equal(result.ledger.businessHoldings[0].id, "unpriced_founder_holding");
+  assert.equal(result.ledger.businessHoldings[0].personalCarryingValueWan, 0);
 });
 
 test("selling founder equity pairs personal cash proceeds with equity and ownership reduction", () => {

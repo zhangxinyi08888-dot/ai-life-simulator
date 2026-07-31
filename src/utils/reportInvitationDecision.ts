@@ -65,6 +65,26 @@ function hasActiveForegroundArc(node: SimulationNode): boolean {
   ));
 }
 
+function chronicFinancialDebtArcId(
+  history: HistoryItem[],
+  candidateNode: SimulationNode,
+  policy: ReportInvitationPolicy
+): string | undefined {
+  const snapshot = candidateNode.worldStateSnapshot;
+  const foregroundArcId = snapshot?.foregroundPressureArcId;
+  const foregroundArc = foregroundArcId
+    ? snapshot.pressureArcs.find((arc) => arc.id === foregroundArcId)
+    : undefined;
+  if (!foregroundArc || foregroundArc.phasePolicyId !== "financial_debt_v1"
+    || (foregroundArc.status !== "active" && foregroundArc.status !== "stabilizing")) return undefined;
+  let consecutiveChoices = 1;
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    if (history[index].worldStateSnapshot?.foregroundPressureArcId !== foregroundArcId) break;
+    consecutiveChoices += 1;
+  }
+  return consecutiveChoices >= policy.chronicFinancialDebtArcChoices ? foregroundArcId : undefined;
+}
+
 function previousTriggerKeys(history: HistoryItem[]): Set<string> {
   return new Set(history.flatMap((item) => item.reportInvitation?.triggerKey ? [item.reportInvitation.triggerKey] : []));
 }
@@ -116,6 +136,7 @@ export function evaluateReportInvitation(input: {
   }
 
   const invitedKeys = previousTriggerKeys(input.history);
+  const chronicDebtArcId = chronicFinancialDebtArcId(input.history, input.candidateNode, input.policy);
   const declinedInvitation = latestDeclinedInvitation(input.history);
   if (declinedInvitation) {
     const declinedAt = declinedInvitation.declinedAtChoiceCount ?? declinedInvitation.completedChoiceCount;
@@ -125,7 +146,7 @@ export function evaluateReportInvitation(input: {
       input.completedChoiceCount >= eligibleAt
       && !invitedKeys.has(triggerKey)
       && isSafeNode(input.candidateNode, input.policy)
-      && !hasActiveForegroundArc(input.candidateNode)
+      && (!hasActiveForegroundArc(input.candidateNode) || Boolean(chronicDebtArcId))
     ) {
       return {
         shouldInvite: true,
@@ -138,7 +159,7 @@ export function evaluateReportInvitation(input: {
           simulationSeed: input.simulationSeed,
           branchFingerprint: input.branchFingerprint
         }),
-        reasonCodes: ["scheduled-reinvite", "safe-intensity", "no-active-pressure-arc"]
+        reasonCodes: ["scheduled-reinvite", "safe-intensity", chronicDebtArcId ? "chronic-debt-reflection-window" : "no-active-pressure-arc"]
       };
     }
   }
@@ -196,11 +217,13 @@ export function evaluateReportInvitation(input: {
     && previousNode
     && isSafeNode(previousNode, input.policy)
     && isSafeNode(input.candidateNode, input.policy)
-    && !hasActiveForegroundArc(input.candidateNode)
+    && (!hasActiveForegroundArc(input.candidateNode) || Boolean(chronicDebtArcId))
   ) {
     const continuedArcId = directlyContinuedResolvedArcId(input.history, input.candidateNode);
     const stableEpisodeStart = findStableEpisodeStartChoiceCount(input.history, input.candidateNode);
-    const triggerKey = continuedArcId
+    const triggerKey = chronicDebtArcId
+      ? `chronic-debt:${chronicDebtArcId}`
+      : continuedArcId
       ? `arc:${continuedArcId}`
       : `stable:${stableEpisodeStart}`;
     if (!invitedKeys.has(triggerKey)) {
@@ -210,11 +233,11 @@ export function evaluateReportInvitation(input: {
           reason: "stable_window",
           triggerKey,
           completedChoiceCount: input.completedChoiceCount,
-          pressureArcId: continuedArcId,
+          pressureArcId: chronicDebtArcId || continuedArcId,
           simulationSeed: input.simulationSeed,
           branchFingerprint: input.branchFingerprint
         }),
-        reasonCodes: ["stable-window", "no-active-pressure-arc", "new-narrative-stage"]
+        reasonCodes: ["stable-window", chronicDebtArcId ? "chronic-debt-reflection-window" : "no-active-pressure-arc", "new-narrative-stage"]
       };
     }
     return { shouldInvite: false, reasonCodes: ["stable-stage-already-invited"] };

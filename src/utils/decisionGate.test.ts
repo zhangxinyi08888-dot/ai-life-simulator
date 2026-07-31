@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 import { HistoryItem, SimulationChoice, SimulationNode } from "../types";
-import { downgradeDensityLimitedNode, evaluateDecisionGate, removeBlockedChoicesAfterRepair } from "./decisionGate";
+import { applyDecisionDensityDowngrade, downgradeDensityLimitedNode, evaluateDecisionGate, pruneRecentlyPassedChoices, removeBlockedChoicesAfterRepair } from "./decisionGate";
 
 const base: SimulationNode = {
   age: 35,
@@ -76,6 +77,44 @@ assert.equal(evaluateDecisionGate({
   recentHistory: passedTwice,
   targetAgeInMonths: 492
 }).isDecisionCheckpoint, true);
+
+const prunedCooledCandidate = pruneRecentlyPassedChoices(cooledCandidate, cooledResult);
+assert.deepEqual(prunedCooledCandidate.choices.map((choice) => choice.decisionIntent), [
+  "career:accept_role:internal_architect",
+  "career:seek_role:shenzhen_external"
+]);
+
+test("a density-only repair can downgrade intensity without changing the event or choices", () => {
+  const candidate = {
+    ...base,
+    narrativeMeta: {
+      ...base.narrativeMeta,
+      lifeIntensity: "critical" as const
+    }
+  };
+  const gate = evaluateDecisionGate({
+    candidateNode: candidate,
+    recentHistory: [
+      { ...base, selectedChoice: "A", ageInMonths: 410, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "high_tension" as const } },
+      { ...base, selectedChoice: "B", ageInMonths: 415, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "critical" as const } },
+      { ...base, selectedChoice: "C", ageInMonths: 419, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "high_tension" as const } }
+    ],
+    targetAgeInMonths: 420
+  });
+  assert.equal(gate.reasonCodes.includes("node-density-exceeded"), true);
+  const downgraded = applyDecisionDensityDowngrade(candidate, gate);
+  assert.equal(downgraded.narrativeMeta?.lifeIntensity, "normal");
+  assert.deepEqual(downgraded.choices, candidate.choices);
+  assert.equal(evaluateDecisionGate({
+    candidateNode: downgraded,
+    recentHistory: [
+      { ...base, selectedChoice: "A", ageInMonths: 410, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "high_tension" as const } },
+      { ...base, selectedChoice: "B", ageInMonths: 415, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "critical" as const } },
+      { ...base, selectedChoice: "C", ageInMonths: 419, narrativeMeta: { ...base.narrativeMeta, lifeIntensity: "high_tension" as const } }
+    ],
+    targetAgeInMonths: 420
+  }).reasonCodes.includes("node-density-exceeded"), false);
+});
 
 const insufficientChoicesAfterSuppression = evaluateDecisionGate({
   candidateNode: {

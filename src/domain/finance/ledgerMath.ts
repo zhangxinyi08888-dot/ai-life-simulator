@@ -24,7 +24,7 @@ export function totalAssetWan(ledger: FinancialLedger): number {
 export function totalDebtWan(ledger: FinancialLedger): number {
   return roundWan(ledger.debtAccounts
     .filter((account) => account.status === "active" || account.status === "defaulted")
-    .reduce((sum, account) => sum + account.principalWan, 0));
+    .reduce((sum, account) => sum + account.principalWan + (account.accruedUnpaidInterestWan ?? 0), 0));
 }
 
 export function ledgerNetWorthWan(ledger: FinancialLedger): number {
@@ -75,7 +75,7 @@ function assertUniqueIds(items: Array<{ id: string }>, label: string): void {
 }
 
 export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
-  if (ledger.version !== 2 || ledger.owner !== "protagonist" || ledger.currencyUnit !== "CNY_WAN_REAL") {
+  if (ledger.version !== 3 || ledger.owner !== "protagonist" || ledger.currencyUnit !== "CNY_WAN_REAL") {
     throw new FinancialLedgerInvariantError("INVALID_LEDGER", "账本版本、所有者或币种单位无效");
   }
   if (!Number.isInteger(ledger.asOfAgeInMonths) || ledger.asOfAgeInMonths < 0) {
@@ -144,11 +144,31 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
   });
   ledger.debtAccounts.forEach((account) => {
     assertFiniteNonNegative(account.principalWan, `债务账户 ${account.id}.principalWan`);
-    if (account.principalWan === 0 && account.status !== "repaid" && account.status !== "restructured") {
+    assertFiniteNonNegative(account.accruedUnpaidInterestWan ?? Number.NaN, `债务账户 ${account.id}.accruedUnpaidInterestWan`);
+    if (!account.origin || !account.servicingStatus
+      || account.consecutiveMissedPaymentMonths === undefined
+      || account.totalMissedPaymentMonths === undefined
+      || !account.recentMissedPaymentAgeInMonths) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `债务账户 ${account.id} 缺少 v3 偿付字段`);
+    }
+    if (!Number.isInteger(account.consecutiveMissedPaymentMonths) || account.consecutiveMissedPaymentMonths < 0
+      || !Number.isInteger(account.totalMissedPaymentMonths) || account.totalMissedPaymentMonths < 0) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `债务账户 ${account.id} 的 missed counters 无效`);
+    }
+    if (account.totalMissedPaymentMonths < account.consecutiveMissedPaymentMonths) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `债务账户 ${account.id} 的连续 missed 不得超过累计 missed`);
+    }
+    if (account.recentMissedPaymentAgeInMonths.some((age) => !Number.isInteger(age) || age < 0)
+      || new Set(account.recentMissedPaymentAgeInMonths).size !== account.recentMissedPaymentAgeInMonths.length) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `债务账户 ${account.id} 的 recent missed 月份无效`);
+    }
+    if (account.principalWan === 0 && account.accruedUnpaidInterestWan === 0
+      && account.status !== "repaid" && account.status !== "restructured") {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `债务账户 ${account.id} 归零后必须关闭`);
     }
-    if ((account.status === "repaid" || account.status === "restructured") && account.principalWan !== 0) {
-      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `已偿清或重组债务 ${account.id} 的本金必须归零`);
+    if ((account.status === "repaid" || account.status === "restructured")
+      && (account.principalWan !== 0 || account.accruedUnpaidInterestWan !== 0)) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `已偿清或重组债务 ${account.id} 的本金和未付利息必须归零`);
     }
     if (["mortgage", "consumer_loan", "student_loan", "credit_balance"].includes(account.type)
       && account.status === "active"
@@ -162,10 +182,26 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
     }
   });
   ledger.incomeSources.forEach((source) => {
+    if (!Number.isInteger(source.activeFromAgeInMonths) || source.activeFromAgeInMonths < 0) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `收入来源 ${source.id}.activeFromAgeInMonths 必须是非负整数`);
+    }
+    if (source.activeUntilAgeInMonths !== undefined
+      && (!Number.isInteger(source.activeUntilAgeInMonths) || source.activeUntilAgeInMonths < source.activeFromAgeInMonths)) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `收入来源 ${source.id}.activeUntilAgeInMonths 无效`);
+    }
     if (source.monthlyNetAmountWan !== undefined) assertFiniteNonNegative(source.monthlyNetAmountWan, `收入来源 ${source.id}.monthlyNetAmountWan`);
     if (source.annualNetAmountWan !== undefined) assertFiniteNonNegative(source.annualNetAmountWan, `收入来源 ${source.id}.annualNetAmountWan`);
   });
-  ledger.expenseCommitments.forEach((commitment) => assertFiniteNonNegative(commitment.monthlyAmountWan, `支出义务 ${commitment.id}.monthlyAmountWan`));
+  ledger.expenseCommitments.forEach((commitment) => {
+    if (!Number.isInteger(commitment.activeFromAgeInMonths) || commitment.activeFromAgeInMonths < 0) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `支出义务 ${commitment.id}.activeFromAgeInMonths 必须是非负整数`);
+    }
+    if (commitment.activeUntilAgeInMonths !== undefined
+      && (!Number.isInteger(commitment.activeUntilAgeInMonths) || commitment.activeUntilAgeInMonths < commitment.activeFromAgeInMonths)) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `支出义务 ${commitment.id}.activeUntilAgeInMonths 无效`);
+    }
+    assertFiniteNonNegative(commitment.monthlyAmountWan, `支出义务 ${commitment.id}.monthlyAmountWan`);
+  });
 
   if (totalCashWan(ledger) < 0) {
     throw new FinancialLedgerInvariantError("MISSING_FUNDING_SOURCE", "已提交账本现金不得为负");

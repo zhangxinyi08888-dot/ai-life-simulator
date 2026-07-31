@@ -1,0 +1,32 @@
+{
+  "runId": "2026-07-24T18-00-00+08-00-financial-release-five-v7",
+  "runStartedAt": "2026-07-22T09:31:18.484Z",
+  "generatedAt": "2026-07-22T11:52:59.784Z",
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "path": "cases/real-career-first.json"
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "path": "cases/real-custom-lifespan.json"
+    },
+    {
+      "caseSlug": "real-education-second",
+      "scenario": "accept_second",
+      "path": "cases/real-education-second.json"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "path": "cases/real-relationship-first.json"
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "scenario": "accept_second",
+      "path": "cases/real-venture-second.json"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { calculateTimelineAdvance, DEFAULT_TEMPORAL_PROFILES, deriveLifeStage, deriveTemporalProfile, mergeTemporalProfiles } from "./timelineAdvance";
+import { calculateTimelineAdvance, constrainTemporalProfileForDebtDistress, DEFAULT_TEMPORAL_PROFILES, deriveLifeStage, deriveTemporalProfile, mergeTemporalProfiles } from "./timelineAdvance";
 
 assert.equal(deriveLifeStage(12), "childhood");
 assert.equal(deriveLifeStage(65), "later_life");
@@ -15,6 +15,19 @@ const phaseOwned = deriveTemporalProfile({
   attributes: { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 }
 });
 assert.equal(phaseOwned.lifeIntensity, "stable");
+
+const distressedUnrelated = constrainTemporalProfileForDebtDistress({
+  temporalProfile: DEFAULT_TEMPORAL_PROFILES.stable,
+  debtHealthLevel: "distressed",
+  isDebtDistressEvent: false
+});
+assert.equal(distressedUnrelated.lifeIntensity, "high_tension");
+assert.deepEqual(distressedUnrelated.durationMonths, [3, 3]);
+assert.deepEqual(constrainTemporalProfileForDebtDistress({
+  temporalProfile: { lifeIntensity: "normal", durationMonths: [6, 18], requiresFollowUp: false },
+  debtHealthLevel: "distressed",
+  isDebtDistressEvent: true
+}).durationMonths, [6, 18]);
 
 const startup = calculateTimelineAdvance({
   currentAgeInMonths: 30 * 12,

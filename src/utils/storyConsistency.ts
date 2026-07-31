@@ -196,9 +196,30 @@ export function validateStoryConsistency(input: {
   return issues;
 }
 
+const FORBIDDEN_ARC_WRITE_KEYS = new Set([
+  "nextPhaseId",
+  "nextPressureArcStatus",
+  "foregroundPressureArcId",
+  "phaseCheckpointCount"
+]);
+
 export function containsForbiddenArcWrite(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   if (Array.isArray(value)) return value.some(containsForbiddenArcWrite);
-  const forbidden = new Set(["nextPhaseId", "nextPressureArcStatus", "foregroundPressureArcId", "phaseCheckpointCount"]);
-  return Object.entries(value as Record<string, unknown>).some(([key, nested]) => forbidden.has(key) || containsForbiddenArcWrite(nested));
+  return Object.entries(value as Record<string, unknown>).some(([key, nested]) => FORBIDDEN_ARC_WRITE_KEYS.has(key) || containsForbiddenArcWrite(nested));
+}
+
+/**
+ * Model output is never an authority for PressureArc lifecycle state. Drop
+ * forbidden lifecycle keys at the generation boundary so an otherwise valid
+ * node can continue through the normal validators without a full-node retry.
+ */
+export function stripForbiddenArcWrites<T>(value: T): T {
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((item) => stripForbiddenArcWrites(item)) as T;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !FORBIDDEN_ARC_WRITE_KEYS.has(key))
+      .map(([key, nested]) => [key, stripForbiddenArcWrites(nested)])
+  ) as T;
 }

@@ -3,6 +3,7 @@ import test from "node:test";
 import { initializeCareerState } from "../career/careerState";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
+import { normalizeFinancialProposals } from "./normalizeFinancialProposals";
 import { validateFinancialProposals } from "./validateFinancialProposals";
 import type { FinancialEventProposal, FinancialEvidence } from "./types";
 import type { FinancialEventKind } from "./types";
@@ -114,6 +115,681 @@ test("low-confidence but otherwise determinate facts are accepted as estimated",
   assert.equal((result.acceptedEvents[0].payload as { factStatus: string }).factStatus, "estimated");
 });
 
+test("does not turn a single personal grant receipt into a permanent recurring other-income source", () => {
+  const result = validate([proposal({
+    id: "foundation_grant_recurring",
+    kind: "income_source_started",
+    evidence: "你收到第一笔资助款3000元。",
+    payload: {
+      id: "income_foundation_grant",
+      type: "other",
+      displayName: "基金会资助项目收入",
+      monthlyNetAmountWan: 0.3,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      factStatus: "known",
+      evidence
+    }
+  })], "你收到第一笔资助款3000元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0]?.code, "UNBALANCED_TRANSACTION");
+  assert.match(result.issues[0]?.summary || "", /不能推导为长期/);
+});
+
+test("accepts recurring other income only when the narrative states its cadence", () => {
+  const result = validate([proposal({
+    id: "recurring_other_income",
+    kind: "income_source_started",
+    evidence: "你每月稳定收到3000元个人创作资助。",
+    payload: {
+      id: "income_recurring_grant",
+      type: "other",
+      displayName: "个人创作资助",
+      monthlyNetAmountWan: 0.3,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      factStatus: "known",
+      evidence
+    }
+  })], "你每月稳定收到3000元个人创作资助。");
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("accepts an exact protagonist side-income contract alongside a primary salary", () => {
+  const current = setup();
+  current.currentLedger.incomeSources.push({
+    id: "primary_salary",
+    type: "salary",
+    displayName: "主业工资",
+    monthlyNetAmountWan: 2,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 280,
+    status: "active",
+    linkedCareerStateId: "career_current",
+    factStatus: "known",
+    evidence
+  });
+  const result = validateFinancialProposals({
+    ...current,
+    proposals: [proposal({
+      id: "personal_side_income",
+      kind: "income_source_started",
+      evidence: "你的线上课程加上一对一咨询，副业月收入稳定在6000元左右。",
+      payload: {
+        id: "personal_side_income_career_current",
+        type: "contract",
+        displayName: "正文确认的个人副业收入",
+        monthlyNetAmountWan: 0.6,
+        accrualPolicy: "monthly",
+        activeFromAgeInMonths: 300,
+        status: "active",
+        linkedCareerStateId: "career_current",
+        factStatus: "known",
+        evidence
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你的线上课程加上一对一咨询，副业月收入稳定在6000元左右。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "side_income_validation",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("PB-ASSET-01 rejects an unsupported model asset type", () => {
+  const result = validate([proposal({
+    id: "bad_property",
+    kind: "asset_purchased",
+    evidence: "你已经支付8万元买下一套公寓。",
+    payload: {
+      sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      cashPaidWan: 8,
+      transactionFeeWan: 0,
+      assetAccount: {
+        id: "bad_home", type: "real_estate", displayName: "公寓", marketValueWan: 8,
+        liquidity: "illiquid", status: "active", factStatus: "known", openedAtAgeInMonths: 312, evidence: []
+      }
+    } as never
+  })], "你已经支付8万元买下一套公寓。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0]?.code, "INVALID_ASSET_TYPE");
+});
+
+test("PB-ASSET-02 rejects sale of an asset absent from the ledger", () => {
+  const result = validate([proposal({
+    id: "missing_sale",
+    kind: "asset_sold",
+    evidence: "你已经卖掉城市公寓，收到20万元。",
+    payload: {
+      assetAccountId: "missing_city_apartment", destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      assetValueRemovedWan: 20, cashReceivedWan: 20, transactionFeeWan: 0
+    }
+  })], "你已经卖掉城市公寓，收到20万元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "UNBALANCED_TRANSACTION"), true);
+});
+
+test("asset purchase receives accepted-event evidence before entering the ledger", () => {
+  const result = validate([proposal({
+    id: "valid_asset",
+    kind: "asset_purchased",
+    evidence: "你已经支付8万元买入基金。",
+    payload: {
+      sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, cashPaidWan: 8, transactionFeeWan: 0,
+      assetAccount: { id: "fund", type: "investment", displayName: "基金", marketValueWan: 8, liquidity: "liquid", status: "active", factStatus: "known", openedAtAgeInMonths: 312, evidence: [] }
+    }
+  })], "你已经支付8万元买入基金。");
+  assert.equal(result.acceptedEvents.length, 1);
+  const event = result.acceptedEvents[0];
+  assert.equal(event.kind, "asset_purchased");
+  if (event.kind === "asset_purchased") assert.equal(event.payload.assetAccount.evidence.length, 1);
+});
+
+test("new debt receives accepted-event evidence before debt-health eligibility", () => {
+  const result = validate([proposal({
+    id: "new_loan",
+    kind: "debt_drawn",
+    evidence: "你已经收到10万元个人借款。",
+    payload: {
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      principalDrawnWan: 10,
+      debtAccount: {
+        id: "new_loan_account", type: "family_or_personal_loan", displayName: "个人借款",
+        principalWan: 10, openedAtAgeInMonths: 312, status: "active",
+        repaymentPolicy: { mode: "event_driven" }, factStatus: "known", origin: "explicit", evidence: []
+      }
+    }
+  })], "你已经收到10万元个人借款。");
+  assert.equal(result.acceptedEvents.length, 1);
+  const event = result.acceptedEvents[0];
+  assert.equal(event.kind, "debt_drawn");
+  if (event.kind === "debt_drawn") assert.equal(event.payload.debtAccount.evidence[0]?.source, "accepted_simulation_outcome");
+});
+
+test("rejects a repeated discovery of the sole opening mortgage with the same balance", () => {
+  const state = setup();
+  state.currentLedger.debtAccounts.push({
+    id: "opening_mortgage",
+    type: "mortgage",
+    displayName: "开局住房按揭",
+    principalWan: 210,
+    openedAtAgeInMonths: 288,
+    status: "active",
+    repaymentPolicy: { mode: "estimated_amortizing", monthlyPrincipalWan: 0.875, remainingTermMonths: 240 },
+    factStatus: "known",
+    evidence,
+    origin: "explicit"
+  });
+  const result = validateFinancialProposals({
+    ...state,
+    proposals: [proposal({
+      id: "repeated_opening_mortgage",
+      kind: "debt_balance_discovered",
+      evidence: "你仍背着210万元房贷余额。",
+      payload: {
+        debtAccount: {
+          id: "model_generated_mortgage",
+          type: "mortgage",
+          displayName: "住房贷款",
+          principalWan: 210,
+          openedAtAgeInMonths: 288,
+          status: "active",
+          repaymentPolicy: { mode: "estimated_amortizing", monthlyPrincipalWan: 0.875, remainingTermMonths: 240 },
+          factStatus: "known",
+          evidence: [],
+          origin: "explicit"
+        }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你仍背着210万元房贷余额。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "repeated_opening_mortgage",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.match(result.issues[0]?.summary ?? "", /已存在且余额一致/);
+});
+
+test("rejects a discovered mortgage principal inferred only from monthly payment", () => {
+  const state = setup();
+  const result = validateFinancialProposals({
+    ...state,
+    proposals: [proposal({
+      id: "invented_mortgage_balance",
+      kind: "debt_balance_discovered",
+      evidence: "你算了一笔账，每月房贷月供1.2万，加上生活开销，还能存下一些钱。",
+      payload: {
+        debtAccount: {
+          id: "mortgage_primary",
+          type: "mortgage",
+          displayName: "待确认房贷",
+          principalWan: 150,
+          openedAtAgeInMonths: 312,
+          status: "active",
+          repaymentPolicy: { mode: "estimated_amortizing", monthlyPaymentWan: 1.2, remainingTermMonths: 240 },
+          factStatus: "estimated",
+          evidence: [],
+          origin: "explicit"
+        }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你算了一笔账，每月房贷月供1.2万，加上生活开销，还能存下一些钱。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "invented_mortgage_balance",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.match(result.issues[0]?.summary ?? "", /不能从月供、期限或利率反推本金/);
+});
+
+test("accepts a discovered debt balance when the evidence states the exact principal", () => {
+  const state = setup();
+  const result = validateFinancialProposals({
+    ...state,
+    proposals: [proposal({
+      id: "explicit_mortgage_balance",
+      kind: "debt_balance_discovered",
+      evidence: "你核对账单后确认，当前房贷余额150万元。",
+      payload: {
+        debtAccount: {
+          id: "mortgage_primary",
+          type: "mortgage",
+          displayName: "住房房贷",
+          principalWan: 150,
+          openedAtAgeInMonths: 312,
+          status: "active",
+          repaymentPolicy: { mode: "estimated_amortizing", remainingTermMonths: 240 },
+          factStatus: "known",
+          evidence: [],
+          origin: "explicit"
+        }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你核对账单后确认，当前房贷余额150万元。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "explicit_mortgage_balance",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 1);
+  assert.equal(result.acceptedEvents[0]?.kind, "debt_balance_discovered");
+});
+
+test("an explicit family loan with no schedule normalizes to event-driven servicing", () => {
+  const raw = proposal({
+    id: "family_loan",
+    kind: "debt_drawn",
+    evidence: "你已经收到10万元父母借款。",
+    payload: {
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      principalDrawnWan: 10,
+      debtAccount: {
+        id: "family_loan_account", type: "family_or_personal_loan", displayName: "父母借款",
+        principalWan: 10, openedAtAgeInMonths: 312, status: "active",
+        repaymentPolicy: { mode: "no_schedule", annualInterestRate: 0, monthlyPaymentWan: 0, remainingTermMonths: null },
+        factStatus: "known", origin: "explicit", evidence: []
+      }
+    }
+  });
+  const normalized = normalizeFinancialProposals({
+    proposals: [raw], acceptedOutcomeIds: ["accepted_choice"], currentLedger: setup().currentLedger, currentCareerStateId: "career_current"
+  });
+  const result = validate(normalized.proposals, "你已经收到10万元父母借款。");
+  assert.equal(result.acceptedEvents.length, 1);
+  if (result.acceptedEvents[0].kind !== "debt_drawn") throw new Error("expected debt draw");
+  assert.equal(result.acceptedEvents[0].payload.debtAccount.repaymentPolicy.mode, "event_driven");
+});
+
+test("PB-BIZ-01 company operating revenue cannot be recorded as personal recurring income", () => {
+  const companyRevenue = proposal({
+    id: "company_revenue",
+    kind: "income_source_started",
+    evidence: "你经营的公司每月收到46万元营业收入。",
+    payload: {
+      id: "company_mrr",
+      type: "salary",
+      displayName: "公司营业收入",
+      monthlyNetAmountWan: 46,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "known",
+      evidence: []
+    }
+  });
+  Object.assign(companyRevenue, { financialScope: "business_operating" });
+  const result = validate([companyRevenue], "你经营的公司每月收到46万元营业收入。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+});
+
+test("PB-BIZ-02 company payroll and operating costs cannot be recorded as personal expenses", () => {
+  const companyPayroll = proposal({
+    id: "company_payroll",
+    kind: "expense_commitment_started",
+    evidence: "你每月支付29万元团队工资和销售提成。",
+    payload: {
+      id: "company_payroll_expense",
+      type: "other",
+      displayName: "团队工资与销售提成",
+      monthlyAmountWan: 29,
+      activeFromAgeInMonths: 312,
+      status: "active",
+      factStatus: "known",
+      evidence: []
+    }
+  });
+  Object.assign(companyPayroll, { financialScope: "business_operating" });
+  const result = validate([companyPayroll], "你每月支付29万元团队工资和销售提成。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+});
+
+test("PB-BIZ-03 personal salary, owner draw, and received dividend remain valid personal cash events", () => {
+  const salary = proposal({
+    id: "personal_salary",
+    kind: "income_source_started",
+    evidence: "你开始领取每月4万元税后工资。",
+    payload: {
+      id: "salary_income", type: "salary", displayName: "个人工资", monthlyNetAmountWan: 4,
+      accrualPolicy: "monthly", activeFromAgeInMonths: 312, status: "active",
+      linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+    }
+  });
+  Object.assign(salary, { financialScope: "personal" });
+  assert.equal(validate([salary], "你开始领取每月4万元税后工资。").acceptedEvents.length, 1);
+
+  const ownerDraw = proposal({
+    id: "owner_draw",
+    kind: "income_source_started",
+    evidence: "你开始每月提取3万元作为个人可支配收入。",
+    payload: {
+      id: "owner_draw_income", type: "self_employment_draw", displayName: "业主提款", monthlyNetAmountWan: 3,
+      accrualPolicy: "monthly", activeFromAgeInMonths: 312, status: "active",
+      linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+    }
+  });
+  Object.assign(ownerDraw, { financialScope: "personal" });
+  assert.equal(validate([ownerDraw], "你开始每月提取3万元作为个人可支配收入。").acceptedEvents.length, 1);
+
+  const input = setup();
+  input.currentLedger.businessHoldings.push({
+    id: "holding_1",
+    business: { id: "business_1", displayName: "个人工作室", status: "operating", factStatus: "known", evidence },
+    ownershipRate: 1,
+    personalCarryingValueWan: 0,
+    status: "active",
+    factStatus: "known",
+    evidence
+  });
+  const dividend = proposal({
+    id: "received_dividend",
+    kind: "business_distribution_received",
+    evidence: "公司已经向你的个人账户支付2万元分红。",
+    payload: { businessHoldingId: "holding_1", destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 2 }
+  });
+  Object.assign(dividend, { financialScope: "personal" });
+  const dividendResult = validateFinancialProposals({
+    ...input,
+    proposals: [dividend],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "公司已经向你的个人账户支付2万元分红。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "proposal_validation_dividend",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(dividendResult.acceptedEvents.length, 1);
+});
+
+test("PB-BIZ-04 personal founder contribution creates a holding without recording company operations", () => {
+  const startBusiness = proposal({
+    id: "start_business",
+    kind: "business_holding_started",
+    evidence: "你用10万元个人现金创办了供应链软件公司。",
+    financialScope: "personal",
+    payload: {
+      sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      personalCashInvestedWan: 10,
+      businessHolding: {
+        id: "holding_supply_chain",
+        business: {
+          id: "business_supply_chain",
+          displayName: "供应链软件公司",
+          status: "operating",
+          factStatus: "known",
+          evidence: []
+        },
+        ownershipRate: 1,
+        attributableValueWan: 10,
+        liquidityDiscountRate: 0,
+        personalCarryingValueWan: 10,
+        status: "active",
+        factStatus: "known",
+        evidence: []
+      }
+    }
+  });
+  const result = validate([startBusiness], "你用10万元个人现金创办了供应链软件公司。");
+  assert.equal(result.acceptedEvents.length, 1);
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.acceptedEvents[0].kind, "business_holding_started");
+});
+
+test("PB-BIZ-05 a misclassified company operating expense is normalized when prose proves a personal founder contribution", () => {
+  const misclassified = proposal({
+    id: "startup_funds",
+    kind: "expense_commitment_started",
+    evidence: "你从35万备用金中取出5万元作为公司初期运营资金。",
+    financialScope: "business_operating",
+    payload: {
+      id: "company_ops",
+      type: "business_operating",
+      displayName: "公司运营开支",
+      monthlyAmountWan: 0.8,
+      activeFromAgeInMonths: 301,
+      status: "active",
+      factStatus: "known",
+      evidence: []
+    }
+  });
+  const normalized = normalizeFinancialProposals({
+    proposals: [misclassified],
+    acceptedOutcomeIds: ["accepted_choice"],
+    currentLedger: setup().currentLedger,
+    currentCareerStateId: "career_current"
+  });
+  const result = validate(normalized.proposals, "你从35万备用金中取出5万元作为公司初期运营资金。");
+  assert.equal(result.acceptedEvents.length, 1);
+  assert.equal(result.acceptedEvents[0].kind, "business_holding_started");
+  if (result.acceptedEvents[0].kind !== "business_holding_started") throw new Error("expected founder contribution");
+  assert.equal(result.acceptedEvents[0].payload.personalCashInvestedWan, 5);
+});
+
+test("PB-BIZ-06 a company customer contract cannot prove a personal owner draw", () => {
+  const fakeDraw = proposal({
+    id: "fake_owner_draw",
+    kind: "income_source_started",
+    evidence: "你签下了一家电子厂的试用合同，年费5万元。",
+    financialScope: "personal",
+    payload: {
+      id: "owner_draw",
+      type: "self_employment_draw",
+      displayName: "创业期间个人提取",
+      monthlyNetAmountWan: 0.3,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "estimated",
+      evidence: []
+    }
+  });
+  const result = validate([fakeDraw], "你签下了一家电子厂的试用合同，年费5万元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+});
+
+test("PB-BIZ-25 business operating income type cannot enter the personal ledger even when scope is mislabeled", () => {
+  const companyRevenue = proposal({
+    id: "company_revenue_mislabeled_personal",
+    kind: "income_source_started",
+    payload: {
+      id: "business_income_company", type: "business_operating", displayName: "创业公司合同收入",
+      monthlyNetAmountWan: 1.67, accrualPolicy: "monthly", activeFromAgeInMonths: 300,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence: []
+    },
+    evidence: "三家客户年费18万元，实际到账10万元。"
+  });
+  Object.assign(companyRevenue, { financialScope: "personal" });
+  const result = validate([companyRevenue], companyRevenue.evidence);
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+});
+
+test("PB-BIZ-09 explicit personal consulting earnings can prove a self-employment draw", () => {
+  const consulting = proposal({
+    id: "consulting_income",
+    kind: "income_source_started",
+    evidence: "你开始接供应链咨询零活，每月能多挣5000元左右。",
+    financialScope: "personal",
+    payload: {
+      id: "consulting_draw", type: "self_employment_draw", displayName: "个人咨询收入",
+      monthlyNetAmountWan: 0.5, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+    }
+  });
+  const result = validate([consulting], "你开始接供应链咨询零活，每月能多挣5000元左右。");
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("PB-BIZ-28 withdrawing personal savings for living costs is not recurring owner income", () => {
+  const falseDraw = proposal({
+    id: "personal_savings_false_draw",
+    kind: "income_source_started",
+    evidence: "母亲病情稳定，医疗支出维持每月4000元，你每月从积蓄中提取1.5万作为生活费用。",
+    financialScope: "personal",
+    payload: {
+      id: "cofounder_salary", type: "self_employment_draw", displayName: "创业公司联合创始人薪资",
+      monthlyNetAmountWan: 1.5, accrualPolicy: "monthly", activeFromAgeInMonths: 539,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence: []
+    }
+  });
+  const result = validate([falseDraw], falseDraw.evidence);
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+});
+
+test("a consulting fee paid by a named company remains personal compensation", () => {
+  const consulting = proposal({
+    id: "medical_ai_consulting",
+    kind: "income_source_started",
+    evidence: "你接受AI医疗创业公司的顾问工作，顾问收入每月1万元，直接支付到你的个人账户。",
+    financialScope: "personal",
+    payload: {
+      id: "consultant_income_ai_tool_630",
+      type: "contract",
+      displayName: "AI医疗创业公司顾问费",
+      monthlyNetAmountWan: 1,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "known",
+      evidence: []
+    }
+  });
+  const result = validate([consulting], consulting.evidence);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), false);
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("PB-BIZ-11 long-form personal consulting salary and owner draw evidence remain valid", () => {
+  const consultantSalary = proposal({
+    id: "long_consulting_salary",
+    kind: "income_source_started",
+    evidence: "你以每周10-15小时的节奏接下一家中小型制造企业的供应链优化顾问合同，税后月薪1.5万。",
+    financialScope: "personal",
+    payload: {
+      id: "long_consulting_income", type: "salary", displayName: "兼职供应链顾问税后工资",
+      monthlyNetAmountWan: 1.5, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+    }
+  });
+  assert.equal(validate([consultantSalary], consultantSalary.evidence).acceptedEvents.length, 1);
+
+  const ownerDraw = proposal({
+    id: "explicit_owner_draw",
+    kind: "income_source_started",
+    evidence: "你给自己发了1万元作为个人提款。",
+    financialScope: "personal",
+    payload: {
+      id: "explicit_owner_draw_income", type: "self_employment_draw", displayName: "创业项目个人提款",
+      monthlyNetAmountWan: 0.4167, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+    }
+  });
+  assert.equal(validate([ownerDraw], ownerDraw.evidence).acceptedEvents.length, 1);
+
+  const companyPaidSalary = proposal({
+    id: "company_paid_personal_salary",
+    kind: "income_source_started",
+    evidence: "公司从本月起每月向你个人账户支付4万元税后工资。",
+    financialScope: "personal",
+    payload: {
+      id: "company_salary_income", type: "self_employment_draw", displayName: "创业公司个人税后工资",
+      monthlyNetAmountWan: 4, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+    }
+  });
+  assert.equal(validate([companyPaidSalary], companyPaidSalary.evidence).acceptedEvents.length, 1);
+
+  const lowerOwnerSalary = proposal({
+    id: "lower_owner_salary",
+    kind: "income_source_adjusted",
+    evidence: "你给自己降薪到每月2.5万元。",
+    financialScope: "personal",
+    payload: {
+      incomeSourceId: "owner_draw_income",
+      nextSource: {
+        id: "owner_draw_income", type: "self_employment_draw", displayName: "业主工资",
+        monthlyNetAmountWan: 2.5, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+        status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+      }
+    }
+  });
+  const salaryInput = setup();
+  salaryInput.currentLedger.incomeSources.push({
+    id: "owner_draw_income", type: "self_employment_draw", displayName: "业主工资",
+    monthlyNetAmountWan: 4, accrualPolicy: "monthly", activeFromAgeInMonths: 300,
+    status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+  });
+  assert.equal(validateFinancialProposals({
+    ...salaryInput,
+    proposals: [lowerOwnerSalary],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: lowerOwnerSalary.evidence,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "lower_owner_salary",
+    liquidityPolicy: "require_explicit"
+  }).acceptedEvents.length, 1);
+});
+
+test("PB-BIZ-10 own reserve used as startup capital cannot become a debt draw", () => {
+  const fakeDebt = proposal({
+    id: "startup_from_reserve",
+    kind: "debt_drawn",
+    evidence: "你们把备用金中的15万元作为启动资金。",
+    payload: {
+      debtAccount: { id: "fake_startup_debt", type: "family_or_personal_loan", principalWan: 15 },
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      principalDrawnWan: 15
+    }
+  });
+  const normalized = normalizeFinancialProposals({
+    proposals: [fakeDebt], acceptedOutcomeIds: ["accepted_choice"], currentLedger: setup().currentLedger, currentCareerStateId: "career_current"
+  });
+  assert.equal(normalized.proposals[0].kind, "business_holding_started");
+  assert.equal((normalized.proposals[0].payload as any).personalCashInvestedWan, 15);
+});
+
+test("PB-CAREER-07 a paraphrased resignation sentence can close the old salary", () => {
+  const input = setup();
+  input.currentLedger.incomeSources.push({
+    id: "legacy_salary", type: "salary", displayName: "旧工作工资", monthlyNetAmountWan: 3,
+    accrualPolicy: "monthly", activeFromAgeInMonths: 240, status: "active",
+    linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+  });
+  const closeSalary = proposal({
+    id: "close_old_salary",
+    kind: "income_source_ended",
+    evidence: "你提交辞职信，拿到最后工资后正式离职。",
+    financialScope: "personal",
+    payload: { incomeSourceId: "legacy_salary" }
+  });
+  const result = validateFinancialProposals({
+    ...input,
+    proposals: [closeSalary],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你向公司提交辞职信时，主管有些意外。拿到最后一个月工资后，你正式开始了创业。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "career_close_paraphrase",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 1);
+});
 test("rejects malformed kind payload before reducer trial without leaking undefined", () => {
   const result = validate([proposal({ id: "malformed_adjustment", kind: "income_source_adjusted", payload: { incomeSourceId: "salary_main" }, evidence: "你正式涨薪到每月3万元。" })], "你正式涨薪到每月3万元。");
   assert.equal(result.acceptedEvents.length, 0);
@@ -145,6 +821,49 @@ test("rejects company revenue and team payroll at the personal-ledger boundary",
   ], "公司SaaS年费收入达到27万元。公司团队工资和运营成本每月3.8万元。你没有从公司领取分红。");
   assert.equal(result.acceptedEvents.length, 0);
   assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 2);
+});
+
+test("rejects nonprofit monthly donations from a personal career income source", () => {
+  const context = setup();
+  context.currentLedger.incomeSources.push({
+    id: "career_income_current",
+    type: "contract",
+    displayName: "个人咨询收入",
+    monthlyNetAmountWan: 1.8,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_current",
+    factStatus: "known",
+    evidence
+  });
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "donation_income_adjusted_554",
+      kind: "income_source_adjusted",
+      effectiveAtAgeInMonths: 312,
+      evidence: "机构月捐因协调员定期更新项目反馈，反而增至9500元。",
+      payload: {
+        incomeSourceId: "career_income_current",
+        nextSource: {
+          ...context.currentLedger.incomeSources.at(-1),
+          id: "career_income_current",
+          type: "other",
+          displayName: "机构月捐收入",
+          monthlyNetAmountWan: 0.95
+        }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "咨询业务方面，你月税后收入稳定在1.8万元；机构月捐因协调员定期更新项目反馈，反而增至9500元。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "nonprofit_donation_boundary",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true, JSON.stringify(result.issues));
 });
 
 test("does not confuse a salary at a SaaS company with company revenue", () => {
@@ -185,6 +904,28 @@ test("rejects a spouse salary from the protagonist ledger", () => {
   assert.equal(result.acceptedEvents.length, 0);
   assert.equal(result.issues[0].code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
   assert.match(result.issues[0].summary, /其他人物/);
+});
+
+test("rejects a parent's business earnings from the protagonist ledger", () => {
+  const parentIncome = proposal({
+    id: "parent_business_income",
+    kind: "income_source_started",
+    evidence: "母亲的小作坊每年稳定多赚1.2万元。",
+    payload: {
+      id: "income_parent_business",
+      type: "other",
+      displayName: "家庭小作坊收入",
+      annualNetAmountWan: 1.2,
+      accrualPolicy: "annual",
+      activeFromAgeInMonths: 360,
+      status: "active",
+      factStatus: "known",
+      evidence: []
+    }
+  });
+  const result = validate([parentIncome], "母亲的小作坊每年稳定多赚1.2万元。");
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.ok(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"));
 });
 
 test("rejects a spouse recurring transfer as protagonist income and requires family support events", () => {
@@ -251,6 +992,41 @@ test("rewrites an accepted asset dependency from proposal id to event id", () =>
   assert.equal((result.acceptedEvents[1].payload as any).linkedDebtDrawEventId, "accepted_mortgage_draw");
 });
 
+test("rejects an orphan mortgage and down payment when a completed home purchase has no property event", () => {
+  const context = setup();
+  context.currentLedger.cashAccounts[0].balanceWan = 20;
+  const proposals = [
+    proposal({
+      id: "orphan_mortgage", kind: "debt_drawn", evidence: "你们付了婚房首付，办理80万元房贷。",
+      payload: {
+        debtAccount: { id: "orphan_mortgage", type: "mortgage", displayName: "婚房按揭", principalWan: 80, openedAtAgeInMonths: 312, status: "active", repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.45, remainingTermMonths: 300 }, factStatus: "estimated", evidence },
+        destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+        principalDrawnWan: 80
+      }
+    }),
+    proposal({
+      id: "orphan_down_payment", kind: "one_off_expense_paid", evidence: "你们支付了15万元婚房首付。",
+      payload: { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 15 }
+    })
+  ];
+  const result = validateFinancialProposals({
+    ...context,
+    proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你们用20万元存款支付了15万元婚房首付，并办理80万元房贷。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "orphan_home_purchase",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.deepEqual(new Set(result.issues.map((issue) => issue.id)), new Set([
+    "proposal_issue_orphan_mortgage_312",
+    "proposal_issue_orphan_down_payment_312"
+  ]));
+  assert.ok(result.issues.every((issue) => issue.code === "UNBALANCED_TRANSACTION"));
+});
+
 test("allows compensation explicitly offered to the protagonist by another person", () => {
   const result = validate([proposal({
     id: "consulting_offer", kind: "income_source_started", evidence: "张哥问你要不要以技术顾问身份加入，每周远程工作十小时，月薪8000元；你最终决定接下兼职。",
@@ -298,6 +1074,6 @@ test("allows separate dependent-support commitments for different responsibiliti
 });
 
 test("every financial event kind has a payload schema that rejects an empty object", () => {
-  const kinds: FinancialEventKind[] = ["income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended", "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended", "one_off_expense_paid", "asset_purchased", "asset_balance_discovered", "asset_sold", "asset_revalued", "debt_drawn", "debt_balance_discovered", "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven", "business_financing_recorded", "business_option_granted", "business_option_vested", "business_option_revalued", "business_option_exercised", "business_option_expired", "business_option_cancelled", "business_holding_revalued", "business_distribution_received", "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"];
+  const kinds: FinancialEventKind[] = ["income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended", "one_off_income_received", "expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended", "one_off_expense_paid", "asset_purchased", "asset_balance_discovered", "asset_sold", "asset_revalued", "debt_drawn", "debt_balance_discovered", "debt_principal_repaid", "debt_interest_paid", "debt_restructured", "debt_forgiven", "debt_default_recorded", "business_holding_started", "business_financing_recorded", "business_option_granted", "business_option_vested", "business_option_revalued", "business_option_exercised", "business_option_expired", "business_option_cancelled", "business_holding_revalued", "business_distribution_received", "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"];
   for (const kind of kinds) assert.ok(validateFinancialPayloadSchema(kind, {}).length > 0, `${kind} schema must reject {}`);
 });
