@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { HistoryItem, SimulationChoice, SimulationNode } from "../types";
-import { applyDecisionDensityDowngrade, downgradeDensityLimitedNode, evaluateDecisionGate, pruneRecentlyPassedChoices, removeBlockedChoicesAfterRepair } from "./decisionGate";
+import { applyDecisionDensityDowngrade, downgradeDensityLimitedNode, evaluateDecisionGate } from "./decisionGate";
 
 const base: SimulationNode = {
   age: 35,
@@ -54,7 +54,7 @@ function cityHistoryItem(age: number, selectedChoice: string): HistoryItem {
 const cooledCandidate: SimulationNode = {
   ...base,
   choices: [
-    cityChoices[1],
+    { ...cityChoices[1], id: "A" },
     { id: "B", text: "接受内部架构师岗位", impactSummary: "内部晋升", decisionIntent: "career:accept_role:internal_architect", expectedWorldDeltaTypes: ["career_state"] },
     { id: "C", text: "继续寻找深圳外部机会", impactSummary: "外部求职", decisionIntent: "career:seek_role:shenzhen_external", expectedWorldDeltaTypes: ["career_state", "relationship_change"] }
   ]
@@ -65,24 +65,58 @@ assert.equal(evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistor
 
 const passedTwice = [...passedOnce, cityHistoryItem(40, cityChoices[0].text)];
 const cooledResult = evaluateDecisionGate({ candidateNode: cooledCandidate, recentHistory: passedTwice, targetAgeInMonths: 492 });
-assert.equal(cooledResult.isDecisionCheckpoint, true);
+assert.equal(cooledResult.isDecisionCheckpoint, false);
 assert.equal(cooledResult.repeatsRecentlyPassedOption, true);
 assert.deepEqual(cooledResult.blockedDecisionIntents, ["location:relocate_to:wuhan_guanggu"]);
-assert.equal(cooledResult.reasonCodes.includes("repeats-recently-passed-option"), false);
+assert.equal(cooledResult.reasonCodes.includes("repeats-recently-passed-option"), true);
 
-const repairedWithoutRepeatedChoice = removeBlockedChoicesAfterRepair(cooledCandidate, cooledResult.blockedDecisionIntents);
-assert.equal(repairedWithoutRepeatedChoice.choices.length, 2);
+const replacementCandidate: SimulationNode = {
+  ...cooledCandidate,
+  choices: [
+    { id: "A", text: "申请内部架构师岗位", impactSummary: "内部晋升", decisionIntent: "career:accept_role:internal_architect", expectedWorldDeltaTypes: ["career_state"] },
+    { id: "B", text: "继续寻找深圳外部机会", impactSummary: "外部求职", decisionIntent: "career:seek_role:shenzhen_external", expectedWorldDeltaTypes: ["career_state", "relationship_change"] },
+    { id: "C", text: "缩减职责并系统学习数据架构", impactSummary: "进修转型", decisionIntent: "education:upskill:data_architecture", expectedWorldDeltaTypes: ["career_state"] }
+  ]
+};
 assert.equal(evaluateDecisionGate({
-  candidateNode: repairedWithoutRepeatedChoice,
+  candidateNode: replacementCandidate,
   recentHistory: passedTwice,
   targetAgeInMonths: 492
 }).isDecisionCheckpoint, true);
 
-const prunedCooledCandidate = pruneRecentlyPassedChoices(cooledCandidate, cooledResult);
-assert.deepEqual(prunedCooledCandidate.choices.map((choice) => choice.decisionIntent), [
-  "career:accept_role:internal_architect",
-  "career:seek_role:shenzhen_external"
-]);
+const twoChoiceCandidate = evaluateDecisionGate({
+  candidateNode: { ...replacementCandidate, choices: replacementCandidate.choices.slice(0, 2) },
+  recentHistory: passedTwice,
+  targetAgeInMonths: 492
+});
+assert.equal(twoChoiceCandidate.isDecisionCheckpoint, false);
+assert.ok(twoChoiceCandidate.reasonCodes.includes("invalid-choice-count"));
+
+const nonCanonicalIds = evaluateDecisionGate({
+  candidateNode: {
+    ...replacementCandidate,
+    choices: replacementCandidate.choices.map((choice, index) => ({ ...choice, id: ["A", "C", "D"][index] }))
+  },
+  recentHistory: passedTwice,
+  targetAgeInMonths: 492
+});
+assert.equal(nonCanonicalIds.isDecisionCheckpoint, false);
+assert.ok(nonCanonicalIds.reasonCodes.includes("invalid-choice-ids"));
+
+const semanticDuplicates = evaluateDecisionGate({
+  candidateNode: {
+    ...base,
+    choices: [
+      { id: "A", text: "聚焦内部成长", impactSummary: "内部成长", decisionIntent: "career:focus_internal_growth", expectedWorldDeltaTypes: ["career_state"] },
+      { id: "B", text: "专注现有团队", impactSummary: "稳住团队", decisionIntent: "career:focus_existing_team", expectedWorldDeltaTypes: ["career_state"] },
+      { id: "C", text: "接受外部平台的新岗位", impactSummary: "外部转岗", decisionIntent: "career:accept_external_role", expectedWorldDeltaTypes: ["career_state", "location_change"] }
+    ]
+  },
+  recentHistory: [],
+  targetAgeInMonths: 420
+});
+assert.equal(semanticDuplicates.isDecisionCheckpoint, false);
+assert.ok(semanticDuplicates.reasonCodes.includes("insufficient-semantic-diversity"));
 
 test("a density-only repair can downgrade intensity without changing the event or choices", () => {
   const candidate = {
