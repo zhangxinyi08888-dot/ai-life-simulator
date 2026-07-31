@@ -136,3 +136,37 @@ assert.doesNotMatch(interruptedMarkup, /保留下来的章节/);
 assert.match(interruptedMarkup, /id="retry-next-generation-btn"/);
 assert.match(interruptedMarkup, /id="discard-next-generation-btn"/);
 assert.doesNotMatch(interruptedMarkup, /id="interaction-dock"/);
+
+const semanticIdMarkup = renderToStaticMarkup(
+  <SimulationEngine
+    currentNode={{
+      ...currentNode,
+      choices: [
+        { id: "stay_in_current_role", text: "留在现有岗位继续争取期权", impactSummary: "专注现岗" },
+        { id: "accept_new_role_transfer", text: "接受内部转岗，进入新业务线", impactSummary: "转岗新业" },
+        { id: "startup_for_larger_platform", text: "加入更大的平台加速成长", impactSummary: "跳槽大平台" }
+      ]
+    }}
+    history={[]}
+    nodeCount={1}
+    onSelectChoice={() => undefined}
+    onAcceptReportInvitation={() => undefined}
+    onContinueReportInvitation={() => undefined}
+    isLoadingNext={false}
+    generationStage="generating"
+    narrativePreview={null}
+    generationError={null}
+    onStopGeneration={() => undefined}
+    onRetryGeneration={() => undefined}
+    onDiscardGeneration={() => undefined}
+    isLoadingReport={false}
+    onTimeTravel={() => undefined}
+  />
+);
+assert.match(semanticIdMarkup, /id="choice-btn-stay_in_current_role"/);
+assert.match(semanticIdMarkup, /data-choice-display-label="A"[^>]*>A<\/span>/);
+assert.match(semanticIdMarkup, /data-choice-display-label="B"[^>]*>B<\/span>/);
+assert.match(semanticIdMarkup, /data-choice-display-label="C"[^>]*>C<\/span>/);
+assert.doesNotMatch(semanticIdMarkup, />stay_in_current_role<\/span>/);
+assert.doesNotMatch(semanticIdMarkup, />accept_new_role_transfer<\/span>/);
+assert.doesNotMatch(semanticIdMarkup, />startup_for_larger_platform<\/span>/);

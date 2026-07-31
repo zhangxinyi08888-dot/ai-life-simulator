@@ -147,3 +147,76 @@ const deferredContractNode = await generateCompleteSimulationNode(async () => {
 });
 assert.equal(deferredContractAttempts, 1, "romance contract repair belongs to the candidate pipeline, not three full-node retries");
 assert.equal(deferredContractNode.title, "平淡中的细微抉择 · 原选项 A");
+
+const choiceTextBaseNode = {
+  age: 35,
+  stage: "职业转折",
+  title: "三个方向",
+  description: "期权兑现和外部机会同时出现，你需要在现有岗位、内部转岗和外部平台之间作出选择。",
+  choices: [
+    { id: "stay_in_current_role", impactSummary: "专注现岗", decisionIntent: "career:stay:current_role" },
+    { id: "accept_new_role_transfer", impactSummary: "转岗新业", decisionIntent: "career:transfer:new_role" },
+    { id: "startup_for_larger_platform", impactSummary: "跳槽大平台", decisionIntent: "career:join:larger_platform" }
+  ],
+  attributes: { happiness: 52, intelligence: 70, wealth: 58, relation: 51, health: 60 },
+  isEndingNode: false
+};
+
+let choiceTextNodeAttempts = 0;
+let choiceTextRepairAttempts = 0;
+const choiceTextRepairedNode = await generateCompleteSimulationNode(async () => {
+  choiceTextNodeAttempts += 1;
+  return choiceTextBaseNode;
+}, {
+  fallbackAge: 35,
+  maxAttempts: 2,
+  repairMissingChoiceText: async (rawNode, invalidChoiceIndexes) => {
+    choiceTextRepairAttempts += 1;
+    assert.deepEqual(invalidChoiceIndexes, [0, 1, 2]);
+    const texts = [
+      "留在现有岗位继续争取期权兑现",
+      "接受内部转岗，转向新的业务线",
+      "加入更大的平台，换取更快成长"
+    ];
+    return {
+      ...rawNode,
+      choices: rawNode.choices.map((choice: Record<string, unknown>, index: number) => ({
+        ...choice,
+        text: texts[index]
+      }))
+    };
+  }
+});
+assert.equal(choiceTextNodeAttempts, 1);
+assert.equal(choiceTextRepairAttempts, 1);
+assert.deepEqual(choiceTextRepairedNode.choices.map((choice) => choice.id), [
+  "stay_in_current_role",
+  "accept_new_role_transfer",
+  "startup_for_larger_platform"
+]);
+assert.equal(choiceTextRepairedNode.choices[0].text, "留在现有岗位继续争取期权兑现");
+
+let fallbackFullNodeAttempts = 0;
+let failedChoiceRepairAttempts = 0;
+const fullNodeRegenerated = await generateCompleteSimulationNode(async (_attempt, previousIssues) => {
+  fallbackFullNodeAttempts += 1;
+  if (fallbackFullNodeAttempts === 1) return choiceTextBaseNode;
+  assert.deepEqual(previousIssues, ["choiceText"]);
+  return {
+    ...choiceTextBaseNode,
+    choices: choiceTextBaseNode.choices.map((choice, index) => ({
+      ...choice,
+      text: ["继续留在现岗推进", "接受内部转岗机会", "加入外部大型平台"][index]
+    }))
+  };
+}, {
+  fallbackAge: 35,
+  maxAttempts: 2,
+  repairMissingChoiceText: async (rawNode) => {
+    failedChoiceRepairAttempts += 1;
+    return rawNode;
+  }
+});
+assert.equal(failedChoiceRepairAttempts, 1);
+assert.equal(fallbackFullNodeAttempts, 2);
+assert.equal(fullNodeRegenerated.choices[2].text, "加入外部大型平台");

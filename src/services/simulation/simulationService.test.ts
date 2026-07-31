@@ -155,6 +155,55 @@ assert.equal(started.startNode.financialLedgerMode, "authoritative");
 assert.equal(started.startNode.financialLedger?.asOfAgeInMonths, 22 * 12);
 assert.equal(started.startNode.financialLedger?.incomeSources[0]?.linkedCareerStateId, started.startNode.worldStateSnapshot?.currentCareerStateId);
 
+let semanticChoiceStartCalls = 0;
+const semanticChoiceStarted = await startSimulation(userData, answers, {
+  callAiJson: async (prompt) => {
+    semanticChoiceStartCalls += 1;
+    if (prompt.includes("choiceTextRepairs")) {
+      assert.match(prompt, /stay_in_current_role/);
+      assert.match(prompt, /\[0,1,2\]/);
+      return {
+        text: JSON.stringify({
+          choiceTextRepairs: [
+            { index: 0, text: "留在现有岗位继续积累并争取期权兑现" },
+            { index: 1, text: "接受内部转岗，进入新的业务方向" },
+            { index: 2, text: "加入更大的外部平台，加快职业成长" }
+          ]
+        })
+      };
+    }
+    return {
+      text: JSON.stringify({
+        initialAttributes: { happiness: 50, intelligence: 72, wealth: 45, relation: 56, health: 68 },
+        startNode: {
+          age: 22,
+          stage: "毕业选择",
+          title: "岗位与新机会",
+          description: "现有岗位、内部转岗和外部平台同时摆在面前，你需要确认下一阶段的投入方向。",
+          choices: [
+            { id: "stay_in_current_role", impactSummary: "专注现岗", decisionIntent: "career:stay:current_role" },
+            { id: "accept_new_role_transfer", impactSummary: "转岗新业", decisionIntent: "career:transfer:new_role" },
+            { id: "startup_for_larger_platform", impactSummary: "跳槽大平台", decisionIntent: "career:join:larger_platform" }
+          ],
+          attributes: { happiness: 50, intelligence: 72, wealth: 45, relation: 56, health: 68 },
+          isEndingNode: false
+        }
+      })
+    };
+  }
+});
+assert.equal(semanticChoiceStartCalls, 2);
+assert.deepEqual(semanticChoiceStarted.startNode.choices.map((choice) => choice.id), [
+  "stay_in_current_role",
+  "accept_new_role_transfer",
+  "startup_for_larger_platform"
+]);
+assert.deepEqual(semanticChoiceStarted.startNode.choices.map((choice) => choice.text), [
+  "留在现有岗位继续积累并争取期权兑现",
+  "接受内部转岗，进入新的业务方向",
+  "加入更大的外部平台，加快职业成长"
+]);
+
 const relationshipStarted = await startSimulation({
   ...userData,
   regressionAge: 26,

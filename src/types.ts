@@ -110,7 +110,7 @@ export interface QuestionItem {
 }
 
 export interface SimulationChoice {
-  id: string;               // "A", "B", "C", "custom"
+  id: string;               // 节点内稳定内部键；A/B/C 展示序号由 UI 根据顺序生成
   text: string;             // 选项文本
   impactSummary: string;    // 选项潜在线索提示或意味
   temporalHint?: ChoiceTemporalHint;

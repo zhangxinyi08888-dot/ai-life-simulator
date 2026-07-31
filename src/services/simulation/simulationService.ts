@@ -6,6 +6,8 @@ import { buildQuestionPrompt } from "../../utils/questionPrompt";
 import { normalizePersonalityInsight } from "../../utils/insightResponse";
 import { generateCompleteSimulationNode } from "../../utils/simulationNodeRetry";
 import {
+  getInvalidExplicitChoiceTextIndexes,
+  getRawSimulationNodeChoices,
   getSimulationNodeValidationIssues,
   groundedRomanceCharacter,
   normalizeSimulationNode,
@@ -73,6 +75,7 @@ import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE
 import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
 import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
 import {
+  buildChoiceTextRepairPrompt,
   buildNextNodePrompt,
   buildEndingNodePrompt,
   buildFinancialProposalRepairPrompt,
@@ -738,6 +741,63 @@ function parseAiJsonResponse(response: { text?: string }): any {
   }
 }
 
+async function repairGeneratedChoiceTexts(
+  node: Record<string, any>,
+  invalidChoiceIndexes: number[],
+  callAiJson: AiJsonCaller
+): Promise<Record<string, any>> {
+  if (invalidChoiceIndexes.length === 0) return node;
+
+  const data = parseAiJsonResponse(await callAiJson(buildChoiceTextRepairPrompt(node, invalidChoiceIndexes)));
+  const rawRepairs = Array.isArray(data?.choiceTextRepairs) ? data.choiceTextRepairs : [];
+  const expectedIndexes = new Set(invalidChoiceIndexes);
+  const rawChoices = getRawSimulationNodeChoices(node);
+  const repairedTextByIndex = new Map<number, string>();
+
+  if (rawRepairs.length !== expectedIndexes.size) {
+    throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回的选项正文修复数量不正确，请重试。");
+  }
+
+  for (const rawRepair of rawRepairs) {
+    const index = Number(rawRepair?.index);
+    const text = typeof rawRepair?.text === "string" ? rawRepair.text.trim() : "";
+    const sourceChoice = rawChoices[index] && typeof rawChoices[index] === "object"
+      ? rawChoices[index] as Record<string, unknown>
+      : {};
+    const id = typeof sourceChoice.id === "string" ? sourceChoice.id.trim() : String.fromCharCode(65 + index);
+    const impactSummary = typeof sourceChoice.impactSummary === "string" ? sourceChoice.impactSummary.trim() : "";
+    const decisionIntent = typeof sourceChoice.decisionIntent === "string" ? sourceChoice.decisionIntent.trim() : "";
+    const disallowedText = new Set([id, impactSummary, decisionIntent, `${id}. ${impactSummary}`].filter(Boolean));
+
+    if (!Number.isInteger(index) || !expectedIndexes.has(index) || repairedTextByIndex.has(index) || !text || disallowedText.has(text)) {
+      throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回的选项正文修复内容无效，请重试。");
+    }
+    repairedTextByIndex.set(index, text);
+  }
+
+  const repairedNode = {
+    ...node,
+    choices: rawChoices.map((choice, index) => ({
+      ...(choice && typeof choice === "object" ? choice : {}),
+      ...(repairedTextByIndex.has(index) ? { text: repairedTextByIndex.get(index) } : {})
+    }))
+  };
+  if (getInvalidExplicitChoiceTextIndexes(repairedNode).length > 0) {
+    throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回的选项正文修复仍不完整，请重试。");
+  }
+  return repairedNode;
+}
+
+async function ensureGeneratedChoiceTexts(
+  node: Record<string, any>,
+  callAiJson: AiJsonCaller
+): Promise<Record<string, any>> {
+  const invalidChoiceIndexes = getInvalidExplicitChoiceTextIndexes(node);
+  return invalidChoiceIndexes.length > 0
+    ? repairGeneratedChoiceTexts(node, invalidChoiceIndexes, callAiJson)
+    : node;
+}
+
 function stringifyQuestionField(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -842,7 +902,14 @@ export async function startSimulation(
     targetAgeInMonths: (userData.regressionAge || 20) * 12,
     previousAgeInMonths: (userData.regressionAge || 20) * 12,
     elapsedMonths: 0,
-    lifeIntensity: "normal"
+    lifeIntensity: "normal",
+    repairMissingChoiceText: async (node, invalidChoiceIndexes) => {
+      const repairedNode = await repairGeneratedChoiceTexts(node, invalidChoiceIndexes, callAiJson);
+      if (latestData.startNode) latestData = { ...latestData, startNode: repairedNode };
+      else if (latestData.node) latestData = { ...latestData, node: repairedNode };
+      else latestData = repairedNode;
+      return repairedNode;
+    }
   });
   const startAgeInMonths = startNode.ageInMonths ?? startNode.age * 12;
   const rawFinancialState = latestData.initialFinancialState || latestData.startNode?.financialState || latestData.financialState;
@@ -1506,7 +1573,11 @@ export async function generateNextNode(
     pressureArcId: workingPressureArc?.id,
     allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
     eventIntentType: nodeEvent?.intent.type,
-    deferRomanceContractValidation: isDeterministicRomanceIntent(nodeEvent?.intent.type)
+    deferRomanceContractValidation: isDeterministicRomanceIntent(nodeEvent?.intent.type),
+    repairMissingChoiceText: async (rawNode, invalidChoiceIndexes) => {
+      latestRawNode = await repairGeneratedChoiceTexts(rawNode, invalidChoiceIndexes, callAiJson);
+      return latestRawNode;
+    }
   });
   deps.onGenerationStage?.("validating");
   node = {
@@ -1540,7 +1611,7 @@ export async function generateNextNode(
       familyAuthorityRepairRule
     ].filter(Boolean).join("；");
     const response = await callAiJson(`${prompt}\n\n【年龄与状态一致性修复】\n${issueText}\n请重新生成完整节点，不得修改 Arc 状态。`);
-    latestRawNode = parseAiJsonResponse(response);
+    latestRawNode = await ensureGeneratedChoiceTexts(parseAiJsonResponse(response), callAiJson);
     if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回包含未授权的 Arc 状态修改，请重试。");
     node = normalizeSimulationNode(latestRawNode, {
       fallbackAge: timelineAdvance.targetAge,
@@ -1566,7 +1637,7 @@ export async function generateNextNode(
       && consistencyIssues.filter((issue) => issue.severity === "error").every((issue) => issue.code === "relationship_authority_conflict");
     if (onlyRelationshipAuthorityConflict) {
       const response = await callAiJson(`${prompt}\n\n【关系权威最终修复】\n上一次修复仍然让爱情正文或选项超前于权威关系状态。请重新生成完整节点，并严格执行：\n1. 只写上一步 selectedDecision 和本次事件种子的现实后果；\n2. 当前事件不是爱情形成或关系 checkpoint，description 与 choices 必须删除新伴侣、具体爱情候选、约会、追求、表白、正式交往、复合、同居、结婚或分手；\n3. 可以写普通社交、参加活动、认识普通朋友，但不得让某个具体人物成为发展对象；\n4. 返回完整合法 JSON，不要解释。`);
-      latestRawNode = parseAiJsonResponse(response);
+      latestRawNode = await ensureGeneratedChoiceTexts(parseAiJsonResponse(response), callAiJson);
       if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "关系权威修复结果包含未授权的 Arc 状态修改。");
       node = normalizeSimulationNode(latestRawNode, {
         fallbackAge: timelineAdvance.targetAge,
@@ -1667,7 +1738,7 @@ export async function generateNextNode(
   if (endingDecision.shouldEnd || shouldForceBrowserE2eEnding(latestRawNode)) {
     const endingPrompt = buildEndingNodePrompt({ userData: input.userData, history: input.history, candidateNode: node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, forcedByHardMaximum: endingDecision.forcedByHardMaximum });
     const response = await callAiJson(endingPrompt);
-    const rawEnding = parseAiJsonResponse(response);
+    const rawEnding = await ensureGeneratedChoiceTexts(parseAiJsonResponse(response), callAiJson);
     const normalizedEnding = normalizeSimulationNode(rawEnding, {
       fallbackAge: timelineAdvance.targetAge,
       minAge: timelineAdvance.targetAge,
@@ -1771,7 +1842,7 @@ export async function generateNextNode(
       : "";
     const repairPrompt = `${prompt}\n\n【DecisionGate 未通过】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。`;
     const response = await callAiJson(repairPrompt);
-    latestRawNode = parseAiJsonResponse(response);
+    latestRawNode = await ensureGeneratedChoiceTexts(parseAiJsonResponse(response), callAiJson);
     if (containsForbiddenArcWrite(latestRawNode)) throw new AiClientError("AI_RESPONSE_INVALID", "DecisionGate 修复结果包含未授权的 Arc 状态修改。");
     node = normalizeSimulationNode(latestRawNode, {
       fallbackAge: timelineAdvance.targetAge,
@@ -1846,7 +1917,7 @@ export async function generateNextNode(
     const originalNode = node;
     try {
       const response = await callAiJson(`${prompt}\n\n【健康 operation 结果证据修复】\n上一次最终候选节点缺少可校验的 pressure_resolved，请重新生成完整节点。\n硬性要求：\n1. description 必须原样包含完整句子：“这次健康危机已经从急性停摆转为需要长期管理的稳定阶段。”\n2. narrativeMeta.arcSignals 必须是非空数组，并至少包含：{ "pressureArcId": "${workingPressureArc.id}", "type": "pressure_resolved", "evidence": "这次健康危机已经从急性停摆转为需要长期管理的稳定阶段。", "confidence": 0.95 }。\n3. 不得把阶段结果写成完全治愈，不得修改 PressureArc 状态。\n返回前逐字检查 evidence 能在 description 中找到。`);
-      let repairedRawNode = parseAiJsonResponse(response);
+      let repairedRawNode = await ensureGeneratedChoiceTexts(parseAiJsonResponse(response), callAiJson);
       if (containsForbiddenArcWrite(repairedRawNode)) {
         throw new AiClientError("AI_RESPONSE_INVALID", "健康 operation 证据修复结果包含未授权的 Arc 状态修改。");
       }
@@ -2064,6 +2135,9 @@ export async function timeTravel(
     targetAgeInMonths: input.targetAge * 12,
     previousAgeInMonths: input.targetAge * 12,
     elapsedMonths: 0,
-    lifeIntensity: "normal"
+    lifeIntensity: "normal",
+    repairMissingChoiceText: (node, invalidChoiceIndexes) => (
+      repairGeneratedChoiceTexts(node, invalidChoiceIndexes, callAiJson)
+    )
   });
 }
