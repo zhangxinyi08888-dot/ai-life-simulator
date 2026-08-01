@@ -38,6 +38,32 @@ assert.equal(attempts[1], "description,attributes");
 assert.match(node.description, /合同续签/);
 assert.equal(node.attributes.health, 38);
 
+let missingAttributeAttempts = 0;
+const repairedMissingAttributes = await generateCompleteSimulationNode(async () => {
+  missingAttributeAttempts += 1;
+  return {
+    age: 42,
+    stage: "职业调整",
+    title: "保留有效属性",
+    description: "这次节点内容完整，只遗漏了健康数值。",
+    choices: [
+      { id: "A", text: "继续推进", impactSummary: "推进" },
+      { id: "B", text: "调整方向", impactSummary: "调整" },
+      { id: "C", text: "暂缓决定", impactSummary: "暂缓" }
+    ],
+    attributes: { happiness: 63, intelligence: 72, wealth: 48, relation: 57 },
+    isEndingNode: false
+  };
+}, {
+  fallbackAge: 42,
+  maxAttempts: 1,
+  fallbackAttributes: { happiness: 50, intelligence: 60, wealth: 55, relation: 52, health: 44 }
+});
+
+assert.equal(missingAttributeAttempts, 1);
+assert.equal(repairedMissingAttributes.attributes.happiness, 63);
+assert.equal(repairedMissingAttributes.attributes.health, 44);
+
 const invalidJsonAttempts: string[] = [];
 const recoveredFromInvalidJson = await generateCompleteSimulationNode(async (_attempt, issues) => {
   invalidJsonAttempts.push(issues.join(","));
@@ -173,6 +199,31 @@ const deferredContractNode = await generateCompleteSimulationNode(async () => {
 });
 assert.equal(deferredContractAttempts, 1, "romance contract repair belongs to the candidate pipeline, not three full-node retries");
 assert.equal(deferredContractNode.title, "平淡中的细微抉择 · 原选项 A");
+
+let genericOutcomeAttempts = 0;
+const genericOutcomeNode = await generateCompleteSimulationNode(async () => {
+  genericOutcomeAttempts += 1;
+  return {
+    age: 45,
+    stage: "经营复盘",
+    title: "三条经营路径",
+    description: "你需要在扩张、稳定和退出之间作出选择。",
+    choices: [
+      { id: "A", text: "继续扩张", impactSummary: "扩张", eventOutcomeId: "expand" },
+      { id: "B", text: "稳定经营", impactSummary: "稳定", eventOutcomeId: "expand" },
+      { id: "C", text: "逐步退出", impactSummary: "退出" }
+    ],
+    attributes: { happiness: 50, intelligence: 60, wealth: 50, relation: 50, health: 50 },
+    isEndingNode: false
+  };
+}, {
+  fallbackAge: 45,
+  maxAttempts: 2,
+  allowedOutcomeIds: ["expand", "stabilize", "exit"],
+  eventIntentType: "business_strategy_review"
+});
+assert.equal(genericOutcomeAttempts, 1);
+assert.deepEqual(genericOutcomeNode.choices.map((choice) => choice.eventOutcomeId), ["expand", "stabilize", "exit"]);
 
 const choiceTextBaseNode = {
   age: 35,

@@ -158,6 +158,7 @@ test("a completed consultant transition is synthesized while a retained day job 
 test("loan balance and active monthly payment claims require an accepted debt draw", () => {
   assert.equal(stillClaimsRejectedDebtDraw("贷款还剩6期约3.65万元本金，月供0.6083万元。"), true);
   assert.equal(stillClaimsRejectedDebtDraw("贷款尚未获批，月供只是测算。"), false);
+  assert.equal(stillClaimsRejectedDebtDraw("这笔钱到账后，你暂时缓解了年底护工费和物业费的压力。"), true);
 });
 
 test("a rejected restructure cannot leave a confirmed repayment plan in the story", () => {
@@ -189,6 +190,121 @@ test("failed model rollback degrades rejected completion facts deterministically
   assert.match(paragraphs.join("\n"), /晚上你照常回家吃饭/);
   assert.match(paragraphs.join("\n"), /尚未形成生效协议/);
   assert.doesNotMatch(paragraphs.join("\n"), /已经批准|降至0.3万元/);
+});
+
+test("structured claims remove rejected recurring income prose without relying on synonym regex", () => {
+  const proposal = {
+    id: "consulting_income_rejected",
+    kind: "income_source_started" as const,
+    effectiveAtAgeInMonths: 480,
+    payload: {},
+    evidence: "很快签下了两家短期咨询合同，每家月费0.25万元。",
+    confidence: 0.9
+  };
+  const surfaceText = "很快签下了两家短期咨询合同，每家月费0.25万元，合计每月增加0.5万元税后收入。";
+  const repaired = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [proposal],
+    acceptedEvents: [],
+    narrativeText: `${surfaceText}你继续维持原有工作。`,
+    narrativeClaims: [{
+      id: "claim_consulting_income",
+      proposalId: proposal.id,
+      kind: proposal.kind,
+      surfaceText
+    }]
+  }).join("\n");
+  assert.doesNotMatch(repaired, /两家短期咨询合同|每月增加0\.5万元/u);
+  assert.match(repaired, /暂时还没有形成确定结果/u);
+  assert.match(repaired, /继续维持原有工作/u);
+});
+
+test("rejected personal income removes a later unbound numeric savings increase", () => {
+  const repaired = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [{
+      id: "side_income_rejected",
+      kind: "income_source_started",
+      effectiveAtAgeInMonths: 377,
+      payload: {},
+      evidence: "副业安排开始进入验证。",
+      confidence: 0.9
+    }],
+    acceptedEvents: [],
+    narrativeText: "副业安排开始进入验证。你继续保留主业。看着账户里多出来的六万块积蓄，你开始考虑把副业变成主业。"
+  }).join("\n");
+  assert.doesNotMatch(repaired, /账户里多出来的六万块积蓄/u);
+  assert.match(repaired, /个人收入尚未形成可由权威账本确认的到账结果/u);
+});
+
+test("rejected personal income removes an immediate qualitative savings benefit", () => {
+  const repaired = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [{
+      id: "consulting_rejected",
+      kind: "income_source_started",
+      effectiveAtAgeInMonths: 406,
+      payload: {},
+      evidence: "对方当场付了5000元咨询费。",
+      confidence: 0.9
+    }],
+    acceptedEvents: [],
+    narrativeText: "对方当场付了5000元咨询费。你的储蓄因此略有增加，但客户圈子也稳定下来。"
+  }).join("\n");
+  assert.doesNotMatch(repaired, /储蓄因此略有增加/u);
+  assert.equal(repaired.match(/暂时还没有形成确定结果/gu)?.length, 1);
+});
+
+test("rejected personal income removes unbound paid-course and consulting completions across later paragraphs", () => {
+  const repaired = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [{
+      id: "course_income_rejected",
+      kind: "income_source_started",
+      effectiveAtAgeInMonths: 406,
+      payload: {},
+      evidence: "你尝试启动咨询收入。",
+      confidence: 0.9
+    }],
+    acceptedEvents: [],
+    narrativeText: "你尝试启动咨询收入。\n\n一个月卖出了14份，收入不到三千元。\n\n你帮客户梳理话术，收了五千元。\n\n咨询业务已经积累了26个付费咨询客户。\n\n你开始每周抽两个晚上接咨询，每次收费800元。"
+  }).join("\n");
+  assert.doesNotMatch(repaired, /卖出了14份|收入不到三千元|收了五千元|26个付费咨询客户|每次收费800元/u);
+  assert.match(repaired, /实际个人收入仍需等待后续结果确认/u);
+});
+
+test("rejected debt draw rollback removes dependent arrival claims without duplicating fallback copy", () => {
+  const paragraphs = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [{
+      id: "loan_rejected",
+      kind: "debt_drawn",
+      effectiveAtAgeInMonths: 312,
+      payload: {},
+      evidence: "你申请的借款已经到账。",
+      confidence: 0.9
+    }],
+    acceptedEvents: [],
+    narrativeText: "你申请的借款已经到账。你尝试申请借款，但这次尚未形成已经到账的结果。这笔钱到账后，你暂时缓解了年底护工费和物业费的压力。你继续重新安排接下来的生活支出。"
+  });
+  const repaired = paragraphs.join("\n");
+  assert.equal(repaired.match(/你尝试申请借款，但这次尚未形成已经到账的结果。/gu)?.length, 1);
+  assert.doesNotMatch(repaired, /这笔钱到账后|借款已经到账/u);
+  assert.match(repaired, /你继续重新安排接下来的生活支出/u);
+});
+
+test("rejected family support rollback removes dependent arrival claims", () => {
+  const paragraphs = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [{
+      id: "family_support_rejected",
+      kind: "family_support_received",
+      effectiveAtAgeInMonths: 312,
+      payload: {},
+      evidence: "父亲借给你的10万元已经到账。",
+      confidence: 0.9
+    }],
+    acceptedEvents: [],
+    narrativeText: "父亲借给你的10万元已经到账。这笔钱到账后，你先补缴了5万元逾期利息。你继续重新安排接下来的生活支出。"
+  });
+  const repaired = paragraphs.join("\n");
+  assert.equal(repaired.match(/你尝试寻求外部支持，但这次尚未确认资金到账。/gu)?.length, 1);
+  assert.doesNotMatch(repaired, /这笔钱到账后|10万元已经到账/u);
+  assert.match(repaired, /你继续重新安排接下来的生活支出/u);
 });
 
 test("rejected proposal diagnostics are closed after the proposal is not committed", () => {

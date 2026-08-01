@@ -9,6 +9,24 @@ const AUTHORITATIVE_OPENING_SOURCES = new Set(["user", "user_profile", "structur
 const FINANCIAL_PLACEHOLDER_TEXT = /金额待账本确认|回报幅度待账本确认|回报率待账本确认|价值待确认|账本确认/u;
 const ORPHAN_FINANCIAL_AMOUNT_TEXT = /(?:负债|债务|净资产|现金|收入|支出)\s*-?\d+(?:\.\d+)?\s*(?:…|\.{2,})/u;
 const LONG_FINANCIAL_FLOAT_TEXT = /-?\d+\.\d{3,}\s*万(?:元)?/u;
+const FAILED_FINANCIAL_ATTEMPT_TEXT = /(?:尝试申请借款，但这次尚未形成已经到账的结果|尝试申请调整还款安排，但尚未形成生效协议|开始评估资产处置，但这次尚未形成确定成交|尝试寻求外部支持，但这次尚未确认资金到账|实际到账的个人收入尚待确认|关于补发收入的安排仍在核对，暂时没有确定到账|(?:股权补偿|期权补偿|期权归属)仍在确认[^。！？\n]{0,24}尚未形成确定的个人持有结果|已经尝试推进这项财务安排，但它暂时还没有形成确定结果)/u;
+const COMPLETION_AFTER_FAILED_ATTEMPT_TEXT = /(?:这笔|该笔|上述)(?:钱|资金|款项)[^。！？\n]{0,12}(?:到账|到手|入账)(?:后|以后|之后)|(?:借款|贷款)[^。！？\n]{0,12}(?:到账|到手|入账)(?:后|以后|之后)|(?:重组|展期|宽限期|还款安排)[^。！？\n]{0,12}(?:生效|获批|确认)(?:后|以后|之后)|(?:签了|签署|签订)[^。！？\n]{0,8}(?:重组|展期|宽限期|还款|补充)?协议|补发[^。！？\n]{0,16}(?:工资|薪资|奖金)|(?:工资|薪资|奖金)[^。！？\n]{0,16}(?:补发|到账)|(?:签署|签订)[^。！？\n]{0,20}(?:股权|股份|期权)(?:协议)?|(?:你|我|主角)(?:已经|已)?(?:获得|拿到|确认|持有)[^。！？\n]{0,20}(?:股权|股份|期权)|(?:资产|房产|车辆|股份)[^。！？\n]{0,12}(?:成交|出售|卖出)(?:后|以后|之后)/u;
+const RELIEF_AFTER_FAILED_ATTEMPT_TEXT = /(?:松(?:了)?(?:一)?口气|长舒一口气|终于(?:可以)?(?:喘息|缓口气)|(?:现金流|资金|还款|月供|债务|经济|财务)?压力[^。！？\n]{0,12}(?:缓解|减轻|下降|小了)|现金流[^。！？\n]{0,12}(?:缓解|改善)|月供[^。！？\n]{0,16}(?:降低|减轻|轻松)|燃眉之急[^。！？\n]{0,8}(?:得到)?缓解)/u;
+const RESTRUCTURE_PENDING_TEXT = /尚未形成生效协议/u;
+const RESTRUCTURE_BENEFIT_TEXT = /(?:每月|月供)[^。！？\n]{0,20}(?:多出(?:来)?(?:的)?|释放|降低|降到|降至|少还)\s*\d|(?:这份|该份|新的?)(?:补充)?协议|用更长的还款周期[^。！？\n]{0,16}(?:喘息|缓解)|(?:松(?:了)?(?:一)?口气|喘息空间|宽慰)[^。！？\n]{0,24}(?:月供|还款|利息|现金流)|(?:利息总额|还款期限)[^。！？\n]{0,20}(?:增加|延长)[^。！？\n]{0,20}(?:月供|现金流|喘息|缓解)/u;
+const UNCONFIRMED_PERSONAL_INCOME_TEXT = /(?:实际到账的个人收入尚待确认|补发收入的安排仍在核对|这项财务安排[^。！？\n]{0,16}没有形成确定结果)/u;
+const PERSONAL_INCOME_BENEFIT_TEXT = /(?:副业|兼职|驻场|咨询)[^。！？\n]{0,16}收入[^。！？\n]{0,20}(?:稳定|到账|带来|填补|覆盖|缓解|攒下)|靠(?:副业|兼职|驻场|咨询)收入[^。！？\n]{0,20}(?:填补|覆盖|攒下)/u;
+const REJECTED_COMPLETION_TITLE_TEXT = /(?:债务|贷款|房贷)?重组|重组生效|协商后(?:的)?(?:新平衡|缓冲|转机)|还款(?:方案|安排)(?:落地|生效)|(?:借款|贷款)(?:到账|获批)|资金到账|融资到位|(?:卖房|卖车|资产出售|资产处置)(?:落地|完成|成交)|(?:援助|支持|家人资金)(?:到账|到位)/u;
+const CANONICAL_FINANCIAL_FALLBACK_SENTENCES = [
+  "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。",
+  "创业初期，个人可支配收入仍未形成稳定来源。",
+  "公司经营已有进展，但个人可支配收入仍未形成稳定来源。",
+  "你们继续根据实际现金流调整家庭支出与储蓄安排。",
+  "你尝试申请借款，但这次尚未形成已经到账的结果。",
+  "你已经尝试申请调整还款安排，但尚未形成生效协议。",
+  "你开始评估资产处置，但这次尚未形成确定成交。",
+  "你尝试寻求外部支持，但这次尚未确认资金到账。"
+];
 
 const PERSONAL_MONTHLY_INCOME_PATTERNS = [
   /(?:你|你的|本人|个人)(?:当前|现在|每月|税后|的|可支配|实际到账|净收入|收入|工资|薪资|月薪|从公司领取|从公司获得|从公司拿到|向自己支付|给自己发){0,8}[^。！？\n]{0,24}?(?:税后)?(?:月薪|每月收入|每月工资|每月薪资|工资|薪资)(?:达到|提升至|升至|降至|恢复至|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/gu,
@@ -48,7 +66,7 @@ function containsCompletedRepaymentClaim(text) {
   return String(text || "").split(/[。！？!?\n]/u).some((sentence) => {
     if (!DEBT_COMPLETION_TEXT.test(sentence)) return false;
     if (/(?:未|没有|尚|仍|距离|如果|一旦|可以|可望|用来|准备|计划|打算|将在|将会|希望|尝试|申请|承诺|需要|才能|能否|还在|待)(?:[^。！？!?\n]{0,20})(?:还清|结清|清偿|无债)/u.test(sentence)) return false;
-    if (/(?:还清|结清|清偿)(?:[^。！？!?\n]{0,20})(?:仍需|还要|尚需|需要|才能|数年|很久|时间)/u.test(sentence)) return false;
+    if (/(?:还清|结清|清偿)(?:[^。！？!?\n]{0,20})(?:仍需|还要|尚需|需要|才能|还差|距离|数年|很久|时间)/u.test(sentence)) return false;
     return /(?:(?:还清|结清)(?:了)?[^。！？!?\n]{0,12}(?:债务|欠款|贷款|房贷|信用卡|债)|清偿(?:完毕|了)?[^。！？!?\n]{0,12}(?:债务|欠款|贷款|房贷|信用卡|债)|无债一身轻|不再欠债|(?:终于|已经|成功|彻底).{0,12}(?:还清|结清|清偿|无债)|(?:债务|欠款|贷款|房贷|信用卡).{0,8}(?:归零|清零))/u.test(sentence);
   });
 }
@@ -256,12 +274,34 @@ export function auditFinancialProductionRecords(records) {
   const financialPrecisionViolations = [];
   const crossJourneyInvitationEntries = [];
   const companyOperatingFlowsInPersonalLedger = [];
+  const rejectedCompletionContradictionNodes = [];
+  const invalidFinancialNarrativeClaimNodes = [];
+  const invalidInternalTransitionNodes = [];
+  const duplicateChoiceIdNodes = [];
+  const duplicateCanonicalFallbackNodes = [];
+  const visibleGenerationPauses = [];
+  const unclassifiedGenerationCalls = [];
+  const generationTraceGroups = new Map();
   const fallbackCaseSlugs = new Set();
   let fallbackWithoutRepairRecordCount = 0;
   let knownRateDebtExposureNodeCount = 0;
 
   for (const record of records) {
     const history = record?.finalState?.history || [];
+    const generationEvents = record?.finalState?.generationEvents || record?.generationEvents || [];
+    for (const event of generationEvents) {
+      if (event?.type === "visible_pause") visibleGenerationPauses.push({ caseSlug: record.caseSlug, ...event });
+    }
+    const generationTraces = record?.finalState?.generationCallTraces || record?.generationCallTraces || [];
+    for (const trace of generationTraces) {
+      if (!trace?.kind || trace.kind === "unknown") unclassifiedGenerationCalls.push({ caseSlug: record.caseSlug, ...trace });
+      if (trace?.outcome === "started") continue;
+      const hasNodeIndex = Number.isInteger(trace.nodeIndex);
+      const key = `${record.caseSlug}:${hasNodeIndex ? `node-${trace.nodeIndex}` : trace.transactionId || "node-unknown"}`;
+      const group = generationTraceGroups.get(key) || [];
+      group.push(trace);
+      generationTraceGroups.set(key, group);
+    }
     const visibleEntries = flattenTextEntries({
       history: history.map((node) => ({ title: node.title, description: node.description, choices: node.choices })),
       share: record?.finalState?.outcome?.share,
@@ -274,13 +314,17 @@ export function auditFinancialProductionRecords(records) {
     }
     const expectedJourneyId = record?.identity?.journeyId || record?.journeyId;
     const finalInvitationIds = new Set((record?.finalState?.invitations || []).map((invitation) => invitation.id));
+    const terminalTraceInvitationIds = new Set((record?.interactionLog || [])
+      .filter((entry) => entry.type === "invitation_declined" || entry.type === "invitation_accepted")
+      .map((entry) => entry.invitation?.id)
+      .filter(Boolean));
     const validArcIds = new Set(history.flatMap((node) => node?.worldStateSnapshot?.pressureArcs || []).map((arc) => arc.id));
     for (const entry of record?.interactionLog || []) {
       if (expectedJourneyId && entry.journeyId && entry.journeyId !== expectedJourneyId) {
         crossJourneyInvitationEntries.push({ caseSlug: record.caseSlug, code: "CROSS_JOURNEY_TRACE", path: "interactionLog", id: entry.journeyId });
       }
       if (!entry.type?.startsWith("invitation_") || !entry.invitation?.id) continue;
-      if (!finalInvitationIds.has(entry.invitation.id)) {
+      if (!finalInvitationIds.has(entry.invitation.id) && !terminalTraceInvitationIds.has(entry.invitation.id)) {
         crossJourneyInvitationEntries.push({ caseSlug: record.caseSlug, code: "CROSS_JOURNEY_INVITATION", id: entry.invitation.id });
       }
       if (entry.invitation.pressureArcId && !validArcIds.has(entry.invitation.pressureArcId)) {
@@ -293,12 +337,66 @@ export function auditFinancialProductionRecords(records) {
     }
     for (let index = 0; index < history.length; index += 1) {
       const node = history[index];
+      const choiceIds = (node.choices || []).map((choice) => choice?.id).filter(Boolean);
+      if (new Set(choiceIds).size !== choiceIds.length) {
+        duplicateChoiceIdNodes.push({ caseSlug: record.caseSlug, node: index + 1, choiceIds });
+      }
+      const internalTransitions = node?.narrativeMeta?.storyEpisode?.internalTransitions || [];
+      if (internalTransitions.some((transition) => !(
+        transition
+        && typeof transition === "object"
+        && Number.isFinite(transition.atAgeInMonths)
+        && (transition.materiality === "transition" || transition.materiality === "meaningful_update")
+        && typeof transition.summary === "string"
+        && Array.isArray(transition.worldDeltas)
+      ))) {
+        invalidInternalTransitionNodes.push({ caseSlug: record.caseSlug, node: index + 1 });
+      }
+      const descriptionText = String(node.description || "");
+      if (CANONICAL_FINANCIAL_FALLBACK_SENTENCES.some((sentence) => descriptionText.split(sentence).length - 1 > 1)) {
+        duplicateCanonicalFallbackNodes.push({ caseSlug: record.caseSlug, node: index + 1 });
+      }
       const auditMeta = extractFinancialNarrativeAuditMeta(node);
+      if (node.financialProcessingMeta?.financialNarrativeAuthorityVersion === "financial_narrative_claims_v1") {
+        const invalidClaimCount = Number(node.financialProcessingMeta?.invalidFinancialNarrativeClaimCount || 0);
+        const danglingClaims = (node.financialNarrativeClaims || []).filter((claim) => (
+          !claim?.proposalId || !claim?.surfaceText || !descriptionText.includes(String(claim.surfaceText))
+        ));
+        if (invalidClaimCount > 0 || danglingClaims.length > 0) {
+          invalidFinancialNarrativeClaimNodes.push({
+            caseSlug: record.caseSlug,
+            node: index + 1,
+            invalidClaimCount,
+            danglingClaimIds: danglingClaims.map((claim) => claim?.id).filter(Boolean)
+          });
+        }
+      }
       if (auditMeta.narrativeFallback) {
         fallbackCaseSlugs.add(record.caseSlug);
         fallbackNodes.push({ caseSlug: record.caseSlug, node: index + 1, ageInMonths: node.ageInMonths, title: node.title, ...auditMeta });
         if (auditMeta.repairAttempts === 0 && auditMeta.fallbackSurfacePaths.length === 0) fallbackWithoutRepairRecordCount += 1;
         for (const code of auditMeta.fallbackReasonCodes) fallbackReasonCodeCounts[code] = (fallbackReasonCodeCounts[code] || 0) + 1;
+        const description = String(node.description || "");
+        const fallbackSentences = description.split(/(?<=[。！？])/u).map((sentence) => sentence.trim()).filter(Boolean);
+        const hasImmediateReliefContradiction = fallbackSentences.some((sentence, sentenceIndex) => (
+          FAILED_FINANCIAL_ATTEMPT_TEXT.test(sentence)
+          && RELIEF_AFTER_FAILED_ATTEMPT_TEXT.test(fallbackSentences[sentenceIndex + 1] || "")
+        ));
+        if (FAILED_FINANCIAL_ATTEMPT_TEXT.test(description)
+          && (COMPLETION_AFTER_FAILED_ATTEMPT_TEXT.test(description)
+            || hasImmediateReliefContradiction
+            || (RESTRUCTURE_PENDING_TEXT.test(description) && RESTRUCTURE_BENEFIT_TEXT.test(description))
+            || ((node.financialProcessingMeta?.acceptedEventCount ?? 0) === 0
+              && UNCONFIRMED_PERSONAL_INCOME_TEXT.test(description)
+              && PERSONAL_INCOME_BENEFIT_TEXT.test(description))
+            || REJECTED_COMPLETION_TITLE_TEXT.test(String(node.title || "")))) {
+          rejectedCompletionContradictionNodes.push({
+            caseSlug: record.caseSlug,
+            node: index + 1,
+            ageInMonths: node.ageInMonths,
+            title: node.title
+          });
+        }
       }
       if (INTERNAL_LEDGER_TEXT.test(String(node.description || ""))) {
         internalLedgerTextNodes.push({ caseSlug: record.caseSlug, node: index + 1, ageInMonths: node.ageInMonths, title: node.title });
@@ -333,6 +431,14 @@ export function auditFinancialProductionRecords(records) {
     for (const conflict of collectFinalReportFinancialConflicts(record)) finalReportConflicts.push({ caseSlug: record.caseSlug, ...conflict });
   }
 
+  const generationGroups = [...generationTraceGroups.values()];
+  const completedGenerationNodeCount = generationGroups.length;
+  const singleFullGenerationNodeCount = generationGroups.filter((group) => (
+    group.filter((trace) => trace.kind === "initial_generation" || trace.kind === "full_regeneration").length === 1
+  )).length;
+  const excessivePatchNodeCount = generationGroups.filter((group) => (
+    group.filter((trace) => trace.kind === "candidate_patch").length > 1
+  )).length;
   return {
     summary: {
       narrativeFallbackNodeCount: fallbackNodes.length,
@@ -353,7 +459,19 @@ export function auditFinancialProductionRecords(records) {
       financialAmountPrecisionViolationCount: financialPrecisionViolations.length,
       crossJourneyInvitationEntryCount: crossJourneyInvitationEntries.length,
       companyOperatingFlowInPersonalLedgerCount: companyOperatingFlowsInPersonalLedger.length,
-      knownRateDebtExposureNodeCount
+      rejectedCompletionContradictionNodeCount: rejectedCompletionContradictionNodes.length,
+      invalidFinancialNarrativeClaimNodeCount: invalidFinancialNarrativeClaimNodes.length,
+      invalidInternalTransitionNodeCount: invalidInternalTransitionNodes.length,
+      duplicateChoiceIdNodeCount: duplicateChoiceIdNodes.length,
+      duplicateCanonicalFallbackNodeCount: duplicateCanonicalFallbackNodes.length,
+      knownRateDebtExposureNodeCount,
+      visibleGenerationPauseCount: visibleGenerationPauses.length,
+      unclassifiedGenerationCallCount: unclassifiedGenerationCalls.length,
+      completedGenerationNodeCount,
+      singleFullGenerationNodeRate: completedGenerationNodeCount > 0
+        ? singleFullGenerationNodeCount / completedGenerationNodeCount
+        : 1,
+      excessivePatchNodeCount
     },
     fallbackNodes,
     internalLedgerTextNodes,
@@ -369,7 +487,14 @@ export function auditFinancialProductionRecords(records) {
     orphanFinancialAmounts,
     financialPrecisionViolations,
     crossJourneyInvitationEntries,
-    companyOperatingFlowsInPersonalLedger
+    companyOperatingFlowsInPersonalLedger,
+    rejectedCompletionContradictionNodes,
+    invalidFinancialNarrativeClaimNodes,
+    invalidInternalTransitionNodes,
+    duplicateChoiceIdNodes,
+    duplicateCanonicalFallbackNodes,
+    visibleGenerationPauses,
+    unclassifiedGenerationCalls
   };
 }
 

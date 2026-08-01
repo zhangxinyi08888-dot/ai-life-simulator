@@ -48,12 +48,39 @@ export function stripUnauthorizedRomanticCharacters(
   ));
   if (hasActiveRomanticRelationship || node.eventMeta?.eventId === "romance_new_connection") return node;
   const activeCharacters = node.narrativeMeta?.activeCharacters || [];
-  const filteredCharacters = activeCharacters.filter((character) => !ROMANTIC_CHARACTER_CLAIM.test(JSON.stringify(character)));
+  const filteredCharacters = activeCharacters.filter((character) => (
+    character.candidateOrdinal == null
+    && !ROMANTIC_CHARACTER_CLAIM.test(JSON.stringify(character))
+  ));
   if (filteredCharacters.length === activeCharacters.length || !node.narrativeMeta) return node;
   return {
     ...node,
     narrativeMeta: { ...node.narrativeMeta, activeCharacters: filteredCharacters }
   };
+}
+
+export function stripUnauthorizedRelationshipChoices(
+  node: SimulationNode,
+  worldState?: WorldStateSnapshot
+): SimulationNode {
+  const activeRomanticRelationship = worldState?.relationships?.find((relationship) => (
+    relationship.type === "romantic" && ["active", "strained"].includes(relationship.status)
+  ));
+  const stage = activeRomanticRelationship?.stage;
+  const choices = node.choices.filter((choice) => {
+    const unauthorizedIntent = node.eventMeta?.routeLine !== "romance"
+      && /^romance:(?:end|breakup|separate|commit|cohabit|marry|begin|start|proceed|advance|confirm)(?::|$)/i.test(choice.decisionIntent || "");
+    if (unauthorizedIntent) return false;
+    if (!stage || stage === "acquaintance" || stage === "exploring") {
+      return !choiceExecutesDatingTransition(choice.text)
+        && !choiceExecutesFormalRelationshipTransition(choice.text)
+        && !ROMANTIC_EXECUTING_CHOICE_TEXT.test(choice.text);
+    }
+    if (stage === "dating") return !choiceExecutesFormalRelationshipTransition(choice.text);
+    if (stage === "cohabiting") return !choiceExecutesFormalRelationshipTransition(choice.text);
+    return true;
+  });
+  return choices.length >= 2 && choices.length !== node.choices.length ? { ...node, choices } : node;
 }
 
 export function validateStoryConsistency(input: {

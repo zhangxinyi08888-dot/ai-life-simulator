@@ -2,7 +2,7 @@
  * Shared Type Definitions for AI Life Simulator
  */
 
-import type { FinancialLedger, FinancialPeriodSummary } from "./domain/finance/types";
+import type { FinancialLedger, FinancialNarrativeClaim, FinancialPeriodSummary } from "./domain/finance/types";
 import type { DebtHealthState } from "./domain/finance/debtHealth";
 import type { CareerState } from "./domain/career/types";
 
@@ -486,6 +486,7 @@ export interface SimulationNode {
   financialPeriodSummary?: FinancialPeriodSummary;
   financialSignals?: FinancialSignals;
   financialChange?: FinancialChange;
+  financialNarrativeClaims?: FinancialNarrativeClaim[];
   financialProcessingMeta?: FinancialProcessingMeta;
   isEndingNode: boolean;       // 是否已到达人生终点
   eventMeta?: EventMeta;        // 触发本节点的事件种子元数据，用于冷却与同类限制
@@ -541,6 +542,13 @@ export interface FinancialProcessingMeta {
   narrativeFallback?: boolean;
   narrativeFallbackReasonCodes?: string[];
   rejectedDebtClaimKinds?: string[];
+  /** Rejected proposal kinds that caused deterministic narrative rollback. */
+  rejectedFinancialProposalKinds?: string[];
+  financialNarrativeAuthorityVersion?: "financial_narrative_claims_v1";
+  financialNarrativeClaimCount?: number;
+  rejectedFinancialNarrativeClaimCount?: number;
+  rawInvalidFinancialNarrativeClaimCount?: number;
+  invalidFinancialNarrativeClaimCount?: number;
   narrativeRepairAttempts?: number;
   narrativeRepairSucceeded?: boolean;
   narrativeFallbackSurfacePaths?: string[];

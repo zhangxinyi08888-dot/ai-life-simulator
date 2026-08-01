@@ -124,6 +124,9 @@ assert.match(prompt, /不能自行创建或修改 Arc 状态|模型不得修改 
 assert.match(prompt, /正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额/);
 assert.match(prompt, /允许描述本阶段实际发生的交易金额/);
 assert.match(prompt, /financialEventProposals 必须放在返回 JSON 顶层/);
+assert.match(prompt, /financialNarrativeClaims 必须放在返回 JSON 顶层/);
+assert.match(prompt, /每个 financialEventProposal 至少返回一项 Claim/);
+assert.match(prompt, /未绑定 Claim 的正文或选项/);
 assert.match(prompt, /不得返回债务净变化、资产净变化或最终余额/);
 assert.match(prompt, /debtAccount.*destinationCashAccountId.*principalDrawnWan/s);
 assert.match(prompt, /debtAccount\.principalWan 必须严格等于 principalDrawnWan/);

@@ -51,6 +51,26 @@ function rawNode(description = "公司经营稳定，你需要决定下一步。
   };
 }
 
+function candidatePatch(prompt: string, replacementChoices?: SimulationChoice[]) {
+  const baseCandidateHash = prompt.match(/"baseCandidateHash":\s*"([^"]+)"/)?.[1];
+  const targetCandidateRevision = Number(prompt.match(/"targetCandidateRevision":\s*(\d+)/)?.[1] ?? 0);
+  const addressedIssueCodes = JSON.parse(prompt.match(/"addressedIssueCodes":\s*(\[[^\]]*\])/)?.[1] ?? "[]") as string[];
+  const allowedOutcomeIds = JSON.parse(prompt.match(/"allowedOutcomeIds":(\[[^\]]*\])/)?.[1] ?? "[]") as string[];
+  assert.ok(baseCandidateHash);
+  return {
+    contractVersion: "node_candidate_patch_v1",
+    baseCandidateHash,
+    targetCandidateRevision,
+    addressedIssueCodes,
+    ...(replacementChoices ? {
+      replacementChoices: replacementChoices.map((choice, index) => ({
+        ...choice,
+        eventOutcomeId: allowedOutcomeIds[index % allowedOutcomeIds.length]
+      }))
+    } : { narrativeMetaPatch: { arcSignals: [] } })
+  };
+}
+
 function pressureArc(age: number, phaseId = "operation"): PressureArcState {
   return {
     id: "pressure_venture",
@@ -230,13 +250,16 @@ try {
     nodeIndex: 1,
     simulationSeed: "forbidden-seed"
   }, {
+    enableCandidatePatchRepair: true,
     relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
-    callAiJson: async () => {
+    callAiJson: async (prompt) => {
       forbiddenAttempts += 1;
-      return { text: JSON.stringify(forbiddenAttempts === 1 ? { ...rawNode(), nextPhaseId: "growth" } : rawNode("公司经营稳定，规则由状态机决定。")) };
+      return { text: JSON.stringify(forbiddenAttempts === 1
+        ? { ...rawNode(), nextPhaseId: "growth" }
+        : candidatePatch(prompt)) };
     }
   });
-  assert.equal(forbiddenAttempts, 2);
+  assert.equal(forbiddenAttempts, 1);
   assert.equal(repaired.committedArcMeta?.transitionAction, "stay");
 
   let gateAttempts = 0;
@@ -249,10 +272,13 @@ try {
     nodeIndex: 1,
     simulationSeed: "gate-seed"
   }, {
+    enableCandidatePatchRepair: true,
     relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
-    callAiJson: async () => {
+    callAiJson: async (prompt) => {
       gateAttempts += 1;
-      return { text: JSON.stringify(rawNode(gateAttempts === 1 ? "恢复期没有新变化。" : "恢复完成后出现新的经营选择。", gateAttempts === 1)) };
+      return { text: JSON.stringify(gateAttempts === 1
+        ? rawNode("恢复期没有新变化。", true)
+        : candidatePatch(prompt, choices())) };
     }
   });
   assert.equal(gateAttempts, 2);
