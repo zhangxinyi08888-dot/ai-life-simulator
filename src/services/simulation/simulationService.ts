@@ -6,6 +6,8 @@ import { buildQuestionPrompt } from "../../utils/questionPrompt";
 import { normalizePersonalityInsight } from "../../utils/insightResponse";
 import { generateCompleteSimulationNode, isRetryableNodeGenerationError } from "../../utils/simulationNodeRetry";
 import {
+  getInvalidExplicitChoiceTextIndexes,
+  getRawSimulationNodeChoices,
   getSimulationNodeValidationIssues,
   groundedRomanceCharacter,
   normalizeSimulationNodeChoices,
@@ -15,7 +17,7 @@ import {
 import { buildStoryContextPack } from "../../utils/storyContext";
 import { buildAgeContext } from "../../utils/ageContext";
 import { FINANCIAL_DEBT_PHASE_POLICY, HEALTH_CRISIS_PHASE_POLICY, preemptDebtArcForAcuteHealth, reducePressureArc, resolveDebtArcAfterHealth, resolvePhase, resolvePhasePolicy, resolvePressureArcPresentationEvent as resolvePolicyPressureArcPresentationEvent, validateNodeOutcomeProposal, type AcceptedNodeOutcome, type PhaseTransitionPolicy, type PressureArcTransitionDecision } from "../../utils/arcLifecycle";
-import { applyDecisionDensityDowngrade, downgradeDensityLimitedNode, evaluateDecisionGate, removeBlockedChoicesAfterRepair } from "../../utils/decisionGate";
+import { applyDecisionDensityDowngrade, downgradeDensityLimitedNode, evaluateDecisionGate } from "../../utils/decisionGate";
 import { evaluateEnding } from "../../utils/endingDecision";
 import { rebuildPersonStates } from "../../utils/personTimeline";
 import { commitSimulationTransaction, emptyWorldState } from "../../utils/simulationTransaction";
@@ -88,6 +90,7 @@ import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE
 import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
 import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
 import {
+  buildChoiceTextRepairPrompt,
   buildNextNodePrompt,
   buildEndingNodePrompt,
   buildFinancialProposalRepairPrompt,
@@ -239,6 +242,35 @@ function normalizeFinancialNarrativeClaims(input: {
     }
   }
   return { claims: [...claims.values()], invalidCount };
+}
+
+function acceptedEventCoversRejectedProposal(input: {
+  proposal: FinancialEventProposal;
+  claims: FinancialNarrativeClaim[];
+  acceptedEvents: AcceptedFinancialEvent[];
+}): boolean {
+  const equityKinds = new Set<FinancialEventKind>([
+    "business_holding_started",
+    "business_option_granted",
+    "business_option_vested"
+  ]);
+  const compatibleKind = (acceptedKind: FinancialEventKind) => (
+    acceptedKind === input.proposal.kind
+    || (equityKinds.has(acceptedKind) && equityKinds.has(input.proposal.kind))
+  );
+  const proposalTexts = [
+    input.proposal.evidence,
+    ...input.claims
+      .filter((claim) => claim.proposalId === input.proposal.id)
+      .map((claim) => claim.surfaceText)
+  ].map((text) => text.trim()).filter(Boolean);
+  return input.acceptedEvents.some((event) => (
+    compatibleKind(event.kind)
+    && event.evidence.some((item) => proposalTexts.some((text) => (
+      matchesNormalizedEvidence(item.excerpt, text)
+      && matchesNormalizedEvidence(text, item.excerpt)
+    )))
+  ));
 }
 
 export function extractMisplacedEmploymentTransition(rawNode: any): EmploymentTransitionProposal | undefined {
@@ -1689,6 +1721,11 @@ async function commitAuthoritativeFinancialProgress(input: {
     finalRejectedIdSet.has(proposal.id)
     && isFinancialEventKind(proposal.kind)
     && !isCompanyOperatingNarrativeProposal(proposal)
+    && !acceptedEventCoversRejectedProposal({
+      proposal,
+      claims: rejectedNarrativeClaims,
+      acceptedEvents: validated.acceptedEvents
+    })
     && (rejectedClaimProposalIds.has(proposal.id)
       || stillClaimsRejectedProposal(proposal, input.node.description)
       || rollbackRejectedFinancialCompletionTitle(input.node.title, [proposal]) !== input.node.title)
@@ -1922,6 +1959,63 @@ function parseAiJsonResponse(response: { text?: string }): any {
   }
 }
 
+async function repairGeneratedChoiceTexts(
+  node: Record<string, any>,
+  invalidChoiceIndexes: number[],
+  callAiJson: AiJsonCaller
+): Promise<Record<string, any>> {
+  if (invalidChoiceIndexes.length === 0) return node;
+
+  const data = parseAiJsonResponse(await callAiJson(buildChoiceTextRepairPrompt(node, invalidChoiceIndexes)));
+  const rawRepairs = Array.isArray(data?.choiceTextRepairs) ? data.choiceTextRepairs : [];
+  const expectedIndexes = new Set(invalidChoiceIndexes);
+  const rawChoices = getRawSimulationNodeChoices(node);
+  const repairedTextByIndex = new Map<number, string>();
+
+  if (rawRepairs.length !== expectedIndexes.size) {
+    throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回的选项正文修复数量不正确，请重试。");
+  }
+
+  for (const rawRepair of rawRepairs) {
+    const index = Number(rawRepair?.index);
+    const text = typeof rawRepair?.text === "string" ? rawRepair.text.trim() : "";
+    const sourceChoice = rawChoices[index] && typeof rawChoices[index] === "object"
+      ? rawChoices[index] as Record<string, unknown>
+      : {};
+    const id = typeof sourceChoice.id === "string" ? sourceChoice.id.trim() : String.fromCharCode(65 + index);
+    const impactSummary = typeof sourceChoice.impactSummary === "string" ? sourceChoice.impactSummary.trim() : "";
+    const decisionIntent = typeof sourceChoice.decisionIntent === "string" ? sourceChoice.decisionIntent.trim() : "";
+    const disallowedText = new Set([id, impactSummary, decisionIntent, `${id}. ${impactSummary}`].filter(Boolean));
+
+    if (!Number.isInteger(index) || !expectedIndexes.has(index) || repairedTextByIndex.has(index) || !text || disallowedText.has(text)) {
+      throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回的选项正文修复内容无效，请重试。");
+    }
+    repairedTextByIndex.set(index, text);
+  }
+
+  const repairedNode = {
+    ...node,
+    choices: rawChoices.map((choice, index) => ({
+      ...(choice && typeof choice === "object" ? choice : {}),
+      ...(repairedTextByIndex.has(index) ? { text: repairedTextByIndex.get(index) } : {})
+    }))
+  };
+  if (getInvalidExplicitChoiceTextIndexes(repairedNode).length > 0) {
+    throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回的选项正文修复仍不完整，请重试。");
+  }
+  return repairedNode;
+}
+
+async function ensureGeneratedChoiceTexts(
+  node: Record<string, any>,
+  callAiJson: AiJsonCaller
+): Promise<Record<string, any>> {
+  const invalidChoiceIndexes = getInvalidExplicitChoiceTextIndexes(node);
+  return invalidChoiceIndexes.length > 0
+    ? repairGeneratedChoiceTexts(node, invalidChoiceIndexes, callAiJson)
+    : node;
+}
+
 function stringifyQuestionField(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -2026,7 +2120,14 @@ export async function startSimulation(
     targetAgeInMonths: (userData.regressionAge || 20) * 12,
     previousAgeInMonths: (userData.regressionAge || 20) * 12,
     elapsedMonths: 0,
-    lifeIntensity: "normal"
+    lifeIntensity: "normal",
+    repairMissingChoiceText: async (node, invalidChoiceIndexes) => {
+      const repairedNode = await repairGeneratedChoiceTexts(node, invalidChoiceIndexes, callAiJson);
+      if (latestData.startNode) latestData = { ...latestData, startNode: repairedNode };
+      else if (latestData.node) latestData = { ...latestData, node: repairedNode };
+      else latestData = repairedNode;
+      return repairedNode;
+    }
   });
   const startAgeInMonths = startNode.ageInMonths ?? startNode.age * 12;
   const rawFinancialState = latestData.initialFinancialState || latestData.startNode?.financialState || latestData.financialState;
@@ -2447,7 +2548,8 @@ function buildDeterministicRomanceRescheduleNode(
 
 function applyDeterministicDecisionGateFallback(
   node: SimulationNode,
-  allowedOutcomeIds: string[] = []
+  allowedOutcomeIds: string[] = [],
+  intentScope = String(node.ageInMonths ?? node.age)
 ): SimulationNode {
   const definitions = [
     { text: "按当前方向继续推进，但设置明确的三个月复盘点", summary: "继续并复盘", intent: "growth:continue_with_review", delta: "career_state" as const },
@@ -2460,7 +2562,7 @@ function applyDeterministicDecisionGateFallback(
       id: String.fromCharCode(65 + index),
       text: definition.text,
       impactSummary: definition.summary,
-      decisionIntent: definition.intent,
+      decisionIntent: `${definition.intent}:${intentScope}`,
       eventOutcomeId: allowedOutcomeIds.length ? allowedOutcomeIds[index % allowedOutcomeIds.length] : undefined,
       expectedWorldDeltaTypes: [definition.delta],
       temporalHint: {
@@ -2483,8 +2585,9 @@ function buildDeterministicCandidateFallback(input: {
   selectedDecision: string;
   allowedOutcomeIds?: string[];
   issueCodes: string[];
+  intentScope?: string;
 }): SimulationNode {
-  const safeNode = applyDeterministicDecisionGateFallback(input.node, input.allowedOutcomeIds);
+  const safeNode = applyDeterministicDecisionGateFallback(input.node, input.allowedOutcomeIds, input.intentScope);
   const description = input.selectedDecision.trim()
     ? "你已经开始执行上一轮的选择。这一步尚未被写成未经权威状态确认的成功结果；接下来的变化仍要由实际事件、人物状态和账本记录确认。你重新安排了时间、精力与现实责任，并为三个月后保留了复盘点。"
     : "你重新安排了时间、精力与现实责任，但尚未形成可以由权威状态确认的新结果。接下来的变化仍要由实际事件、人物状态和账本记录确认。";
@@ -2528,6 +2631,7 @@ function buildInvalidInitialGenerationFallback(input: {
   previousAgeInMonths: number;
   elapsedMonths: number;
   lifeIntensity: LifeIntensity;
+  nodeIndex: number;
 }): SimulationNode {
   const baseNode = normalizeSimulationNode({
     title: "选择落地前的现实调整",
@@ -2560,7 +2664,8 @@ function buildInvalidInitialGenerationFallback(input: {
     node: baseNode,
     selectedDecision: input.selectedDecision,
     allowedOutcomeIds: input.allowedOutcomeIds,
-    issueCodes: ["INITIAL_GENERATION_INVALID"]
+    issueCodes: ["INITIAL_GENERATION_INVALID"],
+    intentScope: `node-${input.nodeIndex}`
   });
 }
 
@@ -3016,6 +3121,28 @@ export async function generateNextNode(
       eventIntentType: nodeEvent?.intent.type,
       deferRomanceContractValidation: isDeterministicRomanceIntent(nodeEvent?.intent.type),
       fallbackAttributes: input.currentAttributes,
+      repairMissingChoiceText: deps.enableCandidatePatchRepair === true
+        ? async (rawNode, invalidChoiceIndexes) => {
+            if (!canPatch(generationBudget)) return rawNode;
+            consumeModelPatch(generationBudget);
+            latestRawNode = await traceGenerationCall({
+              kind: "candidate_patch",
+              context: {
+                transactionId,
+                nodeIndex,
+                candidateRevision: generationBudget.fullGenerationsUsed - 1,
+                issueCodes: ["choiceText"]
+              },
+              listener: deps.onGenerationCallTrace,
+              operation: async (markFirstToken) => {
+                const repaired = await repairGeneratedChoiceTexts(rawNode, invalidChoiceIndexes, callAiJson);
+                markFirstToken();
+                return repaired;
+              }
+            });
+            return latestRawNode;
+          }
+        : undefined,
       maxAttempts: Math.min(2, remainingFullGenerationAttempts)
     });
   } catch (error) {
@@ -3030,7 +3157,8 @@ export async function generateNextNode(
       targetAgeInMonths: timelineAdvance.targetAgeInMonths,
       previousAgeInMonths: currentAgeInMonths,
       elapsedMonths: timelineAdvance.elapsedMonths,
-      lifeIntensity: timelineAdvance.lifeIntensity
+      lifeIntensity: timelineAdvance.lifeIntensity,
+      nodeIndex
     });
     latestRawNode = node;
   }
@@ -3089,9 +3217,6 @@ export async function generateNextNode(
     narrativeMode: nodeEvent?.narrativeMode
   });
   node = downgradeDensityLimitedNode(node, candidateDecisionGate.reasonCodes);
-  if (candidateDecisionGate.blockedDecisionIntents.length > 0) {
-    node = removeBlockedChoicesAfterRepair(node, candidateDecisionGate.blockedDecisionIntents);
-  }
   candidateDecisionGate = evaluateDecisionGate({
     candidateNode: node,
     previousNode: lastNode,
@@ -3234,7 +3359,6 @@ export async function generateNextNode(
       });
       node = stripUnauthorizedRelationshipChoices(node, worldState);
       node = applyDecisionDensityDowngrade(node, candidateDecisionGate);
-      node = removeBlockedChoicesAfterRepair(node, candidateDecisionGate.blockedDecisionIntents);
       node = downgradeDensityLimitedNode(node, candidateDecisionGate.reasonCodes);
       latestRawNode = { ...node, financialEventProposals };
       candidateDecisionGate = evaluateDecisionGate({
@@ -3254,7 +3378,7 @@ export async function generateNextNode(
     candidateIssues.length > 0
     && candidateIssues.every((issue) => issue.code === CANDIDATE_ISSUE.decisionGate)
   ) {
-    node = applyDeterministicDecisionGateFallback(node, nodeEvent?.intent.allowedOutcomes);
+    node = applyDeterministicDecisionGateFallback(node, nodeEvent?.intent.allowedOutcomes, `node-${nodeIndex}`);
     latestRawNode = {
       ...node,
       financialEventProposals: rawFinancialEventProposals(latestRawNode)
@@ -3290,7 +3414,8 @@ export async function generateNextNode(
       node,
       selectedDecision: input.selectedDecision,
       allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
-      issueCodes: candidateIssues.map((issue) => issue.code)
+      issueCodes: candidateIssues.map((issue) => issue.code),
+      intentScope: `node-${nodeIndex}`
     });
     latestRawNode = node;
     candidateDecisionGate = evaluateDecisionGate({
@@ -3447,27 +3572,19 @@ export async function generateNextNode(
       narrativeMode: nodeEvent?.narrativeMode
     });
   }
-  if (decisionGate.isDecisionCheckpoint && decisionGate.blockedDecisionIntents.length > 0) {
-    node = removeBlockedChoicesAfterRepair(node, decisionGate.blockedDecisionIntents);
-    decisionGate = evaluateDecisionGate({
-      candidateNode: node,
-      previousNode: lastNode,
-      pressureArc: workingPressureArc,
-      recentHistory: input.history,
-      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-      independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
-      allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
-      narrativeMode: nodeEvent?.narrativeMode
-    });
-  }
+  const blockedIntentsForRepair = new Set(decisionGate.blockedDecisionIntents);
   for (let decisionRepairAttempt = 1; !decisionGate.isDecisionCheckpoint && decisionRepairAttempt <= 2; decisionRepairAttempt += 1) {
-    const blockedChoicePrompt = decisionGate.blockedDecisionIntents.length > 0
-      ? `\n以下 decisionIntent 近期已被用户重复未采纳，处于冷却中：${decisionGate.blockedDecisionIntents.join("、")}。保留相关真实事实或人物关系，但不得改写文案后再次提供同一行动。`
+    for (const blockedIntent of decisionGate.blockedDecisionIntents) blockedIntentsForRepair.add(blockedIntent);
+    const blockedChoicePrompt = blockedIntentsForRepair.size > 0
+      ? `\n以下 decisionIntent 近期已被用户重复未采纳，处于冷却中：${[...blockedIntentsForRepair].join("、")}。保留相关真实事实或人物关系，但三个新选项均不得包含或改写为这些行动。`
       : "";
-    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过：第 ${decisionRepairAttempt} 次修复】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并生成至少两个会改变未来状态的实质选项。不得只替换近义词；每个选项必须使用不同 decisionIntent${nodeEvent?.intent.allowedOutcomes?.length ? `，并从允许的 eventOutcomeId 中覆盖至少两个不同策略：${nodeEvent.intent.allowedOutcomes.join("、")}` : ""}。`;
+    const repairPrompt = `${prompt}\n\n【DecisionGate 未通过：第 ${decisionRepairAttempt} 次修复】\n问题：${decisionGate.reasonCodes.join("、")}。${blockedChoicePrompt}\n请把等待、复查、恢复等过程压缩进 storyEpisode.internalTransitions，并重新生成完整节点。最终 choices 必须正好三个，按顺序使用 id=A、B、C；三个选项必须是语义不同、会改变未来状态的实质方向，并分别使用不同 decisionIntent。不得只替换近义词或用同一行动的不同措辞凑数${nodeEvent?.intent.allowedOutcomes?.length ? `；同时从允许的 eventOutcomeId 中覆盖至少两个不同策略：${nodeEvent.intent.allowedOutcomes.join("、")}` : ""}。`;
     try {
       const response = await callAiJson(repairPrompt);
-      latestRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
+      latestRawNode = await ensureGeneratedChoiceTexts(
+        stripForbiddenArcWrites(parseAiJsonResponse(response)),
+        callAiJson
+      );
     } catch (error) {
       if (isRetryableNodeGenerationError(error) && decisionRepairAttempt < 2) continue;
       throw error;
@@ -3493,7 +3610,6 @@ export async function generateNextNode(
     });
     node = applyDecisionDensityDowngrade(node, decisionGate);
     node = stripUnauthorizedRomanticCharacters(node, worldState);
-    node = removeBlockedChoicesAfterRepair(node, decisionGate.blockedDecisionIntents);
     node = downgradeDensityLimitedNode(node, decisionGate.reasonCodes);
     consistencyIssues = validateStoryConsistency({ node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, people, worldState });
     repeatsAcuteHealthCrisis = repeatsAcuteHealthCrisisAfterTrigger(node, workingPressureArc);
@@ -3535,19 +3651,6 @@ export async function generateNextNode(
         narrativeMode: nodeEvent?.narrativeMode
       });
     }
-    if (decisionGate.isDecisionCheckpoint && decisionGate.blockedDecisionIntents.length > 0) {
-      node = removeBlockedChoicesAfterRepair(node, decisionGate.blockedDecisionIntents);
-      decisionGate = evaluateDecisionGate({
-        candidateNode: node,
-        previousNode: lastNode,
-        pressureArc: workingPressureArc,
-        recentHistory: input.history,
-        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
-        independentCriticalEvent: Boolean(existingPressureArc || independentCriticalHealthEvent),
-        allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
-        narrativeMode: nodeEvent?.narrativeMode
-      });
-    }
   }
   if (!decisionGate.isDecisionCheckpoint) {
     throw new AiClientError(
@@ -3570,7 +3673,10 @@ export async function generateNextNode(
     const originalNode = node;
     try {
       const response = await callAiJson(`${prompt}\n\n【健康 operation 结果证据修复】\n上一次最终候选节点缺少可校验的 pressure_resolved，请重新生成完整节点。\n硬性要求：\n1. description 必须原样包含完整句子：“这次健康危机已经从急性停摆转为需要长期管理的稳定阶段。”\n2. narrativeMeta.arcSignals 必须是非空数组，并至少包含：{ "pressureArcId": "${workingPressureArc.id}", "type": "pressure_resolved", "evidence": "这次健康危机已经从急性停摆转为需要长期管理的稳定阶段。", "confidence": 0.95 }。\n3. 不得把阶段结果写成完全治愈，不得修改 PressureArc 状态。\n返回前逐字检查 evidence 能在 description 中找到。`);
-      let repairedRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
+      let repairedRawNode = await ensureGeneratedChoiceTexts(
+        stripForbiddenArcWrites(parseAiJsonResponse(response)),
+        callAiJson
+      );
       if (containsForbiddenArcWrite(repairedRawNode)) {
         throw new AiClientError("AI_RESPONSE_INVALID", "健康 operation 证据修复结果包含未授权的 Arc 状态修改。");
       }
@@ -3902,6 +4008,9 @@ export async function timeTravel(
     targetAgeInMonths: input.targetAge * 12,
     previousAgeInMonths: input.targetAge * 12,
     elapsedMonths: 0,
-    lifeIntensity: "normal"
+    lifeIntensity: "normal",
+    repairMissingChoiceText: (node, invalidChoiceIndexes) => (
+      repairGeneratedChoiceTexts(node, invalidChoiceIndexes, callAiJson)
+    )
   });
 }

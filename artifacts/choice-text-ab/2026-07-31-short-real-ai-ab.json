@@ -1,0 +1,143 @@
+{
+  "generatedAt": "2026-07-31T14:04:49.802Z",
+  "baselineCommit": "0eb7761",
+  "branch": "codex/choice-display-contract",
+  "model": "deepseek-v4-flash",
+  "design": "one natural real-AI run per arm plus one same-node controlled missing-text replay",
+  "natural": {
+    "A": {
+      "label": "A_main",
+      "endToEndMs": 6047.2936660000005,
+      "requests": [
+        {
+          "type": "start_node",
+          "durationMs": 6038.865916000001,
+          "rawChoiceCount": 3,
+          "invalidExplicitTextIndexes": []
+        }
+      ],
+      "output": {
+        "choiceIds": [
+          "A",
+          "B",
+          "C"
+        ],
+        "choiceTexts": [
+          "留在现岗，争取晋升为运营主管",
+          "内部转岗产品线，从产品助理做起",
+          "加入外部科技公司，担任产品运营"
+        ],
+        "invalidExplicitTextIndexes": [],
+        "syntheticFallbackIndexes": []
+      }
+    },
+    "B": {
+      "label": "B_branch",
+      "endToEndMs": 7031.232542,
+      "requests": [
+        {
+          "type": "start_node",
+          "durationMs": 7025.798667000001,
+          "rawChoiceCount": 3,
+          "invalidExplicitTextIndexes": []
+        }
+      ],
+      "output": {
+        "choiceIds": [
+          "stay_promote",
+          "internal_transfer_product",
+          "external_tech_job"
+        ],
+        "choiceTexts": [
+          "留在现岗，主动争取晋升，同时承担更多项目责任，并制定个人成长计划。",
+          "申请内部转岗到产品线，利用现有业务理解，学习产品技能，但接受降薪和试用期。",
+          "接受外部科技公司的运营岗，薪资涨幅30%，但工作强度和不确定性增加，需通勤更远。"
+        ],
+        "invalidExplicitTextIndexes": [],
+        "syntheticFallbackIndexes": []
+      }
+    },
+    "deltaMs": 983.9388759999993,
+    "deltaPercent": 16.270730848280902
+  },
+  "controlledMissingText": {
+    "sourceGenerationMs": 7025.798667000001,
+    "A": {
+      "label": "A_main_missing_text",
+      "localReplayEndToEndMs": 0.8622919999997976,
+      "requests": [
+        {
+          "type": "cached_malformed_start_node",
+          "durationMs": 0,
+          "rawChoiceCount": 3,
+          "invalidExplicitTextIndexes": [
+            0,
+            1,
+            2
+          ]
+        }
+      ],
+      "output": {
+        "choiceIds": [
+          "stay_promote",
+          "internal_transfer_product",
+          "external_tech_job"
+        ],
+        "choiceTexts": [
+          "stay_promote. 稳中求进",
+          "internal_transfer_product. 内部转型",
+          "external_tech_job. 外拓机会"
+        ],
+        "invalidExplicitTextIndexes": [
+          0,
+          1,
+          2
+        ],
+        "syntheticFallbackIndexes": [
+          0,
+          1,
+          2
+        ]
+      }
+    },
+    "B": {
+      "label": "B_branch_missing_text",
+      "localReplayEndToEndMs": 2036.6349169999994,
+      "requests": [
+        {
+          "type": "cached_malformed_start_node",
+          "durationMs": 0,
+          "rawChoiceCount": 3,
+          "invalidExplicitTextIndexes": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "type": "choice_text_repair",
+          "durationMs": 2034.632207999999,
+          "rawChoiceCount": 0,
+          "invalidExplicitTextIndexes": []
+        }
+      ],
+      "output": {
+        "choiceIds": [
+          "stay_promote",
+          "internal_transfer_product",
+          "external_tech_job"
+        ],
+        "choiceTexts": [
+          "留在现岗，主动争取晋升机会，并积极提升运营专业能力，稳扎稳打地发展职业路径。",
+          "申请公司内部转岗到产品经理岗位，通过内部培训和项目实践积累产品经验，实现职业转型。",
+          "接受创业公司的运营岗offer，虽然加班多但薪资涨幅30%，抓住外部机会，拓展职业发展空间。"
+        ],
+        "invalidExplicitTextIndexes": [],
+        "syntheticFallbackIndexes": []
+      }
+    },
+    "estimatedAEndToEndMs": 7026.660959000001,
+    "estimatedBEndToEndMs": 9062.433584,
+    "incrementalRepairMs": 2035.7726249999996
+  }
+}

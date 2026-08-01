@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { getSimulationNodeValidationIssues, normalizeSimulationNode } from "./simulationResponse";
+import {
+  getInvalidExplicitChoiceTextIndexes,
+  getSimulationNodeValidationIssues,
+  normalizeSimulationNode
+} from "./simulationResponse";
 
 const node = normalizeSimulationNode({
   stage: "选择前夜",
@@ -142,6 +146,28 @@ assert.deepEqual(getSimulationNodeValidationIssues({
   attributes: { happiness: 43, intelligence: 62, wealth: 58, relation: 46, health: 38 },
   isEndingNode: false
 }), []);
+
+const semanticIdChoicesWithoutRealText = {
+  age: 42,
+  stage: "职业选择",
+  title: "岗位与新机会",
+  description: "现有岗位和外部机会同时摆在面前，你需要确认下一阶段的投入方向。",
+  choices: [
+    { id: "stay_in_current_role", impactSummary: "专注现岗", decisionIntent: "career:stay:current_role" },
+    { id: "accept_new_role_transfer", content: "转向新业务线", impactSummary: "转岗新业", decisionIntent: "career:transfer:new_role" },
+    { id: "startup_for_larger_platform", text: "startup_for_larger_platform. 跳槽大平台", impactSummary: "跳槽大平台", decisionIntent: "career:join:larger_platform" }
+  ],
+  attributes: { happiness: 50, intelligence: 60, wealth: 55, relation: 50, health: 58 },
+  isEndingNode: false
+};
+assert.deepEqual(getSimulationNodeValidationIssues(semanticIdChoicesWithoutRealText), []);
+assert.deepEqual(getInvalidExplicitChoiceTextIndexes(semanticIdChoicesWithoutRealText), [0, 1, 2]);
+assert.deepEqual(getSimulationNodeValidationIssues(semanticIdChoicesWithoutRealText, {
+  requireExplicitChoiceText: true
+}), ["choiceText"]);
+const legacySemanticIdNode = normalizeSimulationNode(semanticIdChoicesWithoutRealText);
+assert.equal(legacySemanticIdNode.choices[0].id, "stay_in_current_role");
+assert.equal(legacySemanticIdNode.choices[0].text, "stay_in_current_role. 专注现岗");
 
 const eventContractNode = {
   age: 42,

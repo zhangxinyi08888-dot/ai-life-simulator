@@ -1,5 +1,6 @@
 import { LifeAttributes, LifeIntensity, SimulationNode } from "../types";
 import {
+  getInvalidExplicitChoiceTextIndexes,
   getSimulationNodeValidationIssues,
   normalizeSimulationNode,
   repairDeterministicRomanceChoices
@@ -19,6 +20,11 @@ interface GenerateCompleteNodeOptions {
   eventIntentType?: string;
   deferRomanceContractValidation?: boolean;
   fallbackAttributes?: LifeAttributes;
+  requireExplicitChoiceText?: boolean;
+  repairMissingChoiceText?: (
+    node: Record<string, any>,
+    invalidChoiceIndexes: number[]
+  ) => Promise<Record<string, any>>;
 }
 
 export function isRetryableNodeGenerationError(error: unknown): boolean {
@@ -102,6 +108,18 @@ export async function generateCompleteSimulationNode(
   let lastNode: Record<string, any> = {};
   let lastRetryableError: unknown;
 
+  const validate = (candidate: Record<string, any>): string[] => {
+    let candidateIssues = getSimulationNodeValidationIssues(candidate, {
+      allowedOutcomeIds: options.allowedOutcomeIds,
+      eventIntentType: options.eventIntentType,
+      requireExplicitChoiceText: options.requireExplicitChoiceText ?? true
+    });
+    if (options.deferRomanceContractValidation) {
+      candidateIssues = candidateIssues.filter((issue) => !ROMANCE_CONTRACT_ISSUES.has(issue));
+    }
+    return candidateIssues;
+  };
+
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       lastNode = repairGenericOutcomeCoverage(
@@ -131,12 +149,18 @@ export async function generateCompleteSimulationNode(
       }
       continue;
     }
-    issues = getSimulationNodeValidationIssues(lastNode, {
-      allowedOutcomeIds: options.allowedOutcomeIds,
-      eventIntentType: options.eventIntentType
-    });
-    if (options.deferRomanceContractValidation) {
-      issues = issues.filter((issue) => !ROMANCE_CONTRACT_ISSUES.has(issue));
+    issues = validate(lastNode);
+    if (issues.length === 1 && issues[0] === "choiceText" && options.repairMissingChoiceText) {
+      try {
+        lastNode = repairDeterministicRomanceChoices(
+          await options.repairMissingChoiceText(lastNode, getInvalidExplicitChoiceTextIndexes(lastNode)),
+          options.eventIntentType,
+          options.allowedOutcomeIds
+        );
+        issues = validate(lastNode);
+      } catch {
+        issues = ["choiceText"];
+      }
     }
     if (issues.length === 0) {
       return normalizeSimulationNode(lastNode, options);

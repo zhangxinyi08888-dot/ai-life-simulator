@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { LifeEventSeed } from "../../data/lifeEvents";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData, WorldStateSnapshot } from "../../types";
 import { initializeFinancialLedger } from "../../domain/finance";
-import { buildFinancialNarrativeRepairPrompt, buildFinancialProposalRepairPrompt, buildNextNodePrompt, buildNodePromptWithRetryNotice } from "./prompts";
+import {
+  buildChoiceTextRepairPrompt,
+  buildFinancialNarrativeRepairPrompt,
+  buildFinancialProposalRepairPrompt,
+  buildNextNodePrompt,
+  buildNodePromptWithRetryNotice
+} from "./prompts";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -89,6 +95,24 @@ assert.match(prompt, /55岁创业/);
 assert.match(prompt, /temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId/);
 assert.match(prompt, /每个 choice 必须返回 eventOutcomeId/);
 assert.match(buildNodePromptWithRetryNotice(prompt, ["invalidJson"]), /返回内容不是可解析的完整 JSON/);
+assert.match(buildNodePromptWithRetryNotice(prompt, ["choiceText"]), /每个 choice 自己的非空 text 展示正文/);
+assert.match(prompt, /choice\.id 是内部稳定键/);
+assert.match(prompt, /禁止用“\$\{id\}\. \$\{impactSummary\}”拼接结果充当 text/);
+const choiceTextRepairPrompt = buildChoiceTextRepairPrompt({
+  title: "岗位与新机会",
+  description: "现有岗位和外部机会同时摆在面前。",
+  choices: [
+    { id: "stay_in_current_role", impactSummary: "专注现岗", decisionIntent: "career:stay:current_role" },
+    { id: "accept_new_role_transfer", text: "接受内部转岗", impactSummary: "转岗新业", decisionIntent: "career:transfer:new_role" },
+    { id: "startup_for_larger_platform", impactSummary: "跳槽大平台", decisionIntent: "career:join:larger_platform" }
+  ]
+}, [0, 2]);
+assert.match(choiceTextRepairPrompt, /stay_in_current_role/);
+assert.match(choiceTextRepairPrompt, /startup_for_larger_platform/);
+assert.match(choiceTextRepairPrompt, /只为上述索引返回 choiceTextRepairs/);
+assert.match(choiceTextRepairPrompt, /不得修改或重写 id、impactSummary、decisionIntent、eventOutcomeId/);
+assert.match(choiceTextRepairPrompt, /"index": 0/);
+assert.match(choiceTextRepairPrompt, /"index": 2/);
 assert.match(prompt, /decisionIntent 是代码识别行动方向的稳定指纹/);
 assert.match(prompt, /领域:动作:对象/);
 assert.match(prompt, /语义相同的行动必须复用已有 decisionIntent/);

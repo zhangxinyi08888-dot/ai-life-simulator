@@ -282,9 +282,9 @@ export default function SimulationEngine({ currentNode, history, nodeCount, onSe
                   </motion.div>
                 ) : !isCustomMode ? (
                   <motion.div key="choices" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2" id="preset-choices-container">
-                    {!currentNode.isEndingNode && currentNode.choices.map((choice) => (
+                    {!currentNode.isEndingNode && currentNode.choices.map((choice, index) => (
                       <button key={choice.id} id={`choice-btn-${choice.id}`} type="button" onClick={() => choose(choice.text)} className="group flex min-h-12 w-full items-start gap-3 rounded-[13px] border border-[#302e2a] bg-[#0a0a0a] px-3 py-2.5 text-left transition hover:border-[#73694f] hover:bg-[#12110d]">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#514b3d] text-[10px] text-[#c2b487] group-hover:border-[#9d8e63]">{choice.id}</span>
+                        <span data-choice-display-label={String.fromCharCode(65 + index)} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#514b3d] text-[10px] text-[#c2b487] group-hover:border-[#9d8e63]">{String.fromCharCode(65 + index)}</span>
                         <span className="min-w-0 flex-1 text-[12px] leading-5 text-[#b5afa6] group-hover:text-[#e2dcd1]">{choice.text}</span>
                         {choice.impactSummary && <span className="mt-0.5 shrink-0 rounded-full border border-[#34312b] px-2 py-0.5 text-[8px] text-[#6e6962]">{choice.impactSummary}</span>}
                       </button>

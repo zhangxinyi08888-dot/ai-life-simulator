@@ -63,14 +63,33 @@ function hasCompleteAttributes(attributes: any): boolean {
   ].every((value) => typeof value === "number" && Number.isFinite(value));
 }
 
-export function normalizeSimulationNodeChoices<T extends Record<string, any>>(node: T): WithNormalizedChoices<T> {
-  const rawChoices = Array.isArray(node.choices)
+export function getRawSimulationNodeChoices(node: Record<string, any>): any[] {
+  return Array.isArray(node.choices)
     ? node.choices
     : Array.isArray(node.options)
       ? node.options
       : Array.isArray(node.newCrossroads?.options)
         ? node.newCrossroads.options
         : [];
+}
+
+function isExplicitChoiceTextValid(choice: any, index: number): boolean {
+  const text = readString(choice?.text);
+  if (!text) return false;
+
+  const id = readString(choice?.id) || readString(choice?.label) || String.fromCharCode(65 + index);
+  const impactSummary = readString(choice?.impactSummary) || readString(choice?.summary) || "继续探索";
+  return text !== `${id}. ${impactSummary}`;
+}
+
+export function getInvalidExplicitChoiceTextIndexes(node: Record<string, any>): number[] {
+  return getRawSimulationNodeChoices(node).flatMap((choice, index) => (
+    isExplicitChoiceTextValid(choice, index) ? [] : [index]
+  ));
+}
+
+export function normalizeSimulationNodeChoices<T extends Record<string, any>>(node: T): WithNormalizedChoices<T> {
+  const rawChoices = getRawSimulationNodeChoices(node);
   const usedChoiceIds = new Set<string>();
   const choices = rawChoices.map((choice: any, index: number) => {
     const requestedId = readString(choice?.id) || readString(choice?.label);
@@ -166,6 +185,8 @@ function normalizeInternalTransitions(
 export interface SimulationNodeValidationOptions {
   allowedOutcomeIds?: string[];
   eventIntentType?: string;
+  /** New AI responses must provide a real text field; legacy history normalization remains tolerant. */
+  requireExplicitChoiceText?: boolean;
 }
 
 function matchesRomanceOutcomeSemantics(outcomeId: string, text: string): boolean {
@@ -410,6 +431,13 @@ export function getSimulationNodeValidationIssues(
   if (!readNodeDescription(node)) issues.push("description");
   if (!hasCompleteAttributes(node?.attributes)) issues.push("attributes");
   if (choices.length !== requiredChoiceCount) issues.push("choices");
+  if (
+    options.requireExplicitChoiceText
+    && choices.length === requiredChoiceCount
+    && getInvalidExplicitChoiceTextIndexes(node).length > 0
+  ) {
+    issues.push("choiceText");
+  }
   if (["romance_new_connection", "romance_connection_clarification", "romance_exploration_resolution", "relationship_material_commitment_test", "relationship_commitment_resolution"].includes(options.eventIntentType || "")
     && !groundedRomanceCharacter(node, options.eventIntentType)) {
     issues.push("romanceNarrativeGrounding");
