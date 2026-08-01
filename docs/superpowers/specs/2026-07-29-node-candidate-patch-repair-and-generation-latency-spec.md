@@ -1,6 +1,6 @@
 # 候选节点 Patch 修复与生成延迟治理：可直接开发 Spec
 
-> 状态：Draft for review；用户确认前不得修改生产生成链路
+> 状态：Approved / implementation in progress
 > 日期：2026-07-29
 > 目标分支：`codex/debt-generation-latency`
 > 基线提交：`4b2309a`（已包含 PR #24 的权威债务生命周期）
@@ -563,6 +563,29 @@ export interface CandidateRepairIssue {
 - 职业离开、退休或身份转换；
 - 同一段前文已经表达相反时态或结果。
 
+### 13.3 财务叙事 Claim 封闭契约
+
+真实模型 v14 暴露出仅靠 denylist 无法关闭的失败：`income_source_started` Proposal 被拒，但正文仍以同义句宣告“每月新增 0.5 万元税后收入”。因此财务完成事实必须与 Proposal 建立结构化绑定：
+
+```ts
+interface FinancialNarrativeClaim {
+  id: string;
+  proposalId: string;
+  kind: FinancialEventKind;
+  surfaceText: string; // 逐字来自 descriptionParagraphs
+}
+```
+
+规范如下：
+
+1. 每个 `financialEventProposal` 至少绑定一项 Claim；同一事实在多句中宣告到账、生效或现金流结果时逐句绑定。
+2. `proposalId` 必须存在，`kind` 必须与 Proposal 一致，`surfaceText` 必须逐字存在于正文；重复 ID、悬空引用和不可定位 surface 均为无效 Claim。
+3. Proposal evidence 作为最低限度的确定性 Claim 自动归一化，兼容旧模型和 Proposal repair；模型返回的额外 Claim 用于覆盖依赖句和同义句。
+4. Accepted Proposal 的 Claim 可进入最终节点；Rejected Proposal 的全部 Claim surface 必须在 post-settlement 被确定性改写为未完成叙事，并从节点 Claim 列表移除。
+5. Patch 不得单独改写 Proposal/Claim 绑定。若 Proposal Patch 改变 ID、kind 或 evidence，必须同时重建并复验 Claim。
+6. `rawInvalidFinancialNarrativeClaimCount` 记录模型原始无效 Claim；无效 Claim 必须在提交前丢弃。`invalidFinancialNarrativeClaimCount > 0`、最终 Claim surface 不存在，或被拒 Claim surface 仍可见，均为生产审计硬失败。
+7. 旧正则保留为迁移期最后一道门，不再承担发现全部财务同义表达的主职责。
+
 确定性插入必须发生在段落边界，并在插入后重新执行 story consistency。
 
 ## 14. Batch Patch 请求
@@ -987,12 +1010,16 @@ P90 latency <= control P90 * 1.10
 full-regeneration node rate <= control + 5 percentage points
 nodes with exactly one full generation >= 90%
 model patch calls per node <= 1
-patch success rate >= 50%
+patch contract success rate（可解析且可合并）仅用于诊断
+patch effective rate（Patch 后通过全量校验且未再完整重生成）>= 50%
+full regeneration without reason codes = 0
 visible generation pauses = 0
 authority regressions = 0
 ```
 
-Patch 成功率低于 50% 时停止扩大 rollout。修复方式是补充 Patch authority context 或改进确定性 fallback，不增加 Patch 次数、不放松校验。
+Patch 有效率低于 50% 时必须关闭 `enableCandidatePatchRepair` 并停止扩大 rollout。不得把“模型返回了合法 Patch”直接记作有效；只有该 Patch 最终避免完整重生成才算有效。修复方式是补充 Patch authority context 或改进确定性 fallback，不增加 Patch 次数、不放松校验。
+
+每次 `full_regeneration` 必须携带触发它的 typed issue code。递归重生成必须显式透传 Candidate、Romance contract 或结构化解析失败原因，不允许用空数组制造不可归因的绿灯。
 
 ### 22.4 真实 AI 工作流
 
@@ -1089,6 +1116,8 @@ telemetry on
 ```
 
 回滚时关闭 `enableCandidatePatchRepair` 和 `enableSharedGenerationBudget`，恢复当前完整生成路径；遥测保持开启，用于确认回滚效果。
+
+当前发布默认值：`enableCandidatePatchRepair=false`。只有新的 180 节点同提交证据证明 Patch effective rate 达到 50% 后，才允许逐步打开。
 
 ## 25. 风险与控制
 

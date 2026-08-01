@@ -24,6 +24,10 @@ const FINANCIAL_EVENT_KINDS = new Set<FinancialEventKind>([
   "business_financing_recorded", "business_holding_revalued", "business_distribution_received",
   "business_holding_sold", "family_support_received", "family_support_paid", "liquidity_shortfall_created"
 ]);
+
+export function isFinancialEventKind(value: unknown): value is FinancialEventKind {
+  return FINANCIAL_EVENT_KINDS.has(value as FinancialEventKind);
+}
 const ASSET_TYPES = new Set(["investment", "property", "annuity", "insurance_cash_value", "other_personal_asset"]);
 const PERSONAL_INCOME_SOURCE_TYPES = new Set(["salary", "contract", "self_employment_draw", "rent", "pension", "annuity_payment", "royalty", "investment_distribution", "business_dividend", "family_support", "other"]);
 const PERSONAL_OPERATING_FLOW_KINDS = new Set<FinancialEventKind>([

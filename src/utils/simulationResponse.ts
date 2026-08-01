@@ -1,4 +1,4 @@
-import { LifeIntensity, RecoveryState, SimulationChoice, SimulationNode, WorldDelta } from "../types";
+import { LifeIntensity, RecoveryState, SimulationChoice, SimulationNode, TimelineTransition, WorldDelta } from "../types";
 import { deriveLifeStage } from "./timelineAdvance";
 import { stableHash } from "./stableRandom";
 import { isValidRomanceDisplayName } from "./romanceCandidateName";
@@ -71,8 +71,18 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
       : Array.isArray(node.newCrossroads?.options)
         ? node.newCrossroads.options
         : [];
+  const usedChoiceIds = new Set<string>();
   const choices = rawChoices.map((choice: any, index: number) => {
-    const id = readString(choice?.id) || readString(choice?.label) || String.fromCharCode(65 + index);
+    const requestedId = readString(choice?.id) || readString(choice?.label);
+    const fallbackIds = [
+      String.fromCharCode(65 + index),
+      ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
+      `choice_${index + 1}`
+    ];
+    const id = requestedId && !usedChoiceIds.has(requestedId)
+      ? requestedId
+      : fallbackIds.find((candidate) => !usedChoiceIds.has(candidate))!;
+    usedChoiceIds.add(id);
     const impactSummary = readString(choice?.impactSummary) || readString(choice?.summary) || "继续探索";
     const text = readString(choice?.text) || readString(choice?.content) || readString(choice?.choice) || readString(choice?.labelText) || `${id}. ${impactSummary}`;
     const rawIntensity = readString(choice?.temporalHint?.lifeIntensity);
@@ -116,6 +126,41 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
     ...node,
     choices
   };
+}
+
+function normalizeInternalTransitions(
+  value: unknown,
+  startAgeInMonths: number,
+  endAgeInMonths: number
+): TimelineTransition[] {
+  if (!Array.isArray(value)) return [];
+  const span = Math.max(0, endAgeInMonths - startAgeInMonths);
+  return value.flatMap((item, index) => {
+    const raw = item && typeof item === "object" && !Array.isArray(item)
+      ? item as Record<string, unknown>
+      : {};
+    const summary = readString(item)
+      || readString(raw.summary)
+      || readString(raw.description)
+      || readString(raw.to);
+    if (!summary) return [];
+    const fallbackAt = startAgeInMonths + Math.round(span * ((index + 1) / (value.length + 1)));
+    const atAgeInMonths = clampNumber(
+      readNumber(raw.atAgeInMonths, fallbackAt),
+      startAgeInMonths,
+      endAgeInMonths
+    );
+    const materiality = raw.materiality === "transition" ? "transition" : "meaningful_update";
+    const worldDeltas = Array.isArray(raw.worldDeltas)
+      ? raw.worldDeltas.filter((delta): delta is WorldDelta => Boolean(
+        delta
+        && typeof delta === "object"
+        && typeof (delta as { type?: unknown }).type === "string"
+        && typeof (delta as { summary?: unknown }).summary === "string"
+      ))
+      : [];
+    return [{ atAgeInMonths, materiality, summary, worldDeltas }];
+  });
 }
 
 export interface SimulationNodeValidationOptions {
@@ -331,7 +376,7 @@ export function repairDeterministicRomanceChoices<T extends Record<string, any>>
     && new Set(currentOutcomes).size === contract.length
     && contract.every((item) => currentOutcomes.includes(item.outcomeId))
     && normalized.choices.every((choice) => matchesRomanceOutcomeSemantics(choice.eventOutcomeId || "", choice.text));
-  if (alreadyValid) return node;
+  if (alreadyValid) return { ...node, choices: normalized.choices };
 
   const displayName = readString(groundedCharacter.displayName) || "对方";
   const unused = [...normalized.choices];
@@ -416,6 +461,7 @@ export function normalizeSimulationNode<T extends Record<string, any>>(node: T, 
   const descriptionParagraphs = Array.isArray(normalized.descriptionParagraphs)
     ? normalized.descriptionParagraphs.map(readString).filter(Boolean)
     : description.split(/\n\s*\n+/).map((paragraph) => paragraph.trim()).filter(Boolean);
+  const episodeStartAgeInMonths = options.previousAgeInMonths ?? ageInMonths;
 
   return {
     ...normalized,
@@ -436,9 +482,13 @@ export function normalizeSimulationNode<T extends Record<string, any>>(node: T, 
       storyEpisode: {
         id: episodeId,
         pressureArcId: options.pressureArcId,
-        startAgeInMonths: options.previousAgeInMonths ?? ageInMonths,
+        startAgeInMonths: episodeStartAgeInMonths,
         endAgeInMonths: ageInMonths,
-        internalTransitions: Array.isArray(normalized.narrativeMeta?.storyEpisode?.internalTransitions) ? normalized.narrativeMeta.storyEpisode.internalTransitions : [],
+        internalTransitions: normalizeInternalTransitions(
+          normalized.narrativeMeta?.storyEpisode?.internalTransitions,
+          episodeStartAgeInMonths,
+          ageInMonths
+        ),
         decisionCheckpointId: readString(normalized.narrativeMeta?.storyEpisode?.decisionCheckpointId) || `checkpoint_${stableHash({ episodeId, title })}`,
         summary: readString(normalized.narrativeMeta?.storyEpisode?.summary) || description.slice(0, 80)
       },

@@ -2,8 +2,26 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   evaluateGenerationPerformanceGate,
+  summarizeCandidatePatchEffectiveness,
   summarizeGenerationPerformance
 } from "./lib/generation-latency-gate.mjs";
+
+test("candidate patch effectiveness requires avoiding a later full regeneration", () => {
+  const traces = [
+    { caseSlug: "a", transactionId: "tx-1", kind: "candidate_patch", outcome: "succeeded", startedAt: "2026-01-01T00:00:01Z", issueCodes: ["STORY"] },
+    { caseSlug: "a", transactionId: "tx-1", kind: "full_regeneration", outcome: "succeeded", startedAt: "2026-01-01T00:00:02Z", issueCodes: [] },
+    { caseSlug: "a", transactionId: "tx-2", kind: "candidate_patch", outcome: "succeeded", startedAt: "2026-01-01T00:00:03Z", issueCodes: ["DEBT"] },
+    { caseSlug: "a", transactionId: "tx-3", kind: "candidate_patch", outcome: "failed", startedAt: "2026-01-01T00:00:04Z", issueCodes: ["DECISION"] }
+  ];
+  assert.deepEqual(summarizeCandidatePatchEffectiveness(traces), {
+    candidatePatchCallCount: 3,
+    candidatePatchContractSucceeded: 2,
+    candidatePatchContractSuccessRate: 2 / 3,
+    candidatePatchEffectiveCount: 1,
+    candidatePatchEffectiveRate: 1 / 3,
+    fullRegenerationWithoutReasonCount: 1
+  });
+});
 
 test("generation performance summary calculates release metrics per node", () => {
   const summary = summarizeGenerationPerformance([{ nodes: [
@@ -49,8 +67,32 @@ test("release gate accepts a faster candidate with one bounded patch", () => {
       singleFullGenerationRate: 0.92,
       maxModelPatchCount: 1,
       visiblePauseCount: 0,
-      unclassifiedCallCount: 0
+      unclassifiedCallCount: 0,
+      candidatePatchCallCount: 1,
+      candidatePatchEffectiveRate: 1,
+      fullRegenerationWithoutReasonCount: 0
     }
   });
   assert.deepEqual(result, { passed: true, failures: [] });
+});
+
+test("release gate rejects ineffective patches and missing regeneration reasons", () => {
+  const result = evaluateGenerationPerformanceGate({
+    baseline: { p90LatencyMs: 20000, fullRegenerationRate: 0.1 },
+    candidate: {
+      p90LatencyMs: 19000,
+      fullRegenerationRate: 0.1,
+      singleFullGenerationRate: 0.9,
+      maxModelPatchCount: 1,
+      visiblePauseCount: 0,
+      unclassifiedCallCount: 0,
+      candidatePatchCallCount: 7,
+      candidatePatchEffectiveRate: 1 / 7,
+      fullRegenerationWithoutReasonCount: 2
+    }
+  });
+  assert.deepEqual(result.failures, [
+    "CANDIDATE_PATCH_EFFECTIVE_RATE_LOW",
+    "FULL_REGENERATION_REASON_MISSING"
+  ]);
 });

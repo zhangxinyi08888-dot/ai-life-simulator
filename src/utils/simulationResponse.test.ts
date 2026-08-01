@@ -42,6 +42,40 @@ assert.equal(node.choices[1].text, "听从家里安排");
 assert.equal(node.choices[2].id, "C");
 assert.equal(node.choices[2].impactSummary, "继续探索");
 
+const duplicateChoiceAndTransitionNode = normalizeSimulationNode({
+  age: 30,
+  ageInMonths: 360,
+  description: "阶段变化后需要重新选择。",
+  choices: [
+    { id: "B", text: "继续当前方案" },
+    { id: "C", text: "切换另一方案" },
+    { id: "C", text: "保留第三种方案" }
+  ],
+  narrativeMeta: {
+    storyEpisode: {
+      internalTransitions: [
+        "前三个月适应新的工作节奏",
+        { from: "30岁3个月", to: "30岁6个月", summary: "随后完成团队交接" }
+      ]
+    }
+  }
+}, { previousAgeInMonths: 348, targetAgeInMonths: 360 });
+assert.deepEqual(duplicateChoiceAndTransitionNode.choices.map((choice) => choice.id), ["B", "C", "A"]);
+assert.deepEqual(duplicateChoiceAndTransitionNode.narrativeMeta?.storyEpisode.internalTransitions, [
+  {
+    atAgeInMonths: 352,
+    materiality: "meaningful_update",
+    summary: "前三个月适应新的工作节奏",
+    worldDeltas: []
+  },
+  {
+    atAgeInMonths: 356,
+    materiality: "meaningful_update",
+    summary: "随后完成团队交接",
+    worldDeltas: []
+  }
+]);
+
 const outcomeNode = normalizeSimulationNode({
   choices: [{ id: "A", text: "逐步恢复活动", impactSummary: "恢复参与", eventOutcomeId: "resume_activity_gradually" }]
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
-import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 import { queryDynamicLifeEvent } from "../../data/lifeEvents";
@@ -108,6 +108,161 @@ assert.equal(retriedQuestions.questions[0]?.question, "当时最影响你选择�
 const answers: QuestionTurn[] = [
   { id: 1, question: "你当时最怕什么？", answer: "怕收入不稳，也怕后悔。" }
 ];
+
+const rejectedRestructureRollback = buildDeterministicFinancialNarrativeRollback({
+  rejectedProposals: [{
+    id: "rejected_restructure",
+    kind: "debt_restructured",
+    effectiveAtAgeInMonths: 420,
+    sourceOutcomeId: "request_restructure",
+    payload: {},
+    evidence: "银行已经批准调整还款计划。",
+    confidence: 0.9
+  }],
+  acceptedEvents: [],
+  narrativeText: "银行已经批准调整还款计划。你松了一口气，虽然月供仍不轻松，但压力减轻了不少。你继续整理未来六个月的收支材料。两个月后，你签了补充协议。"
+});
+assert.match(rejectedRestructureRollback.join("\n"), /尚未形成生效协议/u);
+assert.doesNotMatch(rejectedRestructureRollback.join("\n"), /签了补充协议/u);
+assert.doesNotMatch(rejectedRestructureRollback.join("\n"), /松了一口气|压力减轻/u);
+assert.match(rejectedRestructureRollback.join("\n"), /继续整理未来六个月的收支材料/u);
+assert.equal(rollbackRejectedFinancialCompletionTitle("债务重组与业务转机", [{
+  id: "rejected_restructure_title",
+  kind: "debt_restructured",
+  effectiveAtAgeInMonths: 420,
+  sourceOutcomeId: "request_restructure",
+  payload: {},
+  evidence: "申请调整还款安排",
+  confidence: 0.9
+}]), "还款协商与现实调整");
+
+const rejectedCompensationRollback = buildDeterministicFinancialNarrativeRollback({
+  rejectedProposals: [{
+    id: "rejected_backpay",
+    kind: "one_off_income_received",
+    effectiveAtAgeInMonths: 486,
+    sourceOutcomeId: "financing_closed",
+    payload: {},
+    evidence: "创始人补发了过去14个月的税后工资。",
+    confidence: 0.9
+  }, {
+    id: "rejected_equity",
+    kind: "business_holding_started",
+    effectiveAtAgeInMonths: 486,
+    sourceOutcomeId: "financing_closed",
+    payload: {},
+    evidence: "创始人签署了5%的股权协议。",
+    confidence: 0.9
+  }],
+  acceptedEvents: [],
+  narrativeText: "领投方资金到账。创始人补发了过去14个月的税后工资，并签署了5%的股权协议。"
+});
+assert.match(rejectedCompensationRollback.join("\n"), /领投方资金到账/u);
+assert.doesNotMatch(rejectedCompensationRollback.join("\n"), /补发了过去14个月|签署了5%的股权协议/u);
+assert.match(rejectedCompensationRollback.join("\n"), /补发收入的安排仍在核对|股权补偿仍在确认/u);
+assert.equal(rollbackRejectedFinancialCompletionTitle("融资交割与股权确认", [{
+  id: "rejected_equity_title",
+  kind: "business_holding_started",
+  effectiveAtAgeInMonths: 486,
+  sourceOutcomeId: "financing_closed",
+  payload: {},
+  evidence: "签署5%的股权协议",
+  confidence: 0.9
+}]), "融资交割与权益安排待确认");
+
+const rejectedRestructureBenefitRollback = buildDeterministicFinancialNarrativeRollback({
+  rejectedProposals: [{
+    id: "rejected_restructure_benefit",
+    kind: "debt_restructured",
+    effectiveAtAgeInMonths: 420,
+    sourceOutcomeId: "request_restructure",
+    payload: {},
+    evidence: "你申请将贷款期限延长，以降低每月还款额。",
+    confidence: 0.9
+  }],
+  acceptedEvents: [],
+  narrativeText: "你已经尝试申请调整还款安排，但尚未形成生效协议。你算了一下，虽然利息总额会增加，但每月多出来的4000元现金流让你松了口气。你继续整理客户合同。"
+});
+assert.match(rejectedRestructureBenefitRollback.join("\n"), /尚未形成生效协议/u);
+assert.doesNotMatch(rejectedRestructureBenefitRollback.join("\n"), /4000元|松了口气|利息总额会增加/u);
+assert.match(rejectedRestructureBenefitRollback.join("\n"), /继续整理客户合同/u);
+
+const rejectedDrawAndRestructureRollback = buildDeterministicFinancialNarrativeRollback({
+  rejectedProposals: [{
+    id: "rejected_draw_combined",
+    kind: "debt_drawn",
+    effectiveAtAgeInMonths: 424,
+    sourceOutcomeId: "request_financing",
+    payload: {},
+    evidence: "你申请了一笔过桥借款。",
+    confidence: 0.8
+  }, {
+    id: "rejected_restructure_combined",
+    kind: "debt_restructured",
+    effectiveAtAgeInMonths: 424,
+    sourceOutcomeId: "request_financing",
+    payload: {},
+    evidence: "你同时提交了还款协商申请。",
+    confidence: 0.8
+  }],
+  acceptedEvents: [],
+  narrativeText: "你申请了一笔过桥借款。你反复核算，发现即便月供降低，现金流依然紧绷。家人和你提前还掉了一部分房贷本金，每月还款压力明显下降。睡眠仍时好时坏，但整体压力比之前有所缓解。"
+});
+assert.match(rejectedDrawAndRestructureRollback.join("\n"), /尚未形成已经到账的结果/u);
+assert.match(rejectedDrawAndRestructureRollback.join("\n"), /尚未形成生效协议/u);
+assert.doesNotMatch(rejectedDrawAndRestructureRollback.join("\n"), /即便月供降低/u);
+assert.doesNotMatch(rejectedDrawAndRestructureRollback.join("\n"), /提前还掉|每月还款压力明显下降/u);
+assert.doesNotMatch(rejectedDrawAndRestructureRollback.join("\n"), /整体压力比之前有所缓解/u);
+
+const rejectedAdministrativeClosureRollback = buildDeterministicFinancialNarrativeRollback({
+  rejectedProposals: [{
+    id: "rejected_income_end",
+    kind: "income_source_ended",
+    effectiveAtAgeInMonths: 451,
+    sourceOutcomeId: "keep_working",
+    payload: { incomeSourceId: "salary_current" },
+    evidence: "这份工资收入已经结束。",
+    confidence: 0.7
+  }],
+  acceptedEvents: [],
+  narrativeText: "这份工资收入已经结束。年底绩效奖金税后4万元到账。"
+});
+assert.doesNotMatch(rejectedAdministrativeClosureRollback.join("\n"), /工资收入已经结束|尝试推进这项财务安排/u);
+assert.match(rejectedAdministrativeClosureRollback.join("\n"), /年底绩效奖金税后4万元到账/u);
+
+const rejectedRecurringIncomeBenefitRollback = buildDeterministicFinancialNarrativeRollback({
+  rejectedProposals: [{
+    id: "rejected_side_income",
+    kind: "income_source_started",
+    effectiveAtAgeInMonths: 430,
+    sourceOutcomeId: "start_side_work",
+    payload: {},
+    evidence: "副业开始带来稳定收入。",
+    confidence: 0.9
+  }],
+  acceptedEvents: [],
+  narrativeText: "你开始接周末项目。副业带来的收入暂时缓解了经济紧张，也让你攒下一小笔应急金。你继续维护客户关系。"
+});
+assert.doesNotMatch(rejectedRecurringIncomeBenefitRollback.join("\n"), /副业带来的收入|攒下一小笔应急金/u);
+assert.match(rejectedRecurringIncomeBenefitRollback.join("\n"), /实际到账的个人收入尚待确认|财务安排/u);
+assert.match(rejectedRecurringIncomeBenefitRollback.join("\n"), /继续维护客户关系/u);
+
+const rejectedIncomeCrossParagraphReliefRollback = buildDeterministicFinancialNarrativeRollback({
+  rejectedProposals: [{
+    id: "rejected_income_cross_paragraph",
+    kind: "income_source_started",
+    effectiveAtAgeInMonths: 380,
+    sourceOutcomeId: "new_income",
+    payload: {},
+    evidence: "新的收入来源已经稳定。",
+    confidence: 0.8
+  }],
+  acceptedEvents: [],
+  narrativeText: "与朋友退回普通关系后，你明显松了口气。新的收入来源已经稳定。\n\n父母分担房租后，你的生活压力小了一些。你恢复了规律运动。"
+});
+assert.match(rejectedIncomeCrossParagraphReliefRollback.join("\n"), /与朋友退回普通关系后，你明显松了口气/u);
+assert.doesNotMatch(rejectedIncomeCrossParagraphReliefRollback.join("\n"), /父母分担房租|生活压力小/u);
+assert.match(rejectedIncomeCrossParagraphReliefRollback.join("\n"), /恢复了规律运动/u);
 
 let startAttempts = 0;
 const started = await startSimulation(userData, answers, {
@@ -278,6 +433,12 @@ const nextNode = await generateNextNode({
           evidence: "她收到一万元项目奖金。",
           confidence: 0.9
         }],
+        financialNarrativeClaims: [{
+          id: "claim_content_bonus",
+          proposalId: "content_bonus",
+          kind: "one_off_income_received",
+          surfaceText: "她收到一万元项目奖金。"
+        }],
         isEndingNode: false
       })
     };
@@ -295,12 +456,34 @@ assert.equal(nextNode.financialLedger?.asOfAgeInMonths, nextNode.ageInMonths);
 assert.equal(nextNode.financialSignals, undefined);
 assert.equal(nextNode.financialChange, undefined);
 assert.ok(nextNode.financialLedger?.recentTransactions.at(-1)?.eventIds.includes("accepted_content_bonus"));
+assert.deepEqual(nextNode.financialNarrativeClaims?.map((claim) => claim.id), ["claim_content_bonus"]);
+assert.equal(nextNode.financialProcessingMeta?.financialNarrativeAuthorityVersion, "financial_narrative_claims_v1");
 assert.doesNotMatch(nextNode.description, /存款约90万/);
 assert.match(nextNode.description, /现金流|现金缓冲|储蓄|负债状态/);
 assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, deriveWealthScore(nextNode.financialState!)));
 assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating", "finalizing"]);
 assert.equal(nextNarrativePreviews.at(-1)?.title, "新行业的第一年");
 assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /小团队做基础内容执行/);
+
+let malformedInitialGenerationCalls = 0;
+const malformedInitialGenerationNode = await generateNextNode({
+  userData,
+  answers,
+  history,
+  currentAttributes: attributes,
+  selectedDecision: "继续推进，但不把尚未发生的结果写成事实",
+  nodeIndex: history.length,
+  simulationSeed: "malformed-initial-generation-deterministic-fallback"
+}, {
+  callAiJson: async () => {
+    malformedInitialGenerationCalls += 1;
+    return { text: "{invalid-json" };
+  }
+});
+
+assert.equal(malformedInitialGenerationCalls, 2);
+assert.match(malformedInitialGenerationNode.description, /尚未被写成未经权威状态确认的成功结果/u);
+assert.equal(malformedInitialGenerationNode.choices.length, 3);
 
 const ordinaryHealthDrop = await generateNextNode({
   userData,
@@ -723,6 +906,12 @@ const rejectedDebtNarrativeNode = await generateNextNode({
           evidence: "银行已经完成20万元经营贷款放款，你开始用这笔资金推进项目。",
           confidence: 0.9
         }],
+        financialNarrativeClaims: [{
+          id: "claim_invalid_loan",
+          proposalId: "invalid_loan",
+          kind: "debt_drawn",
+          surfaceText: "贷款到账后，你每月还贷6083元，同时继续寻找稳定客户。"
+        }],
         isEndingNode: false
       })
     };
@@ -734,6 +923,8 @@ assert.equal(rejectedDebtNarrativeRepairCalls, 0);
 assert.equal(rejectedDebtNarrativeNode.financialState?.totalDebtWan, 0);
 assert.doesNotMatch(rejectedDebtNarrativeNode.description, /贷款到账|完成20万元经营贷款放款|每月还贷6083元/);
 assert.match(rejectedDebtNarrativeNode.description, /尚未形成已经到账的结果/);
+assert.equal(rejectedDebtNarrativeNode.financialNarrativeClaims?.length, 0);
+assert.equal(rejectedDebtNarrativeNode.financialProcessingMeta?.rejectedFinancialNarrativeClaimCount, 2);
 
 function healthArcHistory(phaseId: "recovery" | "operation", length: number): HistoryItem[] {
   const arc: PressureArcState = {
@@ -903,6 +1094,7 @@ const repairedRecoveryNode = await generateNextNode({
   nodeIndex: recoveryHistory.length,
   simulationSeed: "health-recovery-acute-narrative-repair"
 }, {
+  enableCandidatePatchRepair: true,
   callAiJson: async (prompt) => {
     repeatedAcuteRecoveryCalls += 1;
     const arcId = recoveryHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
@@ -925,8 +1117,100 @@ assert.equal(repeatedAcuteRecoveryCalls, 2);
 assert.notEqual(repairedRecoveryNode.eventMeta?.eventId, "health_forced_pause");
 assert.doesNotMatch(`${repairedRecoveryNode.title}\n${repairedRecoveryNode.description}`, /再次倒下|突然胸闷倒地|拨打120|被送进急诊|要求立即住院/);
 
+let defaultDisabledCandidatePatchCalls = 0;
+let defaultDisabledSawPatchPrompt = false;
+const defaultDisabledCandidatePatchTraces: Array<{ kind: string; outcome: string; issueCodes: string[] }> = [];
+const defaultDisabledCandidatePatchNode = await generateNextNode({
+  userData,
+  answers,
+  history: recoveryHistory,
+  currentAttributes: { ...attributes, health: 35 },
+  selectedDecision: "继续硬撑但观察身体状态",
+  nodeIndex: recoveryHistory.length,
+  simulationSeed: "candidate-patch-disabled-by-default"
+}, {
+  onGenerationCallTrace: (trace) => {
+    if (trace.outcome !== "started") defaultDisabledCandidatePatchTraces.push(trace);
+  },
+  callAiJson: async (prompt) => {
+    defaultDisabledCandidatePatchCalls += 1;
+    if (prompt.includes("node_candidate_patch_v1")) defaultDisabledSawPatchPrompt = true;
+    const arcId = recoveryHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+    const candidate = healthArcRawNode({ arcId });
+    if (defaultDisabledCandidatePatchCalls === 1) {
+      candidate.title = "再次倒下";
+      candidate.description = "她在加班时突然胸闷倒地，身体状态仍需长期观察。";
+    }
+    return { text: JSON.stringify(candidate) };
+  }
+});
+
+assert.equal(defaultDisabledCandidatePatchCalls, 2);
+assert.equal(defaultDisabledSawPatchPrompt, false);
+assert.ok(defaultDisabledCandidatePatchTraces.some((trace) => (
+  trace.kind === "full_regeneration"
+  && trace.outcome === "succeeded"
+  && trace.issueCodes.includes("REPEATED_ACUTE_HEALTH_CRISIS")
+)));
+assert.doesNotMatch(`${defaultDisabledCandidatePatchNode.title}\n${defaultDisabledCandidatePatchNode.description}`, /再次倒下|突然胸闷倒地/);
+
+let deterministicDecisionGateCalls = 0;
+const deterministicDecisionGateNode = await generateNextNode({
+  userData,
+  answers,
+  history: recoveryHistory,
+  currentAttributes: { ...attributes, health: 35 },
+  selectedDecision: "继续执行恢复安排",
+  nodeIndex: recoveryHistory.length,
+  simulationSeed: "decision-gate-deterministic-before-regeneration"
+}, {
+  callAiJson: async () => {
+    deterministicDecisionGateCalls += 1;
+    const arcId = recoveryHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+    const candidate = healthArcRawNode({ arcId });
+    candidate.choices = candidate.choices.map((choice) => ({
+      ...choice,
+      decisionIntent: "health:wait:same-plan",
+      expectedWorldDeltaTypes: ["health_state"]
+    }));
+    return { text: JSON.stringify(candidate) };
+  }
+});
+
+assert.equal(deterministicDecisionGateCalls, 1);
+assert.equal(new Set(deterministicDecisionGateNode.choices.map((choice) => choice.decisionIntent)).size >= 2, true);
+
+let exhaustedRecursiveGenerationCalls = 0;
+const deterministicBudgetFallbackNode = await generateNextNode({
+  userData,
+  answers,
+  history: recoveryHistory,
+  currentAttributes: { ...attributes, health: 35 },
+  selectedDecision: "继续硬撑但观察身体状态",
+  nodeIndex: recoveryHistory.length,
+  simulationSeed: "recursive-regeneration-budget-fallback"
+}, {
+  callAiJson: async () => {
+    exhaustedRecursiveGenerationCalls += 1;
+    if (exhaustedRecursiveGenerationCalls === 1) {
+      const arcId = recoveryHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+      const candidate = healthArcRawNode({ arcId });
+      candidate.title = "再次倒下";
+      candidate.description = "她在加班时突然胸闷倒地，身体状态仍需长期观察。";
+      return { text: JSON.stringify(candidate) };
+    }
+    return { text: "{}" };
+  }
+});
+
+assert.equal(exhaustedRecursiveGenerationCalls, 2);
+assert.equal(deterministicBudgetFallbackNode.eventMeta?.eventId, "candidate_authority_fallback");
+assert.match(deterministicBudgetFallbackNode.description, /尚未被写成未经权威状态确认的成功结果/u);
+assert.doesNotMatch(deterministicBudgetFallbackNode.description, /突然胸闷倒地/u);
+
 let invalidCandidatePatchCalls = 0;
 const invalidCandidatePatchOutcomes: string[] = [];
+const invalidCandidatePatchFullRegenerationReasons: string[][] = [];
 const recoveredAfterInvalidPatchNode = await generateNextNode({
   userData,
   answers,
@@ -936,8 +1220,12 @@ const recoveredAfterInvalidPatchNode = await generateNextNode({
   nodeIndex: recoveryHistory.length,
   simulationSeed: "health-recovery-invalid-patch-full-regeneration"
 }, {
+  enableCandidatePatchRepair: true,
   onGenerationCallTrace: (trace) => {
     invalidCandidatePatchOutcomes.push(`${trace.kind}:${trace.outcome}`);
+    if (trace.kind === "full_regeneration" && trace.outcome !== "started") {
+      invalidCandidatePatchFullRegenerationReasons.push(trace.issueCodes);
+    }
   },
   callAiJson: async (prompt) => {
     invalidCandidatePatchCalls += 1;
@@ -970,6 +1258,7 @@ const recoveredAfterInvalidPatchNode = await generateNextNode({
 assert.equal(invalidCandidatePatchCalls, 3);
 assert.ok(invalidCandidatePatchOutcomes.includes("candidate_patch:failed"));
 assert.ok(invalidCandidatePatchOutcomes.includes("full_regeneration:succeeded"));
+assert.ok(invalidCandidatePatchFullRegenerationReasons.some((codes) => codes.includes("REPEATED_ACUTE_HEALTH_CRISIS")));
 assert.doesNotMatch(`${recoveredAfterInvalidPatchNode.title}\n${recoveredAfterInvalidPatchNode.description}`, /再次倒下|突然胸闷倒地/);
 
 let operationRepairCalls = 0;
@@ -1032,6 +1321,7 @@ const lateOperationRepairNode = await generateNextNode({
   nodeIndex: operationHistory.length,
   simulationSeed: "health-operation-late-evidence-repair"
 }, {
+  enableCandidatePatchRepair: true,
   callAiJson: async (prompt) => {
     lateOperationRepairCalls += 1;
     if (prompt.includes("node_candidate_patch_v1")) {
@@ -1756,7 +2046,7 @@ const optionAFallbackNode = await generateNextNode({
 
 assert.equal(romanceFullNodeCalls, 1, "the failed romance event must not run three full-node retries");
 assert.equal(romanceCandidateRepairCalls, 1, "candidate extraction gets one localized repair attempt");
-assert.equal(fallbackFullNodeCalls, 1, "the original option A must continue through one ordinary redispatch");
+assert.equal(fallbackFullNodeCalls, 1, "a failed romance contract gets one bounded ordinary redispatch before deterministic fallback");
 assert.notEqual(optionAFallbackNode.eventMeta?.eventId, "romance_new_connection");
 assert.equal(optionAFallbackNode.eventMeta?.requestedEventId, "romance_new_connection");
 assert.match(optionAFallbackNode.eventMeta?.fallbackReason || "", /^romance_contract_failed:/);

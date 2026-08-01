@@ -331,6 +331,26 @@ test("closing coverage blockers rewrite only the unsupported fact sentences", ()
   assert.equal(sanitized, "你们继续根据实际现金流评估居住安排与生活成本。你们继续根据实际现金流调整家庭支出与储蓄安排。相关权益仍在讨论与条件确认阶段，尚未真正落到你个人名下。这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。家人的生活节奏保持稳定。");
 });
 
+test("missing personal-income authority rewrites paid workshops and consulting orders", () => {
+  const original = "对方当场付了5000元咨询费。线上课程已有付费学员，课程销量依然不算高，行业咨询也接到了两三个小单子。这笔收入不多，但咨询带来一笔额外的现金流。你因此多了一条收入来源。你把案例整理成了方法论。";
+  const sanitized = sanitizeUnsupportedFinancialCoverageClaims(original, [
+    "personal_income_claim_without_event_406"
+  ]);
+  assert.doesNotMatch(sanitized, /5000元咨询费|付费学员|课程销量|接到了两三个小单子|这笔收入|额外的现金流|多了一条收入来源/u);
+  assert.match(sanitized, /个人收入是否形成仍需继续观察/u);
+  assert.match(sanitized, /案例整理成了方法论/u);
+});
+
+test("missing personal-income authority rewrites every unsupported commercial completion in one pass", () => {
+  const original = "客户主动提出采购内部培训，并介绍了一家初创公司做团队咨询。这笔订单让我获得稳定收入。我逐步将收费调整为项目制。虽然金额不大，但现金流稳定。咨询业务已经形成每月3-4单的稳定节奏。开课后我根据学员反馈调整节奏。课程结束时十几位学员给出评价。这次尝试虽然没有带来多少收入。主业依然是收入基本盘。课程材料仍在继续打磨。";
+  const sanitized = sanitizeUnsupportedFinancialCoverageClaims(original, [
+    "personal_income_claim_without_event_406"
+  ]);
+  assert.doesNotMatch(sanitized, /采购内部培训|这笔订单|稳定收入|收费调整|现金流稳定|每月3-4单|开课后|十几位学员|没有带来多少收入|收入基本盘/u);
+  assert.match(sanitized, /个人收入是否形成仍需继续观察/u);
+  assert.match(sanitized, /课程材料仍在继续打磨/u);
+});
+
 test("a generic protagonist annual-income claim is removed when the closing source is quarantined", () => {
   const quarantinedLedger = {
     ...initializeFinancialLedger({ id: "quarantined_income", asOfAgeInMonths: 454 }),
@@ -471,6 +491,34 @@ test("does not render a quarantined career income as current personal salary", (
   assert.equal(
     sanitizeFinancialNarrative("你的月薪1.67万元仍在继续，但这笔收入已经很久没有确认。", { ...state, annualAfterTaxIncomeWan: 0 }, ledger),
     "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。"
+  );
+});
+
+test("canonical financial fallback copy is rendered at most once", () => {
+  const ledger = initializeFinancialLedger({
+    id: "dedupe_canonical_fallback",
+    asOfAgeInMonths: 660,
+    openingPosition: {
+      incomeSources: []
+    }
+  });
+  const sentence = "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
+  assert.equal(
+    sanitizeFinancialNarrative(`${sentence}${sentence}你的生活仍在继续。${sentence}`, { ...state, annualAfterTaxIncomeWan: 0 }, ledger),
+    `${sentence}你的生活仍在继续。`
+  );
+  const rejectedDebtFallback = "你尝试申请借款，但这次尚未形成已经到账的结果。";
+  assert.equal(
+    sanitizeFinancialNarrative(`${rejectedDebtFallback}你继续安排生活。${rejectedDebtFallback}`, state, ledger),
+    `${rejectedDebtFallback}你继续安排生活。`
+  );
+});
+
+test("runtime narrative boundary tolerates non-string model output", () => {
+  assert.equal(sanitizeFinancialNarrative({ description: "非法对象" } as unknown as string, state), "");
+  assert.equal(
+    sanitizeFinancialNarrative(["第一段。", "第二段。"] as unknown as string, state),
+    "第一段。\n\n第二段。"
   );
 });
 

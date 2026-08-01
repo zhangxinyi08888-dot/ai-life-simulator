@@ -179,6 +179,90 @@ test("PB-CAREER-01 explicit personal income prose requires an Accepted income ev
   assert.equal(missing.length, 1);
   assert.equal(missing[0].code, "CAREER_INCOME_CONFLICT");
 
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "一位老客户办了工作坊，对方当场付了5000元咨询费。线上课程已有付费学员，行业咨询也接到了两三个小单子。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "咨询业务积累了一些客户，你因此多了一条收入来源。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "一个月卖出了14份，收入不到三千元。你帮客户梳理话术，收了五千元。咨询业务已经积累了26个付费咨询客户。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "你接下了内部分享。这笔收入不多，但咨询带来一笔额外的现金流。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "你开始每周抽两个晚上接咨询，每次收费800元。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "课程销量依然不算高，但企业客户开始询问内训。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 0);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "客户提出采购内部培训并介绍团队咨询。这笔订单带来了稳定收入。咨询业务形成每月3-4单的稳定节奏，现金流稳定，主业依然是收入基本盘。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "开课后你根据学员反馈调整节奏。课程结束时十几位学员给出评价。这次尝试虽然没有带来多少收入，却像另一种收入来源。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "有公司请你做内部分享，你按次收取费用。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "老周提前支付的两万元分成垫付了当月还款。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 1);
+
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: "公司的课程平台已有付费学员，企业客户回款进入公司账户。",
+    acceptedFinancialEvents: [],
+    ageInMonths: 660,
+    currentLedger: current.ledger
+  }).length, 0);
+
   const longFormMissing = collectPersonalIncomeNarrativeContractIssues({
     narrativeText: "你以每周10-15小时的节奏接下一家企业的供应链优化顾问合同，税后月薪1.5万。你给自己发了1万元作为个人提款。",
     acceptedFinancialEvents: [],

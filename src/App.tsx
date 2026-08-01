@@ -451,6 +451,7 @@ export default function App() {
             onGenerationCallTrace: (trace) => {
               setGenerationCallTraces((traces) => [...traces, trace]);
             },
+            enableCandidatePatchRepair: import.meta.env.VITE_ENABLE_CANDIDATE_PATCH_REPAIR === "true",
             onNarrativeProgress: (preview) => {
               const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
               nextNarrativePreviewRef.current = merged;

@@ -515,6 +515,7 @@ export function applyDebtNarrativeFallback(input: {
   fallbackNode = {
     ...fallbackNode,
     financialProcessingMeta: {
+      ...currentMeta,
       proposalCount: currentMeta?.proposalCount ?? 0,
       acceptedEventCount: currentMeta?.acceptedEventCount ?? 0,
       acceptedCareerTransitionCount: currentMeta?.acceptedCareerTransitionCount ?? 0,
@@ -526,6 +527,12 @@ export function applyDebtNarrativeFallback(input: {
       narrativeFallback: true,
       narrativeFallbackReasonCodes: [...new Set(input.reasonCodes)],
       rejectedDebtClaimKinds: [...new Set(input.reasonCodes)],
+      rejectedFinancialProposalKinds: currentMeta?.rejectedFinancialProposalKinds,
+      financialNarrativeAuthorityVersion: currentMeta?.financialNarrativeAuthorityVersion,
+      financialNarrativeClaimCount: currentMeta?.financialNarrativeClaimCount,
+      rejectedFinancialNarrativeClaimCount: currentMeta?.rejectedFinancialNarrativeClaimCount,
+      rawInvalidFinancialNarrativeClaimCount: currentMeta?.rawInvalidFinancialNarrativeClaimCount,
+      invalidFinancialNarrativeClaimCount: currentMeta?.invalidFinancialNarrativeClaimCount,
       narrativeRepairAttempts: Math.max(1, currentMeta?.narrativeRepairAttempts ?? 0),
       narrativeRepairSucceeded: false,
       narrativeFallbackSurfacePaths: [...new Set(surfaceIssues.map((issue) => issue.path ?? issue.surface))]
@@ -539,6 +546,12 @@ export function applyDebtNarrativeFallback(input: {
       narrativeFallback: true,
       narrativeFallbackReasonCodes: [...new Set(input.reasonCodes)],
       rejectedDebtClaimKinds: [...new Set(input.reasonCodes)],
+      rejectedFinancialProposalKinds: currentMeta?.rejectedFinancialProposalKinds,
+      financialNarrativeAuthorityVersion: currentMeta?.financialNarrativeAuthorityVersion,
+      financialNarrativeClaimCount: currentMeta?.financialNarrativeClaimCount,
+      rejectedFinancialNarrativeClaimCount: currentMeta?.rejectedFinancialNarrativeClaimCount,
+      rawInvalidFinancialNarrativeClaimCount: currentMeta?.rawInvalidFinancialNarrativeClaimCount,
+      invalidFinancialNarrativeClaimCount: currentMeta?.invalidFinancialNarrativeClaimCount,
       narrativeRepairAttempts: Math.max(1, currentMeta?.narrativeRepairAttempts ?? 0),
       narrativeRepairSucceeded: false,
       narrativeFallbackSurfacePaths: [...new Set(surfaceIssues.map((issue) => issue.path ?? issue.surface))]

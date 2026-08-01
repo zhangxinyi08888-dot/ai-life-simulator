@@ -2,7 +2,7 @@ import { FinancialState, type SimulationNode } from "../types";
 import type { AcceptedFinancialEvent, FinancialLedger } from "../domain/finance/types";
 import type { DebtHealthState } from "../domain/finance/debtHealth";
 import { isNarrativeEligibleFinancialFact } from "../domain/finance/financialFactEligibility";
-import { narrativeClaimsExplicitPersonalIncome } from "../domain/finance/reconcileCareerIncomeAtomicity";
+import { narrativeClaimsExplicitPersonalIncome, sentenceClaimsNewPersonalIncomeActivity } from "../domain/finance/reconcileCareerIncomeAtomicity";
 
 const MONEY_AMOUNT = String.raw`(?:-?\d+(?:\.\d+)?\s*(?:万元?|万|元)(?:多|左右|上下)?|[零〇一二两三四五六七八九十百千]+万(?:元)?(?:多|左右|上下)?)`;
 const BALANCE_TERM = String.raw`(?:现金及存款|现金余额|银行余额|账户余额|个人账户|家庭备用金|备用金|存款|积蓄|净资产|净财富|身家|累计财富|现金(?!流))`;
@@ -16,6 +16,18 @@ const BALANCE_TOTAL = new RegExp(
 );
 const TRANSACTION_CONTEXT = /支付|付了|拿出|取出|投入|用于|花费|支援|借出|偿还|入账|收到|获得|首付|贷款|房贷|医疗费|学费|房租|项目收入|稿费|月薪|工资|还差|缺口/;
 const DECLINING_BALANCE = /从|由|降至|降到|减少|消耗|见底/;
+const CANONICAL_FINANCIAL_FALLBACK_SENTENCES = new Set([
+  "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。",
+  "这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。",
+  "你已经尝试拓展新的收入渠道，但实际个人收入仍需等待后续结果确认。",
+  "创业初期，个人可支配收入仍未形成稳定来源。",
+  "公司经营已有进展，但个人可支配收入仍未形成稳定来源。",
+  "你们继续根据实际现金流调整家庭支出与储蓄安排。",
+  "你尝试申请借款，但这次尚未形成已经到账的结果。",
+  "你已经尝试申请调整还款安排，但尚未形成生效协议。",
+  "你开始评估资产处置，但这次尚未形成确定成交。",
+  "你尝试寻求外部支持，但这次尚未确认资金到账。"
+]);
 
 export function getFinancialStatusText(state: FinancialState): string {
   const monthlyExpense = state.annualCoreExpenseWan / 12;
@@ -43,6 +55,17 @@ function sanitizeLongWanPrecision(text: string): string {
     if (Math.abs(valueWan) < 1) return `${Math.round(valueWan * 10_000)}元`;
     return `${formatWan(valueWan)}万元`;
   });
+}
+
+function dedupeCanonicalFinancialFallbackSentences(text: string): string {
+  const seen = new Set<string>();
+  return text.split(/(?<=[。！？])/u).filter((sentence) => {
+    const normalized = sentence.trim();
+    if (!CANONICAL_FINANCIAL_FALLBACK_SENTENCES.has(normalized)) return true;
+    if (seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  }).join("");
 }
 
 function sanitizeRecurringIncomeClaims(description: string, ledger?: FinancialLedger): string {
@@ -200,8 +223,13 @@ export function sanitizeFinancialNarrative(
   ledger?: FinancialLedger,
   acceptedEvents?: AcceptedFinancialEvent[]
 ): string {
-  if (!description) return description;
-  const prepared = description.replace(
+  const sourceDescription = typeof description === "string"
+    ? description
+    : Array.isArray(description)
+      ? (description as unknown[]).filter((item): item is string => typeof item === "string").join("\n\n")
+      : "";
+  if (!sourceDescription) return "";
+  const prepared = sourceDescription.replace(
     new RegExp(`靠着\\s*${MONEY_AMOUNT}\\s*(?:的)?(?:家庭)?备用金(?:和|、)房贷压力`, "gu"),
     "在有限现金缓冲和房贷压力下"
   ).replace(new RegExp(`(?:你们)?用各自\\s*${MONEY_AMOUNT}\\s*(?:的)?(?:积蓄|存款|备用金)(?:作为)?(?:启动资金)?`, "gu"), "你们各自投入了一笔启动资金")
@@ -211,7 +239,7 @@ export function sanitizeFinancialNarrative(
     sanitizePersonalDebtClaims(sanitizeUnsupportedMortgageClaims(sanitizeUnsupportedIncomeComposition(sanitizeUnconfirmedPersonalDrawClaims(sanitizeRecurringIncomeClaims(prepared, ledger), ledger, acceptedEvents), ledger), ledger), state),
     ledger
   );
-  return sanitizeLongWanPrecision(grounded
+  return dedupeCanonicalFinancialFallbackSentences(sanitizeLongWanPrecision(grounded
     .replace(/你个人的持续支出正在消耗(?:现金缓冲)?整体仍处于负债状态/gu, "持续支出仍在消耗个人现金缓冲")
     .replace(/(?:依靠|靠着)整体仍处于负债状态(?:的)?备用金/gu, "依靠有限的现金缓冲")
     .split(/(?<=[。！？])/u).map((sentence) => {
@@ -225,7 +253,7 @@ export function sanitizeFinancialNarrative(
     return sentence
       .replace(BALANCE_RANGE, (match) => replaceBalanceTotal(match, state))
       .replace(BALANCE_TOTAL, (match) => replaceBalanceTotal(match, state));
-    }).join(""));
+    }).join("")));
 }
 
 export function sanitizeUnsupportedOpeningAccountClaims(description: string, ledger: FinancialLedger): string {
@@ -255,7 +283,7 @@ export function sanitizeUnsupportedFinancialCoverageClaims(
   const unsupportedCompensation = hasIssue("narrative_coverage_personal_compensation_")
     || hasIssue("personal_income_claim_without_event_");
   if (!unsupportedProperty && !unsupportedMortgage && !unsupportedHolding && !unsupportedCompensation) return description;
-  return description.split(/(?<=[。！？])/u).map((sentence) => {
+  return dedupeCanonicalFinancialFallbackSentences(description.split(/(?<=[。！？])/u).map((sentence) => {
     if (unsupportedProperty && /(?:名下|自有|自己的).{0,16}(?:房|住房|公寓)|(?:买了|买下|购入|购买|卖掉|出售).{0,16}(?:房|住房|公寓)|(?:婚房|住房|房子|公寓)?首付|房产升值/u.test(sentence)) {
       return "你们继续根据实际现金流评估居住安排与生活成本。";
     }
@@ -265,11 +293,15 @@ export function sanitizeUnsupportedFinancialCoverageClaims(
     if (unsupportedHolding && /股权|期权|持股|股份|联合创始人|合伙人/u.test(sentence)) {
       return "相关权益仍在讨论与条件确认阶段，尚未真正落到你个人名下。";
     }
+    if (unsupportedCompensation && (sentenceClaimsNewPersonalIncomeActivity(sentence)
+      || /收费[^。！？]{0,16}(?:调整|改为|从|标准|项目制)|稳定收入|收入基本盘|主业收入/u.test(sentence))) {
+      return "这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。";
+    }
     if (unsupportedCompensation && /月薪|年薪|工资|薪资|个人收入|个人进账|个人净收入/u.test(sentence)) {
       return "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
     }
     return sentence;
-  }).join("");
+  }).join(""));
 }
 
 export function sanitizeOpeningFinancialTitle(title: string, ledger: FinancialLedger): string {

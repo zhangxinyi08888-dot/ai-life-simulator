@@ -351,6 +351,7 @@ ${FINANCIAL_NARRATIVE_RULE}
 - 年龄约束执行条件，不约束人生愿望。45岁读书、55岁创业、70岁写书、80岁旅行、90岁研究均可成立。
 - 每个非终章节点至少一个选项继续推进用户当前方向；禁止三个选项共同导向退休、照护、退出或回忆。
 - 只有真正改变未来的选择才能成为节点；复查、等待、恢复等无新分歧过程放入 storyEpisode.internalTransitions。
+- storyEpisode.internalTransitions 必须是对象数组，每项严格返回 {"atAgeInMonths":整数,"materiality":"transition"或"meaningful_update","summary":"已发生的阶段变化","worldDeltas":[]}；禁止返回字符串、from/to 简写或其他字段形状。
 - 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId。
 ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、relationshipProposals、activeCharacters、primaryActivity、storyEpisode。
@@ -368,6 +369,8 @@ ${targetAgeInMonths >= 80 * 12 ? "- 主角已满 80 岁：本节点不得继续�
 ${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
 ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - financialEventProposals 必须放在返回 JSON 顶层；没有已经发生的财务变化时返回空数组，不得重复返回全部现有余额。
+- financialNarrativeClaims 必须放在返回 JSON 顶层。每个 financialEventProposal 至少返回一项 Claim：{ "id": "唯一 id", "proposalId": "对应 Proposal.id", "kind": "与 Proposal.kind 完全一致", "surfaceText": "逐字复制 descriptionParagraphs 中宣告该财务事实已经发生的完整句子" }。同一 Proposal 若在多句中宣告到账、生效或由此带来的现金流结果，必须逐句绑定；计划、申请中或未成功的句子不得作为完成事实 Claim。没有 Proposal 时返回空数组。
+- Claim 是财务叙事事实的封闭契约：不得在未绑定 Claim 的正文或选项里另写个人收入到账、借款到账、还债完成、重组生效、资产成交、家庭资金到账、股权/期权取得等已完成事实。
 - 每项 Proposal 必须包含 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence、financialScope。financialScope 只能是 personal 或 business_operating；sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时返回空数组。
 - evidence 必须摘自 description 中已经发生的事实句；系统会做标点、空白和金额锚定匹配。confidence 在 0.8-1 时按明确事实提交，0.6-0.8 时按 estimated 提交；低于 0.6、候选选项、计划和意向不能提交。
 - 持续收入或支出分别使用 income_source_started/adjusted/paused/ended 与 expense_commitment_started/adjusted/ended；一次性收支使用 one_off_income_received/one_off_expense_paid。
@@ -391,7 +394,7 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - 收入、支出和资产变化必须与 descriptionParagraphs 正文一致；借款、还本金和购买资产不得重复当作净财富损益。
 - arcSignals 只能提出“发生了什么”及 evidence，禁止返回 nextPhaseId、nextPressureArcStatus、foregroundPressureArcId 或修改 checkpointCount。
 - 严格按 title、descriptionParagraphs、其余字段的顺序输出，便于逐段呈现；不要重复返回 description 字符串。
-- 返回 title、descriptionParagraphs、age、ageInMonths、stage、choices、attributes、financialEventProposals、isEndingNode、narrativeMeta。
+- 返回 title、descriptionParagraphs、age、ageInMonths、stage、choices、attributes、financialEventProposals、financialNarrativeClaims、isEndingNode、narrativeMeta。
 
 financialEventProposals 示例（仅在正文确实发生对应事实时使用；否则返回 []）：
 [
@@ -414,6 +417,16 @@ financialEventProposals 示例（仅在正文确实发生对应事实时使用�
     "financialScope": "personal",
     "evidence": "你正式入职，税后月薪为2.5万元。",
     "confidence": 0.9
+  }
+]
+
+与上例同时返回的 financialNarrativeClaims 示例：
+[
+  {
+    "id": "claim_income_start_current_node",
+    "proposalId": "income_start_current_node",
+    "kind": "income_source_started",
+    "surfaceText": "你正式入职，税后月薪为2.5万元。"
   }
 ]
 

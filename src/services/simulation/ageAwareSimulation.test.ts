@@ -250,6 +250,7 @@ try {
     nodeIndex: 1,
     simulationSeed: "forbidden-seed"
   }, {
+    enableCandidatePatchRepair: true,
     relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
     callAiJson: async (prompt) => {
       forbiddenAttempts += 1;
@@ -271,6 +272,7 @@ try {
     nodeIndex: 1,
     simulationSeed: "gate-seed"
   }, {
+    enableCandidatePatchRepair: true,
     relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
     callAiJson: async (prompt) => {
       gateAttempts += 1;

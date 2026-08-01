@@ -35,3 +35,5 @@ assert.equal(longBlock.startsWith(stableStreamingParagraphs.join("")), true);
 
 assert.deepEqual(splitNarrativeParagraphs("短句保持原样。"), ["短句保持原样。"]);
 assert.deepEqual(splitNarrativeParagraphs("   "), []);
+assert.deepEqual(splitNarrativeParagraphs(["第一段。", "第二段。"]), ["第一段。", "第二段。"]);
+assert.deepEqual(splitNarrativeParagraphs({ description: "非法对象" }), []);

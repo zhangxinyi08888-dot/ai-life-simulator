@@ -1,6 +1,7 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { auditFinancialProductionRecords } from "./lib/financial-production-audit.mjs";
+import { summarizeCandidatePatchEffectiveness } from "./lib/generation-latency-gate.mjs";
 
 const [recordRoot, baselinePath] = process.argv.slice(2);
 if (!recordRoot || !baselinePath) {
@@ -62,7 +63,7 @@ const baseline = {
   fullRegenerationRate: Number(baselineRecord.summaries?.main?.regenerationNodeRate ?? 0) / 100,
   visiblePauseCount: Number(baselineRecord.summaries?.main?.visiblePauseCount ?? 0)
 };
-const candidatePatchSucceeded = candidatePatchTraces.filter((trace) => trace.outcome === "succeeded").length;
+const candidatePatchEffectiveness = summarizeCandidatePatchEffectiveness(traces);
 const candidate = {
   routeCount: records.length,
   nodeCount: samples.length,
@@ -74,10 +75,8 @@ const candidate = {
   singleFullGenerationNodeCount: singleFullGenerationNodes,
   singleFullGenerationRate: samples.length ? singleFullGenerationNodes / samples.length : 0,
   maxModelPatchCallsPerTransaction: Math.max(0, ...transactionPatchCounts.values()),
-  candidatePatchCallCount: candidatePatchTraces.length,
-  candidatePatchSucceeded,
-  candidatePatchFailed: candidatePatchTraces.length - candidatePatchSucceeded,
-  candidatePatchSuccessRate: candidatePatchTraces.length ? candidatePatchSucceeded / candidatePatchTraces.length : 1,
+  ...candidatePatchEffectiveness,
+  candidatePatchContractFailed: candidatePatchTraces.length - candidatePatchEffectiveness.candidatePatchContractSucceeded,
   proposalRepairCallCount: traces.filter((trace) => trace.kind === "proposal_repair").length,
   visiblePauseCount: records.reduce((sum, record) => sum + (record.latestState?.generationEvents ?? [])
     .filter((event) => event.type === "visible_pause").length, 0),
@@ -99,6 +98,11 @@ const authorityRegressionKeys = [
   "financialAmountPrecisionViolationCount",
   "crossJourneyInvitationEntryCount",
   "companyOperatingFlowInPersonalLedgerCount",
+  "rejectedCompletionContradictionNodeCount",
+  "invalidFinancialNarrativeClaimNodeCount",
+  "invalidInternalTransitionNodeCount",
+  "duplicateChoiceIdNodeCount",
+  "duplicateCanonicalFallbackNodeCount",
   "visibleGenerationPauseCount",
   "unclassifiedGenerationCallCount",
   "excessivePatchNodeCount"
@@ -112,7 +116,8 @@ const checks = {
   fullRegenerationRate: candidate.fullRegenerationRate <= baseline.fullRegenerationRate + 0.05,
   singleFullGenerationRate: candidate.singleFullGenerationRate >= 0.9,
   modelPatchBudget: candidate.maxModelPatchCallsPerTransaction <= 1,
-  patchSuccessRate: candidate.candidatePatchSuccessRate >= 0.5,
+  patchEffectiveRate: candidate.candidatePatchCallCount === 0 || candidate.candidatePatchEffectiveRate >= 0.5,
+  fullRegenerationReasons: candidate.fullRegenerationWithoutReasonCount === 0,
   visiblePause: candidate.visiblePauseCount === 0,
   unclassifiedCalls: candidate.unclassifiedCallCount === 0,
   authorityRegressions: authorityRegressionCount === 0
