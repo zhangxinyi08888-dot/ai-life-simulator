@@ -6,6 +6,7 @@ import {
   deriveFinalFinancialNarrativeAuthority,
   formatFinalFinancialNarrativeAuthorityForPrompt
 } from "../../utils/finalFinancialNarrativeAuthority";
+import { formatPersonalExpenseSummaryForPrompt } from "../../domain/finance/personalExpenseSummary";
 
 function focusLabel(value: string): string {
   if (value === "career") return "事业发展与职场长征";
@@ -42,12 +43,15 @@ function formatAuthoritativeFinance(history: HistoryItem[]): string {
   if (!context.state) return "暂无权威财务账本；报告不得引用任何具体金额或回报率。";
   const state = context.state;
   const period = context.periodSummary;
+  const expenseSummary = context.narrativeAuthority?.personalExpenseSummary;
   return [
     `现金 ${state.cashWan} 万元`,
     `净资产 ${state.netWorthWan} 万元`,
     `总债务 ${state.totalDebtWan} 万元`,
     `年化持续收入 ${state.annualizedRecurringIncomeWan} 万元`,
     period ? `本阶段收入 ${period.incomeWan} 万元；核心支出 ${period.coreExpenseWan} 万元；净现金流 ${period.netCashFlowWan} 万元；净资产变化 ${period.netWorthChangeWan} 万元` : "本阶段无权威期间汇总",
+    "V4 个人持续支出分类摘要（报告与海报唯一支出事实源）：",
+    expenseSummary ? formatPersonalExpenseSummaryForPrompt(expenseSummary) : "- V4 支出分类摘要不可用；不得生成具体持续支出金额或责任结论。",
     `未解决问题：${state.unresolvedIssueCodes.join("、") || "无"}`,
     context.hasBusinessValueNeedsReview ? "企业权益价值为 needs_review：只能写持有事实和价值待确认，不得写估值、获利或回报数字。" : "企业权益不存在 needs_review 限制。"
   ].join("\n");

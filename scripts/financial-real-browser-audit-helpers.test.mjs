@@ -108,6 +108,34 @@ test("keeps a protagonist annual salary at a named company out of company revenu
   }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
 });
 
+test("keeps a protagonist tax-after personal income out of violations when the same sentence also names studio revenue", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    monthlyNetAmountWan: 38 / 12,
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "到55岁11个月，工作室保持稳定。你的年税后收入稳定在38万元，工作室年收入约65万元。"
+    }]
+  }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
+test("does not exempt legacy recurring income when its amount matches studio revenue instead of stated personal compensation", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    monthlyNetAmountWan: 65 / 12,
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "到55岁11个月，工作室保持稳定。你的年税后收入稳定在38万元，工作室年收入约65万元。"
+    }]
+  }] }), { incomeSourceIds: ["legacy_recurring_income"], expenseCommitmentIds: [] });
+});
+
 test("does not let personal scope relabel company operating revenue as consulting income", () => {
   assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
     id: "company_revenue",

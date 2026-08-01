@@ -27,3 +27,47 @@ test("flattens career transitions and maps deterministic employment aliases", ()
   assert.equal(transition?.sourceOutcomeId, "choice_fallback_1");
   assert.equal(result.audit.some((item) => item.reasonCode === "EMPLOYMENT_STATUS_MAPPED"), true);
 });
+
+test("flattens and validates an accepted structured residence payload on a location delta", () => {
+  const result = normalizeWorldDeltas({
+    worldDeltas: [{
+      deltaType: "location_change",
+      summary: "居住安排已完成更新。",
+      payload: {
+        residence: {
+          livingArrangement: "renting",
+          financialScope: "personal",
+          liability: "protagonist",
+          evidence: "已签订租约并搬入住所。"
+        }
+      }
+    }]
+  });
+  assert.deepEqual(result.worldDeltas, [{
+    type: "location_change",
+    summary: "居住安排已完成更新。",
+    residence: {
+      livingArrangement: "renting",
+      financialScope: "personal",
+      liability: "protagonist",
+      evidence: "已签订租约并搬入住所。"
+    }
+  }]);
+  assert.equal(result.audit.some((item) => item.reasonCode === "RESIDENCE_CHANGE_FLATTENED"), true);
+});
+
+test("drops an invalid structured residence payload without discarding its ordinary location delta", () => {
+  const result = normalizeWorldDeltas({
+    worldDeltas: [{
+      type: "location_change",
+      summary: "公司场地搬迁。",
+      residence: {
+        livingArrangement: "workshop",
+        financialScope: "personal",
+        liability: "protagonist"
+      }
+    }]
+  });
+  assert.deepEqual(result.worldDeltas, [{ type: "location_change", summary: "公司场地搬迁。" }]);
+  assert.equal(result.audit.some((item) => item.reasonCode === "RESIDENCE_CHANGE_DROPPED"), true);
+});

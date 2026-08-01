@@ -3,9 +3,10 @@ import test from "node:test";
 import { initializeCareerState } from "../career/careerState";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
+import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
 import { normalizeFinancialProposals } from "./normalizeFinancialProposals";
-import { validateFinancialProposals } from "./validateFinancialProposals";
-import type { FinancialEventProposal, FinancialEvidence } from "./types";
+import { isUnacceptedIncomeOpportunityEvidence, validateFinancialProposals } from "./validateFinancialProposals";
+import type { FinancialEventProposal, FinancialEvidence, FinancialLedgerV3 } from "./types";
 import type { FinancialEventKind } from "./types";
 import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 
@@ -48,6 +49,31 @@ function validate(proposals: FinancialEventProposal[], narrativeText = "这一�
     simulationTransactionId: "proposal_validation",
     liquidityPolicy: "require_explicit"
   });
+}
+
+function v4LedgerWithHousing() {
+  const context = setup();
+  const ledger = migrateFinancialLedgerV3ToV4(context.currentLedger as FinancialLedgerV3);
+  ledger.expenseCommitments.push({
+    id: "home_main",
+    type: "housing",
+    displayName: "主角租住房屋",
+    monthlyAmountWan: 0.5,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "known",
+    evidence,
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    amountBasis: "explicit_known",
+    amountSourceIds: ["rent:main"],
+    financialScope: "personal",
+    accrualReviewStatus: "normal",
+    nextReviewAtAgeInMonths: 312,
+    confirmedMonthlyAmountWan: 0.5,
+    lastConfirmedAtAgeInMonths: 300
+  });
+  return { ...context, currentLedger: ledger };
 }
 
 test("accepts valid proposals independently when an unrelated proposal is blocking", () => {
@@ -1036,6 +1062,97 @@ test("allows compensation explicitly offered to the protagonist by another perso
   assert.equal(result.acceptedEvents.length, 1);
 });
 
+test("rejects an unaccepted job posting or project invitation as a legacy-income reconfirmation while accepting an exact current salary", () => {
+  const context = setup();
+  const legacyIncome = {
+    id: "legacy_recurring_income", type: "salary" as const, displayName: "旧版持续收入聚合",
+    annualNetAmountWan: 18, accrualPolicy: "annual" as const, activeFromAgeInMonths: 300,
+    status: "active" as const, linkedCareerStateId: "career_current", factStatus: "estimated" as const, evidence
+  };
+  context.currentLedger.incomeSources.push(legacyIncome);
+  const currentSalary = (annualNetAmountWan: number) => ({
+    ...legacyIncome,
+    annualNetAmountWan,
+    lastConfirmedAtAgeInMonths: 312
+  });
+
+  const prospectiveEvidence = "工作这边，你留意到同城一家医疗器械公司正在招项目经理，薪资比现在高约三成，但需要经常出差。";
+  assert.equal(isUnacceptedIncomeOpportunityEvidence(prospectiveEvidence), true);
+  assert.equal(isUnacceptedIncomeOpportunityEvidence("你正式换工作，新岗位月薪3万元。"), false, "a completed first-person job change is not a mere new-job posting");
+  const prospective = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "prospective_job_posting", kind: "income_source_adjusted", evidence: prospectiveEvidence,
+      confidence: 0.7,
+      payload: { incomeSourceId: legacyIncome.id, nextSource: currentSalary(18) }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: prospectiveEvidence,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "prospective_job_posting",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(prospective.acceptedEvents.length, 0);
+  assert.equal(prospective.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+
+  // A supervisor's invitation to lead a temporary project is not a salary
+  // confirmation either.  In particular, a generic \"获得主管肯定\" must not
+  // refresh lastConfirmedAtAgeInMonths for the legacy income source.
+  const projectInvitationEvidence = "你提交的预算优化方案在部门例会上获得了主管的肯定，他私下问你愿不愿意牵头做一个跨部门的成本分析项目，为期三个月，不影响婚礼筹备。";
+  const projectInvitation = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "prospective_internal_project", kind: "income_source_adjusted", evidence: projectInvitationEvidence,
+      confidence: 0.9,
+      payload: { incomeSourceId: legacyIncome.id, nextSource: currentSalary(18) }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: projectInvitationEvidence,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "prospective_internal_project",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(projectInvitation.acceptedEvents.length, 0);
+  assert.equal(projectInvitation.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+
+  const projectWithSalaryEvidence = "主管问你愿不愿意牵头三个月的跨部门成本分析项目，项目补贴后月薪可达2.5万元。";
+  const projectWithSalary = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "prospective_internal_project_with_salary", kind: "income_source_adjusted", evidence: projectWithSalaryEvidence,
+      confidence: 0.9,
+      payload: { incomeSourceId: legacyIncome.id, nextSource: currentSalary(18) }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: projectWithSalaryEvidence,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "prospective_internal_project_with_salary",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(projectWithSalary.acceptedEvents.length, 0);
+  assert.equal(projectWithSalary.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+
+  const confirmedEvidence = "你仍在原公司工作，年税后收入稳定在18万元。";
+  const confirmed = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "current_income_reconfirmed", kind: "income_source_adjusted", evidence: confirmedEvidence,
+      payload: { incomeSourceId: legacyIncome.id, nextSource: currentSalary(18) }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: confirmedEvidence,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "current_income_reconfirmed",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(confirmed.acceptedEvents.length, 1);
+  assert.equal((confirmed.acceptedEvents[0]?.payload as any).nextSource.annualNetAmountWan, 18);
+});
+
 test("requires adjustment instead of stacking a second authoritative basic-living commitment", () => {
   const context = setup();
   context.currentLedger.expenseCommitments.push({
@@ -1059,18 +1176,138 @@ test("allows separate dependent-support commitments for different responsibiliti
   const context = setup();
   context.currentLedger.expenseCommitments.push({
     id: "support_parent", type: "dependent_support", displayName: "父母照护费", monthlyAmountWan: 0.2,
-    activeFromAgeInMonths: 300, status: "active", factStatus: "known", evidence
+    activeFromAgeInMonths: 300, status: "active", factStatus: "known", evidence,
+    responsibilityKey: "elder_care:parent", responsibilityKind: "elder_care",
+    amountBasis: "explicit_known", amountSourceIds: ["parent-care"], financialScope: "personal",
+    accrualReviewStatus: "normal", nextReviewAtAgeInMonths: 312, confirmedMonthlyAmountWan: 0.2,
+    lastConfirmedAtAgeInMonths: 300
   });
   const result = validateFinancialProposals({
     ...context,
     proposals: [proposal({
       id: "support_child", kind: "expense_commitment_started", evidence: "你开始每月支付0.3万元子女教育生活费。",
-      payload: { id: "support_child", type: "dependent_support", displayName: "子女教育生活费", monthlyAmountWan: 0.3, activeFromAgeInMonths: 312, status: "active", factStatus: "known", evidence }
+      payload: {
+        id: "support_child", type: "dependent_support", displayName: "子女教育生活费", monthlyAmountWan: 0.3,
+        activeFromAgeInMonths: 312, status: "active", factStatus: "known", evidence,
+        responsibilityKey: "child_support:child_1", responsibilityKind: "child_support",
+        amountBasis: "explicit_known", amountSourceIds: ["child-care"], financialScope: "personal",
+        accrualReviewStatus: "normal", nextReviewAtAgeInMonths: 324, confirmedMonthlyAmountWan: 0.3,
+        lastConfirmedAtAgeInMonths: 312
+      }
     })],
     acceptedOutcomeId: "accepted_choice", narrativeText: "你开始每月支付0.3万元子女教育生活费。",
     periodStartAgeInMonths: 300, periodEndAgeInMonths: 312, simulationTransactionId: "separate_support", liquidityPolicy: "require_explicit"
   });
   assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("V4 rejects reusing one recurring amount source across different responsibilities", () => {
+  const context = setup();
+  const currentLedger = migrateFinancialLedgerV3ToV4(context.currentLedger as FinancialLedgerV3);
+  currentLedger.expenseCommitments.push({
+    id: "support_parent", type: "dependent_support", displayName: "父母照护费", monthlyAmountWan: 0.4,
+    activeFromAgeInMonths: 300, status: "active", factStatus: "known", evidence,
+    responsibilityKey: "elder_care:parent", responsibilityKind: "elder_care",
+    amountBasis: "explicit_known", amountSourceIds: ["parent-transfer-4000"], financialScope: "personal",
+    accrualReviewStatus: "normal", nextReviewAtAgeInMonths: 312, confirmedMonthlyAmountWan: 0.4,
+    lastConfirmedAtAgeInMonths: 300
+  });
+  const result = validateFinancialProposals({
+    ...context,
+    currentLedger,
+    proposals: [proposal({
+      id: "duplicate_parent_transfer", kind: "expense_commitment_started", evidence: "你开始每月支付0.4万元子女抚养费。",
+      payload: {
+        id: "support_child", type: "dependent_support", displayName: "子女抚养费", monthlyAmountWan: 0.4,
+        activeFromAgeInMonths: 312, status: "active", factStatus: "known", evidence,
+        responsibilityKey: "child_support:child_1", responsibilityKind: "child_support",
+        amountBasis: "explicit_known", amountSourceIds: ["parent-transfer-4000"], financialScope: "personal",
+        accrualReviewStatus: "normal", nextReviewAtAgeInMonths: 324, confirmedMonthlyAmountWan: 0.4,
+        lastConfirmedAtAgeInMonths: 312
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice", narrativeText: "你开始每月支付0.4万元子女抚养费。",
+    periodStartAgeInMonths: 300, periodEndAgeInMonths: 312, simulationTransactionId: "duplicate_expense_source", liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0]?.code, "EXPENSE_AMOUNT_SOURCE_DOUBLE_COUNT");
+});
+
+test("V4 rejects an expense end without an auditable previous commitment and reason", () => {
+  const context = v4LedgerWithHousing();
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "end_home_without_authority",
+      kind: "expense_commitment_ended",
+      payload: { expenseCommitmentId: "home_main" },
+      evidence: "你已经搬离旧公寓，不再承担房租。"
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你已经搬离旧公寓，不再承担房租。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "v4_end_without_authority",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0]?.code, "EXPENSE_END_WITHOUT_EVIDENCE");
+});
+
+test("V4 accepts a residence end only when Accepted evidence, reason, and prior responsibility agree", () => {
+  const context = v4LedgerWithHousing();
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "end_home_with_authority",
+      kind: "expense_commitment_ended",
+      payload: {
+        expenseCommitmentId: "home_main",
+        previousCommitmentId: "home_main",
+        changeReason: "residence_ended"
+      },
+      evidence: "你已经搬离旧公寓，不再承担房租。"
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你已经搬离旧公寓，不再承担房租。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "v4_end_with_authority",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.acceptedEvents.length, 1);
+  const accepted = result.acceptedEvents[0];
+  assert.equal(accepted.kind, "expense_commitment_ended");
+  if (accepted.kind !== "expense_commitment_ended") throw new Error("expected expense end");
+  assert.equal(accepted.payload.previousCommitmentId, "home_main");
+});
+
+test("V4 does not let unemployment pause a continuing expense without temporary-payment proof", () => {
+  const context = v4LedgerWithHousing();
+  const current = context.currentLedger.expenseCommitments.find((item) => item.id === "home_main")!;
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "pause_home_for_unemployment",
+      kind: "expense_commitment_adjusted",
+      payload: {
+        expenseCommitmentId: "home_main",
+        previousCommitmentId: "home_main",
+        changeReason: "temporary_third_party_coverage",
+        nextCommitment: { ...current, status: "paused" }
+      },
+      evidence: "你暂时失业，收入减少。"
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你暂时失业，收入减少。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "v4_pause_without_payment_proof",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0]?.code, "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY");
 });
 
 test("every financial event kind has a payload schema that rejects an empty object", () => {

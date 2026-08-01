@@ -1,8 +1,8 @@
-import type { EmploymentStatus, EmploymentTransitionProposal, WorldDelta } from "../types";
+import type { EmploymentStatus, EmploymentTransitionProposal, ResidenceOccupancyChange, WorldDelta } from "../types";
 
 export interface WorldDeltaNormalizationAudit {
   index: number;
-  reasonCode: "DELTA_TYPE_NORMALIZED" | "EMPLOYMENT_TRANSITION_FLATTENED" | "EMPLOYMENT_STATUS_MAPPED" | "SOURCE_OUTCOME_FILLED";
+  reasonCode: "DELTA_TYPE_NORMALIZED" | "EMPLOYMENT_TRANSITION_FLATTENED" | "EMPLOYMENT_STATUS_MAPPED" | "SOURCE_OUTCOME_FILLED" | "RESIDENCE_CHANGE_FLATTENED" | "RESIDENCE_CHANGE_DROPPED";
   originalValue?: string;
   normalizedValue?: string;
 }
@@ -20,6 +20,38 @@ const EMPLOYMENT_ALIASES: Record<string, { status: EmploymentStatus; occupation?
 const WORLD_DELTA_TYPES = new Set<WorldDelta["type"]>([
   "person_status", "person_role", "relationship_change", "career_state", "health_state", "location_change"
 ]);
+
+const RESIDENCE_LIVING_ARRANGEMENTS = new Set<ResidenceOccupancyChange["livingArrangement"]>([
+  "renting", "owner_occupied", "with_family", "provided"
+]);
+const RESIDENCE_FINANCIAL_SCOPES = new Set<ResidenceOccupancyChange["financialScope"]>([
+  "personal", "shared_household", "business_operating", "third_party"
+]);
+const RESIDENCE_LIABILITIES = new Set<ResidenceOccupancyChange["liability"]>([
+  "protagonist", "shared", "third_party", "none"
+]);
+
+function normalizeResidenceChange(raw: unknown): ResidenceOccupancyChange | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const candidate = raw as Record<string, unknown>;
+  const livingArrangement = candidate.livingArrangement;
+  const financialScope = candidate.financialScope;
+  const liability = candidate.liability;
+  if (
+    !RESIDENCE_LIVING_ARRANGEMENTS.has(livingArrangement as ResidenceOccupancyChange["livingArrangement"])
+    || !RESIDENCE_FINANCIAL_SCOPES.has(financialScope as ResidenceOccupancyChange["financialScope"])
+    || !RESIDENCE_LIABILITIES.has(liability as ResidenceOccupancyChange["liability"])
+  ) return undefined;
+  const evidence = typeof candidate.evidence === "string" && candidate.evidence.trim()
+    ? candidate.evidence.trim()
+    : undefined;
+  return {
+    livingArrangement: livingArrangement as ResidenceOccupancyChange["livingArrangement"],
+    financialScope: financialScope as ResidenceOccupancyChange["financialScope"],
+    liability: liability as ResidenceOccupancyChange["liability"],
+    ...(evidence ? { evidence } : {})
+  };
+}
 
 export function normalizeWorldDeltas(input: {
   worldDeltas: unknown;
@@ -41,6 +73,10 @@ export function normalizeWorldDeltas(input: {
       source.employmentTransition = payload.employmentTransition;
       audit.push({ index, reasonCode: "EMPLOYMENT_TRANSITION_FLATTENED" });
     }
+    if (rawType === "location_change" && !source.residence && payload?.residence) {
+      source.residence = payload.residence;
+      audit.push({ index, reasonCode: "RESIDENCE_CHANGE_FLATTENED" });
+    }
     const transition = source.employmentTransition as Record<string, any> | undefined;
     if (transition) {
       const originalStatus = String(transition.toStatus || "");
@@ -53,6 +89,14 @@ export function normalizeWorldDeltas(input: {
       if ((!transition.sourceOutcomeId || transition.sourceOutcomeId === null) && onlyOutcomeId) {
         transition.sourceOutcomeId = onlyOutcomeId;
         audit.push({ index, reasonCode: "SOURCE_OUTCOME_FILLED", normalizedValue: onlyOutcomeId });
+      }
+    }
+    if (rawType === "location_change" && source.residence !== undefined) {
+      const residence = normalizeResidenceChange(source.residence);
+      if (residence) source.residence = residence;
+      else {
+        delete source.residence;
+        audit.push({ index, reasonCode: "RESIDENCE_CHANGE_DROPPED" });
       }
     }
     const { deltaType: _deltaType, payload: _payload, ...rest } = source;

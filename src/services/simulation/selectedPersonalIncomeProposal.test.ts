@@ -93,6 +93,58 @@ test("PB-CAREER-11 exact annual salary in accepted narrative starts same-node in
   assert.equal((result[0]?.payload as any).accrualPolicy, "annual");
 });
 
+test("PB-CAREER-11a prospective job-posting pay cannot synthesize a current personal income", () => {
+  const ledger = initializeFinancialLedger({ id: "prospective_job_posting", asOfAgeInMonths: 420 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续当前节奏，与伴侣筹备共同生活。",
+    narrativeText: "你留意到同城一家医疗器械公司正在招项目经理，年薪30万元，比现在高约三成，但你把招聘信息收了起来。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "maintain_financial_order",
+    periodStartAgeInMonths: 420,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.equal(result.length, 0);
+});
+
+test("PB-CAREER-11b a raised annual salary with an explicit qualifier updates the current income", () => {
+  const ledger = initializeFinancialLedger({
+    id: "qualified_annual_salary_adjustment",
+    asOfAgeInMonths: 335,
+    openingPosition: {
+      incomeSources: [{
+        id: "legacy_recurring_income", type: "other", displayName: "旧版持续收入聚合",
+        annualNetAmountWan: 24, accrualPolicy: "annual", activeFromAgeInMonths: 312,
+        status: "active", linkedCareerStateId: "career_opening_312", factStatus: "estimated", evidence: []
+      }]
+    }
+  });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [{
+      id: "malformed_model_salary", kind: "income_source_adjusted", effectiveAtAgeInMonths: 335,
+      sourceOutcomeId: "stay_local", confidence: 0.9, evidence: "税后年薪涨到约30万。",
+      payload: {
+        incomeSourceId: "legacy_recurring_income",
+        nextSource: { ...ledger.incomeSources[0], annualNetAmountWan: 30, evidence: ["税后年薪涨到约30万。"] }
+      }
+    } as any],
+    selectedDecision: "继续留在当前城市，和伴侣一起按计划推进买房和婚姻。",
+    narrativeText: "你在原公司继续深耕，28岁前被提为项目主管，税后年薪涨到约30万。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "stay_local",
+    periodStartAgeInMonths: 335,
+    currentCareerStateId: "career_opening_312",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "income_source_adjusted");
+  assert.equal((result[0]?.payload as any).incomeSourceId, "legacy_recurring_income");
+  assert.equal((result[0]?.payload as any).nextSource.annualNetAmountWan, 30);
+});
+
 test("PB-CAREER-12 exact narrative salary adjusts the sole active current income in the same node", () => {
   const ledger = initializeFinancialLedger({
     id: "same_node_salary_adjustment",

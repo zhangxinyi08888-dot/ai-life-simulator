@@ -3,6 +3,7 @@ import test from "node:test";
 import { normalizeFinancialProposals, normalizeRepairedFinancialProposals } from "./normalizeFinancialProposals";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
+import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
 import type { FinancialEvidence } from "./types";
 
 test("normalizes kind fields, fills a unique outcome id and deduplicates temporary ids", () => {
@@ -17,6 +18,55 @@ test("normalizes kind fields, fills a unique outcome id and deduplicates tempora
   assert.deepEqual(result.proposals.map((proposal) => proposal.sourceOutcomeId), ["choice_fallback_1", "choice_fallback_1"]);
   assert.equal(result.proposals[0].kind, "one_off_income_received");
   assert.equal(result.audit.some((item) => item.reasonCode === "DUPLICATE_ID_RENAMED"), true);
+});
+
+test("canonicalizes model expense transport before it can target a V4 ledger", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "v4_expense_transport",
+    asOfAgeInMonths: 360
+  }));
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    currentLedger,
+    proposals: [{
+      id: "rent_start",
+      kind: "expense_commitment_started",
+      effectiveAtAgeInMonths: 372,
+      payload: { id: "rent_main", type: "housing", monthlyAmountWan: 0.5 },
+      evidence: "你开始每月支付5000元房租。",
+      confidence: 0.9
+    }]
+  });
+  const commitment = result.proposals[0].payload as any;
+  assert.equal(commitment.responsibilityKey, "primary_residence:main");
+  assert.equal(commitment.responsibilityKind, "primary_residence");
+  assert.equal(commitment.amountBasis, "contextual_estimate");
+  assert.equal(commitment.financialScope, "personal");
+  assert.equal(Number.isInteger(commitment.nextReviewAtAgeInMonths), true);
+  assert.equal(result.audit.some((item) => item.reasonCode === "V4_EXPENSE_CANONICALIZED"), true);
+});
+
+test("keeps a V4 mortgage-payment expense schema-invalid for the validator instead of crashing canonicalization", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "v4_mortgage_payment_routing",
+    asOfAgeInMonths: 360
+  }));
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    currentLedger,
+    proposals: [{
+      id: "mortgage_payment_as_expense",
+      kind: "expense_commitment_started",
+      effectiveAtAgeInMonths: 372,
+      payload: { id: "mortgage_monthly", type: "mortgage_payment", monthlyAmountWan: 0.8 },
+      evidence: "你已经支付首期房贷月供8000元。",
+      confidence: 1
+    }]
+  });
+
+  assert.equal((result.proposals[0]?.payload as any).type, "mortgage_payment");
+  assert.equal(result.audit.some((item) => item.reasonCode === "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"), true);
+  assert.equal(result.audit.some((item) => item.reasonCode === "V4_EXPENSE_CANONICALIZED"), false);
 });
 
 test("fills only the missing CareerState reference without changing wage semantics", () => {
@@ -523,6 +573,36 @@ test("does not replace the living baseline with rent-only evidence", () => {
   });
   assert.equal((result.proposals[0].payload as any).type, "housing");
   assert.equal(result.audit.some((item) => item.reasonCode === "RENT_ONLY_RECLASSIFIED_AS_HOUSING"), true);
+});
+
+test("keeps mortgage repayments out of housing commitments instead of normalizing 月供 to housing", () => {
+  const currentLedger = initializeFinancialLedger({ id: "mortgage_routing", asOfAgeInMonths: 318, openingPosition: {
+    expenseCommitments: [{
+      id: "housing_cost", type: "housing", displayName: "房屋物业与维护", monthlyAmountWan: 0.1,
+      activeFromAgeInMonths: 300, status: "active", factStatus: "known", evidence: []
+    }]
+  } });
+  const started = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    proposals: [{
+      id: "mortgage_as_expense", kind: "expense_commitment_started", effectiveAtAgeInMonths: 318,
+      payload: { id: "mortgage_monthly", displayName: "房贷月供", monthlyAmountWan: 0.8 },
+      evidence: "本月起你每月房贷月供8000元。", confidence: 0.9
+    }]
+  });
+  assert.equal((started.proposals[0].payload as any).type, "mortgage_payment");
+  assert.equal(started.audit.some((item) => item.reasonCode === "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"), true);
+
+  const adjusted = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentLedger,
+    proposals: [{
+      id: "mortgage_as_housing_adjustment", kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: 318,
+      payload: { expenseCommitmentId: "housing_cost", nextCommitment: { type: "housing", monthlyAmountWan: 0.8 } },
+      evidence: "银行调整后，你每月房贷月供8000元。", confidence: 0.9
+    }]
+  });
+  assert.equal((adjusted.proposals[0].payload as any).nextCommitment.type, "mortgage_payment");
+  assert.equal(adjusted.audit.some((item) => item.reasonCode === "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"), true);
 });
 
 test("normalizes a fixed option schedule and expiry into authoritative option terms", () => {

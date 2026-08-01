@@ -137,6 +137,45 @@ test("shadow and enforced make the same blocking decision but only enforced reje
   assert.equal(enforced.disposition, "regenerate");
 });
 
+test("an enforced EXPENSE blocker regenerates and leaves the authoritative transaction input untouched", () => {
+  const input = transactionInput("employed");
+  const before = structuredClone(input);
+  const preview = previewFinancialDomainTransaction(input);
+  const groups = buildRequiredFinancialFactGroups({
+    issues: [{
+      id: "expense_mortgage_payment_misrouted",
+      code: "EXPENSE_DEBT_SERVICE_DOUBLE_COUNT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["mortgage_payment_as_housing"],
+      summary: "房贷月供被错误提交为住房持续消费",
+      createdAtAgeInMonths: 372
+    }],
+    rejectedCompletedProposals: [],
+    ageInMonths: 372
+  });
+  const decision = evaluateFinancialNodeAcceptance({
+    mode: "enforced",
+    preview,
+    requiredFactGroups: groups,
+    expectedAgeInMonths: 372,
+    transactionId: "expense_gate_rejection"
+  });
+
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0]?.kind, "expense_lifecycle");
+  assert.equal(groups[0]?.materiality, "critical");
+  assert.equal(decision.disposition, "regenerate");
+  assert.equal(decision.allowDomainCommit, false);
+  assert.equal(decision.wouldBlock, true);
+  assert.deepEqual(decision.relatedIssueIds, ["expense_mortgage_payment_misrouted"]);
+  assert.deepEqual(decision.relatedProposalIds, ["mortgage_payment_as_housing"]);
+  assert.deepEqual(input, before, "expense rejection must not advance ledger, period accrual, career or WorldState");
+  assert.equal(input.currentFinancialLedger.asOfAgeInMonths, 360);
+  assert.equal(input.currentFinancialLedger.cashAccounts[0]?.balanceWan, 20);
+  assert.equal(input.currentWorldState.committedTransactionIds.length, 0);
+});
+
 test("an enforced rejection leaves time, income, ledger, career and world state unchanged", () => {
   const input = transactionInput("employed");
   const before = structuredClone(input);

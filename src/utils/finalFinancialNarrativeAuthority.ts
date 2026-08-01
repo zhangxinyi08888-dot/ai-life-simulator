@@ -1,6 +1,11 @@
 import type { AssetAccount, FinancialLedger } from "../domain/finance/types";
 import { isReportEligibleFinancialFact } from "../domain/finance/financialFactEligibility";
 import { totalDebtWan } from "../domain/finance/ledgerMath";
+import {
+  derivePersonalExpenseSummary,
+  formatPersonalExpenseSummaryForPrompt,
+  type PersonalExpenseSummary
+} from "../domain/finance/personalExpenseSummary";
 import type { FinalLifeOutcome, HistoryItem } from "../types";
 
 export const FINAL_FINANCIAL_NARRATIVE_AUTHORITY_VERSION = "final_financial_narrative_v1" as const;
@@ -43,6 +48,11 @@ export interface FinalFinancialNarrativeAuthority {
   debt: FinalDebtClaim;
   netWorth: FinalNetWorthClaim;
   property: FinalPropertyClaim;
+  /**
+   * The terminal report and poster must consume this exact V4 responsibility
+   * summary, never reconstruct an independent "living expense" total.
+   */
+  personalExpenseSummary: PersonalExpenseSummary;
   numericClaims: FinalFinancialNumericClaim[];
   permittedSemanticClaims: string[];
   forbiddenSemanticClaims: string[];
@@ -150,9 +160,15 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
       if (source.accrualPolicy === "annual") return sum + (source.annualNetAmountWan ?? 0) * activeMonths / 12;
       return sum;
     }, 0));
-  const personalAnnualExpenseWan = round(ledger.expenseCommitments
-    .filter((commitment) => commitment.status === "active" && isReportEligibleFinancialFact(commitment))
-    .reduce((sum, commitment) => sum + commitment.monthlyAmountWan * activeMonthsInHorizon({ ...commitment, asOfAgeInMonths: ledger.asOfAgeInMonths }), 0));
+  const personalExpenseSummary = derivePersonalExpenseSummary(ledger);
+  // V4 has one canonical recurring-expense representation.  Keep the V3
+  // compatibility branch only for historical reports that predate V4; all
+  // V4 report values are derived from the exact same summary sent to prompts.
+  const personalAnnualExpenseWan = personalExpenseSummary.availability === "available"
+    ? personalExpenseSummary.reportEligibleAnnualizedExpenseWan
+    : round(ledger.expenseCommitments
+      .filter((commitment) => commitment.status === "active" && isReportEligibleFinancialFact(commitment))
+      .reduce((sum, commitment) => sum + commitment.monthlyAmountWan * activeMonthsInHorizon({ ...commitment, asOfAgeInMonths: ledger.asOfAgeInMonths }), 0));
   const numericClaims: FinalFinancialNumericClaim[] = [
     { kind: "cash", valueWan: reportEligibleCashWan, displayText: formatFinancialWan(reportEligibleCashWan), sourceLedgerRevision: ledger.revision },
     { kind: "total_debt", valueWan: debtWan, displayText: formatFinancialWan(debtWan), sourceLedgerRevision: ledger.revision },
@@ -183,6 +199,7 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
     debt,
     netWorth,
     property,
+    personalExpenseSummary,
     numericClaims,
     permittedSemanticClaims: [debt.kind, netWorth.kind, property.kind],
     forbiddenSemanticClaims: [
@@ -190,7 +207,7 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
       ...(netWorth.kind === "negative_net_worth" ? ["financial_freedom"] : []),
       ...(property.kind === "no_confirmed_property" ? ["confirmed_property_ownership_or_sale"] : [])
     ],
-    canonicalSummary: `${debtSummary}${netWorthSummary}${propertySummary}`
+    canonicalSummary: `${debtSummary}${netWorthSummary}${propertySummary}\n${formatPersonalExpenseSummaryForPrompt(personalExpenseSummary)}`
   };
 }
 

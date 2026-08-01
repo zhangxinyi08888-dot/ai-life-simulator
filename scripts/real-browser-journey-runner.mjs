@@ -21,6 +21,13 @@ function now() {
   return new Date().toISOString();
 }
 
+export function buildDevFsImportReference(filePath) {
+  if (!path.isAbsolute(filePath)) {
+    throw new Error("Checkpoint import path must be absolute");
+  }
+  return `@file:/@fs${encodeURI(filePath)}`;
+}
+
 export function assertDistinctFinalImageEvidence({ poster, page }) {
   const posterBytes = Buffer.from(poster || []);
   const pageBytes = Buffer.from(page || []);
@@ -339,18 +346,21 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const saved = JSON.parse(storedRaw);
     const importPayload = finalImageOnly ? buildFinalImageRestorePayload(saved) : saved;
     const raw = finalImageOnly ? JSON.stringify(importPayload) : storedRaw;
+    const importText = !finalImageOnly && Buffer.byteLength(raw, "utf8") > 250_000
+      ? buildDevFsImportReference(workingPath)
+      : raw;
     await snapshot();
     const input = await unique(tab.playwright.getByRole("textbox", { name: "测试状态 JSON", exact: true }), "test state import textbox");
     // Large authoritative ledgers can exceed the browser bridge's default
-    // action window. Give the controlled textarea enough time, then let React
-    // commit the onChange state before clicking the importer button.
+    // action window. Full checkpoints use the dev-only local-file reference,
+    // while small and final-image payloads retain the direct UI path.
     try {
-      await input.fill(raw, { timeoutMs: 60000 });
+      await input.fill(importText, { timeoutMs: 60000 });
     } catch (error) {
       // Very long lifespan checkpoints can exceed the extension bridge's
       // direct fill payload limit. Preserve the same visible import contract
       // by focusing the textarea and pasting the exact serialized checkpoint.
-      await tab.clipboard.writeText(raw);
+      await tab.clipboard.writeText(importText);
       await input.click();
       await input.press("ControlOrMeta+V", { timeoutMs: 10000 });
     }
@@ -367,9 +377,14 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     ), "imported browser checkpoint", 30000);
   }
 
-  async function clickRole(role, name) {
+  async function clickRole(role, name, attempts = 40) {
     await snapshot();
-    const locator = await unique(tab.playwright.getByRole(role, { name, exact: true }), `${role} ${name}`);
+    const locator = await waitForUniqueLocator({
+      locator: tab.playwright.getByRole(role, { name, exact: true }),
+      label: `${role} ${name}`,
+      wait: () => tab.playwright.waitForTimeout(50),
+      attempts
+    });
     await locator.click();
   }
 
@@ -383,7 +398,10 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     await birthtime.selectOption({ value: config.birthtime });
     await clickRole("button", "生成我的命格角色卡");
     await tab.playwright.waitForTimeout(350);
-    await clickRole("button", config.returnPointName);
+    // Character-card generation renders its selectable return points
+    // asynchronously.  A normal click wait is sufficient for static buttons,
+    // but this particular generated control may need the full UI settle window.
+    await clickRole("button", config.returnPointName, 240);
     await tab.playwright.waitForTimeout(350);
 
     await snapshot();
@@ -401,7 +419,12 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       await branch.fill(config.branches[index]);
     }
     await clickRole("button", "确认，从这里开始");
-    const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length === 3, "real AI background questions", 120000);
+    // The visible questionnaire is intentionally fixed to three answers, but
+    // a real provider may return extra suggestion cards.  Preserve every
+    // generated question in the trace while accepting any response that can
+    // render the required three-step UI; waiting for an exact array length
+    // would turn a valid real-AI response into an infinite collector wait.
+    const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length >= 3, "real AI background questions", 120000);
     appendTrace({ type: "questions_generated", questions: questioning.questions, at: now() });
     await persist(questioning);
     await tab.playwright.waitForTimeout(300);
@@ -569,26 +592,44 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     return { before, after, invitation: before.currentNode.reportInvitation };
   }
 
-  async function acceptInvitation() {
+  async function beginAcceptInvitation() {
     const before = await recordPendingInvitation();
     const invitation = before.currentNode.reportInvitation;
     await snapshot();
     const locator = await unique(tab.playwright.locator("#report-invitation-accept-btn"), "accept invitation button");
     await locator.click();
-    const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real reflection report");
+    return { before, invitation };
+  }
+
+  async function finishAcceptInvitation(pendingAcceptance, timeoutMs = 180000) {
+    const { before, invitation } = pendingAcceptance;
+    const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real reflection report", timeoutMs);
     appendTrace({ type: "invitation_accepted", invitation, historyLength: after.history.length, closureType: after.outcome.meta.closureType, at: now() });
     return { before, after, invitation };
   }
 
-  async function openMortalityReport() {
+  async function acceptInvitation() {
+    return finishAcceptInvitation(await beginAcceptInvitation());
+  }
+
+  async function beginOpenMortalityReport() {
     const before = await readState();
     if (!before.currentNode?.isEndingNode) throw new Error("Current node is not a physiological ending");
     await snapshot();
     const locator = await unique(tab.playwright.locator("#ending-report-btn"), "ending report button");
     await locator.click();
-    const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real mortality report");
+    return { before };
+  }
+
+  async function finishOpenMortalityReport(pendingMortality, timeoutMs = 180000) {
+    const { before } = pendingMortality;
+    const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real mortality report", timeoutMs);
     appendTrace({ type: "mortality_report_opened", historyLength: after.history.length, closureType: after.outcome.meta.closureType, at: now() });
     return { before, after };
+  }
+
+  async function openMortalityReport() {
+    return finishOpenMortalityReport(await beginOpenMortalityReport());
   }
 
   async function captureFinalImages() {
@@ -741,8 +782,12 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     finishAdvance,
     advanceCustomOnce,
     recordPendingInvitation,
+    beginAcceptInvitation,
+    finishAcceptInvitation,
     declineInvitation,
     acceptInvitation,
+    beginOpenMortalityReport,
+    finishOpenMortalityReport,
     openMortalityReport,
     captureFinalImages,
     captureCheckpointImage,

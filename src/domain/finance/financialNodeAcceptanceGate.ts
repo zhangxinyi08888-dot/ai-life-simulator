@@ -49,6 +49,15 @@ export interface FinancialNodeAcceptanceDecision {
 }
 
 function groupKindForIssue(issue: FinancialLedgerIssue): RequiredFinancialFactGroupKind | undefined {
+  // Opening positions use their own schema adapter, but they must be visible
+  // to the same acceptance gate rather than disappearing as an initialization
+  // exception.  Keep provenance/schema failures separate from a normal
+  // lifecycle reconciliation failure so diagnostics can tell the user what
+  // needs to be supplied before a start node exists.
+  if (issue.id.startsWith("opening_schema_") || issue.id.startsWith("opening_fact_")) {
+    return "opening_fact_provenance";
+  }
+  if (issue.code.startsWith("EXPENSE_") || issue.id.startsWith("expense_")) return "expense_lifecycle";
   if (issue.id.startsWith("career_transition_missing_") || issue.code === "CAREER_INCOME_CONFLICT") {
     return "career_income_transition";
   }
@@ -64,6 +73,9 @@ function groupKindForIssue(issue: FinancialLedgerIssue): RequiredFinancialFactGr
 function groupKindForRejectedProposal(
   proposal: FinancialEventProposal
 ): RequiredFinancialFactGroupKind | undefined {
+  if (["expense_commitment_started", "expense_commitment_adjusted", "expense_commitment_ended"].includes(proposal.kind)) {
+    return "expense_lifecycle";
+  }
   if (["income_source_started", "income_source_adjusted", "income_source_ended", "income_source_paused"]
     .includes(proposal.kind)) return "personal_compensation";
   if (["asset_purchased", "asset_sold", "debt_drawn", "debt_balance_discovered"]

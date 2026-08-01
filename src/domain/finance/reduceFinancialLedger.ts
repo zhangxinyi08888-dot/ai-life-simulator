@@ -26,6 +26,7 @@ import type {
   FinancialTransaction,
   IncomeSource
 } from "./types";
+import { isExpenseCommitmentV4, isFinancialLedgerV4 } from "./types";
 import { assertSufficientLiquidity } from "./reconcileLiquidity";
 
 const RECENT_TRANSACTION_LIMIT = 20;
@@ -94,6 +95,94 @@ function validateIncomeSource(source: IncomeSource): void {
 
 function validateExpenseCommitment(commitment: ExpenseCommitment): void {
   nonNegativeMoney(commitment.monthlyAmountWan, `支出义务 ${commitment.id}.monthlyAmountWan`);
+}
+
+const V4_EXPENSE_CHANGE_REASONS = new Set([
+  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "dependent_independent",
+  "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
+  "education_completed", "aggregate_atomically_split", "temporary_third_party_coverage",
+  "responsibility_resumed", "responsibility_ended"
+]);
+
+function assertV4ExpenseTransitionAuthority(input: {
+  ledger: FinancialLedger;
+  current: ExpenseCommitment;
+  next?: ExpenseCommitment;
+  payload: { expenseCommitmentId: string; previousCommitmentId?: string; changeReason?: string };
+  event: AcceptedFinancialEvent;
+  operation: "adjust" | "end";
+}): void {
+  if (!isFinancialLedgerV4(input.ledger)) return;
+  if (!isExpenseCommitmentV4(input.current)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出变更必须引用 canonical responsibility");
+  }
+  const needsAuthority = input.operation === "end"
+    || input.next?.status !== input.current.status
+    || (input.next !== undefined && input.next.monthlyAmountWan < input.current.monthlyAmountWan - 0.0001);
+  if (!needsAuthority) return;
+  if (input.payload.previousCommitmentId !== input.current.id
+    || !input.payload.changeReason
+    || !V4_EXPENSE_CHANGE_REASONS.has(input.payload.changeReason)
+    || input.event.evidence.length === 0
+    || input.event.acceptedByReasonCodes.length === 0) {
+    throw new FinancialLedgerInvariantError(
+      "INVALID_LEDGER",
+      "V4 支出下调、暂停、恢复或结束必须保存 previousCommitmentId、Accepted 证据和变化原因"
+    );
+  }
+  if (input.operation === "end") {
+    if (input.current.status === "ended") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", "已结束的 V4 支出责任不得再次结束");
+    }
+    return;
+  }
+  const next = input.next!;
+  if (input.current.status === "active" && next.status === "paused"
+    && input.payload.changeReason !== "temporary_third_party_coverage") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出暂停只能由暂时他方代付或临时停止付款的 Accepted fact 授权");
+  }
+  if (input.current.status === "paused" && next.status === "active"
+    && input.payload.changeReason !== "responsibility_resumed") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出恢复必须由责任恢复支付的 Accepted fact 授权");
+  }
+}
+
+/**
+ * V4 intentionally uses one stable responsibility identity through an
+ * active/pause/resume lifecycle.  Ending and recreating an account would
+ * defeat idempotency and make a paused commitment indistinguishable from a
+ * genuinely ended responsibility.
+ */
+function validateV4ExpenseMutation(input: {
+  ledger: FinancialLedger;
+  current?: ExpenseCommitment;
+  next: ExpenseCommitment;
+  operation: "start" | "adjust" | "end";
+}): void {
+  if (!isFinancialLedgerV4(input.ledger)) return;
+  if (!isExpenseCommitmentV4(input.next)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出事件必须使用完整 canonical ExpenseCommitment payload");
+  }
+  if (input.operation === "start") {
+    if (input.next.status !== "active") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 新支出责任必须以 active 状态开始；暂停和结束只能针对既有责任");
+    }
+    return;
+  }
+  if (!input.current || !isExpenseCommitmentV4(input.current)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出变更必须引用已有 canonical responsibility");
+  }
+  if (input.current.responsibilityKey !== input.next.responsibilityKey) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出调整不得改变 responsibilityKey");
+  }
+  if (input.operation === "adjust") {
+    if (input.current.status === "ended") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", "已结束的 V4 支出责任不得通过调整恢复；必须建立新的责任事实");
+    }
+    if (input.next.status === "ended") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出结束必须使用 expense_commitment_ended，而非调整事件");
+    }
+  }
 }
 
 function requiredOptionHolding(ledger: FinancialLedger, id: string): BusinessHolding {
@@ -337,7 +426,15 @@ function applyEvent(
       const commitment = event.payload as ExpenseCommitment;
       assertNewId(ledger.expenseCommitments, commitment.id, "支出义务");
       validateExpenseCommitment(commitment);
-      ledger.expenseCommitments.push(structuredClone(commitment));
+      validateV4ExpenseMutation({ ledger, next: commitment, operation: "start" });
+      if (isFinancialLedgerV4(ledger)) {
+        if (!isExpenseCommitmentV4(commitment)) {
+          throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出事件必须使用完整 canonical ExpenseCommitment payload");
+        }
+        ledger.expenseCommitments.push(structuredClone(commitment));
+      } else {
+        ledger.expenseCommitments.push(structuredClone(commitment));
+      }
       return;
     }
     case "expense_commitment_adjusted": {
@@ -345,11 +442,37 @@ function applyEvent(
       const index = ledger.expenseCommitments.findIndex((commitment) => commitment.id === expenseCommitmentId);
       if (index < 0 || nextCommitment.id !== expenseCommitmentId) throw new FinancialLedgerInvariantError("INVALID_LEDGER", `支出义务调整必须引用同一账户: ${expenseCommitmentId}`);
       validateExpenseCommitment(nextCommitment);
-      ledger.expenseCommitments[index] = structuredClone(nextCommitment);
+      validateV4ExpenseMutation({ ledger, current: ledger.expenseCommitments[index], next: nextCommitment, operation: "adjust" });
+      assertV4ExpenseTransitionAuthority({
+        ledger,
+        current: ledger.expenseCommitments[index],
+        next: nextCommitment,
+        payload: event.payload,
+        event,
+        operation: "adjust"
+      });
+      if (isFinancialLedgerV4(ledger)) {
+        if (!isExpenseCommitmentV4(nextCommitment)) {
+          throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出事件必须使用完整 canonical ExpenseCommitment payload");
+        }
+        ledger.expenseCommitments[index] = structuredClone(nextCommitment);
+      } else {
+        ledger.expenseCommitments[index] = structuredClone(nextCommitment);
+      }
       return;
     }
     case "expense_commitment_ended": {
       const commitment = requiredById(ledger.expenseCommitments, event.payload.expenseCommitmentId, "支出义务");
+      if (isFinancialLedgerV4(ledger) && !isExpenseCommitmentV4(commitment)) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出结束必须引用 canonical responsibility");
+      }
+      assertV4ExpenseTransitionAuthority({
+        ledger,
+        current: commitment,
+        payload: event.payload,
+        event,
+        operation: "end"
+      });
       commitment.status = "ended";
       commitment.activeUntilAgeInMonths = event.effectiveAtAgeInMonths;
       return;

@@ -251,7 +251,7 @@ const ROMANCE_CHOICE_CONTRACTS: Record<string, Array<{
   relationship_material_commitment_test: [
     {
       outcomeId: "make_shared_commitment_plan",
-      text: (name) => `与${name}形成一份可执行的共同生活和长期安排`,
+      text: (name) => `与${name}讨论并形成共同生活的筹备计划和长期安排`,
       impactSummary: "共同计划",
       decisionIntent: "romance:commit:shared_plan"
     },
@@ -271,7 +271,7 @@ const ROMANCE_CHOICE_CONTRACTS: Record<string, Array<{
   relationship_commitment_resolution: [
     {
       outcomeId: "make_shared_commitment_plan",
-      text: (name) => `与${name}形成一份可执行的共同生活和长期安排`,
+      text: (name) => `与${name}讨论并形成共同生活的筹备计划和长期安排`,
       impactSummary: "共同计划",
       decisionIntent: "romance:commit:shared_plan"
     },

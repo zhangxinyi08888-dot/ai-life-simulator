@@ -6,7 +6,16 @@ import { commitFinancialDomainTransaction } from "./commitFinancialDomainTransac
 import { deriveDebtHealthState } from "./debtHealth";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { FinancialLedgerInvariantError, PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
-import type { AcceptedFinancialEvent, FinancialEventKind, FinancialEventPayloadMap, FinancialEvidence, FinancialLedgerIssue } from "./types";
+import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
+import { buildExpenseLifecycleReviewPlan } from "./expenseLifecycleReview";
+import type {
+  AcceptedFinancialEvent,
+  FinancialEventKind,
+  FinancialEventPayloadMap,
+  FinancialEvidence,
+  FinancialLedgerIssue,
+  FinancialLedgerV4
+} from "./types";
 import type { WorldStateSnapshot } from "../../types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_simulation_outcome", sourceEventId: "start_business", reasonCode: "TEST_ACCEPTED", confidence: 1 }];
@@ -142,20 +151,20 @@ test("a ledger failure returns no partial CareerState or WorldState mutation", (
   assert.deepEqual(current.worldState.committedTransactionIds, []);
 });
 
-test("an authoritative housing start closes the prior policy or legacy housing estimate", () => {
+test("the adult basic-living floor never rewrites housing commitments", () => {
   const current = setup();
   current.ledger.expenseCommitments.push({
     id: "estimated_housing",
     type: "housing",
-    displayName: "系统估计住房支出",
-    monthlyAmountWan: 0.35,
+    displayName: "待复核住房支出",
+    monthlyAmountWan: 0.12,
     activeFromAgeInMonths: 300,
     status: "active",
     factStatus: "estimated",
-    evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V1", confidence: 0.6 }]
+    evidence: [{ source: "system_policy", reasonCode: "HOUSING_CONTEXT_ESTIMATE_V1", confidence: 0.6 }]
   });
   const result = commitFinancialDomainTransaction({
-    transactionId: "replace_estimated_housing",
+    transactionId: "preserve_estimated_housing",
     periodStartAgeInMonths: 360,
     periodEndAgeInMonths: 361,
     expectedCareerRevision: 0,
@@ -164,22 +173,250 @@ test("an authoritative housing start closes the prior policy or legacy housing e
     currentFinancialLedger: current.ledger,
     currentWorldState: current.worldState,
     acceptedCareerTransitions: [],
-    acceptedFinancialEvents: [accepted("known_housing", "expense_commitment_started", 361, {
-      id: "mortgage_housing",
-      type: "housing",
-      displayName: "用户确认的住房月供",
-      monthlyAmountWan: 0.38,
-      activeFromAgeInMonths: 361,
-      status: "active",
-      factStatus: "known",
-      evidence
+    acceptedFinancialEvents: []
+  });
+  const housing = result.financialLedger.expenseCommitments.find((item) => item.id === "estimated_housing");
+  const basicLiving = result.financialLedger.expenseCommitments.find((item) => item.status === "active" && item.type === "basic_living");
+  assert.equal(housing?.status, "active");
+  assert.equal(housing?.monthlyAmountWan, 0.12);
+  assert.equal(basicLiving?.monthlyAmountWan, 0.35);
+});
+
+test("the automatic basic-living floor is canonical when the transaction already uses ledger V4", () => {
+  const current = setup();
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  const result = commitFinancialDomainTransaction({
+    transactionId: "v4_auto_basic_living",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+  const basicLiving = result.financialLedger.expenseCommitments.find((item) => item.type === "basic_living");
+  assert.equal(result.financialLedger.version, 4);
+  assert.equal(basicLiving?.responsibilityKey, "adult_basic_living:protagonist");
+  assert.equal(basicLiving?.responsibilityKind, "adult_basic_living");
+  assert.equal(basicLiving?.amountBasis, "policy_floor");
+  assert.equal(basicLiving?.financialScope, "personal");
+});
+
+test("the adult basic-living floor does not rewrite a V4 legacy aggregate", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "legacy_core_expense",
+    type: "basic_living",
+    displayName: "旧版核心支出聚合",
+    monthlyAmountWan: 0.2,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+  });
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  const result = commitFinancialDomainTransaction({
+    transactionId: "v4_preserve_legacy_aggregate",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+  const aggregate = result.financialLedger.expenseCommitments.find((item) => item.id === "legacy_core_expense");
+  assert.equal(aggregate?.responsibilityKind, "legacy_aggregate");
+  assert.equal(aggregate?.monthlyAmountWan, 0.2);
+  assert.equal(result.financialLedger.expenseCommitments.filter((item) => item.status === "active" && item.type === "basic_living").length, 1);
+});
+
+test("a scheduled V4 aggregate review does not resolve the outstanding component-gap issue", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "legacy_core_expense",
+    type: "basic_living",
+    displayName: "旧版总生活支出",
+    monthlyAmountWan: 1.5,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_CORE_EXPENSE", confidence: 0.5 }]
+  });
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  const aggregate = v4.expenseCommitments.find((item) => item.responsibilityKind === "legacy_aggregate")!;
+  const componentGap: FinancialLedgerIssue = {
+    id: `expense_component_gap_${aggregate.id}_primary_residence:main`,
+    code: "EXPENSE_OPENING_COMPONENT_GAP",
+    severity: "warning",
+    status: "open",
+    relatedProposalIds: [],
+    relatedAccountIds: [aggregate.id],
+    summary: "聚合支出覆盖关系未知；住房责任仅待复核，不能与聚合支出并行计提",
+    createdAtAgeInMonths: 361
+  };
+  const systemReview: AcceptedFinancialEvent<"expense_commitment_adjusted"> = {
+    id: "accepted_system_expense_review_legacy",
+    proposalId: "system_expense_review_legacy",
+    kind: "expense_commitment_adjusted",
+    effectiveAtAgeInMonths: 361,
+    payload: {
+      expenseCommitmentId: aggregate.id,
+      nextCommitment: {
+        ...aggregate,
+        factStatus: "needs_review",
+        accrualReviewStatus: "review_due",
+        lastReviewedAtAgeInMonths: 361,
+        evidence: [...aggregate.evidence, {
+          source: "system_policy",
+          reasonCode: "SYSTEM_POLICY_REVIEW",
+          confidence: 1,
+          financialScope: "personal"
+        }]
+      }
+    },
+    evidence: [{
+      source: "system_policy",
+      reasonCode: "SYSTEM_POLICY_REVIEW",
+      confidence: 1,
+      financialScope: "personal"
+    }],
+    acceptedByReasonCodes: ["SYSTEM_POLICY_REVIEW"]
+  };
+  const result = commitFinancialDomainTransaction({
+    transactionId: "legacy_aggregate_scheduled_review",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [systemReview],
+    financialIssues: [componentGap]
+  });
+  const persistedGap = result.financialLedger.unresolvedIssues.find((item) => item.id === componentGap.id);
+  assert.equal(persistedGap?.status, "open");
+  assert.equal(result.financialLedger.expenseCommitments.find((item) => item.id === aggregate.id)?.monthlyAmountWan, 1.5);
+});
+
+test("a higher legacy basic-living estimate is not silently lowered to the policy floor", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "legacy_core_expense",
+    type: "basic_living",
+    displayName: "旧版核心支出聚合",
+    monthlyAmountWan: 1.5,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "preserve_higher_legacy_living",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+  const living = result.financialLedger.expenseCommitments.find((item) => item.id === "legacy_core_expense");
+  assert.equal(living?.status, "active");
+  assert.equal(living?.monthlyAmountWan, 1.5);
+  assert.equal(result.financialPeriodSummary?.coreExpenseWan, 1.5);
+});
+
+test("an estimated basic-living adjustment cannot lower a higher legacy estimate", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "legacy_core_expense",
+    type: "basic_living",
+    displayName: "旧版核心支出聚合",
+    monthlyAmountWan: 1.5,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "protect_legacy_living_adjustment",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("lower_estimated_living", "expense_commitment_adjusted", 361, {
+      expenseCommitmentId: "legacy_core_expense",
+      nextCommitment: {
+        id: "legacy_core_expense",
+        type: "basic_living",
+        displayName: "模型估算的基本生活支出",
+        monthlyAmountWan: 0.35,
+        activeFromAgeInMonths: 361,
+        status: "active",
+        factStatus: "estimated",
+        evidence: []
+      }
     })]
   });
-  const estimated = result.financialLedger.expenseCommitments.find((item) => item.id === "estimated_housing");
-  const activeHousing = result.financialLedger.expenseCommitments.filter((item) => item.status === "active" && item.type === "housing");
-  assert.equal(estimated?.status, "ended");
-  assert.equal(estimated?.activeUntilAgeInMonths, 361);
-  assert.deepEqual(activeHousing.map((item) => item.id), ["mortgage_housing"]);
+  const living = result.financialLedger.expenseCommitments.find((item) => item.id === "legacy_core_expense");
+  assert.equal(living?.monthlyAmountWan, 1.5);
+  assert.ok(living?.evidence.some((item) => item.reasonCode === "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED"));
+});
+
+test("an estimated basic-living adjustment cannot downgrade a higher known amount", () => {
+  const current = setup();
+  current.ledger.expenseCommitments.push({
+    id: "known_basic_living",
+    type: "basic_living",
+    displayName: "已确认基本生活支出",
+    monthlyAmountWan: 1.2,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "known",
+    evidence
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "protect_known_living_adjustment",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("lower_estimated_known_living", "expense_commitment_adjusted", 361, {
+      expenseCommitmentId: "known_basic_living",
+      nextCommitment: {
+        id: "known_basic_living",
+        type: "basic_living",
+        displayName: "模型估算的基本生活支出",
+        monthlyAmountWan: 0.35,
+        activeFromAgeInMonths: 361,
+        status: "active",
+        factStatus: "estimated",
+        evidence: []
+      }
+    })]
+  });
+  const living = result.financialLedger.expenseCommitments.find((item) => item.id === "known_basic_living");
+  assert.equal(living?.monthlyAmountWan, 1.2);
+  assert.equal(living?.factStatus, "known");
+  assert.ok(living?.evidence.some((item) => item.reasonCode === "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED"));
 });
 
 test("repeated domain transaction is idempotent only when ledger and WorldState agree", () => {
@@ -367,6 +604,70 @@ test("a current debt account immediately closes its active servicing issue", () 
   assert.equal(issue?.status, "resolved");
   assert.equal(issue?.resolvedAtAgeInMonths, 361);
   assert.equal(issue?.resolvedByEventId, "system:servicing_recovered:servicing_recovered");
+});
+
+test("an overdue expense review keeps one open issue and later observations do not rewrite the account", () => {
+  const current = setup();
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  v4.expenseCommitments.push({
+    id: "overdue_parent_care",
+    responsibilityKey: "elder_care:parents",
+    responsibilityKind: "elder_care",
+    type: "dependent_support",
+    displayName: "父母照护",
+    monthlyAmountWan: 0.2,
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["policy:elder-care"],
+    estimationPolicyId: "expense-estimation-policy-v2:test-elder-care",
+    financialScope: "personal",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "needs_review",
+    accrualReviewStatus: "conservative",
+    lastReviewedAtAgeInMonths: 300,
+    nextReviewAtAgeInMonths: 361,
+    evidence: [{ source: "system_policy", reasonCode: "EXPENSE_POLICY_ELDER_CARE", confidence: 1 }]
+  });
+  const firstPlan = buildExpenseLifecycleReviewPlan({ ledger: v4, ageInMonths: 361 });
+  const first = commitFinancialDomainTransaction({
+    transactionId: "overdue_expense_review_first",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: firstPlan.events,
+    financialIssues: firstPlan.issues
+  });
+  const firstIssue = first.financialLedger.unresolvedIssues.find((issue) => issue.id === "expense_review_due_overdue_parent_care");
+  assert.equal(firstIssue?.status, "open", "a system review cannot resolve the missing amount/responsibility fact");
+  assert.equal(firstIssue?.occurrenceCount, 1);
+
+  const secondPlan = buildExpenseLifecycleReviewPlan({ ledger: first.financialLedger as FinancialLedgerV4, ageInMonths: 362 });
+  assert.equal(secondPlan.events.some((event) => event.payload.expenseCommitmentId === "overdue_parent_care"), false);
+  const second = commitFinancialDomainTransaction({
+    transactionId: "overdue_expense_review_second",
+    periodStartAgeInMonths: 361,
+    periodEndAgeInMonths: 362,
+    expectedCareerRevision: first.career.careerRevision,
+    expectedLedgerRevision: first.financialLedger.revision,
+    currentCareer: first.career,
+    currentFinancialLedger: first.financialLedger,
+    currentWorldState: first.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    financialIssues: secondPlan.issues
+  });
+  const secondIssue = second.financialLedger.unresolvedIssues.find((issue) => issue.id === "expense_review_due_overdue_parent_care");
+  assert.equal(secondIssue?.status, "open");
+  assert.equal(secondIssue?.occurrenceCount, 2);
+  assert.equal(secondIssue?.lastObservedAtAgeInMonths, 362);
+  const care = second.financialLedger.expenseCommitments.find((commitment) => commitment.id === "overdue_parent_care")!;
+  assert.equal(care.lastReviewedAtAgeInMonths, 361);
+  assert.equal(care.evidence.filter((item) => item.reasonCode === "EXPENSE_REVIEW_DUE").length, 1);
 });
 
 test("a rejected proposal cannot revoke a deterministic automatic-shortfall debt", () => {

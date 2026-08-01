@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { LifeEventSeed } from "../../data/lifeEvents";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData, WorldStateSnapshot } from "../../types";
-import { initializeFinancialLedger } from "../../domain/finance";
+import { initializeFinancialLedger, migrateFinancialLedgerV3ToV4 } from "../../domain/finance";
 import {
   buildChoiceTextRepairPrompt,
   buildFinancialNarrativeRepairPrompt,
@@ -122,6 +122,127 @@ const staleLegacyIncomePrompt = buildNextNodePrompt({
   eventSeed: healthWarningEvent,
   currentFinancialLedger: staleLegacyIncomeLedger
 });
+const staleLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: staleLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const nearQuarantineLegacyIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+nearQuarantineLegacyIncomeLedger.incomeSources[0]!.lastConfirmedAtAgeInMonths = 288;
+nearQuarantineLegacyIncomeLedger.recentTransactions.push(
+  {
+    id: "legacy_material_1",
+    simulationTransactionId: "legacy_material_1",
+    eventIds: [],
+    periodStartAgeInMonths: 289,
+    periodEndAgeInMonths: 289,
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  },
+  {
+    id: "legacy_material_2",
+    simulationTransactionId: "legacy_material_2",
+    eventIds: [],
+    periodStartAgeInMonths: 290,
+    periodEndAgeInMonths: 290,
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  }
+);
+const nearQuarantineLegacyIncomePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: nearQuarantineLegacyIncomeLedger
+});
+const v4ExpenseLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+  id: "v4_expense_prompt",
+  asOfAgeInMonths: 288,
+  openingPosition: {
+    expenseCommitments: [{
+      id: "shared_home",
+      type: "housing",
+      displayName: "共同租住公寓",
+      monthlyAmountWan: 0.3,
+      grossMonthlyAmountWan: 0.6,
+      householdShareRate: 0.5,
+      confirmedMonthlyAmountWan: 0.3,
+      amountBasis: "explicit_shared_amount",
+      amountSourceIds: ["lease:shared_home"],
+      financialScope: "shared_household",
+      activeFromAgeInMonths: 288,
+      status: "active",
+      factStatus: "known",
+      evidence: [{ source: "accepted_history", reasonCode: "TEST_SHARED_HOME", confidence: 1, financialScope: "shared_household" }]
+    }]
+  }
+}));
+const v4ExpensePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: v4ExpenseLedger
+});
+const overdueExpenseReviewPromptLedger = structuredClone(v4ExpenseLedger);
+overdueExpenseReviewPromptLedger.expenseCommitments[0]!.factStatus = "needs_review";
+overdueExpenseReviewPromptLedger.expenseCommitments[0]!.accrualReviewStatus = "review_due";
+overdueExpenseReviewPromptLedger.unresolvedIssues.push({
+  id: "expense_review_due_shared_home",
+  code: "PENDING_FACT",
+  severity: "warning",
+  status: "open",
+  relatedProposalIds: [],
+  relatedAccountIds: ["shared_home"],
+  summary: "持续支出共同租住公寓已到复核时点",
+  createdAtAgeInMonths: 288,
+  occurrenceCount: 2,
+  lastObservedAtAgeInMonths: 300
+});
+const overdueExpenseReviewPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: overdueExpenseReviewPromptLedger
+});
+const firstObservationExpenseReviewLedger = structuredClone(overdueExpenseReviewPromptLedger);
+firstObservationExpenseReviewLedger.unresolvedIssues[0]!.occurrenceCount = 1;
+const firstObservationExpenseReviewPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: firstObservationExpenseReviewLedger
+});
 
 assert.doesNotMatch(prompt, /高薪不是必然伤健康/);
 assert.doesNotMatch(prompt, /高强度、长期、无恢复机制/);
@@ -166,6 +287,9 @@ assert.match(prompt, /debtAccount.*destinationCashAccountId.*principalDrawnWan/s
 assert.match(prompt, /debtAccount\.principalWan 必须严格等于 principalDrawnWan/);
 assert.match(prompt, /公司融资只能用 business_financing_recorded/);
 assert.match(prompt, /employmentStatus 不属于财务 Proposal/);
+assert.match(prompt, /location_change worldDelta 增加 residence/);
+assert.match(prompt, /工坊、工作室、办公室、仓库、门店、公司租金和团队场地不是主角住所/);
+assert.match(prompt, /房贷或月供仍只走债务 Proposal/);
 assert.doesNotMatch(prompt, /financialSignals 必须放在返回 JSON 顶层/);
 assert.match(prompt, /最终金额由系统统一计算和展示/);
 assert.match(prompt, /不得自行写“连续 N 个月逾期\/拖欠”/);
@@ -179,8 +303,28 @@ assert.match(financialGateRetryPrompt, /EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME/);
 assert.match(financialGateRetryPrompt, /不得返回 income_source_ended、income_source_paused/);
 assert.match(staleLegacyIncomePrompt, /仍在职的迁移估算收入需要本节点明确确认/);
 assert.match(staleLegacyIncomePrompt, /若金额与账本相同，也必须提交 income_source_adjusted/);
+assert.match(staleLegacyIncomeGateRetryPrompt, /当前职业收入必须在本次重生中确认/);
+assert.match(staleLegacyIncomeGateRetryPrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(staleLegacyIncomeGateRetryPrompt, /税后月薪稳定在2\.5万元/);
+assert.match(staleLegacyIncomeGateRetryPrompt, /Proposal\.evidence 必须逐字引用/);
+assert.match(nearQuarantineLegacyIncomePrompt, /仍在职的迁移估算收入需要本节点明确确认/);
+assert.match(v4ExpensePrompt, /V4 个人持续支出分类摘要（唯一责任事实源）/u);
+assert.match(v4ExpensePrompt, /responsibilityKey=primary_residence:main/u);
+assert.match(v4ExpensePrompt, /kind=primary_residence/u);
+assert.match(v4ExpensePrompt, /scope=shared_household/u);
+assert.match(v4ExpensePrompt, /monthly=0.3/u);
+assert.match(v4ExpensePrompt, /basis=explicit_shared_amount/u);
+assert.match(v4ExpensePrompt, /factStatus=known/u);
+assert.match(v4ExpensePrompt, /review=normal/u);
+assert.match(overdueExpenseReviewPrompt, /连续至少两个已提交的实质节点未获得新的确认/u);
+assert.match(overdueExpenseReviewPrompt, /expense_review_due_shared_home/u);
+assert.match(overdueExpenseReviewPrompt, /expenseCommitmentId/u);
+assert.match(overdueExpenseReviewPrompt, /expense_commitment_adjusted/u);
+assert.doesNotMatch(firstObservationExpenseReviewPrompt, /连续至少两个已提交的实质节点未获得新的确认/u);
 assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
 assert.match(prompt, /没有 relationship outcome id 时/);
+assert.match(prompt, /共同育儿/);
+assert.match(prompt, /孩子出生、接送、托育或共同养育/);
 assert.match(prompt, /career_state worldDelta 才能增加 employmentTransition/);
 assert.match(prompt, /sourceOutcomeId 必须等于上方已接受 outcome id/);
 assert.match(prompt, /其他人物上学、退休、工作/);

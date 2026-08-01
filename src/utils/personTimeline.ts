@@ -42,6 +42,14 @@ function stripNegatedCurrentPartnerMentions(text: string): string {
   );
 }
 
+function hasEstablishedChildFact(text: string, keywords: string[]): boolean {
+  if (!includesAny(text, keywords)) return false;
+  // A future family plan is not a present child fact. Keep this narrow so
+  // ordinary statements such as "希望儿子成绩好" still preserve an existing
+  // child, while "计划明年要孩子" cannot activate a lifecycle responsibility.
+  return !/(?:计划|打算|准备|考虑|未来).{0,12}(?:要|生|迎来|拥有|有)(?:一|两|二|三|四|五|\d)?(?:个)?(?:孩子|儿子|女儿)|(?:孩子|儿子|女儿).{0,12}(?:计划|打算|准备).{0,12}(?:出生|到来|要)/u.test(text);
+}
+
 export function personIdForIdentity(identityKey: PersonIdentityKey): string {
   const readable = safeIdPart(identityKey.key);
   if (readable) return `person_${readable}`;
@@ -81,7 +89,9 @@ function inferredSeeds(text: string): PersonSeed[] {
       : seed.identityKey.key === "child:daughter:1"
         ? text.replace(/小女儿|二女儿|次女/gu, "")
         : text;
-    return includesAny(scopedText, seed.keywords);
+    return seed.relation === "child"
+      ? hasEstablishedChildFact(scopedText, seed.keywords)
+      : includesAny(scopedText, seed.keywords);
   });
   const explicitChildren = seeds.filter((seed) => seed.relation === "child").length;
   const childCountMatch = text.match(/([两二三四五]|\d)个孩子/u);
@@ -102,6 +112,7 @@ function inferredSeeds(text: string): PersonSeed[] {
 function createInferredPerson(seed: PersonSeed, text: string, protagonistAge: number, targetAgeInMonths: number): PersonState {
   const deceased = includesAny(text, seed.keywords.flatMap((keyword) => [`已故${keyword}`, `${keyword}去世`, `${keyword}离世`]));
   const explicitParent = seed.relation === "parent";
+  const explicitChild = seed.relation === "child" && hasEstablishedChildFact(text, seed.keywords);
   const currentPartnerText = stripNegatedCurrentPartnerMentions(
     text.replace(/前妻|前夫|前任伴侣|前任爱人/gu, "")
   );
@@ -121,7 +132,7 @@ function createInferredPerson(seed: PersonSeed, text: string, protagonistAge: nu
       || /(?:伴侣|男友|女友).{0,16}(?:共同生活|共同租房|同居|稳定交往)/.test(currentPartnerText)
       || (hasCurrentPartnerKeyword && hasOngoingRelationshipEvidence)
     );
-  const explicitUserFact = explicitParent || explicitCurrentPartner;
+  const explicitUserFact = explicitParent || explicitChild || explicitCurrentPartner;
   const relationshipSummary = seed.relation === "parent"
     ? [...new Set(text.split(/[。！？\n]+/u).map((part) => part.trim()).filter((part) => part && includesAny(part, seed.keywords)))].join("；")
     : seed.identityKey.key === "partner:current"

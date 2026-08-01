@@ -10,6 +10,11 @@ import { formatFinancialStateForPrompt } from "../../utils/financialState";
 import type { AcceptedFinancialEvent, DebtHealthState, FinancialEventProposal, FinancialLedger, FinancialLedgerIssue } from "../../domain/finance";
 import { formatDebtNarrativeAuthorityForPrompt } from "../../utils/debtNarrativeAuthority";
 import { financialEvidenceCandidates } from "../../domain/finance/evidenceMatching";
+import {
+  expenseReviewRequiresPromptConfirmation,
+  formatPersonalExpenseSummaryFromLedgerForPrompt,
+  isFinancialLedgerV4
+} from "../../domain/finance";
 
 const FINANCIAL_NARRATIVE_RULE = `- 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
 - 允许描述本阶段实际发生的交易金额，例如月薪、房租、医疗费、首付、贷款、投资额和项目收入。`;
@@ -191,6 +196,7 @@ initialFinancialState 要求：
 - employmentStatus 只能是 student、part_time、employed、self_employed、not_working、medical_leave、retired。
 - incomeStability 只能是 unstable、volatile、stable、very_stable。
 - cashWan、investmentAssetsWan、propertyMarketValueWan、businessAndOtherAssetsWan、totalDebtWan 没有写权限，统一返回 0。代码会只从用户原始资料和结构化回答提取这些起点事实。
+- annualCoreExpenseWan、annualDisposableIncomeWan 也没有写权限，统一返回 0。它们只能在分类持续支出账户和已接受收入提交后由代码派生，不能根据职业、城市、年龄或常识估算。
 - 不得依据职业、城市、年龄或常识补写房产、投资、企业权益、存款或债务。
 - 学生的 totalDebtWan 只记录助学贷款、信用卡、分期或其他明确属于用户本人的债务；家庭债务不得算到学生个人名下，没有个人借款依据时填 0。
 - 学生缺少额外财务事实时，基础学费和生活费默认由家庭基本支持覆盖，个人收支持平；只有正文明确出现兼职、奖学金、个人额外自费或个人借款时，才改变个人财富。
@@ -214,8 +220,8 @@ ${formatDecisionIntentRules()}
   "initialFinancialState": {
     "cashWan": 0, "investmentAssetsWan": 0, "propertyMarketValueWan": 0,
     "businessAndOtherAssetsWan": 0, "totalDebtWan": 0,
-    "annualAfterTaxIncomeWan": 30, "annualDisposableIncomeWan": 12,
-    "annualCoreExpenseWan": 18, "employmentStatus": "employed", "incomeStability": "stable", "isEstimated": true
+    "annualAfterTaxIncomeWan": 30, "annualDisposableIncomeWan": 0,
+    "annualCoreExpenseWan": 0, "employmentStatus": "employed", "incomeStability": "stable", "isEstimated": true
   },
   "startNode": {
     "age": ${regressionAge},
@@ -310,7 +316,8 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
 - 必须重新生成整个节点，不能重复上一个财务 Proposal 错误。
 - 若当前 CareerState 仍为 employed，且正文没有已经完成的离职、退休、停薪或换岗事实：不得返回 income_source_ended、income_source_paused，也不得把现有职业收入迁移到其他 CareerState。
 - 若正文明确写出主角新的个人工资、薪资或固定个人收入：必须返回与当前或本节点已提交 CareerState 关联的合法 income_source_started / income_source_adjusted。
-- 职业变化必须同时包含 employmentTransition 和旧工资关闭/新工资开启；否则保留当前权威职业与收入，不要凭空改写。`
+- 职业变化必须同时包含 employmentTransition 和旧工资关闭/新工资开启；否则保留当前权威职业与收入，不要凭空改写。
+${formatEmployedIncomeGateRetryRule(currentFinancialLedger, input.financialGateRetryReasonCodes)}`
     : "";
   const healthPhaseRule = !pressureArcInterleaved && foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
     ? foregroundPressureArc.phaseId === "trigger"
@@ -409,7 +416,7 @@ ${healthPhaseRule}
 用户在刚才的十字路口选择了：【${selectedDecision}】
 ${selectedOutcomeId ? `该选择对应的已接受 outcome id：【${selectedOutcomeId}】` : "该选择没有结构化 outcome id；不得凭空提交就业状态转换。"}
 - 上述 selectedDecision 是本轮唯一获授权执行的分支。正文必须写它造成的现实后果，禁止执行、拼接或暗中延续同一节点里用户没有选择的其他选项。
-- 没有 relationship outcome id 时，可以描述普通社交、相亲尝试或未深入的接触，但不得让某个具体人物进入追求、深入交往、感情升温、正式交往、共同生活或婚姻；这些变化只能由对应爱情事件及用户接受的 outcome 提交。
+- 没有 relationship outcome id 时，可以描述普通社交、相亲尝试或未深入的接触，但不得让某个具体人物进入追求、深入交往、感情升温、正式交往、共同生活、婚姻或共同育儿；这些变化只能由对应爱情事件及用户接受的 outcome 提交。
 ${eventSeedPrompt}
 
 【本次推演任务】
@@ -428,13 +435,15 @@ ${formatDecisionIntentRules()}
 - narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、relationshipProposals、activeCharacters、primaryActivity、storyEpisode。
 - 爱情人物素材只放入 activeCharacters；新爱情候选必须使用 candidateOrdinal=0。爱情状态 Proposal 由代码根据事件和用户实际选择确定性派生，模型不得返回 person_introduction、romantic_transition、candidateKey、人物 id 或关系 id。
 - 权威 relationship stage 是唯一关系事实。普通事业、家庭、健康或生活节点不得把专业联系人写成爱情对象，也不得让选项现在或未来必然执行正式交往、同居、领证、结婚或婚礼；只能讨论、评估或考虑是否推进。只有当前爱情 lifecycle 事件列出的 allowedOutcomes 才能改变 stage。
-- 如果权威 stage 是 acquaintance/exploring，不得写成现任伴侣或正式交往；如果 stage 是 dating，不得写成共同生活、婚后、妻子或丈夫。不得因为时间流逝或此前计划自动视为已经同居或结婚。
+- 如果权威 stage 是 acquaintance/exploring，不得写成现任伴侣或正式交往；如果 stage 是 dating，不得写成共同生活、婚后、妻子或丈夫。无论 stage 如何，只有【当前人物状态】中已有 relation=child 的权威人物时才可写既有育儿日常；不得因为时间流逝、此前计划或“共同计划”自动写成已经同居、结婚、孩子出生、接送、托育或共同养育。
 - relationshipProposals 仅用于需要语义判断的家庭候选事实；没有明确的家庭关系变化时返回空数组。
 - 只有当某个选项明确让父亲、母亲或父母进入后续生活时，才可为该选项返回 family_activation；sourceOutcomeId 必须等于该选项 eventOutcomeId，evidence 必须逐字摘自正文或该选项。正文单独提到父母、未被选择的选项、模型补写的家庭背景都不能激活父母线。
 - parent_topic_stance 只能记录正文已经发生的具体回应，并绑定对应 outcome；担忧但尊重决定必须写 concerned_but_respectful，不能写 opposed。一次担忧不能推出“一贯保守”，一次争吵不能推出“控制型家庭”，经济上无法帮助不能推出情感不支持。
 - 只有主角在本阶段已经明确入职、离职、创业、停工休养或退休时，career_state worldDelta 才能增加 employmentTransition；必须返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、正文原句 evidence 和 confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时不得返回 employmentTransition。
 - 已接受选择明确写有“辞职”“离职”“开始创业”或“全职创业”时，本轮必须提交 employmentTransition；辞职创业的 toStatus 使用 self_employed，不能只在正文写成已完成。
 - 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。
+- 只有本轮已实际租房、搬入住所、购房自住或确认由家人提供住所时，才可在对应 location_change worldDelta 增加 residence：{livingArrangement:"renting"|"owner_occupied"|"with_family"|"provided", financialScope:"personal"|"shared_household"|"business_operating"|"third_party", liability:"protagonist"|"shared"|"third_party"|"none", evidence:"正文已发生原句"}。它是已接受居住事实，不填写金额；计划看房、考虑搬家和未选择选项不得填写。
+- 工坊、工作室、办公室、仓库、门店、公司租金和团队场地不是主角住所，不得伪装为 personal/shared_household residence；伴侣、父母或第三方提供住所必须使用 third_party/third_party 或 third_party/none，不能写入主角个人住房支出。房贷或月供仍只走债务 Proposal，不能通过 residence 创建 housing 月供。
 ${targetAgeInMonths >= 55 * 12 ? "- 主角已满 55 岁：如果 description 明确写出已经退休、离职或停止工作，必须同时提交 employmentTransition，以及结束或暂停账本摘要中 linkedCareerStateId 对应当前职业的工资收入；租金、版税、年金等非职业收入不得结束。" : ""}
 ${targetAgeInMonths >= 80 * 12 ? "- 主角已满 80 岁：本节点不得继续沿用 employed。若仍持续独立创作、顾问或经营，应提交到 self_employed 的 employmentTransition 并迁移职业收入；否则必须提交 retired 或 not_working，并结束 linkedCareerStateId 对应工资。非职业收入继续保留。" : ""}
 ${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
@@ -447,6 +456,7 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - description 若明确写出主人公已经生效的月薪或年薪，必须提交与该金额匹配的职业收入 started/adjusted；即使同一段还写了机构资助、公司营收或团队成本，也不能用这些组织金额代替主人公薪酬。
 - 伴侣、父母、子女、同事和其他人物的工资、顾问费、分红或经营收入不属于主人公个人账本；不得为其创建 incomeSources，也不得把其绑定到主人公 CareerState。只有正文明确写出该人物把钱转给主人公时，才可使用 family_support_received 记录实际到账金额。
 - basic_living 或 housing 基线已经存在时必须引用账本 ID 使用 expense_commitment_adjusted；不得再 started 一个“基本生活与房贷”等混合义务造成重复计提。照护、医疗和保险可以按不同责任分别建账。房贷本金与利息由 debt repayment policy 结算，不能再次混入 basic_living。
+- “月供”、房贷或按揭还款绝不能使用 expense_commitment_started/adjusted，也不能归为 housing。已发生且需要手动记录的还款必须使用 debt_principal_repaid 和/或 debt_interest_paid；已有 DebtRepaymentPolicy 自动计提时，不要重复提交持续支出或一次性支出。
 - 新工作工资不得与账本摘要里的旧职业收入叠加：同一职业内薪资变化优先用 income_source_adjusted；换工作必须同时提交旧职业收入的 income_source_ended 和带 linkedCareerStateId 的新 income_source_started。职业、组织或岗位改变时，即使 employmentStatus 仍为 employed，也要提交新的 employmentTransition。
 - 主角亲自经营所得的个人可支配收入必须使用 type="self_employment_draw" 并关联新 CareerState；不得把公司营业收入或创业者个人收入写成 type="other"。辞职创业时必须原子提交旧工资结束、self_employed 转换和新 self_employment_draw（正文未确认个人收入时可不启动新收入）。
 - 正文必须严格区分月薪和年薪：年薪 22 万不得写成月薪 22 万；Proposal 的 monthlyNetAmountWan 与正文月薪必须相同，annualNetAmountWan 与正文年薪必须相同。
@@ -516,9 +526,11 @@ export function formatRestrictedFinancialLedger(ledger?: FinancialLedger): strin
   const income = ledger.incomeSources.filter((item) => item.status !== "ended").map((item) => (
     `- 收入来源 ${item.id}: type=${item.type}, status=${item.status}, monthly=${item.monthlyNetAmountWan ?? "-"}, annual=${item.annualNetAmountWan ?? "-"}, factStatus=${item.factStatus}, review=${item.accrualReviewStatus ?? "normal"}, lastConfirmed=${item.lastConfirmedAtAgeInMonths ?? "-"}`
   ));
-  const expenses = ledger.expenseCommitments.filter((item) => item.status !== "ended").map((item) => (
-    `- 支出义务 ${item.id}: type=${item.type}, status=${item.status}, monthly=${item.monthlyAmountWan}, factStatus=${item.factStatus}`
-  ));
+  const expenses = isFinancialLedgerV4(ledger)
+    ? ["- V4 个人持续支出分类摘要（唯一责任事实源）：", formatPersonalExpenseSummaryFromLedgerForPrompt(ledger)]
+    : ledger.expenseCommitments.filter((item) => item.status !== "ended").map((item) => (
+      `- 兼容支出义务 ${item.id}: type=${item.type}, status=${item.status}, monthly=${item.monthlyAmountWan}, factStatus=${item.factStatus}`
+    ));
   const debts = ledger.debtAccounts.filter((item) => item.status === "active").map((item) => (
     `- 债务账户 ${item.id}: type=${item.type}, principal=${item.principalWan}, policy=${item.repaymentPolicy.mode}, factStatus=${item.factStatus}`
   ));
@@ -582,7 +594,11 @@ function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, t
     const materialTransactions = ledger.recentTransactions.filter((transaction) => (
       transaction.periodEndAgeInMonths > lastConfirmedAt
     )).length;
-    return targetAgeInMonths - lastConfirmedAt >= 36 || materialTransactions >= 3;
+    // The prospective node itself is a material transaction.  Ask for the
+    // reconfirmation one node before the commit policy would quarantine the
+    // source; otherwise an enforced preview is guaranteed to reject before
+    // the model has been told which evidence it must provide.
+    return targetAgeInMonths - lastConfirmedAt >= 36 || materialTransactions + 1 >= 3;
   });
   if (staleLegacyIncomeSources.length) {
     rules.push(`- 以下仍在职的迁移估算收入需要本节点明确确认：${staleLegacyIncomeSources.map((source) => source.id).join("、")}。description 必须写明主角当前实际税后月薪或年薪；若金额与账本相同，也必须提交 income_source_adjusted，引用原 incomeSourceId 并保持同一金额，用本节点原文证据替换 legacy_migration 依据。若已停薪、离职或换岗，则提交完整职业转换和收入结束/新收入事件。不得让 employed 状态落入收入为 0。`);
@@ -597,7 +613,57 @@ function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, t
       rules.push(`- 以下晚年职业收入超过36个月未确认：${staleCareerSources.map((source) => source.id).join("、")}。description 必须明确主角是否仍实际工作；继续工作则提交收入调整/确认 Proposal，已经停止则提交 employmentTransition 与工资结束。不得仅凭年龄自动退休。`);
     }
   }
+  const overdueExpenseConfirmations = ledger.unresolvedIssues
+    .filter(expenseReviewRequiresPromptConfirmation)
+    .flatMap((issue) => {
+      const commitment = ledger.expenseCommitments.find((item) => (
+        item.status !== "ended" && issue.relatedAccountIds?.includes(item.id)
+      ));
+      if (!commitment) return [];
+      return [{
+        id: commitment.id,
+        responsibilityKey: commitment.responsibilityKey || commitment.id,
+        displayName: commitment.displayName,
+        monthlyAmountWan: commitment.monthlyAmountWan,
+        occurrenceCount: issue.occurrenceCount ?? 1
+      }];
+    });
+  if (overdueExpenseConfirmations.length) {
+    rules.push(`- 以下持续支出已连续至少两个已提交的实质节点未获得新的确认：${overdueExpenseConfirmations.map((item) => `${item.id}(responsibilityKey=${item.responsibilityKey}, 名称=${item.displayName}, 当前月计提=${item.monthlyAmountWan}, 已观察=${item.occurrenceCount}次)`).join("；")}。本节点必须在 description 中给出每项已经发生的确认结论：仍由主角/共同家庭承担时，写出当前实际月额和承担范围，并提交引用该 expenseCommitmentId 的 expense_commitment_adjusted（即使金额不变也必须确认）；已经停止或暂由他方承担时，写出已发生事实并提交对应 ended/adjusted。不得把旧账本金额、计划、猜测或“本轮未提及”冒充确认；无法形成已发生事实时不得编造，原金额继续计提且 review issue 保持 open。`);
+  }
   return rules.join("\n");
+}
+
+/**
+ * A rejected Preview never changes the authoritative ledger, so the retry
+ * prompt must use the pre-preview source that was about to be quarantined.
+ * This is an explicit narrative re-confirmation of that source, not a
+ * synthetic continuation: the accepted proposal still has to quote the new
+ * node text and pass ordinary evidence/atomicity validation.
+ */
+function formatEmployedIncomeGateRetryRule(
+  ledger: FinancialLedger | undefined,
+  reasonCodes: string[]
+): string {
+  if (!reasonCodes.includes("EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME") || !ledger) return "";
+  const sources = ledger.incomeSources.filter((source) => (
+    source.status === "active"
+    && source.accrualPolicy !== "event_only"
+    && Boolean(source.linkedCareerStateId)
+    && source.accrualReviewStatus !== "quarantined"
+  ));
+  if (sources.length !== 1) return "";
+  const source = sources[0]!;
+  const amount = source.annualNetAmountWan !== undefined
+    ? `年税后收入稳定在${source.annualNetAmountWan}万元`
+    : source.monthlyNetAmountWan !== undefined
+      ? `税后月薪稳定在${source.monthlyNetAmountWan}万元`
+      : undefined;
+  if (!amount) return "";
+  return `【当前职业收入必须在本次重生中确认】
+- 当前唯一职业收入来源为 incomeSourceId=${source.id}，linkedCareerStateId=${source.linkedCareerStateId}，金额=${amount}。
+- 若主角仍为 employed 且没有已经完成的离职、退休、停薪或换岗：description 必须写出准确的连续性事实，例如“你的${amount}。”；financialEventProposals 必须返回 kind=income_source_adjusted、incomeSourceId=${source.id}，并保持同一金额和 linkedCareerStateId。
+- Proposal.evidence 必须逐字引用该 description 句。不得仅因门禁重试静默延长、创建第二份工资，或把这笔收入迁移到其他 CareerState。`;
 }
 
 export function buildFinancialProposalRepairPrompt(input: {

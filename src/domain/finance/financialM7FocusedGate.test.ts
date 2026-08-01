@@ -6,7 +6,7 @@ import { commitFinancialDomainTransaction } from "./commitFinancialDomainTransac
 import { deriveFinancialState } from "./deriveFinancialState";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { migrateLegacyFinancialState } from "./migrateLegacyFinancialState";
-import type { AcceptedFinancialEvent, ExpenseCommitment, FinancialEvidence, FinancialLedger, IncomeSource } from "./types";
+import type { AcceptedFinancialEvent, ExpenseCommitment, FinancialEvidence, FinancialLedger, FinancialLedgerV3, IncomeSource } from "./types";
 
 const evidence: FinancialEvidence[] = [{ source: "user", reasonCode: "TEST", confidence: 1 }];
 
@@ -39,7 +39,7 @@ function living(age: number): ExpenseCommitment {
   };
 }
 
-function ledger(age: number, input: { income?: IncomeSource[]; expenses?: ExpenseCommitment[]; cash?: number } = {}): FinancialLedger {
+function ledger(age: number, input: { income?: IncomeSource[]; expenses?: ExpenseCommitment[]; cash?: number } = {}): FinancialLedgerV3 {
   return initializeFinancialLedger({
     id: "focused", asOfAgeInMonths: age,
     openingPosition: {
@@ -88,6 +88,23 @@ test("M7 focused: explicit mortgage opens debt, repayment policy and a property 
   assert.equal(property?.type, "property");
   assert.equal(property?.factStatus, "needs_review");
   assert.equal(property?.marketValueWan, 0);
+});
+
+test("M7 focused: opening model annual core cannot create a legacy expense commitment", () => {
+  const migrated = migrateLegacyFinancialState({
+    id: "opening_model_aggregate_ignored",
+    legacyState: {
+      currencyUnit: "CNY_WAN_REAL", asOfAgeInMonths: 288, cashWan: 0, investmentAssetsWan: 0,
+      propertyMarketValueWan: 0, businessAndOtherAssetsWan: 0, totalDebtWan: 0, netWorthWan: 0,
+      annualAfterTaxIncomeWan: 30, annualCoreExpenseWan: 18, annualDisposableIncomeWan: 12,
+      employmentStatus: "employed", incomeStability: "stable", isEstimated: true
+    },
+    openingFacts: { evidenceText: "刚入职，手头没有额外财务资料。", ownsProperty: false }
+  });
+  assert.equal(migrated.expenseCommitments.some((item) => item.id === "legacy_core_expense"), false);
+  const basicLiving = migrated.expenseCommitments.find((item) => item.type === "basic_living");
+  assert.equal(basicLiving?.monthlyAmountWan, 0.35);
+  assert.equal(basicLiving?.evidence[0]?.source, "system_policy");
 });
 
 test("M7 focused: missing adult expenses receive a deterministic estimate without quarantining income", () => {

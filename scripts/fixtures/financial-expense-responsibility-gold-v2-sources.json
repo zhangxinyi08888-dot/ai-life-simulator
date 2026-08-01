@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "financial-expense-responsibility-gold-v2-sources",
+  "corpusKind": "frozen_gold_source",
+  "purpose": "Accepted-source inputs independently reviewed against gold-v2 annotations. Negative rows deliberately have no expense source: their closed assertion is that narrative/structured derivation cannot create a personal commitment.",
+  "facts": [
+    {
+      "caseSlug": "real-career-first-release",
+      "nodeIndex": 7,
+      "fact": {
+        "responsibilityKey": "recurring_healthcare:opening_parent",
+        "responsibilityKind": "recurring_healthcare",
+        "proposedType": "healthcare",
+        "action": "adjust",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "explicitMonthlyTotalWan": 0.15,
+        "protagonistShareWan": 0.15,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "你主动把每月医疗补贴从1200元提到1500元。"
+      }
+    },
+    {
+      "caseSlug": "real-relationship-first-release",
+      "nodeIndex": 9,
+      "fact": {
+        "responsibilityKey": "elder_care:parents",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "explicitMonthlyTotalWan": 0.24,
+        "protagonistShareWan": 0.24,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "给家里请了一位每周来三次的钟点工，负责打扫和做晚饭，每月多出两千四的固定开销。"
+      }
+    },
+    {
+      "caseSlug": "real-education-second-release",
+      "nodeIndex": 5,
+      "fact": {
+        "responsibilityKey": "primary_residence:main",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "年初刚续租了公司附近的房子。"
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 8,
+      "fact": {
+        "responsibilityKey": "elder_care:parents",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "review",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "父亲血压偏高需要长期监测，医生开了降压药。为了更好照顾父母，我调整了每月回家的频率。"
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 32,
+      "fact": {
+        "responsibilityKey": "elder_care:parents",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "父母已过百岁，虽身体尚可，但已需要更多照料。你每隔几周会去看望他们，或请人帮忙照看。"
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 35,
+      "fact": {
+        "responsibilityKey": "elder_care:parents",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "review",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "父母已过百岁，请人照护的费用逐年增加。"
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 42,
+      "fact": {
+        "responsibilityKey": "primary_residence:main",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "shared",
+        "financialScope": "shared_household",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "将房租和伙食费从共同账户支付，其他个人开支保持独立。"
+      }
+    }
+  ]
+}

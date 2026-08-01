@@ -18,6 +18,14 @@ const userData: UserInitialData = {
   coreStoryFocus: "career"
 };
 
+// These age/arc fixtures intentionally omit a financial ledger and career-income
+// source.  Keep their unrelated narrative assertions in shadow mode; the product
+// default remains enforced and is covered by dedicated financial-gate tests.
+const incompleteFinancialFixtureDeps = {
+  financialNodeGateMode: "shadow" as const,
+  expenseLifecycleMode: "shadow" as const
+};
+
 function choices(repetitive = false): SimulationChoice[] {
   if (repetitive) {
     return ["继续恢复", "继续观察", "继续休息"].map((text, index) => ({
@@ -135,6 +143,7 @@ try {
     nodeIndex: 1,
     simulationSeed: "health-warning-minor"
   }, {
+    ...incompleteFinancialFixtureDeps,
     callAiJson: async (prompt) => {
       warningPrompt = prompt;
       return { text: JSON.stringify(rawNode("身体发出轻度预警，你需要决定如何调整。", false, warningAttributes)) };
@@ -164,6 +173,7 @@ const forcedPauseNode = await generateNextNode({
   nodeIndex: 3,
   simulationSeed: "health-forced-pause-escalation"
 }, {
+  ...incompleteFinancialFixtureDeps,
   callAiJson: async (prompt) => {
     forcedPausePrompt = prompt;
     return { text: JSON.stringify(rawNode("健康持续恶化后，原有生活节奏被迫暂停。", false, worseningAttributes)) };
@@ -187,6 +197,7 @@ const existingArcLowHealth = await generateNextNode({
   nodeIndex: 2,
   simulationSeed: "existing-arc-before-health-escalation"
 }, {
+  ...incompleteFinancialFixtureDeps,
   callAiJson: async (prompt) => {
     existingArcPrompt = prompt;
     return { text: JSON.stringify(rawNode("现有事业压力仍在处理中。", false, existingArcLowHealthAttributes)) };
@@ -206,6 +217,7 @@ const stableOperation = await generateNextNode({
   nodeIndex: 1,
   simulationSeed: "operation-seed"
 }, {
+  ...incompleteFinancialFixtureDeps,
   callAiJson: async (prompt) => {
     capturedPrompt = prompt;
     return { text: JSON.stringify(rawNode()) };
@@ -230,6 +242,7 @@ try {
     nodeIndex: 1,
     simulationSeed: "forbidden-seed"
   }, {
+    ...incompleteFinancialFixtureDeps,
     relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
     callAiJson: async () => {
       forbiddenAttempts += 1;
@@ -249,6 +262,7 @@ try {
     nodeIndex: 1,
     simulationSeed: "gate-seed"
   }, {
+    ...incompleteFinancialFixtureDeps,
     relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
     callAiJson: async () => {
       gateAttempts += 1;
@@ -271,6 +285,7 @@ const ending = await generateNextNode({
   nodeIndex: 20,
   simulationSeed: "hard-ending"
 }, {
+  ...incompleteFinancialFixtureDeps,
   callAiJson: async (prompt) => {
     endingCalls += 1;
     if (prompt.includes("自然终章")) {

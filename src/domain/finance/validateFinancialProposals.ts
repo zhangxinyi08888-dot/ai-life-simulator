@@ -10,6 +10,7 @@ import type {
   FinancialLedger,
   FinancialLedgerIssue
 } from "./types";
+import { isExpenseCommitmentV4, isFinancialLedgerV4 } from "./types";
 import { matchFinancialEvidence, type EvidenceMatchReason } from "./evidenceMatching";
 import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 
@@ -38,15 +39,35 @@ const PERSONAL_OPERATING_FLOW_KINDS = new Set<FinancialEventKind>([
   "one_off_expense_paid"
 ]);
 
+/**
+ * A salary mentioned in a job posting, an unaccepted offer, or a comparison
+ * with the protagonist's present pay is an opportunity, not a personal-income
+ * fact. It must not reconfirm a stale legacy wage or restart its accrual.
+ *
+ * Keep an explicit completed acceptance in scope: a generated node can state
+ * both the accepted offer and the resulting exact salary in one sentence.
+ */
+export function isUnacceptedIncomeOpportunityEvidence(evidence: string): boolean {
+  const completedEmployment = /(?:你|主角|本人).{0,48}(?:正式(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已经(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|换到[^。；]{0,24}(?:岗位|工作)|接受(?:了)?[^。；]{0,24}(?:offer|录用|岗位|工作)|签署(?:了)?[^。；]{0,24}(?:劳动合同|聘用合同)|(?:最终|已经|已)?(?:决定|选择)(?:接下|接受|入职|加入|签约)[^。；]{0,24}(?:兼职|工作|岗位|offer|录用)?)/u.test(evidence);
+  if (completedEmployment) return false;
+  return /(?:正在招|招聘|招募|招人|(?:新|该|这个|一个|某个|招聘的).{0,4}(?:岗位|职位)|(?:岗位|职位).{0,20}(?:招聘|招募|开放)|工作机会|猎头|offer|录用通知|薪资比(?:现在|目前)|薪资(?:更高|更低)|薪酬(?:更高|更低)|(?:问你愿不愿意|邀请你|希望你|请你|考虑是否)[^。；]{0,42}(?:牵头|负责|接手|加入|参与)[^。；]{0,32}(?:项目|岗位|工作|任务))/iu.test(evidence);
+}
+
 function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string): boolean {
   if (!["salary", "contract", "self_employment_draw", "business_dividend"].includes(String(type))) return true;
+  if (isUnacceptedIncomeOpportunityEvidence(evidence)) return false;
   if (String(type) === "self_employment_draw" || String(type) === "business_dividend") {
     if (/(?:你|我|主角|本人).{0,32}(?:从|动用)[^。；]{0,20}(?:积蓄|存款|储蓄|备用金|个人账户)[^。；]{0,20}(?:提取|拿出|支取|取出)|(?:你|我|主角|本人).{0,20}(?:从积蓄中|从存款中|从储蓄中|从备用金中)(?:提取|拿出|支取|取出)/u.test(evidence)) {
       return false;
     }
     return /(?:你|我|主角|本人).{0,80}(?:领取|提取|获得|收到|赚|挣|顾问费|咨询收入|转入个人|给自己发|个人可支配收入|个人收入|个人提款|个人账户|工资|薪资|降薪|涨薪|调薪|业主提款|分红)/u.test(evidence);
   }
-  return /(?:你|我|主角|本人).{0,80}(?:领取|获得|收到|赚|挣|顾问费|咨询收入|副业月收入|月薪|年薪|工资|薪资|降薪|涨薪|调薪|报酬|个人收入|个人进账|个人账户|可支配收入)/u.test(evidence);
+  // Do not treat a generic achievement (for example, \"获得主管肯定\") as
+  // wage evidence.  A recurring career source needs either a compensation
+  // term, or an explicit periodic personal receipt/earning statement.
+  const compensationTerm = /(?:税后)?(?:月薪|年薪|工资|薪资|年税后收入|税后年收入)|顾问费|咨询收入|副业月收入|个人收入|个人进账|个人账户|可支配收入|报酬/u.test(evidence);
+  const periodicPersonalReceipt = /(?:你|我|主角|本人).{0,56}(?:每月|月均|按月|每年|年度|年收入).{0,36}(?:领取|获得|收到|赚|挣|进账|支付|发放)/u.test(evidence);
+  return compensationTerm || periodicPersonalReceipt;
 }
 
 function proposalIssue(input: {
@@ -130,9 +151,9 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
   const explicitlyNegatedReceipt = /你(?:个人)?[^。；]{0,12}(?:没有|未|并未|不曾)[^。；]{0,12}(?:领取|获得|收到|分红|股息)/u.test(text);
   const isIncomeProposal = ["income_source_started", "income_source_adjusted", "one_off_income_received"].includes(proposal.kind);
   const explicitPersonal = isIncomeProposal && !explicitlyNegatedReceipt
-    && /你(?:个人)?[^。；]{0,20}(?:领取|获得|收到|税后工资|月薪|年薪|顾问费|分红|股息)|转入(?:你的|个人)账户/u.test(text);
+    && /你(?:个人)?[^。；]{0,20}(?:领取|获得|收到|税后工资|月薪|年薪|年税后收入|税后年收入|顾问费|分红|股息)|转入(?:你的|个人)账户/u.test(text);
   const personalCompensation = ["salary", "contract", "self_employment_draw"].includes(String(subject?.type))
-    && /(?:税后|到手)?(?:工资|薪资|月薪|年薪)|顾问费|咨询费/u.test(text);
+    && /(?:税后|到手)?(?:工资|薪资|月薪|年薪|年税后收入|税后年收入)|顾问费|咨询费/u.test(text);
   return (businessExpense || businessRevenue) && !explicitPersonal && !personalCompensation;
 }
 
@@ -214,6 +235,153 @@ function markEstimatedFacts<T>(value: T): T {
   return clone as T;
 }
 
+/**
+ * A due review is a deterministic policy transition on an already accepted
+ * V4 commitment.  It is intentionally much narrower than a model proposal:
+ * it may not create a commitment, change its responsibility identity or
+ * amount, and it must be anchored to this node's accepted outcome.  This
+ * preserves the ordinary schema/reducer path without inventing a narrative
+ * sentence that never existed.
+ */
+function isValidSystemExpenseLifecycleReview(input: {
+  proposal: FinancialEventProposal;
+  ledger: FinancialLedger;
+}): boolean {
+  const { proposal } = input;
+  if (proposal.systemGenerated !== "expense_lifecycle_review"
+    || !proposal.id.startsWith("system_expense_review_")
+    || proposal.kind !== "expense_commitment_adjusted") return false;
+  const payload = proposal.payload as Record<string, unknown>;
+  const commitmentId = payload.expenseCommitmentId;
+  const next = payload.nextCommitment as Record<string, unknown> | undefined;
+  if (typeof commitmentId !== "string" || !next || typeof next !== "object") return false;
+  const current = input.ledger.expenseCommitments.find((item) => item.id === commitmentId);
+  return Boolean(
+    current
+    && current.status !== "ended"
+    && next.id === current.id
+    && next.responsibilityKey === current.responsibilityKey
+    && next.responsibilityKind === current.responsibilityKind
+    && next.type === current.type
+    && Number(next.monthlyAmountWan) === current.monthlyAmountWan
+    && next.status === current.status
+    && next.factStatus === "needs_review"
+    && next.accrualReviewStatus === "review_due"
+  );
+}
+
+const V4_EXPENSE_CHANGE_REASONS = new Set([
+  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "dependent_independent",
+  "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
+  "education_completed", "aggregate_atomically_split", "temporary_third_party_coverage",
+  "responsibility_resumed", "responsibility_ended"
+]);
+
+function changeReasonHasAcceptedEvidence(reason: string, text: string): boolean {
+  switch (reason) {
+    case "residence_ended":
+      return /搬离|退租|退房|不再居住|搬出/u.test(text);
+    case "shared_responsibility_changed":
+      return /共同承担|分摊|各自承担|承担比例|对半|份额/u.test(text);
+    case "explicit_amount_reduced":
+      return /(?:月租|房租|支出|费用|保费|医疗费|生活费).{0,20}(?:降|减少|下调|变为|调整为)|(?:降为|减少至|下调至).{0,20}(?:元|万)/u.test(text);
+    case "dependent_independent":
+      return /子女.{0,20}(?:独立|工作|不再需要抚养)|独立生活/u.test(text);
+    case "care_responsibility_transferred":
+      return /照护.{0,30}(?:转由|转给|改由|不再由)|(?:责任|费用).{0,20}(?:转移|改由|转由)/u.test(text);
+    case "care_recipient_deceased":
+      return /去世|离世/u.test(text);
+    case "treatment_completed":
+      return /(?:治疗|用药|复诊).{0,24}(?:完成|结束|停止)|康复/u.test(text);
+    case "insurance_cancelled":
+      return /(?:保单|保险).{0,24}(?:取消|终止|退保|结束)|不再.{0,12}(?:缴纳|支付).{0,12}(?:保费|保险)/u.test(text);
+    case "education_completed":
+      return /毕业|退学|(?:课程|教育).{0,24}(?:完成|结束)|不再.{0,12}(?:学费|教育费)/u.test(text);
+    case "aggregate_atomically_split":
+      return /(?:原子)?拆分|分项|拆成/u.test(text);
+    case "temporary_third_party_coverage":
+      // "暂时失业" or "临时困难" is not a payment authority.  A pause
+      // requires a named/identifiable other payer or an explicit proxy-pay
+      // fact, while the responsibility itself remains in force.
+      return /(?:暂由|临时由).{0,28}(?:伴侣|配偶|父母|家人|子女|雇主|机构|他人|对方).{0,28}(?:代付|代缴|承担|支付)|(?:伴侣|配偶|父母|家人|子女|雇主|机构|他人|对方).{0,28}(?:暂时代付|临时代缴|暂时承担|代付|代缴)/u.test(text);
+    case "responsibility_resumed":
+      return /恢复.{0,20}(?:支付|缴纳|承担)|重新.{0,20}(?:支付|缴纳|承担)|不再.{0,20}(?:代付|代缴)/u.test(text);
+    case "responsibility_ended":
+      return /不再.{0,24}(?:承担|支付|缴纳)|(?:责任|支出|费用).{0,24}(?:结束|终止)|转由.{0,24}(?:承担|支付)/u.test(text);
+    default:
+      return false;
+  }
+}
+
+function v4ExpenseChangeAuthorityIssue(input: {
+  proposal: FinancialEventProposal;
+  ledger: FinancialLedger;
+  narrativeText: string;
+  ageInMonths: number;
+}): FinancialLedgerIssue | undefined {
+  if (!isFinancialLedgerV4(input.ledger)
+    || !["expense_commitment_adjusted", "expense_commitment_ended"].includes(input.proposal.kind)) return undefined;
+  const payload = input.proposal.payload as Record<string, unknown>;
+  const current = input.ledger.expenseCommitments.find((item) => item.id === payload.expenseCommitmentId);
+  if (!current || !isExpenseCommitmentV4(current)) return undefined;
+  const next = input.proposal.kind === "expense_commitment_adjusted"
+    ? payload.nextCommitment
+    : undefined;
+  const needsAuthority = input.proposal.kind === "expense_commitment_ended"
+    || (next && typeof next === "object" && isExpenseCommitmentV4(next as any) && (
+      (next as any).status !== current.status
+      || Number((next as any).monthlyAmountWan) < current.monthlyAmountWan - 0.0001
+    ));
+  if (!needsAuthority) return undefined;
+  const previousCommitmentId = payload.previousCommitmentId;
+  const changeReason = payload.changeReason;
+  const isEnd = input.proposal.kind === "expense_commitment_ended";
+  if (previousCommitmentId !== current.id || typeof changeReason !== "string" || !V4_EXPENSE_CHANGE_REASONS.has(changeReason)) {
+    return proposalIssue({
+      proposal: input.proposal,
+      code: isEnd ? "EXPENSE_END_WITHOUT_EVIDENCE" : "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY",
+      summary: "V4 支出下调、暂停、恢复或结束必须保存 previousCommitmentId 和允许的变化原因",
+      ageInMonths: input.ageInMonths
+    });
+  }
+  if (isEnd && changeReason === "responsibility_resumed") {
+    return proposalIssue({
+      proposal: input.proposal,
+      code: "EXPENSE_END_WITHOUT_EVIDENCE",
+      summary: "恢复支付不是永久结束支出责任的证据",
+      ageInMonths: input.ageInMonths
+    });
+  }
+  if (!isEnd && next && typeof next === "object" && isExpenseCommitmentV4(next as any)) {
+    if (current.status === "active" && (next as any).status === "paused" && changeReason !== "temporary_third_party_coverage") {
+      return proposalIssue({
+        proposal: input.proposal,
+        code: "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY",
+        summary: "暂停持续支出只能由责任仍存在但暂由他方承担或付款暂时停止的事实授权",
+        ageInMonths: input.ageInMonths
+      });
+    }
+    if (current.status === "paused" && (next as any).status === "active" && changeReason !== "responsibility_resumed") {
+      return proposalIssue({
+        proposal: input.proposal,
+        code: "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY",
+        summary: "恢复持续支出必须由主角恢复承担的事实授权",
+        ageInMonths: input.ageInMonths
+      });
+    }
+  }
+  const evidenceText = `${input.proposal.evidence} ${input.narrativeText}`;
+  if (!changeReasonHasAcceptedEvidence(changeReason, evidenceText)) {
+    return proposalIssue({
+      proposal: input.proposal,
+      code: isEnd ? "EXPENSE_END_WITHOUT_EVIDENCE" : "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY",
+      summary: `支出变化原因 ${changeReason} 缺少 Accepted outcome 的明确证据；收入、退休、时间经过或模型未再提及不能降低支出`,
+      ageInMonths: input.ageInMonths
+    });
+  }
+  return undefined;
+}
+
 function acceptedEvent(proposal: FinancialEventProposal, evidenceReason: EvidenceMatchReason): AcceptedFinancialEvent {
   const payload = proposal.confidence < 0.8
     ? markEstimatedFacts(proposal.payload)
@@ -234,8 +402,8 @@ function acceptedEvent(proposal: FinancialEventProposal, evidenceReason: Evidenc
     effectiveAtAgeInMonths: proposal.effectiveAtAgeInMonths,
     payload: payload as FinancialEventPayloadMap[FinancialEventKind],
     evidence: [{
-      source: "accepted_simulation_outcome",
-      sourceEventId: proposal.sourceOutcomeId,
+      source: proposal.systemGenerated === "expense_lifecycle_review" ? "system_policy" : "accepted_simulation_outcome",
+      sourceEventId: proposal.systemGenerated === "expense_lifecycle_review" ? undefined : proposal.sourceOutcomeId,
       excerpt: proposal.evidence.trim(),
       reasonCode: evidenceReason,
       confidence: proposal.confidence,
@@ -372,6 +540,61 @@ function proposalGroups(proposals: FinancialEventProposal[], ledger: FinancialLe
     });
 }
 
+/**
+ * V4 records a stable source id for every recurring amount.  A source may be
+ * updated on its own responsibility, but it must not become a second active
+ * personal commitment in the same prospective ledger.  Split facts receive
+ * distinct allocation ids (for example `transfer:medical` and
+ * `transfer:support`) before reaching this check.
+ */
+function v4ExpenseMutation(proposal: FinancialEventProposal): {
+  accountId: string;
+  amountSourceIds: string[];
+} | undefined {
+  if (proposal.kind !== "expense_commitment_started" && proposal.kind !== "expense_commitment_adjusted") return undefined;
+  const payload = proposal.payload as Record<string, unknown>;
+  const commitment = proposal.kind === "expense_commitment_started"
+    ? payload
+    : payload.nextCommitment;
+  if (!commitment || typeof commitment !== "object" || !isExpenseCommitmentV4(commitment as any)) return undefined;
+  const accountId = proposal.kind === "expense_commitment_started"
+    ? (commitment as { id: string }).id
+    : payload.expenseCommitmentId;
+  return typeof accountId === "string"
+    ? { accountId, amountSourceIds: (commitment as { amountSourceIds: string[] }).amountSourceIds }
+    : undefined;
+}
+
+function activeExpenseAmountSourceOwners(ledger: FinancialLedger): Map<string, Set<string>> {
+  const owners = new Map<string, Set<string>>();
+  if (!isFinancialLedgerV4(ledger)) return owners;
+  for (const commitment of ledger.expenseCommitments) {
+    if (commitment.status !== "active") continue;
+    for (const sourceId of commitment.amountSourceIds) {
+      const sourceOwners = owners.get(sourceId) || new Set<string>();
+      sourceOwners.add(commitment.id);
+      owners.set(sourceId, sourceOwners);
+    }
+  }
+  return owners;
+}
+
+function replaceExpenseAmountSourceOwner(input: {
+  owners: Map<string, Set<string>>;
+  accountId: string;
+  amountSourceIds: string[];
+}): void {
+  for (const [sourceId, owners] of input.owners.entries()) {
+    owners.delete(input.accountId);
+    if (owners.size === 0) input.owners.delete(sourceId);
+  }
+  for (const sourceId of input.amountSourceIds) {
+    const owners = input.owners.get(sourceId) || new Set<string>();
+    owners.add(input.accountId);
+    input.owners.set(sourceId, owners);
+  }
+}
+
 export function validateFinancialProposals(input: {
   proposals: FinancialEventProposal[];
   currentLedger: FinancialLedger;
@@ -389,6 +612,7 @@ export function validateFinancialProposals(input: {
   const acceptedProposals: FinancialEventProposal[] = [];
   const ids = new Set<string>();
   const allowedCareerStateIds = new Set([input.currentCareerState.id, ...(input.allowedCareerStateIds || [])]);
+  const expenseAmountSourceOwners = activeExpenseAmountSourceOwners(input.currentLedger);
 
   for (const proposal of input.proposals) {
     if (!proposal.id || ids.has(proposal.id) || !FINANCIAL_EVENT_KINDS.has(proposal.kind) || !proposal.payload || typeof proposal.payload !== "object") {
@@ -402,13 +626,41 @@ export function validateFinancialProposals(input: {
         && schemaErrors.some((error) => error.path === "payload.assetAccount.type");
       const invalidPersonalIncomeType = proposal.kind === "income_source_started"
         && schemaErrors.some((error) => error.path === "payload.type");
+      const invalidExpenseSchema = proposal.kind === "expense_commitment_started"
+        || proposal.kind === "expense_commitment_adjusted";
+      const mortgageMisroutedAsExpense = invalidExpenseSchema
+        && schemaErrors.some((error) => error.path.endsWith(".type"))
+        && /(?:月供|房贷|按揭|mortgage)/iu.test(`${proposal.evidence} ${JSON.stringify(proposal.payload)}`);
       issues.push(proposalIssue({
         proposal,
-        code: invalidAssetType ? "INVALID_ASSET_TYPE" : invalidPersonalIncomeType ? "BUSINESS_PERSONAL_BOUNDARY_CONFLICT" : "UNBALANCED_TRANSACTION",
+        code: invalidAssetType
+          ? "INVALID_ASSET_TYPE"
+          : invalidPersonalIncomeType
+            ? "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"
+            : mortgageMisroutedAsExpense
+              ? "EXPENSE_DEBT_SERVICE_DOUBLE_COUNT"
+              : invalidExpenseSchema
+                ? "EXPENSE_SCHEMA_FIELD_MISMATCH"
+                : "UNBALANCED_TRANSACTION",
         summary: `财务 Proposal payload schema 无效：${schemaErrors.map((error) => `${error.path} ${error.reason}`).join("；")}`,
         ageInMonths: input.periodEndAgeInMonths
       }));
       continue;
+    }
+    if (isFinancialLedgerV4(input.currentLedger)
+      && (proposal.kind === "expense_commitment_started" || proposal.kind === "expense_commitment_adjusted")) {
+      const candidate = proposal.kind === "expense_commitment_adjusted"
+        ? (proposal.payload as Record<string, unknown>).nextCommitment
+        : proposal.payload;
+      if (!candidate || typeof candidate !== "object" || !isExpenseCommitmentV4(candidate as any)) {
+        issues.push(proposalIssue({
+          proposal,
+          code: "EXPENSE_SCHEMA_FIELD_MISMATCH",
+          summary: "V4 账本只接受包含责任键、金额依据、范围和复核时钟的 canonical 支出 payload",
+          ageInMonths: input.periodEndAgeInMonths
+        }));
+        continue;
+      }
     }
     const referenceIssue = typedReferenceIssue({ proposal, ledger: input.currentLedger, ageInMonths: proposal.effectiveAtAgeInMonths });
     if (referenceIssue) { issues.push(referenceIssue); continue; }
@@ -433,6 +685,16 @@ export function validateFinancialProposals(input: {
       continue;
     }
     const payload = proposal.payload as Record<string, unknown>;
+    const v4ExpenseAuthorityIssue = v4ExpenseChangeAuthorityIssue({
+      proposal,
+      ledger: input.currentLedger,
+      narrativeText: input.narrativeText,
+      ageInMonths: proposal.effectiveAtAgeInMonths
+    });
+    if (v4ExpenseAuthorityIssue) {
+      issues.push(v4ExpenseAuthorityIssue);
+      continue;
+    }
     if (thirdPartyIncomeFact(proposal)) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "伴侣、父母、子女或其他人物的工资与收入不得进入主人公个人账本；只有明确转给主人公的款项才能使用家庭支持事件入账", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
@@ -440,6 +702,16 @@ export function validateFinancialProposals(input: {
     if (["expense_commitment_started", "expense_commitment_adjusted", "one_off_expense_paid"].includes(proposal.kind)
       && businessOperatingFact(proposal)) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司团队工资或经营成本不得进入主人公个人支出账本", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
+    if (["expense_commitment_started", "expense_commitment_adjusted"].includes(proposal.kind)
+      && proposal.financialScope === "third_party") {
+      issues.push(proposalIssue({
+        proposal,
+        code: "EXPENSE_THIRD_PARTY_LIABILITY",
+        summary: "第三方承担的持续支出不得写入主角个人账本",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
       continue;
     }
     if (["income_source_started", "income_source_adjusted", "one_off_income_received"].includes(proposal.kind)
@@ -461,7 +733,28 @@ export function validateFinancialProposals(input: {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "business_dividend 必须有已向主人公分配利润的证据，不能用公司年费或营收替代", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
     }
-    const evidenceMatch = matchFinancialEvidence({ proposal, narrativeText: input.narrativeText });
+    const isSystemReview = proposal.systemGenerated === "expense_lifecycle_review";
+    if (proposal.systemGenerated !== undefined && !isSystemReview) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "EXPENSE_SCHEMA_FIELD_MISMATCH",
+        summary: "仅允许域内生成的 expense_lifecycle_review 使用系统财务 Proposal 标记",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
+    if (isSystemReview && !isValidSystemExpenseLifecycleReview({ proposal, ledger: input.currentLedger })) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "EXPENSE_SCHEMA_FIELD_MISMATCH",
+        summary: "系统支出复核只能保持既有 V4 责任的金额和身份，并将其标记为 review_due",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
+    const evidenceMatch = isSystemReview
+      ? { matched: true as const, reasonCode: "SYSTEM_POLICY_REVIEW" as const }
+      : matchFinancialEvidence({ proposal, narrativeText: input.narrativeText });
     if (!evidenceMatch.matched || !evidenceMatch.reasonCode || !Number.isFinite(proposal.confidence) || proposal.confidence < 0.6 || proposal.confidence > 1) {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal 缺少可靠正文证据或 confidence", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
@@ -493,15 +786,21 @@ export function validateFinancialProposals(input: {
     }
     if (proposal.kind === "expense_commitment_started") {
       const durableType = String(payload.type);
-      const existingSameType = input.currentLedger.expenseCommitments.filter((item) => item.status === "active" && item.type === durableType);
+      const durableKey = typeof payload.responsibilityKey === "string" && payload.responsibilityKey
+        ? payload.responsibilityKey
+        : `legacy_type:${durableType}`;
+      const existingSameType = input.currentLedger.expenseCommitments.filter((item) => {
+        if (item.status !== "active") return false;
+        const existingKey = item.responsibilityKey || `legacy_type:${item.type}`;
+        return existingKey === durableKey;
+      });
       const onlyPolicyEstimate = existingSameType.length > 0 && existingSameType.every((item) => item.evidence.some((evidence) => evidence.source === "system_policy"
         || (evidence.source === "legacy_migration" && evidence.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION")));
-      if (["basic_living", "housing"].includes(durableType)
-        && existingSameType.length > 0 && !onlyPolicyEstimate) {
+      if (existingSameType.length > 0 && !onlyPolicyEstimate) {
         issues.push(proposalIssue({
           proposal,
-          code: "UNBALANCED_TRANSACTION",
-          summary: `持续支出 ${durableType} 已存在，必须引用现有支出 ID 使用 expense_commitment_adjusted，不能重复 started`,
+          code: "EXPENSE_DUPLICATE_RESPONSIBILITY",
+          summary: `持续支出责任 ${durableKey} 已存在，必须引用现有支出 ID 使用 expense_commitment_adjusted，不能重复 started`,
           ageInMonths: proposal.effectiveAtAgeInMonths
         }));
         continue;
@@ -575,8 +874,26 @@ export function validateFinancialProposals(input: {
       issues.push(proposalIssue({ proposal, code: "UNSUPPORTED_LARGE_VALUE_CHANGE", summary: "通用一次性金额远超当前账本规模，需要更具体的资产、债务或企业事件", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
     }
+    const expenseMutation = isFinancialLedgerV4(input.currentLedger) ? v4ExpenseMutation(proposal) : undefined;
+    const duplicateAmountSourceId = expenseMutation?.amountSourceIds.find((sourceId) => (
+      [...(expenseAmountSourceOwners.get(sourceId) || [])].some((ownerId) => ownerId !== expenseMutation.accountId)
+    ));
+    if (duplicateAmountSourceId) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "EXPENSE_AMOUNT_SOURCE_DOUBLE_COUNT",
+        summary: `持续支出金额来源 ${duplicateAmountSourceId} 已由另一项 active responsibility 使用；必须先原子拆分或提供不同的主角份额来源`,
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
     acceptedEvents.push(acceptedEvent(proposal, evidenceMatch.reasonCode));
     acceptedProposals.push(proposal);
+    if (expenseMutation) replaceExpenseAmountSourceOwner({
+      owners: expenseAmountSourceOwners,
+      accountId: expenseMutation.accountId,
+      amountSourceIds: expenseMutation.amountSourceIds
+    });
   }
 
   const hasActiveProperty = input.currentLedger.assetAccounts.some((account) => account.status === "active" && account.type === "property");

@@ -4,10 +4,13 @@ import type { AcceptedCareerTransition, CareerStateCollection } from "../career/
 import { deriveFinancialState } from "./deriveFinancialState";
 import { estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
+import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4";
 import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
+import { isFinancialLedgerV4 } from "./types";
 import type {
   AcceptedFinancialEvent,
   DerivedFinancialStateResult,
+  ExpenseCommitment,
   FinancialLedger,
   FinancialLedgerIssue,
   FinancialPeriodSummary,
@@ -97,6 +100,29 @@ function addOrObserveIssue(ledger: FinancialLedger, issue: FinancialLedgerIssue,
   return next;
 }
 
+/**
+ * Phase 0 still creates the deterministic adult basic-living floor.  A V4
+ * ledger, however, may only receive a canonical responsibility record.  Keep
+ * that compatibility conversion at the write boundary rather than changing
+ * the V3 policy helper used by historical fixtures and migrations.
+ */
+function addAutomaticBasicLivingCommitment(input: {
+  ledger: FinancialLedger;
+  commitment: ExpenseCommitment;
+  asOfAgeInMonths: number;
+}): FinancialLedgerIssue[] {
+  if (isFinancialLedgerV4(input.ledger)) {
+    const canonical = canonicalizeExpenseCommitmentV4({
+      commitment: input.commitment,
+      asOfAgeInMonths: input.asOfAgeInMonths
+    });
+    input.ledger.expenseCommitments.push(canonical.commitment);
+    return canonical.issues;
+  }
+  input.ledger.expenseCommitments.push(input.commitment);
+  return [];
+}
+
 function applyPreAccrualFactCompletenessPolicy(input: {
   ledger: FinancialLedger;
   events: AcceptedFinancialEvent[];
@@ -105,16 +131,22 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   employmentStatus: EmploymentStatus;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
-  const isPolicyOrLegacyEstimate = (commitment: FinancialLedger["expenseCommitments"][number]) => (
-    commitment.status === "active"
-    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
-    && commitment.evidence.some((item) => item.source === "system_policy"
-      || (item.source === "legacy_migration" && item.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION"))
+  const isEstimatedOrNeedsReview = (factStatus: unknown) => (
+    factStatus === "estimated" || factStatus === "needs_review"
+  );
+  const isAdultBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
+    commitment.type === "basic_living"
+    // V3 had no responsibility identity, so its basic_living record remains
+    // the compatibility proxy.  Once V4 identifies a legacy aggregate, it is
+    // no longer eligible for the adult basic-living floor.
+    && (commitment.responsibilityKind === undefined || commitment.responsibilityKind === "adult_basic_living")
+  );
+  const isActiveAdultBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
+    commitment.status === "active" && isAdultBasicLiving(commitment)
   );
   const isPolicyManagedBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
-    commitment.type === "basic_living"
-    && commitment.status === "active"
-    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
+    isActiveAdultBasicLiving(commitment)
+    && isEstimatedOrNeedsReview(commitment.factStatus)
     && commitment.evidence.some((item) => item.source === "system_policy"
       || (item.source === "legacy_migration" && item.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION"))
   );
@@ -123,16 +155,43 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   ));
   const startsBasicLivingEvent = input.events.find((event) => (
     event.kind === "expense_commitment_started"
-    && (event.payload as { type?: string }).type === "basic_living"
+    && (event.payload as { type?: string; responsibilityKind?: string }).type === "basic_living"
+    && ((event.payload as { responsibilityKind?: string }).responsibilityKind === undefined
+      || (event.payload as { responsibilityKind?: string }).responsibilityKind === "adult_basic_living")
   ));
-  const authoritativeSingletonStarts = input.events.filter((event) => (
+  const authoritativeBasicLivingStarts = input.events.filter((event) => (
     event.kind === "expense_commitment_started"
-    && ["basic_living", "housing"].includes((event.payload as { type?: string }).type || "")
+    && (event.payload as { type?: string; responsibilityKind?: string }).type === "basic_living"
+    && ((event.payload as { responsibilityKind?: string }).responsibilityKind === undefined
+      || (event.payload as { responsibilityKind?: string }).responsibilityKind === "adult_basic_living")
   ));
-  for (const event of authoritativeSingletonStarts) {
-    const nextType = (event.payload as { type: string }).type;
+  for (const event of authoritativeBasicLivingStarts) {
+    const nextCommitment = event.payload as {
+      monthlyAmountWan?: number;
+      factStatus?: string;
+      evidence?: FinancialLedger["expenseCommitments"][number]["evidence"];
+    };
+    const previousEstimate = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
+    // A low-confidence start is not evidence that a previously accepted or
+    // migrated basic-living amount has become cheaper.  Keep the existing
+    // cash-flow protection when the model only supplies another estimate; an
+    // explicit known amount remains allowed to lower it.
+    if (previousEstimate
+      && isEstimatedOrNeedsReview(nextCommitment.factStatus)
+      && Number.isFinite(Number(nextCommitment.monthlyAmountWan))
+      && Number(nextCommitment.monthlyAmountWan) < previousEstimate.monthlyAmountWan) {
+      nextCommitment.monthlyAmountWan = previousEstimate.monthlyAmountWan;
+      const evidence = Array.isArray(nextCommitment.evidence) ? nextCommitment.evidence : [];
+      if (!evidence.some((item) => item.reasonCode === "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED")) {
+        nextCommitment.evidence = [...evidence, {
+          source: "system_policy",
+          reasonCode: "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED",
+          confidence: 1
+        }];
+      }
+    }
     for (const commitment of input.ledger.expenseCommitments) {
-      if (commitment.type !== nextType || !isPolicyOrLegacyEstimate(commitment)) continue;
+      if (!isPolicyManagedBasicLiving(commitment)) continue;
       commitment.status = "ended";
       commitment.activeUntilAgeInMonths = event.effectiveAtAgeInMonths;
     }
@@ -141,28 +200,38 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     if (event.kind !== "expense_commitment_adjusted" && event.kind !== "expense_commitment_ended") return false;
     const commitmentId = (event.payload as { expenseCommitmentId?: string }).expenseCommitmentId;
     return input.ledger.expenseCommitments.some((commitment) => (
-      commitment.id === commitmentId && commitment.type === "basic_living"
+      commitment.id === commitmentId && isAdultBasicLiving(commitment)
     ));
   });
   const activeSystemEstimate = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
   for (const event of input.events) {
     if (event.kind !== "expense_commitment_adjusted") continue;
     const existing = input.ledger.expenseCommitments.find((commitment) => (
-      commitment.id === event.payload.expenseCommitmentId && isPolicyManagedBasicLiving(commitment)
+      commitment.id === event.payload.expenseCommitmentId && isActiveAdultBasicLiving(commitment)
     ));
     if (!existing) continue;
     const next = event.payload.nextCommitment;
-    const remainsEstimated = next.factStatus === "estimated" || next.factStatus === "needs_review";
+    const remainsEstimated = isEstimatedOrNeedsReview(next.factStatus);
     if (!remainsEstimated) continue;
     const policyFloor = estimatedBasicLivingCommitment({
       ageInMonths: event.effectiveAtAgeInMonths,
       employmentStatus: input.employmentStatus
     });
-    if (!policyFloor || next.monthlyAmountWan >= policyFloor.monthlyAmountWan) continue;
-    next.monthlyAmountWan = policyFloor.monthlyAmountWan;
+    const protectedMinimum = Math.max(existing.monthlyAmountWan, policyFloor?.monthlyAmountWan || 0);
+    if (next.monthlyAmountWan >= protectedMinimum) continue;
+    next.monthlyAmountWan = protectedMinimum;
+    // An estimated lower figure cannot downgrade an already confirmed amount
+    // while it is being blocked.  Preserve its fact authority as well as the
+    // cash-flow amount until an explicit accepted reduction arrives.
+    if (existing.factStatus === "known") next.factStatus = "known";
     next.evidence = [
-      ...(next.evidence || []).filter((item) => item.source !== "system_policy"),
-      ...policyFloor.evidence
+      ...(existing.factStatus === "known" ? existing.evidence : (next.evidence || []).filter((item) => item.source !== "system_policy")),
+      ...(policyFloor?.evidence || []),
+      {
+        source: "system_policy",
+        reasonCode: "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED",
+        confidence: 1
+      }
     ];
   }
   // An accepted adjustment/closure is the authority for this period. Do not
@@ -178,10 +247,17 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       ageInMonths: policyBoundary,
       employmentStatus: input.employmentStatus
     });
-    if (nextEstimate && nextEstimate.monthlyAmountWan !== activeSystemEstimate.monthlyAmountWan) {
+    // The policy value is a floor for adult basic living, not a replacement
+    // estimate for the whole account.  It may only raise a lower baseline;
+    // notably it must never turn a legacy 1.5 万/月 estimate into 0.35.
+    if (nextEstimate && nextEstimate.monthlyAmountWan > activeSystemEstimate.monthlyAmountWan) {
       activeSystemEstimate.activeUntilAgeInMonths = policyBoundary;
       if (policyBoundary <= input.periodStartAgeInMonths) activeSystemEstimate.status = "ended";
-      input.ledger.expenseCommitments.push(nextEstimate);
+      issues.push(...addAutomaticBasicLivingCommitment({
+        ledger: input.ledger,
+        commitment: nextEstimate,
+        asOfAgeInMonths: policyBoundary
+      }));
       if (input.employmentStatus === "student") {
         for (const source of input.ledger.incomeSources) {
           if (source.status === "active" && isDefaultStudentFamilySupport(source)) {
@@ -201,7 +277,13 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   }
   if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveBasicLiving && !startsBasicLivingEvent) {
     const estimatedLiving = estimatedBasicLivingCommitment({ ageInMonths: input.periodStartAgeInMonths });
-    if (estimatedLiving) input.ledger.expenseCommitments.push(estimatedLiving);
+    if (estimatedLiving) {
+      issues.push(...addAutomaticBasicLivingCommitment({
+        ledger: input.ledger,
+        commitment: estimatedLiving,
+        asOfAgeInMonths: input.periodStartAgeInMonths
+      }));
+    }
   }
 
   if (input.periodEndAgeInMonths >= 55 * 12) {
@@ -233,9 +315,27 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
     const refs = eventReferences(event);
     for (const issue of ledger.unresolvedIssues) {
       if (issue.status === "resolved") continue;
-      const isLifecycleEstimateThatCreatedTheReview = issue.id.startsWith("expense_lifecycle_review_")
-        && event.evidence.some((evidence) => evidence.source === "system_policy");
-      if (isLifecycleEstimateThatCreatedTheReview) continue;
+      // A system review says only that an existing amount is overdue for
+      // confirmation.  It must not resolve its own pending-fact issue: the
+      // issue stays open (and is observed on later nodes) until an Accepted
+      // amount, responsibility change, or closure supplies the missing fact.
+      // Older snapshots use `expense_lifecycle_review_`; V4 writes the stable
+      // `expense_review_due_` identity.
+      const isSystemGeneratedExpenseReview = (issue.id.startsWith("expense_lifecycle_review_")
+        || issue.id.startsWith("expense_review_due_"))
+        && event.evidence.some((evidence) => (
+          evidence.source === "system_policy"
+          && (evidence.reasonCode === "EXPENSE_REVIEW_DUE" || evidence.reasonCode === "SYSTEM_POLICY_REVIEW")
+        ));
+      if (isSystemGeneratedExpenseReview) continue;
+      // A V4 aggregate/component gap is intentionally durable: a scheduled
+      // review acknowledges that the aggregate is still uncertain, it does
+      // not establish the coverage relation or authorize a split.  Only an
+      // explicit accepted component/split fact may close this issue.
+      const isAggregateGapOnlyReviewed = issue.code === "EXPENSE_OPENING_COMPONENT_GAP"
+        && event.evidence.some((evidence) => evidence.source === "system_policy"
+          && evidence.reasonCode === "SYSTEM_POLICY_REVIEW");
+      if (isAggregateGapOnlyReviewed) continue;
       const resolvesMissingExpense = issue.id === "pending_fact_missing_adult_expense"
         && event.kind === "expense_commitment_started";
       const resolvesCoverage = (issue.id.startsWith("narrative_coverage_property_") && (event.kind === "asset_purchased" || event.kind === "asset_balance_discovered"))

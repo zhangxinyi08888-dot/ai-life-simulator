@@ -1,4 +1,5 @@
-import type { DebtAccount, DebtType, FinancialEventKind, FinancialEventProposal, FinancialLedger } from "./types";
+import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4";
+import { isFinancialLedgerV4, type DebtAccount, type DebtType, type ExpenseCommitment, type FinancialEventKind, type FinancialEventProposal, type FinancialLedger } from "./types";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import { financialEvidenceCandidates, matchFinancialEvidence } from "./evidenceMatching";
 
@@ -9,6 +10,8 @@ export interface FinancialProposalNormalizationAudit {
     | "DEBT_DRAW_PAYLOAD_NORMALIZED" | "DEBT_TYPE_NORMALIZED" | "ASSET_PURCHASE_PAYLOAD_NORMALIZED"
     | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED" | "LEGACY_INCOME_RECONFIRMATION_PRESERVED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED" | "EXPENSE_TYPE_PRESERVED"
+    | "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"
+    | "V4_EXPENSE_CANONICALIZED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
     | "RENT_ONLY_RECLASSIFIED_AS_HOUSING"
@@ -562,8 +565,20 @@ export function normalizeFinancialProposals(input: {
     if (expensePayload && typeof expensePayload === "object") {
       const original = JSON.stringify(expensePayload);
       expensePayload.id ||= expensePayload.expenseCommitmentId || expensePayload.commitmentId || `${kind}_${id}`;
-      const expenseAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
-      expensePayload.type = expenseAliases[expensePayload.type] || expensePayload.type || (/房租|月供|住房/u.test(evidenceText) ? "housing" : /照护|护工|赡养/u.test(evidenceText) ? "dependent_support" : "other");
+      const rawExpenseType = String(expensePayload.type || "");
+      const isMortgageRepayment = ["mortgage_payment", "mortgage", "debt_payment"].includes(rawExpenseType)
+        || /(?:月供|房贷|按揭)/u.test(evidenceText);
+      // Mortgage principal and interest are debt-service flows.  Do not hide a
+      // misrouted repayment inside a housing commitment: leave an invalid
+      // expense type for schema validation so the node is repaired into debt
+      // repayment / repayment-policy handling instead of being double counted.
+      if (isMortgageRepayment) {
+        expensePayload.type = "mortgage_payment";
+        audit.push({ proposalId: id, reasonCode: "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING", originalValue: rawExpenseType || "text_fallback", normalizedValue: "mortgage_payment" });
+      } else {
+        const expenseAliases: Record<string, string> = { rent: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
+        expensePayload.type = expenseAliases[expensePayload.type] || expensePayload.type || (/房租|住房/u.test(evidenceText) ? "housing" : /照护|护工|赡养/u.test(evidenceText) ? "dependent_support" : "other");
+      }
       if (expensePayload.type === "basic_living"
         && /(?:房租|月租|宿舍|租房)/u.test(evidenceText)
         && !/(?:生活费|日常开销|基本生活|伙食|餐饮|水电|通勤|综合支出)/u.test(evidenceText)) {
@@ -686,18 +701,31 @@ export function normalizeFinancialProposals(input: {
           payload.nextCommitment.evidence = structuredClone(existingCommitment.evidence);
           audit.push({ proposalId: id, reasonCode: "EXPENSE_EVIDENCE_PRESERVED", normalizedValue: payload.expenseCommitmentId });
         }
-        const typeAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
-        const requestedType = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
-        if (requestedType !== existingCommitment.type) {
-          payload.nextCommitment.type = existingCommitment.type;
+        const rawRequestedType = String(payload.nextCommitment.type || "");
+        const isMortgageRepayment = ["mortgage_payment", "mortgage", "debt_payment"].includes(rawRequestedType)
+          || /(?:月供|房贷|按揭)/u.test(evidenceText);
+        if (isMortgageRepayment) {
+          payload.nextCommitment.type = "mortgage_payment";
           audit.push({
             proposalId: id,
-            reasonCode: "EXPENSE_TYPE_PRESERVED",
-            originalValue: String(requestedType),
-            normalizedValue: existingCommitment.type
+            reasonCode: "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING",
+            originalValue: rawRequestedType || "text_fallback",
+            normalizedValue: "mortgage_payment"
           });
         } else {
-          payload.nextCommitment.type = requestedType;
+          const typeAliases: Record<string, string> = { rent: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
+          const requestedType = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
+          if (requestedType !== existingCommitment.type) {
+            payload.nextCommitment.type = existingCommitment.type;
+            audit.push({
+              proposalId: id,
+              reasonCode: "EXPENSE_TYPE_PRESERVED",
+              originalValue: String(requestedType),
+              normalizedValue: existingCommitment.type
+            });
+          } else {
+            payload.nextCommitment.type = requestedType;
+          }
         }
         const nextAmount = payload.nextCommitment.monthlyAmountWan ?? payload.nextCommitment.amountWanPerMonth ?? payload.nextCommitment.monthlyCostWan ?? monthlyAmountFromEvidence();
         if (Number.isFinite(Number(nextAmount))) payload.nextCommitment.monthlyAmountWan = Number(nextAmount);
@@ -762,6 +790,26 @@ export function normalizeFinancialProposals(input: {
         audit.push({ proposalId: id, reasonCode: "CASH_ACCOUNT_FILLED", normalizedValue: primaryCashId });
       }
     }
+    // Model transport is allowed to use the compact legacy-shaped expense
+    // payload, but a V4 ledger never writes that shape.  Canonicalize only at
+    // this anti-corruption boundary; invalid/ambiguous conversions deliberately
+    // remain uncanonical so the ordinary schema/gate path can reject them.
+    if (payload && input.currentLedger && isFinancialLedgerV4(input.currentLedger)
+      && (kind === "expense_commitment_started" || kind === "expense_commitment_adjusted")) {
+      const candidate = (kind === "expense_commitment_adjusted" ? payload.nextCommitment : payload) as ExpenseCommitment;
+      if (candidate && typeof candidate === "object"
+        && ["basic_living", "housing", "dependent_support", "education", "healthcare", "insurance", "other"].includes(String(candidate.type))) {
+        const canonical = canonicalizeExpenseCommitmentV4({
+          commitment: candidate,
+          asOfAgeInMonths: effectiveAtAgeInMonths
+        });
+        if (canonical.issues.length === 0) {
+          if (kind === "expense_commitment_adjusted") payload.nextCommitment = canonical.commitment;
+          else payload = canonical.commitment as unknown as Record<string, any>;
+          audit.push({ proposalId: id, reasonCode: "V4_EXPENSE_CANONICALIZED", normalizedValue: canonical.commitment.responsibilityKey });
+        }
+      }
+    }
     return [{
       id,
       kind,
@@ -770,7 +818,10 @@ export function normalizeFinancialProposals(input: {
       evidence: typeof source.evidence === "string" ? source.evidence : "",
       sourceOutcomeId,
       confidence: Number(source.confidence),
-      financialScope: source.financialScope === "personal" || source.financialScope === "business_operating"
+      financialScope: source.financialScope === "personal"
+        || source.financialScope === "shared_household"
+        || source.financialScope === "business_operating"
+        || source.financialScope === "third_party"
         ? source.financialScope
         : undefined
     } satisfies FinancialEventProposal];

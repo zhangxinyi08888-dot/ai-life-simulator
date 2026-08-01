@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertDistinctFinalImageEvidence,
+  buildDevFsImportReference,
   buildFinalImageRestorePayload,
   buildFinalPosterCropArgs,
   FINAL_IMAGE_VIEWPORT,
@@ -111,7 +112,15 @@ test("PB-RUN-06 final-image restore keeps the exact outcome without replaying he
   assert.equal(payload.nodeCount, 68);
 });
 
-test("PB-RUN-07 invitation controls may render shortly after the pending state", async () => {
+test("PB-RUN-07 large checkpoint recovery uses a Vite filesystem reference without encoding plus signs", () => {
+  assert.equal(
+    buildDevFsImportReference("/Users/zz/Documents/new life/artifacts/run+08-00/working/checkpoint.json"),
+    "@file:/@fs/Users/zz/Documents/new%20life/artifacts/run+08-00/working/checkpoint.json"
+  );
+  assert.throws(() => buildDevFsImportReference("working/checkpoint.json"), /absolute/i);
+});
+
+test("PB-RUN-08 invitation controls may render shortly after the pending state", async () => {
   const counts = [0, 0, 1];
   const locator = { count: async () => counts.shift() ?? 1 };
   let waits = 0;

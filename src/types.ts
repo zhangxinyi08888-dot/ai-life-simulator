@@ -207,7 +207,28 @@ export type WorldDelta =
   | { type: "relationship_change"; personId: string; summary: string }
   | { type: "career_state"; summary: string; employmentTransition?: EmploymentTransitionProposal }
   | { type: "health_state"; summary: string }
-  | { type: "location_change"; summary: string };
+  | { type: "location_change"; summary: string; residence?: ResidenceOccupancyChange };
+
+/**
+ * A completed, accepted change to the protagonist's primary living
+ * arrangement.  This is intentionally part of a location delta rather than
+ * inferred from a narrative phrase: the financial lifecycle may use it only
+ * after the choice outcome itself has been accepted.
+ */
+export interface ResidenceOccupancyChange {
+  livingArrangement: "renting" | "owner_occupied" | "with_family" | "provided";
+  financialScope: "personal" | "shared_household" | "business_operating" | "third_party";
+  liability: "protagonist" | "shared" | "third_party" | "none";
+  /** Exact completed-source excerpt when available; location summary is the fallback evidence. */
+  evidence?: string;
+}
+
+/** Persisted accepted residence state used by the next node's preview. */
+export interface ResidenceOccupancyState extends ResidenceOccupancyChange {
+  effectiveFromAgeInMonths: number;
+  source: "accepted_history";
+  evidence: string;
+}
 
 export interface ArcSignalProposal {
   pressureArcId?: string;
@@ -454,6 +475,7 @@ export interface WorldStateSnapshot {
   relationshipSummary?: string;
   healthSummary?: string;
   locationSummary?: string;
+  residence?: ResidenceOccupancyState;
   currentEmploymentStatus?: EmploymentStatus;
   careerStates?: CareerState[];
   currentCareerStateId?: string;
@@ -558,6 +580,109 @@ export interface FinancialProcessingMeta {
   expenseLifecycleCoveredTriggerCount?: number;
   expenseLifecycleEstimatedAccountCount?: number;
   expenseLifecycleResponsibilityCodes?: string[];
+  /**
+   * V4 responsibility reconciliation is deliberately observable even while
+   * it is in shadow mode.  These fields describe a candidate plan, not an
+   * assertion that the plan was committed to the authoritative ledger.
+   */
+  expenseLifecycleTelemetry?: ExpenseLifecycleTelemetry;
+}
+
+export interface ExpenseLifecycleTelemetry {
+  mode: "off" | "shadow" | "enforced";
+  candidateCount: number;
+  /**
+   * Per-candidate reconciliation trace. This is a detector/reconciler
+   * observation only: in shadow mode none of these records is authoritative,
+   * and in enforced mode it still describes the pre-commit plan rather than
+   * a post-hoc human label.
+   */
+  candidates: ExpenseLifecycleCandidateTelemetry[];
+  /**
+   * Counts are accepted by the V4 reconciler/validator plan.  In shadow mode
+   * they are prospective only; in enforced mode they are also part of the
+   * candidate transaction that may become authoritative after the gate.
+   */
+  acceptedStartCount: number;
+  acceptedAdjustCount: number;
+  acceptedEndCount: number;
+  reviewCount: number;
+  ignoredCount: number;
+  reasonCodes: string[];
+  beforeAnnualizedExpenseWan: number;
+  /**
+   * The annualized result of the exact V4 plan preview.  It intentionally
+   * differs from authority in shadow mode, where no plan event is committed.
+   */
+  afterAnnualizedExpenseWan: number;
+  /** Exact account-level V4 diff produced by the dry-run transaction. */
+  projectedCommitmentChanges: ExpenseLifecycleProjectedCommitmentChange[];
+  projectedAnnualizedExpenseDeltaWan: number;
+  baselineDownwardBlocked: boolean;
+  staleResponsibilityKeys: string[];
+  businessScopeRejectedKeys: string[];
+  duplicateAmountSourceIds: string[];
+  schemaRejectedCount: number;
+  /** A shadow-only Critical is recorded here but never changes authority. */
+  wouldBlock: boolean;
+}
+
+export type ExpenseLifecycleCandidateReconcilerDisposition =
+  | "planned_start"
+  | "planned_adjust"
+  | "planned_end"
+  | "planned_review"
+  | "ignored"
+  | "issue"
+  | "blocked";
+
+/**
+ * The candidate's own amount evidence, deliberately separate from a policy
+ * estimate or the dry-run commitment diff. `unknown` means no source amount
+ * was asserted; it must never be presented as a zero amount.
+ */
+export type ExpenseLifecycleCandidateAmountBasis =
+  | "explicit_protagonist_share"
+  | "explicit_shared_amount"
+  | "explicit_monthly_amount"
+  | "unknown";
+
+export interface ExpenseLifecycleCandidateTelemetry {
+  candidateId: string;
+  responsibilityKey: string;
+  responsibilityKind: string;
+  proposedType: string;
+  financialScope: "personal" | "shared_household" | "business_operating" | "third_party";
+  action: "start" | "adjust" | "end" | "review";
+  liability: "protagonist" | "shared" | "third_party" | "none" | "unknown";
+  source: "user_fact" | "accepted_world_delta" | "accepted_outcome" | "narrative_supplement" | "scheduled_review";
+  amountBasis: ExpenseLifecycleCandidateAmountBasis;
+  /** Candidate-provided protagonist cash-flow amount; absent means unknown. */
+  sourceMonthlyAmountWan?: number;
+  /** Candidate-provided gross/shared amount before the protagonist share. */
+  sourceGrossMonthlyAmountWan?: number;
+  shareRate?: number;
+  amountSourceId?: string;
+  evidenceReasonCodes: string[];
+  reconcilerDisposition: ExpenseLifecycleCandidateReconcilerDisposition;
+  reconcilerReasonCodes: string[];
+  relatedProposalIds: string[];
+  relatedIssueIds: string[];
+  /** Would this candidate's own reconciler outcome block an enforced node? */
+  wouldBlock: boolean;
+}
+
+export interface ExpenseLifecycleProjectedCommitmentChange {
+  action: "start" | "adjust" | "end" | "review";
+  commitmentId: string;
+  responsibilityKey: string;
+  responsibilityKind: string;
+  beforeMonthlyAmountWan?: number;
+  afterMonthlyAmountWan?: number;
+  beforeStatus?: "active" | "paused" | "ended";
+  afterStatus?: "active" | "paused" | "ended";
+  amountBasis?: string;
+  financialScope?: "personal" | "shared_household";
 }
 
 export interface PersonalityInsight {

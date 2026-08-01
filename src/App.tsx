@@ -19,6 +19,7 @@ import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/hi
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
 import { runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import { resolveDevTestStateImportText } from "./utils/testStateImport";
 import type { FinancialNodeAcceptanceDecision } from "./domain/finance";
 import { resolveFinancialNodeGateMode } from "./config/financialGatePolicy";
 
@@ -173,9 +174,9 @@ export default function App() {
   const [showTestStateImporter, setShowTestStateImporter] = useState(testStateImportEnabled);
   const [testStateImportText, setTestStateImportText] = useState("");
 
-  const handleImportTestState = () => {
+  const handleImportTestState = async () => {
     try {
-      const parsed = JSON.parse(testStateImportText) as DevRecordedAppState & { latestState?: DevRecordedAppState };
+      const parsed = JSON.parse(await resolveDevTestStateImportText(testStateImportText)) as DevRecordedAppState & { latestState?: DevRecordedAppState };
       const restored = parsed.latestState ?? parsed;
       if (!restored.userData || !restored.currentNode || !restored.step) {
         throw new Error("测试状态缺少 userData、currentNode 或 step");

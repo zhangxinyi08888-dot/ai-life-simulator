@@ -77,6 +77,9 @@ test("an authoritative mortgage fact does not imply a separately owned property"
 test("future home plans and relationship metaphors are not completed property facts", () => {
   for (const narrativeText of [
     "你们正式讨论两年后共同购买三居室的计划。",
+    "你们计划两年后购房，眼下先签了一年租房合同。",
+    "你们计划两年后买房，首付预计90万元。签合同那天，房东把租房合同交给了你们。",
+    "你们计划以后买房。签合同那天，你们续签了租约。",
     "林姐的女儿每周来你家住一天，你终于拥有了一个可以称之为家的关系。"
   ]) {
     const issues = detectNarrativeFinancialCoverageIssues({
@@ -97,6 +100,30 @@ test("a completed home down payment requires a property asset fact", () => {
     ageInMonths: 342
   });
   assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_342"), true);
+});
+
+test("a signed home contract after concrete down-payment context requires a property asset fact", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你开始看房，心仪两居室总价约300万元，首付需要90万元。你们手里的积蓄加上父母支持，勉强够付首付和税费。签合同那天，你看着合同上的名字，知道接下来十几年都要为这套房子努力。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 332
+  });
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_332"), true);
+  // The passage proves ownership, but does not state an actual mortgage;
+  // the detector must not invent a debt account merely from a long horizon.
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_mortgage_332"), false);
+});
+
+test("first-person completed small-home purchase and released loan require property and mortgage facts", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "我们终于决定把城郊那套看了很久的小户型买下来。首付用掉了大部分积蓄，贷款已经发放并开始月供。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 469
+  });
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_469"), true);
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_mortgage_469"), true);
 });
 
 test("employee option grants do not create a protagonist option coverage issue", () => {

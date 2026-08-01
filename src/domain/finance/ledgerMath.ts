@@ -1,4 +1,9 @@
-import type { FinancialFactStatus, FinancialLedger } from "./types";
+import {
+  isFinancialLedgerV4,
+  type ExpenseCommitmentV4,
+  type FinancialFactStatus,
+  type FinancialLedger
+} from "./types";
 
 export const PRIMARY_CASH_ACCOUNT_ID = "primary_cash";
 
@@ -74,8 +79,121 @@ function assertUniqueIds(items: Array<{ id: string }>, label: string): void {
   }
 }
 
+function assertIntegerAtOrAfter(value: number | undefined, lowerBound: number, label: string): void {
+  if (!Number.isInteger(value) || (value as number) < lowerBound) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `${label} 必须是大于等于 ${lowerBound} 的整数`);
+  }
+}
+
+function assertV4ExpenseCommitment(commitment: ExpenseCommitmentV4): void {
+  if (!commitment.responsibilityKey.trim()) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id} 缺少 responsibilityKey`);
+  }
+  if (![
+    "adult_basic_living",
+    "primary_residence",
+    "child_support",
+    "elder_care",
+    "recurring_healthcare",
+    "personal_insurance",
+    "continuing_education",
+    "legacy_aggregate"
+  ].includes(commitment.responsibilityKind)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id}.responsibilityKind 无效`);
+  }
+  if (![
+    "explicit_known",
+    "explicit_shared_amount",
+    "last_known",
+    "contextual_estimate",
+    "policy_floor",
+    "legacy_estimate"
+  ].includes(commitment.amountBasis)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id}.amountBasis 无效`);
+  }
+  if (commitment.financialScope !== "personal" && commitment.financialScope !== "shared_household") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id} 不得进入 ${commitment.financialScope} 范围的个人账本`);
+  }
+  if (!commitment.amountSourceIds.length
+    || commitment.amountSourceIds.some((id) => !id || !id.trim())
+    || new Set(commitment.amountSourceIds).size !== commitment.amountSourceIds.length) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id}.amountSourceIds 必须为非空且唯一的稳定来源`);
+  }
+  if (![
+    "normal",
+    "conservative",
+    "review_due"
+  ].includes(commitment.accrualReviewStatus)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id}.accrualReviewStatus 无效`);
+  }
+  assertIntegerAtOrAfter(commitment.nextReviewAtAgeInMonths, commitment.activeFromAgeInMonths, `V4 支出义务 ${commitment.id}.nextReviewAtAgeInMonths`);
+  if (commitment.lastConfirmedAtAgeInMonths !== undefined) {
+    assertIntegerAtOrAfter(commitment.lastConfirmedAtAgeInMonths, commitment.activeFromAgeInMonths, `V4 支出义务 ${commitment.id}.lastConfirmedAtAgeInMonths`);
+  }
+  if (commitment.lastReviewedAtAgeInMonths !== undefined) {
+    assertIntegerAtOrAfter(commitment.lastReviewedAtAgeInMonths, commitment.activeFromAgeInMonths, `V4 支出义务 ${commitment.id}.lastReviewedAtAgeInMonths`);
+  }
+  if (commitment.status === "active" && commitment.monthlyAmountWan <= 0) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 active 支出义务 ${commitment.id} 的月计提必须大于零`);
+  }
+  if (commitment.status === "active" && commitment.factStatus === "unknown") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 active 支出义务 ${commitment.id} 金额未确认时必须为 needs_review，不能为 unknown`);
+  }
+  if (commitment.status === "paused" && commitment.activeUntilAgeInMonths !== undefined) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 paused 支出义务 ${commitment.id} 不得写入结束时间`);
+  }
+  if (commitment.status === "ended" && commitment.activeUntilAgeInMonths === undefined) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 ended 支出义务 ${commitment.id} 必须写入结束时间`);
+  }
+  if (commitment.plausibleMonthlyAmountRangeWan) {
+    const [low, high] = commitment.plausibleMonthlyAmountRangeWan;
+    assertFiniteNonNegative(low, `V4 支出义务 ${commitment.id}.plausibleMonthlyAmountRangeWan[0]`);
+    assertFiniteNonNegative(high, `V4 支出义务 ${commitment.id}.plausibleMonthlyAmountRangeWan[1]`);
+    if (low > high) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id} 的金额范围下界不得大于上界`);
+    }
+  }
+  if (commitment.grossMonthlyAmountWan !== undefined) {
+    assertFiniteNonNegative(commitment.grossMonthlyAmountWan, `V4 支出义务 ${commitment.id}.grossMonthlyAmountWan`);
+  }
+  if (commitment.householdShareRate !== undefined) {
+    if (!Number.isFinite(commitment.householdShareRate)
+      || commitment.householdShareRate < 0
+      || commitment.householdShareRate > 1) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id}.householdShareRate 必须在 0-1 之间`);
+    }
+    if (commitment.grossMonthlyAmountWan !== undefined
+      && Math.abs(commitment.monthlyAmountWan - roundWan(commitment.grossMonthlyAmountWan * commitment.householdShareRate)) > 0.0001) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 支出义务 ${commitment.id} 的个人月计提必须等于总额乘以承担比例`);
+    }
+  }
+  const explicit = commitment.amountBasis === "explicit_known" || commitment.amountBasis === "explicit_shared_amount";
+  if (explicit) {
+    if (commitment.confirmedMonthlyAmountWan === undefined) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 明确金额支出 ${commitment.id} 缺少 confirmedMonthlyAmountWan`);
+    }
+    assertFiniteNonNegative(commitment.confirmedMonthlyAmountWan, `V4 支出义务 ${commitment.id}.confirmedMonthlyAmountWan`);
+    if (Math.abs(commitment.monthlyAmountWan - commitment.confirmedMonthlyAmountWan) > 0.0001) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 明确金额支出 ${commitment.id} 的计提与确认个人份额不一致`);
+    }
+    if (commitment.lastConfirmedAtAgeInMonths === undefined || commitment.evidence.length === 0) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 明确金额支出 ${commitment.id} 缺少确认时间或责任证据`);
+    }
+    if (commitment.evidence.some((item) => item.financialScope === "business_operating" || item.financialScope === "third_party")) {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 明确金额支出 ${commitment.id} 不能以企业或第三方责任证据写入个人账本`);
+    }
+    if (commitment.amountBasis === "explicit_shared_amount" && commitment.financialScope !== "shared_household") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 共同金额支出 ${commitment.id} 必须标记为 shared_household`);
+    }
+  }
+  if (["contextual_estimate", "policy_floor", "legacy_estimate"].includes(commitment.amountBasis)
+    && !commitment.estimationPolicyId) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 估算支出 ${commitment.id} 缺少 estimationPolicyId 或迁移标识`);
+  }
+}
+
 export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
-  if (ledger.version !== 3 || ledger.owner !== "protagonist" || ledger.currencyUnit !== "CNY_WAN_REAL") {
+  if ((ledger.version !== 3 && ledger.version !== 4) || ledger.owner !== "protagonist" || ledger.currencyUnit !== "CNY_WAN_REAL") {
     throw new FinancialLedgerInvariantError("INVALID_LEDGER", "账本版本、所有者或币种单位无效");
   }
   if (!Number.isInteger(ledger.asOfAgeInMonths) || ledger.asOfAgeInMonths < 0) {
@@ -202,6 +320,18 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
     }
     assertFiniteNonNegative(commitment.monthlyAmountWan, `支出义务 ${commitment.id}.monthlyAmountWan`);
   });
+
+  if (isFinancialLedgerV4(ledger)) {
+    const activeResponsibilityKeys = new Set<string>();
+    for (const commitment of ledger.expenseCommitments) {
+      assertV4ExpenseCommitment(commitment);
+      if (commitment.status !== "active") continue;
+      if (activeResponsibilityKeys.has(commitment.responsibilityKey)) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 active 支出责任不得重复: ${commitment.responsibilityKey}`);
+      }
+      activeResponsibilityKeys.add(commitment.responsibilityKey);
+    }
+  }
 
   if (totalCashWan(ledger) < 0) {
     throw new FinancialLedgerInvariantError("MISSING_FUNDING_SOURCE", "已提交账本现金不得为负");

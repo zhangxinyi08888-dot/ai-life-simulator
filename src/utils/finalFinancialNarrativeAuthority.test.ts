@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "../domain/finance/ledgerMath";
-import type { DebtAccount, FinancialEvidence } from "../domain/finance/types";
+import { migrateFinancialLedgerV3ToV4 } from "../domain/finance/migrateFinancialLedgerV3ToV4";
+import type { DebtAccount, FinancialEvidence, FinancialLedgerV3 } from "../domain/finance/types";
 import type { FinalLifeOutcome, HistoryItem } from "../types";
+import { buildFinalOutcomePrompt } from "../services/finalOutcome/prompts";
 import { sanitizeFinalOutcomeFinancialClaims } from "./finalOutcomeFinancialSanitizer";
 import { applyFinalFinancialNarrativeFallback, collectFinalFinancialNarrativeIssues, deriveFinalFinancialNarrativeAuthority, formatFinalFinancialNarrativeAuthorityForPrompt } from "./finalFinancialNarrativeAuthority";
 
@@ -143,4 +145,56 @@ test("PB-REPORT-12 terminal debt includes every active liability shown in the fi
   assert.equal(authority.debt.kind, "debt_outstanding");
   assert.equal(authority.numericClaims.find((claim) => claim.kind === "total_debt")?.valueWan, 23.6);
   assert.equal(authority.numericClaims.find((claim) => claim.kind === "net_worth")?.valueWan, -23.6);
+});
+
+test("PB-REPORT-13 final report and poster prompt consume the same V4 classified personal expense authority", () => {
+  const history = historyWith({ cashWan: 10 });
+  const opening = history[0].financialLedger! as FinancialLedgerV3;
+  opening.expenseCommitments = [{
+    id: "shared_home",
+    type: "housing",
+    displayName: "共同租住公寓",
+    monthlyAmountWan: 0.3,
+    grossMonthlyAmountWan: 0.6,
+    householdShareRate: 0.5,
+    confirmedMonthlyAmountWan: 0.3,
+    amountBasis: "explicit_shared_amount",
+    amountSourceIds: ["lease:shared_home"],
+    financialScope: "shared_household",
+    activeFromAgeInMonths: 470,
+    status: "active",
+    factStatus: "known",
+    evidence: [{ ...evidence[0], financialScope: "shared_household" }]
+  }];
+  history[0].financialLedger = migrateFinancialLedgerV3ToV4(opening);
+
+  const authority = deriveFinalFinancialNarrativeAuthority(history)!;
+  assert.equal(authority.personalExpenseSummary.availability, "available");
+  if (authority.personalExpenseSummary.availability !== "available") throw new Error("expected V4 expense authority");
+  assert.deepEqual(authority.personalExpenseSummary.activeCommitments.map((item) => ({
+    responsibilityKey: item.responsibilityKey,
+    kind: item.responsibilityKind,
+    scope: item.financialScope,
+    monthly: item.monthlyAmountWan,
+    basis: item.amountBasis,
+    factStatus: item.factStatus,
+    review: item.reviewStatus
+  })), [{
+    responsibilityKey: "primary_residence:main",
+    kind: "primary_residence",
+    scope: "shared_household",
+    monthly: 0.3,
+    basis: "explicit_shared_amount",
+    factStatus: "known",
+    review: "normal"
+  }]);
+  assert.equal(authority.numericClaims.find((claim) => claim.kind === "personal_annual_expense")?.valueWan, 3.6);
+
+  const prompt = buildFinalOutcomePrompt({
+    birthday: "1990-01-01", birthtime: "08:00", gender: "女", currentSituation: "测试", isReturnToPast: true,
+    targetAgeNode: "毕业", regressionNodeKey: "career", regressionAge: 22, regressionSituation: "测试", regressionChoices: "测试", coreStoryFocus: "career"
+  }, [], history, { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 }, { closureType: "mortality" });
+  assert.match(prompt, /V4 个人持续支出分类摘要（报告与海报唯一支出事实源）/u);
+  assert.match(prompt, /responsibilityKey=primary_residence:main/u);
+  assert.match(prompt, /"personalExpenseSummary"/u, "the report/poster semantic authority must carry the same V4 object");
 });

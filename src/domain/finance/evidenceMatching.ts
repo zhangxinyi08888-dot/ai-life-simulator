@@ -1,6 +1,6 @@
 import type { FinancialEventKind, FinancialEventProposal } from "./types";
 
-export type EvidenceMatchReason = "EVIDENCE_EXACT_MATCHED" | "EVIDENCE_NORMALIZED_MATCHED" | "EVIDENCE_FUZZY_MATCHED";
+export type EvidenceMatchReason = "EVIDENCE_EXACT_MATCHED" | "EVIDENCE_NORMALIZED_MATCHED" | "EVIDENCE_FUZZY_MATCHED" | "SYSTEM_POLICY_REVIEW";
 
 const NON_PROTAGONIST_ENTITY_PATTERN = /^(?:公司|企业|项目|团队|同事|伴侣|配偶|父母|孩子|子女)/;
 const PROTAGONIST_PATTERN = /你|你的|你们|主角|本人|自己/u;
@@ -11,6 +11,37 @@ const ENTITY_ONLY_EVENT_KINDS = new Set<FinancialEventKind>([
   "business_distribution_received",
   "business_holding_sold"
 ]);
+const PERSONAL_EXPENSE_EVENT_KINDS = new Set<FinancialEventKind>([
+  "expense_commitment_started",
+  "expense_commitment_adjusted",
+  "expense_commitment_ended",
+  "one_off_expense_paid",
+  "family_support_paid"
+]);
+
+/**
+ * A care arrangement is sufficient to create a *needs_review* elder-care
+ * commitment even where the story has not priced it yet.  It is deliberately
+ * narrower than the ordinary personal-payer rule: it applies only to a
+ * system-estimated dependent-care start, never to a known amount, income, or
+ * an asset event.  This preserves the entity boundary for "父母需要照料" while
+ * allowing "你请人帮忙照看父母" to establish the protagonist's responsibility.
+ */
+function isUnpricedPersonalElderCareStart(proposal: FinancialEventProposal): boolean {
+  if (proposal.kind !== "expense_commitment_started") return false;
+  const payload = proposal.payload as Record<string, unknown>;
+  return payload.responsibilityKind === "elder_care"
+    && payload.type === "dependent_support"
+    && payload.factStatus === "needs_review";
+}
+
+function hasExplicitPersonalCareArrangement(input: {
+  proposal: FinancialEventProposal;
+  evidence: string;
+}): boolean {
+  if (!isUnpricedPersonalElderCareStart(input.proposal)) return false;
+  return /(?:^|[。；，、\s])(?:你|我|本人|主角|你们)[^。！？；]{0,32}(?:请(?:了)?(?:人|护工|保姆|钟点工|家政)|安排(?:了)?(?:照护|护工|陪护|照看)|雇(?:了)?(?:人|护工|保姆|钟点工|家政))[^。！？；]{0,24}(?:照看|照护|护理|陪护|照料|帮忙)/u.test(input.evidence);
+}
 
 const EVENT_PATTERNS: Partial<Record<FinancialEventKind, RegExp>> = {
   income_source_started: /工资|薪资|月薪|年薪|收入|顾问|咨询|稿费|版税|租金|养老金|年金|分红|提款/,
@@ -108,7 +139,31 @@ export function matchFinancialEvidence(input: {
   const evidence = String(input.proposal.evidence || "").trim();
   if (!evidence) return { matched: false };
   const explicitPersonalReceipt = /(?:公司|企业|项目|团队).{0,32}(?:向|给)(?:你|主角|本人)(?:的)?(?:个人账户)?(?:支付|发放|转入|打入)|(?:你|主角|本人).{0,32}(?:领取|收到|获得).{0,20}(?:工资|薪资|报酬|分红|提款)/u.test(evidence);
-  if (!ENTITY_ONLY_EVENT_KINDS.has(input.proposal.kind) && NON_PROTAGONIST_ENTITY_PATTERN.test(evidence) && !explicitPersonalReceipt) {
+  // A child, parent, or partner can be the beneficiary of a personal
+  // commitment without being its payer.  Keep the entity-boundary rejection
+  // for all income/asset cases, but admit an expense only when the sentence
+  // explicitly makes the protagonist the actor.  In particular, "配偶替你
+  // 支付" must not pass merely because it contains the character "你".
+  const explicitPersonalExpenseLiability = PERSONAL_EXPENSE_EVENT_KINDS.has(input.proposal.kind)
+    && (/(?:由|需由|应由)(?:你|主角|本人|你们)(?:来|负责)?(?:承担|支付|负担|缴纳|转给|转向)/u.test(evidence)
+      || /(?:^|[。；，、\s])(?:你|主角|本人|你们)(?:已|已经|开始|继续|每月|将|会|需要|负责|愿意|主动)?(?:承担|支付|负担|缴纳|转给|转向)/u.test(evidence));
+  const explicitPersonalCareArrangement = hasExplicitPersonalCareArrangement({
+    proposal: input.proposal,
+    evidence
+  });
+  // An accepted child-independence fact is evidence that an existing child
+  // commitment ends; it is not evidence that the child pays the protagonist.
+  // The V4 authority check separately requires the same change reason and
+  // explicit independence wording before the reducer can end the account.
+  const explicitDependentIndependenceEnd = input.proposal.kind === "expense_commitment_ended"
+    && (input.proposal.payload as Record<string, unknown>)?.changeReason === "dependent_independent"
+    && /子女.{0,20}(?:独立|工作|不再需要抚养)|独立生活/u.test(evidence);
+  if (!ENTITY_ONLY_EVENT_KINDS.has(input.proposal.kind)
+    && NON_PROTAGONIST_ENTITY_PATTERN.test(evidence)
+    && !explicitPersonalReceipt
+    && !explicitPersonalExpenseLiability
+    && !explicitPersonalCareArrangement
+    && !explicitDependentIndependenceEnd) {
     return { matched: false };
   }
   if (input.narrativeText.includes(evidence)) {

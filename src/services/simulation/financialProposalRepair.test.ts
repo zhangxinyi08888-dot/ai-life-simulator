@@ -660,7 +660,7 @@ test("PB-CAREER-08 the accepted resignation choice remains authority when prose 
   assert.equal(transition?.evidence, "辞职创业，先用半年做出三个付费客户");
 });
 
-test("PB-CAREER-09 an internal promotion preserves the authoritative working status", () => {
+test("PB-CAREER-09 an internal promotion does not synthesize a no-op CareerTransition", () => {
   const transition = synthesizeSelectedCareerTransition({
     selectedDecision: "接受内部转岗，负责新的产品线",
     narrativeText: "你主动申请转岗，并被任命为新产品线负责人。",
@@ -668,8 +668,7 @@ test("PB-CAREER-09 an internal promotion preserves the authoritative working sta
     effectiveAtAgeInMonths: 610,
     currentStatus: "employed"
   });
-  assert.equal(transition?.toStatus, "employed");
-  assert.match(transition?.evidence || "", /转岗|任命/);
+  assert.equal(transition, undefined);
 });
 
 test("PB-CAREER-16 a completed internship conversion commits employed even when the choice described the attempt", () => {

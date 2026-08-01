@@ -23,6 +23,37 @@ const ENDED_ROMANCE_REFERENCE = /分手|前任|走散|分开一段时间|结束(
 const ROMANTIC_STATE_CLAIM_TEXT = /(?:私人|单独).{0,8}(?:相处|约会)|试探.{0,16}(?:进一步|发展|态度)|(?:主动)?推进.{0,10}(?:关系|发展)|确认.{0,8}(?:感觉|心意)|卸下心防|更深.{0,8}(?:了解|关系)|关系.{0,10}(?:升温|越来越亲密)|重新学会.{0,8}靠近|(?:和|与).{0,10}(?:慢慢相处|培养感情)|尝试.{0,8}(?:一段)?新(?:的)?关系|感情.{0,10}(?:进展|升温|发展)/;
 const ROMANTIC_EXECUTING_CHOICE_TEXT = /(?:建立|开始|开启|发展).{0,12}(?:亲密关系|恋爱关系|一段感情)|(?:私人|单独).{0,8}(?:相处|约会)|试探.{0,16}(?:进一步|发展|态度)|(?:主动)?推进.{0,10}(?:关系|发展)|确认.{0,8}(?:感觉|心意)|卸下心防|更深.{0,8}(?:了解|关系)|挽回.{0,10}(?:感情|关系|前任)|(?:和|与).{0,8}前任复合|重新开始.{0,8}(?:感情|关系)|前任.{0,12}重新联系.{0,16}(?:可能|机会)|重新联系.{0,12}前任.{0,16}(?:可能|机会)|(?:认真|主动)?追求.{0,12}(?:女生|男生|她|他|对方)|与.{0,10}(?:女生|男生|她|他|对方).{0,16}保持联系.{0,20}(?:观察|发展|再定)|(?:和|与).{0,14}深入交往|(?:和|与).{0,14}(?:看看|看).{0,6}能否发展|(?:尝试|开始).{0,16}(?:更)?深入.{0,4}交往|给彼此一个机会/;
 
+/**
+ * Relationship facts are code-owned.  In particular, a commitment plan is
+ * deliberately not a cohabitation/marriage/parenthood transition.  Keep the
+ * recognizers here narrow enough to allow future-oriented discussion while
+ * catching assertions that the state already changed.
+ */
+function narrativeAssertsCohabiting(text: string): boolean {
+  const assertion = /(?:你(?:和|与)|我(?:和|与)|你们|我们).{0,16}(?:同居|同住|合租|共同居住|共同生活|搬到一起(?:住|生活))|(?:同居(?:生活)?|共同生活)(?:的(?:第|日常|执行|磨合|稳定|开始)|已(?:经)?|开始|日常|磨合|执行|稳定|之后|以来)/;
+  return text.split(/(?<=[。！？；\n])/u).some((sentence) => (
+    assertion.test(sentence)
+    && !/(?:讨论|商量|评估|考虑|计划|打算|准备|期待|希望|未来|条件|筹备).{0,16}(?:同居|同住|合租|共同居住|共同生活|搬到一起(?:住|生活))/.test(sentence)
+  ));
+}
+
+function narrativeAssertsMarriage(text: string): boolean {
+  const assertion = /(?:你(?:和|与)|我(?:和|与)|你们|我们).{0,16}(?:领(?:了)?证|登记(?:了)?结婚|结了婚|已经结婚|正式结婚|成(?:了)?夫妻|办(?:了)?婚礼)|婚后(?:生活|第|日常)|新婚|夫妻(?:生活|关系|日常)|你的(?:妻子|丈夫)|(?:妻子|丈夫|老公|老婆).{0,10}(?:说|决定|工作|收入|父母|家人)/;
+  return text.split(/(?<=[。！？；\n])/u).some((sentence) => (
+    assertion.test(sentence)
+    && !/(?:讨论|商量|评估|考虑|计划|打算|准备|期待|希望|未来|条件|筹备).{0,16}(?:领证|登记(?:结婚)?|结婚|婚礼)/.test(sentence)
+  ));
+}
+
+function narrativeAssertsChildBirth(text: string): boolean {
+  return /(?:孩子|宝宝|儿子|女儿|新生儿).{0,6}(?:出生|降生|满月)|(?:生了|生下(?:了)?|迎来了|有了).{0,8}(?:孩子|宝宝|儿子|女儿)|(?:成为|初为).{0,8}(?:父母|爸爸|妈妈)/.test(text);
+}
+
+function narrativeAssertsUngroundedParenting(text: string, hasAuthoritativeChild: boolean): boolean {
+  if (hasAuthoritativeChild) return false;
+  return /(?:接|照顾|陪伴|抚养|带).{0,8}(?:孩子|宝宝|儿子|女儿)|(?:孩子|宝宝|儿子|女儿).{0,12}(?:托育|托班|幼儿园|接送|照护|育儿|奶粉|尿布|熟睡|上学)|(?:孩子|宝宝|儿子|女儿)的(?:托育|教育|照护|生活)费/.test(text);
+}
+
 function choiceExecutesFormalRelationshipTransition(text: string): boolean {
   const normalized = text.replace(/\s+/g, "");
   if (/不(?:急着|打算|准备)?(?:领证|结婚|同居)|(?:讨论|商量|评估|考虑|是否).{0,16}(?:领证|结婚|同居)|(?:领证|结婚|同居).{0,16}(?:讨论|商量|评估|考虑|是否)|(?:暂缓|推迟|延后).{0,20}再考虑/.test(normalized)) {
@@ -39,6 +70,14 @@ function choiceExecutesDatingTransition(text: string): boolean {
   return /(?:明确表达|决定|开始|确认|正式|愿意).{0,20}(?:正式交往|恋爱关系|成为恋人)|(?:和|与).{0,10}正式交往/.test(normalized);
 }
 
+function eventAuthorizesDatingChoice(eventId: string | undefined, romanticStage: string | undefined): boolean {
+  // These code-owned checkpoint events deliberately offer the user the next
+  // relationship stage as one possible future outcome. They do not authorize
+  // the generated prose to claim that the transition has already happened.
+  return romanticStage === "exploring"
+    && (eventId === "romance_connection_clarification" || eventId === "romance_exploration_resolution");
+}
+
 export function stripUnauthorizedRomanticCharacters(
   node: SimulationNode,
   worldState?: WorldStateSnapshot
@@ -48,8 +87,24 @@ export function stripUnauthorizedRomanticCharacters(
   ));
   if (hasActiveRomanticRelationship || node.eventMeta?.eventId === "romance_new_connection") return node;
   const activeCharacters = node.narrativeMeta?.activeCharacters || [];
-  const filteredCharacters = activeCharacters.filter((character) => !ROMANTIC_CHARACTER_CLAIM.test(JSON.stringify(character)));
-  if (filteredCharacters.length === activeCharacters.length || !node.narrativeMeta) return node;
+  // `candidateOrdinal` is a validator-visible romantic-candidate marker, but
+  // legacy payloads can attach it to a real parent or colleague by mistake.
+  // Remove a true candidate entirely; otherwise retain the person and remove
+  // only the stale marker so metadata cannot cause a final-surface pause.
+  let changed = false;
+  const filteredCharacters = activeCharacters.flatMap((character) => {
+    const isExplicitRomanticCandidate = ROMANTIC_CHARACTER_CLAIM.test(JSON.stringify(character))
+      || (character.candidateOrdinal === 0 && character.relation === "other");
+    if (isExplicitRomanticCandidate) {
+      changed = true;
+      return [];
+    }
+    if (character.candidateOrdinal == null) return [character];
+    changed = true;
+    const { candidateOrdinal: _candidateOrdinal, ...withoutCandidateOrdinal } = character;
+    return [withoutCandidateOrdinal];
+  });
+  if (!changed || !node.narrativeMeta) return node;
   return {
     ...node,
     narrativeMeta: { ...node.narrativeMeta, activeCharacters: filteredCharacters }
@@ -151,35 +206,45 @@ export function validateStoryConsistency(input: {
   const unauthorizedDatingTransitionChoice = input.node.choices.some((choice) => (
     choiceExecutesDatingTransition(choice.text)
   ));
+  const unauthorizedDatingTransitionChoiceForCurrentEvent = unauthorizedDatingTransitionChoice
+    && !eventAuthorizesDatingChoice(input.node.eventMeta?.eventId, romanticStage);
   const unauthorizedRelationshipDecisionIntent = input.node.eventMeta?.routeLine !== "romance"
     && input.node.choices.some((choice) => /^romance:(?:end|breakup|separate|commit|cohabit|marry|begin|start|proceed|advance|confirm)(?::|$)/i.test(choice.decisionIntent || ""));
-  const assertsDating = /你们(?:已经|已)?(?:开始|正式)?(?:确定(?:了)?恋爱关系|正式交往|成为(?:了)?(?:恋人|伴侣))|(?:你们|你和[^，。\n]{1,10})(?:已经|已)?交往(?:了)?(?:[一二三四五六七八九十\d]+(?:个?月|年))?/.test(narrative);
-  const assertsCohabiting = /你们(?:已经|已)?(?:开始|正式)?(?:同居|共同生活|搬到一起住)|共同生活的第[一二三四五六七八九十\d]+年|同居生活(?:的|开始|日常|第)/.test(narrative);
-  const assertsMarried = /你们(?:(?:已经|已)?(?:正式)?(?:结婚|领证|登记结婚)|成为(?:了)?夫妻)|婚后(?:生活|第|日常)|你的(?:妻子|丈夫)|(?:妻子|丈夫|老公|老婆).{0,10}(?:说|决定|工作|收入|父母|家人)/.test(narrative);
+  const assertsDating = /(?:你们|我们)(?:已经|已)?(?:开始|正式)?(?:确定(?:了)?恋爱关系|正式交往|成为(?:了)?(?:恋人|伴侣))|(?:(?:你们|我们)|(?:你和|我和)[^，。\n]{1,10})(?:已经|已)?交往(?:了)?(?:[一二三四五六七八九十\d]+(?:个?月|年))?/.test(narrative);
+  const assertsCohabiting = narrativeAssertsCohabiting(narrative);
+  const assertsMarried = narrativeAssertsMarriage(narrative);
+  const authorityPeople = input.worldState?.people?.length ? input.worldState.people : input.people;
+  const hasAuthoritativeChild = authorityPeople.some((person) => (
+    person.relation === "child" && person.lifeStatus !== "deceased"
+  )) || false;
+  const assertsParenthood = narrativeAssertsChildBirth(narrative)
+    || narrativeAssertsUngroundedParenting(narrative, hasAuthoritativeChild);
   const relationshipConflict = !activeRomanticRelationship
     ? assertsDating
       || assertsCohabiting
       || assertsMarried
-      || unauthorizedDatingTransitionChoice
+      || assertsParenthood
+      || unauthorizedDatingTransitionChoiceForCurrentEvent
       || unauthorizedFormalTransitionChoice
       || unauthorizedRelationshipDecisionIntent
       || (!isRomanceFormationNode && (romanticCharacterClaim || unauthorizedNewRelationshipClaim))
     : romanticStage === "acquaintance" || romanticStage === "exploring"
-      ? assertsDating || assertsCohabiting || assertsMarried || unauthorizedDatingTransitionChoice
+      ? assertsDating || assertsCohabiting || assertsMarried || assertsParenthood || unauthorizedDatingTransitionChoiceForCurrentEvent
         || unauthorizedFormalTransitionChoice || unauthorizedRelationshipDecisionIntent
       : romanticStage === "dating"
-        ? assertsCohabiting || assertsMarried || unauthorizedFormalTransitionChoice || unauthorizedRelationshipDecisionIntent
+        ? assertsCohabiting || assertsMarried || assertsParenthood || unauthorizedFormalTransitionChoice || unauthorizedRelationshipDecisionIntent
       : romanticStage === "cohabiting"
-          ? assertsMarried || unauthorizedFormalTransitionChoice || unauthorizedRelationshipDecisionIntent
+          ? assertsMarried || assertsParenthood || unauthorizedFormalTransitionChoice || unauthorizedRelationshipDecisionIntent
           : romanticStage === "married"
-            ? unauthorizedRelationshipDecisionIntent
+            ? assertsParenthood || unauthorizedRelationshipDecisionIntent
             : false;
   if (relationshipConflict) {
     const conflictReasons = [
       assertsDating && "narrative_asserts_dating",
       assertsCohabiting && "narrative_asserts_cohabiting",
       assertsMarried && "narrative_asserts_married",
-      unauthorizedDatingTransitionChoice && "choice_executes_dating",
+      assertsParenthood && "narrative_asserts_ungrounded_parenthood",
+      unauthorizedDatingTransitionChoiceForCurrentEvent && "choice_executes_dating",
       unauthorizedFormalTransitionChoice && "choice_executes_formal_transition",
       unauthorizedRelationshipDecisionIntent && "decision_intent_executes_relationship_transition",
       romanticCharacterClaim && "romantic_character_claim",
@@ -190,7 +255,7 @@ export function validateStoryConsistency(input: {
     issues.push({
       code: "relationship_authority_conflict",
       severity: "error",
-      message: `爱情正文超前于当前权威关系阶段（${romanticStage || "none"}；${conflictReasons || "unspecified"}）；只有用户已接受的 outcome 才能推进正式交往、共同生活或婚姻状态。`
+      message: `爱情正文超前于当前权威关系阶段（${romanticStage || "none"}；${conflictReasons || "unspecified"}）；只有用户已接受的 outcome 才能推进正式交往、共同生活或婚姻状态；没有权威 child 人物时也不得写成已经生育、育儿或承担托育。`
     });
   }
   return issues;

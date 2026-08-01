@@ -1,6 +1,7 @@
 import { SimulationNode, StoryEpisode, WorldStateSnapshot } from "../types";
 import { commitTransitionalEmploymentTransition, currentCareerState } from "../domain/career/careerState";
 import { AcceptedNodeOutcome, PressureArcTransitionDecision } from "./arcLifecycle";
+import { acceptedResidenceOccupancyState } from "./residenceOccupancyState";
 
 type MultiArcTransitionDecision = PressureArcTransitionDecision & {
   additionalArcStateUpdates?: NonNullable<PressureArcTransitionDecision["nextArcState"]>[];
@@ -30,6 +31,7 @@ function applySummaries(
   snapshot: WorldStateSnapshot,
   outcome: AcceptedNodeOutcome,
   transactionId: string,
+  ageInMonths: number,
   skipEmploymentTransition = false
 ): WorldStateSnapshot {
   const next = { ...snapshot };
@@ -51,7 +53,11 @@ function applySummaries(
     }
     if (delta.type === "relationship_change") next.relationshipSummary = delta.summary;
     if (delta.type === "health_state") next.healthSummary = delta.summary;
-    if (delta.type === "location_change") next.locationSummary = delta.summary;
+    if (delta.type === "location_change") {
+      next.locationSummary = delta.summary;
+      const residence = acceptedResidenceOccupancyState({ delta, ageInMonths });
+      if (residence) next.residence = residence;
+    }
   }
   return next;
 }
@@ -107,6 +113,7 @@ export function commitSimulationTransaction(input: SimulationTransactionInput): 
     nextSnapshot,
     input.acceptedOutcome,
     input.transactionId,
+    input.node.ageInMonths ?? input.node.age * 12,
     input.domainTransactionAlreadyCommitted
   );
 
