@@ -401,6 +401,7 @@ test("borrowing, principal repayment and interest use different accounting direc
   assert.equal(result.periodSummary.debtPrincipalPaidWan, 4);
   assert.equal(result.periodSummary.debtInterestPaidWan, 1);
   assert.equal(result.periodSummary.netWorthChangeWan, -1);
+  assert.deepEqual(result.transaction.debtSettlementAccountIds, ["loan"]);
 });
 
 test("company financing changes company facts but never personal cash or carrying value", () => {

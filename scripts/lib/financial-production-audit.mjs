@@ -65,12 +65,15 @@ function containsCompletedRepaymentClaim(text) {
   });
 }
 
-function transactionHasDebtSettlementFact(transaction) {
-  return Number(transaction?.debtPrincipalPaidWan || 0) > 0
-    || Number(transaction?.debtPrincipalForgivenWan || 0) > 0
-    || Number(transaction?.debtInterestLiabilityPaidWan || 0) > 0
-    || Number(transaction?.debtInterestForgivenWan || 0) > 0
-    || Number(transaction?.automaticLiquidityShortfallRecoveryWan || 0) > 0;
+function transactionHasDebtSettlementFactForAccount(transaction, debtAccountId) {
+  if (Array.isArray(transaction?.debtSettlementAccountIds)
+    && transaction.debtSettlementAccountIds.includes(debtAccountId)) return true;
+  // Old reducer snapshots may lack the explicit target list. A service record
+  // still provides account-specific proof; an aggregate debt total does not.
+  return (transaction?.debtServiceRecords || []).some((record) => (
+    record?.debtAccountId === debtAccountId
+    && (Number(record?.principalPaidWan || 0) > 0 || Number(record?.interestPaidWan || 0) > 0)
+  ));
 }
 
 function transactionAuditId(transaction) {
@@ -205,17 +208,13 @@ export function collectRestrictedProjectFundingAttributionGaps(records) {
 }
 
 function hasRecordedDebtSettlementForAccount(history, debtAccountId) {
-  return history.some((node, index) => {
+  return history.some((node) => {
     const ledger = node?.financialLedger;
     const account = ledger?.debtAccounts?.find((candidate) => candidate.id === debtAccountId);
     if (!ledger || !account || account.status !== "repaid") return false;
-    const prior = history[index - 1]?.financialLedger?.debtAccounts?.find((candidate) => candidate.id === debtAccountId);
-    return (ledger.recentTransactions || []).some((transaction) => {
-      if (!transactionHasDebtSettlementFact(transaction)) return false;
-      if ((transaction.debtServiceRecords || []).some((record) => record.debtAccountId === debtAccountId
-        && (Number(record.principalPaidWan || 0) > 0 || Number(record.interestPaidWan || 0) > 0))) return true;
-      return Boolean(prior && (prior.status === "active" || prior.status === "defaulted"));
-    });
+    return (ledger.recentTransactions || []).some((transaction) => (
+      transactionHasDebtSettlementFactForAccount(transaction, debtAccountId)
+    ));
   });
 }
 

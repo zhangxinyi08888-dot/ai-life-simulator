@@ -22,7 +22,8 @@ function debt(status: DebtAccount["status"] = "active", principalWan = 100): Deb
   };
 }
 
-function debtSettlementTransaction(input: { forgiven?: boolean } = {}) {
+function debtSettlementTransaction(input: { forgiven?: boolean; debtAccountId?: string } = {}) {
+  const debtAccountId = input.debtAccountId ?? "debt_1";
   return {
     id: input.forgiven ? "tx_debt_forgiven" : "tx_debt_repaid",
     simulationTransactionId: input.forgiven ? "sim_debt_forgiven" : "sim_debt_repaid",
@@ -47,6 +48,7 @@ function debtSettlementTransaction(input: { forgiven?: boolean } = {}) {
     debtCapitalizedInterestWan: 0,
     automaticLiquidityShortfallIncreaseWan: 0,
     automaticLiquidityShortfallRecoveryWan: 0,
+    debtSettlementAccountIds: [debtAccountId],
     evidence
   };
 }
@@ -166,6 +168,20 @@ test("PB-REPORT-04D every terminal repaid account needs its own recorded settlem
   const authority = deriveFinalFinancialNarrativeAuthority(history);
   assert.equal(authority?.debt.kind, "no_active_debt");
   assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我终于还清了全部债务"), authority })[0]?.code, "REPORT_DEBT_COMPLETION_CONFLICT");
+});
+
+test("PB-REPORT-04E a payment for debt A cannot authorize payoff copy for raw-repaid debt B", () => {
+  const history = historyWith({ debt: debt("repaid"), cashWan: 10, debtSettlement: "repaid" });
+  history[0]!.financialLedger!.debtAccounts.push({ ...debt("active"), id: "debt_b", displayName: "第二笔个人借款" });
+  history.at(-1)!.financialLedger!.debtAccounts.push({ ...debt("repaid"), id: "debt_b", displayName: "第二笔个人借款" });
+
+  const authority = deriveFinalFinancialNarrativeAuthority(history);
+  assert.equal(authority?.debt.kind, "no_active_debt");
+  const value = outcome("我终于还清了全部债务");
+  assert.equal(
+    collectFinalFinancialNarrativeIssues({ outcome: value, authority })[0]?.code,
+    "REPORT_DEBT_COMPLETION_CONFLICT"
+  );
 });
 
 test("PB-REPORT-05 fallback repairs only the conflicting report field", () => {

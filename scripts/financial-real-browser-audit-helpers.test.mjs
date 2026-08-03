@@ -270,6 +270,26 @@ test("counts user-visible generation pauses once across app state and runner tra
   assert.equal(collectRecoveredGenerationAttempts(record), 1);
 });
 
+test("internal financial-gate recovery leaves zero user-visible pauses in release evidence", () => {
+  const record = {
+    finalState: {
+      financialGateEvents: [
+        { mode: "enforced", disposition: "regenerate", allowDomainCommit: false, wouldBlock: true },
+        { mode: "enforced", disposition: "regenerate", allowDomainCommit: false, wouldBlock: true }
+      ],
+      generationEvents: [
+        { id: "recovered-gate-1", type: "recovered", historyLength: 8 }
+      ]
+    },
+    interactionLog: [
+      { type: "recoverable_retry_succeeded", generationEventId: "recovered-gate-1", historyLength: 8 }
+    ]
+  };
+
+  assert.equal(collectVisibleGenerationPauses(record).length, 0);
+  assert.equal(collectRecoveredGenerationAttempts(record), 1);
+});
+
 test("keeps runner-only legacy pause evidence auditable", () => {
   const pauses = collectVisibleGenerationPauses({
     interactionLog: [{ type: "recoverable_error", historyLength: 3, debug: "AiClientError: invalid" }]

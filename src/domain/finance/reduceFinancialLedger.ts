@@ -48,6 +48,22 @@ const PERSONAL_CASH_INFLOW_EVENT_KINDS = new Set<FinancialEventKind>([
   "business_distribution_received"
 ]);
 
+/**
+ * A transaction-level debt total is intentionally not enough to establish
+ * which liability was settled. Preserve the accepted event's target account
+ * so terminal/report authority can never borrow another account's payment.
+ */
+function debtSettlementAccountId(event: AcceptedFinancialEvent): string | undefined {
+  switch (event.kind) {
+    case "debt_principal_repaid":
+    case "debt_interest_paid":
+    case "debt_forgiven":
+      return event.payload.debtAccountId;
+    default:
+      return undefined;
+  }
+}
+
 export type ReduceFinancialLedgerResult =
   | {
       ledger: FinancialLedger;
@@ -974,6 +990,7 @@ export function reduceFinancialLedger(input: {
   let cursor = input.periodStartAgeInMonths;
   const automaticLiquidityEventIds: string[] = [];
   const automaticLiquidityRecoveryEventIds: string[] = [];
+  const automaticLiquidityRecoveryDebtAccountIds: string[] = [];
   let automaticLiquidityShortfallIncreaseWan = 0;
 
   const closeLiquidityShortfall = (ageInMonths: number, allowed: boolean) => {
@@ -1075,6 +1092,7 @@ export function reduceFinancialLedger(input: {
     automaticLiquidityRecoveryEventIds.push(
       `auto_shortfall_recovery_${input.transactionId}_${ageInMonths}_${automaticLiquidityRecoveryEventIds.length}`
     );
+    automaticLiquidityRecoveryDebtAccountIds.push(recoveredDebtId);
     return recoveredWan;
   };
 
@@ -1160,6 +1178,13 @@ export function reduceFinancialLedger(input: {
   const debtBalanceDiscoveredWan = roundWan(events
     .filter((event) => event.kind === "debt_balance_discovered")
     .reduce((sum, event) => sum + event.payload.debtAccount.principalWan, 0));
+  const debtSettlementAccountIds = [...new Set([
+    ...totals.debtServiceRecords
+      .filter((record) => record.principalPaidWan > 0 || record.interestPaidWan > 0)
+      .map((record) => record.debtAccountId),
+    ...events.map(debtSettlementAccountId).filter((id): id is string => Boolean(id)),
+    ...automaticLiquidityRecoveryDebtAccountIds
+  ])];
   const transaction: FinancialTransaction = {
     id: `financial_${input.transactionId}`,
     simulationTransactionId: input.transactionId,
@@ -1187,6 +1212,7 @@ export function reduceFinancialLedger(input: {
     debtInterestLiabilityPaidWan: totals.debtInterestLiabilityPaidWan,
     debtInterestForgivenWan: totals.debtInterestForgivenWan,
     debtCapitalizedInterestWan: totals.debtCapitalizedInterestWan,
+    debtSettlementAccountIds,
     evidence,
     // Transaction-level evidence deliberately remains for compact ledger
     // history. Preserve the per-Accepted-event boundary as well: a single

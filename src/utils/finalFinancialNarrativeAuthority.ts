@@ -109,28 +109,29 @@ function confirmedProperties(ledger: FinancialLedger): AssetAccount[] {
  * Repaid statuses may be present in migrated snapshots.  Final copy may use
  * payoff language only when the authoritative ledger history contains a
  * reducer-produced liability reduction (payment, forgiveness, or automatic
- * shortfall recovery).
+ * shortfall recovery) targeted at that exact debt account. A period-level
+ * total must never make a different account look settled.
  */
-function transactionHasDebtSettlementFact(transaction: FinancialLedger["recentTransactions"][number]): boolean {
-  return (transaction.debtPrincipalPaidWan ?? 0) > 0
-    || (transaction.debtPrincipalForgivenWan ?? 0) > 0
-    || (transaction.debtInterestLiabilityPaidWan ?? 0) > 0
-    || (transaction.debtInterestForgivenWan ?? 0) > 0
-    || (transaction.automaticLiquidityShortfallRecoveryWan ?? 0) > 0;
+function transactionHasDebtSettlementFactForAccount(
+  transaction: FinancialLedger["recentTransactions"][number],
+  debtAccountId: string
+): boolean {
+  if (transaction.debtSettlementAccountIds?.includes(debtAccountId)) return true;
+  // Historical reducer snapshots predate debtSettlementAccountIds, but a
+  // debt-service record has always carried the target account id and remains
+  // account-specific proof. Do not fall back to aggregate transaction totals.
+  return transaction.debtServiceRecords?.some((record) => record.debtAccountId === debtAccountId
+    && (record.principalPaidWan > 0 || record.interestPaidWan > 0)) ?? false;
 }
 
 function hasRecordedDebtSettlementForAccount(history: HistoryItem[], debtAccountId: string): boolean {
-  return history.some((item, index) => {
+  return history.some((item) => {
     const ledger = item.financialLedger;
     const account = ledger?.debtAccounts.find((candidate) => candidate.id === debtAccountId);
     if (!ledger || !account || account.status !== "repaid") return false;
-    const priorAccount = history[index - 1]?.financialLedger?.debtAccounts.find((candidate) => candidate.id === debtAccountId);
-    return ledger.recentTransactions.some((transaction) => {
-      if (!transactionHasDebtSettlementFact(transaction)) return false;
-      if (transaction.debtServiceRecords?.some((record) => record.debtAccountId === debtAccountId
-        && (record.principalPaidWan > 0 || record.interestPaidWan > 0))) return true;
-      return Boolean(priorAccount && (priorAccount.status === "active" || priorAccount.status === "defaulted"));
-    });
+    return ledger.recentTransactions.some((transaction) => (
+      transactionHasDebtSettlementFactForAccount(transaction, debtAccountId)
+    ));
   });
 }
 

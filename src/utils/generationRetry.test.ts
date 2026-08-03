@@ -93,6 +93,37 @@ test("a rejected financial preview gets one additional internal recovery attempt
   assert.deepEqual(gateEvents, ["rejected-1", "rejected-2"], "rejected preview audit events are retained across internal recovery");
 });
 
+test("a recovered financial-gate retry never reaches the caller-visible pause boundary", async () => {
+  let attempts = 0;
+  const visiblePauseErrors: unknown[] = [];
+  const generateNodeAtCallerBoundary = async () => {
+    try {
+      return await runWithInvalidAiResponseRetry(async () => {
+        attempts += 1;
+        if (attempts < 3) {
+          throw Object.assign(new Error("financial gate rejected candidate"), {
+            code: "AI_RESPONSE_INVALID",
+            retryScope: "financial_gate"
+          });
+        }
+        return "committed-after-internal-recovery";
+      }, {
+        maxAttempts: 2,
+        maxFinancialGateAttempts: 3,
+        isFinancialGateError: isFinancialGateGenerationError
+      });
+    } catch (error) {
+      // Mirrors App.tsx: only errors escaping internal recovery become visible.
+      visiblePauseErrors.push(error);
+      throw error;
+    }
+  };
+
+  assert.equal(await generateNodeAtCallerBoundary(), "committed-after-internal-recovery");
+  assert.equal(attempts, 3);
+  assert.equal(visiblePauseErrors.length, 0);
+});
+
 test("financial gate recovery remains bounded when every preview is rejected", async () => {
   let attempts = 0;
   await assert.rejects(runWithInvalidAiResponseRetry(async () => {

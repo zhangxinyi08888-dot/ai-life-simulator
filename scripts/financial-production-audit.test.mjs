@@ -248,7 +248,8 @@ test("PB-AUDIT-12 a hypothetical future payoff is not reported as an unsupported
 test("PB-AUDIT-13 a zero-debt state may describe a historically grounded payoff", () => {
   const acceptedRepayment = {
     id: "accepted_repayment_tx", debtPrincipalPaidWan: 8.54, debtPrincipalForgivenWan: 0,
-    debtInterestLiabilityPaidWan: 0, debtInterestForgivenWan: 0, automaticLiquidityShortfallRecoveryWan: 0
+    debtInterestLiabilityPaidWan: 0, debtInterestForgivenWan: 0, automaticLiquidityShortfallRecoveryWan: 0,
+    debtSettlementAccountIds: ["legacy_debt"]
   };
   const audit = auditFinancialProductionRecords([{
     caseSlug: "historical-payoff",
@@ -304,7 +305,8 @@ test("PB-AUDIT-15 zero terminal debt without a ledger settlement cannot support 
 test("PB-AUDIT-16 a settlement for one account cannot authorize a payoff claim for an unproved second account", () => {
   const acceptedRepayment = {
     id: "accepted_repayment_tx", debtPrincipalPaidWan: 8.54, debtPrincipalForgivenWan: 0,
-    debtInterestLiabilityPaidWan: 0, debtInterestForgivenWan: 0, automaticLiquidityShortfallRecoveryWan: 0
+    debtInterestLiabilityPaidWan: 0, debtInterestForgivenWan: 0, automaticLiquidityShortfallRecoveryWan: 0,
+    debtSettlementAccountIds: ["legacy_debt"]
   };
   const settled = node({
     title: "一笔偿付完成", ageInMonths: 512, debt: 8.54, debtStatus: "repaid", cash: 3,

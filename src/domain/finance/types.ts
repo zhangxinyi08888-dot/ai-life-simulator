@@ -772,6 +772,13 @@ export interface FinancialTransaction {
   debtInterestLiabilityPaidWan?: number;
   debtInterestForgivenWan?: number;
   debtCapitalizedInterestWan?: number;
+  /**
+   * The specific personal debt accounts whose liability was reduced by a
+   * repayment, forgiveness, scheduled servicing, or automatic shortfall
+   * recovery in this transaction. Totals alone are not enough to prove which
+   * account was settled when a period contains more than one liability.
+   */
+  debtSettlementAccountIds?: string[];
   evidence: FinancialEvidence[];
   /**
    * Evidence is otherwise aggregated at transaction level. Keep the accepted
