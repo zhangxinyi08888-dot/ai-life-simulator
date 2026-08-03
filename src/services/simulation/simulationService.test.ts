@@ -40,6 +40,39 @@ assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你辞别成都来到深圳。新公司做跨境电商SaaS，你负责前端开发。",
   currentStatus: "student"
 }), true);
+const startupEmploymentNarrative = "你辞去大公司产品经理职务后，正式加入那家早期人工智能创业公司，担任产品负责人。";
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: startupEmploymentNarrative,
+  currentStatus: "employed"
+}), true, "leaving one employer to join a startup must not leave CareerState unchanged");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "辞去大公司职务，接受创业公司的产品负责人邀请，用两年时间全力验证产品。",
+  narrativeText: startupEmploymentNarrative,
+  acceptedOutcomeId: "join_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "joining a startup company is employment, not self-employment");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "辞职后全职加入创业公司，担任产品负责人。",
+  narrativeText: "你辞职后全职加入一家创业公司，担任产品负责人。",
+  acceptedOutcomeId: "join_startup_full_time",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "full-time employment at a startup is not a self-directed venture");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的外部董事邀请，每季度提供战略建议。",
+  narrativeText: "你接受了创业公司的外部董事邀请，但仍保留原来的全职岗位。",
+  acceptedOutcomeId: "accept_external_director_role",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+}), undefined, "a non-employment company invitation must not invent a CareerState transition");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "辞职后全职创业，自己创办一家产品咨询工作室。",
+  narrativeText: "你辞去原岗位后，决定自己创办一家产品咨询工作室。",
+  acceptedOutcomeId: "found_product_studio",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "self_employed", "a self-directed venture remains self-employment");
 assert.equal(synthesizeSelectedCareerTransition({
   selectedDecision: "继续稳步提升技术深度，争取明年带团队",
   narrativeText: "36岁2个月，你正式成为数据可视化组的技术负责人，带4个人的小组。",

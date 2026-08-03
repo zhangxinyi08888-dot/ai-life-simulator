@@ -436,14 +436,28 @@ export function synthesizeSelectedCareerTransition(input: {
 }): EmploymentTransitionProposal | undefined {
   if (!input.acceptedOutcomeId || !input.selectedDecision) return undefined;
   const decision = input.selectedDecision;
+  // "创业公司" is an employer, not evidence that the protagonist became a
+  // founder.  Keep that distinction explicit: leaving one job to join a
+  // startup must create an employed CareerState, while only an actual
+  // self-directed venture becomes self_employed.
+  const selfDirectedVenture = /(?:自己|自主|独立|全职).{0,12}创业(?!公司|企业|团队)|(?:创办|成立).{0,12}(?:自己|个人|独立)?(?:公司|工作室|企业|团队)/u;
+  const joinedEmployer = /(?:辞职|辞去|辞掉|离职|离开[^。；]{0,12}(?:岗位|公司|平台))[^。；]{0,48}(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)|(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)[^。；]{0,20}(?:担任|任职|负责|岗位|职位|工作)/u;
+  const acceptedEmployerInvitation = /(?:接受|选择)[^。；]{0,32}(?:公司|企业|机构|团队)[^。；]{0,20}(?:offer|职位|岗位|工作|入职|任职|担任|负责人)/iu;
   const narrativeEvidence = input.narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
     /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|转为.{0,12}顾问|顾问角色|被任命|晋升|提升为|成为.{0,12}负责人)/iu.test(sentence)
   ));
+  const joinsEmployer = acceptedEmployerInvitation.test(decision)
+    || joinedEmployer.test(decision)
+    || Boolean(narrativeEvidence && joinedEmployer.test(narrativeEvidence));
+  const startsSelfDirectedVenture = selfDirectedVenture.test(decision)
+    || Boolean(narrativeEvidence && selfDirectedVenture.test(narrativeEvidence));
   let toStatus: EmploymentTransitionProposal["toStatus"] | undefined;
-  if (/辞职.{0,12}创业|离职.{0,12}创业|全职.{0,12}创业/u.test(decision)) toStatus = "self_employed";
+  if (joinsEmployer) toStatus = "employed";
+  else if (startsSelfDirectedVenture) toStatus = "self_employed";
   else if (/退休/u.test(decision)) toStatus = "retired";
   else if (/停止工作|不再工作/u.test(decision)) toStatus = "not_working";
-  else if (/入职|接受.{0,20}(?:offer|工作|职位|岗位)|回.{0,8}职场/iu.test(decision)) toStatus = "employed";
+  else if (/入职|接受.{0,20}(?:offer|工作|职位|岗位)|回.{0,8}职场/iu.test(decision)
+  ) toStatus = "employed";
   else if (narrativeEvidence
     && /正式入职|已经入职|已入职|受聘|拿到.{0,16}(?:录用通知|offer)|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)/iu.test(narrativeEvidence)) {
     // The accepted choice may describe the attempt (for example, “争取实习
@@ -1393,6 +1407,12 @@ export function narrativeRequiresCareerTransition(input: {
     /辞去(?:了)?[^。；]{0,20}(?:外部合伙人|董事|监事|股东)(?:身份|席位|职务)?/gu,
     "退出非雇佣治理角色"
   );
+  const switchesEmployer = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesCareerMove(sentence)
+    && /(?:你|本人)[^。；]{0,20}(?:辞职|辞去|辞掉|离职|离开[^。；]{0,12}(?:岗位|公司|平台))[^。；]{0,48}(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)/u.test(sentence)
+  ));
+  if (switchesEmployer) return true;
   const stopsWorking = protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesExit(sentence)
