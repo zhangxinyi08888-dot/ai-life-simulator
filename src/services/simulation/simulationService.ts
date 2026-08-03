@@ -5331,7 +5331,14 @@ export async function generateNextNode(
     } catch (error) {
       if (!(error instanceof FinancialNodeGateError) || (gateMode !== "enforced" && expenseMode !== "enforced")) throw error;
       lastGateError = error;
-      if (regenerationCount === FINANCIAL_GATE_MAX_REGENERATIONS) throw error;
+      // Production shares one bounded generation budget across the full
+      // financial-gate loop. Once it has no full candidate generation left,
+      // preserve the last authoritative rejection instead of entering another
+      // attempt solely to surface an internal budget-exhausted error.
+      if (
+        regenerationCount === FINANCIAL_GATE_MAX_REGENERATIONS
+        || (deps.generationBudget && !canRegenerate(deps.generationBudget))
+      ) throw error;
     }
   }
   throw lastGateError || new AiClientError("AI_RESPONSE_INVALID", "财务节点未通过接受门");

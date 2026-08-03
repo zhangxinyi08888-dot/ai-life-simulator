@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import { buildDeterministicFinancialNarrativeRollback, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
+import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 import { isFinancialGateGenerationError } from "../../utils/generationRetry";
 import { queryDynamicLifeEvent } from "../../data/lifeEvents";
@@ -1529,6 +1530,72 @@ assert.equal(enforcedAiCalls, 6, "three bounded full-node attempts plus one prop
 assert.deepEqual(enforcedGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
 assert.deepEqual(enforcedGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
 assert.deepEqual(history, enforcedHistorySnapshot, "a rejected preview never advances History or mutates its financial snapshots");
+
+// The production App shares one 2-full / 1-patch budget across this entire
+// call. Once its second candidate is rejected, the service must return that
+// authoritative rejection instead of starting an impossible third generation
+// and surfacing FULL_GENERATION_BUDGET_EXHAUSTED to the user.
+const sharedBudgetGateHistoryBefore = structuredClone(history);
+const sharedBudgetGate = createNodeGenerationBudget();
+const sharedBudgetGateDecisions: Array<{ disposition: string; regenerationCount?: number }> = [];
+const sharedBudgetGenerationStarts: string[] = [];
+let sharedBudgetAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    selectedDecision: "购入住房并办理房贷",
+    nodeIndex: 1,
+    simulationSeed: "financial-gate-shared-budget-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    generationBudget: sharedBudgetGate,
+    onFinancialGateDecision: (decision) => sharedBudgetGateDecisions.push({
+      disposition: decision.disposition,
+      regenerationCount: decision.regenerationCount
+    }),
+    onGenerationCallTrace: (trace) => {
+      if (trace.outcome === "started") sharedBudgetGenerationStarts.push(trace.kind);
+    },
+    callAiJson: async (prompt) => {
+      sharedBudgetAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: 23,
+          stage: "安家选择",
+          title: "房产已经成交",
+          description: "你购入一套价值180万的住房，并背上120万房贷。",
+          choices: [
+            { id: "A", text: "稳定工作并按期还贷", impactSummary: "稳步还贷" },
+            { id: "B", text: "出租房间增加收入", impactSummary: "补充现金" },
+            { id: "C", text: "控制支出建立应急金", impactSummary: "建立缓冲" }
+          ],
+          attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    assert.equal(isFinancialGateGenerationError(error), true, "the final error remains the rejected, uncommitted financial Preview");
+    assert.doesNotMatch(error instanceof Error ? error.message : String(error), /FULL_GENERATION_BUDGET_EXHAUSTED/);
+    return true;
+  }
+);
+assert.equal(sharedBudgetAiCalls, 3, "two full candidates and one bounded proposal repair respect the App budget");
+assert.deepEqual(sharedBudgetGenerationStarts, ["initial_generation", "proposal_repair", "full_regeneration"]);
+assert.deepEqual(sharedBudgetGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
+assert.deepEqual(sharedBudgetGateDecisions.map((item) => item.regenerationCount), [0, 1]);
+assert.equal(sharedBudgetGate.fullGenerationsUsed, 2);
+assert.equal(sharedBudgetGate.modelPatchesUsed, 1);
+assert.deepEqual(history, sharedBudgetGateHistoryBefore, "budget exhaustion after a rejection must not advance History or write financial state");
 
 // Phase 4/5: an expense-specific critical error must force the same atomic
 // rejection contract even when the legacy financial gate is only shadowing.
