@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   assertDistinctFinalImageEvidence,
@@ -6,6 +9,7 @@ import {
   buildFinalImageRestorePayload,
   buildFinalPosterCropArgs,
   buildCurrentChoiceSelector,
+  createRealBrowserJourneyRunner,
   FINAL_IMAGE_VIEWPORT,
   initializeJourneyTrace,
   waitForUniqueLocator,
@@ -140,4 +144,27 @@ test("PB-RUN-09 current choice lookup is scoped to the live decision area", () =
     buildCurrentChoiceSelector("choice_continue_side_project"),
     '#inline-decision-area #preset-choices-container [id="choice-btn-choice_continue_side_project"]'
   );
+});
+
+test("PB-RUN-10 a checkpoint cannot cross release-candidate source identities", async () => {
+  const recordRoot = await mkdtemp(path.join(os.tmpdir(), "ai-life-runner-source-"));
+  await mkdir(path.join(recordRoot, "working"), { recursive: true });
+  const candidate = {
+    candidateId: path.basename(recordRoot),
+    sourceCommit: "a".repeat(40),
+    runtimeFingerprint: "b".repeat(64),
+    collectorFingerprint: "c".repeat(64)
+  };
+  await writeFile(path.join(recordRoot, "candidate-manifest.json"), `${JSON.stringify(candidate)}\n`);
+  await writeFile(path.join(recordRoot, "working", "real-venture-second.json"), `${JSON.stringify({
+    identity,
+    sourceIdentity: { ...candidate, runtimeFingerprint: "different" },
+    interactionLog: []
+  })}\n`);
+  await assert.rejects(createRealBrowserJourneyRunner({
+    tab: {},
+    recordRoot,
+    config: { slug: "real-venture-second", scenario: "accept_second" },
+    resume: true
+  }), /different release candidate source identity/u);
 });

@@ -16,9 +16,41 @@ export async function waitForUniqueLocator({ locator, label, wait, attempts = 40
   throw new Error(`Expected one ${label}, got 0`);
 }
 const execFileAsync = promisify(execFile);
+const CANDIDATE_MANIFEST_NAME = "candidate-manifest.json";
 
 function now() {
   return new Date().toISOString();
+}
+
+function sourceIdentityFromCandidate(candidate) {
+  const sourceIdentity = {
+    candidateId: candidate?.candidateId,
+    sourceCommit: candidate?.sourceCommit,
+    runtimeFingerprint: candidate?.runtimeFingerprint,
+    collectorFingerprint: candidate?.collectorFingerprint
+  };
+  if (!Object.values(sourceIdentity).every((value) => typeof value === "string" && value.length > 0)) {
+    throw new Error("Candidate manifest is missing a complete source identity");
+  }
+  return sourceIdentity;
+}
+
+function sameSourceIdentity(left, right) {
+  return Boolean(left && right
+    && left.candidateId === right.candidateId
+    && left.sourceCommit === right.sourceCommit
+    && left.runtimeFingerprint === right.runtimeFingerprint
+    && left.collectorFingerprint === right.collectorFingerprint);
+}
+
+export async function loadRunSourceIdentity(recordRoot) {
+  try {
+    const manifest = JSON.parse(await readFile(path.join(recordRoot, CANDIDATE_MANIFEST_NAME), "utf8"));
+    return sourceIdentityFromCandidate(manifest);
+  } catch (error) {
+    if (error?.code === "ENOENT") return undefined;
+    throw error;
+  }
 }
 
 export function buildDevFsImportReference(filePath) {
@@ -230,6 +262,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
   await mkdir(workingDir, { recursive: true });
   await mkdir(casesDir, { recursive: true });
   await mkdir(imagesDir, { recursive: true });
+  const sourceIdentity = await loadRunSourceIdentity(recordRoot);
 
   let previousRecord;
   if (resume) {
@@ -238,6 +271,10 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     } catch {
       previousRecord = undefined;
     }
+  }
+  if (resume && (previousRecord?.sourceIdentity || sourceIdentity)
+    && !sameSourceIdentity(previousRecord?.sourceIdentity, sourceIdentity)) {
+    throw new Error("Cannot resume a browser journey under a different release candidate source identity");
   }
   const startedAt = previousRecord?.identity?.startedAt || now();
   const identity = resume && previousRecord?.identity
@@ -359,6 +396,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       runId: path.basename(recordRoot),
       journeyId: identity.journeyId,
       identity,
+      ...(sourceIdentity ? { sourceIdentity } : {}),
       dataSource: "real_ai_browser",
       caseSlug: config.slug,
       scenario: config.scenario,
@@ -758,11 +796,13 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       finalReportPresent: Boolean(finalState.outcome?.share && finalState.outcome?.report),
       finalImagesPresent: Boolean(imagePaths?.posterPath && imagePaths?.pagePath)
     };
+    if (sourceIdentity) validation.sourceIdentityPinned = true;
     const record = {
       schemaVersion: 2,
       runId: path.basename(recordRoot),
       journeyId: identity.journeyId,
       identity,
+      ...(sourceIdentity ? { sourceIdentity } : {}),
       dataSource: "real_ai_browser",
       caseSlug: config.slug,
       scenario: config.scenario,
