@@ -801,10 +801,10 @@ test("PB-CAREER-05 an accepted resignation-to-startup choice synthesizes self-em
   assert.equal(transition?.sourceOutcomeId, "start_company");
 });
 
-test("PB-CAREER-06 a return-to-work choice and accepted offer synthesize employed authority", () => {
+test("PB-CAREER-06 an actual return-to-work start with confirmed pay synthesizes employed authority", () => {
   const transition = synthesizeSelectedCareerTransition({
     selectedDecision: "C. 回归职场稳定",
-    narrativeText: "你决定结束创业，回归职场。最终你接受了年薪45万元的offer，税后月薪约2.6万元。",
+    narrativeText: "你决定结束创业，回归职场。最终你接受了年薪45万元的offer，并于本月正式入职，税后月薪约2.6万元。",
     acceptedOutcomeId: "return_to_work",
     effectiveAtAgeInMonths: 639
   });

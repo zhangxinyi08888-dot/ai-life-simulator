@@ -225,11 +225,26 @@ export interface ExpenseResponsibilityChange {
   sourceOutcomeId?: string;
 }
 
+/** A structured, selected-outcome-bound resolution of a pending employer offer. */
+export interface PendingEmployerOfferResolution {
+  /** `started` may clear an offer only with the matching accepted employer transition. */
+  action: "withdrawn" | "started";
+  pendingOfferSourceOutcomeId: string;
+  sourceOutcomeId?: string;
+  evidence: string;
+  confidence: number;
+}
+
 export type WorldDelta =
   | { type: "person_status"; personId: string; status: PersonLifeStatus; reason: string }
   | { type: "person_role"; personId: string; occupationStatus: PersonState["occupationStatus"] }
   | { type: "relationship_change"; personId: string; summary: string }
-  | { type: "career_state"; summary: string; employmentTransition?: EmploymentTransitionProposal }
+  | {
+      type: "career_state";
+      summary: string;
+      employmentTransition?: EmploymentTransitionProposal;
+      pendingEmployerOfferResolution?: PendingEmployerOfferResolution;
+    }
   | { type: "health_state"; summary: string }
   | { type: "expense_responsibility"; summary: string; responsibility: ExpenseResponsibilityChange }
   | { type: "location_change"; summary: string; residence?: ResidenceOccupancyChange };
@@ -246,6 +261,23 @@ export interface ResidenceOccupancyChange {
   liability: "protagonist" | "shared" | "third_party" | "none";
   /** Exact completed-source excerpt when available; location summary is the fallback evidence. */
   evidence?: string;
+}
+
+/**
+ * An accepted external offer is not itself proof that the protagonist has
+ * left the current role or started collecting the new salary.  Keep this
+ * non-financial, reversible state separate from CareerState and the ledger
+ * until a later accepted outcome confirms both actual entry and compensation.
+ */
+export interface PendingEmployerOfferState {
+  status: "accepted_pending_start";
+  sourceOutcomeId: string;
+  acceptedAtAgeInMonths: number;
+  /** Career authority that remains active until this offer is actually consumed. */
+  fromCareerStateId: string;
+  /** The user-selected, accepted offer action; never synthesized from prose. */
+  decision: string;
+  evidence: string;
 }
 
 /** Persisted accepted residence state used by the next node's preview. */
@@ -501,6 +533,7 @@ export interface WorldStateSnapshot {
   healthSummary?: string;
   locationSummary?: string;
   residence?: ResidenceOccupancyState;
+  pendingEmployerOffer?: PendingEmployerOfferState;
   currentEmploymentStatus?: EmploymentStatus;
   careerStates?: CareerState[];
   currentCareerStateId?: string;

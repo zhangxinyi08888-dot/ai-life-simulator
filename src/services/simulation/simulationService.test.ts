@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
-import { buildDeterministicFinancialNarrativeRollback, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
+import { buildDeterministicFinancialNarrativeRollback, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
@@ -29,9 +30,16 @@ const userData: UserInitialData = {
 };
 
 assert.equal(narrativeRequiresCareerTransition({
-  narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元。",
+  narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元，并于下月正式入职。",
   currentStatus: "student"
-}), true);
+}), false, "a scheduled start remains a pending offer, even when its proposed salary is known");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受成都那家创业公司的 offer，税后月薪9000元，下月入职。",
+  narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元，并于下月正式入职。",
+  acceptedOutcomeId: "accept_chengdu_offer",
+  effectiveAtAgeInMonths: 380,
+  currentStatus: "student"
+}), undefined);
 assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你选择保持当前工作节奏，暂不考虑新的机会。",
   currentStatus: "employed"
@@ -48,7 +56,97 @@ assert.equal(narrativeRequiresCareerTransition({
 assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你接受了AI创业公司的产品负责人邀请。",
   currentStatus: "employed"
-}), true, "a completed employer-role invitation must not leave the current CareerState unchanged");
+}), false, "a bare employer-role invitation is an accepted pending offer, not an invented CareerState transition");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受AI创业公司的产品负责人邀请，用两年时间验证产品。",
+  narrativeText: "你接受了AI创业公司的产品负责人邀请。入职后，你发现公司只有8个人，并负责从需求调研到原型设计的全部环节。",
+  acceptedOutcomeId: "accept_ai_startup_offer",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "post-entry narration must require the CareerState transition instead of preserving a pending offer");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受AI创业公司的产品负责人邀请，用两年时间验证产品。",
+  narrativeText: "你接受了AI创业公司的产品负责人邀请，先完成当前项目交接并确认劳动合同。",
+  acceptedOutcomeId: "accept_ai_startup_offer",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+}), undefined, "accepting an offer without actual entry must not invent a new employed CareerState");
+const pendingOffer = resolvePendingEmployerOffer({
+  selectedDecision: "接受AI创业公司的产品负责人邀请，用两年时间验证产品。",
+  acceptedOutcomeId: "accept_ai_startup_offer",
+  narrativeText: "你接受了AI创业公司的产品负责人邀请，先完成当前项目交接并确认劳动合同。",
+  acceptedAtAgeInMonths: 288,
+  currentCareerStateId: "career_current",
+  acceptedCareerTransitions: []
+});
+assert.equal(pendingOffer.action, "set");
+assert.equal(pendingOffer.action === "set" ? pendingOffer.offer.status : undefined, "accepted_pending_start");
+assert.equal(pendingOffer.action === "set" ? pendingOffer.offer.fromCareerStateId : undefined, "career_current");
+if (pendingOffer.action === "set") {
+  assert.equal(resolvePendingEmployerOffer({
+    current: pendingOffer.offer,
+    selectedDecision: "放弃AI创业公司的产品负责人offer，继续留在原公司。",
+    acceptedOutcomeId: "decline_ai_startup_offer",
+    narrativeText: "你放弃AI创业公司的产品负责人offer，继续留在原公司。",
+    acceptedAtAgeInMonths: 292,
+    currentCareerStateId: "career_current",
+    pendingEmployerOfferResolution: {
+      action: "withdrawn",
+      pendingOfferSourceOutcomeId: "accept_ai_startup_offer",
+      sourceOutcomeId: "decline_ai_startup_offer",
+      evidence: "你放弃AI创业公司的产品负责人offer，继续留在原公司。",
+      confidence: 0.9
+    },
+    acceptedCareerTransitions: []
+  }).action, "clear");
+  assert.equal(resolvePendingEmployerOffer({
+    current: pendingOffer.offer,
+    selectedDecision: "放弃另一家公司的运营岗位offer。",
+    acceptedOutcomeId: "decline_other_offer",
+    narrativeText: "你放弃另一家公司的运营岗位offer。",
+    acceptedAtAgeInMonths: 292,
+    currentCareerStateId: "career_current",
+    pendingEmployerOfferResolution: {
+      action: "withdrawn",
+      pendingOfferSourceOutcomeId: "accept_other_offer",
+      sourceOutcomeId: "decline_other_offer",
+      evidence: "你放弃另一家公司的运营岗位offer。",
+      confidence: 0.9
+    },
+    acceptedCareerTransitions: []
+  }).action, "preserve");
+  assert.equal(resolvePendingEmployerOffer({
+    current: pendingOffer.offer,
+    selectedDecision: "正式入职AI创业公司，担任产品负责人。",
+    acceptedOutcomeId: "start_ai_offer",
+    narrativeText: "你于本月正式入职AI创业公司，担任产品负责人。",
+    acceptedAtAgeInMonths: 292,
+    currentCareerStateId: "career_current",
+    pendingEmployerOfferResolution: {
+      action: "started",
+      pendingOfferSourceOutcomeId: "accept_ai_startup_offer",
+      sourceOutcomeId: "start_ai_offer",
+      evidence: "你于本月正式入职AI创业公司，担任产品负责人。",
+      confidence: 0.9
+    },
+    acceptedCareerTransitions: [{
+      fromCareerStateId: "career_current",
+      nextCareerState: { employmentStatus: "employed" }
+    } as any]
+  }).action, "clear");
+  assert.equal(resolvePendingEmployerOffer({
+    current: pendingOffer.offer,
+    selectedDecision: "正式入职另一家公司，担任运营负责人。",
+    acceptedOutcomeId: "start_other_offer",
+    narrativeText: "你于本月正式入职另一家公司，担任运营负责人。",
+    acceptedAtAgeInMonths: 292,
+    currentCareerStateId: "career_current",
+    acceptedCareerTransitions: [{
+      fromCareerStateId: "career_current",
+      nextCareerState: { employmentStatus: "employed" }
+    } as any]
+  }).action, "preserve", "an unrelated employer transition cannot silently consume the pending offer");
+}
 assert.equal(synthesizeSelectedCareerTransition({
   selectedDecision: "辞去大公司职务，接受创业公司的产品负责人邀请，用两年时间全力验证产品。",
   narrativeText: startupEmploymentNarrative,
@@ -1623,6 +1721,421 @@ assert.match(sanitizedIncomeNode.description, /个人收入是否形成仍需继
 // be downgraded to a resolved rejected Proposal. This exercises the real
 // order: accept transition -> reject atomicity -> settle issues -> gate.
 const careerAuthorityDecision = "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品";
+const pendingOfferHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  selectedChoice: careerAuthorityDecision,
+  selectedDecisionIntent: "career:accept_offer:ai_startup_product_head",
+  choices: [{
+    id: "A",
+    text: careerAuthorityDecision,
+    impactSummary: "进入创业公司",
+    eventOutcomeId: "join_ai_startup_product_lead"
+  }]
+}];
+const pendingOfferIncomeBefore = pendingOfferHistory[0]!.financialLedger?.incomeSources.find((source) => source.status === "active");
+const pendingOfferCareerBefore = pendingOfferHistory[0]!.worldStateSnapshot?.currentCareerStateId
+  ?? pendingOfferIncomeBefore?.linkedCareerStateId;
+assert.ok(pendingOfferCareerBefore, "fixture must expose the authoritative current CareerState");
+const pendingOfferNode = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(pendingOfferHistory),
+  currentAttributes: nextNode.attributes,
+  selectedDecision: careerAuthorityDecision,
+  nodeIndex: 2,
+  simulationSeed: "pending-employer-offer-preserves-current-authority"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 24,
+      stage: "职业交接",
+      title: "接受邀请后的交接期",
+      description: "你接受了AI创业公司的产品负责人邀请，先完成当前项目交接，并和对方确认劳动合同与入职日期。",
+      choices: [
+        { id: "A", text: "确认合同后再安排入职", impactSummary: "确认条件" },
+        { id: "B", text: "完成当前项目交接", impactSummary: "平稳交接" },
+        { id: "C", text: "重新评估这份 offer", impactSummary: "审慎确认" }
+      ],
+      attributes,
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(pendingOfferNode.worldStateSnapshot?.pendingEmployerOffer?.status, "accepted_pending_start");
+assert.equal(pendingOfferNode.worldStateSnapshot?.pendingEmployerOffer?.sourceOutcomeId, "join_ai_startup_product_lead");
+assert.equal(pendingOfferNode.worldStateSnapshot?.pendingEmployerOffer?.fromCareerStateId, pendingOfferCareerBefore);
+assert.equal(pendingOfferNode.worldStateSnapshot?.currentCareerStateId, pendingOfferCareerBefore, "offer acceptance must preserve the old CareerState until actual entry");
+assert.equal(
+  pendingOfferNode.financialLedger?.incomeSources.find((source) => source.id === pendingOfferIncomeBefore?.id)?.linkedCareerStateId,
+  pendingOfferIncomeBefore?.linkedCareerStateId,
+  "offer acceptance must preserve the old linked salary until actual entry"
+);
+assert.equal(pendingOfferNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
+
+// “入职后” is completed employment prose, not a bare offer. Without a
+// replacement personal income it must be rejected before it can preserve a
+// pending offer alongside narration that says the protagonist is already at
+// work.
+const postEntryWithoutIncomeHistory = structuredClone(pendingOfferHistory);
+const postEntryWithoutIncomeHistoryBefore = structuredClone(postEntryWithoutIncomeHistory);
+const postEntryWithoutIncomeGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: postEntryWithoutIncomeHistory,
+    currentAttributes: nextNode.attributes,
+    selectedDecision: careerAuthorityDecision,
+    nodeIndex: 2,
+    simulationSeed: "post-entry-without-income-cannot-commit-pending-offer"
+  }, {
+    financialNodeGateMode: "enforced",
+    expenseLifecycleMode: "off",
+    relationshipDispatchFeatureFlags: {
+      enableAuthoritativeRelationshipStages: false,
+      enableRomanceFormationEvents: false,
+      enableRomanceLifecycleScheduling: false
+    },
+    generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+    onFinancialGateDecision: (decision) => postEntryWithoutIncomeGateDecisions.push(decision),
+    callAiJson: async (prompt) => {
+      if (prompt.includes("你只修复财务 Proposal")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: 24,
+          stage: "创业试炼场",
+          title: "产品负责人新岗位",
+          description: "你正式接受了那家早期AI创业公司的产品负责人offer，主动降薪一半。入职后，你发现公司只有8个人，开始负责从需求调研到原型设计的全部环节。个人收入是否形成仍需继续观察。",
+          choices: [
+            { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+            { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+            { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+          ],
+          attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    return true;
+  }
+);
+assert.deepEqual(postEntryWithoutIncomeGateDecisions.map((decision) => decision.disposition), ["regenerate"]);
+assert.ok(
+  postEntryWithoutIncomeGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"),
+  "post-entry prose without an atomic replacement income must be a blocking career-income conflict"
+);
+assert.deepEqual(
+  postEntryWithoutIncomeHistory,
+  postEntryWithoutIncomeHistoryBefore,
+  "a rejected post-entry candidate must leave history, time, CareerState and ledger unchanged"
+);
+
+const pendingOfferWithQuotedSalaryNode = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(pendingOfferHistory),
+  currentAttributes: nextNode.attributes,
+  selectedDecision: careerAuthorityDecision,
+  nodeIndex: 2,
+  simulationSeed: "pending-employer-offer-quoted-salary-cannot-write-authority"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 24,
+      stage: "职业交接",
+      title: "确认新的岗位条件",
+      description: "你接受了AI创业公司的产品负责人邀请。对方给出的税后月薪为3.5万元，你计划下月正式入职。",
+      choices: [
+        { id: "A", text: "确认合同细节", impactSummary: "确认条件" },
+        { id: "B", text: "完成当前项目交接", impactSummary: "平稳交接" },
+        { id: "C", text: "重新评估这份 offer", impactSummary: "审慎确认" }
+      ],
+      attributes,
+      financialEventProposals: [{
+        id: "premature_offer_salary",
+        kind: "income_source_started",
+        effectiveAtAgeInMonths: pendingOfferHistory[0]!.ageInMonths,
+        sourceOutcomeId: "join_ai_startup_product_lead",
+        evidence: "对方给出的税后月薪为3.5万元，你计划下月正式入职。",
+        confidence: 0.9,
+        payload: {
+          id: "salary_premature_offer",
+          type: "salary",
+          displayName: "AI创业公司拟议工资",
+          monthlyNetAmountWan: 3.5,
+          activeFromAgeInMonths: pendingOfferHistory[0]!.ageInMonths,
+          linkedCareerStateId: pendingOfferCareerBefore
+        }
+      }],
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(pendingOfferWithQuotedSalaryNode.worldStateSnapshot?.pendingEmployerOffer?.status, "accepted_pending_start");
+assert.deepEqual(
+  pendingOfferWithQuotedSalaryNode.financialLedger?.incomeSources.map((source) => ({
+    id: source.id,
+    status: source.status,
+    linkedCareerStateId: source.linkedCareerStateId,
+    monthlyNetAmountWan: source.monthlyNetAmountWan
+  })),
+  pendingOfferHistory[0]!.financialLedger?.incomeSources.map((source) => ({
+    id: source.id,
+    status: source.status,
+    linkedCareerStateId: source.linkedCareerStateId,
+    monthlyNetAmountWan: source.monthlyNetAmountWan
+  })),
+  "a quoted future offer salary must not alter existing income authority"
+);
+assert.equal(pendingOfferWithQuotedSalaryNode.financialLedger?.incomeSources.some((source) => source.id === "salary_premature_offer"), false);
+
+const pendingOfferCancellationDecision = "放弃AI创业公司的产品负责人 offer，继续当前安排";
+const pendingOfferCancellationHistory: HistoryItem[] = [{
+  ...structuredClone(pendingOfferNode),
+  selectedChoice: pendingOfferCancellationDecision,
+  choices: [{
+    id: "A",
+    text: pendingOfferCancellationDecision,
+    impactSummary: "留在当前安排",
+    eventOutcomeId: "withdraw_ai_startup_product_lead"
+  }]
+}];
+const pendingOfferCareerIdBeforeWithdrawal = pendingOfferNode.worldStateSnapshot?.currentCareerStateId;
+const pendingOfferIncomeAuthorityBeforeWithdrawal = pendingOfferNode.financialLedger?.incomeSources.map((source) => ({
+  id: source.id,
+  status: source.status,
+  linkedCareerStateId: source.linkedCareerStateId,
+  monthlyNetAmountWan: source.monthlyNetAmountWan
+}));
+const pendingOfferWithdrawalNode = await generateNextNode({
+  userData,
+  answers,
+  history: pendingOfferCancellationHistory,
+  currentAttributes: pendingOfferNode.attributes,
+  selectedDecision: pendingOfferCancellationDecision,
+  nodeIndex: 3,
+  simulationSeed: "pending-employer-offer-withdrawal-preserves-current-authority"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 25,
+      stage: "职业取舍",
+      title: "保留当前安排",
+      description: "你放弃了已经接受的AI创业公司产品负责人 offer，继续保持当前安排。",
+      choices: [
+        { id: "A", text: "继续沉淀现有能力", impactSummary: "稳住节奏" },
+        { id: "B", text: "重新评估职业方向", impactSummary: "保留选择" },
+        { id: "C", text: "投入学习", impactSummary: "补足能力" }
+      ],
+      attributes,
+      narrativeMeta: {
+        worldDeltas: [{
+          type: "career_state",
+          summary: "放弃待入职 offer",
+          pendingEmployerOfferResolution: {
+            action: "withdrawn",
+            pendingOfferSourceOutcomeId: "join_ai_startup_product_lead",
+            sourceOutcomeId: "withdraw_ai_startup_product_lead",
+            evidence: "你放弃了已经接受的AI创业公司产品负责人 offer，继续保持当前安排。",
+            confidence: 0.9
+          }
+        }]
+      },
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(pendingOfferWithdrawalNode.worldStateSnapshot?.pendingEmployerOffer, undefined);
+assert.equal(pendingOfferWithdrawalNode.worldStateSnapshot?.currentCareerStateId, pendingOfferCareerIdBeforeWithdrawal);
+assert.deepEqual(
+  pendingOfferWithdrawalNode.financialLedger?.incomeSources.map((source) => ({
+    id: source.id,
+    status: source.status,
+    linkedCareerStateId: source.linkedCareerStateId,
+    monthlyNetAmountWan: source.monthlyNetAmountWan
+  })),
+  pendingOfferIncomeAuthorityBeforeWithdrawal,
+  "withdrawing a pending offer must not change the existing income authority"
+);
+
+const pendingOfferStartDecision = "确认劳动合同后正式入职AI创业公司，担任产品负责人";
+const pendingOfferStartHistory: HistoryItem[] = [{
+  ...structuredClone(pendingOfferNode),
+  selectedChoice: pendingOfferStartDecision,
+  choices: [{
+    id: "A",
+    text: pendingOfferStartDecision,
+    impactSummary: "正式入职",
+    eventOutcomeId: "start_ai_startup_product_lead"
+  }]
+}];
+const pendingOfferStartNode = await generateNextNode({
+  userData,
+  answers,
+  history: pendingOfferStartHistory,
+  currentAttributes: pendingOfferNode.attributes,
+  selectedDecision: pendingOfferStartDecision,
+  nodeIndex: 3,
+  simulationSeed: "pending-employer-offer-starts-atomically"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 25,
+      stage: "正式入职",
+      title: "产品负责人新岗位",
+      description: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+      choices: [
+        { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+        { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+        { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+      ],
+      attributes,
+      narrativeMeta: {
+        worldDeltas: [{
+          type: "career_state",
+          summary: "正式入职AI创业公司产品负责人",
+          employmentTransition: {
+            subject: "protagonist",
+            toStatus: "employed",
+            effectiveAtAgeInMonths: pendingOfferNode.ageInMonths,
+            sourceOutcomeId: "start_ai_startup_product_lead",
+            evidence: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+            confidence: 0.9
+          },
+          pendingEmployerOfferResolution: {
+            action: "started",
+            pendingOfferSourceOutcomeId: "join_ai_startup_product_lead",
+            sourceOutcomeId: "start_ai_startup_product_lead",
+            evidence: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+            confidence: 0.9
+          }
+        }]
+      },
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(pendingOfferStartNode.worldStateSnapshot?.pendingEmployerOffer, undefined);
+assert.notEqual(pendingOfferStartNode.worldStateSnapshot?.currentCareerStateId, pendingOfferCareerBefore);
+const activeEmployerSalarySources = pendingOfferStartNode.financialLedger?.incomeSources.filter((source) => (
+  source.status === "active" && source.type === "salary"
+)) || [];
+assert.equal(activeEmployerSalarySources.length, 1, "actual entry must leave exactly one active employer salary");
+assert.equal(activeEmployerSalarySources[0]?.monthlyNetAmountWan, 3.5);
+assert.equal(activeEmployerSalarySources[0]?.linkedCareerStateId, pendingOfferStartNode.worldStateSnapshot?.currentCareerStateId);
+
+// Proposal repair revalidates the candidate from scratch. A pending offer
+// start without its source-bound `started` resolution must therefore remain
+// blocking after that revalidation; it must never commit a new CareerState
+// while leaving a stale pending offer behind.
+const pendingOfferRepairHistory: HistoryItem[] = [{
+  ...structuredClone(pendingOfferNode),
+  selectedChoice: pendingOfferStartDecision,
+  choices: [{
+    id: "A",
+    text: pendingOfferStartDecision,
+    impactSummary: "正式入职",
+    eventOutcomeId: "start_ai_startup_product_lead"
+  }]
+}];
+const pendingOfferRepairHistoryBefore = structuredClone(pendingOfferRepairHistory);
+const pendingOfferRepairGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+let pendingOfferRepairCallCount = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: pendingOfferRepairHistory,
+    currentAttributes: pendingOfferNode.attributes,
+    selectedDecision: pendingOfferStartDecision,
+    nodeIndex: 3,
+    simulationSeed: "pending-employer-offer-repair-cannot-drop-start-resolution"
+  }, {
+    financialNodeGateMode: "enforced",
+    expenseLifecycleMode: "off",
+    relationshipDispatchFeatureFlags: {
+      enableAuthoritativeRelationshipStages: false,
+      enableRomanceFormationEvents: false,
+      enableRomanceLifecycleScheduling: false
+    },
+    generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+    onFinancialGateDecision: (decision) => pendingOfferRepairGateDecisions.push(decision),
+    callAiJson: async (prompt) => {
+      if (prompt.includes("你只修复财务 Proposal")) {
+        pendingOfferRepairCallCount += 1;
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: 25,
+          stage: "正式入职",
+          title: "产品负责人新岗位",
+          description: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+          choices: [
+            { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+            { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+            { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+          ],
+          attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    return true;
+  }
+);
+assert.equal(pendingOfferRepairCallCount, 1, "the regression must cross the proposal-repair revalidation boundary");
+assert.deepEqual(pendingOfferRepairGateDecisions.map((decision) => decision.disposition), ["regenerate"]);
+assert.match(
+  pendingOfferRepairGateDecisions[0]?.rejectionDiagnostic?.validatorIssues.map((issue) => issue.id).join(",") || "",
+  /pending_employer_offer_start_resolution_missing/
+);
+assert.deepEqual(
+  pendingOfferRepairHistory,
+  pendingOfferRepairHistoryBefore,
+  "a rejected repaired pending-offer start must leave history, time, CareerState and ledger unchanged"
+);
+
 const careerAuthorityHistory: HistoryItem[] = [{
   ...structuredClone(history[0]!),
   selectedChoice: careerAuthorityDecision,
@@ -1635,7 +2148,7 @@ const careerAuthorityHistory: HistoryItem[] = [{
   }]
 }];
 const careerAuthorityHistoryBefore = structuredClone(careerAuthorityHistory);
-const careerAuthorityGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
+const careerAuthorityGateDecisions: FinancialNodeAcceptanceDecision[] = [];
 await assert.rejects(
   generateNextNode({
     userData,
@@ -1646,19 +2159,21 @@ await assert.rejects(
     nodeIndex: 1,
     simulationSeed: "career-income-atomicity-zero-mutation"
   }, {
-    financialNodeGateMode: "enforced",
-    expenseLifecycleMode: "off",
-    generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
-    onFinancialGateDecision: (decision) => careerAuthorityGateDecisions.push({
-      disposition: decision.disposition,
-      reasonCodes: decision.reasonCodes
-    }),
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  onFinancialGateDecision: (decision) => careerAuthorityGateDecisions.push(decision),
     callAiJson: async () => ({
       text: JSON.stringify({
         age: 23,
         stage: "职业转换",
         title: "接受邀请，踏上产品负责人征程",
-        description: "你接受了AI创业公司的产品负责人邀请。这段工作安排已经开始，但实际到账的个人收入尚待确认。",
+        description: "你已正式入职AI创业公司，担任产品负责人，但实际到账的个人收入尚待确认。（调试标记 sk-test-real-secret，Bearer raw-token）",
         choices: [
           { id: "A", text: "继续完成产品上线", impactSummary: "推进产品" },
           { id: "B", text: "先确认劳动合同与薪酬", impactSummary: "确认薪酬" },
@@ -1674,7 +2189,7 @@ await assert.rejects(
               toStatus: "employed",
               effectiveAtAgeInMonths: 276,
               sourceOutcomeId: "join_ai_startup_product_lead",
-              evidence: "你接受了AI创业公司的产品负责人邀请。",
+              evidence: "你已正式入职AI创业公司，担任产品负责人。",
               confidence: 0.9
             }
           }]
@@ -1691,6 +2206,12 @@ await assert.rejects(
 );
 assert.deepEqual(careerAuthorityGateDecisions.map((item) => item.disposition), ["regenerate"]);
 assert.ok(careerAuthorityGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"));
+assert.equal(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.schemaVersion, 1);
+assert.match(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.candidate.descriptionExcerpt || "", /正式入职AI创业公司/);
+assert.ok(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.unsatisfiedFactGroups.some((group) => group.kind === "career_income_transition"));
+assert.equal(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.provisionalCareerTransitions.length, 1);
+assert.match(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.validatorIssues.map((issue) => issue.id).join(",") || "", /career_income_atomicity/);
+assert.doesNotMatch(JSON.stringify(careerAuthorityGateDecisions[0]?.rejectionDiagnostic), /sk-test-real-secret|Bearer raw-token/u);
 assert.deepEqual(careerAuthorityHistory, careerAuthorityHistoryBefore, "rejected career transition must leave history, time and old authority unchanged");
 
 // The production App shares one 2-full / 1-patch budget across this entire

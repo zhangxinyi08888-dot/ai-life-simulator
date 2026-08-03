@@ -23,6 +23,63 @@ export interface RequiredFinancialFactGroup {
   relatedProposalIds: string[];
 }
 
+/**
+ * Bounded, redacted diagnostics preserved only for a rejected Preview.  It is
+ * intentionally not part of the user-visible error string or committed node
+ * history: browser test checkpoints need enough context to explain a gate
+ * pause without retaining prompts, credentials, or a full model response.
+ */
+export interface FinancialNodeGateRejectionDiagnostic {
+  schemaVersion: 1;
+  candidate: {
+    titleExcerpt: string;
+    descriptionExcerpt: string;
+    descriptionFingerprint: string;
+    descriptionTruncated: boolean;
+  };
+  proposals: Array<{
+    id: string;
+    kind: string;
+    effectiveAtAgeInMonths: number;
+    sourceOutcomeId?: string;
+    confidence?: number;
+    financialScope?: string;
+    systemGenerated?: string;
+    disposition: "accepted" | "rejected" | "unaccepted";
+    evidenceExcerpt: string;
+    payload: unknown;
+  }>;
+  normalizedProposalCount: number;
+  omittedProposalCount: number;
+  rejectedProposalIds: string[];
+  validatorIssues: Array<{
+    id: string;
+    code: string;
+    severity: string;
+    status?: string;
+    summaryExcerpt: string;
+    relatedProposalIds: string[];
+    relatedIncomeSourceIds: string[];
+    relatedAccountIds: string[];
+  }>;
+  unsatisfiedFactGroups: Array<{
+    id: string;
+    kind: RequiredFinancialFactGroupKind;
+    materiality: "critical" | "review";
+    reasonCode: string;
+    relatedIssueIds: string[];
+    relatedProposalIds: string[];
+  }>;
+  provisionalCareerTransitions: Array<{
+    proposalId?: string;
+    fromCareerStateId: string;
+    nextCareerStateId: string;
+    employmentStatus: string;
+    effectiveAtAgeInMonths: number;
+    evidenceExcerpt: string;
+  }>;
+}
+
 export type FinancialNodeDisposition = "accept" | "accept_with_review" | "regenerate";
 
 export interface FinancialNodeAcceptanceDecision {
@@ -46,6 +103,7 @@ export interface FinancialNodeAcceptanceDecision {
   previewAgeInMonths?: number;
   previewPeriodIncomeWan?: number;
   previewPeriodExpenseWan?: number;
+  rejectionDiagnostic?: FinancialNodeGateRejectionDiagnostic;
 }
 
 function groupKindForIssue(issue: FinancialLedgerIssue): RequiredFinancialFactGroupKind | undefined {

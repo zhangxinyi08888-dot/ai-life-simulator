@@ -62,6 +62,29 @@ test("drops direct and payload-wrapped boolean career transitions instead of mut
   assert.equal(result.audit.filter((item) => item.reasonCode === "EMPLOYMENT_TRANSITION_DROPPED").length, 2);
 });
 
+test("flattens a pending employer offer withdrawal and binds it to the selected outcome", () => {
+  const result = normalizeWorldDeltas({
+    acceptedOutcomeIds: ["decline_ai_offer"],
+    worldDeltas: [{
+      deltaType: "career_state",
+      summary: "放弃待入职 offer",
+      payload: {
+        pendingEmployerOfferResolution: {
+          action: "withdrawn",
+          pendingOfferSourceOutcomeId: "accept_ai_offer",
+          evidence: "你放弃了已经接受的 offer。",
+          confidence: 0.9
+        }
+      }
+    }]
+  });
+  const resolution = result.worldDeltas[0]?.type === "career_state"
+    ? result.worldDeltas[0].pendingEmployerOfferResolution
+    : undefined;
+  assert.equal(resolution?.sourceOutcomeId, "decline_ai_offer");
+  assert.equal(result.audit.some((item) => item.reasonCode === "PENDING_EMPLOYER_OFFER_RESOLUTION_FLATTENED"), true);
+});
+
 test("flattens and validates an accepted structured residence payload on a location delta", () => {
   const result = normalizeWorldDeltas({
     worldDeltas: [{

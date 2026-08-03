@@ -104,6 +104,29 @@ const careerIncomeTransitionRetryPrompt = buildNextNodePrompt({
   eventSeed: healthWarningEvent,
   financialGateRetryReasonCodes: ["UNSATISFIED_CAREER_INCOME_TRANSITION"]
 });
+const pendingEmployerOfferPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "确认新岗位的劳动合同",
+  eventSeed: healthWarningEvent,
+  worldState: {
+    people: [],
+    directionArcs: [],
+    pressureArcs: [],
+    committedTransactionIds: [],
+    version: 2,
+    pendingEmployerOffer: {
+      status: "accepted_pending_start",
+      sourceOutcomeId: "accept_ai_startup_offer",
+      acceptedAtAgeInMonths: 288,
+      fromCareerStateId: "career_legacy",
+      decision: "接受AI创业公司的产品负责人邀请",
+      evidence: "接受AI创业公司的产品负责人邀请"
+    }
+  }
+});
 const responsibilityDeltaRetryPrompt = buildNextNodePrompt({
   userData,
   answers,
@@ -381,6 +404,12 @@ assert.match(financialGateRetryPrompt, /EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME/);
 assert.match(financialGateRetryPrompt, /不得返回 income_source_ended、income_source_paused/);
 assert.match(careerIncomeTransitionRetryPrompt, /不得再写“个人收入尚待确认”/);
 assert.match(careerIncomeTransitionRetryPrompt, /原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入/);
+assert.match(pendingEmployerOfferPrompt, /已接受但尚未生效的外部职位/);
+assert.match(pendingEmployerOfferPrompt, /当前权威 CareerState 与个人工资尚未变化/);
+assert.match(pendingEmployerOfferPrompt, /实际入职与主角个人税后薪资事实/);
+assert.match(pendingEmployerOfferPrompt, /pendingEmployerOfferResolution/);
+assert.match(pendingEmployerOfferPrompt, /action:"started"/);
+assert.match(pendingEmployerOfferPrompt, /accept_ai_startup_offer/);
 assert.match(responsibilityDeltaRetryPrompt, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
 assert.match(responsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
 assert.match(responsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);

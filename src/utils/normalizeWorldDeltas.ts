@@ -3,7 +3,7 @@ import { normalizeExpenseResponsibilityChange } from "./expenseResponsibilityOut
 
 export interface WorldDeltaNormalizationAudit {
   index: number;
-  reasonCode: "DELTA_TYPE_NORMALIZED" | "EMPLOYMENT_TRANSITION_FLATTENED" | "EMPLOYMENT_TRANSITION_DROPPED" | "EMPLOYMENT_STATUS_MAPPED" | "SOURCE_OUTCOME_FILLED" | "RESIDENCE_CHANGE_FLATTENED" | "RESIDENCE_CHANGE_DROPPED" | "EXPENSE_RESPONSIBILITY_FLATTENED" | "EXPENSE_RESPONSIBILITY_DROPPED";
+  reasonCode: "DELTA_TYPE_NORMALIZED" | "EMPLOYMENT_TRANSITION_FLATTENED" | "EMPLOYMENT_TRANSITION_DROPPED" | "PENDING_EMPLOYER_OFFER_RESOLUTION_FLATTENED" | "PENDING_EMPLOYER_OFFER_RESOLUTION_DROPPED" | "EMPLOYMENT_STATUS_MAPPED" | "SOURCE_OUTCOME_FILLED" | "RESIDENCE_CHANGE_FLATTENED" | "RESIDENCE_CHANGE_DROPPED" | "EXPENSE_RESPONSIBILITY_FLATTENED" | "EXPENSE_RESPONSIBILITY_DROPPED";
   originalValue?: string;
   normalizedValue?: string;
 }
@@ -74,6 +74,10 @@ export function normalizeWorldDeltas(input: {
       source.employmentTransition = payload.employmentTransition;
       audit.push({ index, reasonCode: "EMPLOYMENT_TRANSITION_FLATTENED" });
     }
+    if (rawType === "career_state" && !source.pendingEmployerOfferResolution && payload?.pendingEmployerOfferResolution) {
+      source.pendingEmployerOfferResolution = payload.pendingEmployerOfferResolution;
+      audit.push({ index, reasonCode: "PENDING_EMPLOYER_OFFER_RESOLUTION_FLATTENED" });
+    }
     if (rawType === "location_change" && !source.residence && payload?.residence) {
       source.residence = payload.residence;
       audit.push({ index, reasonCode: "RESIDENCE_CHANGE_FLATTENED" });
@@ -106,6 +110,18 @@ export function normalizeWorldDeltas(input: {
         transition.sourceOutcomeId = onlyOutcomeId;
         audit.push({ index, reasonCode: "SOURCE_OUTCOME_FILLED", normalizedValue: onlyOutcomeId });
       }
+    }
+    const rawPendingOfferResolution = source.pendingEmployerOfferResolution;
+    const pendingOfferResolution = rawPendingOfferResolution && typeof rawPendingOfferResolution === "object" && !Array.isArray(rawPendingOfferResolution)
+      ? rawPendingOfferResolution as Record<string, unknown>
+      : undefined;
+    if (rawPendingOfferResolution !== undefined && !pendingOfferResolution) {
+      delete source.pendingEmployerOfferResolution;
+      audit.push({ index, reasonCode: "PENDING_EMPLOYER_OFFER_RESOLUTION_DROPPED" });
+    }
+    if (pendingOfferResolution && (!pendingOfferResolution.sourceOutcomeId || pendingOfferResolution.sourceOutcomeId === null) && onlyOutcomeId) {
+      pendingOfferResolution.sourceOutcomeId = onlyOutcomeId;
+      audit.push({ index, reasonCode: "SOURCE_OUTCOME_FILLED", normalizedValue: onlyOutcomeId });
     }
     if (rawType === "location_change" && source.residence !== undefined) {
       const residence = normalizeResidenceChange(source.residence);

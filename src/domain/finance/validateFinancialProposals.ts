@@ -60,13 +60,16 @@ const PERSONAL_CASH_INFLOW_EVENT_KINDS = new Set<FinancialEventKind>([
  * with the protagonist's present pay is an opportunity, not a personal-income
  * fact. It must not reconfirm a stale legacy wage or restart its accrual.
  *
- * Keep an explicit completed acceptance in scope: a generated node can state
- * both the accepted offer and the resulting exact salary in one sentence.
+ * An offer, signed contract, or onboarding plan does not make its quoted pay
+ * current income. Only an explicit completed first day can do that.
  */
 export function isUnacceptedIncomeOpportunityEvidence(evidence: string): boolean {
-  const completedEmployment = /(?:你|主角|本人).{0,48}(?:正式(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已经(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|换到[^。；]{0,24}(?:岗位|工作)|接受(?:了)?[^。；]{0,24}(?:offer|录用|岗位|工作)|签署(?:了)?[^。；]{0,24}(?:劳动合同|聘用合同)|(?:最终|已经|已)?(?:决定|选择)(?:接下|接受|入职|加入|签约)[^。；]{0,24}(?:兼职|工作|岗位|offer|录用)?)/u.test(evidence);
+  const uncompletedStart = /(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:入职|到岗|上班|任职|担任)|入职(?:手续|流程|日期)/u.test(evidence);
+  const completedEmployment = !uncompletedStart
+    && /(?:你|主角|本人)[^。；]{0,48}(?:正式(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已经(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|(?:正式)?加入[^。；]{0,24}(?:公司|企业|机构|团队)[^。；]{0,28}(?:担任|任职|负责|工作|职位|岗位)|换到[^。；]{0,24}(?:岗位|工作))/u.test(evidence);
   if (completedEmployment) return false;
-  return /(?:正在招|招聘|招募|招人|(?:新|该|这个|一个|某个|招聘的).{0,4}(?:岗位|职位)|(?:岗位|职位).{0,20}(?:招聘|招募|开放)|工作机会|猎头|offer|录用通知|薪资比(?:现在|目前)|薪资(?:更高|更低)|薪酬(?:更高|更低)|(?:问你愿不愿意|邀请你|希望你|请你|考虑是否)[^。；]{0,42}(?:牵头|负责|接手|加入|参与)[^。；]{0,32}(?:项目|岗位|工作|任务))/iu.test(evidence);
+  return uncompletedStart
+    || /(?:正在招|招聘|招募|招人|(?:新|该|这个|一个|某个|招聘的).{0,4}(?:岗位|职位)|(?:岗位|职位).{0,20}(?:招聘|招募|开放)|工作机会|猎头|offer|录用通知|(?:签署|签了|签订)[^。；]{0,24}(?:劳动合同|聘用合同)|薪资比(?:现在|目前)|薪资(?:更高|更低)|薪酬(?:更高|更低)|(?:问你愿不愿意|邀请你|希望你|请你|考虑是否)[^。；]{0,42}(?:牵头|负责|接手|加入|参与)[^。；]{0,32}(?:项目|岗位|工作|任务))/iu.test(evidence);
 }
 
 function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string): boolean {

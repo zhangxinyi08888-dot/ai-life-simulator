@@ -169,6 +169,97 @@ test("completed personal rent and shared parent care are classified as responsib
   assert.equal(care[0]?.protagonistShareWan, undefined);
 });
 
+test("a mixed salary, rent and parent-medical sentence binds each recurring outlay to its own amount", () => {
+  const candidates = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 288,
+    existingExpenseCommitments: [healthcareCommitment({
+      factStatus: "needs_review",
+      amountBasis: "contextual_estimate"
+    })],
+    narrativeText: "正式入职后，你的月薪从原来的2.5万元降至1.5万元，年终奖也大幅缩水，每月扣除房租3500元和父母医疗费用约1200元后，现金流明显紧张。"
+  }).candidates;
+  assert.deepEqual(candidates.map((item) => [
+    item.responsibilityKey,
+    item.proposedType,
+    item.action,
+    item.liability,
+    item.protagonistShareWan
+  ]), [
+    ["primary_residence:main", "housing", "start", "protagonist", 0.35],
+    ["recurring_healthcare:opening_parent", "healthcare", "adjust", "protagonist", 0.12]
+  ]);
+  assert.equal(candidates.some((item) => item.protagonistShareWan === 2.5), false);
+  assert.equal(candidates.some((item) => item.responsibilityKind === "elder_care"), false);
+});
+
+test("local rent and parent-health frequencies are monthlyized without borrowing the salary cadence", () => {
+  const annual = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 288,
+    narrativeText: "正式入职后，你的月薪2.5万元，我每年承担房租12万元和父母医疗年支出1.2万元。"
+  }).candidates;
+  assert.deepEqual(annual.map((item) => [
+    item.responsibilityKey, item.protagonistShareWan
+  ]), [
+    ["primary_residence:main", 1],
+    ["recurring_healthcare:parents", 0.1]
+  ]);
+
+  const quarterly = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 288,
+    narrativeText: "我每季度承担房租3万元。"
+  }).candidates;
+  assert.deepEqual(quarterly.map((item) => [
+    item.responsibilityKey, item.protagonistShareWan
+  ]), [["primary_residence:main", 1]]);
+});
+
+test("a named parent reuses the unique canonical opening healthcare responsibility", () => {
+  const candidateWorldState = world({ people: [{
+    id: "mother", displayName: "母亲", relation: "parent", lifeStatus: "active", healthStatus: "stable",
+    source: "accepted_history", confidence: 1
+  }] });
+  const existing = healthcareCommitment({
+    monthlyAmountWan: 0.1,
+    factStatus: "needs_review",
+    amountBasis: "contextual_estimate",
+    estimationPolicyId: "test_parent_healthcare"
+  });
+  const candidates = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 288,
+    candidateWorldState,
+    existingExpenseCommitments: [existing],
+    narrativeText: "你的月薪从原来的2.5万元降至1.5万元，每月扣除房租3500元和母亲医疗费用约1200元后，现金流明显紧张。"
+  }).candidates;
+  assert.deepEqual(candidates.map((item) => [
+    item.responsibilityKey, item.action, item.protagonistShareWan
+  ]), [
+    ["primary_residence:main", "start", 0.35],
+    ["recurring_healthcare:opening_parent", "adjust", 0.12]
+  ]);
+
+  const current = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "opening_parent_reuse", asOfAgeInMonths: 288
+  }) as FinancialLedgerV3);
+  current.expenseCommitments.push(existing);
+  const reconciled = reconcileExpenseCommitments({
+    ledger: current,
+    candidates,
+    ageInMonths: 288,
+    sourceOutcomeId: "opening_parent_reuse",
+    mode: "enforced"
+  });
+  const healthcareStarts = reconciled.proposals.filter((proposal) => (
+    proposal.kind === "expense_commitment_started"
+    && (proposal.payload as ExpenseCommitmentV4).responsibilityKind === "recurring_healthcare"
+  ));
+  assert.equal(healthcareStarts.length, 0);
+  const healthcareAdjustment = reconciled.proposals.find((proposal) => (
+    proposal.kind === "expense_commitment_adjusted"
+    && (proposal.payload as { expenseCommitmentId?: string }).expenseCommitmentId === existing.id
+  ));
+  assert.ok(healthcareAdjustment);
+});
+
 test("plural care and medication prose remain review-only until an Accepted shared amount proves the protagonist share", () => {
   const cases = [
     "你们每周共同陪诊母亲。我们轮流照护父母。",

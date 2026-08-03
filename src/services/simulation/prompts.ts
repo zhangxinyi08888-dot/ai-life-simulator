@@ -321,6 +321,13 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
         return `- familyRelationshipId=${relationship.id}，role=${relationship.role}，人物=${person?.displayName || "未具名父母"}，activation=${relationship.activation}，contact=${relationship.contact}，emotionalSupport=${relationship.emotionalSupport}，practicalSupport=${relationship.practicalSupport}，autonomyRespect=${relationship.autonomyRespect}，conflictIntensity=${relationship.conflictIntensity}，topicStances=${stances}`;
       }).join("\n")
     : "- 暂无权威家庭关系状态；不得根据一般家庭想象补写父母立场或压力";
+  const pendingEmployerOfferPrompt = worldState?.pendingEmployerOffer
+    ? `【已接受但尚未生效的外部职位】
+- 主角已接受：${worldState.pendingEmployerOffer.decision}
+- 该事实只表示 offer 已接受、入职和薪资仍待确认；当前权威 CareerState 与个人工资尚未变化，不能写成已经离职、已入职、开始领取新工资或同时领取两份工资。
+- 若本轮正式入职，正文必须写明可核验的主角个人税后薪资，并同时返回关联当前 outcome 的 employmentTransition、新职业收入，以及 pendingEmployerOfferResolution={action:"started",pendingOfferSourceOutcomeId:"${worldState.pendingEmployerOffer.sourceOutcomeId}",sourceOutcomeId:"${selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；三者缺一不可。若仍在交接或确认合同，则只如实写该状态且不得返回 employmentTransition 或任何职业工资变更。
+- 若正式放弃这份 offer，必须返回一条 type="career_state" worldDelta，并仅填写 pendingEmployerOfferResolution={action:"withdrawn",pendingOfferSourceOutcomeId:"${worldState.pendingEmployerOffer.sourceOutcomeId}",sourceOutcomeId:"${selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；不得用普通正文或未经绑定的状态字段清除它。`
+    : "";
   const pressurePrompt = foregroundPressureArc && pressureArcInterleaved
     ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点是为避免关系 checkpoint 饥饿或越过硬截止而插入 PressureArc 的关系 checkpoint：压力主线只作为背景保留，不得推进、解决或切换 phase；arcSignals 必须返回空数组。`
     : foregroundPressureArc
@@ -427,6 +434,8 @@ ${familyRelationshipPrompt}
 - unknown 表示尚无已接受事实，不得解释为反对、保守、冷漠或控制；具体议题只能沿用已列出的 topicStances。
 - description 只能沿用这里的已接受状态。没有已经提交的 parent_topic_stance 时，不得写“从反对转为观望/支持”“不再反对”“态度软化”或相反方向的立场变化；关系变化必须先经过用户选择和权威状态提交。
 
+${pendingEmployerOfferPrompt}
+
 【PressureArc 单写者边界】
 ${pressurePrompt}
 ${pressureResolutionRule}
@@ -436,6 +445,7 @@ ${healthPhaseRule}
 用户在刚才的十字路口选择了：【${selectedDecision}】
 ${selectedOutcomeId ? `该选择对应的已接受 outcome id：【${selectedOutcomeId}】` : "该选择没有结构化 outcome id；不得凭空提交就业状态转换。"}
 - 上述 selectedDecision 是本轮唯一获授权执行的分支。正文必须写它造成的现实后果，禁止执行、拼接或暗中延续同一节点里用户没有选择的其他选项。
+- “接受外部职位 offer”本身只表示接受录用条件，不自动等于离开旧岗位、正式入职或新工资开始计提。没有正文中的实际入职与主角个人税后薪资事实时，应写交接、合同确认或等待入职，且不得返回 employmentTransition。
 - 没有 relationship outcome id 时，可以描述普通社交、相亲尝试或未深入的接触，但不得让某个具体人物进入追求、深入交往、感情升温、正式交往、共同生活、婚姻或共同育儿；这些变化只能由对应爱情事件及用户接受的 outcome 提交。
 ${eventSeedPrompt}
 

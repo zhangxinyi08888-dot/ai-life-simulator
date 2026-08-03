@@ -269,7 +269,9 @@ test("historical salary comparisons and a resigned salary do not become current 
 
 test("explicit protagonist job entry, role change and retirement require authoritative transitions", () => {
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你正式入职一家软件公司。", currentStatus: "student" }), true);
-  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你决定换工作，加入新的团队。", currentStatus: "employed" }), true);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你接受了一家软件公司的 offer，正在确认入职日期。", currentStatus: "student" }), false);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你正式换工作，加入新的团队。", currentStatus: "employed" }), true);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你决定换工作，正在等待新团队确认入职日期。", currentStatus: "employed" }), false);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你办理退休，结束全职工作。", currentStatus: "employed" }), true);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你继续当前岗位，本期没有变化。", currentStatus: "employed" }), false);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "父亲正式退休，你为他庆祝。", currentStatus: "employed" }), false);

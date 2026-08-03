@@ -54,12 +54,12 @@ test("PB-BIZ-20 accepted custom decision adjusts an existing career income and r
   assert.equal((result[0].payload as any).nextSource.monthlyNetAmountWan, 4);
 });
 
-test("PB-CAREER-06 accepted employment transition can ground the exact personal salary from its narrative", () => {
+test("PB-CAREER-06 an actual employment start can ground the exact personal salary from its narrative", () => {
   const ledger = initializeFinancialLedger({ id: "return_to_work_income", asOfAgeInMonths: 639 });
   const result = synthesizeSelectedPersonalIncomeProposal({
     proposals: [],
     selectedDecision: "C. 回归职场稳定",
-    narrativeText: "你决定回归职场，最终接受了年薪45万元的offer，税后月薪约2.6万元。",
+    narrativeText: "你决定回归职场，最终接受了年薪45万元的offer，并于本月正式入职，税后月薪约2.6万元。",
     allowNarrativeEvidence: true,
     acceptedOutcomeId: "return_to_work",
     periodStartAgeInMonths: 639,
@@ -72,6 +72,22 @@ test("PB-CAREER-06 accepted employment transition can ground the exact personal 
   assert.equal((result[0].payload as any).type, "salary");
   assert.equal((result[0].payload as any).monthlyNetAmountWan, 2.6);
   assert.match(result[0].evidence, /税后月薪约2.6万元/);
+});
+
+test("PB-CAREER-06a a future employer offer salary cannot synthesize or adjust current income", () => {
+  const ledger = initializeFinancialLedger({ id: "pending_offer_income", asOfAgeInMonths: 639 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "接受产品总监 offer，税后月薪3.5万元，下月入职。",
+    narrativeText: "你接受了产品总监 offer。对方给出的税后月薪为3.5万元，你计划下月正式入职。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "accept_product_director_offer",
+    periodStartAgeInMonths: 639,
+    currentCareerStateId: "career_employed",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.deepEqual(result, []);
 });
 
 test("PB-CAREER-11 exact annual salary in accepted narrative starts same-node income without a career transition", () => {
@@ -172,6 +188,25 @@ test("PB-CAREER-12 exact narrative salary adjusts the sole active current income
   assert.equal(result[0]?.kind, "income_source_adjusted");
   assert.equal((result[0]?.payload as any).incomeSourceId, "current_salary");
   assert.equal((result[0]?.payload as any).nextSource.monthlyNetAmountWan, 4.2);
+});
+
+test("PB-CAREER-12a salary change never captures a later monthly rent or medical outlay", () => {
+  const ledger = initializeFinancialLedger({ id: "salary-before-monthly-expenses", asOfAgeInMonths: 288 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "确认劳动合同后正式入职AI创业公司，担任产品负责人。",
+    narrativeText: "正式入职后，你的月薪从原来的2.5万元降至1.5万元，年终奖也大幅缩水，每月扣除房租3500元和父母医疗费用约1200元后，现金流明显紧张。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "start_ai_startup_product_lead",
+    periodStartAgeInMonths: 288,
+    currentCareerStateId: "career_startup_product_lead",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "income_source_started");
+  assert.equal((result[0]?.payload as any).monthlyNetAmountWan, 1.5);
+  assert.equal((result[0]?.payload as any).linkedCareerStateId, "career_startup_product_lead");
 });
 
 test("PB-CAREER-13 employee hiring salary cannot become protagonist income", () => {

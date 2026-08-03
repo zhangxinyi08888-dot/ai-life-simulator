@@ -52,6 +52,8 @@ export interface ExplicitExpenseResponsibilityFact {
 const NON_COMPLETED = /计划|打算|考虑|准备|希望|可能|如果|将来|未来|讨论|商量|看房|物色|尝试|拟|预期/u;
 const BUSINESS_PLACE = /工坊|工作室|办公室|办公场地|仓库|厂房|门店|商铺|店铺|服务器|团队|员工|原材料|推广|公司租金|经营场地/u;
 const MONEY = /(\d+(?:\.\d+)?)\s*(万元|万|元)/u;
+const HOUSING_EXPENSE_SIGNAL = /房租|租金|月租|物业费|住房维护|维修费|开始租住|续租|租住|租下|新租(?:的)?(?:公寓|房子|住房)|租的(?:公寓|房子|住房)|搬入|入住/u;
+const PARENT_HEALTHCARE_EXPENSE_SIGNAL = /(?:父母|爸妈|母亲|父亲|妈妈|爸爸)[^。！？；]{0,24}(?:医疗|医药|治疗|复诊|用药|医院|门诊)|(?:医疗|医药|治疗|复诊|用药|医院|门诊)[^。！？；]{0,24}(?:父母|爸妈|母亲|父亲|妈妈|爸爸)/u;
 const CHINESE_DIGIT_WAN: Record<string, number> = {
   一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9
 };
@@ -80,6 +82,74 @@ function monthlyAmount(text: string): number | undefined {
   const thousands = CHINESE_DIGIT_WAN[colloquial[1]];
   const hundreds = colloquial[2] ? CHINESE_DIGIT_WAN[colloquial[2]] * 100 : 0;
   return roundWan((thousands * 1000 + hundreds) / 10_000);
+}
+
+/**
+ * A narrative sentence may mention salary, rent and family care together.
+ * Never let the first amount in that sentence become every responsibility's
+ * amount: bind a value only when it is locally adjacent to the responsibility
+ * signal. If the sentence contains one amount total, the ordinary parser is
+ * still safe to use as a compatibility fallback.
+ */
+
+function monthlyAmountNearExpenseSignal(
+  text: string,
+  signal: RegExp,
+  conflictingResponsibilitySignal?: RegExp
+): number | undefined {
+  const signalMatches = [...text.matchAll(new RegExp(signal.source, "gu"))];
+  const moneyMatches = [...text.matchAll(new RegExp(MONEY.source, "gu"))];
+  const candidates: Array<{ amount: string; unit: string; localEvidence: string; distance: number; afterSignal: boolean }> = [];
+  const hasConflict = (value: string) => conflictingResponsibilitySignal
+    ? new RegExp(conflictingResponsibilitySignal.source, "u").test(value)
+    : false;
+  for (const signalMatch of signalMatches) {
+    const signalStart = signalMatch.index;
+    if (signalStart === undefined) continue;
+    const signalEnd = signalStart + signalMatch[0].length;
+    for (const moneyMatch of moneyMatches) {
+      const moneyStart = moneyMatch.index;
+      if (moneyStart === undefined) continue;
+      const moneyEnd = moneyStart + moneyMatch[0].length;
+      const afterSignal = moneyStart >= signalEnd;
+      const distance = afterSignal ? moneyStart - signalEnd : signalStart - moneyEnd;
+      if (distance < 0 || distance > 16) continue;
+      const between = afterSignal
+        ? text.slice(signalEnd, moneyStart)
+        : text.slice(moneyEnd, signalStart);
+      if (/\d/u.test(between) || hasConflict(between)) continue;
+      // A preceding amount can belong to a different responsibility in the
+      // same clause ("房租3500 元和父母医疗1200 元"). Do not let that
+      // component cross the second responsibility's signal merely because it
+      // is closer than its own following amount.
+      if (!afterSignal && hasConflict(text.slice(Math.max(0, moneyStart - 24), signalStart))) continue;
+      const localEvidence = text.slice(
+        Math.max(0, Math.min(signalStart, moneyStart) - 16),
+        Math.min(text.length, Math.max(signalEnd, moneyEnd) + 12)
+      );
+      candidates.push({
+        amount: moneyMatch[1],
+        unit: moneyMatch[2],
+        localEvidence,
+        distance,
+        afterSignal
+      });
+    }
+  }
+  candidates.sort((left, right) => left.distance - right.distance || Number(right.afterSignal) - Number(left.afterSignal));
+  const match = candidates[0];
+  if (match) {
+    const raw = toWan(match.amount, match.unit);
+    if (raw === undefined) return undefined;
+    // Frequency is local to this responsibility-amount pair. A sentence can
+    // legitimately mention monthly salary alongside annual rent or medical
+    // spending, so inspecting the whole sentence would pick the wrong cadence.
+    if (/每年|年度|年缴|年付|年租|年支出|年费用|\/年/u.test(match.localEvidence)) return roundWan(raw / 12);
+    if (/每季|季度/u.test(match.localEvidence)) return roundWan(raw / 3);
+    return raw;
+  }
+  const allAmounts = [...text.matchAll(new RegExp(MONEY.source, "gu"))];
+  return allAmounts.length === 1 ? monthlyAmount(text) : undefined;
 }
 
 /**
@@ -741,6 +811,33 @@ function activeAcceptedParentHealthcareCommitments(input: {
   ));
 }
 
+function isCanonicalAggregateParentHealthcareCommitment(commitment: ExpenseCommitmentV4): boolean {
+  return commitment.responsibilityKey === "recurring_healthcare:opening_parent"
+    || commitment.responsibilityKey === "recurring_healthcare:parents";
+}
+
+/**
+ * A named parent normally resolves only to that exact accepted account. The
+ * narrow legacy exception is the unique canonical opening aggregate: reusing
+ * it avoids silently opening a second medical account for the same already
+ * captured responsibility. Never fall back to an unrelated named parent.
+ */
+function parentHealthcareTarget(input: {
+  activeCommitments: ExpenseCommitmentV4[];
+  namedParent?: PersonState;
+}): ExpenseCommitmentV4 | undefined {
+  if (!input.namedParent) {
+    return input.activeCommitments.length === 1 ? input.activeCommitments[0] : undefined;
+  }
+  const exact = input.activeCommitments.find((commitment) => (
+    commitment.responsibilityKey === `recurring_healthcare:${input.namedParent!.id}`
+    || (commitment.participantPersonIds || []).includes(input.namedParent!.id)
+  ));
+  if (exact) return exact;
+  const only = input.activeCommitments.length === 1 ? input.activeCommitments[0] : undefined;
+  return only && isCanonicalAggregateParentHealthcareCommitment(only) ? only : undefined;
+}
+
 /**
  * A prose sentence can supplement an accepted state, but it must not make an
  * absent payer magically become the protagonist.  In particular, a partner's
@@ -782,6 +879,11 @@ function classifyNarrativeLiability(sentence: string): {
     // current living arrangement is established. These are still completed
     // protagonist responsibilities, not future plans or a third-party bill.
     || /(?:刚|已|年初|本月|今年).{0,12}(?:续租|续签).{0,24}(?:房子|房屋|住房|公寓|住处|住所)/u.test(sentence)
+    // A first-person cash-flow sentence can name salary before listing the
+    // recurring deductions. Once it explicitly says the narrator's monthly
+    // cash flow deducts rent or parent medical care, that is stronger than an
+    // owner-review; third-party/business payers have already returned above.
+    || /(?:你|我|本人|主角|你的).{0,32}(?:月薪|工资|薪资|收入|现金流)[^。！？；]{0,96}(?:每月).{0,16}(?:扣除|扣掉|减去|除去).{0,24}(?:房租|租金|物业费|医疗|医药|治疗|复诊|用药)/u.test(sentence)
     || hasNamedPersonalParentCareAction(sentence)
     || /(?:你|我|本人|主角).{0,24}(?:医疗补贴|医药补贴).{0,32}(?:提到|提高到|上调到|增加到|调整为|变为)/u.test(sentence);
   if (hasPersonalPayer) return { liability: "protagonist", financialScope: "personal" };
@@ -917,6 +1019,16 @@ function deriveNarrativeCandidates(input: {
     const shareRate = liabilityContext.shareRate;
     const isBusiness = scope === "business_operating";
     const amount = monthlyAmount(evidenceSentence);
+    const housingAmount = monthlyAmountNearExpenseSignal(
+      evidenceSentence,
+      HOUSING_EXPENSE_SIGNAL,
+      PARENT_HEALTHCARE_EXPENSE_SIGNAL
+    );
+    const parentHealthcareAmount = monthlyAmountNearExpenseSignal(
+      evidenceSentence,
+      PARENT_HEALTHCARE_EXPENSE_SIGNAL,
+      HOUSING_EXPENSE_SIGNAL
+    );
 
     if (completedSharedCaregiver) {
       const parent = parentCandidateIdentity({
@@ -1067,18 +1179,11 @@ function deriveNarrativeCandidates(input: {
       // “医疗补贴”: it might be company/government reimbursement, or an
       // entirely different beneficiary. Explicit accepted facts are handled
       // above and retain their own responsibility key.
-      const namedParentCommitment = namedParent
-        ? activeParentHealthcare.find((commitment) => (
-          commitment.responsibilityKey === `recurring_healthcare:${namedParent.id}`
-          || commitment.responsibilityKey === "recurring_healthcare:parents"
-          || commitment.responsibilityKey === "recurring_healthcare:opening_parent"
-          || (commitment.participantPersonIds || []).includes(namedParent.id)
-        ))
-        : undefined;
-      const parentKey = namedParentCommitment?.responsibilityKey.replace(/^recurring_healthcare:/u, "")
-        || (activeParentHealthcare.length === 1
-          ? activeParentHealthcare[0].responsibilityKey.replace(/^recurring_healthcare:/u, "")
-          : undefined);
+      const target = parentHealthcareTarget({
+        activeCommitments: activeParentHealthcare,
+        namedParent
+      });
+      const parentKey = target?.responsibilityKey.replace(/^recurring_healthcare:/u, "");
       if (!isExplicitPersonalMedicalAdjustment || !parentKey) continue;
       const parentParticipantIds = namedParent ? [namedParent.id] : [];
       addCandidate(input.target, input.diagnostics, {
@@ -1093,10 +1198,83 @@ function deriveNarrativeCandidates(input: {
         explicitMonthlyTotalWan: medicalSubsidyAmount,
         protagonistShareWan: medicalSubsidyAmount,
         amountSourceId: `narrative_medical_subsidy_${evidenceSentence}`,
-        participantPersonIds: parentParticipantIds,
+        participantPersonIds: target?.participantPersonIds || parentParticipantIds,
         source: "narrative_supplement",
         evidence: [sourceEvidence({ excerpt: evidenceSentence, scope, reasonCode: "EXPENSE_MEDICAL_SUBSIDY_ADJUSTMENT" })]
       }, "EXPENSE_MEDICAL_SUBSIDY_ADJUSTMENT");
+      continue;
+    }
+
+    // Do not let a single multi-clause sentence become a zero-sum parser
+    // choice. In particular, a salary followed by "房租…和父母医疗…" contains
+    // two distinct recurring outflows. Emit both responsibility candidates
+    // with their locally-bound amounts before either legacy branch can
+    // `continue` and hide the other one.
+    if (HOUSING_EXPENSE_SIGNAL.test(evidenceSentence)
+      && PARENT_HEALTHCARE_EXPENSE_SIGNAL.test(evidenceSentence)
+      && housingAmount !== undefined
+      && parentHealthcareAmount !== undefined) {
+      addCandidate(input.target, input.diagnostics, {
+        responsibilityKey: "primary_residence:main",
+        responsibilityKind: "primary_residence",
+        proposedType: "housing",
+        action: candidateActionForLiability(liability),
+        completion: "completed",
+        cadence: "monthly",
+        liability,
+        financialScope: scope,
+        explicitMonthlyTotalWan: housingAmount,
+        protagonistShareWan: liability === "third_party" || liability === "unknown"
+          ? undefined
+          : shareRate === undefined ? housingAmount : roundWan(housingAmount * shareRate),
+        shareRate,
+        amountSourceId: `narrative_housing_${evidenceSentence}`,
+        participantPersonIds: [],
+        source: "narrative_supplement",
+        evidence: [sourceEvidence({
+          excerpt: evidenceSentence,
+          scope,
+          reasonCode: isBusiness ? "EXPENSE_BUSINESS_PLACE" : "EXPENSE_HOUSING_NARRATIVE"
+        })]
+      }, isBusiness ? "EXPENSE_BUSINESS_PLACE" : "EXPENSE_HOUSING_NARRATIVE");
+      const namedParent = findNamedStructuredPerson({
+        snapshot: input.candidateWorldState,
+        relation: "parent",
+        sentence: evidenceSentence
+      });
+      const activeParentHealthcare = activeAcceptedParentHealthcareCommitments({
+        commitments: input.existingExpenseCommitments,
+        snapshot: input.candidateWorldState
+      });
+      const healthcareTarget = parentHealthcareTarget({
+        activeCommitments: activeParentHealthcare,
+        namedParent
+      });
+      const parent = parentCandidateIdentity({ snapshot: input.candidateWorldState, sentence: evidenceSentence });
+      const parentKey = healthcareTarget?.responsibilityKey.replace(/^recurring_healthcare:/u, "") || parent.key;
+      addCandidate(input.target, input.diagnostics, {
+        responsibilityKey: `recurring_healthcare:${parentKey}`,
+        responsibilityKind: "recurring_healthcare",
+        proposedType: "healthcare",
+        action: liability === "unknown" ? "review" : healthcareTarget ? "adjust" : "start",
+        completion: "completed",
+        cadence: "monthly",
+        liability,
+        financialScope: scope,
+        explicitMonthlyTotalWan: parentHealthcareAmount,
+        protagonistShareWan: liability === "protagonist" || liability === "shared"
+          ? shareRate === undefined ? parentHealthcareAmount : roundWan(parentHealthcareAmount * shareRate)
+          : undefined,
+        shareRate,
+        amountSourceId: `narrative_parent_healthcare_${evidenceSentence}`,
+        participantPersonIds: healthcareTarget?.participantPersonIds || parent.participantPersonIds,
+        source: "narrative_supplement",
+        evidence: [sourceEvidence({
+          excerpt: evidenceSentence,
+          scope,
+          reasonCode: "EXPENSE_PARENT_MEDICAL_SPLIT"
+        })]
+      }, "EXPENSE_PARENT_MEDICAL_SPLIT");
       continue;
     }
 
@@ -1124,22 +1302,23 @@ function deriveNarrativeCandidates(input: {
     // contract, which may also contain a large annual revenue amount.  Keep
     // the renewal signal only when the same sentence names a residence or a
     // rental agreement.  Explicit rent/occupancy terms remain sufficient.
-    if (/(?:租金|房租|月租|物业费|住房维护|维修费|开始租住|续租|租住|租下|新租(?:的)?(?:公寓|房子|住房)|租的(?:公寓|房子|住房)|搬入|入住)|(?:续签[^。！？；]{0,24}(?:房子|房屋|住房|公寓|住处|住所|租约|租房合同)|(?:房子|房屋|住房|公寓|住处|住所|租约|租房合同)[^。！？；]{0,24}续签)/u.test(evidenceSentence)) {
+    if (HOUSING_EXPENSE_SIGNAL.test(evidenceSentence)
+      || /(?:续签[^。！？；]{0,24}(?:房子|房屋|住房|公寓|住处|住所|租约|租房合同)|(?:房子|房屋|住房|公寓|住处|住所|租约|租房合同)[^。！？；]{0,24}续签)/u.test(evidenceSentence)) {
       addCandidate(input.target, input.diagnostics, {
         responsibilityKey: "primary_residence:main",
         responsibilityKind: "primary_residence",
         proposedType: "housing",
         action: candidateActionForLiability(liability),
         completion: "completed",
-        cadence: amount === undefined ? "recurring_unknown" : "monthly",
+        cadence: housingAmount === undefined ? "recurring_unknown" : "monthly",
         liability,
         financialScope: scope,
-        explicitMonthlyTotalWan: amount,
+        explicitMonthlyTotalWan: housingAmount,
         protagonistShareWan: liability === "third_party" || liability === "unknown"
           ? undefined
-          : amount !== undefined && shareRate !== undefined ? roundWan(amount * shareRate) : amount,
+          : housingAmount !== undefined && shareRate !== undefined ? roundWan(housingAmount * shareRate) : housingAmount,
         shareRate,
-        amountSourceId: amount === undefined ? undefined : `narrative_housing_${evidenceSentence}`,
+        amountSourceId: housingAmount === undefined ? undefined : `narrative_housing_${evidenceSentence}`,
         participantPersonIds: [],
         source: "narrative_supplement",
         evidence: [sourceEvidence({ excerpt: evidenceSentence, scope, reasonCode: isBusiness ? "EXPENSE_BUSINESS_PLACE" : "EXPENSE_HOUSING_NARRATIVE" })]
