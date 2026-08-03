@@ -189,11 +189,26 @@ export interface ExpenseResponsibilityCandidate {
   shareRate?: number;
   amountSourceId?: string;
   participantPersonIds: string[];
+  /**
+   * The accepted outcome named one parent role, but that role has not yet
+   * resolved to an accepted PersonState identity. It is an owner/identity
+   * review only and must not be widened to the aggregate `elder_care:parents`
+   * account by a same-node narrative fallback.
+   */
+  identityResolutionRequired?: boolean;
   source: "user_fact" | "accepted_world_delta" | "accepted_outcome" | "narrative_supplement" | "scheduled_review";
   /** Required whenever this candidate pauses, lowers, or permanently ends an existing V4 responsibility. */
   changeReason?: ExpenseCommitmentChangeReason;
   /** `adjust` may temporarily pause or later resume an existing responsibility; starts and ends use their own states. */
   nextStatus?: "active" | "paused";
+  /**
+   * A newly accepted, higher-intensity responsibility observation can refresh
+   * an existing contextual estimate upward. This is deliberately not an
+   * amount fact: it never creates an account, confirms an amount, or lowers
+   * an existing accrual. The reconciler may use it only for an active
+   * `needs_review` contextual estimate of the same responsibility.
+   */
+  policyEstimateAdjustment?: "increase_only";
   evidence: FinancialEvidence[];
 }
 
@@ -486,7 +501,22 @@ export interface FinancialEventProposal {
    * use the same schema/validator/reducer path without pretending the review
    * text was narrated as a new financial fact.
    */
-  systemGenerated?: "expense_lifecycle_review";
+  systemGenerated?: "expense_lifecycle_review"
+    | "expense_responsibility_reconciliation"
+    /**
+     * A tightly constrained, evidence-driven refinement of an existing
+     * contextual parent-care estimate. It may only increase that same
+     * active responsibility; the validator rejects every identity, scope,
+     * status, or amount-basis change outside the dedicated contract.
+     */
+    | "expense_contextual_care_uplift"
+    /**
+     * A responsibility projection from an already accepted structured
+     * WorldState delta. This is deliberately distinct from prose-derived
+     * reconciliation: the accepted state, rather than a fresh narrative
+     * string match, is its fact authority.
+     */
+    | "expense_world_delta_reconciliation";
 }
 
 export interface MoneyReceivedPayload {

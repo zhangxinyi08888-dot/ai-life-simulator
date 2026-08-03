@@ -201,12 +201,37 @@ export interface EventMeta {
   pressureArcInterleaved?: boolean;
 }
 
+/**
+ * A completed recurring responsibility, deliberately separated from a money
+ * event.  It carries no account id or amount: the finance lifecycle owns the
+ * stable account key and a policy-backed `needs_review` estimate when the
+ * obligation is real but the price is not known.
+ */
+export interface ExpenseResponsibilityChange {
+  responsibilityKind: "elder_care" | "recurring_healthcare";
+  /** Elder care may target a parent; recurring healthcare may target only the protagonist. */
+  beneficiary: "protagonist" | "mother" | "father" | "parents";
+  /**
+   * `shared_household` may appear in untrusted model transport but is rejected
+   * by the structured guard: an amount-free delta cannot establish the
+   * protagonist's share. Shared care must use an Accepted financial proposal.
+   */
+  owner: "protagonist" | "shared_household";
+  cadence: "recurring_unknown";
+  /** Verbatim completed source sentence; it is rechecked before acceptance. */
+  evidence: string;
+  confidence: number;
+  /** Bound to the already selected outcome, not an arbitrary current-node choice. */
+  sourceOutcomeId?: string;
+}
+
 export type WorldDelta =
   | { type: "person_status"; personId: string; status: PersonLifeStatus; reason: string }
   | { type: "person_role"; personId: string; occupationStatus: PersonState["occupationStatus"] }
   | { type: "relationship_change"; personId: string; summary: string }
   | { type: "career_state"; summary: string; employmentTransition?: EmploymentTransitionProposal }
   | { type: "health_state"; summary: string }
+  | { type: "expense_responsibility"; summary: string; responsibility: ExpenseResponsibilityChange }
   | { type: "location_change"; summary: string; residence?: ResidenceOccupancyChange };
 
 /**

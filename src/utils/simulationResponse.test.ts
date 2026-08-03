@@ -47,9 +47,10 @@ assert.equal(node.choices[2].id, "C");
 assert.equal(node.choices[2].impactSummary, "继续探索");
 
 const outcomeNode = normalizeSimulationNode({
-  choices: [{ id: "A", text: "逐步恢复活动", impactSummary: "恢复参与", eventOutcomeId: "resume_activity_gradually" }]
+  choices: [{ id: "A", text: "逐步恢复活动", impactSummary: "恢复参与", eventOutcomeId: "resume_activity_gradually", expectedWorldDeltaTypes: ["expense_responsibility"] }]
 });
 assert.equal(outcomeNode.choices[0].eventOutcomeId, "resume_activity_gradually");
+assert.deepEqual(outcomeNode.choices[0].expectedWorldDeltaTypes, ["expense_responsibility"]);
 
 const relationshipProposalNode = normalizeSimulationNode({
   description: "你们在活动结束后交换了联系方式。",

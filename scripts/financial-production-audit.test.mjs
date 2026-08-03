@@ -8,27 +8,33 @@ import {
   extractPersonalMonthlyIncomeWan
 } from "./lib/financial-production-audit.mjs";
 
-function ledger({ debt = 0, assets = [], evidence = [{ source: "system_policy", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }] } = {}) {
+function ledger({
+  debt = 0,
+  debtStatus = "active",
+  assets = [],
+  evidence = [{ source: "system_policy", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }],
+  recentTransactions = []
+} = {}) {
   return {
     debtAccounts: debt > 0 ? [{
       id: "legacy_debt",
       type: "mortgage",
-      principalWan: debt,
+      principalWan: debtStatus === "repaid" ? 0 : debt,
       accruedUnpaidInterestWan: 0,
-      status: "active",
+      status: debtStatus,
       evidence
     }] : [],
     assetAccounts: assets,
-    recentTransactions: []
+    recentTransactions
   };
 }
 
-function node({ title, ageInMonths, debt = 0, cash = 0, netWorth = cash - debt, description = "普通生活继续。", fallback = false, assets = [] }) {
+function node({ title, ageInMonths, debt = 0, debtStatus = "active", cash = 0, netWorth = cash - debt, description = "普通生活继续。", fallback = false, assets = [], evidence, recentTransactions = [] }) {
   return {
     title,
     ageInMonths,
     description,
-    financialLedger: ledger({ debt, assets }),
+    financialLedger: ledger({ debt, debtStatus, assets, evidence, recentTransactions }),
     financialState: { cashWan: cash, totalDebtWan: debt, netWorthWan: netWorth, propertyMarketValueWan: 0 },
     financialProcessingMeta: fallback ? {
       narrativeFallback: true,
@@ -209,13 +215,81 @@ test("PB-AUDIT-12 a hypothetical future payoff is not reported as an unsupported
 });
 
 test("PB-AUDIT-13 a zero-debt state may describe a historically grounded payoff", () => {
+  const acceptedRepayment = {
+    id: "accepted_repayment_tx", debtPrincipalPaidWan: 8.54, debtPrincipalForgivenWan: 0,
+    debtInterestLiabilityPaidWan: 0, debtInterestForgivenWan: 0, automaticLiquidityShortfallRecoveryWan: 0
+  };
   const audit = auditFinancialProductionRecords([{
     caseSlug: "historical-payoff",
     finalState: { history: [
       node({ title: "曾有债务", ageInMonths: 500, debt: 8.54, cash: 2 }),
-      node({ title: "完成偿付", ageInMonths: 512, debt: 0, cash: 3, description: "债务归零后，你开始建立新的现金缓冲。" }),
-      node({ title: "稳定生活", ageInMonths: 524, debt: 0, cash: 5, description: "债务归零后，你继续按月储蓄。" })
+      node({
+        title: "完成偿付", ageInMonths: 512, debt: 8.54, debtStatus: "repaid", cash: 3,
+        evidence: [{ source: "accepted_history", reasonCode: "DEBT_REPAYMENT", confidence: 1 }],
+        recentTransactions: [acceptedRepayment],
+        description: "债务归零后，你开始建立新的现金缓冲。"
+      }),
+      node({
+        title: "稳定生活", ageInMonths: 524, debt: 8.54, debtStatus: "repaid", cash: 5,
+        evidence: [{ source: "accepted_history", reasonCode: "DEBT_REPAYMENT", confidence: 1 }],
+        recentTransactions: [acceptedRepayment],
+        description: "债务归零后，你继续按月储蓄。"
+      })
     ] }
   }]);
   assert.equal(audit.summary.unsupportedRepaymentCompletionNodeCount, 0);
+});
+
+test("PB-AUDIT-14 an opening backstory payoff is not treated as a current ledger completion", () => {
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "opening-backstory-payoff",
+    finalState: {
+      history: [node({
+        title: "开局", ageInMonths: 288, debt: 0, cash: 18,
+        description: "你刚攒下十八万，还清了信用卡分期，手头略有积蓄。"
+      })]
+    }
+  }]);
+  assert.equal(audit.summary.unsupportedRepaymentCompletionNodeCount, 0);
+});
+
+test("PB-AUDIT-15 zero terminal debt without a ledger settlement cannot support report payoff copy", () => {
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "unsupported-terminal-payoff",
+    finalState: {
+      history: [
+        node({ title: "曾有债务", ageInMonths: 500, debt: 8.54, cash: 2 }),
+        node({
+          title: "账面归零", ageInMonths: 512, debt: 8.54, debtStatus: "repaid", cash: 3,
+          evidence: [{ source: "accepted_history", reasonCode: "UNVERIFIED_STATUS", confidence: 1 }]
+        })
+      ],
+      outcome: { share: { viralTitle: "我终于还清了全部债务" }, report: {} }
+    }
+  }]);
+  assert.equal(audit.summary.finalReportFinancialConflictCount, 1);
+});
+
+test("PB-AUDIT-16 a settlement for one account cannot authorize a payoff claim for an unproved second account", () => {
+  const acceptedRepayment = {
+    id: "accepted_repayment_tx", debtPrincipalPaidWan: 8.54, debtPrincipalForgivenWan: 0,
+    debtInterestLiabilityPaidWan: 0, debtInterestForgivenWan: 0, automaticLiquidityShortfallRecoveryWan: 0
+  };
+  const settled = node({
+    title: "一笔偿付完成", ageInMonths: 512, debt: 8.54, debtStatus: "repaid", cash: 3,
+    evidence: [{ source: "accepted_history", reasonCode: "DEBT_REPAYMENT", confidence: 1 }],
+    recentTransactions: [acceptedRepayment]
+  });
+  settled.financialLedger.debtAccounts.push({
+    id: "unproved_debt", type: "consumer_loan", principalWan: 0, accruedUnpaidInterestWan: 0, status: "repaid",
+    evidence: [{ source: "accepted_history", reasonCode: "UNVERIFIED_STATUS", confidence: 1 }]
+  });
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "partially-proved-terminal-payoff",
+    finalState: {
+      history: [node({ title: "曾有债务", ageInMonths: 500, debt: 8.54, cash: 2 }), settled],
+      outcome: { share: { viralTitle: "我终于还清了全部债务" }, report: {} }
+    }
+  }]);
+  assert.equal(audit.summary.finalReportFinancialConflictCount, 1);
 });

@@ -167,6 +167,16 @@ function validateV4ExpenseMutation(input: {
     if (input.next.status !== "active") {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 新支出责任必须以 active 状态开始；暂停和结束只能针对既有责任");
     }
+    const existingResponsibility = input.ledger.expenseCommitments.find((commitment) => (
+      commitment.status !== "ended"
+      && commitment.responsibilityKey === input.next.responsibilityKey
+    ));
+    if (existingResponsibility) {
+      throw new FinancialLedgerInvariantError(
+        "INVALID_LEDGER",
+        `V4 支出责任 ${input.next.responsibilityKey} 已由 ${existingResponsibility.id} 以 ${existingResponsibility.status} 状态存在；必须调整或恢复原账户，不能重复 started`
+      );
+    }
     return;
   }
   if (!input.current || !isExpenseCommitmentV4(input.current)) {

@@ -284,3 +284,50 @@ test("an accepted long-term treatment at high age uses the older-adult medical p
   assert.ok(annualExpense(older) > annualExpense(younger), "the same accepted ongoing health responsibility should not be held at a young-adult level at 89");
   assert.equal(olderMedical.factStatus, "needs_review", "policy amount remains visibly estimated rather than fabricated as an exact fact");
 });
+
+test("a new, completed high-intensity parent-care fact raises the same contextual account through validator and reducer", () => {
+  let ledger = advance(openingLedger(), 58 * 12, "advance_to_regular_parent_checkups");
+  const regularCheckups = "你定期带父母去县医院做全面体检，报告显示他们身体状况尚可。";
+  const initialCare = deriveExpenseResponsibilityCandidates({
+    ageInMonths: ledger.asOfAgeInMonths,
+    narrativeText: regularCheckups
+  });
+  ledger = acceptAndCommit({
+    ledger,
+    ageInMonths: ledger.asOfAgeInMonths,
+    narrativeText: regularCheckups,
+    candidates: initialCare.candidates,
+    id: "regular_parent_checkups"
+  });
+  const initial = ledger.expenseCommitments.find((item) => item.responsibilityKey === "elder_care:parents");
+  assert.ok(initial);
+  assert.equal(initial.monthlyAmountWan, 0.2);
+  assert.equal(initial.factStatus, "needs_review");
+  const annualBeforeEscalation = annualExpense(ledger);
+
+  ledger = advance(ledger, 66 * 12 + 8, "advance_to_parent_care_intensity");
+  const escalationNarrative = "父亲膝盖的退行性变化需要持续关注。你每天早晚帮他做一轮轻柔的关节活动，并记录下他的血压和膝盖状况。";
+  const escalation = deriveExpenseResponsibilityCandidates({
+    ageInMonths: ledger.asOfAgeInMonths,
+    narrativeText: escalationNarrative,
+    existingExpenseCommitments: ledger.expenseCommitments
+  });
+  assert.deepEqual(escalation.candidates.map((candidate) => [candidate.action, candidate.policyEstimateAdjustment]), [
+    ["adjust", "increase_only"]
+  ]);
+  ledger = acceptAndCommit({
+    ledger,
+    ageInMonths: ledger.asOfAgeInMonths,
+    narrativeText: escalationNarrative,
+    candidates: escalation.candidates,
+    id: "parent_care_intensity"
+  });
+  const uplifted = ledger.expenseCommitments.find((item) => item.responsibilityKey === "elder_care:parents");
+  assert.ok(uplifted);
+  assert.equal(uplifted.monthlyAmountWan, 0.35);
+  assert.equal(uplifted.amountBasis, "contextual_estimate");
+  assert.equal(uplifted.factStatus, "needs_review");
+  assert.ok(uplifted.evidence.some((item) => item.reasonCode === "EXPENSE_CONTEXTUAL_UPLIFT_ELEVATED_CARE"));
+  assert.equal(annualExpense(ledger), annualBeforeEscalation + 1.8, "the ledger's annual expense must reflect the accepted .2 → .35 care escalation");
+  assertFinancialLedgerInvariants(ledger);
+});

@@ -53,6 +53,36 @@ function containsCompletedRepaymentClaim(text) {
   });
 }
 
+function transactionHasDebtSettlementFact(transaction) {
+  return Number(transaction?.debtPrincipalPaidWan || 0) > 0
+    || Number(transaction?.debtPrincipalForgivenWan || 0) > 0
+    || Number(transaction?.debtInterestLiabilityPaidWan || 0) > 0
+    || Number(transaction?.debtInterestForgivenWan || 0) > 0
+    || Number(transaction?.automaticLiquidityShortfallRecoveryWan || 0) > 0;
+}
+
+function hasRecordedDebtSettlementForAccount(history, debtAccountId) {
+  return history.some((node, index) => {
+    const ledger = node?.financialLedger;
+    const account = ledger?.debtAccounts?.find((candidate) => candidate.id === debtAccountId);
+    if (!ledger || !account || account.status !== "repaid") return false;
+    const prior = history[index - 1]?.financialLedger?.debtAccounts?.find((candidate) => candidate.id === debtAccountId);
+    return (ledger.recentTransactions || []).some((transaction) => {
+      if (!transactionHasDebtSettlementFact(transaction)) return false;
+      if ((transaction.debtServiceRecords || []).some((record) => record.debtAccountId === debtAccountId
+        && (Number(record.principalPaidWan || 0) > 0 || Number(record.interestPaidWan || 0) > 0))) return true;
+      return Boolean(prior && (prior.status === "active" || prior.status === "defaulted"));
+    });
+  });
+}
+
+function hasReliableRepaidDebtAccounts(history, node) {
+  const repaidAccounts = (node?.financialLedger?.debtAccounts || []).filter((account) => account.status === "repaid");
+  return repaidAccounts.length > 0
+    && repaidAccounts.every((account) => (hasAuthoritativeOpeningEvidence(account) || account.origin === "system_auto_shortfall")
+      && hasRecordedDebtSettlementForAccount(history, account.id));
+}
+
 function flattenText(value, output = []) {
   if (typeof value === "string") output.push(value);
   else if (Array.isArray(value)) value.forEach((item) => flattenText(item, output));
@@ -196,19 +226,15 @@ function knownRateInterestOmissionIssue(node, previousNode) {
 
 function unsupportedRepaymentCompletionIssue(node, previousNode, priorNodes = []) {
   if (!containsCompletedRepaymentClaim(node?.description)) return undefined;
-  const transaction = latestTransaction(node);
-  const hasRepaymentFact = Number(transaction?.debtPrincipalPaidWan || 0) > 0
-    || Number(transaction?.debtPrincipalForgivenWan || 0) > 0
-    || (node?.financialLedger?.debtAccounts || []).some((account) => {
-      const previous = previousNode?.financialLedger?.debtAccounts?.find((item) => item.id === account.id);
-      return previous && (previous.status === "active" || previous.status === "defaulted")
-        && ["repaid", "forgiven", "restructured"].includes(account.status);
-    });
-  if (hasRepaymentFact) return undefined;
-  const historicallyGroundedZeroDebt = Number(node?.financialState?.totalDebtWan || 0) <= 0.01
-    && priorNodes.some((item) => Number(item?.financialState?.totalDebtWan || 0) > 0.01);
-  if (historicallyGroundedZeroDebt) return undefined;
-  return { transactionId: transaction?.id };
+  // The opening chapter can truthfully mention a pre-simulation payoff.  There
+  // is no prior in-simulation ledger period to which that background fact can
+  // be attached, so it is not a current-period completion claim.
+  if (!previousNode) return undefined;
+  const historyThroughNode = [...priorNodes, node];
+  const supported = activeDebtTotal(node?.financialLedger) <= 0.01
+    && hasReliableRepaidDebtAccounts(historyThroughNode, node);
+  if (supported) return undefined;
+  return { transactionId: latestTransaction(node)?.id };
 }
 
 export function extractFinancialNarrativeAuditMeta(node) {
@@ -233,7 +259,11 @@ export function collectFinalReportFinancialConflicts(record) {
   const confirmedProperties = activePropertyAccounts(latest.financialLedger)
     .filter((account) => account.factStatus === "known" || hasAuthoritativeOpeningEvidence(account));
   const conflicts = [];
-  if (debtWan > 0.01 && containsCompletedRepaymentClaim(text)) conflicts.push({ code: "REPORT_DEBT_COMPLETION_CONFLICT", debtWan });
+  if (containsCompletedRepaymentClaim(text)
+    && (debtWan > 0.01
+      || !hasReliableRepaidDebtAccounts(history, latest))) {
+    conflicts.push({ code: "REPORT_DEBT_COMPLETION_CONFLICT", debtWan });
+  }
   if (netWorthWan < -0.01 && NEGATIVE_NET_WORTH_SUCCESS_TEXT.test(text)) conflicts.push({ code: "REPORT_NEGATIVE_NET_WORTH_CONFLICT", netWorthWan });
   if (confirmedProperties.length === 0 && PROPERTY_POSSESSION_TEXT.test(text)) conflicts.push({ code: "REPORT_PROPERTY_CONFLICT" });
   return conflicts;

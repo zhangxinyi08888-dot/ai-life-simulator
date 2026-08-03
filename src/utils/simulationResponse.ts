@@ -110,7 +110,7 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
     const duration = Array.isArray(choice?.temporalHint?.durationMonths) && choice.temporalHint.durationMonths.length >= 2
       ? [readNumber(choice.temporalHint.durationMonths[0], defaultDuration[lifeIntensity][0]), readNumber(choice.temporalHint.durationMonths[1], defaultDuration[lifeIntensity][1])] as [number, number]
       : defaultDuration[lifeIntensity];
-    const validDeltaTypes = new Set(["person_status", "person_role", "relationship_change", "career_state", "health_state", "location_change"]);
+    const validDeltaTypes = new Set(["person_status", "person_role", "relationship_change", "career_state", "health_state", "expense_responsibility", "location_change"]);
     const expectedWorldDeltaTypes = Array.isArray(choice?.expectedWorldDeltaTypes)
       ? choice.expectedWorldDeltaTypes.filter((value: unknown): value is WorldDelta["type"] => typeof value === "string" && validDeltaTypes.has(value))
       : [];

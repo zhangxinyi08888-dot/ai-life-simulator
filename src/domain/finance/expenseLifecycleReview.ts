@@ -1,6 +1,7 @@
 import { expenseReviewIntervalMonths } from "./expenseEstimationPolicyV2";
 import type {
   AcceptedFinancialEvent,
+  ExpenseCommitment,
   ExpenseCommitmentV4,
   FinancialEvidence,
   FinancialLedgerIssue,
@@ -21,12 +22,42 @@ export interface ExpenseLifecycleReviewPlan {
  */
 export const EXPENSE_REVIEW_CONFIRMATION_AFTER_SUBSTANTIVE_NODES = 2;
 
-export function expenseReviewRequiresPromptConfirmation(issue: FinancialLedgerIssue): boolean {
+/**
+ * A policy/context/legacy estimate (most visibly the adult-basic-living
+ * floor) is a nonzero cash-flow safeguard, not a model-originated claim
+ * about the protagonist's current real-world spending. Once it becomes due,
+ * the system records the review and keeps the warning open, but a narrator
+ * cannot truthfully "confirm" or adjust that amount unless this node
+ * contains a separate accepted fact.
+ *
+ * Other commitments with an explicit / last-known amount are different: a
+ * due review asks the next node to obtain a real current fact after the
+ * grace period.  Keeping this distinction here prevents the prompt and the
+ * gate from treating a deterministic floor as an endlessly rejected model
+ * proposal.
+ */
+export function isPolicyOwnedExpenseEstimate(
+  commitment: Pick<ExpenseCommitment, "factStatus" | "amountBasis">
+): boolean {
+  return commitment.factStatus === "needs_review"
+    && ["policy_floor", "contextual_estimate", "legacy_estimate"].includes(commitment.amountBasis);
+}
+
+export function expenseReviewRequiresPromptConfirmation(
+  issue: FinancialLedgerIssue,
+  commitment?: Pick<ExpenseCommitment, "factStatus" | "amountBasis">
+): boolean {
   const isExpenseReviewIssue = issue.id.startsWith("expense_review_due_")
     || issue.id.startsWith("expense_lifecycle_review_");
-  return issue.status !== "resolved"
+  const overdue = issue.status !== "resolved"
     && isExpenseReviewIssue
     && (issue.occurrenceCount ?? 1) >= EXPENSE_REVIEW_CONFIRMATION_AFTER_SUBSTANTIVE_NODES;
+  // The optional parameter keeps this small predicate compatible with older
+  // audit callers that only have an issue.  The prompt builder always passes
+  // the authoritative V4 commitment, which is where the policy ownership
+  // distinction can be made safely.
+  if (!overdue) return false;
+  return !commitment || !isPolicyOwnedExpenseEstimate(commitment);
 }
 
 function reviewEvidence(commitment: ExpenseCommitmentV4, ageInMonths: number): FinancialEvidence {

@@ -124,7 +124,7 @@ ${formatAuthoritativeFinance(history)}
 【报告财务语义硬约束】
 ${formatFinalFinancialNarrativeAuthorityForPrompt(deriveFinalFinancialNarrativeAuthority(history))}
 - 上述 debt、netWorth、property 是封闭事实集合。海报标题、称号、摘要、时间线和报告正文都必须服从。
-- 仍有债务时不得写已经还清、结清或摆脱债务；净资产为负时不得写财务自由或经济无忧；没有已确认房产时不得写名下房产、卖房或房产升值。
+- 只有 debt.kind=debt_fully_repaid 时，才可写已经还清、结清或摆脱债务；debt.kind=no_active_debt 只能陈述当前账本没有仍在账上的个人债务，不能把它写成已发生的清偿。净资产为负时不得写财务自由或经济无忧；没有已确认房产时不得写名下房产、卖房或房产升值。
 
 【输出要求】
 请严格返回 JSON，不要 Markdown，不要解释。返回字段：

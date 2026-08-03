@@ -3,6 +3,7 @@ import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitia
 import { generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
+import { isFinancialGateGenerationError } from "../../utils/generationRetry";
 import { queryDynamicLifeEvent } from "../../data/lifeEvents";
 import { createSelectionEntropy } from "../../config/lineMixPolicy";
 import { buildBranchFingerprint } from "../../utils/timelineAdvance";
@@ -501,6 +502,126 @@ assert.equal(legacyIncomeRetrySource.annualNetAmountWan, 30);
 assert.equal(legacyIncomeRetrySource.linkedCareerStateId, legacyIncomeRetryCareerId);
 assert.equal(legacyIncomeRetrySource.factStatus, "known");
 assert.equal(legacyIncomeRetrySource.accrualReviewStatus, "normal");
+
+// An overdue policy-floor baseline is a deterministic nonzero safeguard, not
+// a narrator fact that can be reconfirmed.  Once its open review has already
+// been observed twice, an ordinary node must still commit exactly once with a
+// review disposition; exhausting financial-gate regeneration here caused the
+// user-visible Venture pause found in the fresh v10 run.
+const policyFloorReviewBaseline = structuredClone(nextNode);
+const policyFloorReviewChoice = policyFloorReviewBaseline.choices[0]!;
+const policyFloorReviewStartAge = policyFloorReviewBaseline.ageInMonths!;
+const policyFloorReviewLedger = policyFloorReviewBaseline.financialLedger!;
+const policyFloorReviewAccountId = "opening_adult_basic_living_protagonist";
+const policyFloorReviewDueAt = policyFloorReviewStartAge - 12;
+const policyFloorTemplate = policyFloorReviewLedger.expenseCommitments[0]!;
+policyFloorReviewLedger.expenseCommitments = [{
+  ...policyFloorTemplate,
+  id: policyFloorReviewAccountId,
+  type: "basic_living",
+  displayName: "个人基础生活支出（待确认）",
+  monthlyAmountWan: 0.35,
+  activeFromAgeInMonths: policyFloorReviewStartAge - 36,
+  status: "active",
+  factStatus: "needs_review",
+  responsibilityKey: "adult_basic_living:protagonist",
+  responsibilityKind: "adult_basic_living",
+  amountBasis: "policy_floor",
+  amountSourceIds: ["opening_policy_adult_basic_living"],
+  estimationPolicyId: "cn_conservative_basic_living@1",
+  financialScope: "personal",
+  accrualReviewStatus: "review_due",
+  confirmedMonthlyAmountWan: undefined,
+  lastReviewedAtAgeInMonths: policyFloorReviewDueAt,
+  nextReviewAtAgeInMonths: policyFloorReviewDueAt,
+  evidence: [{
+    source: "system_policy",
+    reasonCode: "OPENING_POLICY_FLOOR",
+    confidence: 1,
+    financialScope: "personal"
+  }]
+}];
+policyFloorReviewLedger.unresolvedIssues = [{
+  id: `expense_review_due_${policyFloorReviewAccountId}`,
+  code: "PENDING_FACT",
+  severity: "warning",
+  status: "open",
+  relatedProposalIds: [],
+  relatedAccountIds: [policyFloorReviewAccountId],
+  summary: "持续支出 个人基础生活支出（待确认） 已到复核时点；继续按现有金额计提，等待金额或责任范围确认",
+  createdAtAgeInMonths: policyFloorReviewDueAt,
+  lastObservedAtAgeInMonths: policyFloorReviewStartAge,
+  occurrenceCount: 2
+}];
+const policyFloorReviewHistory: HistoryItem[] = [{
+  ...policyFloorReviewBaseline,
+  selectedChoice: policyFloorReviewChoice.text,
+  selectedChoiceId: policyFloorReviewChoice.id,
+  selectedEventOutcomeId: policyFloorReviewChoice.eventOutcomeId
+}];
+const policyFloorReviewCommittedBefore = policyFloorReviewLedger.committedTransactionIds.length;
+const policyFloorReviewTransactionsBefore = policyFloorReviewLedger.recentTransactions.length;
+const policyFloorGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
+let policyFloorReviewCalls = 0;
+const policyFloorReviewNode = await generateNextNode({
+  userData,
+  answers,
+  history: policyFloorReviewHistory,
+  currentAttributes: policyFloorReviewHistory[0]!.attributes,
+  selectedDecision: policyFloorReviewChoice.text,
+  nodeIndex: 2,
+  simulationSeed: "overdue-policy-floor-accept-with-review"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "enforced",
+  onFinancialGateDecision: (decision) => policyFloorGateDecisions.push({
+    disposition: decision.disposition,
+    reasonCodes: decision.reasonCodes
+  }),
+  callAiJson: async (prompt) => {
+    policyFloorReviewCalls += 1;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || policyFloorReviewStartAge + 12);
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "日常节奏",
+        title: "重新安排一周的时间",
+        description: "你把周末留给整理作品和散步，也重新安排了下一阶段的学习计划。",
+        choices: [
+          { id: "A", text: "继续按当前节奏积累作品", impactSummary: "稳定投入" },
+          { id: "B", text: "报名一个短期课程", impactSummary: "拓展视野" },
+          { id: "C", text: "多参加线下交流", impactSummary: "补充连接" }
+        ],
+        attributes: policyFloorReviewHistory[0]!.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(policyFloorReviewCalls, 1, "a policy floor review must not trigger an invented confirmation or regeneration");
+assert.deepEqual(policyFloorGateDecisions.map((item) => item.disposition), ["accept_with_review"]);
+assert.ok(
+  policyFloorGateDecisions[0]!.reasonCodes.includes(`expense_review_due_${policyFloorReviewAccountId}`),
+  `the open policy review must remain visible in gate telemetry: ${JSON.stringify(policyFloorGateDecisions)}`
+);
+const policyFloorReviewAccount = policyFloorReviewNode.financialLedger!.expenseCommitments.find((item) => (
+  item.id === policyFloorReviewAccountId
+));
+const policyFloorReviewIssue = policyFloorReviewNode.financialLedger!.unresolvedIssues.find((item) => (
+  item.id === `expense_review_due_${policyFloorReviewAccountId}`
+));
+assert.equal(policyFloorReviewAccount?.status, "active");
+assert.equal(policyFloorReviewAccount?.monthlyAmountWan, 0.35, "the floor remains a nonzero recurring cash outflow");
+assert.equal(policyFloorReviewIssue?.status, "open", "the unknown real-world amount remains an explicit review item");
+assert.equal(policyFloorReviewIssue?.occurrenceCount, 3, "the accepted period observes the one stable review exactly once");
+assert.equal(policyFloorReviewNode.financialLedger!.committedTransactionIds.length, policyFloorReviewCommittedBefore + 1);
+assert.equal(policyFloorReviewNode.financialLedger!.recentTransactions.length, policyFloorReviewTransactionsBefore + 1);
+assert.equal(policyFloorReviewNode.financialPeriodSummary?.transactionIds.length, 1);
+assert.equal(policyFloorReviewNode.financialPeriodSummary?.periodStartAgeInMonths, policyFloorReviewStartAge);
+assert.ok((policyFloorReviewNode.ageInMonths || 0) > policyFloorReviewStartAge, "accepted policy review advances time");
+assert.ok((policyFloorReviewNode.financialPeriodSummary?.coreExpenseWan || 0) > 0, "accepted policy review accrues the active floor once");
 
 // Shadow runs the exact V4 reconciler/validator/reducer plan, but that plan
 // must remain prospective: a newly narrated personal lease appears in
@@ -1073,7 +1194,11 @@ await assert.rejects(
       };
     }
   }),
-  /财务节点接受门拒绝候选/
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    assert.equal(isFinancialGateGenerationError(error), true, "only rejected, uncommitted Preview errors receive the extended internal retry budget");
+    return true;
+  }
 );
 assert.equal(enforcedAiCalls, 6, "three bounded full-node attempts plus one proposal repair per attempt");
 assert.deepEqual(enforcedGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
@@ -1186,6 +1311,485 @@ assert.deepEqual(expenseGateHistory[0]!.financialLedger, expenseGateLedgerBefore
 assert.deepEqual(expenseGateHistory[0]!.worldStateSnapshot, expenseGateWorldBefore, "rejected EXPENSE preview must not write WorldState");
 assert.equal(expenseGateHistory[0]!.ageInMonths ?? expenseGateHistory[0]!.age * 12, expenseGateAgeBefore, "rejected EXPENSE preview must not advance time");
 assert.deepEqual(expenseGateHistory[0]!.financialPeriodSummary, expenseGatePeriodBefore, "rejected EXPENSE preview must not write period accrual");
+
+// The same no-mutation contract specifically covers the shared-responsibility
+// P0: a model cannot relabel a jointly stated household total as the
+// protagonist's personal recurring rent. Keep it on the full generate/repair
+// route so a future normalizer or retry change cannot bypass the validator.
+const collectiveExpenseHistory = structuredClone(expenseGateHistoryBefore);
+const collectiveExpenseLedgerBefore = structuredClone(collectiveExpenseHistory[0]!.financialLedger);
+const collectiveExpenseWorldBefore = structuredClone(collectiveExpenseHistory[0]!.worldStateSnapshot);
+const collectiveExpensePeriodBefore = structuredClone(collectiveExpenseHistory[0]!.financialPeriodSummary);
+const collectiveExpenseAgeBefore = collectiveExpenseHistory[0]!.ageInMonths ?? collectiveExpenseHistory[0]!.age * 12;
+let collectiveExpenseAiCalls = 0;
+const collectiveExpenseGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[] }> = [];
+const rejectedCollectiveExpense = (ageInMonths: number) => ({
+  id: "phase45_collective_household_total_as_personal",
+  kind: "expense_commitment_started",
+  effectiveAtAgeInMonths: ageInMonths,
+  payload: {
+    id: "phase45_collective_household_total_as_personal",
+    type: "housing",
+    displayName: "共同房租",
+    monthlyAmountWan: 0.5,
+    activeFromAgeInMonths: ageInMonths,
+    status: "active",
+    factStatus: "known",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "TEST_COLLECTIVE_TOTAL_AS_PERSONAL",
+      confidence: 1,
+      financialScope: "personal"
+    }],
+    responsibilityKey: "primary_residence:collective_test",
+    responsibilityKind: "primary_residence",
+    amountBasis: "explicit_known",
+    amountSourceIds: ["test:collective-rent-5000"],
+    financialScope: "personal",
+    accrualReviewStatus: "normal",
+    confirmedMonthlyAmountWan: 0.5,
+    lastConfirmedAtAgeInMonths: ageInMonths,
+    nextReviewAtAgeInMonths: ageInMonths + 12
+  },
+  evidence: "你们每月共同承担房租5000元。",
+  confidence: 1,
+  financialScope: "personal"
+});
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: collectiveExpenseHistory,
+    currentAttributes: collectiveExpenseHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "expense-collective-zero-mutation"
+  }, {
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "enforced",
+    onFinancialGateDecision: (decision) => {
+      collectiveExpenseGateDecisions.push({
+        mode: decision.mode,
+        disposition: decision.disposition,
+        allowDomainCommit: decision.allowDomainCommit,
+        reasonCodes: decision.reasonCodes
+      });
+    },
+    callAiJson: async (prompt) => {
+      collectiveExpenseAiCalls += 1;
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || collectiveExpenseAgeBefore + 12);
+      const financialEventProposals = [rejectedCollectiveExpense(targetAgeInMonths)];
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          stage: "共同住房核对",
+          title: "共同房租仍待确认个人份额",
+          description: "你们每月共同承担房租5000元。",
+          choices: [
+            { id: "A", text: "继续维持当前工作节奏", impactSummary: "保持现金流" },
+            { id: "B", text: "重新核对住房安排", impactSummary: "确认份额" },
+            { id: "C", text: "暂缓新增固定支出", impactSummary: "保守安排" }
+          ],
+          attributes: collectiveExpenseHistory[0]!.attributes,
+          financialEventProposals,
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  /财务节点接受门拒绝候选/
+);
+assert.equal(
+  collectiveExpenseAiCalls,
+  6,
+  "collective ownership rejection must exhaust three full-node attempts and their proposal repairs without inventing a completion rollback"
+);
+assert.deepEqual(collectiveExpenseGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(collectiveExpenseGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(collectiveExpenseGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(
+  collectiveExpenseGateDecisions.every((item) => item.reasonCodes.includes("UNSATISFIED_EXPENSE_LIFECYCLE")),
+  `expected the enforced gate to retain the collective expense lifecycle reason: ${JSON.stringify(collectiveExpenseGateDecisions)}`
+);
+assert.deepEqual(collectiveExpenseHistory, expenseGateHistoryBefore, "rejected collective expense must not write History");
+assert.deepEqual(collectiveExpenseHistory[0]!.financialLedger, collectiveExpenseLedgerBefore, "rejected collective expense must not write the ledger");
+assert.deepEqual(collectiveExpenseHistory[0]!.worldStateSnapshot, collectiveExpenseWorldBefore, "rejected collective expense must not write WorldState");
+assert.equal(collectiveExpenseHistory[0]!.ageInMonths ?? collectiveExpenseHistory[0]!.age * 12, collectiveExpenseAgeBefore, "rejected collective expense must not advance time");
+assert.deepEqual(collectiveExpenseHistory[0]!.financialPeriodSummary, collectiveExpensePeriodBefore, "rejected collective expense must not write period accrual");
+
+// This is the real-life route P0, not a malformed model Proposal: the prose
+// commits a jointly arranged elder-care service and gives its monthly total,
+// but never says what the protagonist pays. The lifecycle detector must carry
+// that material omission to the enforced gate. It must not advance time or
+// accrue the still-active income/expense state while waiting for a corrected
+// allocation.
+const jointCaregiverHistory = structuredClone(expenseGateHistoryBefore);
+// The live regression occurs after a relationship has already become
+// authoritative. Establish that prerequisite here so the relationship guard
+// does not quite correctly replace the financial evidence with its unrelated
+// deterministic narrative fallback before the expense lifecycle sees it.
+const jointCaregiverWorld = jointCaregiverHistory[0]!.worldStateSnapshot!;
+jointCaregiverHistory[0]!.worldStateSnapshot = {
+  ...jointCaregiverWorld,
+  people: [
+    ...(jointCaregiverWorld.people || []),
+    {
+      id: "joint_caregiver_partner",
+      displayName: "伴侣",
+      relation: "partner",
+      lifeStatus: "active",
+      source: "accepted_history",
+      confidence: 1
+    }
+  ],
+  relationships: [
+    ...(jointCaregiverWorld.relationships || []),
+    {
+      id: "joint_caregiver_relationship",
+      participantPersonIds: ["joint_caregiver_partner"],
+      type: "romantic",
+      stage: "cohabiting",
+      status: "active",
+      livingTogether: true,
+      effectiveFromAgeInMonths: jointCaregiverHistory[0]!.ageInMonths ?? jointCaregiverHistory[0]!.age * 12,
+      source: "accepted_history",
+      confidence: 1
+    }
+  ],
+  relationshipRevision: (jointCaregiverWorld.relationshipRevision || 0) + 1
+};
+const jointCaregiverHistoryBefore = structuredClone(jointCaregiverHistory);
+const jointCaregiverLedgerBefore = structuredClone(jointCaregiverHistory[0]!.financialLedger);
+const jointCaregiverWorldBefore = structuredClone(jointCaregiverHistory[0]!.worldStateSnapshot);
+const jointCaregiverPeriodBefore = structuredClone(jointCaregiverHistory[0]!.financialPeriodSummary);
+const jointCaregiverAgeBefore = jointCaregiverHistory[0]!.ageInMonths ?? jointCaregiverHistory[0]!.age * 12;
+const jointCaregiverCashBefore = jointCaregiverLedgerBefore?.cashAccounts.map((account) => [account.id, account.balanceWan]);
+const jointCaregiverIncomeBefore = jointCaregiverLedgerBefore?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]);
+let jointCaregiverAiCalls = 0;
+const jointCaregiverGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[] }> = [];
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: jointCaregiverHistory,
+    currentAttributes: jointCaregiverHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "expense-joint-caregiver-zero-mutation"
+  }, {
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "enforced",
+    onFinancialGateDecision: (decision) => jointCaregiverGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes
+    }),
+    callAiJson: async (prompt) => {
+      jointCaregiverAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || jointCaregiverAgeBefore + 12);
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          stage: "双方老人照护安排",
+          title: "共同照护费用仍待确认个人份额",
+          description: "你和伴侣商量后，决定请一个白班阿姨，每周来三天，帮忙做饭和打扫，减轻两边老人的负担。这笔开销不小，你算了算，每月要多支出三千多元，但暂时还能承受。",
+          choices: [
+            { id: "A", text: "共同确认照护费用分担", impactSummary: "明确个人现金流" },
+            { id: "B", text: "继续协调双方家庭安排", impactSummary: "缓解照护压力" },
+            { id: "C", text: "先核对可承担的预算", impactSummary: "避免透支" }
+          ],
+          attributes: jointCaregiverHistory[0]!.attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  /财务节点接受门拒绝候选/
+);
+assert.ok(jointCaregiverAiCalls >= 3, "the material shared-care omission must exhaust bounded generation attempts");
+assert.deepEqual(jointCaregiverGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(jointCaregiverGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(jointCaregiverGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(jointCaregiverGateDecisions.every((item) => item.reasonCodes.includes("UNSATISFIED_EXPENSE_LIFECYCLE")));
+assert.deepEqual(jointCaregiverHistory, jointCaregiverHistoryBefore, "unallocated material caregiver cost must not write History");
+assert.deepEqual(jointCaregiverHistory[0]!.financialLedger, jointCaregiverLedgerBefore, "rejected caregiver cost must not write the ledger");
+assert.deepEqual(jointCaregiverHistory[0]!.worldStateSnapshot, jointCaregiverWorldBefore, "rejected caregiver cost must not write WorldState");
+assert.equal(jointCaregiverHistory[0]!.ageInMonths ?? jointCaregiverHistory[0]!.age * 12, jointCaregiverAgeBefore, "rejected caregiver cost must not advance time");
+assert.deepEqual(jointCaregiverHistory[0]!.financialPeriodSummary, jointCaregiverPeriodBefore, "rejected caregiver cost must not accrue the period");
+assert.deepEqual(jointCaregiverHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), jointCaregiverCashBefore, "rejected caregiver cost must not change cash");
+assert.deepEqual(jointCaregiverHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), jointCaregiverIncomeBefore, "rejected caregiver cost must not accrue or alter income sources");
+
+// A completed, quantified first-person medical payment is a current-period
+// cash outlay, not a recurring care commitment.  If the model narrates the
+// actual payment but cannot provide its one-off event, the ordinary enforced
+// acceptance gate must reject every bounded Preview before time, income, or
+// cash accrual can move.  This is the exact fact shape found in the live
+// relationship route; the later "共同账户" reserve must not disguise it as a
+// monthly medical expense.
+const personalMedicalOutlayHistory = structuredClone(expenseGateHistoryBefore);
+const personalMedicalOutlayHistoryBefore = structuredClone(personalMedicalOutlayHistory);
+const personalMedicalOutlayLedgerBefore = structuredClone(personalMedicalOutlayHistory[0]!.financialLedger);
+const personalMedicalOutlayWorldBefore = structuredClone(personalMedicalOutlayHistory[0]!.worldStateSnapshot);
+const personalMedicalOutlayPeriodBefore = structuredClone(personalMedicalOutlayHistory[0]!.financialPeriodSummary);
+const personalMedicalOutlayAgeBefore = personalMedicalOutlayHistory[0]!.ageInMonths ?? personalMedicalOutlayHistory[0]!.age * 12;
+const personalMedicalOutlayCashBefore = personalMedicalOutlayLedgerBefore?.cashAccounts.map((account) => [account.id, account.balanceWan]);
+const personalMedicalOutlayIncomeBefore = personalMedicalOutlayLedgerBefore?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]);
+const personalMedicalOutlayGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[]; regenerationCount?: number }> = [];
+let personalMedicalOutlayAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: personalMedicalOutlayHistory,
+    currentAttributes: personalMedicalOutlayHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "personal-medical-outlay-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    // Isolate the one-off cash-flow acceptance contract from recurring
+    // lifecycle classification: this medical deposit must not become a
+    // synthesized monthly healthcare account just to let the node commit.
+    expenseLifecycleMode: "off",
+    onFinancialGateDecision: (decision) => personalMedicalOutlayGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes,
+      regenerationCount: decision.regenerationCount
+    }),
+    callAiJson: async (prompt) => {
+      personalMedicalOutlayAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || personalMedicalOutlayAgeBefore + 12);
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          ageInMonths: targetAgeInMonths,
+          stage: "父母医疗照护",
+          title: "住院押金仍待入账",
+          description: "你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。这笔钱本应从共同账户的父母照护预算中支出，但预算只覆盖常规体检和药物，没有预留突发医疗。",
+          choices: [
+            { id: "A", text: "先核对住院费用与报销", impactSummary: "确认医疗现金流" },
+            { id: "B", text: "补足家庭应急预算", impactSummary: "留出照护缓冲" },
+            { id: "C", text: "与家人确认后续分担", impactSummary: "明确责任边界" }
+          ],
+          attributes: personalMedicalOutlayHistory[0]!.attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    assert.equal(isFinancialGateGenerationError(error), true, "the uncommitted personal outlay Preview receives only the bounded financial-gate retry budget");
+    return true;
+  }
+);
+assert.equal(personalMedicalOutlayAiCalls, 6, "each of three bounded attempts repairs the missing one-off event once before the gate rejects it");
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(personalMedicalOutlayGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(
+  personalMedicalOutlayGateDecisions.every((item) => item.reasonCodes.includes("UNSATISFIED_LARGE_PERSONAL_CASHFLOW")),
+  `expected the personal-outlay coverage issue to stay a critical financial fact: ${JSON.stringify(personalMedicalOutlayGateDecisions)}`
+);
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(personalMedicalOutlayHistory, personalMedicalOutlayHistoryBefore, "unmodeled completed medical outlay must not write History");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.financialLedger, personalMedicalOutlayLedgerBefore, "unmodeled completed medical outlay must not write the ledger");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.worldStateSnapshot, personalMedicalOutlayWorldBefore, "unmodeled completed medical outlay must not write WorldState");
+assert.equal(personalMedicalOutlayHistory[0]!.ageInMonths ?? personalMedicalOutlayHistory[0]!.age * 12, personalMedicalOutlayAgeBefore, "unmodeled completed medical outlay must not advance time");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.financialPeriodSummary, personalMedicalOutlayPeriodBefore, "unmodeled completed medical outlay must not accrue the period");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), personalMedicalOutlayCashBefore, "unmodeled completed medical outlay must not change cash");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), personalMedicalOutlayIncomeBefore, "unmodeled completed medical outlay must not accrue or alter income sources");
+
+// The late-arriving route fact is stronger than a missing current-period
+// Proposal: the narrative opens at this transaction's authoritative age, then
+// says the payment happened "上个月".  Supplying an otherwise valid 1.2 万元
+// one-off at this period end must still be rejected; accepting it would forge
+// a backdated historical cash movement and double-count the time boundary.
+const historicalMedicalOutlayHistory = structuredClone(expenseGateHistoryBefore);
+const historicalMedicalOutlayHistoryBefore = structuredClone(historicalMedicalOutlayHistory);
+const historicalMedicalOutlayLedgerBefore = structuredClone(historicalMedicalOutlayHistory[0]!.financialLedger);
+const historicalMedicalOutlayWorldBefore = structuredClone(historicalMedicalOutlayHistory[0]!.worldStateSnapshot);
+const historicalMedicalOutlayPeriodBefore = structuredClone(historicalMedicalOutlayHistory[0]!.financialPeriodSummary);
+const historicalMedicalOutlayAgeBefore = historicalMedicalOutlayHistory[0]!.ageInMonths ?? historicalMedicalOutlayHistory[0]!.age * 12;
+const historicalMedicalOutlayCashBefore = historicalMedicalOutlayLedgerBefore?.cashAccounts.map((account) => [account.id, account.balanceWan]);
+const historicalMedicalOutlayIncomeBefore = historicalMedicalOutlayLedgerBefore?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]);
+const historicalMedicalOutlayCashAccountId = historicalMedicalOutlayLedgerBefore!.cashAccounts.find((account) => account.status === "active")!.id;
+const formatNarrativeAge = (ageInMonths: number) => `${Math.floor(ageInMonths / 12)}岁${ageInMonths % 12}个月`;
+const historicalMedicalOutlayDescription = (periodEndAgeInMonths: number) => (
+  `${formatNarrativeAge(historicalMedicalOutlayAgeBefore)}，共同账户规则正式运行了三个月。`
+  + "你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。这笔钱本应从共同账户的父母照护预算中支出，但预算只覆盖常规体检和药物，没有预留突发医疗。"
+  + `到${formatNarrativeAge(periodEndAgeInMonths)}，你们开始重新梳理家庭责任。`
+);
+const falseCurrentPeriodMedicalOutlay = (periodEndAgeInMonths: number) => ({
+  id: "historical_medical_outlay_as_current_period_expense",
+  kind: "one_off_expense_paid",
+  effectiveAtAgeInMonths: periodEndAgeInMonths,
+  payload: {
+    sourceCashAccountId: historicalMedicalOutlayCashAccountId,
+    amountWan: 1.2
+  },
+  evidence: "你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。",
+  confidence: 1,
+  financialScope: "personal"
+});
+const historicalMedicalOutlayGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[]; regenerationCount?: number }> = [];
+let historicalMedicalOutlayAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: historicalMedicalOutlayHistory,
+    currentAttributes: historicalMedicalOutlayHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "historical-medical-outlay-current-period-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    expenseLifecycleMode: "off",
+    onFinancialGateDecision: (decision) => historicalMedicalOutlayGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes,
+      regenerationCount: decision.regenerationCount
+    }),
+    callAiJson: async (prompt) => {
+      historicalMedicalOutlayAiCalls += 1;
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || historicalMedicalOutlayAgeBefore + 12);
+      const financialEventProposals = [falseCurrentPeriodMedicalOutlay(targetAgeInMonths)];
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          ageInMonths: targetAgeInMonths,
+          stage: "父母医疗照护",
+          title: "历史住院押金不能伪装为本期支出",
+          description: historicalMedicalOutlayDescription(targetAgeInMonths),
+          choices: [
+            { id: "A", text: "核对住院历史费用", impactSummary: "确认历史事实" },
+            { id: "B", text: "建立后续照护预算", impactSummary: "补足生活安排" },
+            { id: "C", text: "确认后续分担方式", impactSummary: "明确责任边界" }
+          ],
+          attributes: historicalMedicalOutlayHistory[0]!.attributes,
+          financialEventProposals,
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    assert.equal(isFinancialGateGenerationError(error), true);
+    return true;
+  }
+);
+assert.equal(historicalMedicalOutlayAiCalls, 9, "a rejected pre-period one-off performs full-node, proposal and narrative repair on each bounded attempt without writing a false current cash flow");
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(historicalMedicalOutlayGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(
+  historicalMedicalOutlayGateDecisions.every((item) => item.reasonCodes.includes("REJECTED_COMPLETED_LARGE_PERSONAL_CASHFLOW")),
+  `a rejected period-end one-off must remain a critical cash-flow fact: ${JSON.stringify(historicalMedicalOutlayGateDecisions)}`
+);
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(historicalMedicalOutlayHistory, historicalMedicalOutlayHistoryBefore, "a rejected historical outlay correction must not write History");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialLedger, historicalMedicalOutlayLedgerBefore, "a rejected historical outlay correction must not write the ledger");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.worldStateSnapshot, historicalMedicalOutlayWorldBefore, "a rejected historical outlay correction must not write WorldState");
+assert.equal(historicalMedicalOutlayHistory[0]!.ageInMonths ?? historicalMedicalOutlayHistory[0]!.age * 12, historicalMedicalOutlayAgeBefore, "a rejected historical outlay correction must not advance time");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialPeriodSummary, historicalMedicalOutlayPeriodBefore, "a rejected historical outlay correction must not accrue the period");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), historicalMedicalOutlayCashBefore, "a rejected historical outlay correction must not change cash");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), historicalMedicalOutlayIncomeBefore, "a rejected historical outlay correction must not accrue or alter income sources");
+
+// Keeping a rejected EXPENSE_* issue open must not turn the repair path into a
+// dead end. When the bounded repair replaces the same Proposal with evidence
+// for the exact personal share, only the repaired final payload reaches the
+// gate and the authoritative node may commit.
+const repairedCollectiveHistory = structuredClone(expenseGateHistoryBefore);
+let repairedCollectiveFullCalls = 0;
+let repairedCollectiveProposalRepairCalls = 0;
+const correctedCollectiveExpense = (ageInMonths: number) => {
+  const proposal = rejectedCollectiveExpense(ageInMonths);
+  const evidence = "你们每月共同承担房租5000元，其中你每月承担2500元（各半）。";
+  return {
+    ...proposal,
+    financialScope: "shared_household",
+    evidence,
+    payload: {
+      ...proposal.payload,
+      monthlyAmountWan: 0.25,
+      financialScope: "shared_household",
+      amountBasis: "explicit_shared_amount",
+      grossMonthlyAmountWan: 0.5,
+      householdShareRate: 0.5,
+      confirmedMonthlyAmountWan: 0.25,
+      evidence: proposal.payload.evidence.map((item) => ({
+        ...item,
+        financialScope: "shared_household"
+      }))
+    }
+  };
+};
+const repairedCollectiveNode = await generateNextNode({
+  userData,
+  answers,
+  history: repairedCollectiveHistory,
+  currentAttributes: repairedCollectiveHistory[0]!.attributes,
+  selectedDecision: expenseGateChoice.text,
+  nodeIndex: 2,
+  simulationSeed: "expense-collective-repaired-authority"
+}, {
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "enforced",
+  callAiJson: async (prompt) => {
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || collectiveExpenseAgeBefore + 12);
+    if (prompt.includes("你只修复财务 Proposal")) {
+      repairedCollectiveProposalRepairCalls += 1;
+      return { text: JSON.stringify({ financialEventProposals: [correctedCollectiveExpense(targetAgeInMonths)] }) };
+    }
+    repairedCollectiveFullCalls += 1;
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        stage: "共同住房核对",
+        title: "共同房租的个人份额已确认",
+        description: "你们每月共同承担房租5000元，其中你每月承担2500元（各半）。",
+        choices: [
+          { id: "A", text: "继续维持当前工作节奏", impactSummary: "保持现金流" },
+          { id: "B", text: "重新核对住房安排", impactSummary: "确认份额" },
+          { id: "C", text: "暂缓新增固定支出", impactSummary: "保守安排" }
+        ],
+        attributes: repairedCollectiveHistory[0]!.attributes,
+        financialEventProposals: [rejectedCollectiveExpense(targetAgeInMonths)],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(repairedCollectiveFullCalls, 1);
+assert.equal(repairedCollectiveProposalRepairCalls, 1);
+const repairedCollectiveCommitment = repairedCollectiveNode.financialLedger?.expenseCommitments.find((item) => (
+  item.id === "phase45_collective_household_total_as_personal"
+));
+assert.equal(repairedCollectiveCommitment?.financialScope, "shared_household");
+assert.equal(repairedCollectiveCommitment?.monthlyAmountWan, 0.25);
+assert.equal(repairedCollectiveCommitment?.grossMonthlyAmountWan, 0.5);
+assert.equal(repairedCollectiveCommitment?.householdShareRate, 0.5);
 
 let failedRepairCalls = 0;
 const failedRepairNode = await generateNextNode({

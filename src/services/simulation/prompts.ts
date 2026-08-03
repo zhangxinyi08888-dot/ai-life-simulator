@@ -444,6 +444,7 @@ ${formatDecisionIntentRules()}
 - 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。
 - 只有本轮已实际租房、搬入住所、购房自住或确认由家人提供住所时，才可在对应 location_change worldDelta 增加 residence：{livingArrangement:"renting"|"owner_occupied"|"with_family"|"provided", financialScope:"personal"|"shared_household"|"business_operating"|"third_party", liability:"protagonist"|"shared"|"third_party"|"none", evidence:"正文已发生原句"}。它是已接受居住事实，不填写金额；计划看房、考虑搬家和未选择选项不得填写。
 - 工坊、工作室、办公室、仓库、门店、公司租金和团队场地不是主角住所，不得伪装为 personal/shared_household residence；伴侣、父母或第三方提供住所必须使用 third_party/third_party 或 third_party/none，不能写入主角个人住房支出。房贷或月供仍只走债务 Proposal，不能通过 residence 创建 housing 月供。
+- 只有正文已经发生“主角持续照护父/母”或“主角持续服药/复诊”时，才可返回 type="expense_responsibility" worldDelta：responsibility 只能是 { responsibilityKind:"elder_care"|"recurring_healthcare", beneficiary:"mother"|"father"|"parents"|"protagonist", owner:"protagonist", cadence:"recurring_unknown", sourceOutcomeId:"上方已接受 outcome id", evidence:"正文逐字原句", confidence:0.8-1 }。它只确认持续责任，不填金额、responsibilityKey、账户 id 或 financialScope；未知金额由系统建立 needs_review，不得编造数值。elder_care 必须同时有父母对象、主角单独承担的持续频率和已发生动作；有效例子是“你每周固定带母亲到医院复查/体检”或“父亲膝盖持续不适，你每天帮他做康复训练”，若动作使用“他/她”代词，evidence 必须包含前一句父母健康上下文。recurring_healthcare 只能 beneficiary="protagonist" 且有主角持续用药或复诊。共同承担/同居/婚姻下的 shared_household 照护不得返回它，必须走带明确主角份额的财务 Proposal。高龄、父母患病、一次探望/陪诊、一次理疗、父母或第三方付费、公司场地都不得返回它。
 ${targetAgeInMonths >= 55 * 12 ? "- 主角已满 55 岁：如果 description 明确写出已经退休、离职或停止工作，必须同时提交 employmentTransition，以及结束或暂停账本摘要中 linkedCareerStateId 对应当前职业的工资收入；租金、版税、年金等非职业收入不得结束。" : ""}
 ${targetAgeInMonths >= 80 * 12 ? "- 主角已满 80 岁：本节点不得继续沿用 employed。若仍持续独立创作、顾问或经营，应提交到 self_employed 的 employmentTransition 并迁移职业收入；否则必须提交 retired 或 not_working，并结束 linkedCareerStateId 对应工资。非职业收入继续保留。" : ""}
 ${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
@@ -455,7 +456,7 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - 这是主人公个人账本：公司营收、SaaS 年费、客户回款，以及公益中心/基金会/协会收到的资助、拨款、赞助和项目款，一律不得写入个人 incomeSources；团队或机构的员工工资、会计薪酬、仓库/场地租金、服务器和运营成本一律不得写入个人 expenseCommitments。主人公实际领取的税后工资、自雇提款、个人顾问费或已经分配到账的分红才可作为个人收入。
 - description 若明确写出主人公已经生效的月薪或年薪，必须提交与该金额匹配的职业收入 started/adjusted；即使同一段还写了机构资助、公司营收或团队成本，也不能用这些组织金额代替主人公薪酬。
 - 伴侣、父母、子女、同事和其他人物的工资、顾问费、分红或经营收入不属于主人公个人账本；不得为其创建 incomeSources，也不得把其绑定到主人公 CareerState。只有正文明确写出该人物把钱转给主人公时，才可使用 family_support_received 记录实际到账金额。
-- basic_living 或 housing 基线已经存在时必须引用账本 ID 使用 expense_commitment_adjusted；不得再 started 一个“基本生活与房贷”等混合义务造成重复计提。照护、医疗和保险可以按不同责任分别建账。房贷本金与利息由 debt repayment policy 结算，不能再次混入 basic_living。
+- basic_living 或 housing 基线已经存在时，只有正文写出本阶段已经发生、且有可引用证据的金额、承担范围或状态变化，才可引用账本 ID 使用 expense_commitment_adjusted；否则返回空 Proposal，不能只因账本显示 needs_review、review_due 或门禁重生而凭空“确认”或调整。不得再 started 一个“基本生活与房贷”等混合义务造成重复计提。照护、医疗和保险可以按不同责任分别建账。房贷本金与利息由 debt repayment policy 结算，不能再次混入 basic_living。
 - “月供”、房贷或按揭还款绝不能使用 expense_commitment_started/adjusted，也不能归为 housing。已发生且需要手动记录的还款必须使用 debt_principal_repaid 和/或 debt_interest_paid；已有 DebtRepaymentPolicy 自动计提时，不要重复提交持续支出或一次性支出。
 - 新工作工资不得与账本摘要里的旧职业收入叠加：同一职业内薪资变化优先用 income_source_adjusted；换工作必须同时提交旧职业收入的 income_source_ended 和带 linkedCareerStateId 的新 income_source_started。职业、组织或岗位改变时，即使 employmentStatus 仍为 employed，也要提交新的 employmentTransition。
 - 主角亲自经营所得的个人可支配收入必须使用 type="self_employment_draw" 并关联新 CareerState；不得把公司营业收入或创业者个人收入写成 type="other"。辞职创业时必须原子提交旧工资结束、self_employed 转换和新 self_employment_draw（正文未确认个人收入时可不启动新收入）。
@@ -614,12 +615,16 @@ function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, t
     }
   }
   const overdueExpenseConfirmations = ledger.unresolvedIssues
-    .filter(expenseReviewRequiresPromptConfirmation)
     .flatMap((issue) => {
       const commitment = ledger.expenseCommitments.find((item) => (
         item.status !== "ended" && issue.relatedAccountIds?.includes(item.id)
       ));
-      if (!commitment) return [];
+      // A policy/context/legacy estimate is already a deterministic nonzero
+      // accrual with an open warning. The narrator has no current fact to
+      // confirm merely because review is due; requiring a Proposal here
+      // manufactures invalid adjustments and can exhaust gate regeneration.
+      // Explicit/last-known commitments deliberately remain prompt-required.
+      if (!commitment || !expenseReviewRequiresPromptConfirmation(issue, commitment)) return [];
       return [{
         id: commitment.id,
         responsibilityKey: commitment.responsibilityKey || commitment.id,

@@ -5,8 +5,10 @@ import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
 import { normalizeFinancialProposals } from "./normalizeFinancialProposals";
+import { reconcileExpenseCommitments } from "./reconcileExpenseCommitments";
+import { reduceFinancialLedger } from "./reduceFinancialLedger";
 import { isUnacceptedIncomeOpportunityEvidence, validateFinancialProposals } from "./validateFinancialProposals";
-import type { FinancialEventProposal, FinancialEvidence, FinancialLedgerV3 } from "./types";
+import type { ExpenseCommitmentV4, ExpenseResponsibilityCandidate, FinancialEventProposal, FinancialEvidence, FinancialLedgerV3 } from "./types";
 import type { FinancialEventKind } from "./types";
 import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 
@@ -76,6 +78,56 @@ function v4LedgerWithHousing() {
   return { ...context, currentLedger: ledger };
 }
 
+function v4Context() {
+  const context = setup();
+  return {
+    ...context,
+    currentLedger: migrateFinancialLedgerV3ToV4(context.currentLedger as FinancialLedgerV3)
+  };
+}
+
+function v4Expense(overrides: Partial<ExpenseCommitmentV4> = {}): ExpenseCommitmentV4 {
+  const base: ExpenseCommitmentV4 = {
+    id: "expense_test",
+    type: "housing",
+    displayName: "测试持续支出",
+    monthlyAmountWan: 0.2,
+    activeFromAgeInMonths: 312,
+    status: "active",
+    factStatus: "known",
+    evidence,
+    responsibilityKey: "primary_residence:test",
+    responsibilityKind: "primary_residence",
+    amountBasis: "explicit_known",
+    amountSourceIds: ["test:expense"],
+    financialScope: "personal",
+    accrualReviewStatus: "normal",
+    nextReviewAtAgeInMonths: 324,
+    confirmedMonthlyAmountWan: 0.2,
+    lastConfirmedAtAgeInMonths: 312
+  };
+  return { ...base, ...overrides };
+}
+
+function v4ElderCareExpense(input: {
+  id: string;
+  responsibilityKey: string;
+  monthlyAmountWan: number;
+  status?: "active" | "paused";
+}) {
+  return v4Expense({
+    id: input.id,
+    type: "dependent_support",
+    displayName: "父母照护持续支出",
+    monthlyAmountWan: input.monthlyAmountWan,
+    status: input.status || "active",
+    responsibilityKey: input.responsibilityKey,
+    responsibilityKind: "elder_care",
+    amountSourceIds: [`test:${input.responsibilityKey}`],
+    confirmedMonthlyAmountWan: input.monthlyAmountWan
+  });
+}
+
 test("accepts valid proposals independently when an unrelated proposal is blocking", () => {
   const result = validate([
     proposal(),
@@ -98,6 +150,34 @@ test("rolls back only the event that fails incremental ledger trial", () => {
   ], "这一年，你已经收到2万元项目奖金。你已经支付50万元费用。");
   assert.deepEqual(result.acceptedEvents.map((event) => event.proposalId), ["bonus"]);
   assert.equal(result.issues.some((issue) => issue.code === "MISSING_FUNDING_SOURCE" && issue.relatedProposalIds.includes("unfunded")), true);
+});
+
+test("rejects a period-end one-off that tries to book an explicitly pre-period medical outlay", () => {
+  const historicalOutlay = proposal({
+    id: "historical_medical_outlay",
+    kind: "one_off_expense_paid",
+    payload: { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 1.2 },
+    evidence: "你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。"
+  });
+  const result = validate(
+    [historicalOutlay],
+    "25岁0个月，你开始整理共同账户。你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。到26岁0个月，你们重新安排了照护预算。"
+  );
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.length, 1);
+  assert.equal(result.issues[0]?.code, "PENDING_FACT");
+  assert.deepEqual(result.issues[0]?.relatedProposalIds, ["historical_medical_outlay"]);
+  assert.match(result.issues[0]?.summary || "", /本阶段开始前/);
+
+  const currentPeriod = validate([
+    proposal({
+      id: "current_medical_outlay",
+      kind: "one_off_expense_paid",
+      payload: { sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 1.2 },
+      evidence: "25岁0个月，你本月垫付了1.2万元父亲住院费用。"
+    })
+  ], "25岁0个月，你本月垫付了1.2万元父亲住院费用。");
+  assert.deepEqual(currentPeriod.acceptedEvents.map((event) => event.proposalId), ["current_medical_outlay"]);
 });
 
 test("uses normalized and amount-anchored evidence without accepting another subject", () => {
@@ -1231,6 +1311,704 @@ test("V4 rejects reusing one recurring amount source across different responsibi
   });
   assert.equal(result.acceptedEvents.length, 0);
   assert.equal(result.issues[0]?.code, "EXPENSE_AMOUNT_SOURCE_DOUBLE_COUNT");
+});
+
+test("V4 shared-household known amounts require a gross amount and protagonist share", () => {
+  const missingGross = validateFinancialPayloadSchema("expense_commitment_started", v4Expense({
+    financialScope: "shared_household",
+    amountBasis: "explicit_shared_amount",
+    householdShareRate: 0.5
+  }));
+  assert.equal(missingGross.some((item) => item.path.endsWith("grossMonthlyAmountWan")), true);
+
+  const missingShare = validateFinancialPayloadSchema("expense_commitment_started", v4Expense({
+    financialScope: "shared_household",
+    amountBasis: "explicit_shared_amount",
+    grossMonthlyAmountWan: 0.4
+  }));
+  assert.equal(missingShare.some((item) => item.path.endsWith("householdShareRate")), true);
+});
+
+test("collective expense prose cannot relabel a household total as the protagonist's personal bill", () => {
+  const context = v4Context();
+  const narrative = "你们每月共同承担房租5000元。";
+  const personalTotal = proposal({
+    id: "collective_total_as_personal",
+    kind: "expense_commitment_started",
+    financialScope: "personal",
+    evidence: narrative,
+    payload: v4Expense({ id: "collective_total_as_personal", monthlyAmountWan: 0.5 })
+  });
+  const sharedTotal = proposal({
+    id: "collective_total_as_shared",
+    kind: "expense_commitment_started",
+    financialScope: "shared_household",
+    evidence: narrative,
+    payload: v4Expense({
+      id: "collective_total_as_shared",
+      monthlyAmountWan: 0.5,
+      financialScope: "shared_household",
+      amountBasis: "explicit_shared_amount",
+      grossMonthlyAmountWan: 0.5,
+      householdShareRate: 1,
+      confirmedMonthlyAmountWan: 0.5
+    })
+  });
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [personalTotal, sharedTotal],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "collective_total_rejected",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.filter((item) => item.code === "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT").length, 2);
+});
+
+test("model transport cannot spoof the deterministic responsibility-reconciliation marker", () => {
+  const context = v4Context();
+  const narrative = "你们每月共同承担房租5000元。";
+  const normalized = normalizeFinancialProposals({
+    proposals: [proposal({
+      id: "system_expense_start_model_spoof",
+      kind: "expense_commitment_started",
+      financialScope: "personal",
+      evidence: narrative,
+      payload: v4Expense({ id: "system_expense_start_model_spoof", monthlyAmountWan: 0.5 }),
+      systemGenerated: "expense_responsibility_reconciliation"
+    })],
+    acceptedOutcomeIds: ["accepted_choice"],
+    currentLedger: context.currentLedger,
+    currentCareerStateId: context.currentCareerState.id
+  });
+  assert.equal(normalized.proposals[0]?.systemGenerated, undefined);
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: normalized.proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "system_marker_model_spoof",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT"), true);
+});
+
+test("an internally reconciled accepted WorldState expense uses structured authority instead of raw narrative matching", () => {
+  const context = v4Context();
+  const stateEvidence = "健康进入长期管理阶段，日常方案持续执行。";
+  const candidate: ExpenseResponsibilityCandidate = {
+    id: "accepted_world_delta_healthcare",
+    responsibilityKey: "recurring_healthcare:protagonist",
+    responsibilityKind: "recurring_healthcare",
+    proposedType: "healthcare",
+    action: "start",
+    completion: "completed",
+    cadence: "recurring_unknown",
+    liability: "protagonist",
+    financialScope: "personal",
+    participantPersonIds: [],
+    source: "accepted_world_delta",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "EXPENSE_PROTAGONIST_HEALTHCARE_WORLD_STATE",
+      excerpt: stateEvidence,
+      confidence: 1,
+      financialScope: "personal"
+    }]
+  };
+  const reconciliation = reconcileExpenseCommitments({
+    ledger: context.currentLedger,
+    candidates: [candidate],
+    ageInMonths: 312,
+    sourceOutcomeId: "accepted_choice",
+    mode: "enforced"
+  });
+  assert.deepEqual(reconciliation.issues, []);
+  assert.equal(reconciliation.proposals.length, 1);
+  assert.equal(reconciliation.proposals[0]?.systemGenerated, "expense_world_delta_reconciliation");
+
+  // The candidate's accepted WorldState evidence is deliberately not copied
+  // into this node's prose. Ordinary evidence matching would reject it; the
+  // internal marker must retain the accepted structured-authority path.
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: reconciliation.proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "治疗、睡眠和工作减负安排已经稳定，她开始观察这一方案能否长期维持。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "accepted_world_delta_healthcare"
+  });
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.acceptedEvents.length, 1);
+  assert.equal(result.acceptedEvents[0]?.acceptedByReasonCodes.includes("ACCEPTED_WORLD_DELTA"), true);
+  assert.equal(result.acceptedEvents[0]?.evidence[0]?.reasonCode, "ACCEPTED_WORLD_DELTA");
+});
+
+test("a completed narrative joint account for rent accepts a policy-based shared housing review without treating its contribution rate as rent", () => {
+  const context = v4Context();
+  const narrative = "43岁过半，你与伴侣正式设立了共同账户，每月按税后收入的30%存入用于房租和家庭共同支出，剩余各自保留。起初的几个月，你们像两个谨慎的合伙人，每笔支出都记录在案，季度复盘时仔细核对每一项。";
+  const candidate: ExpenseResponsibilityCandidate = {
+    id: "narrative_joint_account_shared_residence",
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    proposedType: "housing",
+    action: "start",
+    completion: "completed",
+    cadence: "recurring_unknown",
+    liability: "shared",
+    financialScope: "shared_household",
+    participantPersonIds: [],
+    source: "narrative_supplement",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "EXPENSE_HOUSING_NARRATIVE",
+      excerpt: narrative.split("。", 1)[0] + "。",
+      confidence: 1,
+      financialScope: "shared_household"
+    }]
+  };
+  const reconciliation = reconcileExpenseCommitments({
+    ledger: context.currentLedger,
+    candidates: [candidate],
+    ageInMonths: 312,
+    sourceOutcomeId: "accepted_choice",
+    mode: "enforced"
+  });
+  const proposal = reconciliation.proposals[0];
+  assert.equal(reconciliation.wouldBlock, false);
+  assert.equal(proposal?.systemGenerated, "expense_responsibility_reconciliation");
+
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: reconciliation.proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "narrative_joint_account_shared_residence"
+  });
+  const commitment = result.acceptedEvents[0]?.payload as any;
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.acceptedEvents.length, 1);
+  assert.equal(commitment.monthlyAmountWan, 0.35);
+  assert.equal(commitment.amountBasis, "contextual_estimate");
+  assert.equal(commitment.factStatus, "needs_review");
+  assert.equal(commitment.grossMonthlyAmountWan, undefined);
+  assert.equal(commitment.householdShareRate, undefined);
+});
+
+test("a contextual care uplift passes only as a strict same-account increase", () => {
+  const context = v4Context();
+  context.currentLedger.asOfAgeInMonths = 66 * 12 + 8;
+  context.currentLedger.expenseCommitments.push({
+    ...v4ElderCareExpense({
+      id: "contextual_parent_care",
+      responsibilityKey: "elder_care:parents",
+      monthlyAmountWan: 0.2
+    }),
+    activeFromAgeInMonths: 58 * 12,
+    factStatus: "needs_review",
+    amountBasis: "contextual_estimate",
+    confirmedMonthlyAmountWan: undefined,
+    estimationPolicyId: "expense-estimation-policy-v2",
+    accrualReviewStatus: "conservative",
+    lastConfirmedAtAgeInMonths: undefined,
+    lastReviewedAtAgeInMonths: 58 * 12,
+    nextReviewAtAgeInMonths: 59 * 12,
+    participantPersonIds: [],
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "INITIAL_PARENT_CARE",
+      excerpt: "你定期带父母去县医院做全面体检。",
+      confidence: 1,
+      financialScope: "personal"
+    }]
+  });
+  const narrative = "父亲膝盖的退行性变化需要持续关注。你每天早晚帮他做一轮轻柔的关节活动。";
+  const reconciliation = reconcileExpenseCommitments({
+    ledger: context.currentLedger,
+    candidates: [{
+      id: "contextual_care_uplift",
+      responsibilityKey: "elder_care:parents",
+      responsibilityKind: "elder_care",
+      proposedType: "dependent_support",
+      action: "adjust",
+      completion: "completed",
+      cadence: "recurring_unknown",
+      liability: "protagonist",
+      financialScope: "personal",
+      participantPersonIds: [],
+      policyEstimateAdjustment: "increase_only",
+      source: "narrative_supplement",
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "EXPENSE_ELDER_CARE_INTENSITY_ESCALATION",
+        excerpt: narrative,
+        confidence: 1,
+        financialScope: "personal"
+      }]
+    }],
+    ageInMonths: 66 * 12 + 8,
+    sourceOutcomeId: "accepted_choice",
+    mode: "enforced"
+  });
+  const uplift = reconciliation.proposals[0];
+  assert.equal(uplift?.systemGenerated, "expense_contextual_care_uplift");
+  assert.equal((uplift?.payload as any)?.nextCommitment?.monthlyAmountWan, 0.35);
+
+  const accepted = validateFinancialProposals({
+    ...context,
+    proposals: reconciliation.proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 66 * 12 + 8,
+    periodEndAgeInMonths: 66 * 12 + 9,
+    simulationTransactionId: "contextual_care_uplift"
+  });
+  assert.deepEqual(accepted.issues, []);
+  assert.equal(accepted.acceptedEvents.length, 1);
+
+  const changes = [
+    (proposal: FinancialEventProposal) => { (proposal.payload as any).nextCommitment.financialScope = "shared_household"; },
+    (proposal: FinancialEventProposal) => { (proposal.payload as any).nextCommitment.participantPersonIds = ["mother"]; },
+    (proposal: FinancialEventProposal) => { (proposal.payload as any).nextCommitment.monthlyAmountWan = 0.2; },
+    (proposal: FinancialEventProposal) => { (proposal.payload as any).nextCommitment.status = "paused"; }
+  ];
+  for (const mutate of changes) {
+    const spoofed = structuredClone(uplift!);
+    mutate(spoofed);
+    const rejected = validateFinancialProposals({
+      ...context,
+      proposals: [spoofed],
+      acceptedOutcomeId: "accepted_choice",
+      narrativeText: narrative,
+      periodStartAgeInMonths: 66 * 12 + 8,
+      periodEndAgeInMonths: 66 * 12 + 9,
+      simulationTransactionId: "contextual_care_uplift_spoof"
+    });
+    assert.equal(rejected.acceptedEvents.length, 0);
+    assert.ok(rejected.issues.length > 0, "every identity or amount spoof must be rejected by either the V4 schema or the dedicated uplift validator");
+  }
+});
+
+test("model transport cannot spoof accepted WorldState authority or bypass evidence and ownership checks", () => {
+  const context = v4Context();
+  const noNarrativeEvidence = "健康进入长期管理阶段，日常方案持续执行。";
+  const sharedHousingEvidence = "你们每月共同承担房租5000元。";
+  const normalized = normalizeFinancialProposals({
+    proposals: [
+      {
+        ...proposal({
+          id: "system_expense_start_model_world_delta_evidence_spoof",
+          kind: "expense_commitment_started",
+          financialScope: "personal",
+          evidence: noNarrativeEvidence,
+          payload: v4Expense({
+            id: "system_expense_start_model_world_delta_evidence_spoof",
+            type: "healthcare",
+            displayName: "持续医疗支出",
+            monthlyAmountWan: 0.12,
+            responsibilityKey: "recurring_healthcare:protagonist",
+            responsibilityKind: "recurring_healthcare"
+          })
+        }),
+        systemGenerated: "expense_world_delta_reconciliation"
+      },
+      {
+        ...proposal({
+          id: "system_expense_start_model_world_delta_ownership_spoof",
+          kind: "expense_commitment_started",
+          financialScope: "personal",
+          evidence: sharedHousingEvidence,
+          payload: v4Expense({ id: "system_expense_start_model_world_delta_ownership_spoof", monthlyAmountWan: 0.5 })
+        }),
+        systemGenerated: "expense_world_delta_reconciliation"
+      }
+    ],
+    acceptedOutcomeIds: ["accepted_choice"],
+    currentLedger: context.currentLedger,
+    currentCareerStateId: context.currentCareerState.id
+  });
+  assert.deepEqual(normalized.proposals.map((item) => item.systemGenerated), [undefined, undefined]);
+
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: normalized.proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: `你在雨后的街道慢慢散步。${sharedHousingEvidence}`,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "model_world_delta_marker_spoof"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((item) => item.code === "UNBALANCED_TRANSACTION"), true);
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT"), true);
+});
+
+test("a jointly stated total is accepted only when the evidence proves the protagonist's exact share", () => {
+  const context = v4Context();
+  const narrative = "你们每月共同承担房租5000元，其中你每月承担2500元（各半）。";
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "confirmed_shared_rent_half",
+      kind: "expense_commitment_started",
+      financialScope: "shared_household",
+      evidence: narrative,
+      payload: v4Expense({
+        id: "confirmed_shared_rent_half",
+        monthlyAmountWan: 0.25,
+        financialScope: "shared_household",
+        amountBasis: "explicit_shared_amount",
+        grossMonthlyAmountWan: 0.5,
+        householdShareRate: 0.5,
+        confirmedMonthlyAmountWan: 0.25,
+        amountSourceIds: ["rent:shared:5000"]
+      })
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "confirmed_shared_rent_half",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("direct aggregate and individual elder-care starts cannot coexist in one model proposal batch", () => {
+  const context = v4Context();
+  const narrative = "你开始每月支付3000元父母照护费。你开始每月支付2000元母亲照护费。";
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [
+      proposal({
+        id: "parents_care_start",
+        kind: "expense_commitment_started",
+        evidence: "你开始每月支付3000元父母照护费。",
+        payload: v4ElderCareExpense({ id: "parents_care", responsibilityKey: "elder_care:parents", monthlyAmountWan: 0.3 })
+      }),
+      proposal({
+        id: "mother_care_start",
+        kind: "expense_commitment_started",
+        evidence: "你开始每月支付2000元母亲照护费。",
+        payload: v4ElderCareExpense({ id: "mother_care", responsibilityKey: "elder_care:mother", monthlyAmountWan: 0.2 })
+      })
+    ],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "direct_aggregate_individual_conflict",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY"), true);
+});
+
+test("a protagonist care plan does not collide with aggregate parent-care coverage", () => {
+  const context = v4Context();
+  const narrative = "你开始每月支付3000元父母照护费。你开始每月支付护工费用2000元。";
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [
+      proposal({
+        id: "parents_care_start",
+        kind: "expense_commitment_started",
+        evidence: "你开始每月支付3000元父母照护费。",
+        payload: v4ElderCareExpense({ id: "parents_care", responsibilityKey: "elder_care:parents", monthlyAmountWan: 0.3 })
+      }),
+      proposal({
+        id: "protagonist_care_plan_start",
+        kind: "expense_commitment_started",
+        evidence: "你开始每月支付护工费用2000元。",
+        payload: v4ElderCareExpense({ id: "protagonist_care_plan", responsibilityKey: "elder_care:care_plan", monthlyAmountWan: 0.2 })
+      })
+    ],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "parent_care_and_protagonist_care_plan",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.acceptedEvents.length, 2);
+  const reduced = reduceFinancialLedger({
+    ledger: context.currentLedger,
+    transactionId: "parent_care_and_protagonist_care_plan",
+    expectedLedgerRevision: context.currentLedger.revision,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    events: result.acceptedEvents,
+    liquidityPolicy: "require_explicit"
+  });
+  assert.deepEqual(
+    reduced.ledger.expenseCommitments.filter((commitment) => commitment.status === "active")
+      .map((commitment) => commitment.responsibilityKey).sort(),
+    ["elder_care:care_plan", "elder_care:parents"]
+  );
+});
+
+test("a paused aggregate elder-care responsibility still blocks a direct individual start", () => {
+  const context = v4Context();
+  context.currentLedger.expenseCommitments.push(v4ElderCareExpense({
+    id: "parents_care_paused",
+    responsibilityKey: "elder_care:parents",
+    monthlyAmountWan: 0.3,
+    status: "paused"
+  }) as never);
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "mother_care_beside_paused_parents",
+      kind: "expense_commitment_started",
+      evidence: "你开始每月支付2000元母亲照护费。",
+      payload: v4ElderCareExpense({ id: "mother_care", responsibilityKey: "elder_care:mother", monthlyAmountWan: 0.2 })
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你开始每月支付2000元母亲照护费。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "paused_aggregate_individual_conflict",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  const issue = result.issues.find((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY");
+  assert.ok(issue);
+  assert.equal(issue.relatedAccountIds?.includes("parents_care_paused"), true);
+});
+
+test("a paused V4 responsibility rejects a second start, while an ended responsibility may restart", () => {
+  const pausedContext = v4Context();
+  const paused = v4ElderCareExpense({
+    id: "mother_care_paused",
+    responsibilityKey: "elder_care:mother",
+    monthlyAmountWan: 0.2,
+    status: "paused"
+  });
+  pausedContext.currentLedger.expenseCommitments.push(paused as never);
+  const narrative = "你恢复每月承担母亲照护费2000元。";
+  const directStart = proposal({
+    id: "mother_care_duplicate_start",
+    kind: "expense_commitment_started",
+    evidence: narrative,
+    payload: v4ElderCareExpense({
+      id: "mother_care_duplicate",
+      responsibilityKey: "elder_care:mother",
+      monthlyAmountWan: 0.2
+    })
+  });
+  const rejected = validateFinancialProposals({
+    ...pausedContext,
+    proposals: [directStart],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "paused_same_key_start_rejected",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(rejected.acceptedEvents.length, 0);
+  const issue = rejected.issues.find((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY");
+  assert.ok(issue);
+  assert.equal(issue.relatedAccountIds?.includes(paused.id), true);
+
+  const reducerOnlyEvent = validateFinancialProposals({
+    ...v4Context(),
+    proposals: [directStart],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "paused_same_key_direct_reducer",
+    liquidityPolicy: "require_explicit"
+  }).acceptedEvents[0]!;
+  assert.throws(() => reduceFinancialLedger({
+    ledger: pausedContext.currentLedger,
+    transactionId: "paused_same_key_direct_reducer",
+    expectedLedgerRevision: pausedContext.currentLedger.revision,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    events: [reducerOnlyEvent],
+    liquidityPolicy: "require_explicit"
+  }), /必须调整或恢复原账户/);
+  assert.equal(pausedContext.currentLedger.expenseCommitments.length, 1);
+
+  const endedContext = v4Context();
+  endedContext.currentLedger.expenseCommitments.push({
+    ...v4ElderCareExpense({
+      id: "mother_care_ended",
+      responsibilityKey: "elder_care:mother",
+      monthlyAmountWan: 0.2
+    }),
+    status: "ended",
+    activeUntilAgeInMonths: 312
+  } as never);
+  const restarted = validateFinancialProposals({
+    ...endedContext,
+    proposals: [directStart],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "ended_same_key_restart_allowed",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(restarted.issues.length, 0);
+  assert.equal(restarted.acceptedEvents.length, 1);
+});
+
+test("a paused V4 responsibility resumes through an adjustment of the same account", () => {
+  const context = v4Context();
+  const paused = v4ElderCareExpense({
+    id: "mother_care_paused",
+    responsibilityKey: "elder_care:mother",
+    monthlyAmountWan: 0.2,
+    status: "paused"
+  });
+  context.currentLedger.expenseCommitments.push(paused as never);
+  const narrative = "母亲照护费用不再由家人代付，你恢复每月承担2000元。";
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "mother_care_resumed",
+      kind: "expense_commitment_adjusted",
+      evidence: narrative,
+      payload: {
+        expenseCommitmentId: paused.id,
+        previousCommitmentId: paused.id,
+        changeReason: "responsibility_resumed",
+        nextCommitment: { ...paused, status: "active" }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "paused_same_key_resume_adjustment",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.issues.length, 0);
+  assert.equal(result.acceptedEvents.length, 1);
+  const reduced = reduceFinancialLedger({
+    ledger: context.currentLedger,
+    transactionId: "paused_same_key_resume_adjustment",
+    expectedLedgerRevision: context.currentLedger.revision,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    events: result.acceptedEvents,
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(reduced.ledger.expenseCommitments.length, 1);
+  assert.equal(reduced.ledger.expenseCommitments[0]?.id, paused.id);
+  assert.equal(reduced.ledger.expenseCommitments[0]?.status, "active");
+});
+
+test("an aggregate elder-care account can split atomically into individual responsibilities in either proposal order", () => {
+  const narrative = "你已将原先每月3000元父母照护费拆分为分项。你每月承担母亲照护费2000元。你每月承担父亲照护费1000元。";
+  for (const order of ["end_first", "end_last"] as const) {
+    const context = v4Context();
+    context.currentLedger.expenseCommitments.push(v4ElderCareExpense({
+      id: "parents_care",
+      responsibilityKey: "elder_care:parents",
+      monthlyAmountWan: 0.3
+    }) as never);
+    const end = proposal({
+      id: `parents_care_split_end_${order}`,
+      kind: "expense_commitment_ended",
+      evidence: "你已将原先每月3000元父母照护费拆分为分项。",
+      payload: {
+        expenseCommitmentId: "parents_care",
+        previousCommitmentId: "parents_care",
+        changeReason: "aggregate_atomically_split"
+      }
+    });
+    const mother = proposal({
+      id: `mother_care_split_${order}`,
+      kind: "expense_commitment_started",
+      evidence: "你每月承担母亲照护费2000元。",
+      payload: v4ElderCareExpense({ id: "mother_care", responsibilityKey: "elder_care:mother", monthlyAmountWan: 0.2 })
+    });
+    const father = proposal({
+      id: `father_care_split_${order}`,
+      kind: "expense_commitment_started",
+      evidence: "你每月承担父亲照护费1000元。",
+      payload: v4ElderCareExpense({ id: "father_care", responsibilityKey: "elder_care:father", monthlyAmountWan: 0.1 })
+    });
+    const proposals = order === "end_first" ? [end, mother, father] : [mother, father, end];
+    const result = validateFinancialProposals({
+      ...context,
+      proposals,
+      acceptedOutcomeId: "accepted_choice",
+      narrativeText: narrative,
+      periodStartAgeInMonths: 300,
+      periodEndAgeInMonths: 312,
+      simulationTransactionId: `aggregate_atomic_split_${order}`,
+      liquidityPolicy: "require_explicit"
+    });
+    assert.equal(result.issues.length, 0, order);
+    assert.equal(result.acceptedEvents.length, 3, order);
+    const reduced = reduceFinancialLedger({
+      ledger: context.currentLedger,
+      transactionId: `aggregate_atomic_split_reduce_${order}`,
+      expectedLedgerRevision: context.currentLedger.revision,
+      periodStartAgeInMonths: 300,
+      periodEndAgeInMonths: 312,
+      events: result.acceptedEvents,
+      liquidityPolicy: "require_explicit"
+    });
+    const activeElderCare = reduced.ledger.expenseCommitments.filter((commitment) => (
+      commitment.status !== "ended" && commitment.responsibilityKey?.startsWith("elder_care:")
+    ));
+    assert.deepEqual(activeElderCare.map((commitment) => commitment.responsibilityKey).sort(), ["elder_care:father", "elder_care:mother"]);
+    assert.equal(reduced.ledger.expenseCommitments.find((commitment) => commitment.id === "parents_care")?.status, "ended");
+  }
+});
+
+test("ledger invariants reject a direct reducer write that would overlap paused or active aggregate elder care", () => {
+  const clean = v4Context();
+  const directMother = validateFinancialProposals({
+    ...clean,
+    proposals: [proposal({
+      id: "direct_mother_for_ledger_invariant",
+      kind: "expense_commitment_started",
+      evidence: "你开始每月支付2000元母亲照护费。",
+      payload: v4ElderCareExpense({ id: "direct_mother", responsibilityKey: "elder_care:mother", monthlyAmountWan: 0.2 })
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你开始每月支付2000元母亲照护费。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "direct_mother_for_ledger_invariant",
+    liquidityPolicy: "require_explicit"
+  }).acceptedEvents[0]!;
+  for (const status of ["active", "paused"] as const) {
+    const context = v4Context();
+    context.currentLedger.expenseCommitments.push(v4ElderCareExpense({
+      id: `parents_care_${status}`,
+      responsibilityKey: "elder_care:parents",
+      monthlyAmountWan: 0.3,
+      status
+    }) as never);
+    assert.throws(() => reduceFinancialLedger({
+      ledger: context.currentLedger,
+      transactionId: `direct_overlap_${status}`,
+      expectedLedgerRevision: context.currentLedger.revision,
+      periodStartAgeInMonths: 300,
+      periodEndAgeInMonths: 312,
+      events: [directMother],
+      liquidityPolicy: "require_explicit"
+    }), /父母聚合照护/);
+  }
 });
 
 test("V4 rejects an expense end without an auditable previous commitment and reason", () => {

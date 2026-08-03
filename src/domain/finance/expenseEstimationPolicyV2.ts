@@ -10,6 +10,7 @@ import { roundWan } from "./ledgerMath";
  */
 export type ExpenseLivingArrangement = "with_family" | "renting" | "owner_occupied" | "provided" | "unknown";
 export type ExpenseAgeBand = "minor" | "young_adult" | "adult" | "older_adult";
+export type ExpenseCareIntensity = "baseline" | "elevated";
 
 export interface ExpenseResponsibilityEstimateContext {
   responsibilityKind: ExpenseResponsibilityKind;
@@ -19,6 +20,12 @@ export interface ExpenseResponsibilityEstimateContext {
   livingArrangement?: ExpenseLivingArrangement;
   householdSize?: number;
   cityCostBand?: "low" | "medium" | "high" | "unknown";
+  /**
+   * Only an already-accepted, newly escalated care responsibility may select
+   * `elevated`. It is never inferred from age, health score, or a missing
+   * expense account.
+   */
+  careIntensity?: ExpenseCareIntensity;
 }
 
 export interface ExpenseEstimate {
@@ -35,6 +42,7 @@ export interface ExpenseEstimate {
     householdSize?: number;
     cityCostBand: "low" | "medium" | "high" | "unknown";
     responsibilityKind: ExpenseResponsibilityKind;
+    careIntensity: ExpenseCareIntensity;
   };
 }
 
@@ -61,6 +69,8 @@ interface PolicyRow {
   applicableLivingArrangements?: readonly ExpenseLivingArrangement[];
   /** Optional special-purpose rows (for example, a student basic-living floor). */
   applicableEmploymentStatuses?: readonly EmploymentStatus[];
+  /** Undefined means this row is not intensity-specific. */
+  applicableCareIntensities?: readonly ExpenseCareIntensity[];
   baseMonthlyAmountWan: number;
   plausibleRangeWan: [number, number];
   /** Product calibration reference; this is audit metadata, not an external price feed. */
@@ -75,8 +85,8 @@ const CITY_COST_MULTIPLIER: Record<"low" | "medium" | "high", number> = {
 
 export const EXPENSE_ESTIMATION_POLICY_V2 = {
   id: "expense-estimation-policy-v2",
-  version: 1,
-  approvedAt: "2026-08-01",
+  version: 2,
+  approvedAt: "2026-08-03",
   rows: [
     {
       responsibilityKind: "adult_basic_living",
@@ -120,9 +130,30 @@ export const EXPENSE_ESTIMATION_POLICY_V2 = {
       applicableCityCostBands: ["low", "medium", "high"],
       applicableAgeBands: ["young_adult", "adult", "older_adult"],
       applicableLivingArrangements: ["with_family", "renting", "owner_occupied", "provided", "unknown"],
+      applicableCareIntensities: ["baseline"],
       baseMonthlyAmountWan: 0.2,
       plausibleRangeWan: [0.1, 0.6],
       sourceNote: "已确认主角承担的父母生活支持或非医疗照护保守计提"
+    },
+    {
+      responsibilityKind: "elder_care",
+      applicableCityCostBands: ["low", "medium", "high"],
+      applicableAgeBands: ["young_adult", "adult"],
+      applicableLivingArrangements: ["with_family", "renting", "owner_occupied", "provided", "unknown"],
+      applicableCareIntensities: ["elevated"],
+      baseMonthlyAmountWan: 0.25,
+      plausibleRangeWan: [0.15, 0.7],
+      sourceNote: "已确认且有新持续照护升级证据的父母照护保守计提；不是年龄自动收费"
+    },
+    {
+      responsibilityKind: "elder_care",
+      applicableCityCostBands: ["low", "medium", "high"],
+      applicableAgeBands: ["older_adult"],
+      applicableLivingArrangements: ["with_family", "renting", "owner_occupied", "provided", "unknown"],
+      applicableCareIntensities: ["elevated"],
+      baseMonthlyAmountWan: 0.35,
+      plausibleRangeWan: [0.25, 0.9],
+      sourceNote: "高龄且有新持续照护升级证据的父母照护保守计提；不由高龄单独创建或上调账户"
     },
     {
       responsibilityKind: "recurring_healthcare",
@@ -199,6 +230,7 @@ function selectPolicyRow(input: {
   livingArrangement: ExpenseLivingArrangement;
   cityCostBand: "low" | "medium" | "high";
   employmentStatus?: EmploymentStatus;
+  careIntensity: ExpenseCareIntensity;
 }): PolicyRow | undefined {
   // `satisfies` intentionally preserves literal row values for config
   // validation. Widen only at selection time so the predicate can evaluate
@@ -210,6 +242,7 @@ function selectPolicyRow(input: {
     && row.applicableCityCostBands.includes(input.cityCostBand)
     && (!row.applicableLivingArrangements || row.applicableLivingArrangements.includes(input.livingArrangement))
     && (!row.applicableEmploymentStatuses || row.applicableEmploymentStatuses.includes(input.employmentStatus as EmploymentStatus))
+    && (!row.applicableCareIntensities || row.applicableCareIntensities.includes(input.careIntensity))
   ));
 }
 
@@ -235,12 +268,14 @@ export function estimateExpenseResponsibility(input: ExpenseResponsibilityEstima
   const resolvedAgeBand = ageBand(input.ageInMonths);
   const livingArrangement = input.livingArrangement || "unknown";
   const cityCostBand = normalizedCityCostBand(input);
+  const careIntensity = input.careIntensity || "baseline";
   const row = selectPolicyRow({
     responsibilityKind: input.responsibilityKind,
     ageBand: resolvedAgeBand,
     livingArrangement,
     cityCostBand,
-    employmentStatus: input.employmentStatus
+    employmentStatus: input.employmentStatus,
+    careIntensity
   });
   if (!row) return undefined;
   // A verified rent-free/provided arrangement does not manufacture a housing
@@ -263,6 +298,7 @@ export function estimateExpenseResponsibility(input: ExpenseResponsibilityEstima
       `EXPENSE_POLICY_${input.responsibilityKind.toUpperCase()}`,
       `EXPENSE_CONTEXT_AGE_${resolvedAgeBand.toUpperCase()}`,
       `EXPENSE_CONTEXT_CITY_${cityCostBand.toUpperCase()}`,
+      ...(careIntensity === "elevated" ? ["EXPENSE_CONTEXT_CARE_ELEVATED"] : []),
       ...(isVerifiedNoPersonalHousing ? ["EXPENSE_VERIFIED_PROVIDED_HOUSING"] : [])
     ],
     inputs: {
@@ -272,7 +308,8 @@ export function estimateExpenseResponsibility(input: ExpenseResponsibilityEstima
       livingArrangement,
       householdSize: input.householdSize,
       cityCostBand,
-      responsibilityKind: input.responsibilityKind
+      responsibilityKind: input.responsibilityKind,
+      careIntensity
     }
   };
 }

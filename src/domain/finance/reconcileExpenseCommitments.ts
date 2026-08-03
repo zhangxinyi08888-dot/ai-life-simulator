@@ -7,6 +7,10 @@ import {
   buildExpenseLifecycleReviewPlan,
   type ExpenseLifecycleReviewPlan
 } from "./expenseLifecycleReview";
+import {
+  parentElderCareCoverageRole,
+  type ParentElderCareCoverageRole
+} from "./elderCareCoverage";
 import type { FinancialNodeGateMode } from "../../config/financialGatePolicy";
 import type {
   AcceptedFinancialEvent,
@@ -18,6 +22,7 @@ import type {
   FinancialLedgerIssue,
   FinancialLedgerV4
 } from "./types";
+import { isExpenseCommitmentV4 } from "./types";
 import { roundWan } from "./ledgerMath";
 
 /**
@@ -149,6 +154,108 @@ function sourceIsAccepted(candidate: ExpenseResponsibilityCandidate): boolean {
   return candidate.source !== "narrative_supplement";
 }
 
+/**
+ * A completed shared residence is different from an unspecified shared care
+ * arrangement.  If the narrative establishes that the protagonist is already
+ * jointly responsible for a residence but does not state a monetary total,
+ * V4 requires the typed housing responsibility to accrue at its contextual
+ * policy base as `needs_review`.  This is not an inference that a joint fund
+ * contribution (or a percentage of income) is rent: no gross amount, share
+ * rate, or confirmed amount is copied into the commitment.
+ */
+function isAmountUnknownNarrativeSharedResidence(candidate: ExpenseResponsibilityCandidate): boolean {
+  return candidate.source === "narrative_supplement"
+    && candidate.responsibilityKey === "primary_residence:main"
+    && candidate.responsibilityKind === "primary_residence"
+    && candidate.proposedType === "housing"
+    && candidate.action === "start"
+    && candidate.completion === "completed"
+    && candidate.cadence !== "one_off"
+    && candidate.financialScope === "shared_household"
+    && candidate.liability === "shared"
+    && candidate.explicitMonthlyTotalWan === undefined
+    && candidate.protagonistShareWan === undefined
+    && candidate.shareRate === undefined;
+}
+
+/**
+ * Narrative is supplementary evidence, not authority for a household share.
+ * In particular, plural prose such as “我们轮流照护父母” may establish a
+ * reviewable responsibility observation, but it does not establish the
+ * protagonist's individual cash share.  A completed shared residence with no
+ * stated total is the narrow exception above: it starts a policy-based
+ * `needs_review` housing commitment instead of silently leaving the ledger at
+ * the unrelated basic-living floor.  A stated shared total still needs a
+ * mathematically checkable protagonist allocation; it must never be treated
+ * as the protagonist's whole bill.
+ */
+function isUnsupportedNarrativeSharedResponsibility(candidate: ExpenseResponsibilityCandidate): boolean {
+  if (candidate.source !== "narrative_supplement"
+    || candidate.financialScope !== "shared_household"
+    || candidate.liability !== "shared") return false;
+  if (isAmountUnknownNarrativeSharedResidence(candidate)) return false;
+  const total = candidate.explicitMonthlyTotalWan;
+  const share = candidate.protagonistShareWan;
+  const rate = candidate.shareRate;
+  // Narrative may establish a reviewable shared account only when it gives a
+  // mathematically checkable personal allocation. It remains needs_review,
+  // never a known fact, but a stated 50/50 split is enough to avoid treating
+  // the entire household total as either the protagonist's bill or zero.
+  return !(Number.isFinite(total)
+    && Number.isFinite(share)
+    && Number.isFinite(rate)
+    && (total || 0) > 0
+    && (share || 0) > 0
+    && (rate || 0) > 0
+    && (rate || 0) <= 1
+    && Math.abs(roundWan((total || 0) * (rate || 0)) - (share || 0)) <= 0.0001);
+}
+
+/**
+ * Shared elder-care and healthcare are a stricter ownership boundary than an
+ * ordinary shared residence. A collective care action can establish that a
+ * responsibility needs review, but it cannot tell the personal ledger what
+ * the protagonist pays. A direct Accepted fact, user fact, or narrative that
+ * states the exact total and exact protagonist allocation is sufficient to
+ * plan the allocation; a prose-only allocation remains `needs_review`, never
+ * a known fact. Otherwise the result must remain an issue/review rather than
+ * a policy-estimated cash outflow.
+ *
+ * `accepted_world_delta` is deliberately not enough here: WorldState can
+ * establish that a family member needs care, but it does not own a financial
+ * allocation. Direct Accepted financial events are processed before this
+ * reconciler and retain their own validator/atomicity path.
+ */
+function lacksAcceptedSharedCareOrHealthcareShare(candidate: ExpenseResponsibilityCandidate): boolean {
+  if (candidate.financialScope !== "shared_household"
+    || candidate.liability !== "shared"
+    || !["elder_care", "recurring_healthcare"].includes(candidate.responsibilityKind)) return false;
+  const hasAllocationSource = candidate.source === "accepted_outcome"
+    || candidate.source === "user_fact"
+    || candidate.source === "narrative_supplement";
+  const total = candidate.explicitMonthlyTotalWan;
+  const share = candidate.protagonistShareWan;
+  const shareRate = candidate.shareRate;
+  const hasConsistentPositiveShare = Number.isFinite(total)
+    && Number.isFinite(share)
+    && Number.isFinite(shareRate)
+    && (total || 0) > 0
+    && (share || 0) > 0
+    && (shareRate || 0) > 0
+    && (shareRate || 0) <= 1
+    && Math.abs(roundWan((total || 0) * (shareRate || 0)) - (share || 0)) <= 0.0001;
+  const hasAuthoritativeEvidence = candidate.evidence.some((item) => (
+    item.source === "accepted_simulation_outcome" || item.source === "user"
+  ));
+  // A narrative supplement with an exact mathematical allocation is allowed
+  // to create a conservative `needs_review` commitment. Its source is still
+  // not authoritative for `known` status (handled by sourceIsAccepted), while
+  // an accepted WorldState observation never supplies a personal share.
+  return !(hasAllocationSource
+    && hasConsistentPositiveShare
+    && (candidate.source === "narrative_supplement" || hasAuthoritativeEvidence));
+}
+
 function samePeople(left: string[] | undefined, right: string[] | undefined): boolean {
   const normalized = (values: string[] | undefined) => [...new Set(values || [])].sort();
   return JSON.stringify(normalized(left)) === JSON.stringify(normalized(right));
@@ -215,10 +322,56 @@ function mutationForExistingCandidate(input: {
   existing: ExpenseCommitmentV4;
   candidate: ExpenseResponsibilityCandidate;
   ageInMonths: number;
+  estimateContext?: Omit<ExpenseResponsibilityEstimateContext, "responsibilityKind" | "ageInMonths">;
 }): ExistingCommitmentMutation | undefined {
   const { existing, candidate } = input;
   const nextAmount = actualShare(candidate);
   const hasExactAmount = nextAmount !== undefined;
+  // This is the only estimate-refresh path for an existing responsibility.
+  // It is deliberately much narrower than a periodic review: the account
+  // must already be personal, active, and contextual/unknown; a newly
+  // completed care-intensity fact must request it; and the current policy
+  // must be strictly higher. Therefore age alone cannot create or mutate an
+  // account, exact/last-known amounts cannot be overwritten, and no path can
+  // lower a cash outflow.
+  const policyUpliftRequested = candidate.policyEstimateAdjustment === "increase_only";
+  const contextualElderCareUplift = policyUpliftRequested
+    && candidate.action === "adjust"
+    && candidate.completion === "completed"
+    && candidate.cadence === "recurring_unknown"
+    && candidate.liability === "protagonist"
+    && candidate.financialScope === "personal"
+    && candidate.nextStatus === undefined
+    && candidate.changeReason === undefined
+    && candidate.responsibilityKind === "elder_care"
+    && candidate.responsibilityKey === existing.responsibilityKey
+    && existing.responsibilityKind === "elder_care"
+    && parentElderCareCoverageRole(existing) !== undefined
+    && existing.status === "active"
+    && existing.financialScope === "personal"
+    && existing.factStatus === "needs_review"
+    && existing.amountBasis === "contextual_estimate"
+    && !hasExactAmount
+    && candidate.shareRate === undefined
+    && samePeople(candidate.participantPersonIds, existing.participantPersonIds)
+    && candidateEvidenceIsNew(existing, candidate);
+  // `increase_only` is code-owned planning metadata, not a generic way to
+  // smuggle an ordinary expense mutation through the reconciliation layer.
+  // An ineligible request may at most leave a review trace in the caller; it
+  // cannot write an amount, status, scope, participant, or share change.
+  if (policyUpliftRequested && !contextualElderCareUplift) return undefined;
+  const policyUplift = contextualElderCareUplift
+    ? estimateExpenseResponsibility({
+      ...input.estimateContext,
+      responsibilityKind: existing.responsibilityKind,
+      ageInMonths: input.ageInMonths,
+      careIntensity: "elevated"
+    })
+    : undefined;
+  const upliftedMonthlyAmountWan = policyUplift
+    && policyUplift.accrualMonthlyAmountWan > existing.monthlyAmountWan + 0.0001
+    ? roundWan(policyUplift.accrualMonthlyAmountWan)
+    : undefined;
   const acceptedAmount = hasExactAmount && sourceIsAccepted(candidate);
   const resumesAcceptedPausedResponsibility = existing.status === "paused"
     && candidate.action === "start"
@@ -229,7 +382,9 @@ function mutationForExistingCandidate(input: {
   const nextParticipants = candidate.participantPersonIds && candidate.participantPersonIds.length > 0
     ? candidate.participantPersonIds
     : existing.participantPersonIds;
-  const amountChanged = hasExactAmount && Math.abs(nextAmount - existing.monthlyAmountWan) > 0.0001;
+  const amountChanged = hasExactAmount
+    ? Math.abs(nextAmount - existing.monthlyAmountWan) > 0.0001
+    : upliftedMonthlyAmountWan !== undefined;
   const statusChanged = requestedStatus !== existing.status;
   const scopeChanged = nextScope !== existing.financialScope;
   const participantsChanged = !samePeople(nextParticipants, existing.participantPersonIds);
@@ -247,13 +402,17 @@ function mutationForExistingCandidate(input: {
     return undefined;
   }
 
-  const nextMonthlyAmountWan = hasExactAmount ? roundWan(nextAmount) : existing.monthlyAmountWan;
+  const nextMonthlyAmountWan = hasExactAmount
+    ? roundWan(nextAmount)
+    : upliftedMonthlyAmountWan ?? existing.monthlyAmountWan;
   const nextFactStatus = hasExactAmount
     ? acceptedAmount ? "known" : "needs_review"
-    : (scopeChanged || participantsChanged || shareChanged) ? "needs_review" : existing.factStatus;
+    : (upliftedMonthlyAmountWan !== undefined || scopeChanged || participantsChanged || shareChanged)
+      ? "needs_review"
+      : existing.factStatus;
   const nextAccrualReviewStatus = nextFactStatus === "known"
     ? "normal"
-    : (hasExactAmount || scopeChanged || participantsChanged || shareChanged)
+    : (hasExactAmount || upliftedMonthlyAmountWan !== undefined || scopeChanged || participantsChanged || shareChanged)
       ? "conservative"
       : existing.accrualReviewStatus;
   const changeReason = candidate.changeReason
@@ -266,7 +425,9 @@ function mutationForExistingCandidate(input: {
       confirmedMonthlyAmountWan: hasExactAmount
         ? acceptedAmount ? nextMonthlyAmountWan : undefined
         : existing.confirmedMonthlyAmountWan,
-      amountBasis: hasExactAmount
+      amountBasis: upliftedMonthlyAmountWan !== undefined
+        ? "contextual_estimate"
+        : hasExactAmount
         ? acceptedAmount
           ? candidate.shareRate !== undefined && candidate.explicitMonthlyTotalWan !== undefined
             ? "explicit_shared_amount"
@@ -275,7 +436,18 @@ function mutationForExistingCandidate(input: {
         : existing.amountBasis,
       amountSourceIds: hasExactAmount
         ? [candidate.amountSourceId || `accepted:${candidate.id}`]
-        : existing.amountSourceIds,
+        : upliftedMonthlyAmountWan !== undefined
+          ? [...new Set([
+            ...existing.amountSourceIds,
+            `${policyUplift!.policyId}@${policyUplift!.policyVersion}:contextual-uplift:${existing.responsibilityKey}`
+          ])]
+          : existing.amountSourceIds,
+      plausibleMonthlyAmountRangeWan: upliftedMonthlyAmountWan !== undefined
+        ? policyUplift!.plausibleRangeWan
+        : existing.plausibleMonthlyAmountRangeWan,
+      estimationPolicyId: upliftedMonthlyAmountWan !== undefined
+        ? policyUplift!.policyId
+        : existing.estimationPolicyId,
       financialScope: nextScope,
       participantPersonIds: nextParticipants,
       householdShareRate: candidate.shareRate !== undefined ? candidate.shareRate : existing.householdShareRate,
@@ -287,10 +459,22 @@ function mutationForExistingCandidate(input: {
       // A confirmed amount establishes a new review deadline.  A narrative
       // supplement and an amount-unknown scope change remain reviewable at
       // the prior deadline rather than pretending uncertainty is resolved.
-      nextReviewAtAgeInMonths: acceptedAmount
+      nextReviewAtAgeInMonths: (acceptedAmount || upliftedMonthlyAmountWan !== undefined)
         ? input.ageInMonths + expenseReviewIntervalMonths(existing.responsibilityKind)
         : existing.nextReviewAtAgeInMonths,
-      evidence: appendCandidateEvidence(existing, candidate)
+      evidence: (() => {
+        const evidence = appendCandidateEvidence(existing, candidate);
+        if (upliftedMonthlyAmountWan === undefined) return evidence;
+        const policyEvidence: FinancialEvidence = {
+          source: "system_policy",
+          reasonCode: "EXPENSE_CONTEXTUAL_UPLIFT_ELEVATED_CARE",
+          excerpt: `已确认照护强度升级；${existing.responsibilityKey} 在 ${policyUplift!.policyId}@${policyUplift!.policyVersion} 下从 ${existing.monthlyAmountWan} 万/月上调为 ${upliftedMonthlyAmountWan} 万/月，金额仍待确认`,
+          confidence: 1,
+          financialScope: "personal"
+        };
+        if (!evidence.some((item) => sameEvidence(item, policyEvidence))) evidence.push(policyEvidence);
+        return evidence;
+      })()
     },
     requiresChangeAuthority: nextMonthlyAmountWan < existing.monthlyAmountWan - 0.0001 || statusChanged,
     changeReason
@@ -415,8 +599,22 @@ function toProposal(input: {
     evidence: input.candidate.evidence.map((item) => item.excerpt).filter(Boolean).join("；") || input.commitment.displayName,
     sourceOutcomeId: input.sourceOutcomeId,
     confidence: 1,
-    financialScope: input.candidate.financialScope
+    financialScope: input.candidate.financialScope,
+    systemGenerated: reconciliationSystemGenerated(input.candidate)
   } as FinancialEventProposal;
+}
+
+/**
+ * An accepted WorldState delta is already a validated fact in the authority
+ * chain.  Keep its marker separate from prose supplement reconciliation so
+ * the validator can accept the structured source without weakening ordinary
+ * narrative evidence matching for all other lifecycle candidates.
+ */
+function reconciliationSystemGenerated(candidate: ExpenseResponsibilityCandidate): FinancialEventProposal["systemGenerated"] {
+  if (candidate.policyEstimateAdjustment === "increase_only") return "expense_contextual_care_uplift";
+  return candidate.source === "accepted_world_delta"
+    ? "expense_world_delta_reconciliation"
+    : "expense_responsibility_reconciliation";
 }
 
 function reviewIssue(candidate: ExpenseResponsibilityCandidate, ageInMonths: number, summary: string): FinancialLedgerIssue {
@@ -484,6 +682,161 @@ function aggregateComponentGapIssue(input: {
     ageInMonths: input.ageInMonths,
     candidate: input.candidate,
     relatedAccountIds: [input.aggregate.id]
+  });
+}
+
+type ElderCareCoverageRole = ParentElderCareCoverageRole;
+
+/**
+ * The aggregate-parent coverage rule applies only to a parent-beneficiary
+ * account. The protagonist's `elder_care:care_plan` stays independent.
+ */
+function elderCareCoverageRole(input: {
+  responsibilityKind: ExpenseResponsibilityCandidate["responsibilityKind"] | ExpenseCommitmentV4["responsibilityKind"];
+  responsibilityKey: string;
+  participantPersonIds?: string[];
+}): ElderCareCoverageRole | undefined {
+  return parentElderCareCoverageRole(input);
+}
+
+function wouldCreateNewResponsibility(input: {
+  candidate: ExpenseResponsibilityCandidate;
+  existing?: ExpenseCommitmentV4;
+}): boolean {
+  if (input.existing || input.candidate.action === "end") return false;
+  return !isCareerExitReview(input.candidate);
+}
+
+function activeElderCareCoverageOverlap(input: {
+  ledger: FinancialLedgerV4;
+  candidate: ExpenseResponsibilityCandidate;
+  /** An Accepted same-node atomic split ends this aggregate before the candidate starts. */
+  atomicallySplitAggregateCommitmentIds?: Set<string>;
+}): ExpenseCommitmentV4 | undefined {
+  const candidateRole = elderCareCoverageRole(input.candidate);
+  if (!candidateRole) return undefined;
+  return input.ledger.expenseCommitments.find((commitment) => (
+    // A pause is a temporary accrual state, not an atomic split or end of the
+    // responsibility. Allowing an individual account beside a paused
+    // aggregate would create a latent double count the moment the aggregate
+    // resumes.
+    commitment.status !== "ended"
+    && elderCareCoverageRole(commitment)
+      && elderCareCoverageRole(commitment) !== candidateRole
+    // An aggregate only stops covering its components within this Preview
+    // when a direct Accepted `aggregate_atomically_split` end names this exact
+    // commitment. A generic end or unrelated end does not make an individual
+    // start safe.
+    && !(elderCareCoverageRole(commitment) === "aggregate"
+      && input.atomicallySplitAggregateCommitmentIds?.has(commitment.id))
+  ));
+}
+
+/**
+ * The lifecycle runs after direct Accepted expense facts have been selected
+ * for this node. Those facts are not yet in `ledger`, so keep an explicit
+ * Preview-local coverage index. It records direct aggregate/individual upserts
+ * plus the only legal way an existing aggregate stops covering components: an
+ * Accepted `aggregate_atomically_split` end of that exact account.
+ */
+interface AcceptedElderCareCoverageIndex {
+  upserts: Array<{
+    event: AcceptedFinancialEvent;
+    responsibilityKey: string;
+    role: ElderCareCoverageRole;
+  }>;
+  atomicallySplitAggregateCommitmentIds: Set<string>;
+}
+
+function acceptedElderCareCoverage(input: {
+  event: AcceptedFinancialEvent;
+  ledger: FinancialLedgerV4;
+}): { responsibilityKey: string; role: ElderCareCoverageRole } | undefined {
+  const responsibilityKey = responsibilityKeyFromAcceptedExpenseEvent(input);
+  if (!responsibilityKey) return undefined;
+  if (input.event.kind === "expense_commitment_started") {
+    const event = input.event as AcceptedFinancialEvent<"expense_commitment_started">;
+    if (!isExpenseCommitmentV4(event.payload)) return undefined;
+    const role = elderCareCoverageRole(event.payload);
+    return role ? { responsibilityKey, role } : undefined;
+  }
+  if (input.event.kind === "expense_commitment_adjusted") {
+    const event = input.event as AcceptedFinancialEvent<"expense_commitment_adjusted">;
+    if (!isExpenseCommitmentV4(event.payload.nextCommitment)) return undefined;
+    const role = elderCareCoverageRole(event.payload.nextCommitment);
+    return role ? { responsibilityKey, role } : undefined;
+  }
+  return undefined;
+}
+
+function acceptedAggregateAtomicSplitCommitmentId(input: {
+  event: AcceptedFinancialEvent;
+  ledger: FinancialLedgerV4;
+}): string | undefined {
+  if (input.event.kind !== "expense_commitment_ended") return undefined;
+  const event = input.event as AcceptedFinancialEvent<"expense_commitment_ended">;
+  const commitment = input.ledger.expenseCommitments.find((item) => item.id === event.payload.expenseCommitmentId);
+  if (!commitment || elderCareCoverageRole(commitment) !== "aggregate") return undefined;
+  return event.payload.previousCommitmentId === commitment.id
+    && event.payload.changeReason === "aggregate_atomically_split"
+    ? commitment.id
+    : undefined;
+}
+
+function acceptedElderCareCoverageIndex(input: {
+  events: AcceptedFinancialEvent[] | undefined;
+  ledger: FinancialLedgerV4;
+}): AcceptedElderCareCoverageIndex {
+  const index: AcceptedElderCareCoverageIndex = {
+    upserts: [],
+    atomicallySplitAggregateCommitmentIds: new Set<string>()
+  };
+  for (const event of input.events || []) {
+    const atomicSplitCommitmentId = acceptedAggregateAtomicSplitCommitmentId({ event, ledger: input.ledger });
+    if (atomicSplitCommitmentId) {
+      index.atomicallySplitAggregateCommitmentIds.add(atomicSplitCommitmentId);
+      continue;
+    }
+    if (event.kind === "expense_commitment_ended") continue;
+    const coverage = acceptedElderCareCoverage({ event, ledger: input.ledger });
+    if (coverage) index.upserts.push({ event, ...coverage });
+  }
+  return index;
+}
+
+function acceptedElderCareCoverageOverlap(input: {
+  index: AcceptedElderCareCoverageIndex;
+  candidate: ExpenseResponsibilityCandidate;
+}): { event: AcceptedFinancialEvent; responsibilityKey: string } | undefined {
+  const candidateRole = elderCareCoverageRole(input.candidate);
+  if (!candidateRole) return undefined;
+  const overlap = input.index.upserts.find((item) => item.role !== candidateRole);
+  return overlap ? { event: overlap.event, responsibilityKey: overlap.responsibilityKey } : undefined;
+}
+
+function elderCareCoverageOverlapIssue(input: {
+  candidate: ExpenseResponsibilityCandidate;
+  ageInMonths: number;
+  activeCommitment?: ExpenseCommitmentV4;
+  pendingCandidate?: ExpenseResponsibilityCandidate;
+  acceptedEvent?: AcceptedFinancialEvent;
+  acceptedResponsibilityKey?: string;
+}): FinancialLedgerIssue {
+  const counterpart = input.activeCommitment?.responsibilityKey
+    || input.pendingCandidate?.responsibilityKey
+    || input.acceptedResponsibilityKey
+    || "elder_care:parents";
+  const counterpartId = input.activeCommitment?.id
+    || input.acceptedEvent?.id
+    || `pending_${input.pendingCandidate?.id || "unknown"}`;
+  return issue({
+    id: `expense_elder_care_overlap_${counterpartId}_${input.candidate.responsibilityKey.replace(/[^a-zA-Z0-9:_-]/gu, "_")}`,
+    code: "EXPENSE_DUPLICATE_RESPONSIBILITY",
+    summary: `父母聚合照护与个人照护账户覆盖可能重叠：${counterpart} 和 ${input.candidate.responsibilityKey} 不能并行计提；保留已接受责任并触发复核，等待 Accepted 原子拆分或覆盖关系确认`,
+    ageInMonths: input.ageInMonths,
+    candidate: input.candidate,
+    relatedAccountIds: input.activeCommitment ? [input.activeCommitment.id] : [],
+    relatedProposalIds: input.acceptedEvent ? [input.acceptedEvent.proposalId || input.acceptedEvent.id] : []
   });
 }
 
@@ -590,11 +943,20 @@ export function reconcileExpenseCommitments(input: {
     events: input.acceptedExpenseEvents,
     ledger: input.ledger
   });
+  const acceptedElderCareCoverage = acceptedElderCareCoverageIndex({
+    events: input.acceptedExpenseEvents,
+    ledger: input.ledger
+  });
   const acceptedExpenseCommitmentIds = new Set(input.ledger.expenseCommitments
     .filter((commitment) => acceptedExpenseKeys.has(commitment.responsibilityKey))
     .map((commitment) => commitment.id));
   const reportedAggregateComponentKeys = new Set<string>();
   const aggregateWithUnknownCoverage = activeUnknownCoverageAggregate(input.ledger);
+  const plannedElderCareStarts = new Map<ElderCareCoverageRole, ExpenseResponsibilityCandidate>();
+  const rememberPlannedElderCareStart = (candidate: ExpenseResponsibilityCandidate) => {
+    const role = elderCareCoverageRole(candidate);
+    if (role) plannedElderCareStarts.set(role, candidate);
+  };
   const queueReview = (responsibilityKey: string, evidence: FinancialEvidence[] = []) => {
     changedKeys.push(responsibilityKey);
     if (evidence.length === 0) return;
@@ -631,6 +993,47 @@ export function reconcileExpenseCommitments(input: {
       });
       continue;
     }
+    if (isUnsupportedNarrativeSharedResponsibility(candidate)) {
+      const hasMaterialSharedTotal = Number.isFinite(candidate.explicitMonthlyTotalWan)
+        && (candidate.explicitMonthlyTotalWan || 0) > 0;
+      const unsupportedSharedNarrativeIssue = issue({
+        id: `expense_shared_narrative_requires_accepted_share_${candidate.id}`,
+        code: "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT",
+        // A stated household total is material cash-flow evidence. Until the
+        // text gives an exact protagonist allocation it must regenerate in
+        // enforced mode; accepting it as a mere review would silently retain
+        // the old, too-low expense baseline for the whole period.
+        severity: hasMaterialSharedTotal ? "blocking" : "warning",
+        summary: `叙事仅表明共同责任 ${candidate.responsibilityKey}，未提供 Accepted 的主角个人承担额；不得以策略估算创建 shared_household active commitment`,
+        ageInMonths: input.ageInMonths,
+        candidate
+      });
+      issues.push(unsupportedSharedNarrativeIssue);
+      recordCandidateDecision({
+        candidate,
+        disposition: hasMaterialSharedTotal ? "blocked" : "issue",
+        reasonCode: "NARRATIVE_SHARED_AMOUNT_REQUIRES_ACCEPTED_FACT",
+        issue: unsupportedSharedNarrativeIssue
+      });
+      continue;
+    }
+    if (lacksAcceptedSharedCareOrHealthcareShare(candidate)) {
+      const sharedCareOwnershipIssue = issue({
+        id: `expense_shared_care_requires_accepted_share_${candidate.id}`,
+        code: "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT",
+        summary: `共同责任 ${candidate.responsibilityKey} 未提供权威、可核算的主角月承担额；仅保留复核/issue，不能以估算方式创建、调整或结束个人持续支出`,
+        ageInMonths: input.ageInMonths,
+        candidate
+      });
+      issues.push(sharedCareOwnershipIssue);
+      recordCandidateDecision({
+        candidate,
+        disposition: "issue",
+        reasonCode: "SHARED_CARE_REQUIRES_ACCEPTED_PROTAGONIST_SHARE",
+        issue: sharedCareOwnershipIssue
+      });
+      continue;
+    }
     if (candidate.liability === "unknown") {
       const unresolvedLiabilityIssue = reviewIssue(candidate, input.ageInMonths, `责任 ${candidate.responsibilityKey} 已出现，但主角是否承担尚未确认；不得从个人现金自动扣款`);
       issues.push(unresolvedLiabilityIssue);
@@ -643,6 +1046,17 @@ export function reconcileExpenseCommitments(input: {
       continue;
     }
     const existing = activeByKey(input.ledger, candidate.responsibilityKey);
+    if (candidate.policyEstimateAdjustment === "increase_only" && !existing) {
+      // An intensity uplift may refine only an account whose responsibility
+      // was already accepted. It must never become a back door for age or
+      // narrative severity to create a new personal commitment.
+      recordCandidateDecision({
+        candidate,
+        disposition: "ignored",
+        reasonCode: "CONTEXTUAL_UPLIFT_TARGET_NOT_ACTIVE"
+      });
+      continue;
+    }
     if (aggregateWithUnknownCoverage && wouldStartNewComponent({ candidate, existing })) {
       // The aggregate is still the authoritative prospective cashflow. Mark
       // it due for review but do not manufacture a second component account
@@ -671,6 +1085,72 @@ export function reconcileExpenseCommitments(input: {
         });
       }
       continue;
+    }
+    // An aggregate parent-care account and a named parent-care account cover
+    // potentially the same obligation. Never open a second accrual account
+    // on either side of that boundary: review the existing one and leave an
+    // auditable overlap issue until an Accepted atomic split resolves it.
+    if (wouldCreateNewResponsibility({ candidate, existing })) {
+      const acceptedOverlap = acceptedElderCareCoverageOverlap({
+        index: acceptedElderCareCoverage,
+        candidate
+      });
+      if (acceptedOverlap) {
+        const overlapIssue = elderCareCoverageOverlapIssue({
+          candidate,
+          ageInMonths: input.ageInMonths,
+          acceptedEvent: acceptedOverlap.event,
+          acceptedResponsibilityKey: acceptedOverlap.responsibilityKey
+        });
+        issues.push(overlapIssue);
+        recordCandidateDecision({
+          candidate,
+          disposition: "issue",
+          reasonCode: "DIRECT_ACCEPTED_ELDER_CARE_AGGREGATE_INDIVIDUAL_OVERLAP",
+          issue: overlapIssue
+        });
+        continue;
+      }
+      const activeOverlap = activeElderCareCoverageOverlap({
+        ledger: input.ledger,
+        candidate,
+        atomicallySplitAggregateCommitmentIds: acceptedElderCareCoverage.atomicallySplitAggregateCommitmentIds
+      });
+      if (activeOverlap) {
+        queueReview(activeOverlap.responsibilityKey, candidate.evidence);
+        const overlapIssue = elderCareCoverageOverlapIssue({
+          candidate,
+          ageInMonths: input.ageInMonths,
+          activeCommitment: activeOverlap
+        });
+        issues.push(overlapIssue);
+        recordCandidateDecision({
+          candidate,
+          disposition: "issue",
+          reasonCode: "ELDER_CARE_AGGREGATE_INDIVIDUAL_OVERLAP",
+          issue: overlapIssue
+        });
+        continue;
+      }
+      const role = elderCareCoverageRole(candidate);
+      const pendingOverlap = role
+        ? plannedElderCareStarts.get(role === "aggregate" ? "individual" : "aggregate")
+        : undefined;
+      if (pendingOverlap) {
+        const overlapIssue = elderCareCoverageOverlapIssue({
+          candidate,
+          ageInMonths: input.ageInMonths,
+          pendingCandidate: pendingOverlap
+        });
+        issues.push(overlapIssue);
+        recordCandidateDecision({
+          candidate,
+          disposition: "issue",
+          reasonCode: "ELDER_CARE_AGGREGATE_INDIVIDUAL_PENDING_OVERLAP",
+          issue: overlapIssue
+        });
+        continue;
+      }
     }
     if (!existing && plannedStartKeys.has(candidate.responsibilityKey)) {
       ignoredCandidateIds.push(candidate.id);
@@ -728,6 +1208,7 @@ export function reconcileExpenseCommitments(input: {
           });
           proposals.push(proposal);
           plannedStartKeys.add(candidate.responsibilityKey);
+          rememberPlannedElderCareStart(candidate);
           recordCandidateDecision({
             candidate,
             disposition: "planned_start",
@@ -803,7 +1284,8 @@ export function reconcileExpenseCommitments(input: {
           evidence: candidate.evidence.map((item) => item.excerpt).filter(Boolean).join("；"),
           sourceOutcomeId: input.sourceOutcomeId,
           confidence: 1,
-          financialScope: candidate.financialScope
+          financialScope: candidate.financialScope,
+          systemGenerated: reconciliationSystemGenerated(candidate)
         } as FinancialEventProposal;
         proposals.push(proposal);
         plannedMutationCommitmentIds.add(existing.id);
@@ -831,7 +1313,12 @@ export function reconcileExpenseCommitments(input: {
       // policy/earlier fact already made the stable responsibility. Reconcile
       // it as an in-place action, never as a second account.
       const mutation = (candidate.action === "start" || candidate.action === "adjust")
-        ? mutationForExistingCandidate({ existing, candidate, ageInMonths: input.ageInMonths })
+        ? mutationForExistingCandidate({
+          existing,
+          candidate,
+          ageInMonths: input.ageInMonths,
+          estimateContext: input.estimateContext
+        })
         : undefined;
       if (mutation) {
         const proposal = {
@@ -849,7 +1336,8 @@ export function reconcileExpenseCommitments(input: {
           evidence: candidate.evidence.map((item) => item.excerpt).filter(Boolean).join("；"),
           sourceOutcomeId: input.sourceOutcomeId,
           confidence: 1,
-          financialScope: candidate.financialScope
+          financialScope: candidate.financialScope,
+          systemGenerated: reconciliationSystemGenerated(candidate)
         } as FinancialEventProposal;
         proposals.push(proposal);
         plannedMutationCommitmentIds.add(existing.id);
@@ -892,6 +1380,7 @@ export function reconcileExpenseCommitments(input: {
     const proposal = toProposal({ candidate, commitment: built.commitment!, sourceOutcomeId: input.sourceOutcomeId, ageInMonths: input.ageInMonths });
     proposals.push(proposal);
     plannedStartKeys.add(candidate.responsibilityKey);
+    rememberPlannedElderCareStart(candidate);
     recordCandidateDecision({
       candidate,
       disposition: "planned_start",

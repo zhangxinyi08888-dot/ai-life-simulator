@@ -71,7 +71,10 @@ export interface FinalFinancialNarrativeIssue {
   text: string;
 }
 
-const DEBT_COMPLETION_PATTERN = /(?:还清(?:了|全部|所有)?(?:债务|欠款|贷款)?|结清(?:了|全部|所有)?(?:债务|欠款|贷款)?|清偿完毕|无债一身轻|摆脱(?:了)?全部债务|不再欠债)/u;
+// Keep this aligned with the production-audit completion detector.  A title
+// saying that debt has "归零/清零" is still a completed-settlement claim,
+// even when it avoids the literal words "还清" or "结清".
+const DEBT_COMPLETION_PATTERN = /(?:还清(?:了|全部|所有)?(?:债务|欠款|贷款)?|结清(?:了|全部|所有)?(?:债务|欠款|贷款)?|清偿完毕|无债一身轻|摆脱(?:了)?全部债务|不再欠债|(?:债务|欠款|贷款|房贷|信用卡)(?:已经|已|终于|最终|彻底)?(?:归零|清零))/u;
 const NEGATIVE_NET_WORTH_SUCCESS_PATTERN = /(?:财务自由|财富自由|资产充足|经济无忧|财务无忧|财富安全垫(?:已经)?建立)/u;
 const PROPERTY_POSSESSION_PATTERN = /(?:名下有(?:一套|房产)|名下房产|自己的(?:房[屋产子]|公寓|住房)|(?:出售|卖掉)(?:了)?(?:自己的|名下的)?(?:房屋|房产|住房|公寓)|房产升值|房贷压力)/u;
 
@@ -100,9 +103,41 @@ function confirmedProperties(ledger: FinancialLedger): AssetAccount[] {
     && isReportEligibleFinancialFact(account));
 }
 
-function hasReliableRepaidDebt(ledger: FinancialLedger): string[] {
+/**
+ * A zero closing balance or a raw `repaid` account status is not, by itself,
+ * evidence that a repayment actually happened during the represented life.
+ * Repaid statuses may be present in migrated snapshots.  Final copy may use
+ * payoff language only when the authoritative ledger history contains a
+ * reducer-produced liability reduction (payment, forgiveness, or automatic
+ * shortfall recovery).
+ */
+function transactionHasDebtSettlementFact(transaction: FinancialLedger["recentTransactions"][number]): boolean {
+  return (transaction.debtPrincipalPaidWan ?? 0) > 0
+    || (transaction.debtPrincipalForgivenWan ?? 0) > 0
+    || (transaction.debtInterestLiabilityPaidWan ?? 0) > 0
+    || (transaction.debtInterestForgivenWan ?? 0) > 0
+    || (transaction.automaticLiquidityShortfallRecoveryWan ?? 0) > 0;
+}
+
+function hasRecordedDebtSettlementForAccount(history: HistoryItem[], debtAccountId: string): boolean {
+  return history.some((item, index) => {
+    const ledger = item.financialLedger;
+    const account = ledger?.debtAccounts.find((candidate) => candidate.id === debtAccountId);
+    if (!ledger || !account || account.status !== "repaid") return false;
+    const priorAccount = history[index - 1]?.financialLedger?.debtAccounts.find((candidate) => candidate.id === debtAccountId);
+    return ledger.recentTransactions.some((transaction) => {
+      if (!transactionHasDebtSettlementFact(transaction)) return false;
+      if (transaction.debtServiceRecords?.some((record) => record.debtAccountId === debtAccountId
+        && (record.principalPaidWan > 0 || record.interestPaidWan > 0))) return true;
+      return Boolean(priorAccount && (priorAccount.status === "active" || priorAccount.status === "defaulted"));
+    });
+  });
+}
+
+function hasReliableRepaidDebt(history: HistoryItem[], ledger: FinancialLedger): string[] {
   return ledger.debtAccounts.filter((account) => account.status === "repaid"
-    && (isReportEligibleFinancialFact(account) || account.origin === "system_auto_shortfall"))
+    && (isReportEligibleFinancialFact(account) || account.origin === "system_auto_shortfall")
+    && hasRecordedDebtSettlementForAccount(history, account.id))
     .map((account) => account.id);
 }
 
@@ -122,14 +157,17 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
       && (record.principalPaidWan > 0 || record.interestPaidWan > 0))
     || (transaction.automaticLiquidityShortfallRecoveryWan ?? 0) > 0
   ));
-  const repaidAccounts = hasReliableRepaidDebt(ledger);
+  const terminalRepaidAccountIds = ledger.debtAccounts
+    .filter((account) => account.status === "repaid")
+    .map((account) => account.id);
+  const repaidAccounts = hasReliableRepaidDebt(history, ledger);
   const debt: FinalDebtClaim = debtWan > 0.01
     ? defaulted
       ? { kind: "formal_default_outstanding", totalDebtWan: debtWan }
       : hasRecentPayment
         ? { kind: "debt_repayment_in_progress", totalDebtWan: debtWan }
         : { kind: "debt_outstanding", totalDebtWan: debtWan }
-    : repaidAccounts.length > 0
+    : terminalRepaidAccountIds.length > 0 && repaidAccounts.length === terminalRepaidAccountIds.length
       ? { kind: "debt_fully_repaid", evidenceAccountIds: repaidAccounts }
       : { kind: "no_active_debt" };
   const reportEligibleCashWan = round(ledger.cashAccounts
@@ -203,7 +241,7 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
     numericClaims,
     permittedSemanticClaims: [debt.kind, netWorth.kind, property.kind],
     forbiddenSemanticClaims: [
-      ...(debtWan > 0.01 ? ["debt_fully_repaid"] : []),
+      ...(debt.kind !== "debt_fully_repaid" ? ["debt_fully_repaid"] : []),
       ...(netWorth.kind === "negative_net_worth" ? ["financial_freedom"] : []),
       ...(property.kind === "no_confirmed_property" ? ["confirmed_property_ownership_or_sale"] : [])
     ],
@@ -243,7 +281,7 @@ export function collectFinalFinancialNarrativeIssues(input: {
     if (/-?\d+\.\d{3,}\s*万(?:元)?/u.test(item.text)) {
       issues.push({ path: item.path, code: "REPORT_FINANCIAL_PRECISION", text: item.text });
     }
-    if (["debt_outstanding", "debt_repayment_in_progress", "formal_default_outstanding"].includes(input.authority.debt.kind)
+    if (input.authority.debt.kind !== "debt_fully_repaid"
       && DEBT_COMPLETION_PATTERN.test(item.text)) {
       issues.push({ path: item.path, code: "REPORT_DEBT_COMPLETION_CONFLICT", text: item.text });
     }

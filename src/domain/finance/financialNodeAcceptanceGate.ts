@@ -57,7 +57,14 @@ function groupKindForIssue(issue: FinancialLedgerIssue): RequiredFinancialFactGr
   if (issue.id.startsWith("opening_schema_") || issue.id.startsWith("opening_fact_")) {
     return "opening_fact_provenance";
   }
-  if (issue.code.startsWith("EXPENSE_") || issue.id.startsWith("expense_")) return "expense_lifecycle";
+  if (issue.code.startsWith("EXPENSE_")
+    || issue.id.startsWith("expense_")
+    // A deterministic lifecycle proposal may fail ordinary evidence/schema
+    // validation with a generic code. Its `system_expense_*` identity still
+    // makes it a material expense-lifecycle fact, never a dismissible review.
+    || (issue.relatedProposalIds || []).some((proposalId) => proposalId.startsWith("system_expense_"))) {
+    return "expense_lifecycle";
+  }
   if (issue.id.startsWith("career_transition_missing_") || issue.code === "CAREER_INCOME_CONFLICT") {
     return "career_income_transition";
   }
@@ -67,6 +74,7 @@ function groupKindForIssue(issue: FinancialLedgerIssue): RequiredFinancialFactGr
     || issue.id.startsWith("narrative_coverage_mortgage_")) return "property_and_mortgage";
   if (issue.id.startsWith("narrative_coverage_business_holding_")
     || issue.id.startsWith("narrative_coverage_personal_option_")) return "business_holding";
+  if (issue.id.startsWith("narrative_coverage_personal_outlay_")) return "large_personal_cashflow";
   return undefined;
 }
 

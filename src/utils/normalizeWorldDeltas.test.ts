@@ -28,6 +28,40 @@ test("flattens career transitions and maps deterministic employment aliases", ()
   assert.equal(result.audit.some((item) => item.reasonCode === "EMPLOYMENT_STATUS_MAPPED"), true);
 });
 
+test("drops direct and payload-wrapped boolean career transitions instead of mutating them during source-outcome backfill", () => {
+  // This is the malformed shape returned during the education 2/2/1 route
+  // after selecting `maintain_dual_track`.  A truthy primitive previously
+  // reached `transition.sourceOutcomeId = ...` and surfaced as a visible
+  // pause rather than being treated as invalid untrusted model transport.
+  const result = normalizeWorldDeltas({
+    acceptedOutcomeIds: ["maintain_current_rhythm"],
+    worldDeltas: [
+      {
+        type: "career_state",
+        summary: "继续维持金融主修与计算机项目的双轨节奏。",
+        employmentTransition: true
+      },
+      {
+        deltaType: "career_state",
+        summary: "另一条模型输出将异常值放在 payload 中。",
+        payload: { employmentTransition: true }
+      }
+    ]
+  });
+
+  assert.deepEqual(result.worldDeltas, [
+    {
+      type: "career_state",
+      summary: "继续维持金融主修与计算机项目的双轨节奏。"
+    },
+    {
+      type: "career_state",
+      summary: "另一条模型输出将异常值放在 payload 中。"
+    }
+  ]);
+  assert.equal(result.audit.filter((item) => item.reasonCode === "EMPLOYMENT_TRANSITION_DROPPED").length, 2);
+});
+
 test("flattens and validates an accepted structured residence payload on a location delta", () => {
   const result = normalizeWorldDeltas({
     worldDeltas: [{

@@ -12,6 +12,7 @@ import type {
   ExpenseResponsibilityCandidate,
   FinancialLedgerV3
 } from "./types";
+import { isExpenseCommitmentV4 } from "./types";
 
 function ledger() {
   const initial = initializeFinancialLedger({ id: "expense_test", asOfAgeInMonths: 360, openingPosition: { expenseCommitments: [{
@@ -91,6 +92,47 @@ function parentMedicalCandidate(): ExpenseResponsibilityCandidate {
   });
 }
 
+function elderCareCandidate(overrides: Partial<ExpenseResponsibilityCandidate> = {}): ExpenseResponsibilityCandidate {
+  return candidate({
+    id: "elder_care_mother",
+    responsibilityKey: "elder_care:mother",
+    responsibilityKind: "elder_care",
+    proposedType: "dependent_support",
+    action: "start",
+    completion: "completed",
+    cadence: "monthly",
+    liability: "protagonist",
+    financialScope: "personal",
+    explicitMonthlyTotalWan: 0.3,
+    protagonistShareWan: 0.3,
+    shareRate: undefined,
+    amountSourceId: "elder-care-mother-3000",
+    participantPersonIds: ["mother"],
+    source: "accepted_outcome",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "ELDER_CARE_TEST",
+      confidence: 1,
+      financialScope: "personal",
+      excerpt: "你每月承担母亲照护费3000元。"
+    }],
+    ...overrides
+  });
+}
+
+function startElderCare(current: ReturnType<typeof ledger>, candidateToStart: ExpenseResponsibilityCandidate, ageInMonths = 372) {
+  const start = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [candidateToStart],
+    ageInMonths,
+    sourceOutcomeId: `start_${candidateToStart.id}`,
+    mode: "enforced"
+  }).proposals.find((proposal) => proposal.kind === "expense_commitment_started")?.payload as any;
+  assert.ok(start, "test setup must create an elder-care commitment");
+  current.expenseCommitments.push(start);
+  return start;
+}
+
 test("E-07 shared rent charges only the protagonist's half", () => {
   const result = reconcileExpenseCommitments({ ledger: ledger(), candidates: [candidate()], ageInMonths: 372, sourceOutcomeId: "outcome", mode: "enforced" });
   assert.equal(result.proposals.length, 1);
@@ -153,33 +195,162 @@ test("an established protagonist rent bill flows from narrative supplement to a 
   assert.equal(commitment.financialScope, "personal");
 });
 
-test("a completed shared review responsibility without an existing account starts a nonzero needs-review commitment", () => {
+test("shared elder-care and healthcare remain review-only without an Accepted exact protagonist share", () => {
+  for (const sharedResponsibility of [
+    {
+      id: "shared_elder_care_without_share",
+      responsibilityKey: "elder_care:mother",
+      responsibilityKind: "elder_care" as const,
+      proposedType: "dependent_support" as const,
+      evidence: "你们每周共同陪诊母亲。"
+    },
+    {
+      id: "shared_healthcare_without_share",
+      responsibilityKey: "recurring_healthcare:protagonist",
+      responsibilityKind: "recurring_healthcare" as const,
+      proposedType: "healthcare" as const,
+      evidence: "你们每天按时服药。"
+    }
+  ]) {
+    const current = ledger();
+    const result = reconcileExpenseCommitments({
+      ledger: current,
+      candidates: [candidate({
+        ...sharedResponsibility,
+        action: "review",
+        completion: "completed",
+        cadence: "recurring_unknown",
+        liability: "shared",
+        financialScope: "shared_household",
+        explicitMonthlyTotalWan: undefined,
+        protagonistShareWan: undefined,
+        shareRate: undefined,
+        amountSourceId: undefined,
+        // Even an Accepted WorldState observation cannot make up a personal
+        // cash share; only a direct accepted financial fact may do that.
+        source: "accepted_world_delta",
+        evidence: [{
+          source: "accepted_simulation_outcome",
+          reasonCode: "TEST_SHARED_CARE_WITHOUT_SHARE",
+          excerpt: sharedResponsibility.evidence,
+          confidence: 1,
+          financialScope: "shared_household"
+        }]
+      })],
+      ageInMonths: 480,
+      mode: "enforced"
+    });
+    assert.equal(result.proposals.length, 0, `${sharedResponsibility.responsibilityKind} must not open a policy-estimated shared account`);
+    assert.equal(result.reviewEvents.some((event) => (
+      event.payload.nextCommitment.responsibilityKey === sharedResponsibility.responsibilityKey
+    )), false, `${sharedResponsibility.responsibilityKind} must not mutate a nonexistent account`);
+    assert.equal(current.expenseCommitments.some((commitment) => commitment.responsibilityKey === sharedResponsibility.responsibilityKey), false);
+    assert.equal(result.issues.some((item) => item.code === "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT"), true);
+    assert.ok(result.candidateDecisions[0]?.reasonCodes.includes("SHARED_CARE_REQUIRES_ACCEPTED_PROTAGONIST_SHARE"));
+  }
+});
+
+test("an Accepted exact protagonist share opens one correctly allocated shared elder-care account", () => {
   const result = reconcileExpenseCommitments({
     ledger: ledger(),
     candidates: [candidate({
+      id: "accepted_shared_elder_care_half",
       responsibilityKey: "elder_care:mother",
       responsibilityKind: "elder_care",
       proposedType: "dependent_support",
-      action: "review",
+      action: "start",
       completion: "completed",
-      cadence: "recurring_unknown",
+      cadence: "monthly",
+      liability: "shared",
+      financialScope: "shared_household",
+      explicitMonthlyTotalWan: 0.4,
+      protagonistShareWan: 0.2,
+      shareRate: 0.5,
+      amountSourceId: "accepted-shared-mother-care-4000",
+      source: "accepted_outcome",
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "TEST_ACCEPTED_SHARED_ELDER_CARE",
+        excerpt: "你们每月共同承担母亲照护费4000元，其中你承担2000元。",
+        confidence: 1,
+        financialScope: "shared_household"
+      }]
+    })],
+    ageInMonths: 480,
+    mode: "enforced"
+  });
+  const starts = result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started");
+  assert.equal(starts.length, 1);
+  const commitment = starts[0]?.payload as any;
+  assert.equal(commitment.monthlyAmountWan, 0.2);
+  assert.equal(commitment.grossMonthlyAmountWan, 0.4);
+  assert.equal(commitment.householdShareRate, 0.5);
+  assert.equal(commitment.amountBasis, "explicit_shared_amount");
+  assert.equal(commitment.factStatus, "known");
+});
+
+test("an unpriced shared-care observation cannot silently end an existing allocated commitment", () => {
+  const current = ledger();
+  const initial = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [candidate({
+      id: "existing_shared_elder_care",
+      responsibilityKey: "elder_care:mother",
+      responsibilityKind: "elder_care",
+      proposedType: "dependent_support",
+      liability: "shared",
+      financialScope: "shared_household",
+      explicitMonthlyTotalWan: 0.4,
+      protagonistShareWan: 0.2,
+      shareRate: 0.5,
+      amountSourceId: "existing-shared-mother-care-4000",
+      source: "accepted_outcome",
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "TEST_EXISTING_ACCEPTED_SHARED_ELDER_CARE",
+        excerpt: "你们每月共同承担母亲照护费4000元，其中你承担2000元。",
+        confidence: 1,
+        financialScope: "shared_household"
+      }]
+    })],
+    ageInMonths: 480,
+    mode: "enforced"
+  });
+  const existing = initial.proposals.find((proposal) => proposal.kind === "expense_commitment_started")?.payload as any;
+  assert.ok(existing);
+  current.expenseCommitments.push(existing);
+
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [candidate({
+      id: "unpriced_shared_elder_care_end",
+      responsibilityKey: existing.responsibilityKey,
+      responsibilityKind: "elder_care",
+      proposedType: "dependent_support",
+      action: "end",
       liability: "shared",
       financialScope: "shared_household",
       explicitMonthlyTotalWan: undefined,
       protagonistShareWan: undefined,
       shareRate: undefined,
       amountSourceId: undefined,
-      evidence: [{ source: "accepted_simulation_outcome", reasonCode: "TEST_SHARED_CARE", excerpt: "你们已开始轮流陪护父母", confidence: 1, financialScope: "shared_household" }]
+      source: "accepted_world_delta",
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "TEST_SHARED_CARE_UNPRICED_END",
+        excerpt: "你们不再轮流陪诊母亲。",
+        confidence: 1,
+        financialScope: "shared_household"
+      }]
     })],
-    ageInMonths: 480,
+    ageInMonths: 481,
     mode: "enforced"
   });
-  assert.equal(result.proposals.length, 1);
-  const commitment = result.proposals[0]?.payload as any;
-  assert.equal(commitment.responsibilityKey, "elder_care:mother");
-  assert.equal(commitment.monthlyAmountWan, 0.2);
-  assert.equal(commitment.factStatus, "needs_review");
-  assert.equal(commitment.financialScope, "shared_household");
+  assert.equal(result.proposals.some((proposal) => proposal.kind === "expense_commitment_ended"), false);
+  assert.equal(result.proposals.some((proposal) => proposal.kind === "expense_commitment_adjusted"), false);
+  assert.equal(current.expenseCommitments.find((commitment) => commitment.id === existing.id)?.status, "active");
+  assert.equal(current.expenseCommitments.find((commitment) => commitment.id === existing.id)?.monthlyAmountWan, 0.2);
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT"), true);
 });
 
 test("missing V2 context policy is a recognizable enforced blocker, never a basic-floor fallback", () => {
@@ -234,6 +405,62 @@ test("confirmed structured cohabitation creates an independent nonzero reviewabl
   const prospective = structuredClone(current);
   prospective.expenseCommitments.push(commitment);
   assertFinancialLedgerInvariants(prospective);
+});
+
+test("a completed narrative joint account for rent starts a policy-based shared housing review without treating its contribution rate as rent", () => {
+  const narrative = "43岁过半，你与伴侣正式设立了共同账户，每月按税后收入的30%存入用于房租和家庭共同支出，剩余各自保留。起初的几个月，你们像两个谨慎的合伙人，每笔支出都记录在案，季度复盘时仔细核对每一项。";
+  const candidates = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 43 * 12 + 6,
+    narrativeText: narrative
+  }).candidates;
+  assert.deepEqual(candidates.map((candidate) => [
+    candidate.responsibilityKey,
+    candidate.responsibilityKind,
+    candidate.proposedType,
+    candidate.financialScope,
+    candidate.liability,
+    candidate.explicitMonthlyTotalWan,
+    candidate.protagonistShareWan,
+    candidate.shareRate
+  ]), [[
+    "primary_residence:main",
+    "primary_residence",
+    "housing",
+    "shared_household",
+    "shared",
+    undefined,
+    undefined,
+    undefined
+  ]]);
+
+  const current = ledger();
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates,
+    ageInMonths: 43 * 12 + 6,
+    sourceOutcomeId: "joint_account_shared_residence",
+    mode: "enforced"
+  });
+  const commitment = result.proposals.find((proposal) => (
+    proposal.kind === "expense_commitment_started"
+  ))?.payload as any;
+
+  assert.equal(result.wouldBlock, false);
+  assert.equal(result.issues.some((issue) => issue.code === "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT"), false);
+  assert.equal(commitment?.responsibilityKey, "primary_residence:main");
+  assert.equal(commitment?.type, "housing");
+  assert.equal(commitment?.financialScope, "shared_household");
+  assert.equal(commitment?.monthlyAmountWan, 0.35);
+  assert.equal(commitment?.amountBasis, "contextual_estimate");
+  assert.equal(commitment?.factStatus, "needs_review");
+  assert.equal(commitment?.grossMonthlyAmountWan, undefined);
+  assert.equal(commitment?.confirmedMonthlyAmountWan, undefined);
+  assert.equal(commitment?.householdShareRate, undefined);
+  assert.equal(commitment?.estimationPolicyId, "expense-estimation-policy-v2");
+  assertFinancialLedgerInvariants({
+    ...current,
+    expenseCommitments: [...current.expenseCommitments, commitment]
+  });
 });
 
 test("retrying the same structured cohabitation fact neither duplicates nor repeatedly reviews housing", () => {
@@ -314,6 +541,304 @@ test("unknown-coverage legacy aggregate holds an explicit parent-medical compone
   assert.match(gap.summary, /recurring_healthcare:parent/);
 });
 
+test("an active aggregate parent-care account blocks an individual parent-care start and reviews the aggregate", () => {
+  const current = ledger();
+  const aggregate = startElderCare(current, elderCareCandidate({
+    id: "elder_care_parents",
+    responsibilityKey: "elder_care:parents",
+    amountSourceId: "elder-care-parents-3000",
+    participantPersonIds: [],
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "ELDER_CARE_AGGREGATE", confidence: 1,
+      financialScope: "personal", excerpt: "你每月承担父母照护费3000元。"
+    }]
+  }));
+
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [elderCareCandidate({ id: "elder_care_mother_after_aggregate" })],
+    ageInMonths: 384,
+    sourceOutcomeId: "mother_after_aggregate",
+    mode: "enforced"
+  });
+
+  assert.equal(result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started").length, 0);
+  const overlap = result.issues.find((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY");
+  assert.equal(overlap?.relatedAccountIds[0], aggregate.id);
+  assert.match(overlap?.summary || "", /elder_care:parents/);
+  assert.match(overlap?.summary || "", /elder_care:mother/);
+  assert.equal(result.candidateDecisions[0]?.disposition, "issue");
+  assert.ok(result.candidateDecisions[0]?.reasonCodes.includes("ELDER_CARE_AGGREGATE_INDIVIDUAL_OVERLAP"));
+  const review = result.reviewEvents.find((event) => event.payload.expenseCommitmentId === aggregate.id);
+  assert.equal(review?.payload.nextCommitment.monthlyAmountWan, aggregate.monthlyAmountWan);
+});
+
+test("a paused aggregate parent-care account still blocks an individual start until an Accepted atomic split", () => {
+  const current = ledger();
+  const aggregate = startElderCare(current, elderCareCandidate({
+    id: "paused_elder_care_parents",
+    responsibilityKey: "elder_care:parents",
+    amountSourceId: "paused-elder-care-parents-3000",
+    participantPersonIds: [],
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "ELDER_CARE_AGGREGATE", confidence: 1,
+      financialScope: "personal", excerpt: "你每月承担父母照护费3000元。"
+    }]
+  }));
+  aggregate.status = "paused";
+
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [elderCareCandidate({ id: "elder_care_mother_beside_paused_aggregate" })],
+    ageInMonths: 384,
+    sourceOutcomeId: "mother_beside_paused_aggregate",
+    mode: "enforced"
+  });
+
+  assert.equal(result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started").length, 0);
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY"), true);
+  assert.equal(result.candidateDecisions[0]?.disposition, "issue");
+});
+
+test("a protagonist care plan may coexist with an aggregate parent-care responsibility", () => {
+  const current = ledger();
+  startElderCare(current, elderCareCandidate({
+    id: "elder_care_parents",
+    responsibilityKey: "elder_care:parents",
+    amountSourceId: "elder-care-parents-3000",
+    participantPersonIds: [],
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "ELDER_CARE_AGGREGATE", confidence: 1,
+      financialScope: "personal", excerpt: "你每月承担父母照护费3000元。"
+    }]
+  }));
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [elderCareCandidate({
+      id: "protagonist_care_plan",
+      responsibilityKey: "elder_care:care_plan",
+      amountSourceId: "protagonist-care-plan-2000",
+      participantPersonIds: [],
+      evidence: [{
+        source: "accepted_simulation_outcome", reasonCode: "PROTAGONIST_CARE_PLAN", confidence: 1,
+        financialScope: "personal", excerpt: "你开始每月支付护工费用2000元。"
+      }]
+    })],
+    ageInMonths: 384,
+    sourceOutcomeId: "protagonist_care_plan_after_parent_care",
+    mode: "enforced"
+  });
+
+  assert.deepEqual(
+    result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started")
+      .map((proposal) => (proposal.payload as { responsibilityKey: string }).responsibilityKey),
+    ["elder_care:care_plan"]
+  );
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY"), false);
+});
+
+test("an active individual parent-care account blocks an aggregate parent-care start and reviews the individual", () => {
+  const current = ledger();
+  const mother = startElderCare(current, elderCareCandidate());
+  const aggregateCandidate = elderCareCandidate({
+    id: "elder_care_parents_after_mother",
+    responsibilityKey: "elder_care:parents",
+    amountSourceId: "elder-care-parents-3000",
+    participantPersonIds: [],
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "ELDER_CARE_AGGREGATE", confidence: 1,
+      financialScope: "personal", excerpt: "你每月承担父母照护费3000元。"
+    }]
+  });
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [aggregateCandidate],
+    ageInMonths: 384,
+    sourceOutcomeId: "parents_after_mother",
+    mode: "enforced"
+  });
+
+  assert.equal(result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started").length, 0);
+  const overlap = result.issues.find((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY");
+  assert.equal(overlap?.relatedAccountIds[0], mother.id);
+  assert.match(overlap?.summary || "", /elder_care:mother/);
+  assert.match(overlap?.summary || "", /elder_care:parents/);
+  assert.equal(result.candidateDecisions[0]?.disposition, "issue");
+  assert.ok(result.candidateDecisions[0]?.reasonCodes.includes("ELDER_CARE_AGGREGATE_INDIVIDUAL_OVERLAP"));
+  assert.equal(result.reviewEvents.some((event) => event.payload.expenseCommitmentId === mother.id), true);
+});
+
+test("a same-node direct aggregate elder-care start suppresses a derived individual start", () => {
+  const current = ledger();
+  const aggregateCandidate = elderCareCandidate({
+    id: "direct_aggregate_parents",
+    responsibilityKey: "elder_care:parents",
+    amountSourceId: "direct-aggregate-3000",
+    participantPersonIds: [],
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "DIRECT_ELDER_CARE_AGGREGATE", confidence: 1,
+      financialScope: "personal", excerpt: "你每月承担父母照护费3000元。"
+    }]
+  });
+  const aggregatePayload = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [aggregateCandidate],
+    ageInMonths: 372,
+    sourceOutcomeId: "direct_aggregate_outcome",
+    mode: "enforced"
+  }).proposals.find((proposal) => proposal.kind === "expense_commitment_started")?.payload as any;
+  assert.ok(aggregatePayload, "test setup must create the direct aggregate payload");
+  const directAggregate: AcceptedFinancialEvent<"expense_commitment_started"> = {
+    id: "direct_aggregate_event",
+    proposalId: "direct_aggregate_proposal",
+    kind: "expense_commitment_started",
+    effectiveAtAgeInMonths: 372,
+    payload: aggregatePayload,
+    evidence: aggregateCandidate.evidence,
+    acceptedByReasonCodes: ["TEST_DIRECT_ACCEPTED_ELDER_CARE"]
+  };
+
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [elderCareCandidate({ id: "derived_mother_beside_direct_aggregate" })],
+    acceptedExpenseEvents: [directAggregate],
+    ageInMonths: 372,
+    sourceOutcomeId: "derived_mother_beside_direct_aggregate",
+    mode: "enforced"
+  });
+
+  assert.equal(result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started").length, 0);
+  const overlap = result.issues.find((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY");
+  assert.deepEqual(overlap?.relatedProposalIds, ["direct_aggregate_proposal"]);
+  assert.match(overlap?.summary || "", /elder_care:parents/);
+  assert.match(overlap?.summary || "", /elder_care:mother/);
+  assert.equal(result.candidateDecisions[0]?.disposition, "issue");
+  assert.ok(result.candidateDecisions[0]?.reasonCodes.includes("DIRECT_ACCEPTED_ELDER_CARE_AGGREGATE_INDIVIDUAL_OVERLAP"));
+});
+
+test("a same-node direct individual elder-care start suppresses a derived aggregate start", () => {
+  const current = ledger();
+  const directMotherCandidate = elderCareCandidate({ id: "direct_mother" });
+  const directMotherPayload = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [directMotherCandidate],
+    ageInMonths: 372,
+    sourceOutcomeId: "direct_mother_outcome",
+    mode: "enforced"
+  }).proposals.find((proposal) => proposal.kind === "expense_commitment_started")?.payload as any;
+  assert.ok(directMotherPayload, "test setup must create the direct individual payload");
+  const directMother: AcceptedFinancialEvent<"expense_commitment_started"> = {
+    id: "direct_mother_event",
+    proposalId: "direct_mother_proposal",
+    kind: "expense_commitment_started",
+    effectiveAtAgeInMonths: 372,
+    payload: directMotherPayload,
+    evidence: directMotherCandidate.evidence,
+    acceptedByReasonCodes: ["TEST_DIRECT_ACCEPTED_ELDER_CARE"]
+  };
+  const aggregateCandidate = elderCareCandidate({
+    id: "derived_parents_beside_direct_mother",
+    responsibilityKey: "elder_care:parents",
+    amountSourceId: "derived-parents-3000",
+    participantPersonIds: [],
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "DERIVED_ELDER_CARE_AGGREGATE", confidence: 1,
+      financialScope: "personal", excerpt: "你每月承担父母照护费3000元。"
+    }]
+  });
+
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [aggregateCandidate],
+    acceptedExpenseEvents: [directMother],
+    ageInMonths: 372,
+    sourceOutcomeId: "derived_parents_beside_direct_mother",
+    mode: "enforced"
+  });
+
+  assert.equal(result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started").length, 0);
+  const overlap = result.issues.find((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY");
+  assert.deepEqual(overlap?.relatedProposalIds, ["direct_mother_proposal"]);
+  assert.match(overlap?.summary || "", /elder_care:mother/);
+  assert.match(overlap?.summary || "", /elder_care:parents/);
+  assert.equal(result.candidateDecisions[0]?.disposition, "issue");
+  assert.ok(result.candidateDecisions[0]?.reasonCodes.includes("DIRECT_ACCEPTED_ELDER_CARE_AGGREGATE_INDIVIDUAL_OVERLAP"));
+});
+
+test("a same-node Accepted atomic aggregate split permits the derived individual start", () => {
+  const current = ledger();
+  const aggregate = startElderCare(current, elderCareCandidate({
+    id: "parents_before_atomic_split",
+    responsibilityKey: "elder_care:parents",
+    amountSourceId: "parents-before-split-3000",
+    participantPersonIds: [],
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "ELDER_CARE_AGGREGATE", confidence: 1,
+      financialScope: "personal", excerpt: "你每月承担父母照护费3000元。"
+    }]
+  }));
+  const atomicSplitEnd: AcceptedFinancialEvent<"expense_commitment_ended"> = {
+    id: "parents_atomic_split_end_event",
+    proposalId: "parents_atomic_split_end_proposal",
+    kind: "expense_commitment_ended",
+    effectiveAtAgeInMonths: 384,
+    payload: {
+      expenseCommitmentId: aggregate.id,
+      previousCommitmentId: aggregate.id,
+      changeReason: "aggregate_atomically_split"
+    },
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "ELDER_CARE_ATOMIC_SPLIT", confidence: 1,
+      financialScope: "personal", excerpt: "你已将原先父母照护费拆分为分项。"
+    }],
+    acceptedByReasonCodes: ["TEST_ACCEPTED_ATOMIC_SPLIT"]
+  };
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [elderCareCandidate({ id: "mother_after_atomic_split" })],
+    acceptedExpenseEvents: [atomicSplitEnd],
+    ageInMonths: 384,
+    sourceOutcomeId: "mother_after_atomic_split",
+    mode: "enforced"
+  });
+
+  assert.deepEqual(
+    result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started")
+      .map((proposal) => (proposal.payload as { responsibilityKey: string }).responsibilityKey),
+    ["elder_care:mother"]
+  );
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY"), false);
+});
+
+test("separate mother and father elder-care responsibilities may start together", () => {
+  const mother = elderCareCandidate();
+  const father = elderCareCandidate({
+    id: "elder_care_father",
+    responsibilityKey: "elder_care:father",
+    amountSourceId: "elder-care-father-3000",
+    participantPersonIds: ["father"],
+    evidence: [{
+      source: "accepted_simulation_outcome", reasonCode: "ELDER_CARE_FATHER", confidence: 1,
+      financialScope: "personal", excerpt: "你每月承担父亲照护费3000元。"
+    }]
+  });
+  const result = reconcileExpenseCommitments({
+    ledger: ledger(),
+    candidates: [mother, father],
+    ageInMonths: 372,
+    sourceOutcomeId: "two_named_parents",
+    mode: "enforced"
+  });
+
+  assert.deepEqual(
+    result.proposals.filter((proposal) => proposal.kind === "expense_commitment_started")
+      .map((proposal) => (proposal.payload as { responsibilityKey: string }).responsibilityKey)
+      .sort(),
+    ["elder_care:father", "elder_care:mother"]
+  );
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_DUPLICATE_RESPONSIBILITY"), false);
+});
+
 test("E-27 two children can coexist, while a retried same child does not duplicate", () => {
   const first = candidate({ responsibilityKey: "child_support:one", responsibilityKind: "child_support", proposedType: "dependent_support", explicitMonthlyTotalWan: undefined, protagonistShareWan: undefined, shareRate: undefined, amountSourceId: undefined, financialScope: "personal", liability: "protagonist" });
   const second = candidate({ id: "candidate_two", responsibilityKey: "child_support:two", responsibilityKind: "child_support", proposedType: "dependent_support", explicitMonthlyTotalWan: undefined, protagonistShareWan: undefined, shareRate: undefined, amountSourceId: undefined, financialScope: "personal", liability: "protagonist" });
@@ -355,6 +880,140 @@ test("E-12 unknown owner does not become an automatic personal deduction", () =>
   assert.equal(result.candidateDecisions[0]?.disposition, "issue");
   assert.equal(result.candidateDecisions[0]?.wouldBlock, false);
   assert.ok(result.candidateDecisions[0]?.relatedIssueIds[0]);
+});
+
+test("a completed care-intensity fact can only increase an existing contextual elder-care estimate", () => {
+  const intensityCandidate = (overrides: Partial<ExpenseResponsibilityCandidate> = {}) => elderCareCandidate({
+    id: "elder_care_intensity_uplift",
+    action: "adjust",
+    cadence: "recurring_unknown",
+    explicitMonthlyTotalWan: undefined,
+    protagonistShareWan: undefined,
+    shareRate: undefined,
+    amountSourceId: undefined,
+    source: "narrative_supplement",
+    policyEstimateAdjustment: "increase_only",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "EXPENSE_ELDER_CARE_INTENSITY_ESCALATION",
+      confidence: 1,
+      financialScope: "personal",
+      excerpt: "父亲膝盖的退行性变化需要持续关注。你每天早晚帮他做一轮轻柔的关节活动。"
+    }],
+    ...overrides
+  });
+
+  const current = ledger();
+  const contextual = startElderCare(current, elderCareCandidate({
+    id: "contextual_elder_care",
+    explicitMonthlyTotalWan: undefined,
+    protagonistShareWan: undefined,
+    shareRate: undefined,
+    amountSourceId: undefined,
+    cadence: "recurring_unknown",
+    source: "accepted_outcome",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "CONTEXTUAL_ELDER_CARE",
+      confidence: 1,
+      financialScope: "personal",
+      excerpt: "你定期带母亲去医院体检。"
+    }]
+  }), 58 * 12);
+  assert.equal(contextual.monthlyAmountWan, 0.2);
+  assert.equal(contextual.amountBasis, "contextual_estimate");
+  assert.equal(contextual.factStatus, "needs_review");
+
+  const uplift = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [intensityCandidate()],
+    ageInMonths: 66 * 12 + 8,
+    sourceOutcomeId: "care_intensity_uplift",
+    mode: "enforced"
+  });
+  const adjusted = uplift.proposals.find((proposal) => proposal.kind === "expense_commitment_adjusted")?.payload as ExpenseCommitmentMutationPayload | undefined;
+  assert.ok(adjusted);
+  assert.equal(adjusted.nextCommitment.monthlyAmountWan, 0.35);
+  assert.equal(adjusted.nextCommitment.amountBasis, "contextual_estimate");
+  assert.equal(adjusted.nextCommitment.factStatus, "needs_review");
+  assert.equal("previousCommitmentId" in adjusted, false, "an upward policy refinement is not an evidence-free downshift");
+  assert.ok(adjusted.nextCommitment.amountSourceIds.some((item) => item.includes("contextual-uplift")));
+  assert.ok(adjusted.nextCommitment.evidence.some((item) => item.reasonCode === "EXPENSE_CONTEXTUAL_UPLIFT_ELEVATED_CARE"));
+
+  const noTarget = reconcileExpenseCommitments({
+    ledger: ledger(),
+    candidates: [intensityCandidate({ id: "uplift_without_target" })],
+    ageInMonths: 66 * 12 + 8,
+    sourceOutcomeId: "uplift_without_target",
+    mode: "enforced"
+  });
+  assert.equal(noTarget.proposals.length, 0, "an intensity observation cannot create an elder-care account");
+  assert.ok(noTarget.candidateDecisions[0]?.reasonCodes.includes("CONTEXTUAL_UPLIFT_TARGET_NOT_ACTIVE"));
+
+  const exact = ledger();
+  const known = startElderCare(exact, elderCareCandidate({ id: "known_elder_care" }), 58 * 12);
+  const knownResult = reconcileExpenseCommitments({
+    ledger: exact,
+    candidates: [intensityCandidate({ id: "uplift_known_amount" })],
+    ageInMonths: 66 * 12 + 8,
+    sourceOutcomeId: "uplift_known_amount",
+    mode: "enforced"
+  });
+  assert.equal(knownResult.proposals.some((proposal) => proposal.kind === "expense_commitment_adjusted"), false, "a known amount cannot be overwritten by a policy estimate");
+  assert.equal(exact.expenseCommitments.find((item) => item.id === known.id)?.monthlyAmountWan, 0.3);
+
+  const higherContextual = ledger();
+  const higher = startElderCare(higherContextual, elderCareCandidate({
+    id: "higher_contextual_elder_care",
+    explicitMonthlyTotalWan: undefined,
+    protagonistShareWan: undefined,
+    shareRate: undefined,
+    amountSourceId: undefined,
+    cadence: "recurring_unknown",
+    source: "accepted_outcome"
+  }), 58 * 12);
+  higher.monthlyAmountWan = 0.5;
+  const lowerPolicy = reconcileExpenseCommitments({
+    ledger: higherContextual,
+    candidates: [intensityCandidate({ id: "uplift_cannot_lower" })],
+    ageInMonths: 66 * 12 + 8,
+    sourceOutcomeId: "uplift_cannot_lower",
+    mode: "enforced"
+  });
+  assert.equal(lowerPolicy.proposals.some((proposal) => proposal.kind === "expense_commitment_adjusted"), false, "an elevated policy row below the current amount cannot lower an account");
+  assert.equal(higherContextual.expenseCommitments.find((item) => item.id === higher.id)?.monthlyAmountWan, 0.5);
+
+  const repeatedEvidence = ledger();
+  const repeatedBase = startElderCare(repeatedEvidence, elderCareCandidate({
+    id: "repeated_evidence_contextual_base",
+    explicitMonthlyTotalWan: undefined,
+    protagonistShareWan: undefined,
+    shareRate: undefined,
+    amountSourceId: undefined,
+    cadence: "recurring_unknown",
+    source: "accepted_outcome"
+  }), 64 * 12);
+  const firstUplift = reconcileExpenseCommitments({
+    ledger: repeatedEvidence,
+    candidates: [intensityCandidate({ id: "first_intensity_evidence" })],
+    ageInMonths: 64 * 12,
+    sourceOutcomeId: "first_intensity_evidence",
+    mode: "enforced"
+  }).proposals.find((proposal) => proposal.kind === "expense_commitment_adjusted")?.payload as ExpenseCommitmentMutationPayload | undefined;
+  assert.equal(firstUplift?.nextCommitment.monthlyAmountWan, 0.25);
+  const repeatedNextCommitment = firstUplift?.nextCommitment;
+  assert.ok(repeatedNextCommitment && isExpenseCommitmentV4(repeatedNextCommitment));
+  const repeatedIndex = repeatedEvidence.expenseCommitments.findIndex((item) => item.id === repeatedBase.id);
+  repeatedEvidence.expenseCommitments[repeatedIndex] = repeatedNextCommitment;
+  const repeatedAtOlderAge = reconcileExpenseCommitments({
+    ledger: repeatedEvidence,
+    candidates: [intensityCandidate({ id: "same_intensity_evidence_after_65" })],
+    ageInMonths: 65 * 12,
+    sourceOutcomeId: "same_intensity_evidence_after_65",
+    mode: "enforced"
+  });
+  assert.equal(repeatedAtOlderAge.proposals.some((proposal) => proposal.kind === "expense_commitment_adjusted"), false, "crossing an age band cannot reapply the same old escalation evidence");
+  assert.equal(repeatedEvidence.expenseCommitments[repeatedIndex]?.monthlyAmountWan, 0.25);
 });
 
 test("Career retired/not_working review reaches every active commitment without lowering or ending any of them", () => {

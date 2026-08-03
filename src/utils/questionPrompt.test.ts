@@ -23,6 +23,7 @@ const prompt = buildQuestionPrompt({
 });
 
 assert.match(prompt, /剧本关键背景补全工具/);
+assert.match(prompt, /请生成刚好 3 个问题/);
 assert.match(prompt, /18 岁/);
 assert.match(prompt, /高考后填志愿/);
 assert.match(prompt, /事实背景追问/);

@@ -243,6 +243,38 @@ const firstObservationExpenseReviewPrompt = buildNextNodePrompt({
   eventSeed: healthWarningEvent,
   currentFinancialLedger: firstObservationExpenseReviewLedger
 });
+const overduePolicyEstimatePromptLedger = structuredClone(overdueExpenseReviewPromptLedger);
+overduePolicyEstimatePromptLedger.expenseCommitments[0] = {
+  ...overduePolicyEstimatePromptLedger.expenseCommitments[0]!,
+  id: "policy_floor_basic_living",
+  type: "basic_living",
+  displayName: "基础生活支出（待确认）",
+  responsibilityKey: "adult_basic_living:protagonist",
+  responsibilityKind: "adult_basic_living",
+  monthlyAmountWan: 0.35,
+  grossMonthlyAmountWan: undefined,
+  householdShareRate: undefined,
+  confirmedMonthlyAmountWan: undefined,
+  amountBasis: "policy_floor",
+  amountSourceIds: ["opening_policy_adult_basic_living"],
+  financialScope: "personal",
+  factStatus: "needs_review",
+  evidence: [{ source: "system_policy", reasonCode: "OPENING_POLICY_FLOOR", confidence: 1, financialScope: "personal" }]
+};
+overduePolicyEstimatePromptLedger.unresolvedIssues[0] = {
+  ...overduePolicyEstimatePromptLedger.unresolvedIssues[0]!,
+  id: "expense_review_due_policy_floor_basic_living",
+  relatedAccountIds: ["policy_floor_basic_living"]
+};
+const overduePolicyEstimatePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: overduePolicyEstimatePromptLedger
+});
 
 assert.doesNotMatch(prompt, /高薪不是必然伤健康/);
 assert.doesNotMatch(prompt, /高强度、长期、无恢复机制/);
@@ -290,6 +322,10 @@ assert.match(prompt, /employmentStatus 不属于财务 Proposal/);
 assert.match(prompt, /location_change worldDelta 增加 residence/);
 assert.match(prompt, /工坊、工作室、办公室、仓库、门店、公司租金和团队场地不是主角住所/);
 assert.match(prompt, /房贷或月供仍只走债务 Proposal/);
+assert.match(prompt, /type="expense_responsibility" worldDelta/);
+assert.match(prompt, /不填金额、responsibilityKey、账户 id 或 financialScope/);
+assert.match(prompt, /shared_household 照护不得返回它，必须走带明确主角份额的财务 Proposal/);
+assert.match(prompt, /高龄、父母患病、一次探望\/陪诊、一次理疗、父母或第三方付费、公司场地都不得返回它/);
 assert.doesNotMatch(prompt, /financialSignals 必须放在返回 JSON 顶层/);
 assert.match(prompt, /最终金额由系统统一计算和展示/);
 assert.match(prompt, /不得自行写“连续 N 个月逾期\/拖欠”/);
@@ -321,6 +357,9 @@ assert.match(overdueExpenseReviewPrompt, /expense_review_due_shared_home/u);
 assert.match(overdueExpenseReviewPrompt, /expenseCommitmentId/u);
 assert.match(overdueExpenseReviewPrompt, /expense_commitment_adjusted/u);
 assert.doesNotMatch(firstObservationExpenseReviewPrompt, /连续至少两个已提交的实质节点未获得新的确认/u);
+assert.doesNotMatch(overduePolicyEstimatePrompt, /以下持续支出已连续至少两个已提交的实质节点未获得新的确认/u);
+assert.doesNotMatch(overduePolicyEstimatePrompt, /当前月计提=0\.35/u);
+assert.match(overduePolicyEstimatePrompt, /不能只因账本显示 needs_review、review_due 或门禁重生而凭空“确认”或调整/u);
 assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
 assert.match(prompt, /没有 relationship outcome id 时/);
 assert.match(prompt, /共同育儿/);

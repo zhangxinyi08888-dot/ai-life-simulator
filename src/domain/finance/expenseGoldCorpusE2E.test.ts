@@ -8,6 +8,7 @@ import { initializeCareerState } from "../career/careerState";
 import { deriveExpenseResponsibilityCandidates, type ExplicitExpenseResponsibilityFact } from "./expenseResponsibility";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
+import { extractOpeningExpenseFacts } from "./openingFinancialFacts";
 import { reconcileExpenseCommitments } from "./reconcileExpenseCommitments";
 import { reduceFinancialLedger } from "./reduceFinancialLedger";
 import type {
@@ -20,6 +21,7 @@ import type {
   FinancialLedgerV4
 } from "./types";
 import { validateFinancialProposals } from "./validateFinancialProposals";
+import { assessExpenseResponsibilityCorpusCoverage } from "../../../scripts/lib/financial-expense-audit.mjs";
 
 /**
  * This is deliberately not an audit fixture.  Each frozen annotation is fed
@@ -54,13 +56,21 @@ const goldV2Sources = JSON.parse(await readFile(
   path.join(here, "../../../scripts/fixtures/financial-expense-responsibility-gold-v2-sources.json"),
   "utf8"
 )) as GoldSourceCorpus;
+const goldV3 = JSON.parse(await readFile(
+  path.join(here, "../../../scripts/fixtures/financial-expense-responsibility-gold-v3.json"),
+  "utf8"
+)) as GoldCorpus;
+const goldV3Sources = JSON.parse(await readFile(
+  path.join(here, "../../../scripts/fixtures/financial-expense-responsibility-gold-v3-sources.json"),
+  "utf8"
+)) as GoldSourceCorpus;
 const gold: GoldCorpus = {
   corpusKind: "frozen_gold",
-  annotations: [...goldV1.annotations, ...goldV2.annotations]
+  annotations: [...goldV1.annotations, ...goldV2.annotations, ...goldV3.annotations]
 };
 const goldSources: GoldSourceCorpus = {
   corpusKind: "frozen_gold_source",
-  facts: [...goldV1Sources.facts, ...goldV2Sources.facts]
+  facts: [...goldV1Sources.facts, ...goldV2Sources.facts, ...goldV3Sources.facts]
 };
 
 type GoldAction = "start" | "adjust" | "end" | "review" | "ignore";
@@ -78,7 +88,7 @@ interface GoldAnnotation {
   reviewer: string;
 }
 interface GoldCorpus {
-  corpusKind: "frozen_gold";
+  corpusKind: "frozen_gold" | "frozen_gold_extension";
   annotations: GoldAnnotation[];
 }
 interface GoldSourceFact {
@@ -87,7 +97,7 @@ interface GoldSourceFact {
   fact: Omit<ExplicitExpenseResponsibilityFact, "amountSourceId"> & { amountSourceId?: string };
 }
 interface GoldSourceCorpus {
-  corpusKind: "frozen_gold_source";
+  corpusKind: "frozen_gold_source" | "frozen_gold_source_extension";
   facts: GoldSourceFact[];
 }
 interface ObservedExpenseAction {
@@ -187,8 +197,13 @@ function syntheticSeedFactFor(annotation: GoldAnnotation, input: {
   const action = input.action || (annotation.expectedAction === "ignore" ? "start" : annotation.expectedAction);
   const scope = input.scope || annotation.expectedScope;
   const amount = input.amountWan;
-  const shareRate = annotation.expectedShareRate;
   const isShared = scope === "shared_household";
+  // This only builds the synthetic *prior* account required to exercise a
+  // review/adjust transition. It must satisfy the V4 shared-account schema,
+  // but it is never an amount attributed to the target annotation. An
+  // amount-unknown shared target remains amount-unknown in its independent
+  // source fixture and is checked as such below.
+  const shareRate = isShared ? annotation.expectedShareRate ?? 0.5 : undefined;
   return {
     responsibilityKey: annotation.expectedResponsibilityKey,
     responsibilityKind: responsibilityKindFor(annotation),
@@ -215,8 +230,24 @@ function annotationCoordinate(annotation: Pick<GoldAnnotation, "caseSlug" | "nod
   return `${annotation.caseSlug}:${annotation.nodeIndex}`;
 }
 
-const goldSourceByCoordinate = new Map(goldSources.facts.map((source) => [
-  annotationCoordinate(source),
+/**
+ * A single opening/node may contain more than one independently accepted
+ * responsibility (for example, rent and parent medical care). A coordinate
+ * alone would silently overwrite one source in a Map and turn the corpus into
+ * a one-fact-at-a-time test. Keep the expected action/key in the source join.
+ */
+function annotationSourceCoordinate(annotation: Pick<GoldAnnotation,
+  "caseSlug" | "nodeIndex" | "expectedResponsibilityKey" | "expectedAction"
+>): string {
+  return `${annotationCoordinate(annotation)}:${annotation.expectedResponsibilityKey}:${annotation.expectedAction}`;
+}
+
+function sourceCoordinate(source: GoldSourceFact): string {
+  return `${annotationCoordinate(source)}:${source.fact.responsibilityKey}:${source.fact.action || "start"}`;
+}
+
+const goldSourceByAnnotation = new Map(goldSources.facts.map((source) => [
+  sourceCoordinate(source),
   source
 ]));
 
@@ -226,7 +257,7 @@ function acceptedFactForAnnotation(annotation: GoldAnnotation, sourceSuffix: str
   // positive must never be injected into its boundary negative merely because
   // they share the same route/node coordinate.
   if (annotation.expectedAction === "ignore") return undefined;
-  const source = goldSourceByCoordinate.get(annotationCoordinate(annotation));
+  const source = goldSourceByAnnotation.get(annotationSourceCoordinate(annotation));
   if (!source) return undefined;
   return {
     ...source.fact,
@@ -304,6 +335,38 @@ function observedActions(input: {
   return result;
 }
 
+/**
+ * A completed responsibility can be real enough to require a review while
+ * still lacking proof that the protagonist owes a recurring amount. The V4
+ * reconciler deliberately emits a review issue rather than an Accepted ledger
+ * event in that case. Treat that explicit non-accruing disposition as the
+ * observed `review` action for corpus scoring: it proves detection without
+ * pretending that an unsupported personal account was created.
+ */
+function observedNonAccruingReviews(input: {
+  candidates: ReturnType<typeof deriveExpenseResponsibilityCandidates>["candidates"];
+  candidateDecisions: ReturnType<typeof reconcileExpenseCommitments>["candidateDecisions"];
+  expectedAnnotation: GoldAnnotation;
+}): ObservedExpenseAction[] {
+  if (input.expectedAnnotation.expectedAction !== "review") return [];
+  const decisionByCandidateId = new Map(input.candidateDecisions.map((decision) => [decision.candidateId, decision]));
+  return input.candidates.flatMap((candidate) => {
+    const decision = decisionByCandidateId.get(candidate.id);
+    if (candidate.action !== "review"
+      || candidate.liability !== "unknown"
+      || candidate.responsibilityKey !== input.expectedAnnotation.expectedResponsibilityKey
+      || candidate.proposedType !== input.expectedAnnotation.expectedType
+      || candidate.financialScope !== input.expectedAnnotation.expectedScope
+      || decision?.reasonCodes.includes("LIABILITY_UNKNOWN_REVIEW_REQUIRED") !== true) return [];
+    return [{
+      action: "review" as const,
+      responsibilityKey: candidate.responsibilityKey,
+      type: candidate.proposedType,
+      financialScope: personalOrSharedScope(candidate.financialScope)
+    }];
+  });
+}
+
 function runProductionStage(input: {
   ledger: FinancialLedgerV4;
   annotation: GoldAnnotation;
@@ -376,7 +439,14 @@ function runProductionStage(input: {
   assert.equal(reduced.alreadyCommitted, false);
   return {
     ledger: reduced.ledger as FinancialLedgerV4,
-    observed: observedActions({ before: input.ledger, events: validation.acceptedEvents }),
+    observed: [
+      ...observedActions({ before: input.ledger, events: validation.acceptedEvents }),
+      ...observedNonAccruingReviews({
+        candidates: derived.candidates,
+        candidateDecisions: reconciliation.candidateDecisions,
+        expectedAnnotation: input.annotation
+      })
+    ],
     rejectedIssueCodes: validation.issues.map((item) => item.code)
   };
 }
@@ -484,34 +554,52 @@ function evaluateGoldCorpus(mode: CorpusEvaluation["mode"]): CorpusEvaluation {
 test("frozen expense gold corpus runs the production authority path at 100% precision and recall", () => {
   assert.equal(goldV1.corpusKind, "frozen_gold");
   assert.equal(goldV2.corpusKind, "frozen_gold");
+  assert.equal(goldV3.corpusKind, "frozen_gold_extension");
   assert.equal(goldSources.corpusKind, "frozen_gold_source");
   // v1 is the original minimum corpus. v2 freezes the seven missed material
-  // responsibilities plus the fresh boundary failures from the release run.
+  // responsibilities plus the fresh boundary failures from the release run;
+  // v3 freezes the independent annotations from the current v8 release run.
   assert.equal(goldV1.annotations.filter((item) => item.material && item.expectedAction !== "ignore").length, 12);
   assert.equal(goldV1.annotations.filter((item) => item.expectedAction === "ignore").length, 4);
   assert.equal(goldV2.annotations.filter((item) => item.material && item.expectedAction !== "ignore").length, 7);
   assert.equal(goldV2.annotations.filter((item) => item.expectedAction === "ignore").length, 5);
-  assert.equal(gold.annotations.filter((item) => item.material && item.expectedAction !== "ignore").length, 19);
-  assert.equal(gold.annotations.filter((item) => item.expectedAction === "ignore").length, 9);
-  assert.equal(goldSources.facts.length, 23);
+  assert.equal(goldV3.annotations.filter((item) => item.material && item.expectedAction !== "ignore").length, 7);
+  assert.equal(goldV3.annotations.filter((item) => item.expectedAction === "ignore").length, 3);
+  assert.equal(gold.annotations.filter((item) => item.material && item.expectedAction !== "ignore").length, 26);
+  assert.equal(gold.annotations.filter((item) => item.expectedAction === "ignore").length, 12);
+  assert.equal(goldSources.facts.length, 30);
+  const coverage = assessExpenseResponsibilityCorpusCoverage({
+    annotations: gold.annotations,
+    corpusKind: gold.corpusKind
+  });
+  assert.equal(coverage.status, "covered", JSON.stringify(coverage));
+  assert.equal(coverage.counts.nonHumanReviewer, 0);
+  assert.equal(coverage.counts.housing >= 2, true);
+  assert.equal(coverage.counts.dependentSupport >= 2, true);
+  assert.equal(coverage.counts.healthcare >= 2, true);
+  assert.equal(coverage.counts.insurance >= 2, true);
+  assert.equal(coverage.counts.adjust >= 1, true);
+  assert.equal(coverage.counts.end >= 1, true);
+  assert.equal(coverage.counts.review >= 1, true);
+  assert.equal(coverage.counts.businessOrThirdPartyNegative >= 4, true);
   assert.deepEqual(
     gold.annotations
       .filter((annotation) => annotation.material && annotation.expectedAction !== "ignore")
-      .map(annotationCoordinate)
+      .map(annotationSourceCoordinate)
       .sort(),
     gold.annotations
       .filter((annotation) => annotation.material && annotation.expectedAction !== "ignore")
       .map((annotation) => {
-        assert.ok(goldSourceByCoordinate.has(annotationCoordinate(annotation)), `missing Accepted source for material row ${annotationCoordinate(annotation)}`);
-        return annotationCoordinate(annotation);
+        assert.ok(goldSourceByAnnotation.has(annotationSourceCoordinate(annotation)), `missing Accepted source for material row ${annotationSourceCoordinate(annotation)}`);
+        return annotationSourceCoordinate(annotation);
       })
       .sort(),
     "every material frozen row must have an independently reviewed Accepted source"
   );
 
   const evaluation = evaluateGoldCorpus("authoritative_fact");
-  assert.equal(evaluation.material, 19);
-  assert.equal(evaluation.truePositives, 19, JSON.stringify(evaluation.missed));
+  assert.equal(evaluation.material, 26);
+  assert.equal(evaluation.truePositives, 26, JSON.stringify(evaluation.missed));
   assert.equal(evaluation.missed.length, 0);
   assert.equal(evaluation.falsePositives.length, 0, JSON.stringify(evaluation.falsePositives));
   assert.equal(evaluation.recallPct, 100);
@@ -532,7 +620,7 @@ test("frozen corpus also publishes the narrative-only capability gap instead of 
   // some fixture excerpts omit a person identifier, exact amount, or change
   // verb even though the accepted source fact used by the closed gate has it.
   t.diagnostic(JSON.stringify({
-    corpus: "financial-expense-responsibility-gold-v1+v2",
+    corpus: "financial-expense-responsibility-gold-v1+v2+v3",
     mode: evaluation.mode,
     precisionPct: evaluation.precisionPct,
     recallPct: evaluation.recallPct,
@@ -542,7 +630,7 @@ test("frozen corpus also publishes the narrative-only capability gap instead of 
       observed: `${observed.action}:${observed.responsibilityKey}`
     }))
   }));
-  assert.equal(evaluation.material, 19);
+  assert.equal(evaluation.material, 26);
   assert.ok(evaluation.observations.length === gold.annotations.length);
 });
 
@@ -583,7 +671,7 @@ function structuredWorld(overrides: Partial<WorldStateSnapshot> = {}): WorldStat
  * cannot make a raw-prose assertion pass by accident.
  */
 function acceptedParentWorld(input: {
-  id: "parents" | "opening_parent";
+  id: string;
   healthStatus?: "stable" | "fragile" | "care_dependent";
   activeFamilyLink?: boolean;
 }): WorldStateSnapshot {
@@ -594,7 +682,9 @@ function acceptedParentWorld(input: {
     healthStatus: input.healthStatus || "stable",
     source: "accepted_history" as const,
     confidence: 1,
-    relationshipSummary: input.id === "parents" ? "已接受的父母照护对象" : "Opening 中已接受的父母医疗对象"
+    relationshipSummary: input.id === "parents" ? "已接受的父母照护对象" : input.id === "opening_parent"
+      ? "Opening 中已接受的父母医疗对象"
+      : "已接受的具体父母照护对象"
   };
   return structuredWorld({
     people: [parent],
@@ -621,6 +711,16 @@ function goldV2Annotation(caseSlug: string, nodeIndex: number, expectedAction?: 
     && (expectedAction === undefined || item.expectedAction === expectedAction)
   ));
   assert.ok(annotation, `missing gold-v2 annotation ${caseSlug}:${nodeIndex}${expectedAction ? `:${expectedAction}` : ""}`);
+  return annotation;
+}
+
+function goldV3Annotation(caseSlug: string, nodeIndex: number, expectedAction?: GoldAction): GoldAnnotation {
+  const annotation = goldV3.annotations.find((item) => (
+    item.caseSlug === caseSlug
+    && item.nodeIndex === nodeIndex
+    && (expectedAction === undefined || item.expectedAction === expectedAction)
+  ));
+  assert.ok(annotation, `missing gold-v3 annotation ${caseSlug}:${nodeIndex}${expectedAction ? `:${expectedAction}` : ""}`);
   return annotation;
 }
 
@@ -814,6 +914,176 @@ test("gold-v2 raw structured and narrative detector corpus covers all fresh huma
       }));
     }
   }
+});
+
+test("gold-v3 opening evidence is split into reviewable housing and parent-health facts before the generic floor", () => {
+  const opening = goldV3Annotation("real-career-first", 0, "start");
+  const facts = extractOpeningExpenseFacts(opening.evidenceExcerpt);
+  const observed = facts.map((fact) => ({
+    responsibilityKey: fact.responsibilityKey,
+    type: fact.type,
+    scope: fact.financialScope,
+    factStatus: fact.factStatus,
+    amountBasis: fact.amountBasis
+  }));
+  assert.deepEqual(observed, [
+    {
+      responsibilityKey: "recurring_healthcare:opening_parent",
+      type: "healthcare",
+      scope: "personal",
+      factStatus: "needs_review",
+      amountBasis: "contextual_estimate"
+    },
+    {
+      responsibilityKey: "primary_residence:main",
+      type: "housing",
+      scope: "personal",
+      factStatus: "needs_review",
+      amountBasis: "contextual_estimate"
+    }
+  ]);
+  assert.equal(facts.some((fact) => fact.type === "basic_living"), false,
+    "an explicit but unpriced opening responsibility must not collapse into the unrelated adult floor");
+
+  const thirdPartyTuition = extractOpeningExpenseFacts(
+    goldV3Annotation("real-education-second", 0, "ignore").evidenceExcerpt
+  );
+  assert.equal(thirdPartyTuition.some((fact) => fact.type === "education"), false,
+    "a family promise to pay tuition cannot become the protagonist's opening education commitment");
+
+  const mortgage = extractOpeningExpenseFacts(
+    goldV3Annotation("real-venture-second", 0, "ignore").evidenceExcerpt
+  );
+  assert.equal(mortgage.some((fact) => fact.type === "housing"), false,
+    "mortgage servicing belongs to debt repayment, never an opening housing commitment");
+});
+
+test("gold-v3 current-v8 detector rows preserve high-age care uncertainty and personal-ledger boundaries", () => {
+  const parent = acceptedParentWorld({ id: "person_parent_unspecified", healthStatus: "fragile" });
+  const rows: RawDetectorRow[] = [
+    {
+      annotation: goldV3Annotation("real-custom-lifespan", 22, "start"),
+      ageInMonths: 58 * 12,
+      narrativeText: "父亲的膝盖开始不太好，母亲也偶尔头晕，你每周回老家两次，帮忙买菜、陪他们去医院复查。",
+      currentWorldState: parent,
+      candidateWorldState: parent,
+      required: goldV3Annotation("real-custom-lifespan", 22, "start")
+    },
+    {
+      annotation: goldV3Annotation("real-custom-lifespan", 30, "review"),
+      ageInMonths: 72 * 12,
+      narrativeText: "母亲的记性下降变得明显，有时会忘记刚说过的话。你与父亲商量后，决定请一位钟点工每周来三天帮忙做午饭和打扫，你则保持每周两次回老家陪伴和复查。",
+      currentWorldState: parent,
+      candidateWorldState: parent,
+      required: goldV3Annotation("real-custom-lifespan", 30, "review")
+    },
+    {
+      annotation: goldV3Annotation("real-venture-second", 1, "ignore"),
+      ageInMonths: 24 * 12,
+      narrativeText: "前三个月，你们在城中村租下一间每月2000元的办公室。",
+      forbidden: {
+        expectedResponsibilityKey: "primary_residence:main",
+        expectedScope: "business_operating",
+        expectedType: "housing",
+        forbidPersonalOrShared: true,
+        forbidAnyResponsibilityKey: true
+      }
+    },
+    {
+      annotation: goldV3Annotation("real-education-second", 0, "ignore"),
+      ageInMonths: 18 * 12,
+      narrativeText: "家里愿意承担国内学费，但希望我毕业后尽快稳定就业。",
+      forbidden: {
+        expectedResponsibilityKey: "continuing_education:opening",
+        expectedScope: "third_party",
+        expectedType: "education",
+        forbidPersonalOrShared: true,
+        forbidAnyResponsibilityKey: true
+      }
+    },
+    {
+      annotation: goldV3Annotation("real-venture-second", 0, "ignore"),
+      ageInMonths: 24 * 12,
+      narrativeText: "我年薪税后约38万元，房贷余额210万元，每月还款1.3万元，家庭备用金约35万元。",
+      forbidden: {
+        expectedResponsibilityKey: "primary_residence:main",
+        expectedScope: "personal",
+        expectedType: "housing",
+        forbidPersonalOrShared: true,
+        forbidAnyResponsibilityKey: true
+      }
+    }
+  ];
+
+  assert.equal(rows.filter((row) => row.required).length, 2);
+  assert.equal(rows.filter((row) => row.forbidden).length, 3);
+  let truePositives = 0;
+  let falsePositives = 0;
+  for (const row of rows) {
+    const candidates = deriveExpenseResponsibilityCandidates({
+      ageInMonths: row.ageInMonths,
+      narrativeText: row.narrativeText,
+      currentWorldState: row.currentWorldState,
+      candidateWorldState: row.candidateWorldState
+    }).candidates;
+    if (row.required && candidates.some((candidate) => matchesRawCandidate({ expected: row.required!, candidate }))) {
+      truePositives += 1;
+    }
+    if (row.required && !candidates.some((candidate) => matchesRawCandidate({ expected: row.required!, candidate }))) {
+      assert.fail(JSON.stringify({
+        coordinate: annotationCoordinate(row.annotation),
+        expected: row.required,
+        observed: candidates.map((candidate) => ({
+          responsibilityKey: candidate.responsibilityKey,
+          action: candidate.action,
+          scope: candidate.financialScope,
+          liability: candidate.liability
+        }))
+      }));
+    }
+    if (row.forbidden) {
+      const forbidden = candidates.filter((candidate) => (
+        (row.forbidden!.forbidAnyResponsibilityKey || candidate.responsibilityKey === row.forbidden!.expectedResponsibilityKey)
+        && (row.forbidden!.expectedType === undefined || candidate.proposedType === row.forbidden!.expectedType)
+        && (row.forbidden!.forbidPersonalOrShared
+          ? ["personal", "shared_household"].includes(candidate.financialScope)
+          : candidate.financialScope === row.forbidden!.expectedScope)
+      ));
+      falsePositives += forbidden.length;
+      assert.deepEqual(forbidden, [], JSON.stringify({
+        coordinate: annotationCoordinate(row.annotation),
+        forbidden: row.forbidden,
+        observed: candidates.map((candidate) => ({
+          responsibilityKey: candidate.responsibilityKey,
+          action: candidate.action,
+          scope: candidate.financialScope,
+          liability: candidate.liability
+        }))
+      }));
+    }
+  }
+  assert.equal(truePositives, 2);
+  assert.equal(falsePositives, 0);
+  assert.equal(Number(((truePositives / 2) * 100).toFixed(2)), 100);
+  assert.equal(Number(((truePositives / (truePositives + falsePositives)) * 100).toFixed(2)), 100);
+
+  const plannedCareCandidates = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 72 * 12,
+    narrativeText: "母亲的记性下降变得明显，有时会忘记刚说过的话。你与父亲商量后，决定请一位钟点工每周来三天帮忙做午饭和打扫，你则保持每周两次回老家陪伴和复查。",
+    currentWorldState: parent,
+    candidateWorldState: parent
+  }).candidates;
+  const plannedCareReview = reconcileExpenseCommitments({
+    ledger: freshLedger("gold_v3_unknown_parent_care", 72 * 12),
+    candidates: plannedCareCandidates,
+    ageInMonths: 72 * 12,
+    sourceOutcomeId: "gold_v3_unknown_parent_care",
+    mode: "enforced"
+  });
+  assert.equal(plannedCareReview.proposals.length, 0,
+    "a care arrangement with no accepted payer or amount must not start/adjust a personal cash-flow account");
+  assert.equal(plannedCareReview.issues.some((item) => item.code === "PENDING_FACT"), true,
+    "the unknown owner remains auditable for a later Accepted fact instead of being treated as zero or a personal payment");
 });
 
 type StructuredObservedAction = [

@@ -191,6 +191,67 @@ test("matching salary adjustment satisfies compensation coverage while staff pay
   assert.equal(staffPayroll.length, 0);
 });
 
+test("a completed quantified personal medical outlay requires the matching one-off cash event", () => {
+  const narrativeText = "32岁9个月，共同账户规则正式运行了三个月。你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。这笔钱本应从共同账户的父母照护预算中支出。到34岁8个月，你们已经重新梳理了家庭责任。";
+  const missing = detectNarrativeFinancialCoverageIssues({
+    narrativeText,
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.deepEqual(missing.map((issue) => issue.id), ["narrative_coverage_personal_outlay_416"]);
+
+  const incorrectlyMatchedAsCurrentPeriod = detectNarrativeFinancialCoverageIssues({
+    narrativeText,
+    ledger,
+    acceptedEvents: [{ kind: "one_off_expense_paid", payload: { amountWan: 1.2 } }],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.deepEqual(
+    incorrectlyMatchedAsCurrentPeriod.map((issue) => issue.id),
+    ["narrative_coverage_personal_outlay_416"],
+    "a normal period-end one-off event cannot backdate an outlay explicitly narrated before this transaction"
+  );
+
+  const currentPeriodNarrative = "34岁8个月，你本月垫付了1.2万元父亲住院费用，并确认由你最终承担。";
+  const matchedCurrentPeriod = detectNarrativeFinancialCoverageIssues({
+    narrativeText: currentPeriodNarrative,
+    ledger,
+    acceptedEvents: [{ kind: "one_off_expense_paid", payload: { amountWan: 1.2 } }],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.equal(matchedCurrentPeriod.length, 0);
+
+  const wrongAmount = detectNarrativeFinancialCoverageIssues({
+    narrativeText: currentPeriodNarrative,
+    ledger,
+    acceptedEvents: [{ kind: "one_off_expense_paid", payload: { amountWan: 0.2 } }],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.deepEqual(wrongAmount.map((issue) => issue.id), ["narrative_coverage_personal_outlay_416"]);
+
+  for (const nonOutlay of [
+    "你们调整共同账户规则，每月各存1000元作为父母应急医疗金。",
+    "你计划明年垫付1.2万元父亲的住院押金。",
+    "伴侣垫付了1.2万元父亲的住院押金。",
+    "公司垫付了1.2万元员工住院押金。",
+    "你支付了15万元婚房首付，并办理了房贷。"
+  ]) {
+    const issues = detectNarrativeFinancialCoverageIssues({
+      narrativeText: nonOutlay,
+      ledger,
+      acceptedEvents: [],
+      ageInMonths: 416,
+      periodStartAgeInMonths: 393
+    });
+    assert.equal(issues.some((issue) => issue.id.startsWith("narrative_coverage_personal_outlay_")), false, nonOutlay);
+  }
+});
+
 test("historical salary comparisons and a resigned salary do not become current compensation facts", () => {
   for (const narrativeText of [
     "你想起那种踏实感是以前年薪32万时才有的。",

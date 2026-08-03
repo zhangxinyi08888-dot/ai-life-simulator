@@ -619,6 +619,18 @@ candidate
 - 同一责任的 review issue 使用稳定 ID，重复节点只增加 `occurrenceCount`。
 - 连续两个实质节点仍未复核时，下一节点 Prompt 必须显式要求确认；不能静默无限延期。
 
+### 10.2.1 已有照护责任的证据驱动上调
+
+`elder_care` 的普通 review 只保留原金额。只有同时满足下列全部条件时，系统才可产生一次 `increase_only` 调整：
+
+1. 已有账户是 `active + personal + needs_review + contextual_estimate` 的父母受益人 `elder_care`；目标只能是精确相同的 `responsibilityKey`，或 canonical `elder_care:parents` aggregate，不能用唯一账户猜测母亲/父亲，更不能指向 `elder_care:care_plan`。
+2. 本节点出现新的、已完成的持续照护升级事实，例如已存在“定期带父母体检”后，出现“父亲膝盖退行性变化，你每天帮他做关节康复”；事实必须同时说明父母对象、主角个人持续动作和升级/高强度上下文。
+3. 没有 exact 金额、共同承担、第三方付款、暂停/结束或责任键/参与人变化；新 policy base 必须严格大于既有 `monthlyAmountWan`。
+
+允许改变的只有 `monthlyAmountWan`、对应 policy/range metadata、复核时间和追加 evidence；账户 id、责任键、类型、scope、参与人、份额、状态、已确认金额和 `known` 事实不得改变。该事件使用专用 `expense_contextual_care_uplift` validator 约束，不能借普通 reconciliation 越权写入。
+
+高龄本身、跨年龄档位、重复旧 evidence、父母患病但没有主角持续动作、一次理疗/探望、公司场地、共同但未分摊责任，均不得触发上调或新建账户。
+
 ### 10.3 结束规则
 
 责任只在下列证据下结束：
@@ -946,6 +958,7 @@ status = not_covered
 | E-32 | 一次性手术费/租房押金与每年保费 | 前两者走 one-off event；年保费按 12 月折算且保留 annual cadence 证据 |
 | E-33 | paused 持续责任 | 不计提、不进入 annualCoreExpenseWan；保留账户并继续 review 时钟 |
 | E-34 | shadow 中出现 V4 支出 Critical | 记录 wouldBlock/diff；V4 不写权威状态，节点是否提交仍由当前非 V4 gate 决定 |
+| E-35 | 已有 `.2` contextual parent-care；新事实为膝盖退行性变化 + 每日关节康复 | 同一账户按 elevated policy 严格上调（older adult `.35`），保留 `needs_review`；年龄/重复证据/一次理疗/他人账户均不得上调 |
 
 ### Opening 专项验收
 

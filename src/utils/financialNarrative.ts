@@ -254,7 +254,8 @@ export function sanitizeUnsupportedFinancialCoverageClaims(
     || hasIssue("narrative_coverage_personal_option_");
   const unsupportedCompensation = hasIssue("narrative_coverage_personal_compensation_")
     || hasIssue("personal_income_claim_without_event_");
-  if (!unsupportedProperty && !unsupportedMortgage && !unsupportedHolding && !unsupportedCompensation) return description;
+  const unsupportedPersonalOutlay = hasIssue("narrative_coverage_personal_outlay_");
+  if (!unsupportedProperty && !unsupportedMortgage && !unsupportedHolding && !unsupportedCompensation && !unsupportedPersonalOutlay) return description;
   return description.split(/(?<=[。！？])/u).map((sentence) => {
     if (unsupportedProperty && /(?:名下|自有|自己的).{0,16}(?:房|住房|公寓)|(?:买了|买下|购入|购买|卖掉|出售).{0,16}(?:房|住房|公寓)|(?:婚房|住房|房子|公寓)?首付|房产升值/u.test(sentence)) {
       return "你们继续根据实际现金流评估居住安排与生活成本。";
@@ -267,6 +268,11 @@ export function sanitizeUnsupportedFinancialCoverageClaims(
     }
     if (unsupportedCompensation && /月薪|年薪|工资|薪资|个人收入|个人进账|个人净收入/u.test(sentence)) {
       return "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
+    }
+    if (unsupportedPersonalOutlay
+      && /(?:你(?!们)|我(?!们)|本人|主角)[^。！？；]{0,24}(?:垫付(?:了)?|支付(?:了)?|缴纳(?:了)?|花费(?:了)?|支出(?:了)?|转出(?:了)?|拿出(?:了)?|付了)/u.test(sentence)
+      && /(?:住院|急诊|手术|治疗|医疗|医药|护理|照护|父母|母亲|父亲|孩子|子女)/u.test(sentence)) {
+      return "这段时间你持续处理家庭照护与健康安排，具体费用仍待权威账本确认。";
     }
     return sentence;
   }).join("");

@@ -28,6 +28,10 @@ import { evaluateEnding } from "../../utils/endingDecision";
 import { rebuildPersonStates } from "../../utils/personTimeline";
 import { commitSimulationTransaction, emptyWorldState } from "../../utils/simulationTransaction";
 import { acceptedResidenceOccupancyState } from "../../utils/residenceOccupancyState";
+import {
+  explicitFactsFromAcceptedExpenseResponsibilityDeltas,
+  missingAcceptedExpenseResponsibilityDeltas
+} from "../../utils/expenseResponsibilityOutcome";
 import { buildBranchFingerprint, calculateTimelineAdvance, constrainTemporalProfileForDebtDistress, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { isValidRomanceDisplayName } from "../../utils/romanceCandidateName";
@@ -88,6 +92,7 @@ import {
   reconcileCareerIncomeAtomicity,
   validateFinancialProposals,
   isUnacceptedIncomeOpportunityEvidence,
+  isNarratedBeforePeriod,
   FinancialLedgerInvariantError,
   type FinancialEventProposal,
   type AcceptedFinancialEvent,
@@ -202,12 +207,63 @@ export interface SimulationServiceDeps {
 
 class FinancialNodeGateError extends AiClientError {
   readonly decision: FinancialNodeAcceptanceDecision;
+  /**
+   * UI recovery must be able to distinguish a rejected, uncommitted Preview
+   * from an ordinary malformed model response without depending on this
+   * private error class.  The decision itself remains the audit record.
+   */
+  readonly retryScope = "financial_gate" as const;
 
   constructor(decision: FinancialNodeAcceptanceDecision) {
     super("AI_RESPONSE_INVALID", `财务节点接受门拒绝候选：${decision.reasonCodes.join(",")}`);
     this.name = "FinancialNodeGateError";
     this.decision = decision;
   }
+}
+
+/**
+ * Responsibility deltas are allowed to create a policy-backed cash outflow
+ * only when their evidence survives every later narrative writer.  The domain
+ * transaction is still local at this point; throwing the ordinary gate error
+ * therefore leaves ledger, timeline, WorldState and history untouched and
+ * lets the bounded generation loop regenerate the node.
+ */
+function requireFinalExpenseResponsibilityEvidence(input: {
+  initialOutcome: AcceptedNodeOutcome;
+  finalOutcome: AcceptedNodeOutcome;
+  expenseLifecycleMode: ExpenseLifecycleMode;
+  transactionId: string;
+  regenerationCount: number;
+  authoritativeAgeBefore: number;
+  onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
+}): void {
+  if (input.expenseLifecycleMode !== "enforced") return;
+  const missing = missingAcceptedExpenseResponsibilityDeltas({
+    acceptedWorldDeltas: input.initialOutcome.worldDeltas,
+    finalWorldDeltas: input.finalOutcome.worldDeltas
+  });
+  if (missing.length === 0) return;
+  const decision: FinancialNodeAcceptanceDecision = {
+    mode: "enforced",
+    disposition: "regenerate",
+    allowDomainCommit: false,
+    wouldBlock: true,
+    reasonCodes: ["EXPENSE_RESPONSIBILITY_FINAL_EVIDENCE_MISSING"],
+    relatedIssueIds: [],
+    relatedProposalIds: [],
+    requiredFactGroupCount: 1,
+    satisfiedFactGroupCount: 0,
+    criticalFactGroupCount: 1,
+    satisfiedCriticalFactGroupCount: 0,
+    unsatisfiedCriticalFactGroupCount: 1,
+    activeCareerIncomeCount: 0,
+    previewAgeAligned: true,
+    transactionId: input.transactionId,
+    regenerationCount: input.regenerationCount,
+    authoritativeAgeBefore: input.authoritativeAgeBefore
+  };
+  input.onFinancialGateDecision?.(decision);
+  throw new FinancialNodeGateError(decision);
 }
 
 export interface GenerateQuestionsResult {
@@ -301,7 +357,7 @@ export function synthesizeSelectedCareerTransition(input: {
 function rejectedProposalClaimsCompletedFact(proposal: FinancialEventProposal): boolean {
   const evidence = proposal.evidence?.trim() || "";
   if (!evidence) return false;
-  const completed = /已经|已(?:经)?(?:到账|支付|缴纳|买入|买下|卖出|偿还|还清|重组|减免|签署|完成)|到账|放款|获批|拿到|获得|收到|支付了|投入了|购买了|卖掉了|偿还了|结清/u.test(evidence);
+  const completed = /已经|已(?:经)?(?:到账|支付|缴纳|买入|买下|卖出|偿还|还清|重组|减免|签署|完成)|到账|放款|获批|拿到|获得|收到|(?:垫付|支付|缴纳)(?:了)?|投入了|购买了|卖掉了|偿还了|结清/u.test(evidence);
   const onlyPending = /计划|打算|考虑|准备|尝试|申请中|审批中|协商中|尚未|还未|未能|没有到账|等待/u.test(evidence)
     && !completed;
   return completed && !onlyPending;
@@ -348,6 +404,13 @@ export function detectNarrativeFinancialCoverageIssues(input: {
   ledger: FinancialLedger;
   acceptedEvents: Array<{ kind: string; payload?: unknown }>;
   ageInMonths: number;
+  /**
+   * When prose explicitly opens at this age, a later "上个月" before the
+   * next explicit age marker is a late-arriving fact from before this
+   * transaction.  A normal current-period one-off event must not be used to
+   * rewrite that history at the period end.
+   */
+  periodStartAgeInMonths?: number;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
   const hasKind = (...kinds: string[]) => input.acceptedEvents.some((event) => kinds.includes(event.kind));
@@ -463,6 +526,67 @@ export function detectNarrativeFinancialCoverageIssues(input: {
       activeCareerSources.map((source) => source.id)
     );
   }
+
+  // A completed, quantified first-person medical/care outlay changes cash. It
+  // is not a recurring responsibility and must not be squeezed into
+  // `annualCoreExpenseWan`; a current-period fact needs a matching one-off
+  // personal cash event. Keep this deliberately narrow so a joint reserve
+  // contribution, a property down payment, a company cost, or a plan cannot
+  // be mistaken for a medical expense.
+  //
+  // A special case matters for long nodes: when the narrative itself starts
+  // at the period's opening age and says "上个月" before the next age marker,
+  // the cash fact predates this transaction. We deliberately cannot repair
+  // that by adding a normal current-period `one_off_expense_paid`; the only
+  // safe outcomes are a prose rewrite or a future late-cash-correction event.
+  const completedPersonalOutlays = narrativeSentences.flatMap((sentence) => {
+    const firstPersonPayer = /(?:你(?!们)|我(?!们)|本人|主角)[^。！？；]{0,24}(?:垫付(?:了)?|支付(?:了)?|缴纳(?:了)?|花费(?:了)?|支出(?:了)?|转出(?:了)?|拿出(?:了)?|付了)/u.test(sentence);
+    const sharedPayer = /(?:你们|我们|双方|两人)|(?:你|我)[^。！？；]{0,12}(?:和|与|跟)[^。！？；]{0,12}(?:伴侣|配偶|妻子|丈夫|爱人|男友|女友)/u.test(sentence);
+    const essentialCare = /(?:住院|急诊|手术|治疗|医疗|医药|护理|照护|父母|母亲|父亲|孩子|子女)/u.test(sentence);
+    const excludedScope = /(?:房贷|按揭|首付|购房|买房|房产|公司|企业|客户|团队|员工|工作室|办公室)/u.test(sentence);
+    const futureOnly = /(?:计划|打算|准备|考虑|如果|若|将|未来|明年|下月|下个月)[^。！？；]{0,24}(?:垫付|支付|缴纳|花费|支出|转出|拿出|付)/u.test(sentence);
+    const amount = sentence.match(/(?:垫付(?:了)?|支付(?:了)?|缴纳(?:了)?|花费(?:了)?|支出(?:了)?|转出(?:了)?|拿出(?:了)?|付了)[^。！？；]{0,24}?(\d+(?:\.\d+)?)\s*(万元|万|元)/u);
+    if (!firstPersonPayer || sharedPayer || !essentialCare || excludedScope || futureOnly || !amount) return [];
+    const numeric = Number(amount[1]);
+    if (!Number.isFinite(numeric) || numeric <= 0) return [];
+    const amountWan = amount[2].startsWith("万") ? numeric : numeric / 10_000;
+    const isLatePrePeriodFact = input.periodStartAgeInMonths !== undefined
+      && isNarratedBeforePeriod({
+        narrativeText: input.narrativeText,
+        evidence: sentence,
+        periodStartAgeInMonths: input.periodStartAgeInMonths
+      });
+    return [{
+      sentence,
+      amountWan: Math.round(amountWan * 10_000) / 10_000,
+      isLatePrePeriodFact
+    }];
+  });
+  const availableAcceptedOutlayAmounts = input.acceptedEvents.flatMap((event) => {
+    if (!['one_off_expense_paid', 'family_support_paid'].includes(event.kind)) return [];
+    const amountWan = (event.payload as { amountWan?: unknown } | undefined)?.amountWan;
+    return typeof amountWan === "number" && Number.isFinite(amountWan) && amountWan > 0 ? [amountWan] : [];
+  });
+  for (const outlay of completedPersonalOutlays) {
+    if (outlay.isLatePrePeriodFact) {
+      push(
+        "personal_outlay",
+        `正文在本期起点前明确主人公已经垫付 ${outlay.amountWan.toFixed(2)} 万元必要个人支出；当前账本没有可追溯的历史现金更正，不能伪造成期末一次性支出`
+      );
+      continue;
+    }
+    const matchedIndex = availableAcceptedOutlayAmounts.findIndex((amountWan) => (
+      Math.abs(amountWan - outlay.amountWan) <= Math.max(0.01, outlay.amountWan * 0.02)
+    ));
+    if (matchedIndex >= 0) {
+      availableAcceptedOutlayAmounts.splice(matchedIndex, 1);
+      continue;
+    }
+    push(
+      "personal_outlay",
+      `正文明确主人公已经发生 ${outlay.amountWan.toFixed(2)} 万元必要个人支出，但没有匹配的一次性个人支出 Proposal`
+    );
+  }
   return issues;
 }
 
@@ -477,13 +601,15 @@ export function reconcileNarrativeFinancialIssues(input: {
   ledger: FinancialLedger;
   acceptedEvents: AcceptedFinancialEvent[];
   ageInMonths: number;
+  periodStartAgeInMonths?: number;
 }): FinancialLedgerIssue[] {
   const authoritativeIssues = [
     ...detectNarrativeFinancialCoverageIssues({
       narrativeText: input.narrativeText,
       ledger: input.ledger,
       acceptedEvents: input.acceptedEvents,
-      ageInMonths: input.ageInMonths
+      ageInMonths: input.ageInMonths,
+      periodStartAgeInMonths: input.periodStartAgeInMonths
     }),
     ...collectPersonalIncomeNarrativeContractIssues({
       narrativeText: input.narrativeText,
@@ -593,7 +719,23 @@ export function settleRejectedFinancialProposalIssues(input: {
     const relatedIds = issue.relatedProposalIds || [];
     const rejectedOnly = relatedIds.length > 0
       && relatedIds.every((proposalId) => rejectedIds.has(proposalId) && !acceptedIds.has(proposalId));
-    if (!rejectedOnly || (issue.status ?? "open") !== "open") return issue;
+    // A prose rollback can remove a claim that a rejected proposal had already
+    // happened, but it cannot establish the missing ownership, scope, or
+    // allocation evidence required for a recurring personal expense.  Keep
+    // EXPENSE_* authority failures open until the final proposal set itself is
+    // valid; otherwise an invalid model proposal can be silently downgraded to
+    // a review and advance the authoritative period in enforced mode.
+    const rejectedExpenseAuthorityIssue = issue.severity === "blocking"
+      && (
+        issue.code.startsWith("EXPENSE_")
+        || issue.id.startsWith("expense_")
+        // Lifecycle proposals are validator-owned.  A rejected generated
+        // commitment must remain an authoritative blocking fact even when the
+        // low-level validator categorizes its failure as UNBALANCED_TRANSACTION
+        // (for example, evidence matching), rather than an EXPENSE_* code.
+        || relatedIds.some((proposalId) => proposalId.startsWith("system_expense_"))
+      );
+    if (!rejectedOnly || rejectedExpenseAuthorityIssue || (issue.status ?? "open") !== "open") return issue;
     return {
       ...issue,
       status: "resolved",
@@ -1605,7 +1747,8 @@ async function commitAuthoritativeFinancialProgress(input: {
       narrativeText: input.node.description,
       ledger: initialLedger,
       acceptedEvents: validated.acceptedEvents,
-      ageInMonths: input.periodEndAgeInMonths
+      ageInMonths: input.periodEndAgeInMonths,
+      periodStartAgeInMonths: input.periodStartAgeInMonths
     })]
   };
   const completenessIssues: FinancialLedgerIssue[] = [];
@@ -1798,7 +1941,8 @@ async function commitAuthoritativeFinancialProgress(input: {
     narrativeText: input.node.description,
     ledger: initialLedger,
     acceptedEvents: validated.acceptedEvents,
-    ageInMonths: input.periodEndAgeInMonths
+    ageInMonths: input.periodEndAgeInMonths,
+    periodStartAgeInMonths: input.periodStartAgeInMonths
   });
   validated = {
     ...validated,
@@ -1886,6 +2030,14 @@ async function commitAuthoritativeFinancialProgress(input: {
     acceptedOutcomeId: input.acceptedOutcomeId,
     ageInMonths: input.periodEndAgeInMonths
   });
+  // This is an AcceptedOutcome-only bridge: the model may confirm that a
+  // recurring responsibility exists, but it cannot choose an account id or
+  // invent an amount. The lifecycle derives the stable account and, when
+  // necessary, its existing policy-backed needs-review estimate.
+  const acceptedExpenseResponsibilityFacts = explicitFactsFromAcceptedExpenseResponsibilityDeltas({
+    worldDeltas: input.acceptedOutcome.worldDeltas,
+    currentWorldState: expenseCandidateWorldState
+  });
   const expenseLifecycle = input.expenseLifecycleMode === "off"
     ? { candidates: [], triggers: [], issues: [], reviewReasonCodes: [], coveredTriggerCount: 0 }
     : applyLifeStageExpenseLifecycle({
@@ -1893,6 +2045,7 @@ async function commitAuthoritativeFinancialProgress(input: {
         currentWorldState: input.expenseLifecycleBaselineWorldState || input.currentWorldState,
         candidateWorldState: expenseCandidateWorldState,
         existingExpenseCommitments: initialLedger.version === 4 ? initialLedger.expenseCommitments : undefined,
+        explicitFacts: acceptedExpenseResponsibilityFacts,
         ageInMonths: input.periodEndAgeInMonths
       });
   const expenseReconciliation = input.expenseLifecycleMode === "off"
@@ -2016,7 +2169,8 @@ async function commitAuthoritativeFinancialProgress(input: {
       narrativeText: committedNarrativeNode.description,
       ledger: initialLedger,
       acceptedEvents: validated.acceptedEvents,
-      ageInMonths: input.periodEndAgeInMonths
+      ageInMonths: input.periodEndAgeInMonths,
+      periodStartAgeInMonths: input.periodStartAgeInMonths
     }),
     ...collectPersonalIncomeNarrativeContractIssues({
       narrativeText: committedNarrativeNode.description,
@@ -2103,7 +2257,8 @@ async function commitAuthoritativeFinancialProgress(input: {
     narrativeText: previewDescription,
     ledger: initialLedger,
     acceptedEvents: validated.acceptedEvents,
-    ageInMonths: input.periodEndAgeInMonths
+    ageInMonths: input.periodEndAgeInMonths,
+    periodStartAgeInMonths: input.periodStartAgeInMonths
   });
   const unsupportedCoverageIssueIds = postSanitizationIssues
     .filter((issue) => (issue.status ?? "open") === "open" && issue.severity === "blocking")
@@ -2116,7 +2271,8 @@ async function commitAuthoritativeFinancialProgress(input: {
       narrativeText: previewDescription,
       ledger: initialLedger,
       acceptedEvents: validated.acceptedEvents,
-      ageInMonths: input.periodEndAgeInMonths
+      ageInMonths: input.periodEndAgeInMonths,
+      periodStartAgeInMonths: input.periodStartAgeInMonths
     });
   }
   const requiredFactGroups = buildRequiredFinancialFactGroups({
@@ -3758,11 +3914,27 @@ async function generateNextNodeAttempt(
       financialGateRegenerationCount: deps.financialGateRegenerationCount ?? 0
     });
     endingNode = authoritativeFinance.node;
+    const finalEndingOutcome = validateNodeOutcomeProposal({
+      worldDeltas: endingNode.narrativeMeta?.worldDeltas,
+      arcSignals: endingNode.narrativeMeta?.arcSignals,
+      policy: pressureArcPolicy,
+      narrativeText: endingNode.description,
+      expectedSourceOutcomeId: selectedOutcomeId
+    });
+    requireFinalExpenseResponsibilityEvidence({
+      initialOutcome: endingOutcome,
+      finalOutcome: finalEndingOutcome,
+      expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+      transactionId: endingTransactionId,
+      regenerationCount: deps.financialGateRegenerationCount ?? 0,
+      authoritativeAgeBefore: currentAgeInMonths,
+      onFinancialGateDecision: deps.onFinancialGateDecision
+    });
     return commitSimulationTransaction({
       transactionId: endingTransactionId,
       node: endingNode,
       storyEpisode: endingNode.narrativeMeta!.storyEpisode,
-      acceptedOutcome: endingOutcome,
+      acceptedOutcome: finalEndingOutcome,
       pressureArcTransition: terminalTransition,
       currentWorldStateSnapshot: authoritativeFinance.worldState,
       domainTransactionAlreadyCommitted: true
@@ -4191,6 +4363,15 @@ async function generateNextNodeAttempt(
     policy: pressureArcPolicy,
     narrativeText: node.description,
     expectedSourceOutcomeId: selectedOutcomeId
+  });
+  requireFinalExpenseResponsibilityEvidence({
+    initialOutcome: financialCandidateOutcome,
+    finalOutcome: acceptedOutcome,
+    expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+    transactionId,
+    regenerationCount: deps.financialGateRegenerationCount ?? 0,
+    authoritativeAgeBefore: currentAgeInMonths,
+    onFinancialGateDecision: deps.onFinancialGateDecision
   });
   const reducedPressureArcTransition = reducePressureArc({
     currentArc: workingPressureArc,

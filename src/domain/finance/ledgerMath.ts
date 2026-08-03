@@ -4,6 +4,7 @@ import {
   type FinancialFactStatus,
   type FinancialLedger
 } from "./types";
+import { parentElderCareCoverageRole } from "./elderCareCoverage";
 
 export const PRIMARY_CASH_ACCOUNT_ID = "primary_cash";
 
@@ -186,6 +187,14 @@ function assertV4ExpenseCommitment(commitment: ExpenseCommitmentV4): void {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 共同金额支出 ${commitment.id} 必须标记为 shared_household`);
     }
   }
+  if (commitment.amountBasis === "explicit_shared_amount"
+    && (commitment.grossMonthlyAmountWan === undefined || commitment.householdShareRate === undefined)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 共同金额支出 ${commitment.id} 必须保存总额与主角承担比例`);
+  }
+  if (commitment.financialScope === "shared_household" && commitment.factStatus === "known"
+    && commitment.amountBasis !== "explicit_shared_amount") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 已知共同家庭支出 ${commitment.id} 必须保存共同总额和主角承担比例`);
+  }
   if (["contextual_estimate", "policy_floor", "legacy_estimate"].includes(commitment.amountBasis)
     && !commitment.estimationPolicyId) {
     throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 估算支出 ${commitment.id} 缺少 estimationPolicyId 或迁移标识`);
@@ -323,13 +332,29 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
 
   if (isFinancialLedgerV4(ledger)) {
     const activeResponsibilityKeys = new Set<string>();
+    let nonEndedElderCareAggregate: ExpenseCommitmentV4 | undefined;
+    let nonEndedElderCareIndividual: ExpenseCommitmentV4 | undefined;
     for (const commitment of ledger.expenseCommitments) {
       assertV4ExpenseCommitment(commitment);
+      const parentCareCoverageRole = commitment.status !== "ended"
+        ? parentElderCareCoverageRole(commitment)
+        : undefined;
+      if (parentCareCoverageRole === "aggregate") {
+        nonEndedElderCareAggregate = commitment;
+      } else if (parentCareCoverageRole === "individual") {
+        nonEndedElderCareIndividual = commitment;
+      }
       if (commitment.status !== "active") continue;
       if (activeResponsibilityKeys.has(commitment.responsibilityKey)) {
         throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 active 支出责任不得重复: ${commitment.responsibilityKey}`);
       }
       activeResponsibilityKeys.add(commitment.responsibilityKey);
+    }
+    if (nonEndedElderCareAggregate && nonEndedElderCareIndividual) {
+      throw new FinancialLedgerInvariantError(
+        "INVALID_LEDGER",
+        `V4 父母聚合照护 ${nonEndedElderCareAggregate.id} 不得与个人照护 ${nonEndedElderCareIndividual.id} 并存；必须先原子拆分并结束聚合责任`
+      );
     }
   }
 

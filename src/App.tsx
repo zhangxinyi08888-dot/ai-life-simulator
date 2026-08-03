@@ -18,7 +18,7 @@ import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeServic
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
-import { runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import { isFinancialGateGenerationError, runWithInvalidAiResponseRetry } from "./utils/generationRetry";
 import { resolveDevTestStateImportText } from "./utils/testStateImport";
 import type { FinancialNodeAcceptanceDecision } from "./domain/finance";
 import { resolveFinancialNodeGateMode } from "./config/financialGatePolicy";
@@ -469,6 +469,14 @@ export default function App() {
             }
           }
         );
+      }, {
+        // The service already records each rejected Preview and performs its
+        // bounded candidate regeneration. Keep one additional UI-level
+        // attempt internal: until a node commits, a financial gate rejection
+        // is recovery work, not a user-visible pause.
+        maxAttempts: 2,
+        maxFinancialGateAttempts: 3,
+        isFinancialGateError: isFinancialGateGenerationError
       });
 
       setNextGenerationStage("revealing");

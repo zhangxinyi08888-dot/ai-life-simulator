@@ -1,8 +1,9 @@
 import type { EmploymentStatus, EmploymentTransitionProposal, ResidenceOccupancyChange, WorldDelta } from "../types";
+import { normalizeExpenseResponsibilityChange } from "./expenseResponsibilityOutcome";
 
 export interface WorldDeltaNormalizationAudit {
   index: number;
-  reasonCode: "DELTA_TYPE_NORMALIZED" | "EMPLOYMENT_TRANSITION_FLATTENED" | "EMPLOYMENT_STATUS_MAPPED" | "SOURCE_OUTCOME_FILLED" | "RESIDENCE_CHANGE_FLATTENED" | "RESIDENCE_CHANGE_DROPPED";
+  reasonCode: "DELTA_TYPE_NORMALIZED" | "EMPLOYMENT_TRANSITION_FLATTENED" | "EMPLOYMENT_TRANSITION_DROPPED" | "EMPLOYMENT_STATUS_MAPPED" | "SOURCE_OUTCOME_FILLED" | "RESIDENCE_CHANGE_FLATTENED" | "RESIDENCE_CHANGE_DROPPED" | "EXPENSE_RESPONSIBILITY_FLATTENED" | "EXPENSE_RESPONSIBILITY_DROPPED";
   originalValue?: string;
   normalizedValue?: string;
 }
@@ -18,7 +19,7 @@ const EMPLOYMENT_ALIASES: Record<string, { status: EmploymentStatus; occupation?
 };
 
 const WORLD_DELTA_TYPES = new Set<WorldDelta["type"]>([
-  "person_status", "person_role", "relationship_change", "career_state", "health_state", "location_change"
+  "person_status", "person_role", "relationship_change", "career_state", "health_state", "expense_responsibility", "location_change"
 ]);
 
 const RESIDENCE_LIVING_ARRANGEMENTS = new Set<ResidenceOccupancyChange["livingArrangement"]>([
@@ -77,7 +78,22 @@ export function normalizeWorldDeltas(input: {
       source.residence = payload.residence;
       audit.push({ index, reasonCode: "RESIDENCE_CHANGE_FLATTENED" });
     }
-    const transition = source.employmentTransition as Record<string, any> | undefined;
+    if (rawType === "expense_responsibility" && !source.responsibility && payload?.responsibility) {
+      source.responsibility = payload.responsibility;
+      audit.push({ index, reasonCode: "EXPENSE_RESPONSIBILITY_FLATTENED" });
+    }
+    const rawTransition = source.employmentTransition;
+    const transition = rawTransition && typeof rawTransition === "object" && !Array.isArray(rawTransition)
+      ? rawTransition as Record<string, any>
+      : undefined;
+    if (rawTransition !== undefined && !transition) {
+      // Model output is untrusted.  In particular, a boolean `true` used as a
+      // shorthand for a career change used to reach the sourceOutcomeId
+      // backfill below and throw while mutating the primitive.  Preserve the
+      // ordinary career delta, but never carry an invalid transition forward.
+      delete source.employmentTransition;
+      audit.push({ index, reasonCode: "EMPLOYMENT_TRANSITION_DROPPED" });
+    }
     if (transition) {
       const originalStatus = String(transition.toStatus || "");
       const alias = EMPLOYMENT_ALIASES[originalStatus];
@@ -97,6 +113,23 @@ export function normalizeWorldDeltas(input: {
       else {
         delete source.residence;
         audit.push({ index, reasonCode: "RESIDENCE_CHANGE_DROPPED" });
+      }
+    }
+    if (rawType === "expense_responsibility") {
+      const normalized = normalizeExpenseResponsibilityChange({
+        raw: source.responsibility,
+        acceptedOutcomeId: onlyOutcomeId
+      });
+      if (!normalized.responsibility) {
+        audit.push({ index, reasonCode: "EXPENSE_RESPONSIBILITY_DROPPED" });
+        return [];
+      }
+      source.responsibility = normalized.responsibility;
+      source.summary = typeof source.summary === "string" && source.summary.trim()
+        ? source.summary.trim()
+        : normalized.responsibility.evidence;
+      if (normalized.sourceOutcomeFilled) {
+        audit.push({ index, reasonCode: "SOURCE_OUTCOME_FILLED", normalizedValue: onlyOutcomeId });
       }
     }
     const { deltaType: _deltaType, payload: _payload, ...rest } = source;

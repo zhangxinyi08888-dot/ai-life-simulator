@@ -401,6 +401,25 @@ test("the frozen human-labelled corpus has 12 material examples and reaches exac
   assert.equal(result.highAgeHealthOrCareResponsibilityCount, 2);
 });
 
+test("human_adjudicated is accepted as human review while a machine label remains insufficient", () => {
+  const adjudicated = structuredClone(gold.annotations);
+  adjudicated[0].reviewer = "human_adjudicated";
+  const covered = assessExpenseResponsibilityCorpusCoverage({
+    annotations: adjudicated,
+    corpusKind: gold.corpusKind
+  });
+  assert.equal(covered.status, "covered");
+  assert.equal(covered.counts.nonHumanReviewer, 0);
+
+  adjudicated[0].reviewer = "machine";
+  const invalid = assessExpenseResponsibilityCorpusCoverage({
+    annotations: adjudicated,
+    corpusKind: gold.corpusKind
+  });
+  assert.equal(invalid.status, "insufficient_coverage");
+  assert.equal(invalid.failures.includes("non_human_reviewer"), true);
+});
+
 test("a partial frozen corpus is insufficient_coverage even if its one example matches", () => {
   const corpus = assessExpenseResponsibilityCorpusCoverage({
     corpusKind: "frozen_gold",

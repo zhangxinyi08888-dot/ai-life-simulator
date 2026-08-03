@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { matchFinancialEvidence } from "./evidenceMatching";
+import { isNarratedBeforePeriod, matchFinancialEvidence } from "./evidenceMatching";
 import type { FinancialEventProposal } from "./types";
 
 function proposal(kind: FinancialEventProposal["kind"], evidence: string): FinancialEventProposal {
@@ -18,6 +18,14 @@ function proposal(kind: FinancialEventProposal["kind"], evidence: string): Finan
 
 test("a child or parent beneficiary may support a personal expense only with an explicit protagonist-payer fact", () => {
   const evidence = "孩子出生且由主角承担持续育儿费用。";
+  assert.equal(matchFinancialEvidence({
+    proposal: proposal("expense_commitment_started", evidence),
+    narrativeText: evidence
+  }).matched, true);
+});
+
+test("a fixed recurring transfer to parents remains an explicit protagonist-paid expense", () => {
+  const evidence = "父母的身体状况相对稳定，你每月固定转给他们三千元作为医疗和日常开销。";
   assert.equal(matchFinancialEvidence({
     proposal: proposal("expense_commitment_started", evidence),
     narrativeText: evidence
@@ -72,4 +80,23 @@ test("a protagonist-arranged but unpriced elder-care service may start only a ne
   const thirdPartyArrangement = structuredClone(careStart);
   thirdPartyArrangement.evidence = "父母已过百岁，虽身体尚可，但已需要更多照料。父母请人帮忙照看。";
   assert.equal(matchFinancialEvidence({ proposal: thirdPartyArrangement, narrativeText: thirdPartyArrangement.evidence }).matched, false);
+});
+
+test("a relative-past outlay is pre-period only when the narrative explicitly opens at the transaction start", () => {
+  const historicalNarrative = "25岁0个月，你开始整理共同账户。你父亲上个月住院，你垫付了1.2万元住院押金。到26岁0个月，你们重新安排了照护预算。";
+  assert.equal(isNarratedBeforePeriod({
+    narrativeText: historicalNarrative,
+    evidence: "你父亲上个月住院，你垫付了1.2万元住院押金。",
+    periodStartAgeInMonths: 300
+  }), true);
+  assert.equal(isNarratedBeforePeriod({
+    narrativeText: "到26岁0个月，你上个月垫付了1.2万元父亲住院费用。",
+    evidence: "到26岁0个月，你上个月垫付了1.2万元父亲住院费用。",
+    periodStartAgeInMonths: 300
+  }), false);
+  assert.equal(isNarratedBeforePeriod({
+    narrativeText: "25岁0个月，你开始整理共同账户。此前你一直很关心父亲的健康。",
+    evidence: "此前你一直很关心父亲的健康。",
+    periodStartAgeInMonths: 300
+  }), false, "ambiguous historical language must not reject an otherwise current fact");
 });

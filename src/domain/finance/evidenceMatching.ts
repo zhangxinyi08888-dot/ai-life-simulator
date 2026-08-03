@@ -1,9 +1,9 @@
 import type { FinancialEventKind, FinancialEventProposal } from "./types";
 
-export type EvidenceMatchReason = "EVIDENCE_EXACT_MATCHED" | "EVIDENCE_NORMALIZED_MATCHED" | "EVIDENCE_FUZZY_MATCHED" | "SYSTEM_POLICY_REVIEW";
+export type EvidenceMatchReason = "EVIDENCE_EXACT_MATCHED" | "EVIDENCE_NORMALIZED_MATCHED" | "EVIDENCE_FUZZY_MATCHED" | "SYSTEM_POLICY_REVIEW" | "ACCEPTED_WORLD_DELTA";
 
 const NON_PROTAGONIST_ENTITY_PATTERN = /^(?:公司|企业|项目|团队|同事|伴侣|配偶|父母|孩子|子女)/;
-const PROTAGONIST_PATTERN = /你|你的|你们|主角|本人|自己/u;
+const PROTAGONIST_PATTERN = /你(?!们)|你的|主角|本人|自己/u;
 const ENTITY_ONLY_EVENT_KINDS = new Set<FinancialEventKind>([
   "business_financing_recorded",
   "business_holding_started",
@@ -40,7 +40,7 @@ function hasExplicitPersonalCareArrangement(input: {
   evidence: string;
 }): boolean {
   if (!isUnpricedPersonalElderCareStart(input.proposal)) return false;
-  return /(?:^|[。；，、\s])(?:你|我|本人|主角|你们)[^。！？；]{0,32}(?:请(?:了)?(?:人|护工|保姆|钟点工|家政)|安排(?:了)?(?:照护|护工|陪护|照看)|雇(?:了)?(?:人|护工|保姆|钟点工|家政))[^。！？；]{0,24}(?:照看|照护|护理|陪护|照料|帮忙)/u.test(input.evidence);
+  return /(?:^|[。；，、\s])(?:你(?!们)|我(?!们)|本人|主角)[^。！？；]{0,32}(?:请(?:了)?(?:人|护工|保姆|钟点工|家政)|安排(?:了)?(?:照护|护工|陪护|照看)|雇(?:了)?(?:人|护工|保姆|钟点工|家政))[^。！？；]{0,24}(?:照看|照护|护理|陪护|照料|帮忙)/u.test(input.evidence);
 }
 
 const EVENT_PATTERNS: Partial<Record<FinancialEventKind, RegExp>> = {
@@ -88,6 +88,41 @@ export function normalizeEvidenceText(value: string): string {
 
 function narrativeSentences(value: string): string[] {
   return String(value || "").split(/(?<=[。！？!?；;\n])/u).map((item) => item.trim()).filter(Boolean);
+}
+
+function explicitNarrativeAgeInMonths(sentence: string): number | undefined {
+  const match = String(sentence || "").match(/(\d{1,3})岁\s*(\d{1,2})?个?月/u);
+  return match ? Number(match[1]) * 12 + Number(match[2] || 0) : undefined;
+}
+
+/**
+ * A long generated node can narrate an incident that predates its transaction
+ * window.  When it explicitly opens at the authoritative period start, a
+ * relative-past sentence before the next age marker is not evidence for a
+ * current-period cash event.  Keep this intentionally strict: without both
+ * the opening marker and an unambiguous past term, ordinary one-off expenses
+ * remain eligible for the normal within-period validator.
+ */
+export function isNarratedBeforePeriod(input: {
+  narrativeText: string;
+  evidence: string;
+  periodStartAgeInMonths: number;
+}): boolean {
+  const sentences = narrativeSentences(input.narrativeText);
+  const ages = sentences.map(explicitNarrativeAgeInMonths);
+  const firstExplicitAgeIndex = ages.findIndex((ageInMonths) => ageInMonths !== undefined);
+  if (firstExplicitAgeIndex < 0 || ages[firstExplicitAgeIndex] !== input.periodStartAgeInMonths) return false;
+  const nextExplicitAgeIndex = ages.findIndex((ageInMonths, index) => (
+    index > firstExplicitAgeIndex && ageInMonths !== undefined
+  ));
+  const evidence = String(input.evidence || "").trim();
+  if (!evidence) return false;
+  const evidenceSentenceIndex = sentences.findIndex((sentence) => (
+    sentence.includes(evidence) || evidence.includes(sentence)
+  ));
+  if (evidenceSentenceIndex < firstExplicitAgeIndex
+    || (nextExplicitAgeIndex >= 0 && evidenceSentenceIndex >= nextExplicitAgeIndex)) return false;
+  return /(?:上个月|上月|上一季度|去年|前年)/u.test(sentences[evidenceSentenceIndex] || evidence);
 }
 
 function financialAmounts(value: unknown, key = ""): number[] {
@@ -145,8 +180,13 @@ export function matchFinancialEvidence(input: {
   // explicitly makes the protagonist the actor.  In particular, "配偶替你
   // 支付" must not pass merely because it contains the character "你".
   const explicitPersonalExpenseLiability = PERSONAL_EXPENSE_EVENT_KINDS.has(input.proposal.kind)
-    && (/(?:由|需由|应由)(?:你|主角|本人|你们)(?:来|负责)?(?:承担|支付|负担|缴纳|转给|转向)/u.test(evidence)
-      || /(?:^|[。；，、\s])(?:你|主角|本人|你们)(?:已|已经|开始|继续|每月|将|会|需要|负责|愿意|主动)?(?:承担|支付|负担|缴纳|转给|转向)/u.test(evidence));
+    && (/(?:由|需由|应由)(?:你(?!们)|我(?!们)|主角|本人)(?:来|负责)?(?:承担|支付|负担|缴纳|转给|转向)/u.test(evidence)
+      // A beneficiary clause commonly precedes a recurring transfer, for
+      // example “父母……，你每月固定转给他们三千元”。  Allow ordinary cadence
+      // modifiers between the explicit actor and payment verb, but retain a
+      // punctuation/start boundary so “配偶替你支付” cannot impersonate a
+      // protagonist-paid expense.
+      || /(?:^|[。；，、\s])(?:你(?!们)|我(?!们)|主角|本人)(?:(?:已|已经|开始|继续|每月|每年|将|会|需要|负责|愿意|主动|固定|定期|持续|一直|仍|都)\s*){0,3}(?:承担|支付|负担|缴纳|转给|转向)/u.test(evidence));
   const explicitPersonalCareArrangement = hasExplicitPersonalCareArrangement({
     proposal: input.proposal,
     evidence

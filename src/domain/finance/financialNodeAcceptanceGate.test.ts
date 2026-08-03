@@ -176,6 +176,35 @@ test("an enforced EXPENSE blocker regenerates and leaves the authoritative trans
   assert.equal(input.currentWorldState.committedTransactionIds.length, 0);
 });
 
+test("a rejected system lifecycle proposal with a generic validator code is still critical", () => {
+  const input = transactionInput();
+  const preview = previewFinancialDomainTransaction(input);
+  const groups = buildRequiredFinancialFactGroups({
+    issues: [{
+      id: "proposal_issue_system_expense_start_elder_care_372",
+      code: "UNBALANCED_TRANSACTION",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["system_expense_start_elder_care_372"],
+      summary: "持续赡养支出缺少可靠正文证据",
+      createdAtAgeInMonths: 372
+    }],
+    rejectedCompletedProposals: [],
+    ageInMonths: 372
+  });
+  const decision = evaluateFinancialNodeAcceptance({
+    mode: "enforced",
+    preview,
+    requiredFactGroups: groups,
+    expectedAgeInMonths: 372
+  });
+
+  assert.deepEqual(groups.map((group) => [group.kind, group.materiality]), [["expense_lifecycle", "critical"]]);
+  assert.equal(decision.allowDomainCommit, false);
+  assert.equal(decision.disposition, "regenerate");
+  assert.equal(decision.wouldBlock, true);
+});
+
 test("an enforced rejection leaves time, income, ledger, career and world state unchanged", () => {
   const input = transactionInput("employed");
   const before = structuredClone(input);

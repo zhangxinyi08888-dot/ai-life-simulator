@@ -670,6 +670,111 @@ test("an overdue expense review keeps one open issue and later observations do n
   assert.equal(care.evidence.filter((item) => item.reasonCode === "EXPENSE_REVIEW_DUE").length, 1);
 });
 
+test("a needs-review adjustment cannot close an overdue expense issue, while an Accepted exact amount can", () => {
+  const current = setup();
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  const care = {
+    id: "reviewable_parent_care",
+    responsibilityKey: "elder_care:parents",
+    responsibilityKind: "elder_care" as const,
+    type: "dependent_support" as const,
+    displayName: "父母照护",
+    monthlyAmountWan: 0.2,
+    amountBasis: "contextual_estimate" as const,
+    amountSourceIds: ["policy:elder-care"],
+    estimationPolicyId: "expense-estimation-policy-v2:test-elder-care",
+    financialScope: "personal" as const,
+    activeFromAgeInMonths: 300,
+    status: "active" as const,
+    factStatus: "needs_review" as const,
+    accrualReviewStatus: "review_due" as const,
+    lastReviewedAtAgeInMonths: 361,
+    nextReviewAtAgeInMonths: 361,
+    evidence: [{ source: "system_policy" as const, reasonCode: "EXPENSE_REVIEW_DUE", confidence: 1, financialScope: "personal" as const }]
+  };
+  v4.expenseCommitments.push(care);
+  v4.unresolvedIssues.push({
+    id: "expense_review_due_reviewable_parent_care",
+    code: "PENDING_FACT",
+    severity: "warning",
+    status: "open",
+    relatedProposalIds: [],
+    relatedAccountIds: [care.id],
+    summary: "父母照护金额仍待确认",
+    createdAtAgeInMonths: 361
+  });
+
+  const inexact = commitFinancialDomainTransaction({
+    transactionId: "inexact_review_adjustment",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 362,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("narrative_only_parent_care", "expense_commitment_adjusted", 362, {
+      expenseCommitmentId: care.id,
+      nextCommitment: {
+        ...care,
+        lastReviewedAtAgeInMonths: 362,
+        evidence: [...care.evidence, { source: "accepted_simulation_outcome", reasonCode: "CARE_ROUTINE_OBSERVED", confidence: 1, financialScope: "personal" }]
+      }
+    })]
+  });
+  assert.equal(inexact.financialLedger.unresolvedIssues.find((issue) => issue.id === "expense_review_due_reviewable_parent_care")?.status, "open");
+
+  const observed = inexact.financialLedger.expenseCommitments.find((item) => item.id === care.id)!;
+  const paused = commitFinancialDomainTransaction({
+    transactionId: "authorized_review_pause",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 362,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("third_party_parent_care_pause", "expense_commitment_adjusted", 362, {
+      expenseCommitmentId: care.id,
+      previousCommitmentId: care.id,
+      changeReason: "temporary_third_party_coverage",
+      nextCommitment: { ...care, status: "paused" }
+    })]
+  });
+  assert.equal(paused.financialLedger.unresolvedIssues.find((issue) => issue.id === "expense_review_due_reviewable_parent_care")?.status, "resolved");
+
+  const exact = commitFinancialDomainTransaction({
+    transactionId: "exact_review_adjustment",
+    periodStartAgeInMonths: 362,
+    periodEndAgeInMonths: 363,
+    expectedCareerRevision: inexact.career.careerRevision,
+    expectedLedgerRevision: inexact.financialLedger.revision,
+    currentCareer: inexact.career,
+    currentFinancialLedger: inexact.financialLedger,
+    currentWorldState: inexact.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("confirmed_parent_care", "expense_commitment_adjusted", 363, {
+      expenseCommitmentId: care.id,
+      nextCommitment: {
+        ...observed,
+        monthlyAmountWan: 0.25,
+        confirmedMonthlyAmountWan: 0.25,
+        amountBasis: "explicit_known",
+        amountSourceIds: ["accepted:parent-care-2500"],
+        factStatus: "known",
+        accrualReviewStatus: "normal",
+        lastConfirmedAtAgeInMonths: 363,
+        lastReviewedAtAgeInMonths: 363,
+        nextReviewAtAgeInMonths: 375,
+        evidence: [{ source: "accepted_simulation_outcome", reasonCode: "PARENT_CARE_AMOUNT_CONFIRMED", confidence: 1, financialScope: "personal" }]
+      }
+    })]
+  });
+  assert.equal(exact.financialLedger.unresolvedIssues.find((issue) => issue.id === "expense_review_due_reviewable_parent_care")?.status, "resolved");
+});
+
 test("a rejected proposal cannot revoke a deterministic automatic-shortfall debt", () => {
   const current = setup();
   current.ledger.debtAccounts.push({

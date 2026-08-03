@@ -30,6 +30,7 @@ function runGit(args) {
 
 const root = path.resolve(process.argv[2]);
 const requestedAnnotationPath = process.argv[3] || process.env.EXPENSE_RESPONSIBILITY_ANNOTATIONS;
+const launchUrl = process.env.REAL_BROWSER_LAUNCH_URL || "http://127.0.0.1:4173/";
 const annotationPath = requestedAnnotationPath
   ? path.resolve(process.cwd(), requestedAnnotationPath)
   : path.join(root, "expense-responsibility-annotations.json");
@@ -1009,7 +1010,7 @@ const manifest = {
   repositoryPath: process.cwd(),
   repositoryCommit,
   repositoryDirty,
-  launchUrl: "http://127.0.0.1:4173/",
+  launchUrl,
   commands: [
     "pnpm exec tsx scripts/render-full-browser-test-data-markdown.ts <root>/cases <root>/full-test-data.md",
     "node scripts/analyze-financial-real-browser-run.mjs <root>",

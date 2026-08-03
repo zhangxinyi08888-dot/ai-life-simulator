@@ -5,7 +5,8 @@ import { initializeCareerState } from "../career/careerState";
 import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
 import {
   buildExpenseLifecycleReviewPlan,
-  expenseReviewRequiresPromptConfirmation
+  expenseReviewRequiresPromptConfirmation,
+  isPolicyOwnedExpenseEstimate
 } from "./expenseLifecycleReview";
 import { validateFinancialProposals } from "./validateFinancialProposals";
 import type { ExpenseCommitmentV4, FinancialLedgerV3 } from "./types";
@@ -106,6 +107,53 @@ test("a stable overdue review asks the next-node prompt for confirmation only af
   assert.equal(expenseReviewRequiresPromptConfirmation(issue), false);
   assert.equal(expenseReviewRequiresPromptConfirmation({ ...issue, occurrenceCount: 2 }), true);
   assert.equal(expenseReviewRequiresPromptConfirmation({ ...issue, occurrenceCount: 9, status: "resolved" }), false);
+});
+
+test("policy/context/legacy estimates remain nonzero reviewable accruals without demanding invented narrator confirmation", () => {
+  const current = ledger();
+  const policyFloor: ExpenseCommitmentV4 = {
+    ...current.expenseCommitments[0]!,
+    id: "policy_floor_basic_living",
+    type: "basic_living",
+    displayName: "基础生活支出（待确认）",
+    responsibilityKey: "adult_basic_living:protagonist",
+    responsibilityKind: "adult_basic_living",
+    monthlyAmountWan: 0.35,
+    confirmedMonthlyAmountWan: undefined,
+    amountBasis: "policy_floor",
+    amountSourceIds: ["opening_policy_adult_basic_living"],
+    financialScope: "personal",
+    factStatus: "needs_review",
+    accrualReviewStatus: "normal",
+    activeFromAgeInMonths: 80 * 12,
+    nextReviewAtAgeInMonths: 81 * 12,
+    evidence: [{ source: "system_policy", reasonCode: "OPENING_POLICY_FLOOR", confidence: 1, financialScope: "personal" }]
+  };
+  current.expenseCommitments = [policyFloor];
+  const plan = buildExpenseLifecycleReviewPlan({ ledger: current, ageInMonths: 81 * 12 });
+  const transition = plan.events.find((event) => event.payload.expenseCommitmentId === policyFloor.id);
+  const issue = plan.issues.find((item) => item.id === `expense_review_due_${policyFloor.id}`);
+  assert.ok(transition);
+  assert.equal(transition?.payload.nextCommitment.monthlyAmountWan, 0.35);
+  assert.equal(transition?.payload.nextCommitment.status, "active");
+  assert.equal(transition?.payload.nextCommitment.accrualReviewStatus, "review_due");
+  assert.equal(issue?.severity, "warning");
+  assert.equal(expenseReviewRequiresPromptConfirmation({ ...issue!, occurrenceCount: 2 }, transition!.payload.nextCommitment), false);
+
+  for (const amountBasis of ["policy_floor", "contextual_estimate", "legacy_estimate"] as const) {
+    assert.equal(isPolicyOwnedExpenseEstimate({ ...transition!.payload.nextCommitment, amountBasis }), true);
+    assert.equal(expenseReviewRequiresPromptConfirmation(
+      { ...issue!, occurrenceCount: 2 },
+      { ...transition!.payload.nextCommitment, amountBasis }
+    ), false);
+  }
+  const explicitKnown = {
+    ...transition!.payload.nextCommitment,
+    amountBasis: "explicit_known" as const,
+    confirmedMonthlyAmountWan: 0.35
+  };
+  assert.equal(isPolicyOwnedExpenseEstimate(explicitKnown), false);
+  assert.equal(expenseReviewRequiresPromptConfirmation({ ...issue!, occurrenceCount: 2 }, explicitKnown), true);
 });
 
 test("a new responsibility review evidence causes one review transition and is persisted on the commitment", () => {

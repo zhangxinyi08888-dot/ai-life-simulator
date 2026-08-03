@@ -106,6 +106,17 @@ function expenseCommitment(value: unknown, path: string, errors: FinancialPayloa
   if (item.householdShareRate !== undefined && (Number(item.householdShareRate) < 0 || Number(item.householdShareRate) > 1)) {
     errors.push({ path: `${path}.householdShareRate`, reason: "必须在 0-1 之间" });
   }
+  const explicitSharedAmount = item.amountBasis === "explicit_shared_amount";
+  if (explicitSharedAmount) {
+    if (item.financialScope !== "shared_household") {
+      errors.push({ path: `${path}.financialScope`, reason: "共同金额必须使用 shared_household 责任范围" });
+    }
+    requiredNumber(item.grossMonthlyAmountWan, `${path}.grossMonthlyAmountWan`, errors, false);
+    requiredNumber(item.householdShareRate, `${path}.householdShareRate`, errors, false);
+  }
+  if (item.financialScope === "shared_household" && item.factStatus === "known" && !explicitSharedAmount) {
+    errors.push({ path: `${path}.amountBasis`, reason: "已知共同家庭金额必须使用 explicit_shared_amount，并提供总额与主角承担比例" });
+  }
   if (item.grossMonthlyAmountWan !== undefined && item.householdShareRate !== undefined && Number.isFinite(Number(item.monthlyAmountWan))) {
     if (Math.abs(Number(item.monthlyAmountWan) - Number(item.grossMonthlyAmountWan) * Number(item.householdShareRate)) > 0.005) {
       errors.push({ path: `${path}.monthlyAmountWan`, reason: "必须等于总额乘主角承担比例" });

@@ -22,7 +22,36 @@ function debt(status: DebtAccount["status"] = "active", principalWan = 100): Deb
   };
 }
 
-function historyWith(input: { debt?: DebtAccount; cashWan?: number; property?: boolean }): HistoryItem[] {
+function debtSettlementTransaction(input: { forgiven?: boolean } = {}) {
+  return {
+    id: input.forgiven ? "tx_debt_forgiven" : "tx_debt_repaid",
+    simulationTransactionId: input.forgiven ? "sim_debt_forgiven" : "sim_debt_repaid",
+    eventIds: [input.forgiven ? "accepted_debt_forgiven" : "accepted_debt_principal_repaid"],
+    periodStartAgeInMonths: 468,
+    periodEndAgeInMonths: 480,
+    cashDeltaWan: input.forgiven ? 0 : -100,
+    assetDeltaWan: 0,
+    debtDeltaWan: -100,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: input.forgiven ? 100 : 0,
+    debtPrincipalDrawnWan: 0,
+    debtPrincipalPaidWan: input.forgiven ? 0 : 100,
+    debtPrincipalForgivenWan: input.forgiven ? 100 : 0,
+    debtInterestAccruedWan: 0,
+    debtInterestPaidWan: 0,
+    debtInterestLiabilityPaidWan: 0,
+    debtInterestForgivenWan: 0,
+    debtCapitalizedInterestWan: 0,
+    automaticLiquidityShortfallIncreaseWan: 0,
+    automaticLiquidityShortfallRecoveryWan: 0,
+    evidence
+  };
+}
+
+function historyWith(input: { debt?: DebtAccount; cashWan?: number; property?: boolean; debtSettlement?: "repaid" | "forgiven" }): HistoryItem[] {
   const ledger = initializeFinancialLedger({
     id: "ledger", asOfAgeInMonths: 480,
     openingPosition: {
@@ -31,12 +60,37 @@ function historyWith(input: { debt?: DebtAccount; cashWan?: number; property?: b
       assetAccounts: input.property ? [{ id: "home", type: "property", displayName: "已确认住宅", marketValueWan: 200, liquidity: "illiquid", status: "active", factStatus: "known", openedAtAgeInMonths: 360, evidence }] : []
     }
   });
-  return [{
+  if (input.debtSettlement) {
+    ledger.recentTransactions = [debtSettlementTransaction({ forgiven: input.debtSettlement === "forgiven" })];
+  }
+  const terminal: HistoryItem = {
     age: 40, ageInMonths: 480, stage: "终局", title: "回望", description: "生活继续向前。", selectedChoice: "继续生活",
     attributes: { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 }, choices: [], isEndingNode: true,
     financialLedger: ledger,
     worldStateSnapshot: { people: [], directionArcs: [], pressureArcs: [], careerStates: [], currentEmploymentStatus: "not_working", careerRevision: 0, committedTransactionIds: [], version: 2 }
-  }];
+  };
+  if (!input.debtSettlement || !input.debt) return [terminal];
+  const predecessorDebt: DebtAccount = {
+    ...input.debt,
+    principalWan: input.debt.principalWan > 0 ? input.debt.principalWan : 100,
+    status: "active",
+    closedAtAgeInMonths: undefined
+  };
+  const predecessorLedger = initializeFinancialLedger({
+    id: "ledger_before_settlement", asOfAgeInMonths: 468,
+    openingPosition: {
+      cashAccounts: [{ id: PRIMARY_CASH_ACCOUNT_ID, type: "bank_deposit", balanceWan: input.cashWan ?? 10, status: "active", factStatus: "known", evidence }],
+      debtAccounts: [predecessorDebt]
+    }
+  });
+  return [{
+    ...terminal,
+    age: 39,
+    ageInMonths: 468,
+    title: "偿债前",
+    isEndingNode: false,
+    financialLedger: predecessorLedger
+  }, terminal];
 }
 
 function outcome(text: string): FinalLifeOutcome {
@@ -69,10 +123,49 @@ test("PB-REPORT-03 absent confirmed property forbids ownership and sale claims",
   assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我卖掉自己的公寓后重新出发"), authority })[0]?.code, "REPORT_PROPERTY_CONFLICT");
 });
 
-test("PB-REPORT-04 reliable repaid account permits debt-completion semantics", () => {
-  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10 }));
+test("PB-REPORT-04 accepted ledger repayment permits debt-completion semantics", () => {
+  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10, debtSettlement: "repaid" }));
   assert.equal(authority?.debt.kind, "debt_fully_repaid");
   assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我终于还清了债务"), authority }).length, 0);
+});
+
+test("PB-REPORT-04B a raw repaid account cannot authorize terminal payoff copy", () => {
+  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10 }));
+  assert.equal(authority?.debt.kind, "no_active_debt");
+  const value = outcome("我终于还清了债务");
+  value.report.executiveSummary.headline = "你终于结清了全部债务。";
+  const issues = collectFinalFinancialNarrativeIssues({ outcome: value, authority });
+  assert.deepEqual(
+    issues.map((item) => item.code),
+    ["REPORT_DEBT_COMPLETION_CONFLICT", "REPORT_DEBT_COMPLETION_CONFLICT"]
+  );
+  const repaired = applyFinalFinancialNarrativeFallback({ outcome: value, authority: authority!, issues });
+  assert.doesNotMatch(JSON.stringify(repaired), /还清|结清|清偿/u);
+  assert.equal(collectFinalFinancialNarrativeIssues({ outcome: repaired, authority }).length, 0);
+});
+
+test("PB-REPORT-04B2 raw repaid status cannot authorize debt-clear title wording", () => {
+  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10 }));
+  const value = outcome("我终于让债务归零，重新开始生活");
+  const issues = collectFinalFinancialNarrativeIssues({ outcome: value, authority });
+  assert.deepEqual(issues.map((item) => item.code), ["REPORT_DEBT_COMPLETION_CONFLICT"]);
+  const repaired = applyFinalFinancialNarrativeFallback({ outcome: value, authority: authority!, issues });
+  assert.doesNotMatch(repaired.share.viralTitle, /债务(?:归零|清零)/u);
+  assert.equal(collectFinalFinancialNarrativeIssues({ outcome: repaired, authority }).length, 0);
+});
+
+test("PB-REPORT-04C accepted ledger remission permits debt-completion semantics", () => {
+  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10, debtSettlement: "forgiven" }));
+  assert.equal(authority?.debt.kind, "debt_fully_repaid");
+  assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我终于还清了债务"), authority }).length, 0);
+});
+
+test("PB-REPORT-04D every terminal repaid account needs its own recorded settlement", () => {
+  const history = historyWith({ debt: debt("repaid"), cashWan: 10, debtSettlement: "repaid" });
+  history.at(-1)!.financialLedger!.debtAccounts.push({ ...debt("repaid"), id: "debt_unproved" });
+  const authority = deriveFinalFinancialNarrativeAuthority(history);
+  assert.equal(authority?.debt.kind, "no_active_debt");
+  assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我终于还清了全部债务"), authority })[0]?.code, "REPORT_DEBT_COMPLETION_CONFLICT");
 });
 
 test("PB-REPORT-05 fallback repairs only the conflicting report field", () => {

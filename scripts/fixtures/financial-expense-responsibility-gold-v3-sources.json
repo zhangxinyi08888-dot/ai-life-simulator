@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "financial-expense-responsibility-gold-v3-extension-sources",
+  "corpusKind": "frozen_gold_source_extension",
+  "purpose": "Independently reviewed Accepted-source inputs for the v8-adjudicated v3 extension. The opening rows are derived separately from original user evidence by the opening-specific regression below. Negative rows intentionally contain no expense source: their assertion is that the opening/narrative derivation cannot create a personal or shared commitment. This extension is release-gated only through the explicit v1+v2+v3 aggregate in expenseGoldCorpusE2E.test.ts.",
+  "facts": [
+    {
+      "caseSlug": "real-career-first",
+      "nodeIndex": 0,
+      "fact": {
+        "responsibilityKey": "primary_residence:main",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。"
+      }
+    },
+    {
+      "caseSlug": "real-career-first",
+      "nodeIndex": 0,
+      "fact": {
+        "responsibilityKey": "recurring_healthcare:opening_parent",
+        "responsibilityKind": "recurring_healthcare",
+        "proposedType": "healthcare",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。"
+      }
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "nodeIndex": 12,
+      "fact": {
+        "responsibilityKey": "primary_residence:main",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "review",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "shared",
+        "financialScope": "shared_household",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "你们看中了一套总价280万的电梯房，首付需要84万。你拿出大部分积蓄，加上伴侣和双方父母的支持，终于凑齐。"
+      }
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "nodeIndex": 13,
+      "fact": {
+        "responsibilityKey": "elder_care:person_parent_unspecified",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "你主动承担起协调角色，每周固定陪母亲复查血压，父亲的体检报告也成了你手机里的常驻文件。"
+      }
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "nodeIndex": 14,
+      "fact": {
+        "responsibilityKey": "elder_care:person_parent_unspecified",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "review",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "母亲血压稳定，但父亲偶尔腰疼，你陪他做了两次理疗，这让你更理解照护的细节。"
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "nodeIndex": 22,
+      "fact": {
+        "responsibilityKey": "elder_care:person_parent_unspecified",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "父亲的膝盖开始不太好，母亲也偶尔头晕，你每周回老家两次，帮忙买菜、陪他们去医院复查。"
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "nodeIndex": 30,
+      "fact": {
+        "responsibilityKey": "elder_care:person_parent_unspecified",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "review",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "unknown",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "你与父亲商量后，决定请一位钟点工每周来三天帮忙做午饭和打扫，你则保持每周两次回老家陪伴和复查。"
+      }
+    }
+  ]
+}

@@ -211,6 +211,44 @@ test("rejected proposal diagnostics are closed after the proposal is not committ
   assert.equal(issue.resolvedByEventId, "system:rejected_proposal_narrative_rollback");
 });
 
+test("rejected expense authority diagnostics remain blocking after a prose rollback", () => {
+  const [issue] = settleRejectedFinancialProposalIssues({
+    issues: [{
+      id: "expense_scope_collective_rent_300",
+      code: "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["collective_rent_as_personal"],
+      summary: "共同承担的房租缺少主角个人份额证据",
+      createdAtAgeInMonths: 300
+    }],
+    acceptedProposalIds: [],
+    rejectedProposalIds: ["collective_rent_as_personal"],
+    ageInMonths: 300,
+    narrativeRolledBack: true
+  });
+  assert.equal(issue.status, "open");
+});
+
+test("a generic validation failure from a lifecycle proposal remains blocking", () => {
+  const [issue] = settleRejectedFinancialProposalIssues({
+    issues: [{
+      id: "proposal_issue_system_expense_start_elder_care_303",
+      code: "UNBALANCED_TRANSACTION",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["system_expense_start_elder_care_303"],
+      summary: "持续赡养支出缺少可靠正文证据",
+      createdAtAgeInMonths: 303
+    }],
+    acceptedProposalIds: [],
+    rejectedProposalIds: ["system_expense_start_elder_care_303"],
+    ageInMonths: 303,
+    narrativeRolledBack: false
+  });
+  assert.equal(issue.status, "open");
+});
+
 test("unresolved authoritative facts are not hidden by proposal settlement", () => {
   const [issue] = settleRejectedFinancialProposalIssues({
     issues: [{

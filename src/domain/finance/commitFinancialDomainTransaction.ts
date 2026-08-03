@@ -310,6 +310,36 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   return issues;
 }
 
+function isExpenseReviewIssue(issue: FinancialLedgerIssue): boolean {
+  return issue.id.startsWith("expense_lifecycle_review_")
+    || issue.id.startsWith("expense_review_due_");
+}
+
+/**
+ * A due-review issue represents an unresolved amount or responsibility
+ * boundary.  Merely touching the same account must not make that missing fact
+ * disappear: a narrative-only/needs-review adjustment still needs a stable
+ * prompt and issue on later nodes.  Only an exact Accepted amount, an
+ * explicitly authorized pause, or an Accepted ending actually closes it.
+ */
+function acceptedEventResolvesExpenseReviewIssue(event: AcceptedFinancialEvent): boolean {
+  if (event.kind === "expense_commitment_ended") return true;
+  if (event.kind !== "expense_commitment_adjusted") return false;
+  const payload = event.payload as {
+    nextCommitment?: {
+      factStatus?: string;
+      amountBasis?: string;
+      status?: string;
+    };
+    changeReason?: string;
+  };
+  const next = payload.nextCommitment;
+  if (!next) return false;
+  if (next.status === "paused" && payload.changeReason) return true;
+  return next.factStatus === "known"
+    && (next.amountBasis === "explicit_known" || next.amountBasis === "explicit_shared_amount");
+}
+
 function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: AcceptedFinancialEvent[], ageInMonths: number): void {
   for (const event of events) {
     const refs = eventReferences(event);
@@ -321,13 +351,13 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
       // amount, responsibility change, or closure supplies the missing fact.
       // Older snapshots use `expense_lifecycle_review_`; V4 writes the stable
       // `expense_review_due_` identity.
-      const isSystemGeneratedExpenseReview = (issue.id.startsWith("expense_lifecycle_review_")
-        || issue.id.startsWith("expense_review_due_"))
+      const isSystemGeneratedExpenseReview = isExpenseReviewIssue(issue)
         && event.evidence.some((evidence) => (
           evidence.source === "system_policy"
           && (evidence.reasonCode === "EXPENSE_REVIEW_DUE" || evidence.reasonCode === "SYSTEM_POLICY_REVIEW")
         ));
       if (isSystemGeneratedExpenseReview) continue;
+      if (isExpenseReviewIssue(issue) && !acceptedEventResolvesExpenseReviewIssue(event)) continue;
       // A V4 aggregate/component gap is intentionally durable: a scheduled
       // review acknowledges that the aggregate is still uncertain, it does
       // not establish the coverage relation or authorize a split.  Only an

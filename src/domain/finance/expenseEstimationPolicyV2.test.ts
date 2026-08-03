@@ -93,3 +93,31 @@ test("an accepted ongoing healthcare responsibility receives a higher older-adul
   assert.ok(olderTreatment.accrualMonthlyAmountWan > youngTreatment.accrualMonthlyAmountWan);
   assert.ok(olderTreatment.reasonCodes.includes("EXPENSE_CONTEXT_AGE_OLDER_ADULT"));
 });
+
+test("elder-care intensity is a separately selected, evidence-gated policy input", () => {
+  const baseline = estimateExpenseResponsibility({
+    responsibilityKind: "elder_care",
+    ageInMonths: 64 * 12,
+    cityCostBand: "medium"
+  });
+  const elevatedAdult = estimateExpenseResponsibility({
+    responsibilityKind: "elder_care",
+    ageInMonths: 64 * 12,
+    cityCostBand: "medium",
+    careIntensity: "elevated"
+  });
+  const elevatedOlderAdult = estimateExpenseResponsibility({
+    responsibilityKind: "elder_care",
+    ageInMonths: 80 * 12,
+    cityCostBand: "medium",
+    careIntensity: "elevated"
+  });
+
+  assert.ok(baseline && elevatedAdult && elevatedOlderAdult);
+  assert.equal(baseline.accrualMonthlyAmountWan, 0.2);
+  assert.equal(elevatedAdult.accrualMonthlyAmountWan, 0.25);
+  assert.equal(elevatedOlderAdult.accrualMonthlyAmountWan, 0.35);
+  assert.ok(elevatedAdult.reasonCodes.includes("EXPENSE_CONTEXT_CARE_ELEVATED"));
+  assert.ok(elevatedOlderAdult.reasonCodes.includes("EXPENSE_CONTEXT_CARE_ELEVATED"));
+  assert.equal(baseline.inputs.careIntensity, "baseline");
+});

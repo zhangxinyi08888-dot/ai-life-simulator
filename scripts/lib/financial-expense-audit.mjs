@@ -16,6 +16,7 @@ function percent(numerator, denominator) {
 const FACT_STATUSES = ["known", "estimated", "unknown", "needs_review"];
 const EXPENSE_COMMITMENT_STATUSES = ["active", "paused", "ended"];
 const RESPONSIBILITY_ACTIONS = ["start", "adjust", "end", "review"];
+const HUMAN_REVIEWER_LABELS = new Set(["human", "human_adjudicated"]);
 const FAMILY_RESPONSIBILITY_KINDS = new Set([
   "primary_residence",
   "child_support",
@@ -54,7 +55,11 @@ function increment(object, key, amount = 1) {
  * minimum composition here so a tiny, all-green fixture cannot be presented
  * as the Spec's closed gate.
  */
-export function assessExpenseResponsibilityCorpusCoverage({ annotations = [], corpusKind } = {}) {
+/**
+ * @param {{ annotations?: any[], corpusKind?: string }} input
+ */
+export function assessExpenseResponsibilityCorpusCoverage(input = {}) {
+  const { annotations = [], corpusKind } = input;
   if (corpusKind !== "frozen_gold") {
     return { status: "not_applicable", failures: [], counts: {} };
   }
@@ -73,7 +78,10 @@ export function assessExpenseResponsibilityCorpusCoverage({ annotations = [], co
     review: count((item) => item.material !== false && item.expectedAction === "review"),
     businessOrThirdPartyNegative: count((item) => item.expectedAction === "ignore"
       && ["business_operating", "third_party"].includes(item.expectedScope)),
-    nonHumanReviewer: count((item) => item.reviewer !== "human")
+    // `human_adjudicated` is the explicit provenance label for a row reviewed
+    // by a human adjudicator after fresh-route annotation.  It is a valid
+    // human review, not a machine-generated expected answer.
+    nonHumanReviewer: count((item) => !HUMAN_REVIEWER_LABELS.has(item.reviewer))
   };
   if (materialCount === 0) return { status: "not_covered", failures: ["material"], counts };
 
