@@ -65,11 +65,15 @@ function groupKindForIssue(issue: FinancialLedgerIssue): RequiredFinancialFactGr
     || (issue.relatedProposalIds || []).some((proposalId) => proposalId.startsWith("system_expense_"))) {
     return "expense_lifecycle";
   }
+  if (issue.id.startsWith("narrative_coverage_personal_compensation_")
+    || issue.id.startsWith("personal_income_claim_without_event_")) return "personal_compensation";
+  // CAREER_INCOME_CONFLICT is also used by the narrative-income contract.
+  // Keep that more specific identifier ahead of the generic code so a
+  // missing one-off/side-income event is not presented as a failed career
+  // transition when the CareerState and its active wage are already valid.
   if (issue.id.startsWith("career_transition_missing_") || issue.code === "CAREER_INCOME_CONFLICT") {
     return "career_income_transition";
   }
-  if (issue.id.startsWith("narrative_coverage_personal_compensation_")
-    || issue.id.startsWith("personal_income_claim_without_event_")) return "personal_compensation";
   if (issue.id.startsWith("narrative_coverage_property_")
     || issue.id.startsWith("narrative_coverage_mortgage_")) return "property_and_mortgage";
   if (issue.id.startsWith("narrative_coverage_business_holding_")

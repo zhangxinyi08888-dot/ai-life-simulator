@@ -2610,8 +2610,21 @@ async function commitAuthoritativeFinancialProgress(input: {
       periodStartAgeInMonths: input.periodStartAgeInMonths
     });
   }
+  // Most completed financial facts must remain blocking even if their prose
+  // can be softened; the gate is what prevents a fictitious property, debt or
+  // asset transaction from becoming a silent narrative-only success.  The
+  // personal-income contract is deliberately narrower: its sanitizer removes
+  // the unsupported commercial-completion sentence altogether.  Feed that
+  // one final, user-visible status into the gate while retaining the original
+  // finalized status for every other material fact.
+  const postSanitizationIssueById = new Map(postSanitizationIssues.map((issue) => [issue.id, issue]));
+  const gateFinancialIssues = finalizedFinancialIssues.map((issue) => (
+    issue.id.startsWith("personal_income_claim_without_event_")
+      ? postSanitizationIssueById.get(issue.id) || issue
+      : issue
+  ));
   const requiredFactGroups = buildRequiredFinancialFactGroups({
-    issues: finalizedFinancialIssues,
+    issues: gateFinancialIssues,
     rejectedCompletedProposals,
     reviewReasonCodes: [
       ...expenseLifecycle.reviewReasonCodes,

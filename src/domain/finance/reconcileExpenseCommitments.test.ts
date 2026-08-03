@@ -150,6 +150,34 @@ test("E-07 shared rent charges only the protagonist's half", () => {
   }]);
 });
 
+test("a malformed lifecycle candidate is blocked with a schema issue instead of throwing before the gate", () => {
+  const malformed = {
+    ...candidate(),
+    id: "missing_evidence",
+    evidence: undefined
+  } as unknown as ExpenseResponsibilityCandidate;
+
+  const result = reconcileExpenseCommitments({
+    ledger: ledger(),
+    candidates: [malformed],
+    ageInMonths: 372,
+    sourceOutcomeId: "malformed_expense_candidate",
+    mode: "enforced"
+  });
+
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.wouldBlock, true);
+  assert.equal(result.issues[0]?.code, "EXPENSE_SCHEMA_FIELD_MISMATCH");
+  assert.deepEqual(result.candidateDecisions, [{
+    candidateId: "missing_evidence",
+    disposition: "blocked",
+    reasonCodes: ["MISSING_CANDIDATE_EVIDENCE"],
+    relatedProposalIds: [],
+    relatedIssueIds: ["expense_candidate_missing_evidence_missing_evidence"],
+    wouldBlock: true
+  }]);
+});
+
 test("new unknown-amount responsibility receives the same accepted Preview context used by the V2 policy", () => {
   const result = reconcileExpenseCommitments({
     ledger: ledger(),

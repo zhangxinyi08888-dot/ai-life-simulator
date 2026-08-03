@@ -887,11 +887,21 @@ export function reconcileExpenseCommitments(input: {
   sourceOutcomeId?: string;
   mode: FinancialNodeGateMode;
 }): ExpenseCommitmentReconciliationResult {
+  // Candidates originate outside this reducer.  Keep malformed model output
+  // on the normal blocking/repair path instead of allowing an absent evidence
+  // array to throw a raw TypeError before the acceptance gate can record it.
+  const malformedEvidenceCandidateIds = new Set(input.candidates
+    .filter((candidate) => !Array.isArray(candidate.evidence))
+    .map((candidate) => candidate.id));
+  const candidates = input.candidates.map((candidate) => ({
+    ...candidate,
+    evidence: Array.isArray(candidate.evidence) ? candidate.evidence : []
+  }));
   const proposals: FinancialEventProposal[] = [];
   const issues: FinancialLedgerIssue[] = [];
   const ignoredCandidateIds: string[] = [];
   const candidateDecisionById = new Map<string, ExpenseCommitmentReconciliationCandidateDecision>(
-    input.candidates.map((candidate) => [candidate.id, {
+    candidates.map((candidate) => [candidate.id, {
       candidateId: candidate.id,
       disposition: "ignored" as const,
       reasonCodes: ["NO_RECONCILIATION_ACTION"],
@@ -971,7 +981,25 @@ export function reconcileExpenseCommitments(input: {
     keys.add(responsibilityKey);
     reviewKeysByCandidateId.set(candidate.id, keys);
   };
-  for (const candidate of input.candidates) {
+  for (const candidate of candidates) {
+    if (malformedEvidenceCandidateIds.has(candidate.id)) {
+      const malformedEvidenceIssue = issue({
+        id: `expense_candidate_missing_evidence_${candidate.id}`,
+        code: "EXPENSE_SCHEMA_FIELD_MISMATCH",
+        severity: "blocking",
+        summary: `支出责任候选 ${candidate.responsibilityKey} 缺少 evidence 数组，不能生成或修改持续支出`,
+        ageInMonths: input.ageInMonths,
+        candidate
+      });
+      issues.push(malformedEvidenceIssue);
+      recordCandidateDecision({
+        candidate,
+        disposition: "blocked",
+        reasonCode: "MISSING_CANDIDATE_EVIDENCE",
+        issue: malformedEvidenceIssue
+      });
+      continue;
+    }
     // Do this before any lifecycle issue/review work. A direct Accepted fact
     // is not a second candidate to reconcile; letting a deterministic plan
     // touch it would either duplicate accrual or overwrite the direct amount.
@@ -1409,7 +1437,7 @@ export function reconcileExpenseCommitments(input: {
     events.push(event);
     reviewEventsByResponsibilityKey.set(key, events);
   }
-  for (const candidate of input.candidates) {
+  for (const candidate of candidates) {
     const reviewKeys = reviewKeysByCandidateId.get(candidate.id);
     if (!reviewKeys || reviewKeys.size === 0) continue;
     const current = candidateDecisionById.get(candidate.id);
@@ -1470,8 +1498,8 @@ export function reconcileExpenseCommitments(input: {
     reviewEvents: reviewPlan.events,
     issues,
     reviewReasonCodes,
-    candidates: input.candidates,
-    candidateDecisions: input.candidates.map((candidate) => candidateDecisionById.get(candidate.id)!),
+    candidates,
+    candidateDecisions: candidates.map((candidate) => candidateDecisionById.get(candidate.id)!),
     ignoredCandidateIds,
     wouldBlock: issues.some((item) => item.severity === "blocking" && item.status !== "resolved"),
     reviewPlan

@@ -1568,6 +1568,57 @@ assert.deepEqual(enforcedGateDecisions.map((item) => item.disposition), ["regene
 assert.deepEqual(enforcedGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
 assert.deepEqual(history, enforcedHistorySnapshot, "a rejected preview never advances History or mutates its financial snapshots");
 
+// An unsupported new personal-income claim is safely removed from the final
+// prose.  The gate must use that post-sanitization issue set: it may not keep
+// rejecting the now-safe node as if an uncommitted career transition remained.
+const sanitizedIncomeHistory = [{
+  ...structuredClone(nextNode),
+  selectedChoice: nextNode.choices[0]!.text
+}];
+const sanitizedIncomeGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
+const sanitizedIncomeNode = await generateNextNode({
+  userData,
+  answers,
+  history: sanitizedIncomeHistory,
+  currentAttributes: nextNode.attributes,
+  selectedDecision: nextNode.choices[0]!.text,
+  nodeIndex: 2,
+  simulationSeed: "sanitized-personal-income-gate"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  onFinancialGateDecision: (decision) => sanitizedIncomeGateDecisions.push({
+    disposition: decision.disposition,
+    reasonCodes: decision.reasonCodes
+  }),
+  callAiJson: async (prompt) => {
+    if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+      return { text: JSON.stringify({ financialEventProposals: [] }) };
+    }
+    return {
+      text: JSON.stringify({
+        age: 24,
+        stage: "项目推进",
+        title: "案例逐渐成形",
+        description: "对方当场付了5000元咨询费。你把案例整理成了方法论。",
+        choices: [
+          { id: "A", text: "继续打磨案例", impactSummary: "积累能力" },
+          { id: "B", text: "复盘客户反馈", impactSummary: "稳住节奏" },
+          { id: "C", text: "控制额外投入", impactSummary: "保留缓冲" }
+        ],
+        attributes: nextNode.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.deepEqual(sanitizedIncomeGateDecisions.map((item) => item.disposition), ["accept"]);
+assert.ok(!sanitizedIncomeGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"));
+assert.doesNotMatch(sanitizedIncomeNode.description, /5000元咨询费/u);
+assert.match(sanitizedIncomeNode.description, /个人收入是否形成仍需继续观察/u);
+
 // A completed employer switch without a replacement personal income must not
 // be downgraded to a resolved rejected Proposal. This exercises the real
 // order: accept transition -> reject atomicity -> settle issues -> gate.

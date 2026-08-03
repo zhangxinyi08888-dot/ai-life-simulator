@@ -238,6 +238,27 @@ test("an enforced rejection leaves time, income, ledger, career and world state 
   assert.deepEqual(input.currentWorldState.committedTransactionIds, []);
 });
 
+test("a narrative-only personal income claim is classified as personal compensation, not a career transition", () => {
+  const groups = buildRequiredFinancialFactGroups({
+    issues: [{
+      id: "personal_income_claim_without_event_372",
+      code: "CAREER_INCOME_CONFLICT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: [],
+      summary: "正文宣告新增个人收入，但没有 Accepted income event",
+      createdAtAgeInMonths: 372
+    }],
+    rejectedCompletedProposals: [],
+    ageInMonths: 372
+  });
+
+  assert.deepEqual(groups.map((group) => [group.kind, group.reasonCode]), [[
+    "personal_compensation",
+    "UNSATISFIED_PERSONAL_COMPENSATION"
+  ]]);
+});
+
 test("unrelated third-party or optional issues do not become protagonist critical fact groups", () => {
   const groups = buildRequiredFinancialFactGroups({
     issues: [{
