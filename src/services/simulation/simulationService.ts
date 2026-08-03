@@ -440,7 +440,7 @@ export function synthesizeSelectedCareerTransition(input: {
   // founder.  Keep that distinction explicit: leaving one job to join a
   // startup must create an employed CareerState, while only an actual
   // self-directed venture becomes self_employed.
-  const selfDirectedVenture = /(?:自己|自主|独立|全职).{0,12}创业(?!公司|企业|团队)|(?:创办|成立).{0,12}(?:自己|个人|独立)?(?:公司|工作室|企业|团队)/u;
+  const selfDirectedVenture = /(?:自己|自主|独立|全职|(?:辞职|辞去|辞掉|离职)[^。；]{0,12})创业(?!公司|企业|团队)|(?:创办|成立).{0,12}(?:自己|个人|独立)?(?:公司|工作室|企业|团队)/u;
   const joinedEmployer = /(?:辞职|辞去|辞掉|离职|离开[^。；]{0,12}(?:岗位|公司|平台))[^。；]{0,48}(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)|(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)[^。；]{0,20}(?:担任|任职|负责|岗位|职位|工作)/u;
   const acceptedEmployerInvitation = /(?:接受|选择)[^。；]{0,32}(?:公司|企业|机构|团队)[^。；]{0,20}(?:offer|职位|岗位|工作|入职|任职|担任|负责人)/iu;
   const narrativeEvidence = input.narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
