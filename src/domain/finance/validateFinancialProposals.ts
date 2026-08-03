@@ -40,6 +40,16 @@ const PERSONAL_OPERATING_FLOW_KINDS = new Set<FinancialEventKind>([
   "expense_commitment_ended",
   "one_off_expense_paid"
 ]);
+// These events are accepted only by the protagonist's personal ledger.  A
+// company or third-party scope is not a destination-routing hint: allowing it
+// through would still mutate personal cash in the reducer.
+const PERSONAL_CASH_INFLOW_EVENT_KINDS = new Set<FinancialEventKind>([
+  "income_source_started",
+  "income_source_adjusted",
+  "one_off_income_received",
+  "family_support_received",
+  "business_distribution_received"
+]);
 
 /**
  * A salary mentioned in a job posting, an unaccepted offer, or a comparison
@@ -157,6 +167,43 @@ function businessOperatingFact(proposal: FinancialEventProposal): boolean {
   const personalCompensation = ["salary", "contract", "self_employment_draw"].includes(String(subject?.type))
     && /(?:税后|到手)?(?:工资|薪资|月薪|年薪|年税后收入|税后年收入)|顾问费|咨询费/u.test(text);
   return (businessExpense || businessRevenue) && !explicitPersonal && !personalCompensation;
+}
+
+/**
+ * A restricted project grant can be received by the protagonist as the
+ * applicant or temporary custodian without becoming personal cash. This is
+ * deliberately narrower than the general business-operating check: reject
+ * only a personal-income proposal when both the funding source and an
+ * earmarked public/project use are explicit. A personal, freely disposable
+ * creative award remains a valid personal receipt.
+ */
+function restrictedProjectFundingFact(proposal: FinancialEventProposal): boolean {
+  if (![
+    "income_source_started",
+    "income_source_adjusted",
+    "one_off_income_received",
+    "family_support_received",
+    "business_distribution_received"
+  ].includes(proposal.kind)) return false;
+
+  const payload = proposal.payload as Record<string, unknown>;
+  const subject = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
+  const evidence = String(proposal.evidence || "");
+  const text = `${evidence} ${JSON.stringify(subject || {})}`;
+  // Keep the production audit's source-language vocabulary covered here:
+  // a restricted education/special/project fund is not a personal cash inflow
+  // merely because the protagonist applied for or temporarily holds it.
+  const projectFunding = /(?:项目|公益|专项|教育)[^。；\n]{0,24}(?:基金|资助|拨款|赞助|项目款|资金|经费|款)|(?:基金|资助|拨款|赞助|项目款|资金|经费|款)[^。；\n]{0,24}(?:项目|公益|专项|教育)/u.test(text);
+  const publicBeneficiaryUse = /(?:用于|用作|为|专款|专用|专项|定向|仅限|专门)[^。；\n]{0,56}(?:学校|村小|校园|教师|学生|硬件|教学设备|设备|教具|教师津贴|助学|公益项目|志愿者|公益机构|基金会|社会组织|非营利|社区服务|受助人|服务对象|教学|课程|培训|公益)|(?:提供|购置|采购|配发|发放)[^。；\n]{0,28}(?:学校|村小|教师|学生|硬件|教学设备|设备|教具|津贴|助学|公益项目|志愿者|公益机构|基金会|社会组织|非营利|社区服务|教学|课程|培训|公益)/u.test(text);
+  const genericProjectExecutionUse = /(?:用于|用作|为|专款|专用|专项|定向|仅限|专门)[^。；\n]{0,56}(?:项目运营|项目实施|项目执行|项目服务|机构运营)/u.test(text);
+  const explicitlyPublicContext = /(?:公益|教育|学校|村小|校园|教师|学生|助学|社区服务|基金会|社会组织|非营利)/u.test(text);
+  // "项目款用于项目执行" can also describe a protagonist's commercial
+  // consulting engagement. The generic execution wording becomes restricted
+  // only when the same fact explicitly identifies a public beneficiary.
+  const earmarkedPublicUse = publicBeneficiaryUse || (genericProjectExecutionUse && explicitlyPublicContext);
+  const explicitPersonalUnrestrictedAward = /(?:个人(?:可)?自由支配|个人(?:可)?自行支配|你(?:个人)?(?:可)?自由支配|你(?:个人)?(?:可)?自行支配|无(?:指定|限定)用途)[^。；\n]{0,32}(?:奖(?:金|励)?|奖金)|(?:奖(?:金|励)?|奖金)[^。；\n]{0,48}(?:个人(?:可)?自由支配|个人(?:可)?自行支配|你(?:个人)?(?:可)?自由支配|你(?:个人)?(?:可)?自行支配|无(?:指定|限定)用途)/u.test(evidence);
+
+  return projectFunding && earmarkedPublicUse && !explicitPersonalUnrestrictedAward;
 }
 
 function unsupportedRecurringOtherIncome(proposal: FinancialEventProposal): boolean {
@@ -1009,6 +1056,26 @@ export function validateFinancialProposals(input: {
     }
     if (thirdPartyIncomeFact(proposal)) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "伴侣、父母、子女或其他人物的工资与收入不得进入主人公个人账本；只有明确转给主人公的款项才能使用家庭支持事件入账", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      continue;
+    }
+    if (restrictedProjectFundingFact(proposal)) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT",
+        summary: "项目基金、公益资助或拨款如有学校、教师、硬件或项目运营等专款用途，即使暂时由主角收到或保管，也不得进入主角个人现金账本",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
+    if (PERSONAL_CASH_INFLOW_EVENT_KINDS.has(proposal.kind)
+      && proposal.financialScope !== undefined
+      && proposal.financialScope !== "personal") {
+      issues.push(proposalIssue({
+        proposal,
+        code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT",
+        summary: "个人现金流入不得以 business_operating、third_party 或 shared_household 范围入账；公司或第三方资金必须先在其自身范围留存，只有明确分配给主角的个人款项才能入账",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
       continue;
     }
     if (["expense_commitment_started", "expense_commitment_adjusted", "one_off_expense_paid"].includes(proposal.kind)

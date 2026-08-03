@@ -29,6 +29,20 @@ export interface ExpenseResponsibilityDeltaNormalization {
   sourceOutcomeFilled?: boolean;
 }
 
+/**
+ * A code-detected, amount-free care fact that the enforced acceptance gate
+ * may require the model outcome to carry.  This is deliberately not a
+ * WorldDelta: detection never writes state and never invents a price.
+ */
+export interface DetectedExpenseResponsibilityRequirement {
+  responsibilityKind: "elder_care";
+  beneficiary: "mother" | "father" | "parents";
+  owner: "protagonist";
+  cadence: "recurring_unknown";
+  /** Verbatim completed source text, rechecked by the normal sanitizer. */
+  evidence: string;
+}
+
 function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -134,6 +148,39 @@ function hasDirectParentCareAction(sentence: string, owner: ExpenseResponsibilit
   return caregiverArrangement.test(sentence);
 }
 
+function hasCompletedParentRehabilitationServiceArrangement(input: {
+  previousSentence?: string;
+  sentence: string;
+  owner: ExpenseResponsibilityChange["owner"];
+}): boolean {
+  const { previousSentence = "", sentence, owner } = input;
+  if (owner === "protagonist" && COLLECTIVE_RESPONSIBILITY_ACTOR.test(sentence)) return false;
+  const parentHealthContext = `${previousSentence}${sentence}`;
+  if (!PARENT_WORD.test(parentHealthContext)
+    // Do not let the word "康复" inside "康复师" manufacture the health
+    // context. A diagnosis/treatment signal must be stated independently.
+    || !/(?:膝盖|腰(?:疼|椎)|病情|行动不便|理疗|复诊|治疗|医院|关节|退行性|旧疾)/u.test(parentHealthContext)) return false;
+  const actor = owner === "shared_household"
+    ? "(?:你们|我们|双方|两人)"
+    : PERSONAL_ACTOR;
+  // A rehabilitation/physical-therapy professional arranged by the
+  // protagonist is an equally concrete care action, but only when all of
+  // these facts are present together: an immediately adjacent parent-health
+  // context, a first-person arrangement for that parent, and an explicit
+  // recurring home-service cadence.  This keeps "父亲持续理疗" and a single
+  // accompaniment out of the personal responsibility path.
+  const parentTargetBeforeArrangement = /(?:给|为|替)(?:她|他|他们|父母|爸妈|母亲|父亲|妈妈|爸爸)[^。！？；]{0,20}(?:找|请|安排)/u;
+  const parentTargetInService = /(?:上门(?:指导|服务|康复|理疗)|康复(?:指导|训练)|理疗(?:指导|服务))[^。！？；]{0,20}(?:给|为|替)(?:她|他|他们|父母|爸妈|母亲|父亲|妈妈|爸爸)/u;
+  const completedArrangement = new RegExp(
+    `${actor}[^。！？；]{0,48}(?:找|请|安排)(?:了)?(?:一位|一名|个)?(?:康复师|理疗师)`,
+    "u"
+  );
+  const recurringHomeService = /(?:每(?:天|日|周|月)|每隔.{0,4}(?:天|周|月)|固定|定期|持续|长期)[^。！？；]{0,28}(?:上门(?:指导|服务|康复|理疗)|康复(?:指导|训练)|理疗(?:指导|服务))/u;
+  return completedArrangement.test(sentence)
+    && recurringHomeService.test(sentence)
+    && (parentTargetBeforeArrangement.test(sentence) || parentTargetInService.test(sentence));
+}
+
 function hasAdjacentParentRehabilitationAction(input: {
   previousSentence?: string;
   sentence: string;
@@ -141,24 +188,131 @@ function hasAdjacentParentRehabilitationAction(input: {
 }): boolean {
   const { previousSentence = "", sentence, owner } = input;
   if (owner === "protagonist" && COLLECTIVE_RESPONSIBILITY_ACTOR.test(sentence)) return false;
-  if (!PARENT_WORD.test(previousSentence)
-    || !/(?:膝盖|腰疼|病情|行动不便|康复|理疗|复诊|治疗|医院)/u.test(previousSentence)) return false;
-  const actor = owner === "shared_household"
-    ? "(?:你们|我们|双方|两人)"
-    : PERSONAL_ACTOR;
-  return new RegExp(
-    `${actor}[^。！？；]{0,36}(?:帮(?:着)?|协助)[^。！？；]{0,16}(?:她|他|他们)[^。！？；]{0,20}(?:康复训练|关节活动|复健)`,
-    "u"
-  ).test(sentence);
+  if (PARENT_WORD.test(previousSentence)
+    && /(?:膝盖|腰疼|病情|行动不便|康复|理疗|复诊|治疗|医院)/u.test(previousSentence)) {
+    const actor = owner === "shared_household"
+      ? "(?:你们|我们|双方|两人)"
+      : PERSONAL_ACTOR;
+    if (new RegExp(
+      `${actor}[^。！？；]{0,36}(?:帮(?:着)?|协助)[^。！？；]{0,16}(?:她|他|他们)[^。！？；]{0,20}(?:康复训练|关节活动|复健)`,
+      "u"
+    ).test(sentence)) return true;
+  }
+  return hasCompletedParentRehabilitationServiceArrangement(input);
 }
 
 function isCompletedParentCare(evidence: string, owner: ExpenseResponsibilityChange["owner"]): boolean {
   if (PLANNED_WORD.test(evidence) || BUSINESS_WORD.test(evidence) || THIRD_PARTY_PAYER.test(evidence)) return false;
   const parts = sentences(evidence);
   return parts.some((sentence, index) => (
-    ONGOING_WORD.test(`${parts[index - 1] || ""}${sentence}`)
+    // The care action itself, not merely the parent's diagnosis in an
+    // adjacent sentence, must establish a recurring cadence.  Otherwise
+    // "父亲需要持续理疗。你陪他去了一次医院。" would turn a one-off visit
+    // into a continuing personal responsibility.
+    ONGOING_WORD.test(sentence)
     && (hasDirectParentCareAction(sentence, owner)
       || hasAdjacentParentRehabilitationAction({ previousSentence: parts[index - 1], sentence, owner }))
+  ));
+}
+
+function parentBeneficiary(evidence: string): DetectedExpenseResponsibilityRequirement["beneficiary"] | undefined {
+  const father = /父亲|爸爸/u.test(evidence);
+  const mother = /母亲|妈妈/u.test(evidence);
+  if (/父母|爸妈/u.test(evidence) || (father && mother)) return "parents";
+  if (father) return "father";
+  if (mother) return "mother";
+  return undefined;
+}
+
+/**
+ * Detect a high-confidence, completed and recurring parent-care fact that
+ * must be represented by an AcceptedOutcome responsibility delta.  It shares
+ * the exact completed-care matcher used by `sanitizeExpenseResponsibilityDeltas`;
+ * unlike that sanitizer, it returns a requirement and never writes a delta.
+ */
+export function detectCompletedParentCareResponsibilities(
+  narrativeText: string | undefined
+): DetectedExpenseResponsibilityRequirement[] {
+  if (!narrativeText) return [];
+  const requirements: DetectedExpenseResponsibilityRequirement[] = [];
+  const seenRequirements = new Set<string>();
+  const parts = sentences(narrativeText);
+  for (let index = 0; index < parts.length; index++) {
+    const current = parts[index];
+    // Test the narrowest evidence first.  Pronoun-based service arrangements
+    // intentionally retain their immediately preceding health sentence so the
+    // parent antecedent remains explicit and auditable.
+    const evidenceCandidates = index > 0
+      ? [{ evidence: current, previousSentence: "" }, { evidence: `${parts[index - 1]}${current}`, previousSentence: parts[index - 1] }]
+      : [{ evidence: current, previousSentence: "" }];
+    for (const { evidence, previousSentence } of evidenceCandidates) {
+      // This detector is intentionally narrower than the general sanitizer:
+      // it backstops only the high-confidence rehabilitation-service form that
+      // was observed missing from model proposals. Existing direct care deltas
+      // remain governed by the same sanitizer and normal proposal path.
+      if (!hasCompletedParentRehabilitationServiceArrangement({
+        previousSentence,
+        sentence: current,
+        owner: "protagonist"
+      })) continue;
+      const beneficiary = parentBeneficiary(evidence);
+      if (!beneficiary || !isCompletedParentCare(evidence, "protagonist")) continue;
+      const requirement: DetectedExpenseResponsibilityRequirement = {
+        responsibilityKind: "elder_care",
+        beneficiary,
+        owner: "protagonist",
+        cadence: "recurring_unknown",
+        evidence
+      };
+      const key = [
+        requirement.responsibilityKind,
+        requirement.beneficiary,
+        requirement.owner,
+        requirement.cadence,
+        normalizedText(requirement.evidence)
+      ].join("\u001f");
+      if (!seenRequirements.has(key)) {
+        seenRequirements.add(key);
+        requirements.push(requirement);
+      }
+      // A service sentence can be tested once on its own and once with its
+      // preceding parent-health context.  The combined form is the richer,
+      // auditable evidence when both happen to match.
+      break;
+    }
+  }
+  return requirements;
+}
+
+/** Compatibility helper for callers that need the first detected fact only. */
+export function detectCompletedParentCareResponsibility(
+  narrativeText: string | undefined
+): DetectedExpenseResponsibilityRequirement | undefined {
+  return detectCompletedParentCareResponsibilities(narrativeText)[0];
+}
+
+/**
+ * Compare a detected care requirement to final, already-sanitized outcome
+ * deltas. This is a pure acceptance-gate helper: it neither writes a WorldDelta
+ * nor treats an amount-free requirement as an account or a payment.
+ */
+export function missingDetectedCompletedParentCareResponsibilities(input: {
+  narrativeText?: string;
+  finalWorldDeltas: WorldDelta[];
+}): DetectedExpenseResponsibilityRequirement[] {
+  return detectCompletedParentCareResponsibilities(input.narrativeText).filter((requirement) => (
+    !input.finalWorldDeltas.some((delta) => {
+      if (delta.type !== "expense_responsibility") return false;
+      const responsibility = delta.responsibility;
+      return responsibility.responsibilityKind === requirement.responsibilityKind
+        && responsibility.beneficiary === requirement.beneficiary
+        && responsibility.owner === requirement.owner
+        && responsibility.cadence === requirement.cadence
+        // A model cannot satisfy the requirement by citing only a generic care
+        // phrase: its accepted evidence must contain the normalized, detected
+        // fact including the concrete recurring service arrangement.
+        && evidenceInNarrative(responsibility.evidence, requirement.evidence);
+    })
   ));
 }
 

@@ -10,7 +10,10 @@ import {
 import type { FinancialLedgerV3 } from "../domain/finance";
 import { validateNodeOutcomeProposal } from "./arcLifecycle";
 import {
+  detectCompletedParentCareResponsibility,
+  detectCompletedParentCareResponsibilities,
   explicitFactsFromAcceptedExpenseResponsibilityDeltas,
+  missingDetectedCompletedParentCareResponsibilities,
   missingAcceptedExpenseResponsibilityDeltas
 } from "./expenseResponsibilityOutcome";
 import { normalizeWorldDeltas } from "./normalizeWorldDeltas";
@@ -214,6 +217,120 @@ test("accepts completed recurring parent checkups and an adjacent daily rehabili
     });
     assert.equal(accepted.worldDeltas.length, 1, text);
   }
+});
+
+test("detects only a completed recurring parent rehabilitation-service arrangement and shares sanitizer semantics", () => {
+  const positives = [
+    {
+      narrativeText: "父亲膝盖旧疾需要持续理疗。你为他在县城找了一位康复师，每周两次上门指导。",
+      beneficiary: "father"
+    },
+    {
+      narrativeText: "母亲腰椎旧伤需要持续理疗。你为她请了一位理疗师，每周固定上门理疗。",
+      beneficiary: "mother"
+    },
+    {
+      narrativeText: "父母的关节问题需要持续康复。你为他们安排了一位康复师，每周上门两次做康复指导。",
+      beneficiary: "parents"
+    }
+  ] as const;
+  for (const item of positives) {
+    const requirement = detectCompletedParentCareResponsibility(item.narrativeText);
+    assert.deepEqual(requirement, {
+      responsibilityKind: "elder_care",
+      beneficiary: item.beneficiary,
+      owner: "protagonist",
+      cadence: "recurring_unknown",
+      evidence: item.narrativeText
+    }, item.narrativeText);
+    const accepted = validateNodeOutcomeProposal({
+      expectedSourceOutcomeId: "selected_rehabilitation_service",
+      narrativeText: item.narrativeText,
+      worldDeltas: requirement ? [{
+        type: "expense_responsibility",
+        summary: "持续父母照护",
+        responsibility: {
+          ...requirement,
+          confidence: 0.9,
+          sourceOutcomeId: "selected_rehabilitation_service"
+        }
+      }] : []
+    });
+    assert.equal(accepted.worldDeltas.length, 1, `sanitizer must accept ${item.narrativeText}`);
+  }
+
+  for (const narrativeText of [
+    "父亲持续理疗。",
+    "母亲听力下降，家里安静了很多。",
+    "父亲膝盖不舒服，你陪他去了一次医院。",
+    "父亲膝盖旧疾需要持续理疗。你陪他去了一次医院。",
+    "89岁时你安静地整理旧照片。",
+    "父亲膝盖旧疾需要持续理疗。你为他在木工坊找了一位康复师，每周两次上门指导。",
+    "父亲膝盖旧疾需要持续理疗。由父亲自己支付康复师费用，你为他找了一位康复师，每周两次上门指导。"
+  ]) {
+    assert.equal(detectCompletedParentCareResponsibility(narrativeText), undefined, narrativeText);
+  }
+
+  const v18Narrative = positives[0].narrativeText;
+  const v18Requirement = detectCompletedParentCareResponsibility(v18Narrative);
+  if (!v18Requirement) throw new Error("expected v18 rehabilitation-service requirement");
+  assert.deepEqual(
+    missingDetectedCompletedParentCareResponsibilities({
+      narrativeText: v18Narrative,
+      finalWorldDeltas: []
+    }),
+    [v18Requirement],
+    "the v18 fact must block when the final outcome omits its responsibility delta"
+  );
+  const validAcceptedDelta = validateNodeOutcomeProposal({
+    expectedSourceOutcomeId: "selected_rehabilitation_service",
+    narrativeText: v18Narrative,
+    worldDeltas: [{
+      type: "expense_responsibility",
+      summary: "持续父亲照护",
+      responsibility: {
+        ...v18Requirement,
+        confidence: 0.9,
+        sourceOutcomeId: "selected_rehabilitation_service"
+      }
+    }]
+  }).worldDeltas;
+  assert.deepEqual(
+    missingDetectedCompletedParentCareResponsibilities({
+      narrativeText: v18Narrative,
+      finalWorldDeltas: validAcceptedDelta
+    }),
+    [],
+    "a matching sanitized final delta satisfies the requirement"
+  );
+});
+
+test("requires a distinct accepted responsibility for each independently completed parent-care service", () => {
+  const narrativeText = [
+    "父亲膝盖旧疾需要持续理疗。你为他在县城找了一位康复师，每周两次上门指导。",
+    "母亲腰椎旧伤需要持续理疗。你为她请了一位理疗师，每周固定上门理疗。"
+  ].join("");
+  const requirements = detectCompletedParentCareResponsibilities(narrativeText);
+  assert.deepEqual(requirements.map((requirement) => requirement.beneficiary), ["father", "mother"]);
+
+  const fatherOnly = validateNodeOutcomeProposal({
+    expectedSourceOutcomeId: "selected_dual_parent_rehabilitation",
+    narrativeText,
+    worldDeltas: [{
+      type: "expense_responsibility",
+      summary: "持续父亲照护",
+      responsibility: {
+        ...requirements[0]!,
+        confidence: 0.9,
+        sourceOutcomeId: "selected_dual_parent_rehabilitation"
+      }
+    }]
+  }).worldDeltas;
+  assert.deepEqual(
+    missingDetectedCompletedParentCareResponsibilities({ narrativeText, finalWorldDeltas: fatherOnly }),
+    [requirements[1]!],
+    "a father delta must not satisfy a separately completed mother-care service"
+  );
 });
 
 test("drops age-only, generic parent illness, third-party, business, planned, and source-mismatched declarations", () => {

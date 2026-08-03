@@ -81,6 +81,28 @@ function recordWithGeneratedGateMode(mode) {
   return result;
 }
 
+function restrictedProjectFundingTransaction() {
+  const evidence = {
+    source: "accepted_simulation_outcome",
+    sourceEventId: "accepted_grant_received",
+    excerpt: "你申请到一笔10万元的项目基金，用于为5所村小提供硬件和教师津贴",
+    financialScope: "personal"
+  };
+  return {
+    id: "restricted_project_fund_tx",
+    simulationTransactionId: "restricted_project_fund_tx",
+    eventIds: ["accepted_grant_received"],
+    incomeWan: 10,
+    cashDeltaWan: 10,
+    evidence: [evidence],
+    acceptedEventAudit: [{
+      eventId: "accepted_grant_received",
+      kind: "one_off_income_received",
+      evidence: [evidence]
+    }]
+  };
+}
+
 test("real-browser analyzer reports responsibility 0/0 as not_covered, never 100", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "financial-expense-audit-"));
   try {
@@ -144,6 +166,54 @@ test("real-browser analyzer blocks a generated node with no gate-mode evidence",
     assert.equal(audit.summary.financialGateNonEnforcedCommittedNodeCount, 0);
     assert.equal(audit.summary.financialGateModeMissingCommittedNodeCount, 1);
     assert.ok(aggregate.blockers.some((blocker) => blocker.includes("缺少财务接受门模式证据")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("real-browser analyzer reports and blocks restricted project funding that enters personal cash", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "financial-expense-audit-"));
+  try {
+    await mkdir(path.join(root, "cases"));
+    const restrictedFundingRecord = recordWithGeneratedGateMode("enforced");
+    const transaction = restrictedProjectFundingTransaction();
+    for (const node of restrictedFundingRecord.finalState.history) {
+      node.financialLedger = { ...node.financialLedger, recentTransactions: [transaction] };
+    }
+    await writeFile(path.join(root, "cases", "case.json"), `${JSON.stringify(restrictedFundingRecord)}\n`);
+    await writeFile(path.join(root, "expense-responsibility-annotations.json"), `${JSON.stringify({ annotations: [] })}\n`);
+    await runNode([script, root], here);
+    const audit = JSON.parse(await readFile(path.join(root, "finance-audit.json"), "utf8"));
+    const aggregate = JSON.parse(await readFile(path.join(root, "aggregate.json"), "utf8"));
+    const report = await readFile(path.join(root, "evaluation-report.md"), "utf8");
+    assert.equal(audit.summary.restrictedProjectFundingInPersonalCashCount, 1);
+    assert.equal(audit.productionAudit.restrictedProjectFundingInPersonalCash.length, 1);
+    assert.ok(aggregate.blockers.some((blocker) => blocker.includes("受限项目/公益资金进入个人可支配现金")));
+    assert.match(report, /受限项目\/公益资金进入个人可支配现金\s*\| 1/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("real-browser analyzer blocks an old mixed restricted-funding transaction that lacks event attribution without calling it personal cash", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "financial-expense-audit-"));
+  try {
+    await mkdir(path.join(root, "cases"));
+    const legacyRecord = recordWithGeneratedGateMode("enforced");
+    const transaction = restrictedProjectFundingTransaction();
+    transaction.eventIds = ["accepted_grant_received", "accepted_personal_salary"];
+    delete transaction.acceptedEventAudit;
+    for (const node of legacyRecord.finalState.history) {
+      node.financialLedger = { ...node.financialLedger, recentTransactions: [transaction] };
+    }
+    await writeFile(path.join(root, "cases", "case.json"), `${JSON.stringify(legacyRecord)}\n`);
+    await writeFile(path.join(root, "expense-responsibility-annotations.json"), `${JSON.stringify({ annotations: [] })}\n`);
+    await runNode([script, root], here);
+    const audit = JSON.parse(await readFile(path.join(root, "finance-audit.json"), "utf8"));
+    const aggregate = JSON.parse(await readFile(path.join(root, "aggregate.json"), "utf8"));
+    assert.equal(audit.summary.restrictedProjectFundingInPersonalCashCount, 0);
+    assert.equal(audit.summary.restrictedProjectFundingAttributionGapCount, 1);
+    assert.ok(aggregate.blockers.some((blocker) => blocker.includes("缺少逐 Accepted Event 归因")));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

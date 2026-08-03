@@ -706,6 +706,164 @@ test("PB-BIZ-06 a company customer contract cannot prove a personal owner draw",
   assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
 });
 
+test("PB-BIZ-30 rejects restricted project funding from personal cash even when the protagonist receives it", () => {
+  const restrictedGrant = proposal({
+    id: "restricted_village_school_funding",
+    kind: "one_off_income_received",
+    financialScope: "personal",
+    evidence: "你申请到一笔10万元的项目基金，款项已到账，用于为5所村小提供硬件和教师津贴。",
+    payload: {
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      amountWan: 10,
+      displayName: "乡村教育项目基金"
+    }
+  });
+  const result = validate([restrictedGrant], restrictedGrant.evidence);
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.length, 1);
+  assert.equal(result.issues[0].code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+  assert.match(result.issues[0].summary, /专款用途/);
+});
+
+test("PB-BIZ-31 keeps an explicitly personal freely disposable creative project award in personal cash", () => {
+  const personalAward = proposal({
+    id: "personal_creative_project_award",
+    kind: "one_off_income_received",
+    financialScope: "personal",
+    evidence: "你获得个人公益创作基金10万元作为个人可自由支配的创作奖金；你决定用其中一部分为村小提供硬件。",
+    payload: {
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      amountWan: 10,
+      displayName: "个人公益创作基金"
+    }
+  });
+  const result = validate([personalAward], personalAward.evidence);
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 0, JSON.stringify(result.issues));
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("PB-BIZ-32 rejects restricted project funding when the grant label is carried by payload", () => {
+  const restrictedGrant = proposal({
+    id: "payload_labeled_restricted_grant",
+    kind: "one_off_income_received",
+    financialScope: "personal",
+    evidence: "你收到10万元，专用于为村小采购硬件。",
+    payload: {
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      amountWan: 10,
+      displayName: "乡村教育公益项目资助"
+    }
+  });
+  const result = validate([restrictedGrant], restrictedGrant.evidence);
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0]?.code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+});
+
+test("PB-BIZ-33 rejects the full audited vocabulary of earmarked project funding from personal cash", () => {
+  const restrictedFunding = [
+    ["乡村教育基金", "你申请到乡村教育基金10万元，款项到账后专门用于为村小采购硬件。"],
+    ["教育资助", "你收到一笔教育资助10万元，定向用于学校课程培训。"],
+    ["专项基金", "你暂时保管10万元专项基金，专款用于教师培训。"],
+    ["项目款", "你收到10万元公益项目款，仅限用于项目执行。"],
+    ["教育赞助", "你收到10万元教育赞助，用于学校教学设备。"]
+  ] as const;
+
+  for (const [label, evidence] of restrictedFunding) {
+    const candidate = proposal({
+      id: `restricted_${label}`,
+      kind: "one_off_income_received",
+      financialScope: "personal",
+      evidence,
+      payload: {
+        destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+        amountWan: 10,
+        displayName: label
+      }
+    });
+    const result = validate([candidate], evidence);
+    assert.equal(result.acceptedEvents.length, 0, label);
+    assert.equal(result.issues[0]?.code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", `${label}: ${JSON.stringify(result.issues)}`);
+    assert.match(result.issues[0]?.summary || "", /专款用途/, label);
+  }
+});
+
+test("PB-BIZ-34 keeps an explicitly personal freely disposable award out of the restricted-funding classifier", () => {
+  const personalAward = proposal({
+    id: "personal_disposable_education_award",
+    kind: "one_off_income_received",
+    financialScope: "personal",
+    evidence: "你获得一笔个人公益教育资助10万元，作为个人自由支配奖金，奖金无指定用途；你决定用其中一部分为村小提供硬件。",
+    payload: {
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      amountWan: 10,
+      displayName: "个人公益教育资助奖金"
+    }
+  });
+  const result = validate([personalAward], personalAward.evidence);
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 0, JSON.stringify(result.issues));
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("PB-BIZ-35 keeps a personal commercial project payment outside the public-funding boundary", () => {
+  const personalProjectPayment = proposal({
+    id: "personal_consulting_project_payment",
+    kind: "one_off_income_received",
+    financialScope: "personal",
+    evidence: "你收到10万元个人咨询项目款，作为本次软件开发服务的个人报酬，专门用于后续项目执行。",
+    payload: {
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      amountWan: 10,
+      displayName: "个人咨询项目报酬"
+    }
+  });
+  const result = validate([personalProjectPayment], personalProjectPayment.evidence);
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 0, JSON.stringify(result.issues));
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
+test("PB-BIZ-36 rejects a restricted public project fund disguised as a personal business distribution", () => {
+  const input = setup();
+  input.currentLedger.businessHoldings.push({
+    id: "holding_school_project",
+    business: {
+      id: "school_project_entity",
+      displayName: "乡村教育公益项目",
+      status: "operating",
+      factStatus: "known",
+      evidence
+    },
+    ownershipRate: 1,
+    personalCarryingValueWan: 0,
+    status: "active",
+    factStatus: "known",
+    evidence
+  });
+  const restrictedDistribution = proposal({
+    id: "restricted_project_distribution",
+    kind: "business_distribution_received",
+    financialScope: "personal",
+    evidence: "你收到10万元公益项目款，仅限用于项目执行。",
+    payload: {
+      businessHoldingId: "holding_school_project",
+      destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+      amountWan: 10
+    }
+  });
+  const result = validateFinancialProposals({
+    ...input,
+    proposals: [restrictedDistribution],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: restrictedDistribution.evidence,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "restricted_project_distribution",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues[0]?.code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+  assert.match(result.issues[0]?.summary || "", /专款用途/);
+});
+
 test("PB-BIZ-25 business operating income type cannot enter the personal ledger even when scope is mislabeled", () => {
   const companyRevenue = proposal({
     id: "company_revenue_mislabeled_personal",

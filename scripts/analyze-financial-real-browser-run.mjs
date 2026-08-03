@@ -684,6 +684,8 @@ const blockers = [
   productionAudit.summary.financialAmountPrecisionViolationCount > 0 && `财务金额长浮点泄漏：${productionAudit.summary.financialAmountPrecisionViolationCount} 处`,
   productionAudit.summary.crossJourneyInvitationEntryCount > 0 && `邀请或压力 Arc 跨 journey 串线：${productionAudit.summary.crossJourneyInvitationEntryCount} 条`,
   productionAudit.summary.companyOperatingFlowInPersonalLedgerCount > 0 && `公司经营收支进入个人账本：${productionAudit.summary.companyOperatingFlowInPersonalLedgerCount} 个账户节点`,
+  productionAudit.summary.restrictedProjectFundingInPersonalCashCount > 0 && `受限项目/公益资金进入个人可支配现金：${productionAudit.summary.restrictedProjectFundingInPersonalCashCount} 笔交易`,
+  productionAudit.summary.restrictedProjectFundingAttributionGapCount > 0 && `受限项目资金缺少逐 Accepted Event 归因：${productionAudit.summary.restrictedProjectFundingAttributionGapCount} 笔交易，无法证明未进入个人现金`,
   productionAudit.summary.blackOrEmptyPosterExportCount > 0 && `海报导出为空或全黑：${productionAudit.summary.blackOrEmptyPosterExportCount} 张`,
   productionAudit.summary.duplicateFinalImageEvidenceCount > 0 && `海报与报告页证据重复：${productionAudit.summary.duplicateFinalImageEvidenceCount} 组`,
   visibleGenerationPauseCount > 0 && `用户可见生成暂停：${visibleGenerationPauseCount} 次，涉及 ${generationPauseCaseCount} 组（恢复成功 ${generationRecoveredCount} 次）`,
@@ -804,6 +806,8 @@ ${recoverableRows}
 | 财务金额长浮点 | ${productionAudit.summary.financialAmountPrecisionViolationCount} | 目标 0 |
 | 跨 journey 邀请/Arc | ${productionAudit.summary.crossJourneyInvitationEntryCount} | 目标 0 |
 | 公司经营收支进入个人账本 | ${productionAudit.summary.companyOperatingFlowInPersonalLedgerCount} | 目标 0 |
+| 受限项目/公益资金进入个人可支配现金 | ${productionAudit.summary.restrictedProjectFundingInPersonalCashCount} | 目标 0；按交易 ID 去重 |
+| 受限项目资金逐事件归因缺口 | ${productionAudit.summary.restrictedProjectFundingAttributionGapCount} | 目标 0；没有归因不得以聚合交易文本断言个人现金流 |
 | 空白/全黑海报导出 | ${productionAudit.summary.blackOrEmptyPosterExportCount} | 目标 0 |
 | 海报与报告页证据重复 | ${productionAudit.summary.duplicateFinalImageEvidenceCount} | 目标 0 |
 | 用户可见生成暂停 | ${visibleGenerationPauseCount} 次 / ${generationPauseCaseCount} 组 | 发布门禁必须为 0 |
@@ -971,6 +975,8 @@ ${releaseCandidate
 - 财务金额长浮点：${productionAudit.financialPrecisionViolations.map((item) => `${item.caseSlug}:${item.path}`).join("、") || "无"}
 - 跨 journey 邀请/Arc：${productionAudit.crossJourneyInvitationEntries.map((item) => `${item.caseSlug}:${item.code}:${item.id}`).join("、") || "无"}
 - 公司经营收支进入个人账本：${productionAudit.companyOperatingFlowsInPersonalLedger.map((item) => `${item.caseSlug}#${item.node}:${item.accountId}`).join("、") || "无"}
+- 受限项目/公益资金进入个人可支配现金：${productionAudit.restrictedProjectFundingInPersonalCash.map((item) => `${item.caseSlug}#${item.node}:${item.transactionId}`).join("、") || "无"}
+- 受限项目资金逐事件归因缺口：${productionAudit.restrictedProjectFundingAttributionGaps.map((item) => `${item.caseSlug}#${item.node}:${item.transactionId}`).join("、") || "无"}
 - 空白/全黑海报：${productionAudit.posterEvidence.filter((item) => !item.nonBlank).map((item) => item.caseSlug).join("、") || "无"}
 - 海报与报告页证据重复：${productionAudit.posterEvidence.filter((item) => !item.distinctFromReportPage).map((item) => item.caseSlug).join("、") || "无"}
 

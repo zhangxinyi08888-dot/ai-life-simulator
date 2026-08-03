@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FinancialState } from "../types";
-import { getFinancialStatusText, sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, validateDebtNarrativeConsistency } from "./financialNarrative";
+import { getFinancialStatusText, sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, sanitizeUnsupportedOpeningAccountClaims, validateDebtNarrativeConsistency } from "./financialNarrative";
 import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "../domain/finance/ledgerMath";
 
@@ -184,6 +184,167 @@ test("preserves salary, expenses and transaction amounts", () => {
     ledger: debtLedger,
     allowExactServicingCount: true
   }), ["已有连续拖欠事实，不能把本轮写成第一次或首次逾期"]);
+});
+
+test("opening prose cannot invent precise recurring expenses over review-only accounts", () => {
+  const reviewOnlyLedger = {
+    ...initializeFinancialLedger({ id: "opening_review_only", asOfAgeInMonths: 288 }),
+    expenseCommitments: [
+      {
+        id: "opening_rent_review", type: "housing", displayName: "住房持续支出（待确认）", monthlyAmountWan: 0.35,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+        responsibilityKey: "primary_residence:main", responsibilityKind: "primary_residence",
+        amountBasis: "contextual_estimate", amountSourceIds: ["opening_user_housing_review"], financialScope: "personal"
+      },
+      {
+        id: "opening_parent_health_review", type: "healthcare", displayName: "医疗持续支出（待确认）", monthlyAmountWan: 0.12,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+        responsibilityKey: "recurring_healthcare:opening_parent", responsibilityKind: "recurring_healthcare",
+        amountBasis: "contextual_estimate", amountSourceIds: ["opening_user_healthcare_review"], financialScope: "personal"
+      }
+    ]
+  } as any;
+  const result = sanitizeUnsupportedOpeningAccountClaims(
+    "每月房租四千，父母医疗和家用支出三千，加上日常开销，每月能存下五千左右。",
+    reviewOnlyLedger
+  );
+  assert.equal(result, "你仍在承担住房与医疗等持续支出，具体金额仍待确认。");
+  assert.doesNotMatch(result, /房租四千|支出三千|五千/u);
+  assert.equal(
+    sanitizeUnsupportedOpeningAccountClaims("每月房租四千。", reviewOnlyLedger),
+    "你仍在承担住房等持续支出，具体金额仍待确认。"
+  );
+  assert.equal(
+    sanitizeUnsupportedOpeningAccountClaims("每月房租4000。", reviewOnlyLedger),
+    "你仍在承担住房等持续支出，具体金额仍待确认。"
+  );
+});
+
+test("opening prose retains exact recurring amounts backed by explicit accounts", () => {
+  const explicitLedger = {
+    ...initializeFinancialLedger({ id: "opening_explicit_amounts", asOfAgeInMonths: 288 }),
+    expenseCommitments: [
+      {
+        id: "opening_rent_known", type: "housing", displayName: "房租", monthlyAmountWan: 0.4,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "known", evidence: [
+          { source: "user", reasonCode: "OPENING_EXPENSE_HOUSING", confidence: 1 }
+        ],
+        responsibilityKey: "primary_residence:main", responsibilityKind: "primary_residence",
+        amountBasis: "explicit_known", amountSourceIds: ["opening_user_rent"], financialScope: "personal"
+      },
+      {
+        id: "opening_parent_health_known", type: "healthcare", displayName: "父母医疗", monthlyAmountWan: 0.3,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "known", evidence: [
+          { source: "user", reasonCode: "OPENING_EXPENSE_HEALTHCARE", confidence: 1 }
+        ],
+        responsibilityKey: "recurring_healthcare:opening_parent", responsibilityKind: "recurring_healthcare",
+        amountBasis: "explicit_known", amountSourceIds: ["opening_user_parent_health"], financialScope: "personal"
+      }
+    ]
+  } as any;
+  const description = "每月房租四千，父母医疗费三千。";
+  assert.equal(sanitizeUnsupportedOpeningAccountClaims(description, explicitLedger), description);
+  const compactAmountLedger = {
+    ...explicitLedger,
+    expenseCommitments: explicitLedger.expenseCommitments.map((commitment: any) => (
+      commitment.type === "housing" ? { ...commitment, monthlyAmountWan: 0.45 } : commitment
+    ))
+  } as any;
+  assert.equal(
+    sanitizeUnsupportedOpeningAccountClaims("每月房租四千五。", compactAmountLedger),
+    "每月房租四千五。",
+    "compact Chinese 4,500-yuan rent must match the explicit 0.45 万 account"
+  );
+});
+
+test("opening prose downgrades only ungrounded recurring basic, insurance and education amounts", () => {
+  const reviewOnlyLedger = {
+    ...initializeFinancialLedger({ id: "opening_review_only_recurring_categories", asOfAgeInMonths: 288 }),
+    expenseCommitments: [
+      {
+        id: "opening_basic_review", type: "basic_living", displayName: "基础生活支出（待确认）", monthlyAmountWan: 0.35,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+        responsibilityKey: "adult_basic_living:protagonist", responsibilityKind: "adult_basic_living",
+        amountBasis: "policy_floor", amountSourceIds: ["opening_basic_review"], financialScope: "personal"
+      },
+      {
+        id: "opening_insurance_estimated", type: "insurance", displayName: "保险持续支出（估计）", monthlyAmountWan: 0.05,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "estimated", evidence: [],
+        responsibilityKey: "personal_insurance:opening", responsibilityKind: "personal_insurance",
+        amountBasis: "contextual_estimate", amountSourceIds: ["opening_insurance_estimated"], financialScope: "personal"
+      },
+      {
+        id: "opening_education_review", type: "education", displayName: "教育持续支出（待确认）", monthlyAmountWan: 0.2,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+        responsibilityKey: "continuing_education:opening", responsibilityKind: "continuing_education",
+        amountBasis: "contextual_estimate", amountSourceIds: ["opening_education_review"], financialScope: "personal"
+      }
+    ]
+  } as any;
+  const description = "日常开销每月三千元。每年保费六千元。培训费每月两千元。";
+  assert.equal(
+    sanitizeUnsupportedOpeningAccountClaims(description, reviewOnlyLedger),
+    "你仍在承担日常生活等持续支出，具体金额仍待确认。你仍在承担保险等持续支出，具体金额仍待确认。你仍在承担教育等持续支出，具体金额仍待确认。"
+  );
+
+  const explicitLedger = {
+    ...reviewOnlyLedger,
+    expenseCommitments: reviewOnlyLedger.expenseCommitments.map((commitment: any) => ({
+      ...commitment,
+      ...(commitment.type === "basic_living" ? { monthlyAmountWan: 0.3 } : {}),
+      factStatus: "known",
+      amountBasis: "explicit_known",
+      evidence: [{ source: "user", reasonCode: "OPENING_EXACT_RECURRING_EXPENSE", confidence: 1 }]
+    }))
+  } as any;
+  assert.equal(sanitizeUnsupportedOpeningAccountClaims(description, explicitLedger), description);
+});
+
+test("opening recurring-expense sanitizer preserves one-off and freely disposable amounts", () => {
+  const reviewOnlyLedger = {
+    ...initializeFinancialLedger({ id: "opening_review_only_one_off", asOfAgeInMonths: 288 }),
+    expenseCommitments: [
+      {
+        id: "opening_basic_review", type: "basic_living", displayName: "基础生活支出（待确认）", monthlyAmountWan: 0.35,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+        responsibilityKey: "adult_basic_living:protagonist", responsibilityKind: "adult_basic_living",
+        amountBasis: "policy_floor", amountSourceIds: ["opening_basic_review"], financialScope: "personal"
+      },
+      {
+        id: "opening_insurance_review", type: "insurance", displayName: "保险持续支出（待确认）", monthlyAmountWan: 0.05,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+        responsibilityKey: "personal_insurance:opening", responsibilityKind: "personal_insurance",
+        amountBasis: "contextual_estimate", amountSourceIds: ["opening_insurance_review"], financialScope: "personal"
+      },
+      {
+        id: "opening_education_review", type: "education", displayName: "教育持续支出（待确认）", monthlyAmountWan: 0.2,
+        activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+        responsibilityKey: "continuing_education:opening", responsibilityKind: "continuing_education",
+        amountBasis: "contextual_estimate", amountSourceIds: ["opening_education_review"], financialScope: "personal"
+      }
+    ]
+  } as any;
+  const description = "你获得一笔可自由支配的创作奖金10万元。一次性缴纳保险费五千元。一次性支付培训费三千元。公司每月培训费两千元。";
+  assert.equal(sanitizeUnsupportedOpeningAccountClaims(description, reviewOnlyLedger), description);
+});
+
+test("opening prose does not treat a shared-account personal share as a rendered total", () => {
+  const sharedLedger = {
+    ...initializeFinancialLedger({ id: "opening_shared_amount", asOfAgeInMonths: 288 }),
+    expenseCommitments: [{
+      id: "opening_shared_rent", type: "housing", displayName: "共同住房", monthlyAmountWan: 0.2,
+      grossMonthlyAmountWan: 0.4, householdShareRate: 0.5,
+      activeFromAgeInMonths: 288, status: "active", factStatus: "known", evidence: [
+        { source: "user", reasonCode: "OPENING_EXPENSE_SHARED_HOUSING", confidence: 1 }
+      ],
+      responsibilityKey: "primary_residence:main", responsibilityKind: "primary_residence",
+      amountBasis: "explicit_shared_amount", amountSourceIds: ["opening_user_shared_rent"], financialScope: "shared_household"
+    }]
+  } as any;
+  assert.equal(
+    sanitizeUnsupportedOpeningAccountClaims("我每月分担房租2000元。", sharedLedger),
+    "你仍在承担住房等持续支出，具体金额仍待确认。"
+  );
 });
 
 test("a rejected informal debt amount cannot remain beside the authoritative total", () => {

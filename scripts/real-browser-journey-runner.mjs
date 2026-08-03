@@ -28,6 +28,13 @@ export function buildDevFsImportReference(filePath) {
   return `@file:/@fs${encodeURI(filePath)}`;
 }
 
+export function buildCurrentChoiceSelector(choiceId) {
+  // Choice ids may repeat in an archived chapter while the current decision
+  // area is visible.  Limit the collector to the live decision controls so a
+  // retry can never click a historical choice with the same semantic id.
+  return `#inline-decision-area #preset-choices-container [id=${JSON.stringify(`choice-btn-${choiceId}`)}]`;
+}
+
 export function assertDistinctFinalImageEvidence({ poster, page }) {
   const posterBytes = Buffer.from(poster || []);
   const pageBytes = Buffer.from(page || []);
@@ -453,7 +460,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     if (!choiceId) throw new Error(`No choice available at ${before.currentNode?.title}`);
     const choice = before.currentNode.choices.find((item) => item.id === choiceId);
     const locator = await unique(
-      tab.playwright.locator(`[id=${JSON.stringify(`choice-btn-${choiceId}`)}]`),
+      tab.playwright.locator(buildCurrentChoiceSelector(choiceId)),
       `choice ${choiceId}`
     );
     const beforeHistoryLength = before.history.length;
@@ -491,7 +498,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const choiceId = chooseId(before, strategy, offset);
     if (!choiceId) throw new Error(`No choice available at ${before.currentNode?.title}`);
     const choice = before.currentNode.choices.find((item) => item.id === choiceId);
-    const locator = await unique(tab.playwright.locator(`[id=${JSON.stringify(`choice-btn-${choiceId}`)}]`), `choice ${choiceId}`);
+    const locator = await unique(tab.playwright.locator(buildCurrentChoiceSelector(choiceId)), `choice ${choiceId}`);
     await locator.click();
     return {
       before,

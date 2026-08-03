@@ -5,6 +5,7 @@ import {
   buildDevFsImportReference,
   buildFinalImageRestorePayload,
   buildFinalPosterCropArgs,
+  buildCurrentChoiceSelector,
   FINAL_IMAGE_VIEWPORT,
   initializeJourneyTrace,
   waitForUniqueLocator,
@@ -132,4 +133,11 @@ test("PB-RUN-08 invitation controls may render shortly after the pending state",
   });
   assert.equal(result, locator);
   assert.equal(waits, 2);
+});
+
+test("PB-RUN-09 current choice lookup is scoped to the live decision area", () => {
+  assert.equal(
+    buildCurrentChoiceSelector("choice_continue_side_project"),
+    '#inline-decision-area #preset-choices-container [id="choice-btn-choice_continue_side_project"]'
+  );
 });

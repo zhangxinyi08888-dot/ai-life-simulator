@@ -32,6 +32,22 @@ import { assertSufficientLiquidity } from "./reconcileLiquidity";
 const RECENT_TRANSACTION_LIMIT = 20;
 const EVENT_DRIVEN_DEBT_REVIEW_MONTHS = 24;
 
+/**
+ * These event kinds either credit the protagonist's cash immediately or
+ * create a recurring source that this personal ledger will accrue into cash.
+ * `financialScope` is evidence metadata, not a routing instruction: once one
+ * of these events reaches this reducer, its money is personal.  Reject an
+ * explicitly non-personal fact instead of letting a business/third-party
+ * receipt silently enter the protagonist ledger.
+ */
+const PERSONAL_CASH_INFLOW_EVENT_KINDS = new Set<FinancialEventKind>([
+  "income_source_started",
+  "income_source_adjusted",
+  "one_off_income_received",
+  "family_support_received",
+  "business_distribution_received"
+]);
+
 export type ReduceFinancialLedgerResult =
   | {
       ledger: FinancialLedger;
@@ -82,6 +98,19 @@ function cashAccount(ledger: FinancialLedger, id: string): CashAccount {
 function changeCash(ledger: FinancialLedger, accountId: string, deltaWan: number): void {
   const account = cashAccount(ledger, accountId);
   account.balanceWan = roundWan(account.balanceWan + deltaWan);
+}
+
+function assertPersonalCashInflowEvidenceScope(event: AcceptedFinancialEvent): void {
+  if (!PERSONAL_CASH_INFLOW_EVENT_KINDS.has(event.kind)) return;
+  const nonPersonalEvidence = event.evidence.find((item) => (
+    item.financialScope !== undefined && item.financialScope !== "personal"
+  ));
+  if (nonPersonalEvidence) {
+    throw new FinancialLedgerInvariantError(
+      "INVALID_LEDGER",
+      `个人现金流入 ${event.kind} 不得使用 ${nonPersonalEvidence.financialScope} 范围证据`
+    );
+  }
 }
 
 function validateIncomeSource(source: IncomeSource): void {
@@ -913,6 +942,7 @@ export function reduceFinancialLedger(input: {
   }
 
   const events = validateAcceptedFinancialEvents(input);
+  for (const event of events) assertPersonalCashInflowEvidenceScope(event);
   const allEventIds = new Set(events.map((event) => event.id));
   const next = cloneLedger(input.ledger);
   let automaticShortfallAccount = consolidateAutomaticShortfallAccounts(next);
@@ -1157,7 +1187,17 @@ export function reduceFinancialLedger(input: {
     debtInterestLiabilityPaidWan: totals.debtInterestLiabilityPaidWan,
     debtInterestForgivenWan: totals.debtInterestForgivenWan,
     debtCapitalizedInterestWan: totals.debtCapitalizedInterestWan,
-    evidence
+    evidence,
+    // Transaction-level evidence deliberately remains for compact ledger
+    // history. Preserve the per-Accepted-event boundary as well: a single
+    // period can contain both an organisation's restricted fund and the
+    // protagonist's salary, and release audit must never infer that one from
+    // the other merely because their transaction totals are aggregated.
+    acceptedEventAudit: events.map((event) => ({
+      eventId: event.id,
+      kind: event.kind,
+      evidence: event.evidence.map((item) => ({ ...item }))
+    }))
   } as FinancialTransaction;
   next.recentTransactions = [...next.recentTransactions, transaction].slice(-RECENT_TRANSACTION_LIMIT);
   assertFinancialLedgerInvariants(next);

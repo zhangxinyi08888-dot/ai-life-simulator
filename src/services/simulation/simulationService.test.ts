@@ -281,6 +281,45 @@ assert.equal(mortgageStarted.startNode.financialLedger?.assetAccounts.some((acco
 assert.equal(mortgageStarted.startNode.financialState?.annualCoreExpenseWan, 4.2);
 assert.equal(mortgageStarted.startNode.financialState?.annualDisposableIncomeWan, 28.7);
 
+const openingNarrativeAuthorityStarted = await startSimulation({
+  ...userData,
+  regressionAge: 24,
+  regressionSituation: "在稳定工作和创业机会之间犹豫，需要保留现金流"
+}, [{
+  id: 1,
+  question: "当时有哪些持续支出？",
+  answer: "我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。"
+}], {
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      initialAttributes: { happiness: 50, intelligence: 70, wealth: 45, relation: 55, health: 68 },
+      initialFinancialState: {
+        cashWan: 18, investmentAssetsWan: 0, propertyMarketValueWan: 0, businessAndOtherAssetsWan: 0,
+        totalDebtWan: 0, annualAfterTaxIncomeWan: 24, annualDisposableIncomeWan: 6, annualCoreExpenseWan: 18,
+        employmentStatus: "employed", incomeStability: "stable", isEstimated: false
+      },
+      startNode: {
+        age: 24, stage: "职业选择", title: "稳定与冒险的岔路口",
+        description: "每月房租四千，父母医疗和家用支出三千，加上日常开销，每月能存下五千左右。",
+        choices: [
+          { id: "A", text: "留在现有岗位", impactSummary: "保持稳定" },
+          { id: "B", text: "加入创业团队", impactSummary: "承担风险" },
+          { id: "C", text: "先兼职尝试", impactSummary: "渐进验证" }
+        ],
+        attributes: { happiness: 50, intelligence: 70, wealth: 45, relation: 55, health: 68 },
+        isEndingNode: false
+      }
+    })
+  })
+});
+assert.equal(
+  openingNarrativeAuthorityStarted.startNode.description,
+  "你仍在承担日常生活、住房与医疗等持续支出，具体金额仍待确认。"
+);
+assert.equal(openingNarrativeAuthorityStarted.startNode.financialLedger?.expenseCommitments.find((item) => item.type === "housing")?.monthlyAmountWan, 0.35);
+assert.equal(openingNarrativeAuthorityStarted.startNode.financialLedger?.expenseCommitments.find((item) => item.type === "healthcare")?.monthlyAmountWan, 0.12);
+assert.equal(openingNarrativeAuthorityStarted.startNode.financialLedger?.expenseCommitments.some((item) => item.type === "dependent_support"), false);
+
 const attributes: LifeAttributes = { happiness: 50, intelligence: 70, wealth: 42, relation: 55, health: 64 };
 const history: HistoryItem[] = [
   {
@@ -1526,6 +1565,263 @@ assert.equal(jointCaregiverHistory[0]!.ageInMonths ?? jointCaregiverHistory[0]!.
 assert.deepEqual(jointCaregiverHistory[0]!.financialPeriodSummary, jointCaregiverPeriodBefore, "rejected caregiver cost must not accrue the period");
 assert.deepEqual(jointCaregiverHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), jointCaregiverCashBefore, "rejected caregiver cost must not change cash");
 assert.deepEqual(jointCaregiverHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), jointCaregiverIncomeBefore, "rejected caregiver cost must not accrue or alter income sources");
+
+// v18 showed the inverse failure: a completed, individually arranged parent
+// rehabilitation service appeared in the final prose but the model omitted
+// its amount-free expense_responsibility delta. The semantic detector is
+// deliberately narrow, yet once it matches, the entire Preview must reject
+// before history, WorldState, time, income or cash can move.
+const missingCareDeltaHistory = structuredClone(expenseGateHistoryBefore);
+const missingCareDeltaHistoryBefore = structuredClone(missingCareDeltaHistory);
+const missingCareDeltaLedgerBefore = structuredClone(missingCareDeltaHistory[0]!.financialLedger);
+const missingCareDeltaWorldBefore = structuredClone(missingCareDeltaHistory[0]!.worldStateSnapshot);
+const missingCareDeltaPeriodBefore = structuredClone(missingCareDeltaHistory[0]!.financialPeriodSummary);
+const missingCareDeltaAgeBefore = missingCareDeltaHistory[0]!.ageInMonths ?? missingCareDeltaHistory[0]!.age * 12;
+const missingCareDeltaCashBefore = missingCareDeltaLedgerBefore?.cashAccounts.map((account) => [account.id, account.balanceWan]);
+const missingCareDeltaIncomeBefore = missingCareDeltaLedgerBefore?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]);
+const missingCareDeltaGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[]; regenerationCount?: number; requiredFactGroupCount: number; criticalFactGroupCount: number; unsatisfiedCriticalFactGroupCount: number }> = [];
+let missingCareDeltaAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: missingCareDeltaHistory,
+    currentAttributes: missingCareDeltaHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "expense-care-delta-zero-mutation"
+  }, {
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "enforced",
+    onFinancialGateDecision: (decision) => missingCareDeltaGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes,
+      regenerationCount: decision.regenerationCount,
+      requiredFactGroupCount: decision.requiredFactGroupCount,
+      criticalFactGroupCount: decision.criticalFactGroupCount,
+      unsatisfiedCriticalFactGroupCount: decision.unsatisfiedCriticalFactGroupCount
+    }),
+    callAiJson: async (prompt) => {
+      missingCareDeltaAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || missingCareDeltaAgeBefore + 12);
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          stage: "父亲康复安排",
+          title: "持续照护的责任确认",
+          description: "父亲膝盖的旧疾需要持续理疗。你为他在县城找了一位康复师，每周两次上门指导。母亲腰椎旧伤需要持续理疗。你为她请了一位理疗师，每周固定上门理疗。",
+          choices: [
+            { id: "A", text: "继续陪父亲完成康复安排", impactSummary: "照护延续" },
+            { id: "B", text: "协调更稳定的上门服务", impactSummary: "稳定支持" },
+            { id: "C", text: "重新安排工作与探望节奏", impactSummary: "平衡责任" }
+          ],
+          attributes: missingCareDeltaHistory[0]!.attributes,
+          financialEventProposals: [],
+          isEndingNode: false,
+          narrativeMeta: { worldDeltas: [] }
+        })
+      };
+    }
+  }),
+  /财务节点接受门拒绝候选/
+);
+assert.equal(missingCareDeltaAiCalls, 3, "the missing structured care fact must use only bounded full-node regeneration");
+// The ordinary financial gate remains in shadow mode for this focused
+// regression, so each attempt records a dry-run shadow decision before the
+// final expense-authority gate emits its enforced rejection. Only the latter
+// may decide whether the Preview commits.
+const missingCareDeltaEnforcedDecisions = missingCareDeltaGateDecisions.filter((item) => item.mode === "enforced");
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(missingCareDeltaEnforcedDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(missingCareDeltaEnforcedDecisions.every((item) => item.reasonCodes.includes("EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING")));
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.requiredFactGroupCount), [2, 2, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.criticalFactGroupCount), [2, 2, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.unsatisfiedCriticalFactGroupCount), [2, 2, 2]);
+assert.deepEqual(missingCareDeltaHistory, missingCareDeltaHistoryBefore, "missing care delta must not write History");
+assert.deepEqual(missingCareDeltaHistory[0]!.financialLedger, missingCareDeltaLedgerBefore, "missing care delta must not write the ledger");
+assert.deepEqual(missingCareDeltaHistory[0]!.worldStateSnapshot, missingCareDeltaWorldBefore, "missing care delta must not write WorldState");
+assert.equal(missingCareDeltaHistory[0]!.ageInMonths ?? missingCareDeltaHistory[0]!.age * 12, missingCareDeltaAgeBefore, "missing care delta must not advance time");
+assert.deepEqual(missingCareDeltaHistory[0]!.financialPeriodSummary, missingCareDeltaPeriodBefore, "missing care delta must not accrue the period");
+assert.deepEqual(missingCareDeltaHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), missingCareDeltaCashBefore, "missing care delta must not change cash");
+assert.deepEqual(missingCareDeltaHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), missingCareDeltaIncomeBefore, "missing care delta must not alter income sources");
+
+// The same authority boundary applies to a natural ending. A terminal
+// rejection reruns the whole candidate, so the ending prompt itself must
+// carry the reason and the retry must commit only its final, grounded result.
+const endingCareRetryHistory = structuredClone(expenseGateHistoryBefore);
+const endingCareRetryPrevious = endingCareRetryHistory[0]!;
+const endingCareRetryStartAgeInMonths = 109 * 12 + 11;
+endingCareRetryPrevious.age = 109;
+endingCareRetryPrevious.ageInMonths = endingCareRetryStartAgeInMonths;
+endingCareRetryPrevious.stage = "晚年日常";
+endingCareRetryPrevious.title = "家庭的安稳节奏";
+endingCareRetryPrevious.selectedChoice = "继续安排晚年的家庭日常";
+endingCareRetryPrevious.selectedChoiceId = "ending_parent_care";
+endingCareRetryPrevious.selectedEventOutcomeId = "ending_parent_care";
+endingCareRetryPrevious.choices = [{
+  id: "ending_parent_care",
+  text: "继续安排晚年的家庭日常",
+  impactSummary: "维持照护",
+  eventOutcomeId: "ending_parent_care"
+}];
+endingCareRetryPrevious.financialState = {
+  ...endingCareRetryPrevious.financialState!,
+  asOfAgeInMonths: endingCareRetryStartAgeInMonths
+};
+endingCareRetryPrevious.financialLedger = {
+  ...endingCareRetryPrevious.financialLedger!,
+  asOfAgeInMonths: endingCareRetryStartAgeInMonths,
+  incomeSources: endingCareRetryPrevious.financialLedger!.incomeSources.map((source) => ({
+    ...source,
+    lastConfirmedAtAgeInMonths: endingCareRetryStartAgeInMonths
+  })),
+  expenseCommitments: endingCareRetryPrevious.financialLedger!.expenseCommitments.map((commitment) => ({
+    ...commitment,
+    lastConfirmedAtAgeInMonths: endingCareRetryStartAgeInMonths,
+    nextReviewAtAgeInMonths: endingCareRetryStartAgeInMonths + 12
+  }))
+};
+endingCareRetryPrevious.worldStateSnapshot = {
+  ...endingCareRetryPrevious.worldStateSnapshot!,
+  people: [
+    ...(endingCareRetryPrevious.worldStateSnapshot?.people || []),
+    {
+      id: "ending_retry_father",
+      identityKey: { namespace: "user_role", key: "parent:father" },
+      displayName: "父亲",
+      relation: "parent",
+      lifeStatus: "active",
+      source: "accepted_history",
+      confidence: 1
+    }
+  ]
+};
+const endingCareRetryCommittedIdsBefore = [...endingCareRetryPrevious.financialLedger.committedTransactionIds];
+const endingCareRetryTransactionIdsBefore = new Set(
+  endingCareRetryPrevious.financialLedger.recentTransactions.map((transaction) => transaction.simulationTransactionId)
+);
+const endingCareRetryEndingPrompts: string[] = [];
+const endingCareRetryGateDecisions: Array<{ disposition: string; reasonCodes: string[]; regenerationCount?: number }> = [];
+let endingCareRetryCandidateCalls = 0;
+let endingCareRetryEndingCalls = 0;
+const endingCareRetryNode = await generateNextNode({
+  userData,
+  answers,
+  history: endingCareRetryHistory,
+  currentAttributes: endingCareRetryPrevious.attributes,
+  selectedDecision: "继续安排晚年的家庭日常",
+  nodeIndex: 110,
+  simulationSeed: "ending-care-retry-grounded-delta"
+}, {
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "enforced",
+  onFinancialGateDecision: (decision) => endingCareRetryGateDecisions.push({
+    disposition: decision.disposition,
+    reasonCodes: decision.reasonCodes,
+    regenerationCount: decision.regenerationCount
+  }),
+  callAiJson: async (prompt) => {
+    if (prompt.includes("你正在为一段写实人生生成自然终章")) {
+      endingCareRetryEndingCalls += 1;
+      endingCareRetryEndingPrompts.push(prompt);
+      const withRequiredDelta = endingCareRetryEndingCalls > 1;
+      const careEvidence = "父亲膝盖的旧疾需要持续理疗。你为他在县城找了一位康复师，每周两次上门指导。";
+      return {
+        text: JSON.stringify({
+          age: 110,
+          ageInMonths: 110 * 12,
+          stage: "人生终章",
+          title: "照护与回望",
+          descriptionParagraphs: [
+            `${careEvidence}你把探望和自己的生活重新排进同一张日历。`,
+            "多年以后，你不再急着证明什么，只把能承担的责任一点点做好，也把温柔留给身边的人。"
+          ],
+          attributes: endingCareRetryPrevious.attributes,
+          choices: [{ id: "ENDING", text: "安详落幕，查看一生洞察", impactSummary: "一生回望" }],
+          isEndingNode: true,
+          narrativeMeta: {
+            worldDeltas: withRequiredDelta ? [{
+              type: "expense_responsibility",
+              summary: "持续父亲照护",
+              responsibility: {
+                responsibilityKind: "elder_care",
+                beneficiary: "father",
+                owner: "protagonist",
+                cadence: "recurring_unknown",
+                sourceOutcomeId: "ending_parent_care",
+                evidence: careEvidence,
+                confidence: 0.9
+              }
+            }] : []
+          }
+        })
+      };
+    }
+    endingCareRetryCandidateCalls += 1;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 110 * 12);
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "晚年日常",
+        title: "家庭日常仍在继续",
+        description: "你继续安排晚年的家庭日常，也在每周的探望中保持与家人的联系。",
+        choices: [
+          { id: "A", text: "维持现有生活节奏", impactSummary: "安稳维系" },
+          { id: "B", text: "多留出时间陪伴家人", impactSummary: "增加陪伴" },
+          { id: "C", text: "整理重要的人生资料", impactSummary: "沉淀回望" }
+        ],
+        attributes: endingCareRetryPrevious.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(endingCareRetryCandidateCalls, 2, "a rejected ending must regenerate the full candidate exactly once");
+assert.equal(endingCareRetryEndingCalls, 2, "the first ending omits the delta and the second supplies it");
+assert.doesNotMatch(endingCareRetryEndingPrompts[0]!, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
+assert.match(endingCareRetryEndingPrompts[1]!, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
+assert.match(endingCareRetryEndingPrompts[1]!, /evidence 必须逐字包含病情句与服务句/);
+assert.match(endingCareRetryEndingPrompts[1]!, /本轮唯一已接受的 outcome id：【ending_parent_care】/);
+assert.match(endingCareRetryEndingPrompts[1]!, /sourceOutcomeId 必须逐字等于 "ending_parent_care"/);
+assert.equal(endingCareRetryNode.isEndingNode, true);
+assert.equal(
+  endingCareRetryNode.narrativeMeta?.worldDeltas.some((delta) => (
+    delta.type === "expense_responsibility"
+    && delta.responsibility.responsibilityKind === "elder_care"
+    && delta.responsibility.beneficiary === "father"
+    && delta.responsibility.sourceOutcomeId === "ending_parent_care"
+  )),
+  true,
+  "the valid retry delta must survive the terminal authority path"
+);
+assert.equal(
+  endingCareRetryNode.financialLedger!.committedTransactionIds.length,
+  endingCareRetryCommittedIdsBefore.length + 1,
+  "only the final terminal candidate may commit a ledger transaction"
+);
+assert.equal(
+  endingCareRetryNode.financialLedger!.recentTransactions.filter((transaction) => (
+    !endingCareRetryTransactionIdsBefore.has(transaction.simulationTransactionId)
+  )).length,
+  1,
+  "the rejected terminal preview must leave no duplicate transaction"
+);
+const endingCareRetryMissingDeltaDecisions = endingCareRetryGateDecisions.filter((decision) => (
+  decision.reasonCodes.includes("EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING")
+));
+assert.deepEqual(endingCareRetryMissingDeltaDecisions, [{
+  disposition: "regenerate",
+  reasonCodes: ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"],
+  regenerationCount: 0
+}]);
 
 // A completed, quantified first-person medical payment is a current-period
 // cash outlay, not a recurring care commitment.  If the model narrates the

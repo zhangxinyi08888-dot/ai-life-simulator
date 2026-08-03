@@ -122,6 +122,34 @@ test("keeps a protagonist tax-after personal income out of violations when the s
   }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
 });
 
+test("keeps time-prefixed continuing employment compensation out of company revenue violations", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    annualNetAmountWan: 32,
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "34岁8个月时，你仍在原公司工作，年税后收入稳定在32万元，但项目基金带来的行政负担让你时常感到疲惫。"
+    }]
+  }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
+test("keeps the annual-amount guard when a time-prefixed salary shares a sentence with project funding", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    annualNetAmountWan: 10,
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "34岁8个月时，你仍在原公司工作，年税后收入稳定在32万元，但项目基金带来的行政负担让你时常感到疲惫。"
+    }]
+  }] }), { incomeSourceIds: ["legacy_recurring_income"], expenseCommitmentIds: [] });
+});
+
 test("does not exempt legacy recurring income when its amount matches studio revenue instead of stated personal compensation", () => {
   assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
     id: "legacy_recurring_income",

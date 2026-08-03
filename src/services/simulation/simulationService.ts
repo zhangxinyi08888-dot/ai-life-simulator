@@ -30,6 +30,7 @@ import { commitSimulationTransaction, emptyWorldState } from "../../utils/simula
 import { acceptedResidenceOccupancyState } from "../../utils/residenceOccupancyState";
 import {
   explicitFactsFromAcceptedExpenseResponsibilityDeltas,
+  missingDetectedCompletedParentCareResponsibilities,
   missingAcceptedExpenseResponsibilityDeltas
 } from "../../utils/expenseResponsibilityOutcome";
 import { buildBranchFingerprint, calculateTimelineAdvance, constrainTemporalProfileForDebtDistress, deriveTemporalProfile } from "../../utils/timelineAdvance";
@@ -231,6 +232,7 @@ class FinancialNodeGateError extends AiClientError {
 function requireFinalExpenseResponsibilityEvidence(input: {
   initialOutcome: AcceptedNodeOutcome;
   finalOutcome: AcceptedNodeOutcome;
+  narrativeText: string;
   expenseLifecycleMode: ExpenseLifecycleMode;
   transactionId: string;
   regenerationCount: number;
@@ -238,24 +240,61 @@ function requireFinalExpenseResponsibilityEvidence(input: {
   onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
 }): void {
   if (input.expenseLifecycleMode !== "enforced") return;
-  const missing = missingAcceptedExpenseResponsibilityDeltas({
+  const missingAccepted = missingAcceptedExpenseResponsibilityDeltas({
     acceptedWorldDeltas: input.initialOutcome.worldDeltas,
     finalWorldDeltas: input.finalOutcome.worldDeltas
   });
-  if (missing.length === 0) return;
+  // The first branch protects an already-Accepted delta from disappearing
+  // during later narrative repair. The second is the inverse: a narrow,
+  // high-confidence completed care fact in the final prose must not be
+  // silently committed without its corresponding structured responsibility.
+  // Both branches are pure Preview checks; throwing here leaves all authority
+  // state unchanged and routes the whole node through bounded regeneration.
+  const missingNarrative = missingDetectedCompletedParentCareResponsibilities({
+    narrativeText: input.narrativeText,
+    finalWorldDeltas: input.finalOutcome.worldDeltas
+  });
+  if (missingAccepted.length === 0 && missingNarrative.length === 0) return;
+  // A final-prose detector and the earlier accepted delta can observe the
+  // same responsibility through two different paths. Count each underlying
+  // responsibility once, while retaining distinct father/mother (or health)
+  // requirements as separate critical fact groups for audit telemetry.
+  const requiredFactGroupCount = new Set([
+    ...missingAccepted.map((delta) => {
+      const responsibility = delta.responsibility;
+      return [
+        responsibility.responsibilityKind,
+        responsibility.beneficiary,
+        responsibility.owner,
+        responsibility.cadence,
+        responsibility.evidence.replace(/\s+/gu, "")
+      ].join("\u001f");
+    }),
+    ...missingNarrative.map((responsibility) => [
+      responsibility.responsibilityKind,
+      responsibility.beneficiary,
+      responsibility.owner,
+      responsibility.cadence,
+      responsibility.evidence.replace(/\s+/gu, "")
+    ].join("\u001f"))
+  ]).size;
+  const reasonCodes = [
+    ...(missingAccepted.length > 0 ? ["EXPENSE_RESPONSIBILITY_FINAL_EVIDENCE_MISSING"] : []),
+    ...(missingNarrative.length > 0 ? ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"] : [])
+  ];
   const decision: FinancialNodeAcceptanceDecision = {
     mode: "enforced",
     disposition: "regenerate",
     allowDomainCommit: false,
     wouldBlock: true,
-    reasonCodes: ["EXPENSE_RESPONSIBILITY_FINAL_EVIDENCE_MISSING"],
+    reasonCodes,
     relatedIssueIds: [],
     relatedProposalIds: [],
-    requiredFactGroupCount: 1,
+    requiredFactGroupCount,
     satisfiedFactGroupCount: 0,
-    criticalFactGroupCount: 1,
+    criticalFactGroupCount: requiredFactGroupCount,
     satisfiedCriticalFactGroupCount: 0,
-    unsatisfiedCriticalFactGroupCount: 1,
+    unsatisfiedCriticalFactGroupCount: requiredFactGroupCount,
     activeCareerIncomeCount: 0,
     previewAgeAligned: true,
     transactionId: input.transactionId,
@@ -3857,7 +3896,16 @@ async function generateNextNodeAttempt(
     policy: DEFAULT_ENDING_POLICY
   });
   if (endingDecision.shouldEnd || shouldForceBrowserE2eEnding(latestRawNode)) {
-    const endingPrompt = buildEndingNodePrompt({ userData: input.userData, history: input.history, candidateNode: node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, forcedByHardMaximum: endingDecision.forcedByHardMaximum });
+    const endingPrompt = buildEndingNodePrompt({
+      userData: input.userData,
+      history: input.history,
+      candidateNode: node,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      forcedByHardMaximum: endingDecision.forcedByHardMaximum,
+      selectedOutcomeId,
+      currentFinancialLedger,
+      financialGateRetryReasonCodes: deps.financialGateRetryReasonCodes
+    });
     const response = await callAiJson(endingPrompt);
     const rawEnding = await ensureGeneratedChoiceTexts(parseAiJsonResponse(response), callAiJson);
     const normalizedEnding = normalizeSimulationNode(rawEnding, {
@@ -3924,6 +3972,7 @@ async function generateNextNodeAttempt(
     requireFinalExpenseResponsibilityEvidence({
       initialOutcome: endingOutcome,
       finalOutcome: finalEndingOutcome,
+      narrativeText: endingNode.description,
       expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
       transactionId: endingTransactionId,
       regenerationCount: deps.financialGateRegenerationCount ?? 0,
@@ -4367,6 +4416,7 @@ async function generateNextNodeAttempt(
   requireFinalExpenseResponsibilityEvidence({
     initialOutcome: financialCandidateOutcome,
     finalOutcome: acceptedOutcome,
+    narrativeText: node.description,
     expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
     transactionId,
     regenerationCount: deps.financialGateRegenerationCount ?? 0,

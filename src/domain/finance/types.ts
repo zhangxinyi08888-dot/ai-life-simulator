@@ -773,6 +773,20 @@ export interface FinancialTransaction {
   debtInterestForgivenWan?: number;
   debtCapitalizedInterestWan?: number;
   evidence: FinancialEvidence[];
+  /**
+   * Evidence is otherwise aggregated at transaction level. Keep the accepted
+   * event boundary so production audits can distinguish a personal cash
+   * receipt from another, non-personal fact committed in the same period.
+   * Optional only for backwards-compatible historical snapshots; all new
+   * reducer transactions populate it.
+   */
+  acceptedEventAudit?: FinancialTransactionEventAudit[];
+}
+
+export interface FinancialTransactionEventAudit {
+  eventId: string;
+  kind: FinancialEventKind;
+  evidence: FinancialEvidence[];
 }
 
 export interface FinancialPeriodSummary {

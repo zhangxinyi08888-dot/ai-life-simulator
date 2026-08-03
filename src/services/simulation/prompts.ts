@@ -259,6 +259,27 @@ interface NextNodePromptInput {
   financialGateRetryReasonCodes?: string[];
 }
 
+/**
+ * A financial gate rejection regenerates the whole candidate, including a
+ * terminal candidate. Keep the repair contract in one place so an ending
+ * cannot lose the directed instruction that a normal node receives.
+ */
+function buildFinancialGateRetryPrompt(input: {
+  currentFinancialLedger?: FinancialLedger;
+  reasonCodes?: string[];
+}): string {
+  const reasonCodes = input.reasonCodes || [];
+  if (reasonCodes.length === 0) return "";
+  return `【财务接受门重生修正】
+- 上一个完整候选被拒绝，原因：${reasonCodes.join("、")}。
+- 必须重新生成整个节点，不能重复上一个财务 Proposal 错误。
+- 若当前 CareerState 仍为 employed，且正文没有已经完成的离职、退休、停薪或换岗事实：不得返回 income_source_ended、income_source_paused，也不得把现有职业收入迁移到其他 CareerState。
+- 若正文明确写出主角新的个人工资、薪资或固定个人收入：必须返回与当前或本节点已提交 CareerState 关联的合法 income_source_started / income_source_adjusted。
+- 职业变化必须同时包含 employmentTransition 和旧工资关闭/新工资开启；否则保留当前权威职业与收入，不要凭空改写。
+- 若拒绝原因包含 EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING，且正文已完成“父/母健康受限 + 你为其找/请康复师或理疗师 + 每周/固定上门”的持续照护安排：必须在 narrativeMeta.worldDeltas 返回一条 amount-free expense_responsibility（responsibilityKind="elder_care"、beneficiary="father"|"mother"|"parents"、owner="protagonist"、cadence="recurring_unknown"、sourceOutcomeId=本轮已选 outcome、evidence=逐字原句、confidence=0.8-1）。病情和服务若跨句，evidence 必须逐字包含病情句与服务句，不能只引用服务句。未知金额由系统建立 needs_review，绝不可编造金额；一次陪诊、高龄、父母自行支付、公司场地或计划不得返回该 delta。
+${formatEmployedIncomeGateRetryRule(input.currentFinancialLedger, reasonCodes)}`;
+}
+
 export function buildNextNodePrompt(input: NextNodePromptInput): string {
   const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, currentDebtHealthState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc, pressureArcInterleaved } = input;
   const lastNode = history[history.length - 1];
@@ -310,15 +331,10 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
 - pressureArcId 必须为 ${foregroundPressureArc.id}。
 - 这里只表示阶段压力解决，不表示 DirectionArc 或长期人生方向完成。`
     : "";
-  const financialGateRetryPrompt = input.financialGateRetryReasonCodes?.length
-    ? `【财务接受门重生修正】
-- 上一个完整候选被拒绝，原因：${input.financialGateRetryReasonCodes.join("、")}。
-- 必须重新生成整个节点，不能重复上一个财务 Proposal 错误。
-- 若当前 CareerState 仍为 employed，且正文没有已经完成的离职、退休、停薪或换岗事实：不得返回 income_source_ended、income_source_paused，也不得把现有职业收入迁移到其他 CareerState。
-- 若正文明确写出主角新的个人工资、薪资或固定个人收入：必须返回与当前或本节点已提交 CareerState 关联的合法 income_source_started / income_source_adjusted。
-- 职业变化必须同时包含 employmentTransition 和旧工资关闭/新工资开启；否则保留当前权威职业与收入，不要凭空改写。
-${formatEmployedIncomeGateRetryRule(currentFinancialLedger, input.financialGateRetryReasonCodes)}`
-    : "";
+  const financialGateRetryPrompt = buildFinancialGateRetryPrompt({
+    currentFinancialLedger,
+    reasonCodes: input.financialGateRetryReasonCodes
+  });
   const healthPhaseRule = !pressureArcInterleaved && foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
     ? foregroundPressureArc.phaseId === "trigger"
       ? `
@@ -454,6 +470,7 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - evidence 必须摘自 description 中已经发生的事实句；系统会做标点、空白和金额锚定匹配。confidence 在 0.8-1 时按明确事实提交，0.6-0.8 时按 estimated 提交；低于 0.6、候选选项、计划和意向不能提交。
 - 持续收入或支出分别使用 income_source_started/adjusted/paused/ended 与 expense_commitment_started/adjusted/ended；一次性收支使用 one_off_income_received/one_off_expense_paid。
 - 这是主人公个人账本：公司营收、SaaS 年费、客户回款，以及公益中心/基金会/协会收到的资助、拨款、赞助和项目款，一律不得写入个人 incomeSources；团队或机构的员工工资、会计薪酬、仓库/场地租金、服务器和运营成本一律不得写入个人 expenseCommitments。主人公实际领取的税后工资、自雇提款、个人顾问费或已经分配到账的分红才可作为个人收入。
+- 主角申请或收到的项目基金、公益资助或拨款，只要正文明确专款用于学校、教师、硬件、受助人或项目运营，即使款项暂时打到主角名下，也不得用 income_source_* 或 one_off_income_received 写入个人现金；不要为它伪造机构/业务账户。只有明确归主角个人且可自由支配的创作奖、奖金或报酬才可作为个人收入。
 - description 若明确写出主人公已经生效的月薪或年薪，必须提交与该金额匹配的职业收入 started/adjusted；即使同一段还写了机构资助、公司营收或团队成本，也不能用这些组织金额代替主人公薪酬。
 - 伴侣、父母、子女、同事和其他人物的工资、顾问费、分红或经营收入不属于主人公个人账本；不得为其创建 incomeSources，也不得把其绑定到主人公 CareerState。只有正文明确写出该人物把钱转给主人公时，才可使用 family_support_received 记录实际到账金额。
 - basic_living 或 housing 基线已经存在时，只有正文写出本阶段已经发生、且有可引用证据的金额、承担范围或状态变化，才可引用账本 ID 使用 expense_commitment_adjusted；否则返回空 Proposal，不能只因账本显示 needs_review、review_due 或门禁重生而凭空“确认”或调整。不得再 started 一个“基本生活与房贷”等混合义务造成重复计提。照护、医疗和保险可以按不同责任分别建账。房贷本金与利息由 debt repayment policy 结算，不能再次混入 basic_living。
@@ -727,6 +744,7 @@ ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) =>
 - 正文明确发生退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新顾问收入（如有）一起返回；三者将作为一个原子组，要么全部提交，要么全部不提交。
 - employmentTransition 必须完整返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、occupation（如有）、evidence、confidence；证据与置信度规则和财务 Proposal 相同。
 - 每项都必须完整返回 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence、financialScope；不得省略 confidence。公司营业收入、员工工资和运营成本使用 business_operating，个人工资、业主提款和已到账分红使用 personal；business_operating 事实不得伪装成个人收支 Proposal。
+- 项目基金、公益资助或拨款若有学校、教师、硬件、受助人或项目运营等专款用途，即使正文写“你收到”或“到账”，也必须移除对应个人收入 Proposal；不要伪造机构账户。明确归主角个人且可自由支配的创作奖、奖金或报酬可以保留。
 - debt_drawn 的 payload 必须是 { "debtAccount": 完整债务账户, "destinationCashAccountId": "账本中的现金账户 id", "principalDrawnWan": 本次到账本金 }。不得返回把 id、type、principalAmountWan、annualInterestRate、termMonths 平铺在 payload 的旧格式；debtAccount.principalWan 必须等于 principalDrawnWan。
 - debt_drawn.evidence 必须逐字引用正文中明确写有“已放款”或“贷款已到账”的完整句子；“申请贷款后”、月供推算或选择文本不能作为放款证据。
 - asset_purchased 的 payload 必须包含 sourceCashAccountId、完整 assetAccount、正数 cashPaidWan、transactionFeeWan，以及同轮借款资助时的 linkedDebtDrawEventId。贷款资金进入现金账户后再支付也属于现金支付，cashPaidWan 必须填写实际支付总额，不能写 0。
@@ -781,7 +799,14 @@ export function buildEndingNodePrompt(input: {
   candidateNode: SimulationNode;
   targetAgeInMonths: number;
   forcedByHardMaximum: boolean;
+  selectedOutcomeId?: string;
+  currentFinancialLedger?: FinancialLedger;
+  financialGateRetryReasonCodes?: string[];
 }): string {
+  const financialGateRetryPrompt = buildFinancialGateRetryPrompt({
+    currentFinancialLedger: input.currentFinancialLedger || input.candidateNode.financialLedger,
+    reasonCodes: input.financialGateRetryReasonCodes
+  });
   return `你正在为一段写实人生生成自然终章。终章由代码判定，不需要解释概率，也不要描写猎奇或羞辱性的死亡过程。
 
 【目标时间】
@@ -799,14 +824,19 @@ ${input.candidateNode.description}
 【本轮财务结果】
 ${input.candidateNode.financialState ? formatFinancialStateForPrompt(input.candidateNode.financialState) : "暂无结构化财务快照"}
 
+${input.selectedOutcomeId ? `【本轮已接受 outcome id】
+- 本轮唯一已接受的 outcome id：【${input.selectedOutcomeId}】。若返回 narrativeMeta.worldDeltas 或 financialEventProposals，其 sourceOutcomeId 必须逐字等于 "${input.selectedOutcomeId}"。` : ""}
+
 要求：
 - 通过 descriptionParagraphs 返回 2-4 个完整自然段，总计 150-250 字自然收束，结合最近选择、关系、事业、健康和长期方向。
 - 不要把年龄本身写成失败，不要使用突然灾难或具体猎奇死因。
 - title、stage、descriptionParagraphs 要面向完整人生收束。
+${financialGateRetryPrompt}
 ${FINANCIAL_NARRATIVE_RULE}
 - attributes 必须与候选后果一致。
 - isEndingNode=true。
 - choices 只返回 [{"id":"ENDING","text":"安详落幕，查看一生洞察","impactSummary":"一生回望"}]。
+- narrativeMeta 必须返回 worldDeltas（没有已完成的权威状态变化时返回 []）；不得省略该字段。若有 expense_responsibility，其 sourceOutcomeId 必须使用上方唯一已接受的 outcome id。
 - 不返回 Arc phase 修改。
 - ${input.forcedByHardMaximum ? "这是系统绝对年龄上限的终章。" : "这是有界长寿概率触发的自然终章。"}
 

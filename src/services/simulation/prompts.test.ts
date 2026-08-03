@@ -4,6 +4,7 @@ import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitia
 import { initializeFinancialLedger, migrateFinancialLedgerV3ToV4 } from "../../domain/finance";
 import {
   buildChoiceTextRepairPrompt,
+  buildEndingNodePrompt,
   buildFinancialNarrativeRepairPrompt,
   buildFinancialProposalRepairPrompt,
   buildNextNodePrompt,
@@ -93,6 +94,33 @@ const financialGateRetryPrompt = buildNextNodePrompt({
   selectedDecision: "接一个短期高薪项目",
   eventSeed: healthWarningEvent,
   financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const responsibilityDeltaRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  selectedOutcomeId: "care_choice",
+  financialGateRetryReasonCodes: ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"]
+});
+const endingResponsibilityDeltaRetryPrompt = buildEndingNodePrompt({
+  userData,
+  history,
+  candidateNode: {
+    age: 110,
+    stage: "人生终章",
+    title: "最后的日常",
+    description: "你继续整理晚年的生活安排。",
+    attributes: currentAttributes,
+    choices: [{ id: "A", text: "安静回望", impactSummary: "人生回望" }],
+    isEndingNode: false
+  } as any,
+  targetAgeInMonths: 110 * 12,
+  forcedByHardMaximum: true,
+  selectedOutcomeId: "ending_parent_care",
+  financialGateRetryReasonCodes: ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"]
 });
 const staleLegacyIncomeLedger = initializeFinancialLedger({
   id: "stale_legacy_income_prompt",
@@ -318,6 +346,8 @@ assert.match(prompt, /不得返回债务净变化、资产净变化或最终余�
 assert.match(prompt, /debtAccount.*destinationCashAccountId.*principalDrawnWan/s);
 assert.match(prompt, /debtAccount\.principalWan 必须严格等于 principalDrawnWan/);
 assert.match(prompt, /公司融资只能用 business_financing_recorded/);
+assert.match(prompt, /项目基金、公益资助或拨款/);
+assert.match(prompt, /即使款项暂时打到主角名下，也不得用 income_source_\* 或 one_off_income_received 写入个人现金/);
 assert.match(prompt, /employmentStatus 不属于财务 Proposal/);
 assert.match(prompt, /location_change worldDelta 增加 residence/);
 assert.match(prompt, /工坊、工作室、办公室、仓库、门店、公司租金和团队场地不是主角住所/);
@@ -337,6 +367,19 @@ assert.match(prompt, /不得凭空提交就业状态转换/);
 assert.match(financialGateRetryPrompt, /财务接受门重生修正/);
 assert.match(financialGateRetryPrompt, /EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME/);
 assert.match(financialGateRetryPrompt, /不得返回 income_source_ended、income_source_paused/);
+assert.match(responsibilityDeltaRetryPrompt, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
+assert.match(responsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
+assert.match(responsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);
+assert.match(responsibilityDeltaRetryPrompt, /evidence 必须逐字包含病情句与服务句/);
+assert.match(responsibilityDeltaRetryPrompt, /未知金额由系统建立 needs_review/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /evidence 必须逐字包含病情句与服务句/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /未知金额由系统建立 needs_review/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /本轮唯一已接受的 outcome id：【ending_parent_care】/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /sourceOutcomeId 必须逐字等于 "ending_parent_care"/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /narrativeMeta 必须返回 worldDeltas/);
 assert.match(staleLegacyIncomePrompt, /仍在职的迁移估算收入需要本节点明确确认/);
 assert.match(staleLegacyIncomePrompt, /若金额与账本相同，也必须提交 income_source_adjusted/);
 assert.match(staleLegacyIncomeGateRetryPrompt, /当前职业收入必须在本次重生中确认/);
@@ -384,6 +427,7 @@ const debtRepairPrompt = buildFinancialProposalRepairPrompt({
 });
 assert.match(debtRepairPrompt, /debt_drawn 的 payload 必须是/);
 assert.match(debtRepairPrompt, /不得返回把 id、type、principalAmountWan/);
+assert.match(debtRepairPrompt, /即使正文写“你收到”或“到账”，也必须移除对应个人收入 Proposal/);
 
 const narrativeRepairPrompt = buildFinancialNarrativeRepairPrompt({
   narrativeText: "银行完成20万元贷款放款，你开始每月还贷。",

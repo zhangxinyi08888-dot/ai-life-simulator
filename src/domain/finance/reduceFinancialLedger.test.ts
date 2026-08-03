@@ -191,6 +191,141 @@ test("accepted income facts replace stale account evidence on start and adjustme
   assert.equal(result.ledger.incomeSources[0].lastConfirmedAtAgeInMonths, 240);
 });
 
+test("transaction audit retains each accepted event evidence instead of conflating same-period facts", () => {
+  const ledger = ledgerAt(240, 10);
+  const salaryEvidence: FinancialEvidence[] = [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "salary_outcome",
+    excerpt: "你继续在原公司工作，年税后收入稳定在32万元。",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    confidence: 1,
+    financialScope: "personal"
+  }];
+  const restrictedFundEvidence: FinancialEvidence[] = [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "project_outcome",
+    excerpt: "你申请到一笔10万元的项目基金，用于为5所村小提供硬件和教师津贴。",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    confidence: 1,
+    financialScope: "business_operating"
+  }];
+  ledger.businessHoldings.push({
+    id: "holding_project",
+    business: {
+      id: "project_entity",
+      displayName: "公益项目机构",
+      status: "operating",
+      factStatus: "known",
+      evidence: restrictedFundEvidence
+    },
+    ownershipRate: 1,
+    personalCarryingValueWan: 0,
+    status: "active",
+    factStatus: "known",
+    evidence: restrictedFundEvidence
+  });
+  const result = reduceFinancialLedger({
+    ledger,
+    transactionId: "tx_event_audit",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 240,
+    periodEndAgeInMonths: 241,
+    events: [
+      {
+        ...accepted("personal_salary", "one_off_income_received", 241, {
+          destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+          amountWan: 2
+        }),
+        evidence: salaryEvidence
+      },
+      {
+        ...accepted("restricted_project_fact", "business_financing_recorded", 241, {
+          businessHoldingId: "holding_project",
+          financingAmountWan: 1,
+          personalCashReceivedWan: 0
+        }),
+        evidence: restrictedFundEvidence
+      }
+    ]
+  });
+  assert.deepEqual(result.transaction.acceptedEventAudit, [
+    { eventId: "personal_salary", kind: "one_off_income_received", evidence: salaryEvidence },
+    { eventId: "restricted_project_fact", kind: "business_financing_recorded", evidence: restrictedFundEvidence }
+  ]);
+});
+
+test("rejects business-scoped restricted funding before a one-off personal cash credit", () => {
+  const ledger = ledgerAt(240, 10);
+  const restrictedFundEvidence: FinancialEvidence[] = [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "project_outcome",
+    excerpt: "你申请到一笔10万元的项目基金，用于为5所村小提供硬件和教师津贴。",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    confidence: 1,
+    financialScope: "business_operating"
+  }];
+  assert.throws(() => reduceFinancialLedger({
+    ledger,
+    transactionId: "tx_restricted_project_one_off",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 240,
+    periodEndAgeInMonths: 241,
+    events: [{
+      ...accepted("restricted_project_fact", "one_off_income_received", 241, {
+        destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+        amountWan: 1
+      }),
+      evidence: restrictedFundEvidence
+    }]
+  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "INVALID_LEDGER");
+  assert.equal(ledger.cashAccounts[0].balanceWan, 10);
+  assert.equal(ledger.revision, 0);
+});
+
+test("rejects business-scoped restricted funding before a holding-backed distribution can credit personal cash", () => {
+  const ledger = ledgerAt(240, 10);
+  const restrictedFundEvidence: FinancialEvidence[] = [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "project_outcome",
+    excerpt: "公司收到10万元公益项目款，仅限用于项目执行。",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    confidence: 1,
+    financialScope: "business_operating"
+  }];
+  ledger.businessHoldings.push({
+    id: "holding_project",
+    business: {
+      id: "project_entity",
+      displayName: "公益项目机构",
+      status: "operating",
+      factStatus: "known",
+      evidence: restrictedFundEvidence
+    },
+    ownershipRate: 1,
+    personalCarryingValueWan: 0,
+    status: "active",
+    factStatus: "known",
+    evidence: restrictedFundEvidence
+  });
+  assert.throws(() => reduceFinancialLedger({
+    ledger,
+    transactionId: "tx_restricted_project_distribution",
+    expectedLedgerRevision: 0,
+    periodStartAgeInMonths: 240,
+    periodEndAgeInMonths: 241,
+    events: [{
+      ...accepted("restricted_project_distribution", "business_distribution_received", 241, {
+        businessHoldingId: "holding_project",
+        destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
+        amountWan: 1
+      }),
+      evidence: restrictedFundEvidence
+    }]
+  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "INVALID_LEDGER");
+  assert.equal(ledger.cashAccounts[0].balanceWan, 10);
+  assert.equal(ledger.revision, 0);
+});
+
 test("cash purchase plus linked borrowing preserves principal transfer and charges only real loss", () => {
   const ledger = ledgerAt(240, 21);
   const result = reduceFinancialLedger({
