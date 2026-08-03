@@ -18,10 +18,12 @@ import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeServic
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
-import { isFinancialGateGenerationError, runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import { runWithInvalidAiResponseRetry } from "./utils/generationRetry";
 import { resolveDevTestStateImportText } from "./utils/testStateImport";
 import type { FinancialNodeAcceptanceDecision } from "./domain/finance";
 import { resolveFinancialNodeGateMode } from "./config/financialGatePolicy";
+import { createNodeGenerationBudget } from "./services/simulation/nodeGenerationBudget";
+import type { GenerationCallTrace } from "./services/simulation/generationTelemetry";
 
 type AppStep = "initial" | "questioning" | "simulating" | "insight";
 
@@ -39,6 +41,7 @@ interface DevRecordedAppState {
   outcome?: FinalLifeOutcome | null;
   generationEvents?: GenerationEvent[];
   financialGateEvents?: FinancialGateEvent[];
+  generationCallTraces?: GenerationCallTrace[];
 }
 
 interface GenerationEvent {
@@ -156,6 +159,7 @@ export default function App() {
   const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(devRecordedState?.outcome ?? null);
   const [generationEvents, setGenerationEvents] = useState<GenerationEvent[]>(devRecordedState?.generationEvents ?? []);
   const [financialGateEvents, setFinancialGateEvents] = useState<FinancialGateEvent[]>(devRecordedState?.financialGateEvents ?? []);
+  const [generationCallTraces, setGenerationCallTraces] = useState<GenerationCallTrace[]>(devRecordedState?.generationCallTraces ?? []);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingNext, setIsLoadingNext] = useState(false);
@@ -194,6 +198,7 @@ export default function App() {
       setOutcome(restored.outcome ?? null);
       setGenerationEvents(restored.generationEvents ?? []);
       setFinancialGateEvents(restored.financialGateEvents ?? []);
+      setGenerationCallTraces(restored.generationCallTraces ?? []);
       setIsLoading(false);
       setIsLoadingNext(false);
       setNextNarrativePreview(null);
@@ -231,6 +236,7 @@ export default function App() {
       outcome,
       generationEvents,
       financialGateEvents,
+      generationCallTraces,
       isLoading,
       isLoadingNext,
       nextNarrativePreview,
@@ -255,7 +261,7 @@ export default function App() {
         // The filesystem record remains the source of truth if browser storage is unavailable.
       }
     }
-  }, [answers, attributes, currentNode, errorMsg, financialGateEvents, generationEvents, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
+  }, [answers, attributes, currentNode, errorMsg, financialGateEvents, generationCallTraces, generationEvents, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
 
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
@@ -430,6 +436,10 @@ export default function App() {
     setHistory(updatedHistory);
     const abortController = new AbortController();
     nextGenerationAbortRef.current = abortController;
+    // One budget spans the service's structural retry and this outer recovery.
+    // This prevents 2x3 nested full generations while retaining one bounded
+    // regeneration for invalid JSON or a failed candidate Patch.
+    const generationBudget = createNodeGenerationBudget();
 
     try {
       const body = await runWithInvalidAiResponseRetry(async (attempt) => {
@@ -450,6 +460,11 @@ export default function App() {
           },
           {
             onGenerationStage: setNextGenerationStage,
+            generationBudget,
+            onGenerationCallTrace: (trace) => {
+              setGenerationCallTraces((traces) => [...traces, trace]);
+            },
+            enableCandidatePatchRepair: import.meta.env.VITE_ENABLE_CANDIDATE_PATCH_REPAIR === "true",
             onNarrativeProgress: (preview) => {
               const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
               nextNarrativePreviewRef.current = merged;
@@ -469,15 +484,7 @@ export default function App() {
             }
           }
         );
-      }, {
-        // The service already records each rejected Preview and performs its
-        // bounded candidate regeneration. Keep one additional UI-level
-        // attempt internal: until a node commits, a financial gate rejection
-        // is recovery work, not a user-visible pause.
-        maxAttempts: 2,
-        maxFinancialGateAttempts: 3,
-        isFinancialGateError: isFinancialGateGenerationError
-      });
+      }, 1);
 
       setNextGenerationStage("revealing");
       const revealFrames = buildNarrativeRevealFrames(body.title, body.description);

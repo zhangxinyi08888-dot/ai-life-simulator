@@ -4,6 +4,7 @@ import type { FinancialLedger } from "../../domain/finance";
 import type { HistoryItem, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
 import { validateStoryConsistency } from "../../utils/storyConsistency";
 import { repairRelationshipAuthorityFinalSurface } from "./simulationService";
+import type { GenerationCallTrace } from "./generationTelemetry";
 import { generateNextNodeWithEventOutcomes } from "./testEventOutcomeAdapter";
 
 const worldState: WorldStateSnapshot = {
@@ -189,6 +190,7 @@ function repeatedlyInvalidRelationshipCandidate() {
 
 test("repeated generic relationship authority violations render an auditable fallback instead of pausing", async () => {
   const prompts: string[] = [];
+  const traces: GenerationCallTrace[] = [];
   const generated = await generateNextNodeWithEventOutcomes({
     userData: generationUserData,
     answers: [],
@@ -202,6 +204,8 @@ test("repeated generic relationship authority violations render an auditable fal
   }, {
     financialNodeGateMode: "shadow",
     expenseLifecycleMode: "shadow",
+    enableCandidatePatchRepair: true,
+    onGenerationCallTrace: (trace) => traces.push(trace),
     callAiJson: async (prompt) => {
       prompts.push(prompt);
       return { text: JSON.stringify(repeatedlyInvalidRelationshipCandidate()) };
@@ -209,6 +213,14 @@ test("repeated generic relationship authority violations render an auditable fal
   });
 
   assert.ok(prompts.some((prompt) => prompt.includes("【关系权威最终修复】")));
+  assert.ok(
+    traces.some((trace) => (
+      trace.kind === "candidate_patch"
+      && trace.outcome === "failed"
+      && trace.errorCode === "AI_RESPONSE_INVALID"
+    )),
+    "a complete node returned to the strict patch endpoint must be rejected before deterministic fallback"
+  );
   assert.equal(generated.eventMeta?.fallbackReason, "relationship_authority_deterministic_fallback");
   assert.equal(generated.financialProcessingMeta?.narrativeFallback, true);
   assert.ok(generated.financialProcessingMeta?.narrativeFallbackReasonCodes?.includes("RELATIONSHIP_AUTHORITY_DETERMINISTIC_FALLBACK"));

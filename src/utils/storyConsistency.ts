@@ -111,6 +111,30 @@ export function stripUnauthorizedRomanticCharacters(
   };
 }
 
+export function stripUnauthorizedRelationshipChoices(
+  node: SimulationNode,
+  worldState?: WorldStateSnapshot
+): SimulationNode {
+  const activeRomanticRelationship = worldState?.relationships?.find((relationship) => (
+    relationship.type === "romantic" && ["active", "strained"].includes(relationship.status)
+  ));
+  const stage = activeRomanticRelationship?.stage;
+  const choices = node.choices.filter((choice) => {
+    const unauthorizedIntent = node.eventMeta?.routeLine !== "romance"
+      && /^romance:(?:end|breakup|separate|commit|cohabit|marry|begin|start|proceed|advance|confirm)(?::|$)/i.test(choice.decisionIntent || "");
+    if (unauthorizedIntent) return false;
+    if (!stage || stage === "acquaintance" || stage === "exploring") {
+      return !choiceExecutesDatingTransition(choice.text)
+        && !choiceExecutesFormalRelationshipTransition(choice.text)
+        && !ROMANTIC_EXECUTING_CHOICE_TEXT.test(choice.text);
+    }
+    if (stage === "dating") return !choiceExecutesFormalRelationshipTransition(choice.text);
+    if (stage === "cohabiting") return !choiceExecutesFormalRelationshipTransition(choice.text);
+    return true;
+  });
+  return choices.length >= 2 && choices.length !== node.choices.length ? { ...node, choices } : node;
+}
+
 export function validateStoryConsistency(input: {
   node: SimulationNode;
   targetAgeInMonths: number;

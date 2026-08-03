@@ -187,6 +187,31 @@ function chooseId(state, strategy, offset = 0) {
   })?.id || choices[offset % choices.length].id;
 }
 
+async function locateChoiceButton(tab, choice) {
+  // Prefer the live decision area. Historical chapters can render an archived
+  // button with the same id/text, which must never be selected on retry.
+  const current = tab.playwright.locator(buildCurrentChoiceSelector(choice.id));
+  const currentCount = await current.count();
+  if (currentCount === 1) return current;
+  if (currentCount > 1) {
+    throw new Error(`Expected one current choice ${choice.id}, got ${currentCount}`);
+  }
+  const byId = tab.playwright.locator(`[id=${JSON.stringify(`choice-btn-${choice.id}`)}]`);
+  const idCount = await byId.count();
+  if (idCount === 1) return byId;
+  if (idCount > 1) {
+    const byText = byId.filter({ hasText: choice.text });
+    const textCount = await byText.count();
+    if (textCount === 1) return byText;
+    throw new Error(`Expected one choice ${choice.id}/${choice.text}, got ${idCount} ids and ${textCount} text matches`);
+  }
+  return waitForUniqueLocator({
+    locator: byId,
+    label: `choice ${choice.id}`,
+    wait: () => tab.playwright.waitForTimeout(50)
+  });
+}
+
 function nodeCommitSignature(node) {
   if (!node) return "";
   return JSON.stringify({
@@ -459,10 +484,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const choiceId = chooseId(before, strategy, offset);
     if (!choiceId) throw new Error(`No choice available at ${before.currentNode?.title}`);
     const choice = before.currentNode.choices.find((item) => item.id === choiceId);
-    const locator = await unique(
-      tab.playwright.locator(buildCurrentChoiceSelector(choiceId)),
-      `choice ${choiceId}`
-    );
+    const locator = await locateChoiceButton(tab, choice);
     const beforeHistoryLength = before.history.length;
     const beforeNodeSignature = nodeCommitSignature(before.currentNode);
     await locator.click();
@@ -498,7 +520,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const choiceId = chooseId(before, strategy, offset);
     if (!choiceId) throw new Error(`No choice available at ${before.currentNode?.title}`);
     const choice = before.currentNode.choices.find((item) => item.id === choiceId);
-    const locator = await unique(tab.playwright.locator(buildCurrentChoiceSelector(choiceId)), `choice ${choiceId}`);
+    const locator = await locateChoiceButton(tab, choice);
     await locator.click();
     return {
       before,

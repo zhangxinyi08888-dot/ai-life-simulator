@@ -54,8 +54,13 @@ function splitSingleBlock(text: string, includeTrailingParagraph: boolean): stri
   return paragraphs;
 }
 
-export function splitNarrativeParagraphs(description: string): string[] {
-  const normalized = description.replace(/\r\n/g, "\n").trim();
+export function splitNarrativeParagraphs(description: unknown): string[] {
+  const source = typeof description === "string"
+    ? description
+    : Array.isArray(description)
+      ? description.filter((item): item is string => typeof item === "string").join("\n\n")
+      : "";
+  const normalized = source.replace(/\r\n/g, "\n").trim();
   if (!normalized) return [];
 
   const explicitParagraphs = normalized

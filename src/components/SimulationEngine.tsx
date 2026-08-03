@@ -38,6 +38,7 @@ const GENERATION_COPY: Record<NextGenerationStage, { title: string; detail: stri
   preparing: { title: "正在承接你的选择", detail: "整理上一阶段的人物、时间与现实条件。" },
   generating: { title: "正在推演现实影响", detail: "新的经历正在形成，正式状态尚未写入时间线。" },
   validating: { title: "正在校准时间线", detail: "核对年龄、财务、人物关系与后续选项。" },
+  repairing: { title: "正在校准现实细节", detail: "只修正未通过校验的段落或选项，已确认的人生选择不会改变。" },
   finalizing: { title: "下一章即将展开", detail: "本段已经通过校准，正在写入你的生平纪事。" },
   revealing: { title: "正在展开最终正文", detail: "内容已经校准完成，正在平稳呈现这一章。" }
 };

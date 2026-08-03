@@ -519,6 +519,18 @@ export interface FinancialEventProposal {
     | "expense_world_delta_reconciliation";
 }
 
+/**
+ * A model-authored financial fact surface bound to the Proposal that owns it.
+ * The surface must be copied verbatim from the node narrative. Code can then
+ * remove only rejected facts without guessing across the open prose space.
+ */
+export interface FinancialNarrativeClaim {
+  id: string;
+  proposalId: string;
+  kind: FinancialEventKind;
+  surfaceText: string;
+}
+
 export interface MoneyReceivedPayload {
   destinationCashAccountId: string;
   amountWan: number;

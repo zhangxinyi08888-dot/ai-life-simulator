@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { SimulationNode } from "../types";
-import { containsForbiddenArcWrite, stripForbiddenArcWrites, stripUnauthorizedRomanticCharacters, validateStoryConsistency } from "./storyConsistency";
+import { containsForbiddenArcWrite, stripForbiddenArcWrites, stripUnauthorizedRelationshipChoices, stripUnauthorizedRomanticCharacters, validateStoryConsistency } from "./storyConsistency";
 
 const node: SimulationNode = {
   age: 82,
@@ -696,6 +696,30 @@ assert.equal(
   false,
   "a non-romantic character must survive while its stale candidate marker is removed"
 );
+const exploringChoiceNode = stripUnauthorizedRelationshipChoices({
+  ...node,
+  choices: [
+    { id: "A", text: "正式开始恋爱关系", impactSummary: "越级推进" },
+    { id: "B", text: "保持边界，继续观察", impactSummary: "观察" },
+    { id: "C", text: "优先处理当前工作", impactSummary: "工作" }
+  ]
+}, {
+  people: [],
+  directionArcs: [],
+  pressureArcs: [],
+  relationships: [{
+    id: "romance",
+    participantPersonIds: ["self", "candidate"],
+    type: "romantic",
+    status: "active",
+    stage: "exploring",
+    effectiveFromAgeInMonths: 972,
+    source: "accepted_history",
+    confidence: 1
+  }],
+  version: 2
+});
+assert.deepEqual(exploringChoiceNode.choices.map((choice) => choice.id), ["B", "C"]);
 
 assert.ok(validateStoryConsistency({
   node: {

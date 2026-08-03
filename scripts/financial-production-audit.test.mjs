@@ -238,10 +238,16 @@ test("PB-AUDIT-11 partner and employee equity do not create a personal holding c
 });
 
 test("PB-AUDIT-12 a hypothetical future payoff is not reported as an unsupported completion", () => {
-  const audit = auditFinancialProductionRecords([{
-    caseSlug: "future-payoff",
-    finalState: { history: [node({ title: "计划", ageInMonths: 500, debt: 20, description: "这10万元意味着你可以提前还清计划中的个人债务。" })] }
-  }]);
+  const audit = auditFinancialProductionRecords([
+    {
+      caseSlug: "future-payoff",
+      finalState: { history: [node({ title: "计划", ageInMonths: 500, debt: 20, description: "这10万元意味着你可以提前还清计划中的个人债务。" })] }
+    },
+    {
+      caseSlug: "far-from-payoff",
+      finalState: { history: [node({ title: "仍在负债", ageInMonths: 500, debt: 56.27, description: "你心里清楚，这离还清债务还差得很远。" })] }
+    }
+  ]);
   assert.equal(audit.summary.unsupportedRepaymentCompletionNodeCount, 0);
 });
 
@@ -448,4 +454,219 @@ test("PB-AUDIT-20 a public project execution earmark remains a restricted person
     finalState: { history: [node({ title: "公益项目执行", ageInMonths: 416, cash: 30, recentTransactions: [publicProjectFund] })] }
   }]);
   assert.equal(audit.summary.restrictedProjectFundingInPersonalCashCount, 1);
+});
+
+test("PB-AUDIT-14 generation telemetry exposes visible pauses, unknown calls, and retry budget violations", () => {
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "generation-gate",
+    finalState: {
+      history: [node({ title: "节点", ageInMonths: 500 })],
+      generationEvents: [{ type: "visible_pause", message: "生成暂停" }],
+      generationCallTraces: [
+        { transactionId: "tx-1", kind: "initial_generation", outcome: "succeeded" },
+        { transactionId: "tx-1", kind: "candidate_patch", outcome: "succeeded" },
+        { transactionId: "tx-1", kind: "candidate_patch", outcome: "failed" },
+        { transactionId: "tx-2", kind: "unknown", outcome: "failed" }
+      ]
+    }
+  }]);
+  assert.equal(audit.summary.visibleGenerationPauseCount, 1);
+  assert.equal(audit.summary.unclassifiedGenerationCallCount, 1);
+  assert.equal(audit.summary.excessivePatchNodeCount, 1);
+  assert.equal(audit.summary.completedGenerationNodeCount, 2);
+});
+
+test("PB-AUDIT-15 generation telemetry groups one node across transaction id changes", () => {
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "transaction-switch",
+    finalState: {
+      history: [node({ title: "节点", ageInMonths: 500 })],
+      generationCallTraces: [
+        { nodeIndex: 0, transactionId: "tx-initial", kind: "initial_generation", outcome: "succeeded" },
+        { nodeIndex: 0, transactionId: "tx-retry", kind: "full_regeneration", outcome: "succeeded" }
+      ]
+    }
+  }]);
+  assert.equal(audit.summary.completedGenerationNodeCount, 1);
+  assert.equal(audit.summary.singleFullGenerationNodeRate, 0);
+});
+
+test("PB-AUDIT-16 rejected financial completion cannot survive after a deterministic failed-attempt fallback", () => {
+  const contradiction = node({
+    title: "资金安排",
+    ageInMonths: 500,
+    fallback: true,
+    description: "你尝试申请借款，但这次尚未形成已经到账的结果。这笔钱到账后，你暂时缓解了年底护工费和物业费的压力。"
+  });
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "rejected-completion",
+    finalState: { history: [contradiction] }
+  }]);
+  assert.equal(audit.summary.rejectedCompletionContradictionNodeCount, 1);
+  assert.equal(audit.rejectedCompletionContradictionNodes[0].node, 1);
+
+  const falseRelief = node({
+    title: "协商未果却声称减压",
+    ageInMonths: 512,
+    fallback: true,
+    description: "你已经尝试申请调整还款安排，但尚未形成生效协议。你松了一口气，虽然月供仍不轻松，但压力减轻了不少。"
+  });
+  const reliefAudit = auditFinancialProductionRecords([{
+    caseSlug: "rejected-relief",
+    finalState: { history: [falseRelief] }
+  }]);
+  assert.equal(reliefAudit.summary.rejectedCompletionContradictionNodeCount, 1);
+
+  const delayedCompletion = node({
+    title: "协商仍在推进",
+    ageInMonths: 518,
+    fallback: true,
+    description: "你已经尝试申请调整还款安排，但尚未形成生效协议。你继续整理材料并等待回复。两个月后，你签了补充协议。"
+  });
+  const delayedCompletionAudit = auditFinancialProductionRecords([{
+    caseSlug: "rejected-delayed-completion",
+    finalState: { history: [delayedCompletion] }
+  }]);
+  assert.equal(delayedCompletionAudit.summary.rejectedCompletionContradictionNodeCount, 1);
+
+  const rejectedCompensation = node({
+    title: "融资交割与股权确认",
+    ageInMonths: 520,
+    fallback: true,
+    description: "你已经尝试推进这项财务安排，但它暂时还没有形成确定结果。领投方资金到账。创始人补发了过去14个月的税后工资，并签署了5%的股权协议。"
+  });
+  const compensationAudit = auditFinancialProductionRecords([{
+    caseSlug: "rejected-compensation",
+    finalState: { history: [rejectedCompensation] }
+  }]);
+  assert.equal(compensationAudit.summary.rejectedCompletionContradictionNodeCount, 1);
+
+  const delayedRestructureBenefit = node({
+    title: "协商仍在审核",
+    ageInMonths: 522,
+    fallback: true,
+    description: "你已经尝试申请调整还款安排，但尚未形成生效协议。你继续工作。你算了一下，每月多出来的4000元现金流能缓解压力。"
+  });
+  const delayedBenefitAudit = auditFinancialProductionRecords([{
+    caseSlug: "rejected-delayed-benefit",
+    finalState: { history: [delayedRestructureBenefit] }
+  }]);
+  assert.equal(delayedBenefitAudit.summary.rejectedCompletionContradictionNodeCount, 1);
+
+  const shortRelief = node({
+    title: "安排仍未落地",
+    ageInMonths: 522,
+    fallback: true,
+    description: "你已经尝试推进这项财务安排，但它暂时还没有形成确定结果。你松了口气，但知道这只是把压力往后推。"
+  });
+  const shortReliefAudit = auditFinancialProductionRecords([{
+    caseSlug: "rejected-short-relief",
+    finalState: { history: [shortRelief] }
+  }]);
+  assert.equal(shortReliefAudit.summary.rejectedCompletionContradictionNodeCount, 1);
+
+  const rejectedSideIncomeBenefit = node({
+    title: "副业仍在验证",
+    ageInMonths: 523,
+    fallback: true,
+    description: "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。副业带来的收入暂时缓解了经济紧张。"
+  });
+  const sideIncomeAudit = auditFinancialProductionRecords([{
+    caseSlug: "rejected-side-income-benefit",
+    finalState: { history: [rejectedSideIncomeBenefit] }
+  }]);
+  assert.equal(sideIncomeAudit.summary.rejectedCompletionContradictionNodeCount, 1);
+
+  const falseTitle = node({
+    title: "债务重组与业务转机",
+    ageInMonths: 524,
+    fallback: true,
+    description: "你已经尝试申请调整还款安排，但尚未形成生效协议。"
+  });
+  const titleAudit = auditFinancialProductionRecords([{
+    caseSlug: "rejected-title",
+    finalState: { history: [falseTitle] }
+  }]);
+  assert.equal(titleAudit.summary.rejectedCompletionContradictionNodeCount, 1);
+});
+
+test("PB-AUDIT-17 malformed transitions, duplicate choices, and repeated canonical copy are hard failures", () => {
+  const malformed = node({
+    title: "结构错误",
+    ageInMonths: 500,
+    description: "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。"
+  });
+  malformed.choices = [{ id: "B" }, { id: "C" }, { id: "C" }];
+  malformed.narrativeMeta = {
+    storyEpisode: {
+      internalTransitions: ["前三个月适应新的节奏"]
+    }
+  };
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "malformed-history",
+    finalState: { history: [malformed] }
+  }]);
+  assert.equal(audit.summary.invalidInternalTransitionNodeCount, 1);
+  assert.equal(audit.summary.duplicateChoiceIdNodeCount, 1);
+  assert.equal(audit.summary.duplicateCanonicalFallbackNodeCount, 1);
+});
+
+test("PB-AUDIT-18 financial narrative claims must remain valid and visible", () => {
+  const invalid = node({
+    title: "结构化财务事实失配",
+    ageInMonths: 500,
+    description: "你继续处理当前工作。"
+  });
+  invalid.financialNarrativeClaims = [{
+    id: "claim_missing_surface",
+    proposalId: "income_rejected",
+    kind: "income_source_started",
+    surfaceText: "每月新增0.5万元税后收入。"
+  }];
+  invalid.financialProcessingMeta = {
+    proposalCount: 1,
+    acceptedEventCount: 0,
+    blockingIssueCount: 0,
+    repairTriggered: false,
+    repairLatencyMs: 0,
+    totalProcessingLatencyMs: 0,
+    financialNarrativeAuthorityVersion: "financial_narrative_claims_v1",
+    invalidFinancialNarrativeClaimCount: 1
+  };
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "invalid-financial-claim",
+    finalState: { history: [invalid] }
+  }]);
+  assert.equal(audit.summary.invalidFinancialNarrativeClaimNodeCount, 1);
+  assert.deepEqual(audit.invalidFinancialNarrativeClaimNodes[0].danglingClaimIds, ["claim_missing_surface"]);
+});
+
+test("PB-AUDIT-19 repeated rejected-debt fallback copy is a hard failure", () => {
+  const sentence = "你尝试申请借款，但这次尚未形成已经到账的结果。";
+  const repeated = node({
+    title: "重复借款回退",
+    ageInMonths: 500,
+    description: `${sentence}你继续安排生活。${sentence}`
+  });
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "repeated-debt-fallback",
+    finalState: { history: [repeated] }
+  }]);
+  assert.equal(audit.summary.duplicateCanonicalFallbackNodeCount, 1);
+});
+
+test("PB-AUDIT-18 a same-journey shown and declined invitation is not cross-journey pollution", () => {
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "declined-invitation",
+    journeyId: "journey-current",
+    interactionLog: [
+      { type: "invitation_shown", journeyId: "journey-current", invitation: { id: "invitation-1" } },
+      { type: "invitation_declined", journeyId: "journey-current", invitation: { id: "invitation-1" } }
+    ],
+    finalState: {
+      history: [node({ title: "节点", ageInMonths: 500 })],
+      invitations: []
+    }
+  }]);
+  assert.equal(audit.summary.crossJourneyInvitationEntryCount, 0);
 });

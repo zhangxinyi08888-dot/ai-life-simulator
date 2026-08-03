@@ -760,6 +760,11 @@ const blockers = [
   productionAudit.summary.restrictedProjectFundingAttributionGapCount > 0 && `受限项目资金缺少逐 Accepted Event 归因：${productionAudit.summary.restrictedProjectFundingAttributionGapCount} 笔交易，无法证明未进入个人现金`,
   productionAudit.summary.blackOrEmptyPosterExportCount > 0 && `海报导出为空或全黑：${productionAudit.summary.blackOrEmptyPosterExportCount} 张`,
   productionAudit.summary.duplicateFinalImageEvidenceCount > 0 && `海报与报告页证据重复：${productionAudit.summary.duplicateFinalImageEvidenceCount} 组`,
+  productionAudit.summary.unclassifiedGenerationCallCount > 0 && `未分类模型调用：${productionAudit.summary.unclassifiedGenerationCallCount} 次`,
+  productionAudit.summary.excessivePatchNodeCount > 0 && `单节点局部 Patch 超过一次：${productionAudit.summary.excessivePatchNodeCount} 个`,
+  productionAudit.summary.completedGenerationNodeCount > 0
+    && productionAudit.summary.singleFullGenerationNodeRate < 0.9
+    && `仅一次完整生成的节点比例 ${(productionAudit.summary.singleFullGenerationNodeRate * 100).toFixed(1)}%，低于 90%`,
   visibleGenerationPauseCount > 0 && `用户可见生成暂停：${visibleGenerationPauseCount} 次，涉及 ${generationPauseCaseCount} 组（恢复成功 ${generationRecoveredCount} 次）`,
   (!records.every((record) => record.passed) || records.length !== 5) && `固定五路线契约未全部通过：${records.filter((record) => record.passed).length}/${records.length}`,
   employedAt80PlusNodes > 0 && `80 岁以后仍为 employed：${employedAt80PlusNodes} 个节点（其中无近期工作证据 ${employedAt80PlusWithoutEvidenceNodes} 个）`,
@@ -889,6 +894,9 @@ ${recoverableRows}
 | 空白/全黑海报导出 | ${productionAudit.summary.blackOrEmptyPosterExportCount} | 目标 0 |
 | 海报与报告页证据重复 | ${productionAudit.summary.duplicateFinalImageEvidenceCount} | 目标 0 |
 | 用户可见生成暂停 | ${visibleGenerationPauseCount} 次 / ${generationPauseCaseCount} 组 | 发布门禁必须为 0 |
+| 未分类模型调用 | ${productionAudit.summary.unclassifiedGenerationCallCount} | 目标 0 |
+| 单节点 Patch 超预算 | ${productionAudit.summary.excessivePatchNodeCount} | 目标 0 |
+| 仅一次完整生成节点比例 | ${(productionAudit.summary.singleFullGenerationNodeRate * 100).toFixed(1)}% | 目标 ≥90% |
 | 暂停后恢复成功 | ${generationRecoveredCount} 次 | 诊断项，不抵消暂停阻断 |
 | 多个活跃 shortfall 账户节点 | ${duplicateActiveShortfallNodes} | 目标 0 |
 | 系统 shortfall 自触发计划噪音 | ${systemShortfallScheduleIssueNodes} | 目标 0 |
