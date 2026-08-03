@@ -45,6 +45,10 @@ assert.equal(narrativeRequiresCareerTransition({
   narrativeText: startupEmploymentNarrative,
   currentStatus: "employed"
 }), true, "leaving one employer to join a startup must not leave CareerState unchanged");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你接受了AI创业公司的产品负责人邀请。",
+  currentStatus: "employed"
+}), true, "a completed employer-role invitation must not leave the current CareerState unchanged");
 assert.equal(synthesizeSelectedCareerTransition({
   selectedDecision: "辞去大公司职务，接受创业公司的产品负责人邀请，用两年时间全力验证产品。",
   narrativeText: startupEmploymentNarrative,
@@ -1563,6 +1567,80 @@ assert.equal(enforcedAiCalls, 6, "three bounded full-node attempts plus one prop
 assert.deepEqual(enforcedGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
 assert.deepEqual(enforcedGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
 assert.deepEqual(history, enforcedHistorySnapshot, "a rejected preview never advances History or mutates its financial snapshots");
+
+// A completed employer switch without a replacement personal income must not
+// be downgraded to a resolved rejected Proposal. This exercises the real
+// order: accept transition -> reject atomicity -> settle issues -> gate.
+const careerAuthorityDecision = "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品";
+const careerAuthorityHistory: HistoryItem[] = [{
+  ...structuredClone(history[0]!),
+  selectedChoice: careerAuthorityDecision,
+  selectedDecisionIntent: "career:accept_offer:ai_startup_product_head",
+  choices: [{
+    id: "A",
+    text: careerAuthorityDecision,
+    impactSummary: "进入创业公司",
+    eventOutcomeId: "join_ai_startup_product_lead"
+  }]
+}];
+const careerAuthorityHistoryBefore = structuredClone(careerAuthorityHistory);
+const careerAuthorityGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: careerAuthorityHistory,
+    currentAttributes: attributes,
+    selectedDecision: careerAuthorityDecision,
+    nodeIndex: 1,
+    simulationSeed: "career-income-atomicity-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    expenseLifecycleMode: "off",
+    generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+    onFinancialGateDecision: (decision) => careerAuthorityGateDecisions.push({
+      disposition: decision.disposition,
+      reasonCodes: decision.reasonCodes
+    }),
+    callAiJson: async () => ({
+      text: JSON.stringify({
+        age: 23,
+        stage: "职业转换",
+        title: "接受邀请，踏上产品负责人征程",
+        description: "你接受了AI创业公司的产品负责人邀请。这段工作安排已经开始，但实际到账的个人收入尚待确认。",
+        choices: [
+          { id: "A", text: "继续完成产品上线", impactSummary: "推进产品" },
+          { id: "B", text: "先确认劳动合同与薪酬", impactSummary: "确认薪酬" },
+          { id: "C", text: "保留原岗位等待结果", impactSummary: "保留选择" }
+        ],
+        attributes,
+        narrativeMeta: {
+          worldDeltas: [{
+            type: "career_state",
+            summary: "接受AI创业公司产品负责人岗位",
+            employmentTransition: {
+              subject: "protagonist",
+              toStatus: "employed",
+              effectiveAtAgeInMonths: 276,
+              sourceOutcomeId: "join_ai_startup_product_lead",
+              evidence: "你接受了AI创业公司的产品负责人邀请。",
+              confidence: 0.9
+            }
+          }]
+        },
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    })
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    return true;
+  }
+);
+assert.deepEqual(careerAuthorityGateDecisions.map((item) => item.disposition), ["regenerate"]);
+assert.ok(careerAuthorityGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"));
+assert.deepEqual(careerAuthorityHistory, careerAuthorityHistoryBefore, "rejected career transition must leave history, time and old authority unchanged");
 
 // The production App shares one 2-full / 1-patch budget across this entire
 // call. Once its second candidate is rejected, the service must return that

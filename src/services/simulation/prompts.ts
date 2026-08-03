@@ -270,12 +270,16 @@ function buildFinancialGateRetryPrompt(input: {
 }): string {
   const reasonCodes = input.reasonCodes || [];
   if (reasonCodes.length === 0) return "";
+  const careerIncomeTransitionRetryRule = reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION")
+    ? "- 若正文把进入外部公司职位、接受 offer 或担任负责人写成已经完成：不得再写“个人收入尚待确认”；必须在正文写出可验证的主角个人税后薪资，并原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入。若无法确认薪资，则不得写成已经完成入职。"
+    : "";
   return `【财务接受门重生修正】
 - 上一个完整候选被拒绝，原因：${reasonCodes.join("、")}。
 - 必须重新生成整个节点，不能重复上一个财务 Proposal 错误。
 - 若当前 CareerState 仍为 employed，且正文没有已经完成的离职、退休、停薪或换岗事实：不得返回 income_source_ended、income_source_paused，也不得把现有职业收入迁移到其他 CareerState。
 - 若正文明确写出主角新的个人工资、薪资或固定个人收入：必须返回与当前或本节点已提交 CareerState 关联的合法 income_source_started / income_source_adjusted。
 - 职业变化必须同时包含 employmentTransition 和旧工资关闭/新工资开启；否则保留当前权威职业与收入，不要凭空改写。
+${careerIncomeTransitionRetryRule}
 - 若拒绝原因包含 EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING，且正文已完成“父/母健康受限 + 你为其找/请康复师或理疗师 + 每周/固定上门”的持续照护安排：必须在 narrativeMeta.worldDeltas 返回一条 amount-free expense_responsibility（responsibilityKind="elder_care"、beneficiary="father"|"mother"|"parents"、owner="protagonist"、cadence="recurring_unknown"、sourceOutcomeId=本轮已选 outcome、evidence=逐字原句、confidence=0.8-1）。病情和服务若跨句，evidence 必须逐字包含病情句与服务句，不能只引用服务句。未知金额由系统建立 needs_review，绝不可编造金额；一次陪诊、高龄、父母自行支付、公司场地或计划不得返回该 delta。
 ${formatEmployedIncomeGateRetryRule(input.currentFinancialLedger, reasonCodes)}`;
 }

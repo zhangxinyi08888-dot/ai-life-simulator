@@ -427,6 +427,10 @@ export function extractMisplacedEmploymentTransition(rawNode: any): EmploymentTr
   } as EmploymentTransitionProposal;
 }
 
+function isAcceptedEmployerRoleInvitation(value: string): boolean {
+  return /(?:接受|选择)[^。；]{0,32}(?:公司|企业|机构|团队)[^。；]{0,20}(?:offer|职位|岗位|工作|入职|任职|担任|负责人)/iu.test(value);
+}
+
 export function synthesizeSelectedCareerTransition(input: {
   selectedDecision?: string;
   narrativeText: string;
@@ -442,11 +446,10 @@ export function synthesizeSelectedCareerTransition(input: {
   // self-directed venture becomes self_employed.
   const selfDirectedVenture = /(?:自己|自主|独立|全职|(?:辞职|辞去|辞掉|离职)[^。；]{0,12})创业(?!公司|企业|团队)|(?:创办|成立).{0,12}(?:自己|个人|独立)?(?:公司|工作室|企业|团队)/u;
   const joinedEmployer = /(?:辞职|辞去|辞掉|离职|离开[^。；]{0,12}(?:岗位|公司|平台))[^。；]{0,48}(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)|(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)[^。；]{0,20}(?:担任|任职|负责|岗位|职位|工作)/u;
-  const acceptedEmployerInvitation = /(?:接受|选择)[^。；]{0,32}(?:公司|企业|机构|团队)[^。；]{0,20}(?:offer|职位|岗位|工作|入职|任职|担任|负责人)/iu;
   const narrativeEvidence = input.narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
     /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|转为.{0,12}顾问|顾问角色|被任命|晋升|提升为|成为.{0,12}负责人)/iu.test(sentence)
   ));
-  const joinsEmployer = acceptedEmployerInvitation.test(decision)
+  const joinsEmployer = isAcceptedEmployerRoleInvitation(decision)
     || joinedEmployer.test(decision)
     || Boolean(narrativeEvidence && joinedEmployer.test(narrativeEvidence));
   const startsSelfDirectedVenture = selfDirectedVenture.test(decision)
@@ -1011,7 +1014,15 @@ export function settleRejectedFinancialProposalIssues(input: {
         // (for example, evidence matching), rather than an EXPENSE_* code.
         || relatedIds.some((proposalId) => proposalId.startsWith("system_expense_"))
       );
-    if (!rejectedOnly || rejectedExpenseAuthorityIssue || (issue.status ?? "open") !== "open") return issue;
+    // A career transition and its replacement income are one accepted fact
+    // group.  If atomicity rejects that group, treating the diagnostic as
+    // "resolved because no proposal committed" would let the prose describe a
+    // new job while the authoritative CareerState and wage remain unchanged.
+    // Leave it open so the enforced gate rejects the entire candidate and
+    // retries from the unchanged authority state.
+    const rejectedCareerAuthorityIssue = issue.severity === "blocking"
+      && issue.code === "CAREER_INCOME_CONFLICT";
+    if (!rejectedOnly || rejectedExpenseAuthorityIssue || rejectedCareerAuthorityIssue || (issue.status ?? "open") !== "open") return issue;
     return {
       ...issue,
       status: "resolved",
@@ -1403,6 +1414,7 @@ export function narrativeRequiresCareerTransition(input: {
   );
   const negatesExit = (sentence: string) => /(?:不敢|不想|不愿|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:辞职|离职|退休|停止工作|结束全职)/u.test(sentence);
   const negatesCareerMove = (sentence: string) => /(?:不|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(sentence);
+  const negatesEmployerRoleInvitation = (sentence: string) => /(?:不|没有|并未|尚未|还未|不会|暂不|拒绝|婉拒)[^。；]{0,16}(?:接受|选择)/u.test(sentence);
   const employmentRelevantText = (sentence: string) => sentence.replace(
     /辞去(?:了)?[^。；]{0,20}(?:外部合伙人|董事|监事|股东)(?:身份|席位|职务)?/gu,
     "退出非雇佣治理角色"
@@ -1413,6 +1425,13 @@ export function narrativeRequiresCareerTransition(input: {
     && /(?:你|本人)[^。；]{0,20}(?:辞职|辞去|辞掉|离职|离开[^。；]{0,12}(?:岗位|公司|平台))[^。；]{0,48}(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)/u.test(sentence)
   ));
   if (switchesEmployer) return true;
+  const acceptsEmployerRole = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesCareerMove(sentence)
+    && !negatesEmployerRoleInvitation(sentence)
+    && isAcceptedEmployerRoleInvitation(sentence)
+  ));
+  if (acceptsEmployerRole) return true;
   const stopsWorking = protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesExit(sentence)
@@ -1915,7 +1934,8 @@ async function commitAuthoritativeFinancialProgress(input: {
     }
   }
   let nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
-  const selectedDecisionRequiresCareerTransition = /退休|转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|入职|(?:接受|选择).{0,20}(?:offer|新职位|新工作)|开始.{0,8}创业|全职.{0,8}创业/iu.test(input.selectedDecision || "");
+  const selectedDecisionRequiresCareerTransition = isAcceptedEmployerRoleInvitation(input.selectedDecision || "")
+    || /退休|转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|入职|(?:接受|选择).{0,20}(?:offer|新职位|新工作)|开始.{0,8}创业|全职.{0,8}创业/iu.test(input.selectedDecision || "");
   const careerTransitionRequired = selectedDecisionRequiresCareerTransition || narrativeRequiresCareerTransition({
     narrativeText: input.node.description,
     currentStatus: currentCareer.employmentStatus

@@ -95,6 +95,15 @@ const financialGateRetryPrompt = buildNextNodePrompt({
   eventSeed: healthWarningEvent,
   financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
 });
+const careerIncomeTransitionRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接受创业公司的产品负责人邀请",
+  eventSeed: healthWarningEvent,
+  financialGateRetryReasonCodes: ["UNSATISFIED_CAREER_INCOME_TRANSITION"]
+});
 const responsibilityDeltaRetryPrompt = buildNextNodePrompt({
   userData,
   answers,
@@ -370,6 +379,8 @@ assert.match(prompt, /不得凭空提交就业状态转换/);
 assert.match(financialGateRetryPrompt, /财务接受门重生修正/);
 assert.match(financialGateRetryPrompt, /EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME/);
 assert.match(financialGateRetryPrompt, /不得返回 income_source_ended、income_source_paused/);
+assert.match(careerIncomeTransitionRetryPrompt, /不得再写“个人收入尚待确认”/);
+assert.match(careerIncomeTransitionRetryPrompt, /原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入/);
 assert.match(responsibilityDeltaRetryPrompt, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
 assert.match(responsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
 assert.match(responsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);

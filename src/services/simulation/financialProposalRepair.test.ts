@@ -365,6 +365,25 @@ test("a generic validation failure from a lifecycle proposal remains blocking", 
   assert.equal(issue.status, "open");
 });
 
+test("a rejected career-income atomicity group remains blocking", () => {
+  const [issue] = settleRejectedFinancialProposalIssues({
+    issues: [{
+      id: "career_income_atomicity_new_role_303",
+      code: "CAREER_INCOME_CONFLICT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["new_role_transition"],
+      summary: "新职业没有唯一有效收入来源",
+      createdAtAgeInMonths: 303
+    }],
+    acceptedProposalIds: [],
+    rejectedProposalIds: ["new_role_transition"],
+    ageInMonths: 303,
+    narrativeRolledBack: false
+  });
+  assert.equal(issue.status, "open");
+});
+
 test("unresolved authoritative facts are not hidden by proposal settlement", () => {
   const [issue] = settleRejectedFinancialProposalIssues({
     issues: [{
