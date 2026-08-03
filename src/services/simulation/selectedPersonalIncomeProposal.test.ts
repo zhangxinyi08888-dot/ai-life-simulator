@@ -257,6 +257,60 @@ test("PB-CAREER-14 exact recurring side-income prose starts a separate personal 
   assert.equal(ledger.incomeSources[0].monthlyNetAmountWan, 2);
 });
 
+test("PB-CAREER-14a a consulting-company salary is not misclassified as side income", () => {
+  const ledger = initializeFinancialLedger({
+    id: "consulting-company-salary",
+    asOfAgeInMonths: 317,
+    openingPosition: {
+      incomeSources: [{
+        id: "legacy_recurring_income", type: "other", displayName: "旧版持续收入聚合",
+        annualNetAmountWan: 32, accrualPolicy: "annual", activeFromAgeInMonths: 300,
+        status: "active", linkedCareerStateId: "career_opening_300", factStatus: "estimated", evidence: []
+      }]
+    }
+  });
+
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续留在当前公司，并保持对家乡项目的远程支持。",
+    narrativeText: "26岁半，你仍在上海的咨询公司工作，税后月薪2.7万元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "maintain_remote_support",
+    periodStartAgeInMonths: 317,
+    currentCareerStateId: "career_opening_300",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "income_source_adjusted");
+  assert.equal((result[0]?.payload as any).incomeSourceId, "legacy_recurring_income");
+  assert.equal((result[0]?.payload as any).nextSource.type, "salary");
+  assert.equal((result[0]?.payload as any).nextSource.monthlyNetAmountWan, 2.7);
+  assert.notEqual((result[0]?.payload as any).nextSource.id, "personal_side_income_career_opening_300");
+});
+
+test("PB-CAREER-14b explicitly marked weekend consulting remains a side-income contract", () => {
+  const ledger = initializeFinancialLedger({ id: "explicit-consulting-income", asOfAgeInMonths: 317 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "保留主业，并在周末承接教育咨询。",
+    narrativeText: "你周末承接教育咨询，副业月收入稳定在0.6万元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "start_weekend_consulting",
+    periodStartAgeInMonths: 317,
+    currentCareerStateId: "career_opening_300",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "income_source_started");
+  assert.equal((result[0]?.payload as any).id, "personal_side_income_career_opening_300");
+  assert.equal((result[0]?.payload as any).type, "contract");
+  assert.equal((result[0]?.payload as any).monthlyNetAmountWan, 0.6);
+});
+
 test("PB-CAREER-09 income confirmation remains linked to the current career when no transition occurs", () => {
   assert.deepEqual(resolveAllowedIncomeCareerStateIds("career_self_employed", []), ["career_self_employed"]);
   assert.deepEqual(resolveAllowedIncomeCareerStateIds("career_old", ["career_new"]), ["career_new"]);

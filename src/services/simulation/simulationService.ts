@@ -1558,7 +1558,14 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   const evidenceText = /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|我(?:每月|开始|从本月起).{0,24}(?:工资|薪资|月薪)/u.test(decision)
     ? decision
     : narrativeEvidence;
-  const sideIncomeEvidence = Boolean(evidenceText) && /副业|课程|咨询|工作坊|稿费|版税/u.test(evidenceText!);
+  // A bare "咨询"/"课程"/"工作坊" is not enough to establish a second
+  // income stream: it also appears in ordinary employer names and job titles
+  // (for example, "在咨询公司工作").  Treat it as side income only when the
+  // prose explicitly marks a side activity or connects the activity to its
+  // own income/compensation.  Otherwise a current employee salary must adjust
+  // the one linked career source rather than open a duplicate contract source.
+  const sideIncomeSignal = /副业|兼职|稿费|版税|(?:课程|咨询|工作坊|顾问|外包)(?:收入|收费|报酬|酬劳|服务|业务|费)|(?:个人|独立|周末|业余|额外|线上|一对一).{0,12}(?:课程|咨询|工作坊|顾问|外包)/u;
+  const sideIncomeEvidence = Boolean(evidenceText) && sideIncomeSignal.test(evidenceText!);
   const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪|副业月收入|个人月收入/u.test(evidenceText!);
   // Parse named personal-income phrases before generic monthly wording.  The
   // old permissive `每月…金额` matcher could skip a salary earlier in the
@@ -1592,7 +1599,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   const decisionChangesCareer = /辞职|离职|入职|就职|转岗|转行|回归职场|退休|停止工作/u.test(decision);
   const sideIncomeSources = allActiveCareerSources.filter((source) => (
     source.type === "contract"
-    && /副业|课程|咨询|工作坊|稿费|版税/u.test(`${source.displayName} ${source.evidence.map((item) => item.excerpt || "").join(" ")}`)
+    && sideIncomeSignal.test(`${source.displayName} ${source.evidence.map((item) => item.excerpt || "").join(" ")}`)
   ));
   const existingSource = sideIncomeEvidence
     ? (sideIncomeSources.length === 1 ? sideIncomeSources[0] : undefined)
