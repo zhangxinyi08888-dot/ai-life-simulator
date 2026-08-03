@@ -103,8 +103,16 @@ function hasParentCareSignal(sentence: string): boolean {
     && /生活费|赡养|照护|护理|护工|照料|照顾|陪护|陪诊|接送.{0,10}就医|医疗|理疗|康复|康复训练|关节活动|轮椅|血压|膝盖|腰疼|长期监测|降压药|(?:医院|门诊).{0,8}(?:复查|体检|检查|评估)|(?:复查|体检|检查)(?:血压|病情|治疗)|请人.{0,12}(?:照看|照护|护理)/u.test(sentence);
 }
 
+/** A stable update that expressly says the care bill did not increase is not a new responsibility event. */
+function hasNoNewParentExpenseSignal(sentence: string): boolean {
+  if (!/(?:父母|爸妈|母亲|父亲|妈妈|爸爸)/u.test(sentence)) return false;
+  const stable = /(?:身体|病情).{0,12}(?:还算|相对|基本)?稳定/u.test(sentence);
+  const noIncrease = /(?:医疗|医药|照护|护理).{0,12}(?:支出|费用|开销).{0,12}(?:也)?(?:没|未|没有)(?:再)?(?:增加|上升|变多|提高)/u.test(sentence);
+  return stable && noIncrease;
+}
+
 function hasFollowupPersonalCareAction(sentence: string): boolean {
-  return /(?:你|我).{0,30}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政)|照看|照护|护理|陪护|照料)/u.test(sentence)
+  return /(?:你|我).{0,30}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政)|(?:给|为).{0,16}(?:他|她|父母|母亲|父亲|妈妈|爸爸).{0,20}(?:找|请)(?:了)?(?:一位|一名|个)?(?:康复师|理疗师)|照看|照护|护理|陪护|照料)/u.test(sentence)
     // “你每周固定陪她治疗” and “你推着轮椅去医院” are completed,
     // continuing care actions.  They are intentionally narrower than a
     // generic visit: the surrounding parent-care context is checked below
@@ -117,7 +125,7 @@ function hasFollowupPersonalCareAction(sentence: string): boolean {
     || /^(?:给|为)家里请(?:了)?(?:一位|一名|个)?(?:每周[^。！？；]{0,12})?(?:钟点工|保姆|家政|护工)/u.test(sentence);
 }
 
-const CAREGIVER_SERVICE = /钟点工|护工|保姆|家政|(?:白班|住家)?阿姨/u;
+const CAREGIVER_SERVICE = /钟点工|护工|保姆|家政|康复师|理疗师|(?:白班|住家)?阿姨/u;
 const PARENT_REFERENCE = /父母|爸妈|母亲|父亲|妈妈|爸爸/u;
 
 /**
@@ -154,7 +162,7 @@ function sharedCaregiverArrangement(input: {
  * that establish the parent as the object in the same completed sentence.
  */
 function hasNamedPersonalParentCareAction(sentence: string): boolean {
-  return /(?:你|我|本人|主角).{0,44}(?:(?:陪(?:着)?|推(?:着)?).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,20}(?:治疗|理疗|复诊|就医|轮椅)|带(?:着)?(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,28}(?:去|到).{0,12}(?:医院|门诊).{0,16}(?:体检|检查|复查|治疗|理疗|康复评估)|(?:照料|照顾|陪护|陪诊|护理|照看).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸)|(?:帮(?:着)?|协助).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,20}(?:康复训练|关节活动|复健)|(?:给|为)(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,16}请(?:了)?(?:护工|钟点工|保姆|家政)|(?:看望|探望).{0,12}(?:父母|爸妈|他们).{0,28}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政)|照看|照护|护理))/u.test(sentence)
+  return /(?:你|我|本人|主角).{0,44}(?:(?:陪(?:着)?|推(?:着)?).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,20}(?:治疗|理疗|复诊|就医|轮椅)|带(?:着)?(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,28}(?:去|到).{0,12}(?:医院|门诊).{0,16}(?:体检|检查|复查|治疗|理疗|康复评估)|(?:照料|照顾|陪护|陪诊|护理|照看).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸)|(?:帮(?:着)?|协助).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,20}(?:康复训练|关节活动|复健)|(?:给|为)(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,16}(?:请|找)(?:了)?(?:护工|钟点工|保姆|家政|康复师|理疗师)|(?:给|为)(?:他|她).{0,20}(?:找|请)(?:了)?(?:一位|一名|个)?(?:康复师|理疗师)|(?:看望|探望).{0,12}(?:父母|爸妈|他们).{0,28}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政)|照看|照护|护理))/u.test(sentence)
     // The parent context may lead an otherwise target-elided care-service
     // arrangement in the *same* sentence, but the action must be arranging a
     // caregiver rather than a generic "照料" verb.
@@ -760,7 +768,7 @@ function classifyNarrativeLiability(sentence: string): {
   const hasThirdPartyPayer = /(?:伴侣|配偶|妻子|丈夫|父母|母亲|父亲|公司|雇主|朋友|他|她).{0,24}(?:支付|承担|负担|缴纳|转账|付款|代付)/u.test(sentence);
   if (hasThirdPartyPayer) return { liability: "third_party", financialScope: "third_party" };
 
-  const hasPersonalPayer = /(?:你|我|本人|主角).{0,24}(?:支付|承担|负担|缴纳|转账|(?:转(?:给|向|账)|(?:给|向).{0,12}转(?!入))|付款|付(?:了)?(?:房租|租金|费|款)?|交了|租下|租住|搬入|入住|投保|(?<!继)续保)/u.test(sentence)
+  const hasPersonalPayer = /(?:你|我|本人|主角).{0,24}(?:支付|承担|负担|缴纳|转账|(?:转(?:给|向|账)|(?:给|向).{0,12}转(?!入))|付款|付(?:了)?(?:房租|租金|费|款)?|交了|租下|租住|租(?:了)?(?:一(?:个|间))?(?:小)?(?:单间|房间|公寓|房子|住房|住处)|搬入|入住|投保|(?<!继)续保)/u.test(sentence)
     // "你盘算着下个月要交的房租" is not a speculative move: it says
     // that an already occupied residence has a recurring protagonist bill.
     // Keep this deliberately tied to a first-person payer and a housing noun
@@ -870,6 +878,7 @@ function deriveNarrativeCandidates(input: {
       && !explicitParentCareCommitment
       && !completedPersonalHealthcareAction
       && !plannedParentCareReview) continue;
+    if (hasNoNewParentExpenseSignal(sentence)) continue;
     // A care need and the protagonist's concrete follow-up commonly appear in
     // adjacent short sentences. Treat only that narrow pair as one fact so a
     // pronoun such as “他们” cannot erase an established parental obligation.

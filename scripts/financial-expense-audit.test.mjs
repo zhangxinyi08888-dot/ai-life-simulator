@@ -254,8 +254,72 @@ test("candidate telemetry matches independent annotations after generation and r
   assert.equal(result.expenseLifecycleCandidateTelemetryFalsePositiveCount, 1);
   assert.equal(result.expenseLifecycleCandidateTelemetryRecallPct, 50);
   assert.equal(result.expenseLifecycleCandidateTelemetryPrecisionPct, 50);
+  assert.equal(result.expenseLifecycleCandidateTelemetryNegativeAnnotatedCount, 1);
+  assert.equal(result.expenseLifecycleCandidateTelemetryNegativeMatchCount, 1);
+  assert.equal(result.expenseLifecycleCandidateTelemetryNegativeViolationCount, 0);
+  assert.equal(result.expenseLifecycleCandidateTelemetryNegativeStatus, "covered");
   assert.equal(result.details.negativeMatches.length, 1);
   assert.equal(result.details.falsePositives[0].candidateId, "trace_insurance_false_positive");
+});
+
+test("candidate telemetry exposes a review or plan that violates an ignore annotation", () => {
+  const annotations = [
+    {
+      caseSlug: "negative", nodeIndex: 1, material: false,
+      expectedAction: "ignore", expectedResponsibilityKey: "elder_care:parents",
+      expectedScope: "personal", expectedType: "dependent_support"
+    },
+    {
+      caseSlug: "negative", nodeIndex: 1, material: true,
+      expectedAction: "start", expectedResponsibilityKey: "primary_residence:main",
+      expectedScope: "personal", expectedType: "housing"
+    }
+  ];
+  const routeRecords = [{
+    caseSlug: "negative",
+    history: [node([], 360), node([], 372, {
+      financialProcessingMeta: {
+        expenseLifecycleTelemetry: {
+          mode: "enforced",
+          wouldBlock: false,
+          candidates: [
+            {
+              candidateId: "negative_home",
+              responsibilityKey: "primary_residence:main",
+              responsibilityKind: "primary_residence",
+              proposedType: "housing",
+              financialScope: "personal",
+              action: "start",
+              liability: "protagonist",
+              source: "accepted_world_delta",
+              reconcilerDisposition: "planned_start"
+            },
+            {
+              candidateId: "negative_parent_review",
+              responsibilityKey: "elder_care:parents",
+              responsibilityKind: "elder_care",
+              proposedType: "dependent_support",
+              financialScope: "personal",
+              action: "review",
+              liability: "unknown",
+              source: "narrative_supplement",
+              reconcilerDisposition: "issue",
+              reconcilerReasonCodes: ["LIABILITY_UNKNOWN_REVIEW_REQUIRED"]
+            }
+          ]
+        }
+      }
+    })]
+  }];
+  const result = auditExpenseLifecycleCandidateTelemetry({ annotations, routeRecords });
+
+  assert.equal(result.expenseLifecycleCandidateTelemetryMatchCount, 1);
+  assert.equal(result.expenseLifecycleCandidateTelemetryRecallPct, 100);
+  assert.equal(result.expenseLifecycleCandidateTelemetryPrecisionPct, 100);
+  assert.equal(result.expenseLifecycleCandidateTelemetryNegativeViolationCount, 1);
+  assert.equal(result.expenseLifecycleCandidateTelemetryNegativeStatus, "incomplete");
+  assert.equal(result.expenseLifecycleCandidateTelemetryPrecisionStatus, "incomplete");
+  assert.equal(result.details.negativeViolations[0].candidate.candidateId, "negative_parent_review");
 });
 
 test("lifecycle diagnostics expose floor streaks, cumulative flows, responsibility changes and terminal fact status", () => {

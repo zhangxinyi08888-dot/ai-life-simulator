@@ -100,9 +100,16 @@ function isBusinessExpenseContext(sentence: string): boolean {
  * need must remain eligible for a reviewable responsibility.
  */
 function isExplicitThirdPartyExpensePayer(sentence: string): boolean {
+  // Check a concrete third-party promise before the deliberately broad
+  // first-person payer fallback below. Otherwise an earlier "我自学过…" can
+  // stretch across the sentence and falsely claim the later "家里愿意承担
+  // 学费" clause as the protagonist's own payment.
+  const explicitThirdPartyPromise = /(?:家里|家人|父母|爸妈|母亲|父亲|伴侣|配偶|公司|雇主|朋友)[^。！？；]{0,20}(?:明确表示|承诺|愿意|会|将|负责)?[^。！？；]{0,16}(?:承担|支付|负担|缴纳|资助|代付)/u.test(sentence);
+  const explicitSharedPayer = /(?:我|你|本人|主角).{0,16}(?:与|和|跟).{0,16}(?:家里|家人|父母|爸妈|母亲|父亲|伴侣|配偶).{0,20}(?:共同|一起|各自|平摊).{0,16}(?:承担|支付|负担|缴纳)/u.test(sentence);
+  if (explicitThirdPartyPromise && !explicitSharedPayer) return true;
   const hasProtagonistPayer = /(?:我|你|本人|主角).{0,24}(?:承担|支付|负担|缴纳|代付|转账|付款)/u.test(sentence);
   if (hasProtagonistPayer) return false;
-  return /(?:家里|家人|父母|爸妈|母亲|父亲|伴侣|配偶|公司|雇主|朋友)[^。！？；]{0,20}(?:明确表示|承诺|愿意|会|将|负责)?[^。！？；]{0,16}(?:承担|支付|负担|缴纳|资助|代付)/u.test(sentence);
+  return explicitThirdPartyPromise;
 }
 
 function inferCadence(raw: string, fallback: "monthly" | "annual" = "monthly"): "monthly" | "annual" {

@@ -143,8 +143,14 @@ test("O-01 leaves explicit but unpriced responsibilities reviewable and never co
 });
 
 test("opening third-party tuition promise never becomes a protagonist education commitment", () => {
-  const facts = extractOpeningExpenseFacts("家里明确表示承担国内学费没问题，但希望你毕业后尽快稳定就业。");
-  assert.equal(facts.some((item) => item.type === "education"), false);
+  const inputs = [
+    "家里明确表示承担国内学费没问题，但希望你毕业后尽快稳定就业。",
+    "我自学过一点网页制作，美术基础不错，家里愿意承担国内学费，但希望我毕业后尽快稳定就业。"
+  ];
+  for (const input of inputs) {
+    const facts = extractOpeningExpenseFacts(input);
+    assert.equal(facts.some((item) => item.type === "education"), false, input);
+  }
 });
 
 test("E-31 allocates a parent transfer into its medical and living components without a duplicate aggregate", () => {

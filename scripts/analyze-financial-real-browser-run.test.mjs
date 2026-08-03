@@ -134,6 +134,57 @@ test("real-browser analyzer reports responsibility 0/0 as not_covered, never 100
   }
 });
 
+test("derived diagnostics preserve the source run and disclose machine annotations", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "financial-expense-derived-audit-"));
+  const sourceRoot = path.join(workspace, "source-run");
+  const outputRoot = path.join(workspace, "derived-diagnostic");
+  const annotationPath = path.join(workspace, "annotations.json");
+  try {
+    await mkdir(path.join(sourceRoot, "cases"), { recursive: true });
+    await writeFile(path.join(sourceRoot, "cases", "case.json"), `${JSON.stringify(record())}\n`);
+    await writeFile(path.join(sourceRoot, "finance-audit.json"), "source-audit-must-not-change\n");
+    await writeFile(path.join(sourceRoot, "run-manifest.json"), `${JSON.stringify({
+      runId: "historic-run",
+      repositoryCommit: "historic-commit",
+      runStartedAt: "2026-08-01T00:00:00.000Z",
+      runCompletedAt: "2026-08-01T00:01:00.000Z"
+    })}\n`);
+    await writeFile(annotationPath, `${JSON.stringify({
+      corpusId: "historic-machine-diagnostic",
+      corpusKind: "historical_diagnostic",
+      reviewer: "machine",
+      reviewStatus: "machine_reviewed_unadjudicated",
+      purpose: "not a human label or release gate",
+      annotations: [{
+        caseSlug: "audit-responsibility-case", nodeIndex: 0, evidenceExcerpt: "承担房租",
+        expectedAction: "start", expectedType: "housing", expectedScope: "personal",
+        expectedResponsibilityKey: "primary_residence:main", expectedMonthlyAmountWan: 0.5,
+        material: true, reviewer: "machine"
+      }]
+    })}\n`);
+
+    await runNode([script, sourceRoot, annotationPath, "--output-root", outputRoot], here);
+
+    assert.equal(await readFile(path.join(sourceRoot, "finance-audit.json"), "utf8"), "source-audit-must-not-change\n");
+    const audit = JSON.parse(await readFile(path.join(outputRoot, "finance-audit.json"), "utf8"));
+    const aggregate = JSON.parse(await readFile(path.join(outputRoot, "aggregate.json"), "utf8"));
+    const report = await readFile(path.join(outputRoot, "evaluation-report.md"), "utf8");
+    assert.equal(audit.sourceRoot, sourceRoot);
+    assert.equal(audit.outputRoot, outputRoot);
+    assert.equal(audit.derivedDiagnostic, true);
+    assert.equal(audit.sourceRun.repositoryCommit, "historic-commit");
+    assert.equal(audit.summary.expenseResponsibilityAnnotationReviewer, "machine");
+    assert.equal(aggregate.releaseCandidate, false);
+    assert.match(report, /只读后处理/u);
+    assert.match(report, /原始历史路线/u);
+    assert.doesNotMatch(report, /本轮五条全新真实网页路线/u);
+    assert.match(report, /机器\/AI 辅助诊断标注（非人工、非发布门禁）/u);
+    assert.doesNotMatch(report, /以人工标注责任为分母/u);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
 test("real-browser analyzer blocks generated commits that were not processed by the enforced gate", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "financial-expense-audit-"));
   try {

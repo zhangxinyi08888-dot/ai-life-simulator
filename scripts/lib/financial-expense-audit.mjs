@@ -333,9 +333,28 @@ export function auditExpenseLifecycleCandidateTelemetry({ annotations = [], rout
       ))
     }))
     .filter((item) => item.candidates.length > 0);
+  // An ignore annotation may still produce a detector record for observability
+  // (for example, an office candidate deliberately classified as business and
+  // reconciled as `ignored`). It becomes a diagnostic false positive only if
+  // it was not ignored by the reconciler. This catches a new review issue or
+  // a planned personal commitment that a positive-only precision denominator
+  // would otherwise hide.
+  const negativeViolations = negativeMatches.flatMap((item) => item.candidates
+    .filter((candidate) => candidate.reconcilerDisposition !== "ignored")
+    .map((candidate) => ({ annotation: item.annotation, candidate })));
+  const plannedNegativeViolations = negativeViolations.filter((item) => (
+    PLANNED_LIFECYCLE_CANDIDATE_DISPOSITIONS.has(item.candidate.reconcilerDisposition)
+  ));
+  for (const item of plannedNegativeViolations) {
+    const candidateRecordId = `${candidateTraceNodeKey(item.candidate)}|${item.candidate.candidateId}`;
+    if (!falsePositives.some((candidate) => (
+      `${candidateTraceNodeKey(candidate)}|${candidate.candidateId}` === candidateRecordId
+    ))) falsePositives.push(item.candidate);
+  }
   const positiveMissed = [...missed, ...detectedButNotPlanned.map((item) => item.annotation)];
   const candidateTelemetryObserved = candidateRecords.length > 0;
   const annotationCount = material.length;
+  const negativeAnnotationCount = annotations.filter((item) => item.expectedAction === "ignore").length;
   return {
     expenseLifecycleCandidateTelemetryRecordCount: candidateRecords.length,
     expenseLifecycleCandidateTelemetryPlannedCandidateCount: plannedCandidatesAtAnnotatedNodes.length,
@@ -344,6 +363,9 @@ export function auditExpenseLifecycleCandidateTelemetry({ annotations = [], rout
     expenseLifecycleCandidateTelemetryMissedCount: positiveMissed.length,
     expenseLifecycleCandidateTelemetryDetectedButNotPlannedCount: detectedButNotPlanned.length,
     expenseLifecycleCandidateTelemetryFalsePositiveCount: falsePositives.length,
+    expenseLifecycleCandidateTelemetryNegativeAnnotatedCount: negativeAnnotationCount,
+    expenseLifecycleCandidateTelemetryNegativeMatchCount: negativeMatches.length,
+    expenseLifecycleCandidateTelemetryNegativeViolationCount: negativeViolations.length,
     expenseLifecycleCandidateTelemetryRecallPct: percent(matches.length, annotationCount),
     expenseLifecycleCandidateTelemetryPrecisionPct: percent(
       plannedCandidatesAtAnnotatedNodes.length - falsePositives.length,
@@ -355,13 +377,17 @@ export function auditExpenseLifecycleCandidateTelemetry({ annotations = [], rout
       : positiveMissed.length === 0 ? "covered" : "incomplete",
     expenseLifecycleCandidateTelemetryPrecisionStatus: plannedCandidatesAtAnnotatedNodes.length === 0
       ? "not_covered"
-      : falsePositives.length === 0 ? "covered" : "incomplete",
+      : falsePositives.length === 0 && negativeViolations.length === 0 ? "covered" : "incomplete",
+    expenseLifecycleCandidateTelemetryNegativeStatus: negativeAnnotationCount === 0
+      ? "not_covered"
+      : negativeViolations.length === 0 ? "covered" : "incomplete",
     details: {
       matches,
       missed: positiveMissed,
       detectedButNotPlanned,
       falsePositives,
       negativeMatches,
+      negativeViolations,
       candidateRecords
     }
   };

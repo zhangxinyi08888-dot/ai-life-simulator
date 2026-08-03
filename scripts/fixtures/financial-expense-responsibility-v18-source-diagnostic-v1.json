@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "financial-expense-responsibility-v18-source-diagnostic-v1",
+  "corpusKind": "historical_diagnostic",
+  "reviewer": "machine",
+  "reviewStatus": "machine_reviewed_unadjudicated",
+  "purpose": "Post-hoc source-text diagnostic only. This is not human-labelled, not frozen gold, and never a release gate.",
+  "nodeIndexBase": 0,
+  "sourceRun": {
+    "runId": "2026-08-03T10-06-12+08-00-financial-expense-lifecycle-release-five-routes-v18",
+    "repositoryCommit": "09da30f2fa41243fda74241ab621cd39159eeafa",
+    "sourceCasesSha256": {
+      "real-career-first.json": "f0ac6bc64b8470a147abc8fef975659132394edda368631ea1e1861686f552fe",
+      "real-custom-lifespan.json": "727598baa4c895f9a05bf157fa2f1098d90f997f3afa74dff3ef6c7908e3cb40",
+      "real-education-second.json": "958584a91850bace53500c9066c4c60588ece32b65108d10229758ea2180affb",
+      "real-relationship-first.json": "ac92c150577828c3bd1e14b5c0a278ca834e9d9810e98898f9e7830f59ec404c",
+      "real-venture-second.json": "0348f5e8c8a3940fe92ccbc90a5403a91c0a9df0b10bd85f17da45f152922ea4"
+    },
+    "runManifestSha256": "568cbeb5864afb8fd2d967376dd74788ebb1b6e2d60aac412dfbac34ee0eaaaf"
+  },
+  "annotations": [
+    {
+      "caseSlug": "real-education-second",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "家里愿意承担国内学费，但希望我毕业后尽快稳定就业",
+      "expectedAction": "ignore",
+      "expectedType": "education",
+      "expectedScope": "third_party",
+      "expectedResponsibilityKey": "continuing_education:opening",
+      "material": true,
+      "reviewer": "machine",
+      "sourceChannel": "opening_user_fact",
+      "rationale": "明确由家里承担的学费不能作为主角个人持续支出。"
+    },
+    {
+      "caseSlug": "real-education-second",
+      "nodeIndex": 6,
+      "evidenceExcerpt": "你租了一个小单间，每月房租、交通、饮食和零碎支出，加上分期偿还的债务",
+      "expectedAction": "start",
+      "expectedType": "housing",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": true,
+      "reviewer": "machine",
+      "sourceChannel": "narrative_supplement",
+      "rationale": "已发生的个人租住；金额未明确时应形成非零 needs_review 责任，而不是退回基础生活线。"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "nodeIndex": 3,
+      "evidenceExcerpt": "每周两天居家办公，让你能更从容地照顾父母",
+      "expectedAction": "start",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:person_parent_unspecified",
+      "material": true,
+      "reviewer": "machine",
+      "sourceChannel": "narrative_supplement",
+      "rationale": "持续的亲自照护可以建立 amount-unknown 的 needs_review 照护责任。"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "nodeIndex": 14,
+      "evidenceExcerpt": "支付了两居室的首付，并约定共同账户先留出房贷和固定支出",
+      "expectedAction": "start",
+      "expectedType": "housing",
+      "expectedScope": "shared_household",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": true,
+      "reviewer": "machine",
+      "sourceChannel": "accepted_world_delta",
+      "rationale": "共同居住的结构化状态可以建立 shared housing；房贷仍只能由 debt service 计提。"
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "nodeIndex": 17,
+      "evidenceExcerpt": "你为他在县城找了一位康复师，每周两次上门指导",
+      "expectedAction": "start",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:person_parent_unspecified",
+      "material": true,
+      "reviewer": "machine",
+      "sourceChannel": "narrative_supplement",
+      "rationale": "完成态、持续性的父亲康复安排；金额未知也应保守地建立 needs_review 责任。"
+    },
+    {
+      "caseSlug": "real-career-first",
+      "nodeIndex": 13,
+      "evidenceExcerpt": "父母身体还算稳定，医疗支出也没再增加",
+      "expectedAction": "ignore",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:person_parent_unspecified",
+      "material": true,
+      "reviewer": "machine",
+      "sourceChannel": "narrative_supplement",
+      "rationale": "稳定且未增加不是新的照护责任，不能仅为此生成 review issue。"
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "房贷余额210万元，每月还款1.3万元",
+      "expectedAction": "ignore",
+      "expectedType": "housing",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": true,
+      "reviewer": "machine",
+      "sourceChannel": "opening_user_fact",
+      "rationale": "房贷服务必须保留在债务本金和利息路径，不能重复作为 housing commitment。"
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "nodeIndex": 13,
+      "evidenceExcerpt": "自掏腰包补贴差旅，剩余部分几乎全部投入试点；一半继续补贴公司运营",
+      "expectedAction": "ignore",
+      "expectedType": "housing",
+      "expectedScope": "business_operating",
+      "expectedResponsibilityKey": "primary_residence:business_premises",
+      "material": true,
+      "reviewer": "machine",
+      "sourceChannel": "narrative_supplement",
+      "rationale": "经营投入不是个人生活/住房支出；若要入账，应由个人对公司的注资或借款事实单独拥有。"
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "nodeIndex": 36,
+      "evidenceExcerpt": "年事已高、行动不便、精力有限",
+      "expectedAction": "ignore",
+      "expectedType": "healthcare",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "recurring_healthcare:protagonist",
+      "material": false,
+      "reviewer": "machine",
+      "sourceChannel": "narrative_supplement",
+      "rationale": "年龄或行动不便本身没有给出医疗、护理、付款人或金额，不能自动虚构医疗支出。"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   auditFinancialProductionRecords,
@@ -28,8 +28,30 @@ function runGit(args) {
   )));
 }
 
-const root = path.resolve(process.argv[2]);
-const requestedAnnotationPath = process.argv[3] || process.env.EXPENSE_RESPONSIBILITY_ANNOTATIONS;
+const cliArgs = process.argv.slice(2);
+const positionalArgs = [];
+let requestedOutputRoot;
+for (let index = 0; index < cliArgs.length; index += 1) {
+  if (cliArgs[index] === "--output-root") {
+    requestedOutputRoot = cliArgs[index + 1];
+    index += 1;
+    continue;
+  }
+  positionalArgs.push(cliArgs[index]);
+}
+if (!positionalArgs[0]) {
+  throw new Error("usage: analyze-financial-real-browser-run.mjs <source-root> [annotation-path] [--output-root <path>]");
+}
+if (requestedOutputRoot === "" || requestedOutputRoot === undefined && cliArgs.includes("--output-root")) {
+  throw new Error("--output-root requires a path");
+}
+// `root` is always read-only input. A derived diagnostic may direct its
+// reports elsewhere, so inspecting an historic run can never rewrite its
+// original audit, report, aggregate, or manifest.
+const root = path.resolve(positionalArgs[0]);
+const outputRoot = requestedOutputRoot ? path.resolve(process.cwd(), requestedOutputRoot) : root;
+await mkdir(outputRoot, { recursive: true });
+const requestedAnnotationPath = positionalArgs[1] || process.env.EXPENSE_RESPONSIBILITY_ANNOTATIONS;
 const launchUrl = process.env.REAL_BROWSER_LAUNCH_URL || "http://127.0.0.1:4173/";
 const annotationPath = requestedAnnotationPath
   ? path.resolve(process.cwd(), requestedAnnotationPath)
@@ -37,6 +59,12 @@ const annotationPath = requestedAnnotationPath
 const casesDir = path.join(root, "cases");
 const files = (await readdir(casesDir)).filter((name) => name.endsWith(".json")).sort();
 const records = await Promise.all(files.map(async (name) => JSON.parse(await readFile(path.join(casesDir, name), "utf8"))));
+let sourceRunManifest;
+try {
+  sourceRunManifest = JSON.parse(await readFile(path.join(root, "run-manifest.json"), "utf8"));
+} catch {
+  sourceRunManifest = undefined;
+}
 
 async function loadExpenseResponsibilityAnnotations(filePath) {
   try {
@@ -49,6 +77,10 @@ async function loadExpenseResponsibilityAnnotations(filePath) {
         sourcePath: filePath,
         corpusId: undefined,
         corpusKind: undefined,
+        reviewer: undefined,
+        reviewStatus: undefined,
+        purpose: undefined,
+        sourceRun: undefined,
         error: "annotation payload must be an array or contain annotations[]"
       };
     }
@@ -65,6 +97,10 @@ async function loadExpenseResponsibilityAnnotations(filePath) {
         sourcePath: filePath,
         corpusId: payload?.corpusId,
         corpusKind: payload?.corpusKind,
+        reviewer: payload?.reviewer,
+        reviewStatus: payload?.reviewStatus,
+        purpose: payload?.purpose,
+        sourceRun: payload?.sourceRun,
         error: "annotation lacks valid caseSlug/nodeIndex/action/scope/responsibilityKey"
       };
     }
@@ -74,11 +110,18 @@ async function loadExpenseResponsibilityAnnotations(filePath) {
       sourcePath: filePath,
       corpusId: payload?.corpusId,
       corpusKind: payload?.corpusKind,
+      reviewer: payload?.reviewer,
+      reviewStatus: payload?.reviewStatus,
+      purpose: payload?.purpose,
+      sourceRun: payload?.sourceRun,
       error: undefined
     };
   } catch (error) {
     if (error?.code === "ENOENT") {
-      return { annotations: [], status: "not_provided", sourcePath: filePath, corpusId: undefined, corpusKind: undefined, error: undefined };
+      return {
+        annotations: [], status: "not_provided", sourcePath: filePath, corpusId: undefined, corpusKind: undefined,
+        reviewer: undefined, reviewStatus: undefined, purpose: undefined, sourceRun: undefined, error: undefined
+      };
     }
     return {
       annotations: [],
@@ -86,12 +129,23 @@ async function loadExpenseResponsibilityAnnotations(filePath) {
       sourcePath: filePath,
       corpusId: undefined,
       corpusKind: undefined,
+      reviewer: undefined,
+      reviewStatus: undefined,
+      purpose: undefined,
+      sourceRun: undefined,
       error: error instanceof Error ? error.message : String(error)
     };
   }
 }
 
 const expenseResponsibilityAnnotationSource = await loadExpenseResponsibilityAnnotations(annotationPath);
+const humanReviewedAnnotationCorpus = ["human", "human_adjudicated"].includes(
+  expenseResponsibilityAnnotationSource.reviewer
+);
+const expenseResponsibilityAnnotationLabel = humanReviewedAnnotationCorpus
+  ? "人工标注责任"
+  : "机器/AI 辅助诊断标注（非人工、非发布门禁）";
+const isDerivedDiagnostic = outputRoot !== root;
 const expenseAuditRouteRecords = records.map((record) => ({
   caseSlug: record.caseSlug,
   history: record.finalState?.history || []
@@ -539,6 +593,9 @@ const summary = {
   expenseResponsibilityAnnotationSourcePath: expenseResponsibilityAnnotationSource.sourcePath,
   expenseResponsibilityAnnotationCorpusId: expenseResponsibilityAnnotationSource.corpusId ?? null,
   expenseResponsibilityAnnotationCorpusKind: expenseResponsibilityAnnotationSource.corpusKind ?? null,
+  expenseResponsibilityAnnotationReviewer: expenseResponsibilityAnnotationSource.reviewer ?? null,
+  expenseResponsibilityAnnotationReviewStatus: expenseResponsibilityAnnotationSource.reviewStatus ?? null,
+  expenseResponsibilityAnnotationPurpose: expenseResponsibilityAnnotationSource.purpose ?? null,
   expenseResponsibilityAnnotationLoadError: expenseResponsibilityAnnotationSource.error ?? null,
   expenseResponsibilityCorpusCoverageStatus: expenseResponsibilityCorpusCoverage.status,
   expenseResponsibilityCorpusCoverageFailures: expenseResponsibilityCorpusCoverage.failures,
@@ -576,6 +633,17 @@ const summary = {
 const audit = {
   generatedAt: new Date().toISOString(),
   root,
+  sourceRoot: root,
+  outputRoot,
+  sourceRun: sourceRunManifest
+    ? {
+      runId: sourceRunManifest.runId,
+      repositoryCommit: sourceRunManifest.repositoryCommit,
+      runStartedAt: sourceRunManifest.runStartedAt,
+      runCompletedAt: sourceRunManifest.runCompletedAt
+    }
+    : null,
+  derivedDiagnostic: isDerivedDiagnostic,
   summary,
   cases,
   issues,
@@ -597,7 +665,7 @@ const audit = {
     details: expenseLifecycleDynamicAuditDetails
   }
 };
-await writeFile(path.join(root, "finance-audit.json"), `${JSON.stringify(audit, null, 2)}\n`);
+await writeFile(path.join(outputRoot, "finance-audit.json"), `${JSON.stringify(audit, null, 2)}\n`);
 
 const displayPercent = (value) => value === null || value === undefined ? "未覆盖" : `${value}%`;
 const expenseResponsibilityAuditLabel = `${summary.expenseResponsibilityAnnotationLoadStatus}${summary.expenseResponsibilityAnnotationCorpusId ? ` / ${summary.expenseResponsibilityAnnotationCorpusId}` : ""}`;
@@ -662,8 +730,12 @@ const lifecycleCandidateTelemetryMissRows = expenseLifecycleCandidateTelemetryAu
 const lifecycleCandidateTelemetryFalsePositiveRows = expenseLifecycleCandidateTelemetryAuditDetails.falsePositives.map((item) => (
   `| ${item.caseSlug} | ${item.nodeIndex} | ${item.action} | ${item.responsibilityKey} | ${item.financialScope} | ${item.reconcilerDisposition} | ${(item.reconcilerReasonCodes || []).join(", ") || "—"} |`
 )).join("\n") || "| 无 | — | — | — | — | — | — |";
+const lifecycleCandidateTelemetryNegativeViolationRows = expenseLifecycleCandidateTelemetryAuditDetails.negativeViolations.map((item) => (
+  `| ${item.annotation.caseSlug} | ${item.annotation.nodeIndex} | ${item.candidate.action} | ${item.candidate.responsibilityKey} | ${item.candidate.financialScope} | ${item.candidate.reconcilerDisposition} | ${(item.candidate.reconcilerReasonCodes || []).join(", ") || "—"} |`
+)).join("\n") || "| 无 | — | — | — | — | — | — |";
 const frozenExpenseResponsibilityCorpus = expenseResponsibilityAnnotationSource.corpusKind === "frozen_gold";
 const blockers = [
+  isDerivedDiagnostic && "派生只读诊断不构成当前提交的发布证据",
   invariantFailures > 0 && `账本/派生状态不变量失败：${invariantFailures} 个节点`,
   openingFactMismatchCases > 0 && `人物明确提供房产/房贷但开局账本资产和负债均为 0：${openingFactMismatchCases} 组`,
   salaryMismatchNodes > 0 && `正文个人薪资/收入与权威个人账本不一致：${salaryMismatchNodes} 个节点`,
@@ -727,15 +799,21 @@ const blockers = [
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
 ].filter(Boolean);
 const routeContractPassed = records.length === 5 && records.every((record) => record.passed);
-const releaseCandidate = routeContractPassed && blockers.length === 0;
-const m7Ready = routeContractPassed && blockers.length === 0 && invariantFailures === 0;
-const report = `# 五组真实网页测试：财务完整审计报告
+const releaseCandidate = !isDerivedDiagnostic && routeContractPassed && blockers.length === 0;
+const m7Ready = !isDerivedDiagnostic && routeContractPassed && blockers.length === 0 && invariantFailures === 0;
+const runEvidenceLabel = isDerivedDiagnostic ? "原始历史路线" : "本轮五条全新真实网页路线";
+const runPossessive = isDerivedDiagnostic ? "原始路线" : "本轮";
+const report = `# ${isDerivedDiagnostic ? "历史路线支出责任来源诊断报告" : "五组真实网页测试：财务完整审计报告"}
+
+${isDerivedDiagnostic
+  ? `> 这是对既有路线产物的只读后处理。输入根目录：\`${root}\`；诊断输出目录：\`${outputRoot}\`。它不能证明当前提交，也不能作为发布证据。${sourceRunManifest?.repositoryCommit ? ` 原始路线提交：\`${sourceRunManifest.repositoryCommit}\`。` : ""}`
+  : ""}
 
 ## 结论
 
-本轮五条全新真实网页路线的 **2/2/1 路径契约${records.length === 5 && records.every((record) => record.passed) ? "全部通过" : "未全部通过"}**，账本恒等式、含家庭支持与债务利息的可支配现金流恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。
+${runEvidenceLabel}的 **2/2/1 路径契约${records.length === 5 && records.every((record) => record.passed) ? "全部通过" : "未全部通过"}**，账本恒等式、含家庭支持与债务利息的可支配现金流恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。
 
-本轮动态发布判断：**${releaseCandidate ? "通过真实路线财务门禁" : "不允许发布"}**。${releaseCandidate ? "以下 P0 动态阻断项均为 0。" : "存在以下阻断项："}
+${isDerivedDiagnostic ? "派生诊断发布判断" : "本轮动态发布判断"}：**${releaseCandidate ? "通过真实路线财务门禁" : "不允许发布"}**。${releaseCandidate ? "以下 P0 动态阻断项均为 0。" : "存在以下阻断项："}
 
 ${blockers.length ? blockers.map((item) => `- ${item}`).join("\n") : "- 无"}
 
@@ -745,7 +823,7 @@ ${blockers.length ? blockers.map((item) => `- ${item}`).join("\n") : "- 无"}
 |---|---|---:|---|---|---|---:|---|
 ${routeEvidenceRows}
 
-本轮没有失败后替换人物；所有完成记录均来自同一新 run。页面可恢复错误如下，均通过可见重试流程继续：
+${isDerivedDiagnostic ? "原始路线记录" : "本轮"}没有失败后替换人物；所有完成记录均来自同一${isDerivedDiagnostic ? "历史" : "新"} run。页面可恢复错误如下，均通过可见重试流程继续：
 
 | 人物 | 类型 | 当时历史节点 | 错误 |
 |---|---|---:|---|
@@ -837,7 +915,7 @@ ${financialGateEvidenceRows}
 
 ## 独立支出责任标注审计
 
-这组指标以人工标注责任为分母，绝不从 lifecycle detector 自身生成分母。没有加载标注或标注 material 样本为 0 时，状态为 not_covered；新鲜五路线保留为诊断，冻结 gold 语料才执行 precision/recall 100% 门禁。
+这组指标以${expenseResponsibilityAnnotationLabel}为分母，绝不从 lifecycle detector 自身生成分母。没有加载标注或标注 material 样本为 0 时，状态为 not_covered；新鲜五路线保留为诊断，冻结 gold 语料才执行 precision/recall 100% 门禁。
 
 | 项目 | 结果 |
 |---|---|
@@ -872,6 +950,7 @@ ${expenseResponsibilityFalsePositiveRows}
 | material 标注 / 完整匹配 / 漏检 | ${summary.expenseLifecycleCandidateTelemetryAnnotatedCandidateCount} / ${summary.expenseLifecycleCandidateTelemetryMatchCount} / ${summary.expenseLifecycleCandidateTelemetryMissedCount} |
 | 已检测但未形成匹配计划 | ${summary.expenseLifecycleCandidateTelemetryDetectedButNotPlannedCount} |
 | 已标注节点的 planned 候选 / 误报 | ${summary.expenseLifecycleCandidateTelemetryPlannedCandidateCount} / ${summary.expenseLifecycleCandidateTelemetryFalsePositiveCount} |
+| ignore 标注 / 对照命中 / 未被 ignored 的违规候选 | ${summary.expenseLifecycleCandidateTelemetryNegativeAnnotatedCount} / ${summary.expenseLifecycleCandidateTelemetryNegativeMatchCount} / ${summary.expenseLifecycleCandidateTelemetryNegativeViolationCount}（${summary.expenseLifecycleCandidateTelemetryNegativeStatus}） |
 | recall / precision | ${displayPercent(summary.expenseLifecycleCandidateTelemetryRecallPct)} / ${displayPercent(summary.expenseLifecycleCandidateTelemetryPrecisionPct)} |
 | coverage / precision status | ${summary.expenseLifecycleCandidateTelemetryCoverageStatus} / ${summary.expenseLifecycleCandidateTelemetryPrecisionStatus} |
 
@@ -892,6 +971,12 @@ ${lifecycleCandidateTelemetryMissRows}
 | 人物 | 节点 | 候选动作 | 责任键 | 范围 | reconciler 决定 | 原因码 |
 |---|---:|---|---|---|---|---|
 ${lifecycleCandidateTelemetryFalsePositiveRows}
+
+### ignore 对照中未被忽略的候选
+
+| 人物 | 节点 | 候选动作 | 责任键 | 范围 | reconciler 决定 | 原因码 |
+|---|---:|---|---|---|---|---|
+${lifecycleCandidateTelemetryNegativeViolationRows}
 
 ## 长期支出与财富诊断
 
@@ -941,7 +1026,7 @@ ${routeRows}
 
 ${cases.map((item) => `- **${item.caseSlug}**：${item.nodeCount} 个节点，${item.invitationCount} 次邀请；终局现金 ${item.finalFinancialState.cashWan} 万、债务 ${item.finalFinancialState.totalDebtWan} 万、净资产 ${item.finalFinancialState.netWorthWan} 万，就业状态 ${item.finalFinancialState.employmentStatus}；路线契约${item.passed ? "通过" : "失败"}。`).join("\n")}
 
-以下结论直接从本轮各节点账本与正文计算，不复用旧批次的路线描述：
+以下结论直接从${runPossessive}各节点账本与正文计算，不复用固定路线描述：
 
 | 人物 | 不变量失败 | 薪资错配 | 成年零支出 | 企业事实污染 | 重复生活/住房基线 | 房产缺口 | 期权 holding 缺口 | 有价值期权漏计 | 80+ employed | 终局 open issue | 判断 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
@@ -980,16 +1065,16 @@ ${releaseCandidate
 - 空白/全黑海报：${productionAudit.posterEvidence.filter((item) => !item.nonBlank).map((item) => item.caseSlug).join("、") || "无"}
 - 海报与报告页证据重复：${productionAudit.posterEvidence.filter((item) => !item.distinctFromReportPage).map((item) => item.caseSlug).join("、") || "无"}
 
-1. 逐项处理上方动态生成的阻断项；不得用旧批次的固定结论替代本轮证据。
+1. 逐项处理上方动态生成的阻断项；不得用旧批次的固定结论替代${runPossessive}证据。
 2. 入口事实修复继续使用原句、类型化账户 ID 和一次结构化重试，不降低 Validator 标准。
 3. 期权验收保持双向门禁：可靠折后 carrying value 必须进入企业及其他资产、净资产和财富分；未归属或缺可靠估值期权只保留 contingent holding。
-4. 所有阻断归零后仍需再跑全新的 2/2/1，不能复用本轮 JSON。
+4. 所有阻断归零后仍需再跑全新的 2/2/1，不能复用${runPossessive} JSON。
 
 逐节点的完整正文、全部选择、用户选择、五项状态、账本快照和终局报告见 \`full-test-data.md\`；机器可读审计见 \`finance-audit.json\`。
 
 证据索引：\`cases/\` 保存五组完整 JSON，\`working/\` 保存同轮 checkpoint，\`images/<case>/report-page.jpg\` 与 \`poster.jpg\` 保存终局页面和海报，\`visual-inspection.json\` 保存人工视觉复核结果。
 `;
-await writeFile(path.join(root, "evaluation-report.md"), report);
+await writeFile(path.join(outputRoot, "evaluation-report.md"), report);
 
 const aggregate = {
   generatedAt: new Date().toISOString(),
@@ -1003,13 +1088,13 @@ const aggregate = {
   blockers,
   cases: cases.map(({ nodes, ...item }) => item)
 };
-await writeFile(path.join(root, "aggregate.json"), `${JSON.stringify(aggregate, null, 2)}\n`);
+await writeFile(path.join(outputRoot, "aggregate.json"), `${JSON.stringify(aggregate, null, 2)}\n`);
 const runStartedAt = records.map((record) => record.startedAt).sort()[0];
 const runCompletedAt = records.map((record) => record.completedAt).filter(Boolean).sort().at(-1);
 const repositoryCommit = await runGit(["rev-parse", "HEAD"]);
 const repositoryDirty = Boolean(await runGit(["status", "--short"]));
 const manifest = {
-  runId: path.basename(root),
+  runId: path.basename(outputRoot),
   runStartedAt,
   runCompletedAt,
   generatedAt: new Date().toISOString(),
@@ -1018,12 +1103,20 @@ const manifest = {
   repositoryDirty,
   launchUrl,
   commands: [
-    "pnpm exec tsx scripts/render-full-browser-test-data-markdown.ts <root>/cases <root>/full-test-data.md",
-    "node scripts/analyze-financial-real-browser-run.mjs <root>",
-    "node $HOME/.codex/skills/run-real-browser-ending-routes/scripts/verify-five-route-run.mjs --root <root> --started-after <runStartedAt> --full-data <root>/full-test-data.md --report <root>/evaluation-report.md"
+    "pnpm exec tsx scripts/render-full-browser-test-data-markdown.ts <source-root>/cases <source-root>/full-test-data.md",
+    "node scripts/analyze-financial-real-browser-run.mjs <source-root> [annotation-path] [--output-root <path>]",
+    "node $HOME/.codex/skills/run-real-browser-ending-routes/scripts/verify-five-route-run.mjs --root <source-root> --started-after <runStartedAt> --full-data <source-root>/full-test-data.md --report <output-root>/evaluation-report.md"
   ],
+  sourceArtifact: {
+    root,
+    runId: sourceRunManifest?.runId ?? path.basename(root),
+    repositoryCommit: sourceRunManifest?.repositoryCommit ?? null,
+    runStartedAt: sourceRunManifest?.runStartedAt ?? null,
+    runCompletedAt: sourceRunManifest?.runCompletedAt ?? null
+  },
+  derivedDiagnostic: isDerivedDiagnostic,
   artifacts: ["aggregate.json", "finance-audit.json", "full-test-data.md", "evaluation-report.md", "visual-inspection.json", "cases/", "working/", "images/"],
   cases: records.map((record) => ({ caseSlug: record.caseSlug, scenario: record.scenario, path: `cases/${record.caseSlug}.json` }))
 };
-await writeFile(path.join(root, "run-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+await writeFile(path.join(outputRoot, "run-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

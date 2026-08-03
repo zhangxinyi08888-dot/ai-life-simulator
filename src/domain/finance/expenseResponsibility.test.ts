@@ -765,6 +765,53 @@ test("an already-occupied residence with a next-month rent bill is protagonist h
   assert.equal(rent[0]?.protagonistShareWan, undefined);
 });
 
+test("completed personal rent and parent rehabilitation source facts create nonzero reviewable responsibilities", () => {
+  const ageInMonths = 61 * 12 + 1;
+  const personalRent = deriveExpenseResponsibilityCandidates({
+    ageInMonths,
+    narrativeText: "你租了一个小单间，每月房租、交通、饮食和零碎支出，加上分期偿还的债务，工资到手后很快就所剩无几。"
+  }).candidates;
+  assert.deepEqual(personalRent.map((item) => [
+    item.responsibilityKey, item.action, item.liability, item.financialScope, item.protagonistShareWan
+  ]), [["primary_residence:main", "start", "protagonist", "personal", undefined]]);
+
+  const parent = world({ people: [{
+    id: "person_parent_unspecified", relation: "parent", lifeStatus: "active", source: "accepted_history", confidence: 1
+  }] });
+  const rehabilitation = deriveExpenseResponsibilityCandidates({
+    ageInMonths,
+    candidateWorldState: parent,
+    narrativeText: "父亲膝盖的旧疾在持续理疗下保持稳定，但今年春天他走路时偶尔会踉跄，你带他去市里医院做了全面检查，医生建议加强肌肉力量训练，你为他在县城找了一位康复师，每周两次上门指导。"
+  }).candidates;
+  assert.deepEqual(rehabilitation.map((item) => [
+    item.responsibilityKey, item.action, item.liability, item.financialScope, item.protagonistShareWan
+  ]), [["elder_care:person_parent_unspecified", "start", "protagonist", "personal", undefined]]);
+
+  const ledger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "rehabilitation_unknown_amount", asOfAgeInMonths: ageInMonths
+  }) as FinancialLedgerV3);
+  const plan = reconcileExpenseCommitments({
+    ledger,
+    candidates: rehabilitation,
+    ageInMonths,
+    sourceOutcomeId: "rehabilitation_outcome",
+    mode: "enforced"
+  });
+  const proposed = plan.proposals.find((item) => item.kind === "expense_commitment_started");
+  if (!proposed || proposed.kind !== "expense_commitment_started") throw new Error("expected a rehabilitation commitment start");
+  const commitment = proposed.payload as ExpenseCommitmentV4;
+  assert.equal(commitment.factStatus, "needs_review");
+  assert.ok(commitment.monthlyAmountWan > 0, "unknown care amount must not silently become zero");
+});
+
+test("a stable parent update with no increased expense does not create a new elder-care review", () => {
+  const result = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 33 * 12 + 2,
+    narrativeText: "父母那边，你每个月多打两次电话，他们身体还算稳定，医疗支出也没再增加。"
+  });
+  assert.equal(result.candidates.length, 0);
+});
+
 test("E-11 and E-31 split parent transfer once without also retaining a total aggregate", () => {
   const result = deriveExpenseResponsibilityCandidates({
     ageInMonths: 480,
