@@ -12,6 +12,7 @@ import {
   createRealBrowserJourneyRunner,
   FINAL_IMAGE_VIEWPORT,
   initializeJourneyTrace,
+  submittedPersonaMatchesConfig,
   waitForUniqueLocator,
   validateJourneyInvitationIsolation
 } from "./real-browser-journey-runner.mjs";
@@ -146,7 +147,14 @@ test("PB-RUN-09 current choice lookup is scoped to the live decision area", () =
   );
 });
 
-test("PB-RUN-10 a checkpoint cannot cross release-candidate source identities", async () => {
+test("PB-RUN-10 completion rejects a route whose submitted birthday or birth time differs from its configured persona", () => {
+  const config = { birthday: "1994-06-26", birthtime: "21:00" };
+  assert.equal(submittedPersonaMatchesConfig({ config, finalState: { userData: { birthday: "1994-06-26", birthtime: "21:00" } } }), true);
+  assert.equal(submittedPersonaMatchesConfig({ config, finalState: { userData: { birthday: "1998-05-15", birthtime: "21:00" } } }), false);
+  assert.equal(submittedPersonaMatchesConfig({ config, finalState: { userData: { birthday: "1994-06-26", birthtime: "07:00" } } }), false);
+});
+
+test("PB-RUN-11 a checkpoint cannot cross release-candidate source identities", async () => {
   const recordRoot = await mkdtemp(path.join(os.tmpdir(), "ai-life-runner-source-"));
   await mkdir(path.join(recordRoot, "working"), { recursive: true });
   const candidate = {

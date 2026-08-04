@@ -78,6 +78,12 @@ export function assertDistinctFinalImageEvidence({ poster, page }) {
   }
 }
 
+export function submittedPersonaMatchesConfig({ config, finalState }) {
+  const submitted = finalState?.userData || {};
+  return submitted.birthday === config?.birthday
+    && submitted.birthtime === config?.birthtime;
+}
+
 export function buildFinalPosterCropArgs({ pagePath, posterPath, posterRect }) {
   return [
     "--cropToHeightWidth",
@@ -458,14 +464,52 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     await locator.click();
   }
 
+  async function fillControlledInput(locator, value, label) {
+    // The controlled date input accepts a browser-level `fill`, but the
+    // synthetic React change handler does not reliably retain that update in
+    // the in-app browser.  Drive the native control as a user would instead.
+    await locator.click();
+    await tab.playwright.waitForTimeout(250);
+    await locator.press("ControlOrMeta+A");
+    await tab.playwright.waitForTimeout(250);
+    await locator.press("Backspace");
+    await tab.playwright.waitForTimeout(500);
+    await locator.type(value, { delay: 100 });
+    // Let the controlled value commit before the next UI action.  Without
+    // this, the immediately following click can submit the previous default
+    // date even though the DOM briefly shows the requested value.
+    await tab.playwright.waitForTimeout(750);
+    let actualValue = await locator.evaluate((element) => element.value);
+    // Some Chromium date inputs consume the first keystroke sequence only to
+    // focus their native segments.  Retry the same visible typing once before
+    // rejecting the route; a second failed attempt remains a hard failure.
+    if (actualValue !== value) {
+      await locator.type(value, { delay: 100 });
+      await tab.playwright.waitForTimeout(750);
+      actualValue = await locator.evaluate((element) => element.value);
+    }
+    if (actualValue !== value) {
+      throw new Error(`Expected ${label} to retain ${value}, received ${actualValue || "empty"}`);
+    }
+  }
+
   async function startJourney() {
     trace = initializeJourneyTrace({ identity, resume: false });
     await snapshot();
+    // Chromium can expose the native date control a moment before its input
+    // segment is ready for keyboard entry.  Wait for that UI settle window
+    // before performing the visible date interaction.
+    await tab.playwright.waitForTimeout(750);
     const birthday = await unique(tab.playwright.getByLabel("出生日期", { exact: true }), "birth date field");
-    await birthday.fill(config.birthday);
+    await fillControlledInput(birthday, config.birthday, "birth date field");
     await snapshot();
     const birthtime = await unique(tab.playwright.getByLabel("出生时辰", { exact: true }), "birth time select");
     await birthtime.selectOption({ value: config.birthtime });
+    await tab.playwright.waitForTimeout(350);
+    const actualBirthtime = await birthtime.evaluate((element) => element.value);
+    if (actualBirthtime !== config.birthtime) {
+      throw new Error(`Expected birth time select to retain ${config.birthtime}, received ${actualBirthtime || "empty"}`);
+    }
     await clickRole("button", "生成我的命格角色卡");
     await tab.playwright.waitForTimeout(350);
     // Character-card generation renders its selectable return points
@@ -790,6 +834,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       allUserChoicesPreserved: history.every((item) => typeof item.selectedChoice === "string" && item.selectedChoice.length > 0),
       allAttributesPreserved: history.every((item) => item.attributes && ["happiness", "intelligence", "wealth", "relation", "health"].every((key) => Number.isFinite(item.attributes[key]))),
       allFinancialStatesPreserved: history.every((item) => item.financialState && Number.isFinite(item.financialState.netWorthWan)),
+      submittedPersonaMatchesConfig: submittedPersonaMatchesConfig({ config, finalState }),
       allInvitationsPreserved: JSON.stringify(invitationIds(invitations)) === JSON.stringify(invitationIds(expectedInvitations)),
       invitationJourneyIsolation: invitationIsolationIssues.length === 0,
       expectedClosureType: finalState.outcome?.meta?.closureType === expectedClosure,
