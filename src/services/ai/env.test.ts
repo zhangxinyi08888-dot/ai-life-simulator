@@ -9,6 +9,7 @@ const defaults = getBrowserAiEnvFromRecord({
 assert.equal(defaults.apiKey, "test-key");
 assert.equal(defaults.baseUrl, "https://api.deepseek.com");
 assert.equal(defaults.model, "deepseek-v4-flash");
+assert.equal(defaults.cacheAwarePromptV1, true);
 
 const custom = getBrowserAiEnvFromRecord({
   VITE_DEEPSEEK_API_KEY: "custom-key",
@@ -19,6 +20,13 @@ const custom = getBrowserAiEnvFromRecord({
 assert.equal(custom.apiKey, "custom-key");
 assert.equal(custom.baseUrl, "https://example.test");
 assert.equal(custom.model, "custom-model");
+assert.equal(custom.cacheAwarePromptV1, true);
+
+const legacyPromptLayout = getBrowserAiEnvFromRecord({
+  VITE_DEEPSEEK_API_KEY: "test-key",
+  VITE_CACHE_AWARE_PROMPT_V1: "false"
+});
+assert.equal(legacyPromptLayout.cacheAwarePromptV1, false);
 
 assert.throws(
   () => getBrowserAiEnvFromRecord({}),

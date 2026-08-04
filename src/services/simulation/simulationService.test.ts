@@ -10,6 +10,8 @@ import {
   createExplorationProgression,
   relationshipCheckpointKey
 } from "../../domain/relationship/relationshipLifecycle";
+import type { GenerationCallTrace } from "./generationTelemetry";
+import { NEXT_NODE_INVARIANT_PREFIX_VERSION } from "./prompts";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -447,6 +449,7 @@ const history: HistoryItem[] = [
 let capturedNextPrompt = "";
 const nextGenerationStages: string[] = [];
 const nextNarrativePreviews: Array<{ title?: string; paragraphs: string[] }> = [];
+const nextGenerationTraces: GenerationCallTrace[] = [];
 
 const nextNode = await generateNextNode({
   userData,
@@ -458,10 +461,20 @@ const nextNode = await generateNextNode({
 }, {
   onGenerationStage: (stage) => nextGenerationStages.push(stage),
   onNarrativeProgress: (preview) => nextNarrativePreviews.push(preview),
+  onGenerationCallTrace: (trace) => nextGenerationTraces.push(trace),
   callAiJson: async (prompt) => {
     capturedNextPrompt = prompt;
     const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 23 * 12);
     return {
+      providerRequestId: "trace-next-node-1",
+      model: "deepseek-v4-flash",
+      usage: {
+        promptTokens: 1000,
+        cacheHitTokens: 700,
+        cacheMissTokens: 300,
+        completionTokens: 200,
+        totalTokens: 1200
+      },
       text: JSON.stringify({
         age: 23,
         stage: "试错开局",
@@ -494,11 +507,12 @@ const nextNode = await generateNextNode({
   }
 });
 
-assert.match(capturedNextPrompt, /Story Context Pack/);
-assert.match(capturedNextPrompt, /追问补全事实/);
+assert.match(capturedNextPrompt, /压缩方向与延续状态/);
+assert.match(capturedNextPrompt, /answerFactCount: 1/);
 assert.match(capturedNextPrompt, /最近 5 个历史节点/);
-assert.match(capturedNextPrompt, /至少显性使用 1 条追问答案/);
+assert.match(capturedNextPrompt, /answerFactCount 大于 0 时，本轮剧情必须至少显性使用 1 条追问答案/);
 assert.match(capturedNextPrompt, /当前财务快照/);
+assert.doesNotMatch(capturedNextPrompt, /next_node_cache_prefix_v1/);
 assert.ok(nextNode.financialState);
 assert.equal(nextNode.financialLedgerMode, "authoritative");
 assert.equal(nextNode.financialLedger?.asOfAgeInMonths, nextNode.ageInMonths);
@@ -513,6 +527,16 @@ assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, derive
 assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating", "finalizing"]);
 assert.equal(nextNarrativePreviews.at(-1)?.title, "新行业的第一年");
 assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /小团队做基础内容执行/);
+const completedNextTrace = nextGenerationTraces.find((trace) => trace.outcome === "succeeded")!;
+assert.equal(completedNextTrace.kind, "initial_generation");
+assert.equal(completedNextTrace.promptFamily, "next_node");
+assert.equal(completedNextTrace.promptPrefixVersion, NEXT_NODE_INVARIANT_PREFIX_VERSION);
+assert.equal(completedNextTrace.promptTokens, 1000);
+assert.equal(completedNextTrace.cacheHitTokens, 700);
+assert.equal(completedNextTrace.cacheMissTokens, 300);
+assert.equal(completedNextTrace.completionTokens, 200);
+assert.equal(completedNextTrace.providerRequestId, "trace-next-node-1");
+assert.equal("prompt" in completedNextTrace, false);
 
 let malformedInitialGenerationCalls = 0;
 const malformedInitialGenerationNode = await generateNextNode({

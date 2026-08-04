@@ -587,3 +587,67 @@ export function formatStoryContextPack(pack: StoryContextPack): string {
 
   return `\n\n【Story Context Pack】\n【方向线索使用边界】\n- long_term_main_arc：可作为长期人生主线、终章和报告核心。\n- stage_main_arc：可作为当前阶段主线，例如职业、项目、学习方向。\n- side_thread：可延续为副线，但不得主导职业、创业、人生使命或重大转型。\n- background_detail：只能作为生活细节，不能出现在重大选择选项主语中。\n- mentioned：本轮不要主动展开，终章/报告最多作为曾经提过。\n- 模型正文偶然提及不计入强化；只有用户点击、自定义输入、用户选择导致的历史结果和现实成果才允许升级方向状态。\n- 只有明确提供但未被选择的方向才计入 passed；没有提供的方向保持中性。\n- state=cooldown 或 dormant 的 decisionIntent 不得再次进入 A/B/C；用户真实事实和 background thread 不能绕过此限制。\n\n${formatSection("用户真实事实", pack.userFacts)}\n\n${formatSection("追问补全事实", pack.answerFacts)}\n\n${formatStoryFactSection("长期事实", pack.longTermFacts)}\n\n${formatStoryFactSection("阶段事实", pack.stageFacts)}\n\n${formatStoryFactSection("兴趣倾向", pack.interestSignals)}\n\n${formatStoryFactSection("临时情绪", pack.temporaryEmotions)}\n\n${formatChoicePreferenceSection(pack.choicePreferenceSignals)}\n\n${formatSection("最近 5 个历史节点", recentHistory)}\n\n${formatSection("当前可延续副线", activeThreads)}`;
 }
+
+/**
+ * A next-node prompt already contains the original user material and the last
+ * five committed nodes. Repeating both inside `formatStoryContextPack` makes
+ * the changing tail much larger without adding facts. Keep the contextual
+ * state that has no other authoritative representation (direction state,
+ * cooldowns and live threads), in a compact, deterministic form instead.
+ *
+ * The interpretation contract for these fields lives in the invariant
+ * next-node prefix. Keeping the field names and ordering stable is important:
+ * it makes the dynamic suffix small while retaining the same state ownership.
+ */
+export function formatStoryContextForNextNode(pack: StoryContextPack): string {
+  const compactText = (value: string, maxLength: number) => (
+    value.length <= maxLength ? value : `${value.slice(0, maxLength)}…`
+  );
+  const directionSignals = pack.interestSignals
+    .filter((fact) => fact.directionState && fact.directionState !== "mentioned")
+    .sort((left, right) => (
+      (right.currentWeight - left.currentWeight)
+      || (right.reinforcementCount - left.reinforcementCount)
+      || left.id.localeCompare(right.id)
+    ))
+    .slice(0, 6)
+    .map((fact) => ({
+      text: compactText(fact.text, 96),
+      state: fact.directionState,
+      userChoiceReinforcement: fact.userReinforcementCount ?? 0,
+      modelMention: fact.modelMentionCount ?? 0,
+      unselected: fact.consecutiveUnselectedCount ?? 0,
+      reason: fact.stateReason || "未说明"
+    }));
+
+  const blockedChoiceIntents = pack.choicePreferenceSignals
+    .filter((signal) => signal.state !== "available")
+    .sort((left, right) => (
+      String(left.decisionIntent).localeCompare(String(right.decisionIntent))
+      || String(left.state).localeCompare(String(right.state))
+    ))
+    .map((signal) => ({
+      decisionIntent: signal.decisionIntent,
+      state: signal.state,
+      cooldownUntilNode: signal.cooldownUntilNodeIndex
+    }));
+
+  const activeThreads = [...pack.activeThreads]
+    .sort((left, right) => (
+      (right.salience - left.salience)
+      || ((right.lastTouchedNode ?? -1) - (left.lastTouchedNode ?? -1))
+      || left.id.localeCompare(right.id)
+    ))
+    .slice(0, 6)
+    .map((thread) => ({
+      type: thread.type,
+      source: thread.source,
+      lastTouchedNode: thread.lastTouchedNode
+    }));
+
+  return `【压缩方向与延续状态】\n${JSON.stringify({
+    directionSignals,
+    blockedChoiceIntents,
+    activeThreads
+  })}`;
+}

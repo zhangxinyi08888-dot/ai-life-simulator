@@ -86,12 +86,14 @@ import {
 import { callDeepSeekJsonFromBrowser, callDeepSeekJsonStreamFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
+import type { AiJsonResult, DeepSeekStreamOptions } from "../../utils/deepseek";
 import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
 import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
 import {
   buildChoiceTextRepairPrompt,
   buildNextNodePrompt,
+  NEXT_NODE_INVARIANT_PREFIX_VERSION,
   buildEndingNodePrompt,
   buildFinancialProposalRepairPrompt,
   buildNodePromptWithRetryNotice,
@@ -114,11 +116,11 @@ import {
 } from "./nodeGenerationBudget";
 import { traceGenerationCall, type GenerationTraceListener } from "./generationTelemetry";
 
-type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
+type AiJsonCaller = (prompt: string) => Promise<AiJsonResult>;
 type AiJsonStreamCaller = (
   prompt: string,
-  options?: { signal?: AbortSignal; onContent?: (content: string) => void }
-) => Promise<{ text: string }>;
+  options?: DeepSeekStreamOptions
+) => Promise<AiJsonResult>;
 
 export type NextGenerationStage = "preparing" | "generating" | "validating" | "repairing" | "finalizing" | "revealing";
 
@@ -183,6 +185,8 @@ export interface SimulationServiceDeps {
   onGenerationCallTrace?: GenerationTraceListener;
   /** Release flag. Disabled by default until Candidate Patch proves it avoids full regeneration reliably. */
   enableCandidatePatchRepair?: boolean;
+  /** Build-time escape hatch for Cache Prefix V1; default is enabled. */
+  cacheAwarePromptV1?: boolean;
   /** Internal reason propagation for a recursive full regeneration. */
   fullRegenerationReasonCodes?: string[];
   relationshipDispatchFeatureFlags?: Partial<RelationshipDispatchFeatureFlags>;
@@ -1470,11 +1474,13 @@ async function commitAuthoritativeFinancialProgress(input: {
         context: {
           transactionId: input.transactionId,
           nodeIndex: input.nodeIndex,
+          promptFamily: "financial_proposal_repair",
           issueCodes: blockingIssues.map((issue) => issue.code)
         },
         listener: input.onGenerationCallTrace,
-        operation: async (markFirstToken) => {
+        operation: async (markFirstToken, recordResponseMetadata) => {
           const response = await input.callAiJson(repairPrompt);
+          recordResponseMetadata(response);
           markFirstToken();
           return response;
         }
@@ -1937,6 +1943,7 @@ function getAiJsonStreamCaller(deps: SimulationServiceDeps, fallbackCaller: AiJs
       if (options.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
       const response = await fallbackCaller(prompt);
       options.onContent?.(response.text);
+      if (response.usage) options.onUsage?.(response.usage);
       return response;
     };
   }
@@ -1962,11 +1969,14 @@ function parseAiJsonResponse(response: { text?: string }): any {
 async function repairGeneratedChoiceTexts(
   node: Record<string, any>,
   invalidChoiceIndexes: number[],
-  callAiJson: AiJsonCaller
+  callAiJson: AiJsonCaller,
+  onResponse?: (response: AiJsonResult) => void
 ): Promise<Record<string, any>> {
   if (invalidChoiceIndexes.length === 0) return node;
 
-  const data = parseAiJsonResponse(await callAiJson(buildChoiceTextRepairPrompt(node, invalidChoiceIndexes)));
+  const response = await callAiJson(buildChoiceTextRepairPrompt(node, invalidChoiceIndexes));
+  onResponse?.(response);
+  const data = parseAiJsonResponse(response);
   const rawRepairs = Array.isArray(data?.choiceTextRepairs) ? data.choiceTextRepairs : [];
   const expectedIndexes = new Set(invalidChoiceIndexes);
   const rawChoices = getRawSimulationNodeChoices(node);
@@ -3049,6 +3059,10 @@ export async function generateNextNode(
     directionArcs: worldState.directionArcs
   });
   const storyContext = buildStoryContextPack(input.userData, input.answers, input.history);
+  const cacheAwarePromptV1 = deps.cacheAwarePromptV1 !== false;
+  const promptPrefixVersion = cacheAwarePromptV1
+    ? NEXT_NODE_INVARIANT_PREFIX_VERSION
+    : "next_node_legacy_v0";
   const prompt = buildNextNodePrompt({
     ...input,
     currentFinancialState,
@@ -3062,7 +3076,7 @@ export async function generateNextNode(
     worldState,
     foregroundPressureArc: workingPressureArc,
     pressureArcInterleaved: isPressureArcInterleave
-  });
+  }, { cacheAwarePromptV1 });
 
   let latestRawNode: any = {};
   deps.onGenerationStage?.("generating");
@@ -3081,6 +3095,8 @@ export async function generateNextNode(
           transactionId,
           nodeIndex,
           candidateRevision,
+          promptFamily: "next_node",
+          promptPrefixVersion,
           issueCodes: previousIssues.length > 0
             ? previousIssues
             : candidateRevision > 0
@@ -3088,20 +3104,25 @@ export async function generateNextNode(
               : []
         },
         listener: deps.onGenerationCallTrace,
-        operation: (markFirstToken) => callAiJsonStream(
-          buildNodePromptWithRetryNotice(prompt, previousIssues, nodeEvent?.intent.type),
-          {
-            signal: deps.signal,
-            onContent: (content) => {
-              markFirstToken();
-              const preview = extractStreamedNodePreview(content);
-              const signature = JSON.stringify(preview);
-              if (signature === lastPreviewSignature) return;
-              lastPreviewSignature = signature;
-              deps.onNarrativeProgress?.(preview);
+        operation: async (markFirstToken, recordResponseMetadata) => {
+          const result = await callAiJsonStream(
+            buildNodePromptWithRetryNotice(prompt, previousIssues, nodeEvent?.intent.type),
+            {
+              signal: deps.signal,
+              onUsage: (usage) => recordResponseMetadata({ usage }),
+              onContent: (content) => {
+                markFirstToken();
+                const preview = extractStreamedNodePreview(content);
+                const signature = JSON.stringify(preview);
+                if (signature === lastPreviewSignature) return;
+                lastPreviewSignature = signature;
+                deps.onNarrativeProgress?.(preview);
+              }
             }
-          }
-        )
+          );
+          recordResponseMetadata(result);
+          return result;
+        }
       });
       // Keep the first raw payload intact until the authority check below. If we
       // strip an attempted Arc write here, the model violation becomes invisible
@@ -3131,11 +3152,12 @@ export async function generateNextNode(
                 transactionId,
                 nodeIndex,
                 candidateRevision: generationBudget.fullGenerationsUsed - 1,
+                promptFamily: "candidate_patch",
                 issueCodes: ["choiceText"]
               },
               listener: deps.onGenerationCallTrace,
-              operation: async (markFirstToken) => {
-                const repaired = await repairGeneratedChoiceTexts(rawNode, invalidChoiceIndexes, callAiJson);
+              operation: async (markFirstToken, recordResponseMetadata) => {
+                const repaired = await repairGeneratedChoiceTexts(rawNode, invalidChoiceIndexes, callAiJson, recordResponseMetadata);
                 markFirstToken();
                 return repaired;
               }
@@ -3328,11 +3350,13 @@ export async function generateNextNode(
           nodeIndex,
           candidateRevision: envelope.candidateRevision,
           candidateHash: envelope.baseCandidateHash,
+          promptFamily: "candidate_patch",
           issueCodes: candidateIssues.map((issue) => issue.code)
         },
         listener: deps.onGenerationCallTrace,
-        operation: async (markFirstToken) => {
+        operation: async (markFirstToken, recordResponseMetadata) => {
           const response = await callAiJson(buildNodeCandidatePatchPrompt({ envelope, issues: candidateIssues }));
+          recordResponseMetadata(response);
           markFirstToken();
           let parsedPatch;
           try {
@@ -3464,10 +3488,11 @@ export async function generateNextNode(
     const endingPrompt = buildEndingNodePrompt({ userData: input.userData, history: input.history, candidateNode: node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, forcedByHardMaximum: endingDecision.forcedByHardMaximum });
     const response = await traceGenerationCall({
       kind: "final_outcome_generation",
-      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1 },
+      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "final_outcome" },
       listener: deps.onGenerationCallTrace,
-      operation: async (markFirstToken) => {
+      operation: async (markFirstToken, recordResponseMetadata) => {
         const result = await callAiJson(endingPrompt);
+        recordResponseMetadata(result);
         markFirstToken();
         return result;
       }
@@ -3759,10 +3784,11 @@ export async function generateNextNode(
     nodeEvent?.intent.type,
     async (romancePrompt) => traceGenerationCall({
       kind: "romance_candidate_extraction",
-      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1 },
+      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "romance_candidate" },
       listener: deps.onGenerationCallTrace,
-      operation: async (markFirstToken) => {
+      operation: async (markFirstToken, recordResponseMetadata) => {
         const result = await callAiJson(romancePrompt);
+        recordResponseMetadata(result);
         markFirstToken();
         return result;
       }

@@ -1,4 +1,10 @@
-import { callDeepSeekJson, callDeepSeekJsonStream, DeepSeekClientConfig, DeepSeekStreamOptions } from "../../utils/deepseek";
+import {
+  callDeepSeekJson,
+  callDeepSeekJsonStream,
+  type AiJsonResult,
+  type DeepSeekClientConfig,
+  type DeepSeekStreamOptions
+} from "../../utils/deepseek";
 import { AiClientError } from "./errors";
 
 export interface BrowserDeepSeekConfig extends DeepSeekClientConfig {}
@@ -42,7 +48,7 @@ export async function callDeepSeekJsonFromBrowser(
   prompt: string,
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal
-): Promise<{ text: string }> {
+): Promise<AiJsonResult> {
   assertApiKey(config);
 
   try {
@@ -66,7 +72,7 @@ export async function callDeepSeekJsonStreamFromBrowser(
   prompt: string,
   options: DeepSeekStreamOptions = {},
   fetchImpl: typeof fetch = fetch
-): Promise<{ text: string }> {
+): Promise<AiJsonResult> {
   assertApiKey(config);
 
   try {

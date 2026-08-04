@@ -20,6 +20,7 @@
     "test:financial-journey-isolation": "node --test scripts/real-browser-journey-runner.test.mjs",
     "test:generation-recovery": "node --import tsx --test src/utils/simulationNodeRetry.test.ts scripts/real-browser-journey-runner.test.mjs scripts/financial-real-browser-audit-helpers.test.mjs",
     "test:generation-candidate-repair": "node --import tsx --test src/services/simulation/nodeCandidateCore.test.ts scripts/generation-latency-gate.test.mjs",
+    "test:cache-prefix": "node --import tsx --test src/utils/deepseek.test.ts src/services/ai/deepseekBrowserClient.test.ts src/services/ai/env.test.ts src/services/simulation/promptCacheLayout.test.ts src/services/simulation/prompts.test.ts src/services/simulation/nodeCandidateCore.test.ts src/services/simulation/simulationService.test.ts scripts/cache-usage-telemetry.test.mjs scripts/analyze-cache-prefix-acceptance.test.mjs scripts/real-browser-journey-runner.test.mjs",
     "test:financial-business-boundary": "node --import tsx --test src/domain/finance/validateFinancialProposals.test.ts src/domain/finance/reconcileCareerIncomeAtomicity.test.ts",
     "test:financial-opening-assets": "node --import tsx --test src/domain/finance/openingFinancialAuthority.test.ts src/domain/finance/openingFinancialFacts.test.ts src/domain/finance/assetTransaction.test.ts src/domain/finance/validateFinancialProposals.test.ts src/domain/finance/migrateFinancialLedgerV2ToV3.test.ts",
     "test:financial-m2": "node --import tsx --test src/domain/finance/reduceFinancialLedger.test.ts",

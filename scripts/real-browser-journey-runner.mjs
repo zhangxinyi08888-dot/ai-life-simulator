@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { promisify } from "node:util";
+import { summarizeCacheUsage } from "./lib/cache-usage-telemetry.mjs";
 
 export const FINAL_IMAGE_VIEWPORT = Object.freeze({ width: 1280, height: 900 });
 
@@ -723,6 +724,9 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       passed: Object.values(validation).every(Boolean),
       finalState
     };
+    // Keep a request-classified, prompt-free summary beside the raw state so
+    // the browser evidence remains inspectable even before aggregate analysis.
+    record.cacheTelemetry = summarizeCacheUsage([record]);
     await writeFile(casePath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
     return {
       path: casePath,

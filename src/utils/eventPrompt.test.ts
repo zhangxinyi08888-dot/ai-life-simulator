@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { LIFE_EVENTS_DATABASE } from "../data/lifeEvents";
-import { buildEventIntentPrompt, buildNullEventPrompt } from "./eventPrompt";
+import { buildCacheAwareEventIntentTail, buildEventIntentPrompt, buildNullEventPrompt } from "./eventPrompt";
 import { buildStoryContextPack } from "./storyContext";
 
 const storyContext = buildStoryContextPack(
@@ -56,6 +56,32 @@ assert.match(intentPrompt, /eventOutcomeId/);
 assert.match(intentPrompt, /只能取自本事件 allowedOutcomes/);
 assert.match(intentPrompt, /不得临时增加第二个无关危机/);
 assert.doesNotMatch(intentPrompt, /必须体现真实生活代价与选择/);
+
+const cacheAwareHealthTail = buildCacheAwareEventIntentTail({
+  id: "health_system_warning",
+  category: "health",
+  routeLine: "health",
+  narrativeMode: "pressure_crisis",
+  semanticFamily: "health_system_warning",
+  title: "健康系统预警",
+  minAge: 18,
+  maxAge: 70,
+  conditionDescription: "健康低或压力高",
+  cooldown: 6,
+  baseProbability: 0.8,
+  tags: ["health", "burnout", "instability"],
+  trigger: { eligibility: () => true },
+  intent: {
+    type: "health_system_warning",
+    meaning: "长期高压生活引发身体系统性反馈",
+    tensionAxes: ["收益 vs 健康", "短期稳定 vs 长期风险"],
+    allowedOutcomes: ["continue_goal_with_adjusted_execution"],
+    emotionalTone: "crisis"
+  }
+}, storyContext);
+assert.match(cacheAwareHealthTail, /health_system_warning/);
+assert.match(cacheAwareHealthTail, /不得把继续事业目标等同于维持原有负荷/);
+assert.doesNotMatch(cacheAwareHealthTail, /romance_new_connection/);
 
 const modePromptCases = [
   ["career_gradual_transition_window", /小规模试点/],
