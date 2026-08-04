@@ -131,6 +131,108 @@ test("anchors from-this-month recurring income to the current period start", () 
   assert.equal((result.proposals[0].payload as any).activeFromAgeInMonths, 295);
 });
 
+test("drops a debt draw reconstructed only from an existing mortgage monthly-payment restatement", () => {
+  const currentLedger = initializeFinancialLedger({
+    id: "existing_mortgage_payment", asOfAgeInMonths: 420,
+    openingPosition: {
+      debtAccounts: [{
+        id: "opening_mortgage", type: "mortgage", displayName: "既有住房按揭",
+        principalWan: 180, openedAtAgeInMonths: 300, status: "active",
+        repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.8 },
+        factStatus: "known", evidence: []
+      }]
+    }
+  });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentLedger,
+    proposals: [{
+      id: "duplicate_mortgage_draw", kind: "debt_drawn", effectiveAtAgeInMonths: 432,
+      payload: {
+        principalDrawnWan: 0.8,
+        debtAccount: {
+          id: "invented_mortgage", type: "mortgage", displayName: "房贷月供",
+          principalWan: 0.8, openedAtAgeInMonths: 432, status: "active",
+          repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.8 },
+          factStatus: "estimated", evidence: []
+        }
+      },
+      evidence: "银行重新调整后，你仍按现有房贷每月月供8000元。", confidence: 0.9
+    }]
+  });
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED"), true);
+});
+
+test("keeps an explicit newly disbursed mortgage distinct from an existing mortgage payment", () => {
+  const currentLedger = initializeFinancialLedger({
+    id: "new_mortgage_after_existing", asOfAgeInMonths: 420,
+    openingPosition: {
+      debtAccounts: [{
+        id: "opening_mortgage", type: "mortgage", displayName: "既有住房按揭",
+        principalWan: 180, openedAtAgeInMonths: 300, status: "active",
+        repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.8 },
+        factStatus: "known", evidence: []
+      }]
+    }
+  });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentLedger,
+    proposals: [{
+      id: "new_mortgage_draw", kind: "debt_drawn", effectiveAtAgeInMonths: 432,
+      payload: {
+        principalDrawnWan: 200,
+        debtAccount: {
+          id: "new_mortgage", type: "mortgage", displayName: "新增住房按揭",
+          principalWan: 200, openedAtAgeInMonths: 432, status: "active",
+          repaymentPolicy: { mode: "known_schedule", monthlyPaymentWan: 0.8 },
+          factStatus: "known", evidence: []
+        }
+      },
+      evidence: "银行批准新增住房贷款200万元，贷款已经放款到账；新的月供8000元。", confidence: 0.9
+    }]
+  });
+  assert.equal(result.proposals.length, 1);
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED"), false);
+});
+
+test("never normalizes company revenue into a personal self-employment draw", () => {
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentCareerStateId: "career_founder",
+    proposals: [{
+      id: "company_revenue_as_draw", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+      payload: { id: "invented_draw", type: "freelance", monthlyNetAmountWan: 8 },
+      evidence: "公司的SaaS产品本月营收8万元，客户回款已经到账。", confidence: 0.9
+    }]
+  });
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.audit.some((item) => item.reasonCode === "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED"), true);
+});
+
+test("normalizes a personal self-employment draw only with an authoritative career link", () => {
+  const valid = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentCareerStateId: "career_old", nextCareerStateIds: ["career_founder"],
+    proposals: [{
+      id: "founder_draw", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+      payload: { id: "founder_draw_income", type: "freelance", monthlyNetAmountWan: 4, linkedCareerStateId: "invented" },
+      evidence: "董事会决议后，公司从本月起向你的个人账户每月支付4万元税后工资。", confidence: 0.9
+    }]
+  });
+  assert.equal(valid.proposals.length, 1);
+  assert.equal((valid.proposals[0].payload as any).type, "self_employment_draw");
+  assert.equal((valid.proposals[0].payload as any).linkedCareerStateId, "career_founder");
+
+  const unlinked = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    proposals: [{
+      id: "unlinked_founder_draw", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+      payload: { id: "unlinked_draw_income", type: "self_employment_draw", monthlyNetAmountWan: 4 },
+      evidence: "你从本月起每月领取4万元业主提款。", confidence: 0.9
+    }]
+  });
+  assert.equal(unlinked.proposals.length, 0);
+  assert.equal(unlinked.audit.some((item) => item.reasonCode === "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED"), true);
+});
+
 test("drops a no-op income adjustment instead of quarantining the authoritative source", () => {
   const currentLedger = initializeFinancialLedger({
     id: "income_noop",

@@ -501,6 +501,58 @@ test("parent care wording preserves personal responsibility without inventing in
   assert.equal([...review, ...start, ...increase].some((item) => item.proposedType === "insurance"), false);
 });
 
+test("relationship planning, a one-off parent checkup, and a future rental plan stay review-only rather than minting personal elder care", () => {
+  const ageInMonths = 27 * 12 + 4;
+  const parent = world({ people: [{
+    id: "person_parent_unspecified", relation: "parent", lifeStatus: "active", healthStatus: "stable",
+    source: "accepted_history", confidence: 1
+  }] });
+  const narrativeText = [
+    "我和伴侣开始认真规划未来，每个月会抽时间讨论结婚、购房和照顾父母的安排，但具体计划推进得比想象中慢。",
+    "我的存款减少了一些，因为承担了更多日常开销和一次父母体检的费用。",
+    "伴侣的工作依然稳定，但我们对如何平衡照顾双方父母一直有分歧，尤其是我习惯沉默、回避冲突的性格，让一些问题拖了很久才摊开说。",
+    "年底我们达成初步共识：先租房过渡，暂缓购房，同时各自增加对父母的探望频率。"
+  ].join("");
+  const candidates = deriveExpenseResponsibilityCandidates({
+    ageInMonths,
+    candidateWorldState: parent,
+    narrativeText
+  }).candidates;
+  assert.deepEqual(candidates.map((item) => [
+    item.responsibilityKey,
+    item.action,
+    item.liability,
+    item.financialScope,
+    item.protagonistShareWan
+  ]), [["elder_care:person_parent_unspecified", "review", "unknown", "personal", undefined]]);
+
+  const reconciliation = reconcileExpenseCommitments({
+    ledger: migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+      id: "relationship_planning_one_off_parent_checkup", asOfAgeInMonths: ageInMonths
+    }) as FinancialLedgerV3),
+    candidates,
+    ageInMonths,
+    sourceOutcomeId: "relationship_planning_one_off_parent_checkup",
+    mode: "enforced"
+  });
+  assert.equal(reconciliation.proposals.some((item) => item.kind === "expense_commitment_started"), false);
+  assert.equal(reconciliation.wouldBlock, false);
+  assert.equal(reconciliation.issues.some((item) => item.code === "PENDING_FACT"), true);
+
+  const completedRecurringCare = deriveExpenseResponsibilityCandidates({
+    ageInMonths,
+    candidateWorldState: parent,
+    narrativeText: "你每周固定带父亲去县医院做复查，并在候诊时记录医生的照护建议。"
+  }).candidates;
+  assert.deepEqual(completedRecurringCare.map((item) => [
+    item.responsibilityKey,
+    item.action,
+    item.liability,
+    item.financialScope,
+    item.protagonistShareWan
+  ]), [["elder_care:person_parent_unspecified", "start", "protagonist", "personal", undefined]]);
+});
+
 test("a repeated first-person parent-care routine creates a nonzero reviewable care commitment without inventing a known payment", () => {
   const parents = world({ people: [{
     id: "mother", displayName: "母亲", relation: "parent", lifeStatus: "limited", healthStatus: "care_dependent",

@@ -975,7 +975,9 @@ assert.equal(reconciledLegacyIncomeNode.financialLedger!.incomeSources.filter((s
 
 const legacyIncomeRetryPrompts: string[] = [];
 const legacyIncomeRetryGateDecisions: string[] = [];
+const legacyIncomeRetryGenerationStarts: string[] = [];
 let legacyIncomeRetryCalls = 0;
+const legacyIncomeRetrySharedBudget = createNodeGenerationBudget();
 const legacyIncomeRetryNode = await generateNextNode({
   userData,
   answers,
@@ -986,6 +988,15 @@ const legacyIncomeRetryNode = await generateNextNode({
   simulationSeed: "legacy-income-enforced-retry"
 }, {
   financialNodeGateMode: "enforced",
+  generationBudget: legacyIncomeRetrySharedBudget,
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  onGenerationCallTrace: (trace) => {
+    if (trace.outcome === "started") legacyIncomeRetryGenerationStarts.push(trace.kind);
+  },
   // This regression isolates the legacy-income retry contract.  The V4
   // scheduled expense-review projection has its own enforced-mode coverage
   // below and must not become a second, unrelated retry subject here.
@@ -1023,7 +1034,10 @@ const legacyIncomeRetryNode = await generateNextNode({
     };
   }
 });
-assert.ok(legacyIncomeRetryCalls >= 2, "the strict preview must regenerate before accepting explicit source evidence");
+assert.equal(legacyIncomeRetryCalls, 2, "the strict preview must use only the initial and one full regenerated candidate");
+assert.deepEqual(legacyIncomeRetryGenerationStarts, ["initial_generation", "full_regeneration"]);
+assert.equal(legacyIncomeRetrySharedBudget.fullGenerationsUsed, 2);
+assert.equal(legacyIncomeRetrySharedBudget.modelPatchesUsed, 0);
 assert.ok(legacyIncomeRetryPrompts.some((prompt) => /仍在职的迁移估算收入需要本节点明确确认/.test(prompt)));
 const legacyIncomeRetryPrompt = legacyIncomeRetryPrompts.find((prompt) => /当前职业收入必须在本次重生中确认/.test(prompt));
 assert.ok(legacyIncomeRetryPrompt, "the retry must require confirmation of the current legacy income source");

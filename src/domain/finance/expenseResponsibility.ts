@@ -182,16 +182,19 @@ function hasNoNewParentExpenseSignal(sentence: string): boolean {
 }
 
 function hasFollowupPersonalCareAction(sentence: string): boolean {
-  return /(?:你|我).{0,30}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政)|(?:给|为).{0,16}(?:他|她|父母|母亲|父亲|妈妈|爸爸).{0,20}(?:找|请)(?:了)?(?:一位|一名|个)?(?:康复师|理疗师)|照看|照护|护理|陪护|照料)/u.test(sentence)
+  // Do not let the `我` in “我们” (or `你` in “你们”) establish an
+  // individual payer/caregiver.  Joint discussion or a shared plan needs an
+  // explicit accepted allocation before it can affect the personal ledger.
+  return /(?:你(?!们)|我(?!们)).{0,30}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政)|(?:给|为).{0,16}(?:他|她|父母|母亲|父亲|妈妈|爸爸).{0,20}(?:找|请)(?:了)?(?:一位|一名|个)?(?:康复师|理疗师)|照看|照护|护理|陪护|照料)/u.test(sentence)
     // “你每周固定陪她治疗” and “你推着轮椅去医院” are completed,
     // continuing care actions.  They are intentionally narrower than a
     // generic visit: the surrounding parent-care context is checked below
     // before this can establish a personal recurring responsibility.
-    || /(?:你|我|本人|主角).{0,36}(?:陪(?:着)?(?:她|他|父母|母亲|父亲|妈妈|爸爸).{0,16}(?:治疗|理疗|复诊|就医)|推(?:着)?(?:她|他|父母|母亲|父亲|妈妈|爸爸).{0,16}(?:轮椅|去(?:医院|就医)))/u.test(sentence)
+    || /(?:你(?!们)|我(?!们)|本人|主角).{0,36}(?:陪(?:着)?(?:她|他|父母|母亲|父亲|妈妈|爸爸).{0,16}(?:治疗|理疗|复诊|就医)|推(?:着)?(?:她|他|父母|母亲|父亲|妈妈|爸爸).{0,16}(?:轮椅|去(?:医院|就医)))/u.test(sentence)
     // A daily rehabilitation routine is a care responsibility only when the
     // adjacent sentence has already anchored the parent and health context.
     // That second guard lives in `hasOngoingPersonalParentCareResponsibility`.
-    || /(?:你|我|本人|主角).{0,36}(?:帮(?:着)?|协助).{0,16}(?:她|他|父母|母亲|父亲|妈妈|爸爸).{0,20}(?:康复训练|关节活动|复健)/u.test(sentence)
+    || /(?:你(?!们)|我(?!们)|本人|主角).{0,36}(?:帮(?:着)?|协助).{0,16}(?:她|他|父母|母亲|父亲|妈妈|爸爸).{0,20}(?:康复训练|关节活动|复健)/u.test(sentence)
     || /^(?:给|为)家里请(?:了)?(?:一位|一名|个)?(?:每周[^。！？；]{0,12})?(?:钟点工|保姆|家政|护工)/u.test(sentence);
 }
 
@@ -232,15 +235,15 @@ function sharedCaregiverArrangement(input: {
  * that establish the parent as the object in the same completed sentence.
  */
 function hasNamedPersonalParentCareAction(sentence: string): boolean {
-  return /(?:你|我|本人|主角).{0,44}(?:(?:陪(?:着)?|推(?:着)?).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,20}(?:治疗|理疗|复诊|就医|轮椅)|带(?:着)?(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,28}(?:去|到).{0,12}(?:医院|门诊).{0,16}(?:体检|检查|复查|治疗|理疗|康复评估)|(?:照料|照顾|陪护|陪诊|护理|照看).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸)|(?:帮(?:着)?|协助).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,20}(?:康复训练|关节活动|复健)|(?:给|为)(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,16}(?:请|找)(?:了)?(?:护工|钟点工|保姆|家政|康复师|理疗师)|(?:给|为)(?:他|她).{0,20}(?:找|请)(?:了)?(?:一位|一名|个)?(?:康复师|理疗师)|(?:看望|探望).{0,12}(?:父母|爸妈|他们).{0,28}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政)|照看|照护|护理))/u.test(sentence)
+  return /(?:你(?!们)|我(?!们)|本人|主角).{0,44}(?:(?:陪(?:着)?|推(?:着)?).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,20}(?:治疗|理疗|复诊|就医|轮椅)|带(?:着)?(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,28}(?:去|到).{0,12}(?:医院|门诊).{0,16}(?:体检|检查|复查|治疗|理疗|康复评估)|(?:照料|照顾|陪护|陪诊|护理|照看).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸)|(?:帮(?:着)?|协助).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,20}(?:康复训练|关节活动|复健)|(?:给|为)(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,16}(?:请|找)(?:了)?(?:护工|钟点工|保姆|家政|康复师|理疗师)|(?:给|为)(?:他|她).{0,20}(?:找|请)(?:了)?(?:一位|一名|个)?(?:康复师|理疗师)|(?:看望|探望).{0,12}(?:父母|爸妈|他们).{0,28}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政)|照看|照护|护理))/u.test(sentence)
     // The parent context may lead an otherwise target-elided care-service
     // arrangement in the *same* sentence, but the action must be arranging a
     // caregiver rather than a generic "照料" verb.
-    || /(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,72}(?:你|我|本人|主角).{0,40}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政))/u.test(sentence);
+    || /(?:父母|爸妈|母亲|父亲|妈妈|爸爸).{0,72}(?:你(?!们)|我(?!们)|本人|主角).{0,40}(?:请人|请(?:了)?(?:护工|钟点工|保姆|家政))/u.test(sentence);
 }
 
 function hasLocalPronounParentCareAction(sentence: string): boolean {
-  return /(?:你|我|本人|主角).{0,36}(?:(?:陪(?:着)?|推(?:着)?|照料|照顾|陪护|陪诊|护理|照看).{0,16}(?:她|他|他们)|(?:帮(?:着)?|协助).{0,16}(?:她|他|他们).{0,20}(?:康复训练|关节活动|复健))/u.test(sentence);
+  return /(?:你(?!们)|我(?!们)|本人|主角).{0,36}(?:(?:陪(?:着)?|推(?:着)?|照料|照顾|陪护|陪诊|护理|照看).{0,16}(?:她|他|他们)|(?:帮(?:着)?|协助).{0,16}(?:她|他|他们).{0,20}(?:康复训练|关节活动|复健))/u.test(sentence);
 }
 
 /**
@@ -268,7 +271,7 @@ function hasOngoingPersonalParentCareResponsibility(input: {
   if (hasLocalPronounParentCareAction(input.sentence)
     && /理疗|治疗|复诊|就医|轮椅|照护|护理|陪诊|康复|康复训练|关节活动|复健|(?:医院|门诊).{0,8}(?:复查|体检|检查)|(?:复查|体检|检查)(?:血压|病情|治疗)/u.test(input.parentContext)) return true;
   return /(?:其余时间|大部分时间|多数时间|主要精力|更多时间).{0,20}(?:用来)?(?:照料|照顾|陪护|陪诊|护理).{0,16}(?:父母|爸妈|母亲|父亲|妈妈|爸爸)/u.test(input.sentence)
-    && /(?:你|我|本人|主角)/u.test(input.previousSentence);
+    && /(?:你(?!们)|我(?!们)|本人|主角)/u.test(input.previousSentence);
 }
 
 /**
@@ -306,7 +309,7 @@ function hasCompletedOngoingPersonalHealthcareAction(sentence: string): boolean 
   // treatment.  A parent/proxy beneficiary preceding the treatment verb is
   // never evidence of the protagonist's own recurring healthcare.
   if (/(?:陪|提醒|建议|劝|嘱咐|要求|让|帮).{0,20}(?:父母|爸妈|母亲|父亲|妈妈|爸爸|他|她|他们).{0,20}(?:用药|服药|复诊)/u.test(sentence)) return false;
-  return /(?:你|我|本人|主角).{0,40}(?:继续|仍|每天|每日|按时|规律|固定|长期|持续|每月|定期|只).{0,14}(?:用药|服药|复诊)/u.test(sentence);
+  return /(?:你(?!们)|我(?!们)|本人|主角).{0,40}(?:继续|仍|每天|每日|按时|规律|固定|长期|持续|每月|定期|只).{0,14}(?:用药|服药|复诊)/u.test(sentence);
 }
 
 /**
@@ -320,7 +323,7 @@ function hasCompletedOngoingPersonalHealthcareAction(sentence: string): boolean 
 function isExplicitPersonalParentCareCommitment(sentence: string, nextSentence: string): boolean {
   if (!PARENT_REFERENCE.test(sentence) || !CAREGIVER_SERVICE.test(sentence)) return false;
   if (BUSINESS_PLACE.test(sentence)) return false;
-  if (!/(?:费用|服务费|照护费|开销).{0,12}(?:由|由着)(?:你|我|本人|主角).{0,8}(?:承担|支付|负担)/u.test(sentence)) {
+  if (!/(?:费用|服务费|照护费|开销).{0,12}(?:由|由着)(?:你(?!们)|我(?!们)|本人|主角).{0,8}(?:承担|支付|负担)/u.test(sentence)) {
     return false;
   }
   if (!NON_COMPLETED.test(sentence)) return true;
@@ -865,12 +868,12 @@ function classifyNarrativeLiability(sentence: string): {
   const hasThirdPartyPayer = /(?:伴侣|配偶|妻子|丈夫|父母|母亲|父亲|公司|雇主|朋友|他|她).{0,24}(?:支付|承担|负担|缴纳|转账|付款|代付)/u.test(sentence);
   if (hasThirdPartyPayer) return { liability: "third_party", financialScope: "third_party" };
 
-  const hasPersonalPayer = /(?:你|我|本人|主角).{0,24}(?:支付|承担|负担|缴纳|转账|(?:转(?:给|向|账)|(?:给|向).{0,12}转(?!入))|付款|付(?:了)?(?:房租|租金|费|款)?|交了|租下|租住|租(?:了)?(?:一(?:个|间))?(?:小)?(?:单间|房间|公寓|房子|住房|住处)|搬入|入住|投保|(?<!继)续保)/u.test(sentence)
+  const hasPersonalPayer = /(?:你(?!们)|我(?!们)|本人|主角).{0,24}(?:支付|承担|负担|缴纳|转账|(?:转(?:给|向|账)|(?:给|向).{0,12}转(?!入))|付款|付(?:了)?(?:房租|租金|费|款)?|交了|租下|租住|租(?:了)?(?:一(?:个|间))?(?:小)?(?:单间|房间|公寓|房子|住房|住处)|搬入|入住|投保|(?<!继)续保)/u.test(sentence)
     // "你盘算着下个月要交的房租" is not a speculative move: it says
     // that an already occupied residence has a recurring protagonist bill.
     // Keep this deliberately tied to a first-person payer and a housing noun
     // so a generic future housing plan remains excluded by NON_COMPLETED.
-    || /(?:你|我|本人|主角).{0,24}(?:要|需|得|需要)交(?:的)?(?:房租|租金|物业费)/u.test(sentence)
+    || /(?:你(?!们)|我(?!们)|本人|主角).{0,24}(?:要|需|得|需要)交(?:的)?(?:房租|租金|物业费)/u.test(sentence)
     // User-provided opening facts commonly elide the already-established
     // second-person subject, e.g. “每月给父母转 4000 元”.  Keep this narrow
     // so a third-party subject still wins above.
@@ -883,9 +886,9 @@ function classifyNarrativeLiability(sentence: string): {
     // recurring deductions. Once it explicitly says the narrator's monthly
     // cash flow deducts rent or parent medical care, that is stronger than an
     // owner-review; third-party/business payers have already returned above.
-    || /(?:你|我|本人|主角|你的).{0,32}(?:月薪|工资|薪资|收入|现金流)[^。！？；]{0,96}(?:每月).{0,16}(?:扣除|扣掉|减去|除去).{0,24}(?:房租|租金|物业费|医疗|医药|治疗|复诊|用药)/u.test(sentence)
+    || /(?:你(?!们)|我(?!们)|本人|主角|你的).{0,32}(?:月薪|工资|薪资|收入|现金流)[^。！？；]{0,96}(?:每月).{0,16}(?:扣除|扣掉|减去|除去).{0,24}(?:房租|租金|物业费|医疗|医药|治疗|复诊|用药)/u.test(sentence)
     || hasNamedPersonalParentCareAction(sentence)
-    || /(?:你|我|本人|主角).{0,24}(?:医疗补贴|医药补贴).{0,32}(?:提到|提高到|上调到|增加到|调整为|变为)/u.test(sentence);
+    || /(?:你(?!们)|我(?!们)|本人|主角).{0,24}(?:医疗补贴|医药补贴).{0,32}(?:提到|提高到|上调到|增加到|调整为|变为)/u.test(sentence);
   if (hasPersonalPayer) return { liability: "protagonist", financialScope: "personal" };
 
   return { liability: "unknown", financialScope: "personal" };

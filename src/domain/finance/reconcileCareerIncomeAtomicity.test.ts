@@ -390,6 +390,33 @@ test("PB-CAREER-01b explicit personal compensation overrides organization tracti
   }).length, 1);
 });
 
+test("PB-CAREER-01c conditional and forecast income language is not completed personal income", () => {
+  const hypotheticalOrForecastOnly = [
+    "你重新算了算，如果保留大公司的工作，同时严格控制业余项目的投入，现金流可以维持稳定，但项目进展会慢下来；如果减少大公司的工时，则要接受更低的收入。",
+    "若签约成功，咨询收入预计每月增加5000元。",
+    "如果接受新岗位，你的个人收入稳定在2万元/月。",
+    "收入预期变化会让贷款审批更复杂。"
+  ];
+
+  for (const narrativeText of hypotheticalOrForecastOnly) {
+    assert.equal(narrativeClaimsNewPersonalIncomeActivity(narrativeText), false, narrativeText);
+    assert.equal(narrativeClaimsExplicitPersonalIncome(narrativeText), false, narrativeText);
+    assert.equal(collectPersonalIncomeNarrativeContractIssues({
+      narrativeText,
+      acceptedFinancialEvents: [],
+      ageInMonths: 660
+    }).length, 0, narrativeText);
+  }
+
+  const actualReceipt = "客户已经结算，你收到5000元顾问费作为个人服务报酬。";
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(actualReceipt), true);
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: actualReceipt,
+    acceptedFinancialEvents: [],
+    ageInMonths: 660
+  }).length, 1);
+});
+
 test("PB-CAREER-02 resignation, old wage closure, and new owner draw commit atomically", () => {
   const current = fixture();
   const nextCareerState = initializeCareerState({ id: "career_studio", employmentStatus: "self_employed", occupation: "工作室负责人", effectiveFromAgeInMonths: 660 });

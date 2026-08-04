@@ -15,6 +15,8 @@ export interface FinancialProposalNormalizationAudit {
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
     | "RENT_ONLY_RECLASSIFIED_AS_HOUSING"
+    | "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED"
+    | "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED" | "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED"
     | "ASSET_ACCOUNT_SHAPE_COMPLETED" | "DEBT_ACCOUNT_SHAPE_COMPLETED";
   originalValue?: string;
   normalizedValue?: string;
@@ -32,6 +34,43 @@ const DEBT_TYPE_ALIASES: Record<string, DebtType> = {
 function normalizedDebtType(value: unknown): DebtType {
   const raw = String(value || "family_or_personal_loan");
   return DEBT_TYPE_ALIASES[raw] || raw as DebtType;
+}
+
+/**
+ * A recurring payment is evidence that an already-open mortgage continues;
+ * it is never evidence that new principal reached the protagonist's cash
+ * account.  Preserve a real new draw only when the prose explicitly says that
+ * the new principal was disbursed.
+ */
+function isExistingMortgagePaymentRestatement(input: {
+  evidenceText: string;
+  currentLedger?: FinancialLedger;
+}): boolean {
+  const hasActiveMortgage = input.currentLedger?.debtAccounts.some((account) => (
+    account.type === "mortgage" && (account.status === "active" || account.status === "defaulted")
+  ));
+  if (!hasActiveMortgage) return false;
+  const paymentOnly = /(?:房贷|按揭)[^。；]{0,32}(?:月供|每月(?:还款|偿还)|还款|偿还)|(?:月供|每月(?:还款|偿还)|还贷)[^。；]{0,32}(?:房贷|按揭)/u.test(input.evidenceText);
+  if (!paymentOnly) return false;
+  const explicitlyDisbursedNewDebt = /(?:贷款|借款|房贷|按揭)[^。；]{0,24}(?:放款|发放|到账|借到|拿到|获得)|(?:放款|发放|到账|借到|拿到|获得)[^。；]{0,24}(?:贷款|借款|房贷|按揭)/u.test(input.evidenceText);
+  return !explicitlyDisbursedNewDebt;
+}
+
+function companyRevenueWithoutPersonalDrawEvidence(evidenceText: string): boolean {
+  const companyRevenue = /(?:公司|企业|平台|团队|工作室|机构|中心|产品|SaaS|客户)[^。；]{0,48}(?:营收|营业收入|销售额|合同额|客户回款|客户年费|产品收入|订阅收入|项目收入|月收入|年收入)|(?:营收|营业收入|销售额|合同额|客户回款|客户年费|产品收入|订阅收入|项目收入)[^。；]{0,48}(?:公司|企业|平台|团队|工作室|机构|中心|产品|SaaS|客户)/u.test(evidenceText);
+  if (!companyRevenue) return false;
+  const explicitlyUnpaid = /(?:暂不|没有|未|不)(?:领取|提取|获得|收到|发放)[^。；]{0,20}(?:个人)?(?:工资|薪资|收入|业主提款|分红)|(?:暂不|没有|未|不)(?:领薪|领工资|领分红)/u.test(evidenceText);
+  const personalReceipt = /(?:你|我|主角|本人)[^。；]{0,48}(?:个人账户|个人(?:工资|薪资|收入|提款)|业主提款|给自己发|领取|提取|获得|收到|税后工资|税后薪资|月薪|年薪|工资|薪资|分红)|(?:个人账户|个人(?:工资|薪资|收入|提款)|业主提款)[^。；]{0,32}(?:支付|发放|转入|到账)/u.test(evidenceText);
+  return explicitlyUnpaid || !personalReceipt;
+}
+
+function authoritativeCareerLinkForSelfEmploymentDraw(input: {
+  currentCareerStateId?: string;
+  nextCareerStateIds?: string[];
+}): string | undefined {
+  if (input.nextCareerStateIds?.length === 1) return input.nextCareerStateIds[0];
+  if ((input.nextCareerStateIds?.length || 0) > 1) return undefined;
+  return input.currentCareerStateId;
 }
 
 /**
@@ -277,6 +316,18 @@ export function normalizeFinancialProposals(input: {
       : source.payload;
     const effectiveAtAgeInMonths = Number(source.effectiveAtAgeInMonths);
     const evidenceText = typeof source.evidence === "string" ? source.evidence : "";
+    if (kind === "debt_drawn" && isExistingMortgagePaymentRestatement({
+      evidenceText,
+      currentLedger: input.currentLedger
+    })) {
+      audit.push({
+        proposalId: id,
+        reasonCode: "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED",
+        originalValue: "debt_drawn",
+        normalizedValue: "existing_mortgage_payment"
+      });
+      return [];
+    }
     const monthlyAmountFromEvidence = (): number | undefined => {
       const normalized = evidenceText.normalize("NFKC");
       const wan = normalized.match(/(?:每月|月(?:薪|收入|支出|租|供)?|每个月)[^。；，]{0,12}?(\d+(?:\.\d+)?)\s*万/u)
@@ -749,6 +800,38 @@ export function normalizeFinancialProposals(input: {
       if (linkedCareerStateId) {
         payload.nextSource.linkedCareerStateId = linkedCareerStateId;
         audit.push({ proposalId: id, reasonCode: "CAREER_LINK_FILLED", normalizedValue: linkedCareerStateId });
+      }
+    }
+    if (payload && (kind === "income_source_started" || kind === "income_source_adjusted")) {
+      const personalIncomeSource = (kind === "income_source_adjusted" ? payload.nextSource : payload) as Record<string, any> | undefined;
+      if (personalIncomeSource?.type === "self_employment_draw") {
+        // The personal ledger can record a founder's actual draw, never the
+        // company's operating revenue.  A valid draw must also point to the
+        // one authoritative current/accepted-next CareerState so the later
+        // career-income transaction stays atomic.
+        if (source.financialScope === "business_operating"
+          || companyRevenueWithoutPersonalDrawEvidence(evidenceText)) {
+          audit.push({
+            proposalId: id,
+            reasonCode: "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED",
+            originalValue: "self_employment_draw",
+            normalizedValue: "business_operating"
+          });
+          return [];
+        }
+        const authoritativeCareerLink = authoritativeCareerLinkForSelfEmploymentDraw({
+          currentCareerStateId: input.currentCareerStateId,
+          nextCareerStateIds: input.nextCareerStateIds
+        });
+        if (!authoritativeCareerLink || personalIncomeSource.linkedCareerStateId !== authoritativeCareerLink) {
+          audit.push({
+            proposalId: id,
+            reasonCode: "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED",
+            originalValue: String(personalIncomeSource.linkedCareerStateId || "missing"),
+            normalizedValue: authoritativeCareerLink || "missing"
+          });
+          return [];
+        }
       }
     }
     if (payload && kind === "income_source_adjusted" && payload.nextSource) {

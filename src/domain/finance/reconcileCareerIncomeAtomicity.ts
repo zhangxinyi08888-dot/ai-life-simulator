@@ -19,11 +19,16 @@ const EXPLICIT_PERSONAL_COMPENSATION_RECEIPT_PATTERN = /(?:你|本人|主角)[^�
 const PAST_OR_ENDED_PERSONAL_INCOME_PATTERN = /(?:辞职|辞去|离职|退休|离开|结束|中断|停发|上一份|原工作).{0,36}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资).{0,36}(?:辞职|辞去|离职|退休|结束|中断|停发)/u;
 const EXPLICIT_UNPAID_PATTERN = /(?:暂不|没有|未|不)(?:领取|提取|获得)(?:个人)?(?:工资|薪资|业主提款|分红|收入)|不领薪|无薪/u;
 const TENTATIVE_PERSONAL_INCOME_PATTERN = /(?:个人)?收入[^。！？]{0,16}(?:是否形成|尚待确认|仍需观察|未形成|没有形成|尚未形成|暂时没有)|(?:是否形成|尚待确认|仍需观察|未形成|没有形成|尚未形成|暂时没有)[^。！？]{0,16}(?:个人)?收入/u;
+// A conditional choice or a forecast describes a possible future cash flow,
+// not a completed personal-income fact. Keep this sentence-scoped so an
+// independently punctuated actual receipt remains authoritative.
+const HYPOTHETICAL_OR_FORECAST_INCOME_PATTERN = /(?:(?:如果|若|一旦|假如|要是|倘若|假设)[^。！？；]{0,80}(?:月薪|年薪|工资|薪资|可支配收入|个人(?:净)?收入|个人进账|收入|现金流|进账|报酬|酬劳|分红|业主提款)|(?:月薪|年薪|工资|薪资|可支配收入|个人(?:净)?收入|个人进账|收入|现金流|进账|报酬|酬劳|分红|业主提款)[^。！？；]{0,24}(?:收入预期|预期|预计|预测|估计|可能|有望|将(?:会)?|会|可(?:以|能)?|拟|计划))/u;
 
 export function narrativeClaimsExplicitPersonalIncome(narrativeText: string): boolean {
   if (hasExplicitUnpaidPersonalIncomeStatement(narrativeText)) return false;
   return narrativeText.split(/(?<=[。！？；])/u).some((sentence) => (
     EXPLICIT_PERSONAL_INCOME_PATTERN.test(sentence)
+    && !HYPOTHETICAL_OR_FORECAST_INCOME_PATTERN.test(sentence)
     && !/(?:公司|企业|项目|平台|团队|工作室|机构|中心)(?:的)?(?:年收入|月收入|营收|销售额|回款)/u.test(sentence)
     && !/(?:辞职|辞去|离职|退休|离开|结束|中断|停发|上一份|原工作).{0,36}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资).{0,36}(?:辞职|辞去|离职|退休|结束|中断|停发)/u.test(sentence)
   ));
@@ -38,6 +43,7 @@ export function sentenceClaimsNewPersonalIncomeActivity(sentence: string): boole
   if (hasExplicitUnpaidPersonalIncomeStatement(sentence)) return false;
   if (TENTATIVE_PERSONAL_INCOME_PATTERN.test(sentence)) return false;
   if (PAST_OR_ENDED_PERSONAL_INCOME_PATTERN.test(sentence)) return false;
+  if (HYPOTHETICAL_OR_FORECAST_INCOME_PATTERN.test(sentence)) return false;
   if (EXPLICIT_PERSONAL_COMPENSATION_RECEIPT_PATTERN.test(sentence)) return true;
   if (COMPANY_OPERATING_INCOME_PATTERN.test(sentence)) return false;
   if (ORGANIZATION_COMMERCIAL_TRACTION_PATTERN.test(sentence)) return false;
