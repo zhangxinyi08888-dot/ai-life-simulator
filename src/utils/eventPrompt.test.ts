@@ -81,6 +81,9 @@ const cacheAwareHealthTail = buildCacheAwareEventIntentTail({
 }, storyContext);
 assert.match(cacheAwareHealthTail, /health_system_warning/);
 assert.match(cacheAwareHealthTail, /不得把继续事业目标等同于维持原有负荷/);
+assert.match(cacheAwareHealthTail, /Story Context Pack/);
+assert.match(cacheAwareHealthTail, /我爸妈希望我稳定/);
+assert.match(cacheAwareHealthTail, /最近 5 个历史节点/);
 assert.doesNotMatch(cacheAwareHealthTail, /romance_new_connection/);
 
 const modePromptCases = [

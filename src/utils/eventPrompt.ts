@@ -1,5 +1,5 @@
 import { LifeEventSeed } from "../data/lifeEvents";
-import { formatStoryContextForNextNode, formatStoryContextPack, StoryContextPack } from "./storyContext";
+import { formatStoryContextPack, StoryContextPack } from "./storyContext";
 
 function formatList(items: string[]): string {
   return items.map((item, index) => `  ${index + 1}. ${item}`).join("\n");
@@ -55,36 +55,43 @@ const NEXT_NODE_EVENT_POLICY_CATALOG_SOURCE_V1 = `【事件与方向固定契约
 【没有强事件时】
 - 当动态数据 type=none 时，推进一段平稳但真实的人生日常：优先呈现用户上一选择的后果和仍在推进的人生方向；保持和最近 5 个历史节点的延续性；写出生活里的小变化、小压力、小选择；可以延续一个轻量关系、亲情或生活副线，但不得取代用户当前主线；不得因为年龄较高自动改写成退休、照护、回忆或传承；非终章仍然面向未来；如果主线是学习、创业、写作、旅行或研究，继续推进该方向的日常后果；可以呈现关系、工作、健康、财务或内心状态的微小变化；不要强行制造事故、裁员、背叛、疾病或重大危机。`;
 
-/** The provider-visible invariant prefix: no inactive type/mode policy leaks into a turn. */
-export const NEXT_NODE_EVENT_POLICY_CATALOG_V1 = NEXT_NODE_EVENT_POLICY_CATALOG_SOURCE_V1.replace(
-  /【narrativeMode 目录】[\s\S]*?(?=【没有强事件时】)/u,
-  `【narrativeMode 目录】
-- 当前 narrativeMode 的专属契约会随动态 Event Intent 提供；只能执行该一个模式契约，不能把其它模式的危机、恢复或稳定要求带入本轮。
-
-【event.type 目录】
-- 当前 type 的专属契约会随动态 Event Intent 提供；只能执行该一个类型契约，不能把其它类型的关系、健康或人生阶段要求带入本轮。
-
-`
+/**
+ * Provider-visible event contract shared by ordinary next-node calls. The
+ * full Story Context Pack already carries direction-state semantics, so keep
+ * only the legacy shared rules and choice boundary. This deliberately omits
+ * type/mode data and answer counts: those belong to the mutable turn tail.
+ */
+const NEXT_NODE_EVENT_SHARED_RULES_V1 = NEXT_NODE_EVENT_POLICY_CATALOG_SOURCE_V1.slice(
+  NEXT_NODE_EVENT_POLICY_CATALOG_SOURCE_V1.indexOf("- 不要复述事件定义"),
+  NEXT_NODE_EVENT_POLICY_CATALOG_SOURCE_V1.indexOf("- 动态数据中的 answerFactCount")
 );
 
+export const NEXT_NODE_EVENT_POLICY_CATALOG_V1 = `请严格围绕【本轮 Event Intent 数据】生成现实人生场景。\n要求：\n${NEXT_NODE_EVENT_SHARED_RULES_V1}${directionChoiceRule}`;
+
 function formatCacheAwareEventData(event: LifeEventSeed): string {
-  return `【本轮 Event Intent 数据】\ntype: ${event.intent.type}\nnarrativeMode: ${event.narrativeMode}\nmeaning: ${event.intent.meaning}\ntensionAxes:\n${formatList(event.intent.tensionAxes)}\nallowedOutcomes:\n${formatList(event.intent.allowedOutcomes)}\nemotionalTone: ${event.intent.emotionalTone || "neutral"}`;
+  return `【本轮 Event Intent 数据】\ntype: ${event.intent.type}\nmeaning: ${event.intent.meaning}\ntensionAxes:\n${formatList(event.intent.tensionAxes)}\nallowedOutcomes:\n${formatList(event.intent.allowedOutcomes)}\nemotionalTone: ${event.intent.emotionalTone || "neutral"}`;
 }
 
 /**
  * Dynamic tail paired with `NEXT_NODE_EVENT_POLICY_CATALOG_V1`. It keeps the
- * exact current event data, but does not repeat the invariant catalogue or
- * the history/user material already supplied elsewhere in the next-node
- * prompt.
+ * exact current event data and the complete Story Context Pack. The next-node
+ * path may move stable material into a cacheable system prefix, but it must
+ * never gain cache hits by dropping facts from the current turn.
  */
 export function buildCacheAwareEventIntentTail(event: LifeEventSeed, storyContext?: StoryContextPack): string {
-  const context = storyContext ? formatStoryContextForNextNode(storyContext) : "【压缩方向与延续状态】\n{}";
-  return `${context}\n\nanswerFactCount: ${storyContext?.answerFacts.length || 0}\n\n${formatCacheAwareEventData(event)}${formatNarrativeModeRules(event)}${formatEventSpecificRules(event)}`;
+  const context = storyContext ? formatStoryContextPack(storyContext) : "【Story Context Pack】\n- 暂无上下文";
+  const answerRule = storyContext?.answerFacts.length
+    ? "\n- 追问答案非空，本轮剧情必须至少显性使用 1 条追问答案中的事实或限制；不要机械复述原话，要转化成场景约束、人物反应、可选路径或心理惯性"
+    : "";
+  return `${context}\n\n${formatCacheAwareEventData(event)}${formatNarrativeModeRules(event)}${answerRule}${formatEventSpecificRules(event)}`;
 }
 
 export function buildCacheAwareNullEventTail(storyContext?: StoryContextPack): string {
-  const context = storyContext ? formatStoryContextForNextNode(storyContext) : "【压缩方向与延续状态】\n{}";
-  return `${context}\n\nanswerFactCount: ${storyContext?.answerFacts.length || 0}\n\n【本轮 Event Intent 数据】\ntype: none\nnarrativeMode: stability_meaning\nmeaning: 无强事件，推进已发生选择的现实后果\ntensionAxes:\n  1. 日常推进与现实限制\nallowedOutcomes:\n  1. none\nemotionalTone: neutral`;
+  const context = storyContext ? formatStoryContextPack(storyContext) : "【Story Context Pack】\n- 暂无上下文";
+  const answerRule = storyContext?.answerFacts.length
+    ? "\n- 追问答案非空，本轮剧情必须至少显性使用 1 条追问答案中的事实或限制"
+    : "";
+  return `${context}\n\n【本轮 Event Intent 数据】\ntype: none\nmeaning: 无强事件，推进已发生选择的现实后果\ntensionAxes:\n  1. 日常推进与现实限制\nallowedOutcomes:\n  1. none\nemotionalTone: neutral\n\n【本轮没有强事件结构】\n请推进一段平稳但真实的人生日常：\n- 优先呈现用户上一选择的后果和仍在推进的人生方向\n- 保持和最近 5 个历史节点的延续性\n- 写出生活里的小变化、小压力、小选择\n- 可以延续一个轻量关系/亲情/生活副线，但不得取代用户当前主线\n- 不得因为年龄较高自动改写成退休、照护、回忆或传承；非终章仍然面向未来\n- 如果主线是学习、创业、写作、旅行或研究，继续推进该方向的日常后果\n- 可以呈现关系、工作、健康、财务或内心状态的微小变化\n- 不要强行制造事故、裁员、背叛、疾病或重大危机${directionChoiceRule}${answerRule}`;
 }
 
 function formatEventSpecificRules(event: LifeEventSeed): string {

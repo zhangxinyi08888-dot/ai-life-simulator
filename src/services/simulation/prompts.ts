@@ -15,6 +15,7 @@ import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance"
 import { formatFinancialStateForPrompt } from "../../utils/financialState";
 import type { AcceptedFinancialEvent, DebtHealthState, FinancialEventProposal, FinancialLedger, FinancialLedgerIssue } from "../../domain/finance";
 import { formatDebtNarrativeAuthorityForPrompt } from "../../utils/debtNarrativeAuthority";
+import type { AiPromptInput } from "../../utils/deepseek";
 import { financialEvidenceCandidates } from "../../domain/finance/evidenceMatching";
 
 const FINANCIAL_NARRATIVE_RULE = `- 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
@@ -47,28 +48,6 @@ function formatHistoryForSimulation(history: HistoryItem[]): string {
   const offset = Math.max(0, history.length - recent.length);
   return recent.map((item, index) => `【阶段 ${offset + index + 1} - ${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} - ${item.title}】
 情节：${item.description}
-选择：${item.selectedChoice}
-累计净财富：${item.financialState ? `${item.financialState.netWorthWan} 万元` : "暂无快照"}`).join("\n\n");
-}
-
-function compactHistoryDescription(value: string, maxLength = 180): string {
-  if (value.length <= maxLength) return value;
-  const headLength = Math.max(1, Math.floor(maxLength * 0.68));
-  const tailLength = Math.max(1, maxLength - headLength);
-  return `${value.slice(0, headLength)}……${value.slice(-tailLength)}`;
-}
-
-/**
- * Cache-aware next-node calls already receive current financial, people and
- * world snapshots. Preserve every recent node's title, user choice and both
- * ends of its narrative while preventing the five full bodies from crowding
- * out the reusable invariant prefix.
- */
-function formatHistoryForCacheAwareSimulation(history: HistoryItem[]): string {
-  const recent = history.slice(-5);
-  const offset = Math.max(0, history.length - recent.length);
-  return recent.map((item, index) => `【阶段 ${offset + index + 1} - ${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} - ${item.title}】
-情节摘要：${compactHistoryDescription(item.description || "")}
 选择：${item.selectedChoice}
 累计净财富：${item.financialState ? `${item.financialState.netWorthWan} 万元` : "暂无快照"}`).join("\n\n");
 }
@@ -538,7 +517,7 @@ ${formatAttributeChangeRules()}
 请严格返回 JSON。`;
 }
 
-export const NEXT_NODE_INVARIANT_PREFIX_VERSION = "next_node_cache_prefix_v1_compact_context_r2";
+export const NEXT_NODE_INVARIANT_PREFIX_VERSION = "next_node_cache_prefix_v1_full_context_system_r1";
 
 const NEXT_NODE_FINANCIAL_PROPOSAL_EXAMPLES_V1 = `【固定 Proposal JSON 示例】
 financialEventProposals 示例（仅在正文确实发生对应事实时使用；否则返回 []）：
@@ -760,7 +739,7 @@ function buildNextNodePromptV1(input: NextNodePromptInput): NextNodePromptLayout
 ${formatAnswerTurns(answers, { question: "背景补全问题", answer: "用户补充的当时真实信息" }) || "暂无描述"}`;
 
   const turnContext = `【平行宇宙既往旅程】
-${formatHistoryForCacheAwareSimulation(history) || "无更早经历"}
+${formatHistoryForSimulation(history) || "无更早经历"}
 
 【当前精神五维能量值】
 - 幸福：${currentAttributes.happiness} | 才智：${currentAttributes.intelligence} | 财富：${currentAttributes.wealth} | 人际：${currentAttributes.relation} | 健康：${currentAttributes.health}
@@ -843,6 +822,24 @@ export function buildNextNodePrompt(input: NextNodePromptInput, options: NextNod
   return options.cacheAwarePromptV1 === false
     ? buildNextNodePromptLegacy(input)
     : buildNextNodePromptV1(input).text;
+}
+
+/**
+ * Keep the same concatenated prompt text while transporting the invariant
+ * rules and immutable user session as a leading system segment. The dynamic
+ * five-node history and current authoritative state stay intact in the user
+ * segment, so cache optimisation never relies on removing context.
+ */
+export function buildNextNodePromptRequest(
+  input: NextNodePromptInput,
+  options: NextNodePromptOptions = {}
+): AiPromptInput {
+  if (options.cacheAwarePromptV1 === false) return buildNextNodePromptLegacy(input);
+  const layout = buildNextNodePromptV1(input);
+  return {
+    systemPrefix: [layout.invariantPrefix, layout.sessionContext].join("\n\n"),
+    userPrompt: [layout.turnContext, layout.tailChecklist].join("\n\n")
+  };
 }
 
 export function formatRestrictedFinancialLedger(ledger?: FinancialLedger): string {

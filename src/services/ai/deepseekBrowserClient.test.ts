@@ -30,7 +30,7 @@ const okFetch = async (url: string, init?: RequestInit) => {
 
 const result = await callDeepSeekJsonFromBrowser(
   { apiKey: "test-key", baseUrl: "https://api.deepseek.com/", model: "deepseek-v4-flash" },
-  "只输出 JSON",
+  { systemPrefix: "BROWSER_CACHE_STABLE_SYSTEM", userPrompt: "BROWSER_CACHE_DYNAMIC_USER" },
   okFetch as typeof fetch
 );
 
@@ -40,6 +40,8 @@ assert.equal(calls[0].headers.Authorization, "Bearer test-key");
 assert.equal(calls[0].body.model, "deepseek-v4-flash");
 assert.deepEqual(calls[0].body.response_format, { type: "json_object" });
 assert.equal(calls[0].body.thinking.type, "disabled");
+assert.match(calls[0].body.messages[0].content, /BROWSER_CACHE_STABLE_SYSTEM$/);
+assert.deepEqual(calls[0].body.messages[1], { role: "user", content: "BROWSER_CACHE_DYNAMIC_USER" });
 assert.deepEqual(result.usage, {
   promptTokens: 11,
   cacheHitTokens: 7,

@@ -1,6 +1,7 @@
 import {
   callDeepSeekJson,
   callDeepSeekJsonStream,
+  type AiPromptInput,
   type AiJsonResult,
   type DeepSeekClientConfig,
   type DeepSeekStreamOptions
@@ -45,7 +46,7 @@ function assertApiKey(config: BrowserDeepSeekConfig): void {
 
 export async function callDeepSeekJsonFromBrowser(
   config: BrowserDeepSeekConfig,
-  prompt: string,
+  prompt: AiPromptInput,
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal
 ): Promise<AiJsonResult> {
@@ -69,7 +70,7 @@ export async function callDeepSeekJsonFromBrowser(
 
 export async function callDeepSeekJsonStreamFromBrowser(
   config: BrowserDeepSeekConfig,
-  prompt: string,
+  prompt: AiPromptInput,
   options: DeepSeekStreamOptions = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<AiJsonResult> {

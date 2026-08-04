@@ -19,6 +19,44 @@ export interface AiJsonResult {
   model?: string;
 }
 
+/**
+ * A cache-aware request may put an already-stable prefix in the system
+ * message while retaining the mutable turn material in the user message.
+ * `flattenAiPromptInput` is deliberately available to tests and local mocks
+ * so the visible prompt text can be proven unchanged by this transport split.
+ */
+export interface AiPromptSegments {
+  systemPrefix: string;
+  userPrompt: string;
+}
+
+export type AiPromptInput = string | AiPromptSegments;
+
+const JSON_OUTPUT_SYSTEM_INSTRUCTION = "你是一个严格的 JSON 生成器。只返回一个合法 JSON 对象，不要输出 Markdown、解释文字或代码围栏。";
+
+export function flattenAiPromptInput(prompt: AiPromptInput): string {
+  return typeof prompt === "string"
+    ? prompt
+    : [prompt.systemPrefix, prompt.userPrompt].filter(Boolean).join("\n\n");
+}
+
+function messagesForPrompt(prompt: AiPromptInput): Array<{ role: "system" | "user"; content: string }> {
+  if (typeof prompt === "string") {
+    return [
+      { role: "system", content: JSON_OUTPUT_SYSTEM_INSTRUCTION },
+      { role: "user", content: prompt }
+    ];
+  }
+
+  return [
+    {
+      role: "system",
+      content: [JSON_OUTPUT_SYSTEM_INSTRUCTION, prompt.systemPrefix].filter(Boolean).join("\n\n")
+    },
+    { role: "user", content: prompt.userPrompt }
+  ];
+}
+
 export interface DeepSeekStreamOptions {
   signal?: AbortSignal;
   onContent?: (content: string) => void;
@@ -63,7 +101,7 @@ function responseMetadata(body: unknown): Pick<AiJsonResult, "usage" | "provider
 
 export async function callDeepSeekJson(
   config: DeepSeekClientConfig,
-  prompt: string,
+  prompt: AiPromptInput,
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal
 ): Promise<AiJsonResult> {
@@ -76,16 +114,7 @@ export async function callDeepSeekJson(
     },
     body: JSON.stringify({
       model: config.model,
-      messages: [
-        {
-          role: "system",
-          content: "你是一个严格的 JSON 生成器。只返回一个合法 JSON 对象，不要输出 Markdown、解释文字或代码围栏。"
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
+      messages: messagesForPrompt(prompt),
       response_format: { type: "json_object" },
       thinking: { type: "disabled" },
       temperature: 0.85,
@@ -118,7 +147,7 @@ export async function callDeepSeekJson(
 
 export async function callDeepSeekJsonStream(
   config: DeepSeekClientConfig,
-  prompt: string,
+  prompt: AiPromptInput,
   options: DeepSeekStreamOptions = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<AiJsonResult> {
@@ -131,16 +160,7 @@ export async function callDeepSeekJsonStream(
     },
     body: JSON.stringify({
       model: config.model,
-      messages: [
-        {
-          role: "system",
-          content: "你是一个严格的 JSON 生成器。只返回一个合法 JSON 对象，不要输出 Markdown、解释文字或代码围栏。"
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
+      messages: messagesForPrompt(prompt),
       response_format: { type: "json_object" },
       thinking: { type: "disabled" },
       temperature: 0.85,

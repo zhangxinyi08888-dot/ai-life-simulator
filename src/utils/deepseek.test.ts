@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { callDeepSeekJson, callDeepSeekJsonStream, extractJsonText } from "./deepseek";
+import { callDeepSeekJson, callDeepSeekJsonStream, extractJsonText, flattenAiPromptInput } from "./deepseek";
 
 assert.equal(extractJsonText('```json\n{"ok":true}\n```'), '{"ok":true}');
 assert.equal(extractJsonText('{"ok":true}'), '{"ok":true}');
@@ -50,6 +50,26 @@ assert.deepEqual(response.usage, {
 assert.equal(response.providerRequestId, "chatcmpl-non-stream");
 assert.equal(response.model, "deepseek-v4-flash");
 
+const segmentedResponse = await callDeepSeekJson(
+  {
+    apiKey: "test-key",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-v4-flash"
+  },
+  { systemPrefix: "CACHE_STABLE_SYSTEM", userPrompt: "CACHE_DYNAMIC_USER" },
+  fetchImpl
+);
+const segmentedBody = calls.at(-1)!;
+assert.equal(flattenAiPromptInput({ systemPrefix: "CACHE_STABLE_SYSTEM", userPrompt: "CACHE_DYNAMIC_USER" }), "CACHE_STABLE_SYSTEM\n\nCACHE_DYNAMIC_USER");
+assert.equal(segmentedBody.messages[0].role, "system");
+assert.match(segmentedBody.messages[0].content, /^你是一个严格的 JSON 生成器。/);
+assert.match(segmentedBody.messages[0].content, /CACHE_STABLE_SYSTEM$/);
+assert.deepEqual(segmentedBody.messages[1], { role: "user", content: "CACHE_DYNAMIC_USER" });
+assert.equal(segmentedBody.thinking.type, "disabled");
+assert.equal(segmentedBody.temperature, 0.85);
+assert.equal(segmentedBody.max_tokens, 8192);
+assert.equal(segmentedResponse.text, response.text);
+
 const streamedBodies: any[] = [];
 const encoder = new TextEncoder();
 const streamedContents: string[] = [];
@@ -60,7 +80,7 @@ const streamResponse = await callDeepSeekJsonStream(
     baseUrl: "https://api.deepseek.com",
     model: "deepseek-v4-flash"
   },
-  "生成下一章",
+  { systemPrefix: "CACHE_STABLE_STREAM", userPrompt: "CACHE_DYNAMIC_STREAM" },
   {
     onContent: (content) => streamedContents.push(content),
     onUsage: (usage) => streamedUsages.push(usage)
@@ -88,6 +108,8 @@ assert.equal(streamedBodies[0].stream, true);
 assert.deepEqual(streamedBodies[0].stream_options, { include_usage: true });
 assert.equal(streamedBodies[0].temperature, 0.85);
 assert.equal(streamedBodies[0].max_tokens, 8192);
+assert.match(streamedBodies[0].messages[0].content, /CACHE_STABLE_STREAM$/);
+assert.deepEqual(streamedBodies[0].messages[1], { role: "user", content: "CACHE_DYNAMIC_STREAM" });
 assert.equal(streamedContents.at(-1), streamResponse.text);
 assert.deepEqual(streamResponse.usage, {
   promptTokens: 180,

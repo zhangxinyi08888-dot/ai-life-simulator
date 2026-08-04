@@ -86,13 +86,13 @@ import {
 import { callDeepSeekJsonFromBrowser, callDeepSeekJsonStreamFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
-import type { AiJsonResult, DeepSeekStreamOptions } from "../../utils/deepseek";
+import { flattenAiPromptInput, type AiJsonResult, type AiPromptInput, type DeepSeekStreamOptions } from "../../utils/deepseek";
 import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
 import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
 import {
   buildChoiceTextRepairPrompt,
-  buildNextNodePrompt,
+  buildNextNodePromptRequest,
   NEXT_NODE_INVARIANT_PREFIX_VERSION,
   buildEndingNodePrompt,
   buildFinancialProposalRepairPrompt,
@@ -117,8 +117,12 @@ import {
 import { traceGenerationCall, type GenerationTraceListener } from "./generationTelemetry";
 
 type AiJsonCaller = (prompt: string) => Promise<AiJsonResult>;
-type AiJsonStreamCaller = (
+type AiJsonStringStreamCaller = (
   prompt: string,
+  options?: DeepSeekStreamOptions
+) => Promise<AiJsonResult>;
+type AiJsonStreamCaller = (
+  prompt: AiPromptInput,
   options?: DeepSeekStreamOptions
 ) => Promise<AiJsonResult>;
 
@@ -177,7 +181,8 @@ function normalizeRepairedEmploymentTransition(input: {
 
 export interface SimulationServiceDeps {
   callAiJson?: AiJsonCaller;
-  callAiJsonStream?: AiJsonStreamCaller;
+  /** Test and local callers retain the historical flattened-string contract. */
+  callAiJsonStream?: AiJsonStringStreamCaller;
   onGenerationStage?: (stage: NextGenerationStage) => void;
   onNarrativeProgress?: (preview: StreamedNodePreview) => void;
   signal?: AbortSignal;
@@ -1937,11 +1942,13 @@ function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
 }
 
 function getAiJsonStreamCaller(deps: SimulationServiceDeps, fallbackCaller: AiJsonCaller): AiJsonStreamCaller {
-  if (deps.callAiJsonStream) return deps.callAiJsonStream;
+  if (deps.callAiJsonStream) {
+    return (prompt, options = {}) => deps.callAiJsonStream!(flattenAiPromptInput(prompt), options);
+  }
   if (deps.callAiJson) {
     return async (prompt, options = {}) => {
       if (options.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
-      const response = await fallbackCaller(prompt);
+      const response = await fallbackCaller(flattenAiPromptInput(prompt));
       options.onContent?.(response.text);
       if (response.usage) options.onUsage?.(response.usage);
       return response;
@@ -1949,13 +1956,30 @@ function getAiJsonStreamCaller(deps: SimulationServiceDeps, fallbackCaller: AiJs
   }
 
   const e2eStreamCaller = getBrowserE2eAiJsonStreamCaller();
-  if (e2eStreamCaller) return e2eStreamCaller;
+  if (e2eStreamCaller) {
+    return (prompt, options = {}) => e2eStreamCaller(flattenAiPromptInput(prompt), options);
+  }
 
   return (prompt, options = {}) => callDeepSeekJsonStreamFromBrowser(
     getBrowserAiEnv(),
     prompt,
     options
   );
+}
+
+function buildNextNodeRetryPrompt(
+  prompt: AiPromptInput,
+  previousIssues: string[],
+  eventIntentType?: string
+): AiPromptInput {
+  if (typeof prompt === "string") {
+    return buildNodePromptWithRetryNotice(prompt, previousIssues, eventIntentType);
+  }
+
+  return {
+    ...prompt,
+    userPrompt: buildNodePromptWithRetryNotice(prompt.userPrompt, previousIssues, eventIntentType)
+  };
 }
 
 function parseAiJsonResponse(response: { text?: string }): any {
@@ -3063,7 +3087,7 @@ export async function generateNextNode(
   const promptPrefixVersion = cacheAwarePromptV1
     ? NEXT_NODE_INVARIANT_PREFIX_VERSION
     : "next_node_legacy_v0";
-  const prompt = buildNextNodePrompt({
+  const prompt = buildNextNodePromptRequest({
     ...input,
     currentFinancialState,
     currentFinancialLedger,
@@ -3106,7 +3130,7 @@ export async function generateNextNode(
         listener: deps.onGenerationCallTrace,
         operation: async (markFirstToken, recordResponseMetadata) => {
           const result = await callAiJsonStream(
-            buildNodePromptWithRetryNotice(prompt, previousIssues, nodeEvent?.intent.type),
+            buildNextNodeRetryPrompt(prompt, previousIssues, nodeEvent?.intent.type),
             {
               signal: deps.signal,
               onUsage: (usage) => recordResponseMetadata({ usage }),

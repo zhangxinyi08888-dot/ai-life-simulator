@@ -507,10 +507,9 @@ const nextNode = await generateNextNode({
   }
 });
 
-assert.match(capturedNextPrompt, /压缩方向与延续状态/);
-assert.match(capturedNextPrompt, /answerFactCount: 1/);
+assert.match(capturedNextPrompt, /Story Context Pack/);
+assert.match(capturedNextPrompt, /追问答案非空，本轮剧情必须至少显性使用 1 条追问答案/);
 assert.match(capturedNextPrompt, /最近 5 个历史节点/);
-assert.match(capturedNextPrompt, /answerFactCount 大于 0 时，本轮剧情必须至少显性使用 1 条追问答案/);
 assert.match(capturedNextPrompt, /当前财务快照/);
 assert.doesNotMatch(capturedNextPrompt, /next_node_cache_prefix_v1/);
 assert.ok(nextNode.financialState);
