@@ -222,6 +222,43 @@ test("real-browser analyzer blocks a generated node with no gate-mode evidence",
   }
 });
 
+test("real-browser analyzer promotes an adult floor-only-after-responsibility violation to a release blocker", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "financial-expense-audit-"));
+  try {
+    await mkdir(path.join(root, "cases"));
+    const violating = recordWithGeneratedGateMode("enforced");
+    const floor = {
+      id: "adult_floor",
+      responsibilityKey: "adult_basic_living:main",
+      responsibilityKind: "adult_basic_living",
+      type: "basic_living",
+      monthlyAmountWan: 0.35,
+      financialScope: "personal",
+      status: "active",
+      factStatus: "estimated",
+      amountBasis: "policy_floor",
+      activeFromAgeInMonths: 372,
+      evidence: [{ source: "system_policy", reasonCode: "ADULT_FLOOR", confidence: 1 }]
+    };
+    const latest = violating.finalState.history.at(-1);
+    latest.financialLedger = { ...latest.financialLedger, expenseCommitments: [floor] };
+    latest.financialState = {
+      ...latest.financialState,
+      annualCoreExpenseWan: 4.2,
+      annualDisposableIncomeWan: -4.2
+    };
+    await writeFile(path.join(root, "cases", "case.json"), `${JSON.stringify(violating)}\n`);
+    await writeFile(path.join(root, "expense-responsibility-annotations.json"), `${JSON.stringify({ annotations: [] })}\n`);
+    await runNode([script, root], here);
+    const audit = JSON.parse(await readFile(path.join(root, "finance-audit.json"), "utf8"));
+    const aggregate = JSON.parse(await readFile(path.join(root, "aggregate.json"), "utf8"));
+    assert.equal(audit.summary.adultBaselineOnlyAfterResponsibilityCount, 1);
+    assert.ok(aggregate.blockers.some((blocker) => blocker.includes("已有家庭、住房或医疗责任却只剩 basic floor")));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("real-browser analyzer reports and blocks restricted project funding that enters personal cash", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "financial-expense-audit-"));
   try {

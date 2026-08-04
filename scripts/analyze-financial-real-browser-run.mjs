@@ -19,7 +19,8 @@ import {
   assessExpenseResponsibilityCorpusCoverage,
   auditExpenseLifecycleDynamics,
   auditExpenseLifecycleCandidateTelemetry,
-  auditExpenseResponsibilities
+  auditExpenseResponsibilities,
+  expenseLifecycleReleaseBlockers
 } from "./lib/financial-expense-audit.mjs";
 
 function runGit(args) {
@@ -734,6 +735,7 @@ const lifecycleCandidateTelemetryNegativeViolationRows = expenseLifecycleCandida
   `| ${item.annotation.caseSlug} | ${item.annotation.nodeIndex} | ${item.candidate.action} | ${item.candidate.responsibilityKey} | ${item.candidate.financialScope} | ${item.candidate.reconcilerDisposition} | ${(item.candidate.reconcilerReasonCodes || []).join(", ") || "—"} |`
 )).join("\n") || "| 无 | — | — | — | — | — | — |";
 const frozenExpenseResponsibilityCorpus = expenseResponsibilityAnnotationSource.corpusKind === "frozen_gold";
+const expenseLifecycleInvariantBlockers = expenseLifecycleReleaseBlockers(summary);
 const blockers = [
   isDerivedDiagnostic && "派生只读诊断不构成当前提交的发布证据",
   invariantFailures > 0 && `账本/派生状态不变量失败：${invariantFailures} 个节点`,
@@ -797,6 +799,7 @@ const blockers = [
     && `冻结支出责任明确金额覆盖率：${displayPercent(summary.explicitRecurringExpenseCoveragePct)}`,
   summary.expenseResponsibilityScopeMismatchCount > 0 && `个人账本存在非法支出 scope：${summary.expenseResponsibilityScopeMismatchCount} 条`,
   summary.expenseSharedAmountMismatchCount > 0 && `共同支出总额与主角份额不一致：${summary.expenseSharedAmountMismatchCount} 条`,
+  ...expenseLifecycleInvariantBlockers,
   wealthDirectionMismatches > 0 && `财富属性与净资产变化方向相反：${wealthDirectionMismatches} 个节点`,
   blockingOpenIssues.length > 0 && `终局仍存在 blocking open issue：${blockingOpenIssues.length} 个`,
   issueHealth.servicingWarningOverflow > 0 && `偿付 warning 超过真实困境债务账户：${servicingWarnings.length}/${distressedDebtAccountKeys.size}`,

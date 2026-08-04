@@ -9,7 +9,8 @@ import {
   auditExpenseLifecycleCandidateTelemetry,
   auditExpenseResponsibilities,
   collectCommittedResponsibilityCandidates,
-  collectExpenseLifecycleCandidateRecords
+  collectExpenseLifecycleCandidateRecords,
+  expenseLifecycleReleaseBlockers
 } from "./lib/financial-expense-audit.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -444,6 +445,45 @@ test("expense invariant audit catches silent lowering, zero unknowns, stale revi
   assert.equal(result.summary.expenseAmountSourceDoubleCount, 1);
   assert.equal(result.summary.mortgageExpenseDoubleCountCount, 1);
   assert.equal(result.details.aggregateSplitLosses[0].aggregateCommitmentId, "legacy_total");
+});
+
+test("release expense invariant gate blocks every authority violation and rejects unobserved evidence", () => {
+  const clean = {
+    expenseInvariantAuditStatus: "observed",
+    expenseBaselineDownwardOverwriteCount: 0,
+    expenseUnknownZeroCount: 0,
+    staleExpenseWithoutReviewCount: 0,
+    expenseAggregateSplitLossCount: 0,
+    expenseAmountSourceDoubleCount: 0,
+    mortgageExpenseDoubleCountCount: 0,
+    adultBaselineOnlyAfterResponsibilityStatus: "observed",
+    adultBaselineOnlyAfterResponsibilityCount: 0
+  };
+  assert.deepEqual(expenseLifecycleReleaseBlockers(clean), []);
+
+  for (const field of [
+    "expenseBaselineDownwardOverwriteCount",
+    "expenseUnknownZeroCount",
+    "staleExpenseWithoutReviewCount",
+    "expenseAggregateSplitLossCount",
+    "expenseAmountSourceDoubleCount",
+    "mortgageExpenseDoubleCountCount"
+  ]) {
+    const blockers = expenseLifecycleReleaseBlockers({ ...clean, [field]: 1 });
+    assert.equal(blockers.length, 1, field);
+  }
+  assert.equal(expenseLifecycleReleaseBlockers({
+    ...clean,
+    adultBaselineOnlyAfterResponsibilityCount: 1
+  }).length, 1);
+  assert.match(expenseLifecycleReleaseBlockers({
+    ...clean,
+    expenseInvariantAuditStatus: "not_covered"
+  })[0], /未被观察到/u);
+  assert.match(expenseLifecycleReleaseBlockers({
+    ...clean,
+    adultBaselineOnlyAfterResponsibilityStatus: "not_covered"
+  })[0], /未被观察到/u);
 });
 
 test("the frozen human-labelled corpus has 12 material examples and reaches exact precision/recall only when all actions match", () => {

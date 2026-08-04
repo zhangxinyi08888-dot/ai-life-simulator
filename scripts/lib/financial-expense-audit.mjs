@@ -1142,6 +1142,46 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
   };
 }
 
+const RELEASE_EXPENSE_INVARIANT_FIELDS = [
+  ["expenseBaselineDownwardOverwriteCount", "无下降证据却静默下调持续支出"],
+  ["expenseUnknownZeroCount", "已存在的未知支出责任被按零计提"],
+  ["staleExpenseWithoutReviewCount", "到期支出未复核且没有 review issue"],
+  ["expenseAggregateSplitLossCount", "支出总额拆分后发生无证据下降"],
+  ["expenseAmountSourceDoubleCount", "同一支出金额事实被重复计提"],
+  ["mortgageExpenseDoubleCountCount", "房贷同时进入 debt service 与 housing"]
+];
+
+/**
+ * These are deterministic authority invariants, rather than diagnostic
+ * distribution metrics.  A certification cannot treat an unobserved audit as
+ * a zero count: otherwise a route without expense snapshots could turn the
+ * lifecycle gate green by omission.
+ */
+export function expenseLifecycleReleaseBlockers(summary = {}) {
+  const blockers = [];
+  if (summary.expenseInvariantAuditStatus !== "observed") {
+    blockers.push("支出事实不变量未被观察到，无法证明没有静默低估或重复计提");
+  } else {
+    for (const [field, description] of RELEASE_EXPENSE_INVARIANT_FIELDS) {
+      const count = summary[field];
+      if (!Number.isFinite(count)) {
+        blockers.push(`支出事实不变量 ${field} 缺少可核验计数`);
+      } else if (count > 0) {
+        blockers.push(`${description}：${count} 个节点`);
+      }
+    }
+  }
+
+  if (summary.adultBaselineOnlyAfterResponsibilityStatus !== "observed") {
+    blockers.push("成人责任后的 basic floor 审计未被观察到，无法证明责任支出没有丢失");
+  } else if (!Number.isFinite(summary.adultBaselineOnlyAfterResponsibilityCount)) {
+    blockers.push("成人责任后的 basic floor 审计缺少可核验计数");
+  } else if (summary.adultBaselineOnlyAfterResponsibilityCount > 0) {
+    blockers.push(`已有家庭、住房或医疗责任却只剩 basic floor：${summary.adultBaselineOnlyAfterResponsibilityCount} 个节点`);
+  }
+  return blockers;
+}
+
 export function auditExpenseResponsibilities({ annotations = [], routeRecords = [], detectedCandidates = [] }) {
   const nodes = new Map();
   for (const record of routeRecords) {
