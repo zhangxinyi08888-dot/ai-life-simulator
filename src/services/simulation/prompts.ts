@@ -488,6 +488,7 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths, cu
 - 每项 Proposal 必须包含 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence、financialScope。financialScope 只能是 personal 或 business_operating；sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时返回空数组。
 - evidence 必须摘自 description 中已经发生的事实句；系统会做标点、空白和金额锚定匹配。confidence 在 0.8-1 时按明确事实提交，0.6-0.8 时按 estimated 提交；低于 0.6、候选选项、计划和意向不能提交。
 - 持续收入或支出分别使用 income_source_started/adjusted/paused/ended 与 expense_commitment_started/adjusted/ended；一次性收支使用 one_off_income_received/one_off_expense_paid。
+- expense_commitment 的 payload.type 只能是 basic_living、housing、dependent_support、education、healthcare、insurance 或 other；responsibilityKind（例如 recurring_healthcare）不是 type。支出 payload 禁止包含 accrualPolicy（它只属于收入）。已有同一支出责任时必须引用账本 ID 使用 expense_commitment_adjusted，不能再 started 第二个账户。
 - 这是主人公个人账本：公司营收、SaaS 年费、客户回款，以及公益中心/基金会/协会收到的资助、拨款、赞助和项目款，一律不得写入个人 incomeSources；团队或机构的员工工资、会计薪酬、仓库/场地租金、服务器和运营成本一律不得写入个人 expenseCommitments。主人公实际领取的税后工资、自雇提款、个人顾问费或已经分配到账的分红才可作为个人收入。
 - 主角申请或收到的项目基金、公益资助或拨款，只要正文明确专款用于学校、教师、硬件、受助人或项目运营，即使款项暂时打到主角名下，也不得用 income_source_* 或 one_off_income_received 写入个人现金；不要为它伪造机构/业务账户。只有明确归主角个人且可自由支配的创作奖、奖金或报酬才可作为个人收入。
 - description 若明确写出主人公已经生效的月薪或年薪，必须提交与该金额匹配的职业收入 started/adjusted；即使同一段还写了机构资助、公司营收或团队成本，也不能用这些组织金额代替主人公薪酬。

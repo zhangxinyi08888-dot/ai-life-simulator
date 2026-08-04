@@ -74,6 +74,51 @@ export function isUnacceptedIncomeOpportunityEvidence(evidence: string): boolean
     || /(?:正在招|招聘|招募|招人|(?:新|该|这个|一个|某个|招聘的).{0,4}(?:岗位|职位)|(?:岗位|职位).{0,20}(?:招聘|招募|开放)|工作机会|猎头|offer|录用通知|(?:签署|签了|签订)[^。；]{0,24}(?:劳动合同|聘用合同)|薪资比(?:现在|目前)|薪资(?:更高|更低)|薪酬(?:更高|更低)|(?:问你愿不愿意|邀请你|希望你|请你|考虑是否)[^。；]{0,42}(?:牵头|负责|接手|加入|参与)[^。；]{0,32}(?:项目|岗位|工作|任务))/iu.test(evidence);
 }
 
+const EXPLICIT_PROTAGONIST_ANNUAL_INCOME = /(?:(?:按|以|基于)\s*(?:你(?!们|和|与|跟)|主角|本人)|(?:你的|主角的|本人的)|(?:你(?!们|和|与|跟))(?:目前|现在|仍(?:在)?|已(?:经)?|正(?:在)?|继续|留在|在)?)[^。！？；]{0,36}?(?:(?:税后)?年收入|年税后收入)(?:正式)?(?:约|为|有|达到|调整为|降至|升至|涨到|维持在|稳定在)?(?:约)?\s*(\d+(?:\.\d+)?)\s*万元?/u;
+
+/**
+ * Return the amount only when plain “年收入” is locally owned by the
+ * protagonist.  A sentence can mention a partner and still state the
+ * protagonist's current income (for example, “她说，按你留在本地、年收入
+ * 稳定在18万元…”), so a boolean third-party regex is not sufficient.
+ */
+export function explicitProtagonistAnnualIncomeWan(evidence: string): number | undefined {
+  for (const sentence of String(evidence || "").split(/(?<=[。！？；])/u)) {
+    const match = sentence.match(EXPLICIT_PROTAGONIST_ANNUAL_INCOME);
+    const amount = match ? Number(match[1]) : undefined;
+    if (Number.isFinite(amount) && (amount as number) > 0) return amount;
+  }
+  return undefined;
+}
+
+/** Plain annual income is usable only when the amount is explicitly owned by the protagonist. */
+export function hasExplicitProtagonistAnnualIncomeFact(evidence: string): boolean {
+  return explicitProtagonistAnnualIncomeWan(evidence) !== undefined;
+}
+
+/**
+ * A narrator may mention a third party before explicitly stating the
+ * protagonist's annual income.  That statement only disambiguates a proposed
+ * recurring personal source when the proposed amount is the same amount.  Do
+ * not let it waive the third-party guard for an arbitrary income proposal.
+ */
+function proposalMatchesExplicitProtagonistAnnualIncome(input: {
+  proposal: FinancialEventProposal;
+  subject: Record<string, any> | undefined;
+}): boolean {
+  if (![
+    "income_source_started",
+    "income_source_adjusted"
+  ].includes(input.proposal.kind)) return false;
+  const annualIncomeWan = explicitProtagonistAnnualIncomeWan(input.proposal.evidence);
+  if (!(Number.isFinite(annualIncomeWan) && (annualIncomeWan as number) > 0)) return false;
+  const proposedAnnualWan = input.subject?.accrualPolicy === "monthly"
+    ? Number(input.subject.monthlyNetAmountWan) * 12
+    : Number(input.subject?.annualNetAmountWan);
+  return Number.isFinite(proposedAnnualWan)
+    && Math.abs(proposedAnnualWan - annualIncomeWan) < 0.000001;
+}
+
 function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string): boolean {
   if (!["salary", "contract", "self_employment_draw", "business_dividend"].includes(String(type))) return true;
   if (isUnacceptedIncomeOpportunityEvidence(evidence)) return false;
@@ -98,7 +143,10 @@ function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string)
       /税后到手(?:约|为|有)?\s*\d+(?:\.\d+)?\s*(?:万|元)/u.test(sentence)
       && /(?:按月|每月|月度)结算/u.test(sentence)
     ));
-  return compensationTerm || periodicPersonalReceipt || explicitMonthlyTakeHomeSalary;
+  return compensationTerm
+    || periodicPersonalReceipt
+    || explicitMonthlyTakeHomeSalary
+    || hasExplicitProtagonistAnnualIncomeFact(evidence);
 }
 
 function proposalIssue(input: {
@@ -240,8 +288,14 @@ function thirdPartyIncomeFact(proposal: FinancialEventProposal): boolean {
   const payload = proposal.payload as Record<string, any>;
   const subject = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
   const text = `${proposal.evidence || ""} ${subject?.displayName || ""}`;
-  const thirdParty = /(?:妻子|丈夫|伴侣|配偶|女友|男友|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|岳父|岳母|公公|婆婆|小余|她|他)[^。；]{0,45}(?:月薪|年薪|工资|薪资|收入|到手|分红|股息|赚|盈利|利润)/u.test(text)
-    || /^(?:妻子|丈夫|伴侣|配偶|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|小余)/u.test(String(subject?.displayName || ""));
+  const thirdPartySubjectName = /^(?:妻子|丈夫|伴侣|配偶|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|小余)/u.test(String(subject?.displayName || ""));
+  const thirdPartyNarrative = /(?:妻子|丈夫|伴侣|配偶|女友|男友|父亲|母亲|妈妈|爸爸|儿子|女儿|孩子|岳父|岳母|公公|婆婆|小余|她|他)[^。；]{0,45}(?:月薪|年薪|工资|薪资|收入|到手|分红|股息|赚|盈利|利润)/u.test(text);
+  // Do not let a sentence-initial “她说” own a later, explicitly
+  // protagonist-attributed annual income.  A payload named as a third-party
+  // source still loses: model display names cannot relabel another person's
+  // salary as the protagonist's income.
+  const thirdParty = thirdPartySubjectName
+    || (thirdPartyNarrative && !proposalMatchesExplicitProtagonistAnnualIncome({ proposal, subject }));
   const transferredToProtagonist = /(?:给你|向你|转入你的|转给你|汇给你|进入你(?:的)?账户|转[^。；]{0,16}(?:进|入)你(?:建立的|的)?[^。；]{0,16}账户|共同账户)/u.test(text);
   const protagonistIsRecipient = /(?:邀请|邀约|问|聘请|雇佣|希望)[^。；]{0,18}你[^。；]{0,28}(?:月薪|年薪|工资|薪资|顾问费|咨询费)|你[^。；]{0,28}(?:加入|担任|受聘|接受)[^。；]{0,28}(?:月薪|年薪|工资|薪资|顾问费|咨询费)/u.test(text);
   // A recurring source always belongs to the person who earns it. An explicit

@@ -10,6 +10,7 @@ export interface FinancialProposalNormalizationAudit {
     | "DEBT_DRAW_PAYLOAD_NORMALIZED" | "DEBT_TYPE_NORMALIZED" | "ASSET_PURCHASE_PAYLOAD_NORMALIZED"
     | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED" | "LEGACY_INCOME_RECONFIRMATION_PRESERVED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED" | "EXPENSE_TYPE_PRESERVED"
+    | "EXPENSE_INCOME_FIELD_DROPPED" | "OPENING_PARENT_HEALTHCARE_RECONFIRMED"
     | "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"
     | "V4_EXPENSE_CANONICALIZED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
@@ -495,6 +496,41 @@ function normalizeFactStatus(value: unknown, fallback: "estimated" | "needs_revi
   return FACT_STATUS_ALIASES[String(value)] || fallback;
 }
 
+/**
+ * The opening flow can establish that a protagonist has a recurring
+ * parent-healthcare responsibility without knowing its exact amount.  When a
+ * later completed node supplies that amount, it confirms the one existing
+ * responsibility; it must not create a second healthcare accrual account.
+ *
+ * Keep this deliberately narrow.  A generic healthcare proposal may refer to
+ * a different treatment, person, or insurance obligation and must continue
+ * through the ordinary start/validation path.
+ */
+function uniqueOpeningParentHealthcareCommitment(ledger?: FinancialLedger) {
+  if (!ledger || !isFinancialLedgerV4(ledger)) return undefined;
+  const matches = ledger.expenseCommitments.filter((commitment) => (
+    commitment.id === "opening_recurring_healthcare_opening_parent"
+    && commitment.status === "active"
+    && commitment.type === "healthcare"
+    && commitment.responsibilityKind === "recurring_healthcare"
+    && commitment.responsibilityKey === "recurring_healthcare:opening_parent"
+    && commitment.financialScope === "personal"
+    && commitment.factStatus === "needs_review"
+    && commitment.amountBasis === "contextual_estimate"
+  ));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function isExplicitPersonalParentHealthcareProposal(input: {
+  payload: Record<string, any>;
+  evidenceText: string;
+}): boolean {
+  const text = `${input.evidenceText} ${String(input.payload.displayName || input.payload.name || input.payload.label || "")}`;
+  const namesParentAndHealthcare = /(?:父母|爸妈|父亲|母亲|妈妈|爸爸).{0,24}(?:医疗|医药|治疗|理疗|康复|用药|医院|门诊)|(?:医疗|医药|治疗|理疗|康复|用药|医院|门诊).{0,24}(?:父母|爸妈|父亲|母亲|妈妈|爸爸)/u.test(text);
+  const protagonistPays = /(?:^|[。；，、\s])(?:你(?!们)|我(?!们)|主角|本人)[^。！？；]{0,24}(?:承担|支付|负担|缴纳|负责)/u.test(input.evidenceText);
+  return namesParentAndHealthcare && protagonistPays;
+}
+
 export function normalizeFinancialProposals(input: {
   proposals: unknown;
   acceptedOutcomeIds?: string[];
@@ -853,7 +889,15 @@ export function normalizeFinancialProposals(input: {
         expensePayload.type = "mortgage_payment";
         audit.push({ proposalId: id, reasonCode: "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING", originalValue: rawExpenseType || "text_fallback", normalizedValue: "mortgage_payment" });
       } else {
-        const expenseAliases: Record<string, string> = { rent: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
+        const expenseAliases: Record<string, string> = {
+          rent: "housing",
+          caregiver: "dependent_support",
+          caregiving: "dependent_support",
+          medical: "healthcare",
+          recurring_healthcare: "healthcare",
+          tuition: "education",
+          living: "basic_living"
+        };
         expensePayload.type = expenseAliases[expensePayload.type] || expensePayload.type || (/房租|住房/u.test(evidenceText) ? "housing" : /照护|护工|赡养/u.test(evidenceText) ? "dependent_support" : "other");
       }
       if (expensePayload.type === "basic_living"
@@ -869,7 +913,59 @@ export function normalizeFinancialProposals(input: {
       expensePayload.status ||= "active";
       expensePayload.factStatus ||= "estimated";
       expensePayload.evidence = Array.isArray(expensePayload.evidence) ? expensePayload.evidence : [];
+      if (Object.prototype.hasOwnProperty.call(expensePayload, "accrualPolicy")) {
+        delete expensePayload.accrualPolicy;
+        audit.push({ proposalId: id, reasonCode: "EXPENSE_INCOME_FIELD_DROPPED", originalValue: "accrualPolicy", normalizedValue: "expense_commitment" });
+      }
       if (JSON.stringify(expensePayload) !== original) audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: expensePayload.id });
+
+      const openingParentHealthcare = uniqueOpeningParentHealthcareCommitment(input.currentLedger);
+      if (openingParentHealthcare
+        && expensePayload.type === "healthcare"
+        && Number(expensePayload.monthlyAmountWan) > 0
+        && isExplicitPersonalParentHealthcareProposal({ payload: expensePayload, evidenceText })) {
+        const confidence = Number.isFinite(Number(source.confidence))
+          ? Math.min(1, Math.max(0, Number(source.confidence)))
+          : 0.8;
+        kind = "expense_commitment_adjusted";
+        payload = {
+          expenseCommitmentId: openingParentHealthcare.id,
+          nextCommitment: {
+            ...expensePayload,
+            id: openingParentHealthcare.id,
+            type: openingParentHealthcare.type,
+            displayName: openingParentHealthcare.displayName,
+            activeFromAgeInMonths: openingParentHealthcare.activeFromAgeInMonths,
+            status: openingParentHealthcare.status,
+            factStatus: "needs_review",
+            responsibilityKey: openingParentHealthcare.responsibilityKey,
+            responsibilityKind: openingParentHealthcare.responsibilityKind,
+            amountBasis: "last_known",
+            amountSourceIds: [`accepted:${id}`],
+            financialScope: openingParentHealthcare.financialScope,
+            accrualReviewStatus: "conservative",
+            lastReviewedAtAgeInMonths: effectiveAtAgeInMonths,
+            nextReviewAtAgeInMonths: effectiveAtAgeInMonths + 12,
+            evidence: [
+              ...openingParentHealthcare.evidence,
+              {
+                source: "accepted_simulation_outcome",
+                sourceEventId: sourceOutcomeId,
+                excerpt: evidenceText,
+                reasonCode: "OPENING_PARENT_HEALTHCARE_RECONFIRMED",
+                confidence,
+                financialScope: "personal"
+              }
+            ]
+          }
+        };
+        audit.push({
+          proposalId: id,
+          reasonCode: "OPENING_PARENT_HEALTHCARE_RECONFIRMED",
+          originalValue: openingParentHealthcare.id,
+          normalizedValue: "expense_commitment_adjusted"
+        });
+      }
     }
     if (payload && (kind === "asset_purchased" || kind === "asset_balance_discovered")) {
       const candidate = payload.assetAccount && typeof payload.assetAccount === "object" ? payload.assetAccount : payload.asset || payload.account;
@@ -990,7 +1086,15 @@ export function normalizeFinancialProposals(input: {
             normalizedValue: "mortgage_payment"
           });
         } else {
-          const typeAliases: Record<string, string> = { rent: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
+          const typeAliases: Record<string, string> = {
+            rent: "housing",
+            caregiver: "dependent_support",
+            caregiving: "dependent_support",
+            medical: "healthcare",
+            recurring_healthcare: "healthcare",
+            tuition: "education",
+            living: "basic_living"
+          };
           const requestedType = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
           if (requestedType !== existingCommitment.type) {
             payload.nextCommitment.type = existingCommitment.type;
@@ -1006,6 +1110,10 @@ export function normalizeFinancialProposals(input: {
         }
         const nextAmount = payload.nextCommitment.monthlyAmountWan ?? payload.nextCommitment.amountWanPerMonth ?? payload.nextCommitment.monthlyCostWan ?? monthlyAmountFromEvidence();
         if (Number.isFinite(Number(nextAmount))) payload.nextCommitment.monthlyAmountWan = Number(nextAmount);
+        if (Object.prototype.hasOwnProperty.call(payload.nextCommitment, "accrualPolicy")) {
+          delete payload.nextCommitment.accrualPolicy;
+          audit.push({ proposalId: id, reasonCode: "EXPENSE_INCOME_FIELD_DROPPED", originalValue: "accrualPolicy", normalizedValue: "expense_commitment" });
+        }
         audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: payload.expenseCommitmentId });
       }
     }

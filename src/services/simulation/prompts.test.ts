@@ -446,6 +446,8 @@ assert.match(prompt, /financialNarrativeClaims 必须放在返回 JSON 顶层/);
 assert.match(prompt, /每个 financialEventProposal 至少返回一项 Claim/);
 assert.match(prompt, /未绑定 Claim 的正文或选项/);
 assert.match(prompt, /不得返回债务净变化、资产净变化或最终余额/);
+assert.match(prompt, /responsibilityKind（例如 recurring_healthcare）不是 type/);
+assert.match(prompt, /支出 payload 禁止包含 accrualPolicy/);
 assert.match(prompt, /debtAccount.*destinationCashAccountId.*principalDrawnWan/s);
 assert.match(prompt, /debtAccount\.principalWan 必须严格等于 principalDrawnWan/);
 assert.match(prompt, /公司融资只能用 business_financing_recorded/);

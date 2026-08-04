@@ -96,6 +96,8 @@ import {
   validateFinancialProposals,
   isFinancialEventKind,
   isUnacceptedIncomeOpportunityEvidence,
+  explicitProtagonistAnnualIncomeWan,
+  hasExplicitProtagonistAnnualIncomeFact,
   isNarratedBeforePeriod,
   FinancialLedgerInvariantError,
   type FinancialEventKind,
@@ -1813,6 +1815,10 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
         && !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:员工|助理|工程师|销售|运营|护工)[^。；]{0,35}(?:月薪|年薪)/u.test(sentence)
         && !/(?:如果|若|预计|计划|考虑|希望|目标|可以给你)[^。；]{0,50}(?:月薪|年薪)/iu.test(sentence)
         && !isUnacceptedIncomeOpportunityEvidence(sentence)
+        // A bare annual-income phrase is ambiguous. It can be a company or a
+        // partner's income, so allow it only when this exact sentence assigns
+        // it explicitly to the protagonist.
+        && (!/年收入/u.test(sentence) || hasExplicitProtagonistAnnualIncomeFact(sentence))
       ))
     : undefined;
   const evidenceText = /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|我(?:每月|开始|从本月起).{0,24}(?:工资|薪资|月薪)/u.test(decision)
@@ -1842,13 +1848,16 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   // (for example, "税后年薪涨到约30万"). The amount is still an explicit
   // personal-income fact and must be allowed to repair a malformed model
   // proposal without lowering the acceptance gate.
+  const explicitAnnualIncomeWan = evidenceText
+    ? explicitProtagonistAnnualIncomeWan(evidenceText)
+    : undefined;
   const annualMatch = evidenceText?.match(/(?:(?:税后)?(?:年薪|年收入)|年税后收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?(?:约)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
-  if (!explicitlyPersonal || (!monthlyMatch && !annualMatch)) return input.proposals;
+  if (!explicitlyPersonal || (!monthlyMatch && !annualMatch && explicitAnnualIncomeWan === undefined)) return input.proposals;
 
   const monthlyNetAmountWan = monthlyMatch
     ? Number(monthlyMatch[1]) * (monthlyMatch[2] === "元" ? 0.0001 : 1)
     : undefined;
-  const annualNetAmountWan = annualMatch ? Number(annualMatch[1]) : undefined;
+  const annualNetAmountWan = explicitAnnualIncomeWan ?? (annualMatch ? Number(annualMatch[1]) : undefined);
   if (!(Number(monthlyNetAmountWan ?? annualNetAmountWan) > 0)) return input.proposals;
   const careerIncomeTypes = new Set(["salary", "contract", "self_employment_draw"]);
   const allActiveCareerSources = input.ledger.incomeSources.filter((source) => (

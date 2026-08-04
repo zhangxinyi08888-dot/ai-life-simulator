@@ -1598,6 +1598,76 @@ test("rejects an unaccepted job posting or project invitation as a legacy-income
   });
   assert.equal(confirmed.acceptedEvents.length, 1);
   assert.equal((confirmed.acceptedEvents[0]?.payload as any).nextSource.annualNetAmountWan, 18);
+
+  const partnerNarratedPersonalIncome = "她指着其中一行说，这个数字是按你留在本地、年收入稳定在18万元的基础上算的。";
+  const partnerNarrated = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "partner_narrated_personal_income", kind: "income_source_adjusted", evidence: partnerNarratedPersonalIncome,
+      payload: { incomeSourceId: legacyIncome.id, nextSource: currentSalary(18) }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: partnerNarratedPersonalIncome,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "partner_narrated_personal_income",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(partnerNarrated.issues.length, 0);
+  assert.equal(partnerNarrated.acceptedEvents.length, 1);
+
+  const mixedNarratedIncome = "伴侣的年收入稳定在20万元，而你留在本地、年收入稳定在18万元。";
+  const mismatchedPartnerAmount = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "partner_amount_cannot_be_written_as_protagonist_income", kind: "income_source_adjusted", evidence: mixedNarratedIncome,
+      payload: { incomeSourceId: legacyIncome.id, nextSource: currentSalary(20) }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: mixedNarratedIncome,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "partner_amount_cannot_be_written_as_protagonist_income",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(mismatchedPartnerAmount.acceptedEvents.length, 0);
+  assert.equal(mismatchedPartnerAmount.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+
+  const partnerOnlyIncome = "伴侣的年收入稳定在18万元。";
+  const partnerOnly = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "partner_only_annual_income", kind: "income_source_adjusted", evidence: partnerOnlyIncome,
+      payload: { incomeSourceId: legacyIncome.id, nextSource: currentSalary(18) }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: partnerOnlyIncome,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "partner_only_annual_income",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(partnerOnly.acceptedEvents.length, 0);
+  assert.equal(partnerOnly.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+
+  const spoofedPartnerDisplayName = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "partner_display_name_cannot_spoof_personal_income", kind: "income_source_adjusted", evidence: partnerNarratedPersonalIncome,
+      payload: {
+        incomeSourceId: legacyIncome.id,
+        nextSource: { ...currentSalary(18), displayName: "伴侣工资" }
+      }
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: partnerNarratedPersonalIncome,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "partner_display_name_cannot_spoof_personal_income",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(spoofedPartnerDisplayName.acceptedEvents.length, 0);
+  assert.equal(spoofedPartnerDisplayName.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
 });
 
 test("requires adjustment instead of stacking a second authoritative basic-living commitment", () => {

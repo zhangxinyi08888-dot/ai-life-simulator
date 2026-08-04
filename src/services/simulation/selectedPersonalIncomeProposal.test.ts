@@ -181,6 +181,92 @@ test("PB-CAREER-11b a raised annual salary with an explicit qualifier updates th
   assert.equal((result[0]?.payload as any).nextSource.annualNetAmountWan, 30);
 });
 
+test("PB-CAREER-11c a partner's narration can explicitly reconfirm the protagonist's plain annual income", () => {
+  const ledger = initializeFinancialLedger({
+    id: "partner_narrated_personal_annual_income",
+    asOfAgeInMonths: 335,
+    openingPosition: {
+      incomeSources: [{
+        id: "legacy_recurring_income", type: "other", displayName: "旧版持续收入聚合",
+        annualNetAmountWan: 18, accrualPolicy: "annual", activeFromAgeInMonths: 312,
+        status: "active", linkedCareerStateId: "career_current", factStatus: "needs_review", evidence: []
+      }]
+    }
+  });
+  const narrative = "她指着其中一行说，这个数字是按你留在本地、年收入稳定在18万元的基础上算的。";
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续留在本地，维持当前工作安排。",
+    narrativeText: narrative,
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "stay_local",
+    periodStartAgeInMonths: 335,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "income_source_adjusted");
+  assert.equal((result[0]?.payload as any).incomeSourceId, "legacy_recurring_income");
+  assert.equal((result[0]?.payload as any).nextSource.type, "salary");
+  assert.equal((result[0]?.payload as any).nextSource.annualNetAmountWan, 18);
+  assert.equal((result[0]?.payload as any).nextSource.linkedCareerStateId, "career_current");
+  assert.equal(result[0]?.evidence, narrative);
+});
+
+test("PB-CAREER-11d plain annual income remains rejected when it belongs only to a partner", () => {
+  const ledger = initializeFinancialLedger({
+    id: "partner_only_annual_income",
+    asOfAgeInMonths: 335,
+    openingPosition: {
+      incomeSources: [{
+        id: "legacy_recurring_income", type: "other", displayName: "旧版持续收入聚合",
+        annualNetAmountWan: 18, accrualPolicy: "annual", activeFromAgeInMonths: 312,
+        status: "active", linkedCareerStateId: "career_current", factStatus: "needs_review", evidence: []
+      }]
+    }
+  });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续留在本地，维持当前工作安排。",
+    narrativeText: "伴侣的年收入稳定在18万元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "stay_local",
+    periodStartAgeInMonths: 335,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.deepEqual(result, []);
+});
+
+test("PB-CAREER-11e extracts the protagonist amount rather than an earlier partner annual income", () => {
+  const ledger = initializeFinancialLedger({
+    id: "mixed_annual_income_ownership",
+    asOfAgeInMonths: 335,
+    openingPosition: {
+      incomeSources: [{
+        id: "legacy_recurring_income", type: "other", displayName: "旧版持续收入聚合",
+        annualNetAmountWan: 12, accrualPolicy: "annual", activeFromAgeInMonths: 312,
+        status: "active", linkedCareerStateId: "career_current", factStatus: "needs_review", evidence: []
+      }]
+    }
+  });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续留在本地，维持当前工作安排。",
+    narrativeText: "她的年收入稳定在18万元，而你留在本地、年收入稳定在12万元。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "stay_local",
+    periodStartAgeInMonths: 335,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal((result[0]?.payload as any).nextSource.annualNetAmountWan, 12);
+});
+
 test("PB-CAREER-12 exact narrative salary adjusts the sole active current income in the same node", () => {
   const ledger = initializeFinancialLedger({
     id: "same_node_salary_adjustment",

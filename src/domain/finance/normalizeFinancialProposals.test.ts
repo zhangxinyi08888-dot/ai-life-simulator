@@ -5,6 +5,7 @@ import { normalizeFinancialProposals, normalizeRepairedFinancialProposals } from
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
+import { reduceFinancialLedger } from "./reduceFinancialLedger";
 import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 import { validateFinancialProposals } from "./validateFinancialProposals";
 import type { FinancialEvidence } from "./types";
@@ -47,6 +48,157 @@ test("canonicalizes model expense transport before it can target a V4 ledger", (
   assert.equal(commitment.financialScope, "personal");
   assert.equal(Number.isInteger(commitment.nextReviewAtAgeInMonths), true);
   assert.equal(result.audit.some((item) => item.reasonCode === "V4_EXPENSE_CANONICALIZED"), true);
+});
+
+test("reconfirms the exact opening parent-healthcare placeholder instead of starting a duplicate account", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "opening_parent_healthcare_reconfirmation",
+    asOfAgeInMonths: 300,
+    openingPosition: {
+      cashAccounts: [{
+        id: PRIMARY_CASH_ACCOUNT_ID,
+        type: "bank_deposit",
+        balanceWan: 10,
+        status: "active",
+        factStatus: "known",
+        evidence: []
+      }]
+    }
+  }));
+  currentLedger.expenseCommitments.push({
+    id: "opening_recurring_healthcare_opening_parent",
+    type: "healthcare",
+    displayName: "医疗持续支出（待确认）",
+    monthlyAmountWan: 0.12,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "needs_review",
+    evidence: [{
+      source: "accepted_history",
+      reasonCode: "OPENING_PARENT_HEALTHCARE",
+      excerpt: "你需要持续承担父母医疗支出。",
+      confidence: 0.8,
+      financialScope: "personal"
+    }],
+    responsibilityKey: "recurring_healthcare:opening_parent",
+    responsibilityKind: "recurring_healthcare",
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["opening_parent_healthcare"],
+    financialScope: "personal",
+    accrualReviewStatus: "conservative",
+    lastReviewedAtAgeInMonths: 300,
+    nextReviewAtAgeInMonths: 312
+  });
+  const narrative = "你每月要承担约两千元的医疗支出。";
+  const normalized = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["accepted_choice"],
+    currentLedger,
+    proposals: [{
+      id: "expense_healthcare_parents",
+      kind: "expense_commitment_started",
+      effectiveAtAgeInMonths: 312,
+      payload: {
+        id: "expense_healthcare_parents",
+        type: "recurring_healthcare",
+        displayName: "父母医疗支出",
+        monthlyAmountWan: 0.2,
+        accrualPolicy: "monthly",
+        activeFromAgeInMonths: 312,
+        status: "active",
+        factStatus: "estimated",
+        evidence: []
+      },
+      evidence: narrative,
+      confidence: 0.9
+    }]
+  });
+
+  assert.equal(normalized.proposals.length, 1);
+  assert.equal(normalized.proposals[0]?.kind, "expense_commitment_adjusted");
+  const payload = normalized.proposals[0]?.payload as any;
+  assert.equal(payload.expenseCommitmentId, "opening_recurring_healthcare_opening_parent");
+  assert.equal(payload.nextCommitment.id, "opening_recurring_healthcare_opening_parent");
+  assert.equal(payload.nextCommitment.type, "healthcare");
+  assert.equal(payload.nextCommitment.monthlyAmountWan, 0.2);
+  assert.equal(payload.nextCommitment.accrualPolicy, undefined);
+  assert.equal(payload.nextCommitment.responsibilityKey, "recurring_healthcare:opening_parent");
+  assert.equal(payload.nextCommitment.factStatus, "needs_review");
+  assert.deepEqual(validateFinancialPayloadSchema("expense_commitment_adjusted", payload), []);
+  assert.equal(normalized.audit.some((item) => item.reasonCode === "OPENING_PARENT_HEALTHCARE_RECONFIRMED"), true);
+  assert.equal(normalized.audit.some((item) => item.reasonCode === "EXPENSE_INCOME_FIELD_DROPPED"), true);
+
+  const validation = validateFinancialProposals({
+    proposals: normalized.proposals,
+    currentLedger,
+    currentCareerState: initializeCareerState({
+      id: "career_current",
+      employmentStatus: "employed",
+      effectiveFromAgeInMonths: 300
+    }),
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "opening_parent_healthcare_reconfirmation",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.deepEqual(validation.issues, []);
+  assert.equal(validation.acceptedEvents.length, 1);
+
+  const reduced = reduceFinancialLedger({
+    ledger: currentLedger,
+    transactionId: "opening_parent_healthcare_reconfirmation",
+    expectedLedgerRevision: currentLedger.revision,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    events: validation.acceptedEvents,
+    liquidityPolicy: "require_explicit"
+  });
+  const parentHealthcare = reduced.ledger.expenseCommitments.filter((commitment) => (
+    commitment.responsibilityKey === "recurring_healthcare:opening_parent"
+  ));
+  assert.equal(parentHealthcare.length, 1);
+  assert.equal(parentHealthcare[0]?.monthlyAmountWan, 0.2);
+});
+
+test("does not broaden opening parent-healthcare reconfirmation to a known account", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "known_parent_healthcare_is_not_rewritten",
+    asOfAgeInMonths: 300
+  }));
+  currentLedger.expenseCommitments.push({
+    id: "opening_recurring_healthcare_opening_parent",
+    type: "healthcare",
+    displayName: "父母医疗支出",
+    monthlyAmountWan: 0.12,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "known",
+    evidence: [],
+    responsibilityKey: "recurring_healthcare:opening_parent",
+    responsibilityKind: "recurring_healthcare",
+    amountBasis: "explicit_known",
+    amountSourceIds: ["accepted:opening_parent_healthcare"],
+    financialScope: "personal",
+    accrualReviewStatus: "normal",
+    lastConfirmedAtAgeInMonths: 300,
+    nextReviewAtAgeInMonths: 312
+  });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["accepted_choice"],
+    currentLedger,
+    proposals: [{
+      id: "expense_healthcare_parents",
+      kind: "expense_commitment_started",
+      effectiveAtAgeInMonths: 312,
+      payload: { type: "recurring_healthcare", displayName: "父母医疗支出", monthlyAmountWan: 0.2 },
+      evidence: "你每月要承担约两千元的医疗支出。",
+      confidence: 0.9
+    }]
+  });
+  assert.equal(result.proposals[0]?.kind, "expense_commitment_started");
+  assert.notEqual((result.proposals[0]?.payload as any).id, "opening_recurring_healthcare_opening_parent");
+  assert.equal(result.audit.some((item) => item.reasonCode === "OPENING_PARENT_HEALTHCARE_RECONFIRMED"), false);
 });
 
 test("keeps a V4 mortgage-payment expense schema-invalid for the validator instead of crashing canonicalization", () => {
