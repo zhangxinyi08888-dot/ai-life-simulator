@@ -487,22 +487,25 @@ function amountMatchesLegacyIncomeSource(input: {
 }): boolean {
   const isPersonal = /(?:你|主角|本人|个人账户)/u.test(input.evidence);
   if (!isPersonal) return false;
-  if (input.source.annualNetAmountWan !== undefined) {
+  // The accrual policy, rather than property presence, owns which amount is
+  // rendered as the current salary.  Some legacy records contain both fields;
+  // their unused amount still has to remain unchanged by the reconfirmation.
+  if (input.source.accrualPolicy === "annual") {
+    if (input.source.annualNetAmountWan === undefined) return false;
     const nextAnnual = Number(input.nextSource.annualNetAmountWan);
     const annualEvidence = input.evidence.match(/(?:(?:税后)?(?:年薪|年收入)|年税后收入)[^。！？]{0,20}?(\d+(?:\.\d+)?)\s*万元?/u);
     return Number.isFinite(nextAnnual)
       && nextAnnual === input.source.annualNetAmountWan
-      && input.nextSource.monthlyNetAmountWan === undefined
       && annualEvidence !== null
       && Number(annualEvidence[1]) === input.source.annualNetAmountWan;
   }
-  if (input.source.monthlyNetAmountWan !== undefined) {
+  if (input.source.accrualPolicy === "monthly") {
+    if (input.source.monthlyNetAmountWan === undefined) return false;
     const nextMonthly = Number(input.nextSource.monthlyNetAmountWan);
     const monthlyEvidence = input.evidence.match(/(?:税后)?(?:月薪|月收入|工资|薪资)[^。！？]{0,20}?(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u);
     if (!monthlyEvidence || !Number.isFinite(nextMonthly) || nextMonthly !== input.source.monthlyNetAmountWan) return false;
     const evidenceMonthlyWan = Number(monthlyEvidence[1]) * (monthlyEvidence[2] === "元" ? 0.0001 : 1);
-    return Math.abs(evidenceMonthlyWan - input.source.monthlyNetAmountWan) < 0.000001
-      && input.nextSource.annualNetAmountWan === undefined;
+    return Math.abs(evidenceMonthlyWan - input.source.monthlyNetAmountWan) < 0.000001;
   }
   return false;
 }
@@ -511,8 +514,66 @@ function hasExplicitPersonalCompensationAmount(text: string): boolean {
   return /(?:你|主角|本人|个人账户).{0,80}(?:(?:税后)?(?:月薪|年薪|月收入|年收入|工资|薪资)|年税后收入)[^。！？]{0,20}\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(text);
 }
 
-function hasExplicitOngoingEmployment(text: string): boolean {
-  return /(?:你|主角|本人).{0,48}(?:继续|仍(?:然)?|持续|留在|保持).{0,48}(?:岗位|工作|任职|负责|承担|公司|团队)/u.test(text);
+function hasExplicitIncomeInterruption(text: string): boolean {
+  return hasExplicitUnpaidPersonalIncomeStatement(text)
+    || /(?:停薪|无薪|不领薪)/u.test(text)
+    || /(?:工资|薪资|薪水|收入)[^。！？]{0,20}(?:尚未|还未|未能|延迟|停薪|停发|暂停|中断)|(?:尚未|还未|未能|延迟|停薪|停发|暂停|中断)[^。！？]{0,20}(?:工资|薪资|薪水|收入)/u.test(text);
+}
+
+const LEGACY_INCOME_RECONFIRMATION_IMMUTABLE_FIELDS = [
+  "id",
+  "displayName",
+  "monthlyNetAmountWan",
+  "annualNetAmountWan",
+  "accrualPolicy",
+  "activeFromAgeInMonths",
+  "activeUntilAgeInMonths",
+  "status",
+  "linkedCareerStateId",
+  "linkedAssetAccountId",
+  "linkedBusinessHoldingId",
+  "lastConfirmedAtAgeInMonths"
+] as const;
+
+function isExactLegacyIncomeReconfirmationSource(input: {
+  source: FinancialLedger["incomeSources"][number];
+  nextSource: Record<string, unknown>;
+  expectedType: "salary" | "self_employment_draw";
+}): boolean {
+  const allowedFields = new Set([
+    ...LEGACY_INCOME_RECONFIRMATION_IMMUTABLE_FIELDS,
+    "type",
+    "factStatus",
+    "accrualReviewStatus",
+    "evidence"
+  ]);
+  if (Object.keys(input.nextSource).some((field) => !allowedFields.has(field))) return false;
+  if (input.nextSource.id !== input.source.id
+    || input.nextSource.linkedCareerStateId !== input.source.linkedCareerStateId
+    || input.nextSource.status !== "active"
+    || input.nextSource.type !== input.expectedType
+    || input.nextSource.accrualPolicy !== input.source.accrualPolicy
+    || input.nextSource.factStatus !== "known") return false;
+  if (Object.prototype.hasOwnProperty.call(input.nextSource, "accrualReviewStatus")
+    && input.nextSource.accrualReviewStatus !== "normal") return false;
+  if (Object.prototype.hasOwnProperty.call(input.nextSource, "evidence")
+    && !Array.isArray(input.nextSource.evidence)) return false;
+  return LEGACY_INCOME_RECONFIRMATION_IMMUTABLE_FIELDS.every((field) => (
+    !Object.prototype.hasOwnProperty.call(input.nextSource, field)
+    || Object.is(input.nextSource[field], input.source[field])
+  ));
+}
+
+function canonicalLegacyIncomeReconfirmationSource(input: {
+  source: FinancialLedger["incomeSources"][number];
+  expectedType: "salary" | "self_employment_draw";
+}) {
+  return {
+    ...structuredClone(input.source),
+    type: input.expectedType,
+    factStatus: "known" as const,
+    accrualReviewStatus: "normal" as const
+  };
 }
 
 /**
@@ -541,7 +602,7 @@ export function reconcileLegacyIncomeProposalEvidenceNarrative(input: {
   if (narrativeRequiresCareerTransition({
     narrativeText: input.node.description,
     currentStatus: input.currentCareerState.employmentStatus
-  }) || !hasExplicitOngoingEmployment(input.node.description) || hasExplicitPersonalCompensationAmount(input.node.description)) {
+  }) || hasExplicitIncomeInterruption(input.node.description) || hasExplicitPersonalCompensationAmount(input.node.description)) {
     return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
   }
   const sources = input.ledger.incomeSources.filter((source) => (
@@ -566,20 +627,17 @@ export function reconcileLegacyIncomeProposalEvidenceNarrative(input: {
     : undefined;
   const evidence = proposal.evidence?.trim() || "";
   const evidenceSentences = evidence.split(/(?<=[。！？])/u).map((sentence) => sentence.trim()).filter(Boolean);
-  const expectedType = input.currentCareerState.employmentStatus === "self_employed"
+  const expectedType: "salary" | "self_employment_draw" = input.currentCareerState.employmentStatus === "self_employed"
     ? "self_employment_draw"
     : "salary";
-  const isExactSameSourceAdjustment = payload?.incomeSourceId === source.id
-    && nextSource?.id === source.id
-    && nextSource?.linkedCareerStateId === source.linkedCareerStateId
-    && nextSource?.status === "active"
-    && nextSource?.type === expectedType
-    && nextSource?.accrualPolicy === source.accrualPolicy
+  const isExactSameSourceAdjustment = nextSource !== undefined
+    && isExactLegacyIncomeReconfirmationSource({ source, nextSource, expectedType })
+    && payload?.incomeSourceId === source.id
     && proposal.sourceOutcomeId === input.acceptedOutcomeId
     && proposal.financialScope === "personal"
     && Number(proposal.confidence) >= 0.8
     && evidenceSentences.length === 1
-    && amountMatchesLegacyIncomeSource({ source, nextSource, evidence });
+    && amountMatchesLegacyIncomeSource({ source, nextSource: nextSource!, evidence });
   if (!isExactSameSourceAdjustment || input.node.description.includes(evidence)) {
     return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
   }
@@ -588,6 +646,25 @@ export function reconcileLegacyIncomeProposalEvidenceNarrative(input: {
   const raw = input.rawNode && typeof input.rawNode === "object"
     ? structuredClone(input.rawNode) as Record<string, unknown>
     : {};
+  const canonicalNextSource = canonicalLegacyIncomeReconfirmationSource({ source, expectedType });
+  const canonicalRawProposals = Array.isArray(raw.financialEventProposals)
+    ? raw.financialEventProposals.map((candidate) => {
+      if (!candidate || typeof candidate !== "object") return candidate;
+      const candidateRecord = candidate as Record<string, unknown>;
+      if (candidateRecord.id !== proposal.id || candidateRecord.kind !== "income_source_adjusted") return candidate;
+      const candidatePayload = candidateRecord.payload && typeof candidateRecord.payload === "object"
+        ? candidateRecord.payload as Record<string, unknown>
+        : {};
+      return {
+        ...candidateRecord,
+        payload: {
+          ...candidatePayload,
+          incomeSourceId: source.id,
+          nextSource: structuredClone(canonicalNextSource)
+        }
+      };
+    })
+    : raw.financialEventProposals;
   const rawDescription = typeof raw.description === "string" && raw.description.trim()
     ? raw.description
     : input.node.description;
@@ -600,6 +677,7 @@ export function reconcileLegacyIncomeProposalEvidenceNarrative(input: {
     },
     rawNode: {
       ...raw,
+      financialEventProposals: canonicalRawProposals,
       description: append(rawDescription),
       descriptionParagraphs: splitNarrativeParagraphs(append(rawDescription))
     },

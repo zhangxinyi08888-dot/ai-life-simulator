@@ -7,14 +7,16 @@ export interface CareerIncomeAtomicityResult {
   issues: FinancialLedgerIssue[];
 }
 
-const EXPLICIT_PERSONAL_INCOME_PATTERN = /(?:(?:你|主角|本人).{0,80}(?:(?:税后)?(?:月薪|年薪|月收入|年收入|工资|薪资|可支配收入|个人进账|业主提款|分红)(?:约为|约|达到|增至|稳定在|为)?\s*\d|(?:给自己发|领取|提取|获得|收到).{0,20}\d+(?:\.\d+)?\s*万元?.{0,20}(?:个人提款|工资|薪资|业主提款|分红))|(?:个人净收入|个人可支配收入|个人进账)(?:仅|约为|约|达到|为)?\s*\d)/u;
+const EXPLICIT_PERSONAL_INCOME_PATTERN = /(?:(?:你|主角|本人).{0,80}(?:(?:税后)?(?:月薪|年薪|月收入|年收入|工资|薪资|可支配收入|个人收入|个人净收入|个人进账|业主提款|分红)(?:约为|约|达到|增至|稳定在|为)?\s*\d|(?:给自己发|领取|提取|获得|收到).{0,20}\d+(?:\.\d+)?\s*万元?.{0,20}(?:个人提款|工资|薪资|业主提款|分红))|(?:个人收入|个人净收入|个人可支配收入|个人进账)(?:仅|约为|约|达到|为)?\s*\d)/u;
 const NEW_PERSONAL_INCOME_ACTIVITY_PATTERN = /(?:对方[^。！？]{0,24}(?:付了|支付|结算)[^。！？]{0,20}(?:咨询费|顾问费|课酬)|(?:咨询|顾问|工作坊|课程|副业|外包)[^。！？]{0,36}(?:收入|现金流|进账|销量|接到[^。！？]{0,12}(?:单子|订单|项目)|收到[^。！？]{0,12}(?:费用|款项)|回款)|(?:接|做)[^。！？]{0,12}(?:咨询|顾问|外包)[^。！？]{0,24}(?:收费|报酬|酬劳)|(?:这笔|该笔|一笔额外的?)[^。！？]{0,4}(?:个人)?(?:收入|现金流|进账)|(?:接下|接到|完成)[^。！？]{0,24}(?:咨询|顾问|外包)(?:单|项目)[^。！？]{0,24}(?:费用|收入|回款)|(?:卖出|售出)[^。！？]{0,20}(?:份|单)[^。！？]{0,20}(?:收入|进账)|(?:你|本人|主角)?[^。！？]{0,20}(?:收了|收到|拿到)[^。！？]{0,12}(?:\d+(?:\.\d+)?|[零一二三四五六七八九十百千万两]+)\s*(?:万|千|百)?元|(?:多了|新增|形成|建立)[^。！？]{0,12}(?:一条|新的?)?[^。！？]{0,6}(?:个人)?收入来源)/u;
 const PERSONAL_INCOME_COMPLETION_SIGNAL_PATTERN = /(?:(?:这笔|该笔|订单|咨询|顾问|课程|副业|主业)[^。！？]{0,32}(?:收入|现金流|进账|回款|收费|报酬|酬劳|基本盘)|(?:收入|现金流|进账|回款)[^。！？]{0,16}(?:稳定|形成|增加|新增|额外|基本盘)|(?:订单|接单|咨询费|顾问费|课酬|报酬|酬劳|销量|售出|卖出|收取(?:了)?费用|按次收取|支付[^。！？]{0,12}(?:分成|佣金|报酬)|(?:分成|佣金)[^。！？]{0,20}(?:支付|到账|垫付)|采购(?:了|内部培训|课程)|购买(?:了|课程|培训)|每月\s*\d+(?:\s*[-—至到]\s*\d+)?\s*单|稳定节奏))/u;
 const PERSONAL_COMMERCIAL_OPERATION_COMPLETION_PATTERN = /(?:(?:课程|咨询|工作坊|培训)[^。！？]{0,48}(?:开课|结课|结束|学员|报名|客户|订单|成交|签约|交付|收入|现金流|回款|进账)|(?:开课|结课|学员|报名|客户|订单|成交|签约|交付)[^。！？]{0,48}(?:课程|咨询|工作坊|培训)|开课后|没有带来多少收入)/u;
 const COMPANY_OPERATING_INCOME_PATTERN = /(?:公司|企业|平台|团队|机构|中心|项目)(?:的)?[^。！？]{0,20}(?:营收|销售额|合同额|客户回款|项目收入|营业收入)/u;
 // A paid customer, trial, or renewal belongs to the organization/product until
 // prose explicitly says that the protagonist personally received compensation.
-const ORGANIZATION_COMMERCIAL_TRACTION_PATTERN = /(?:(?:公司|平台|团队|机构|中心|工作室|产品|SaaS|系统|项目)(?:的)?[^。！？]{0,36}(?:付费(?:试用)?客户|客户|续约意向|续费|试点|订单|合同|签约|回款|收入|营收|盈利)|(?:付费(?:试用)?客户|客户|续约意向|续费|试点|订单|合同|签约|回款|收入|营收|盈利)[^。！？]{0,36}(?:公司|平台|团队|机构|中心|工作室|产品|SaaS|系统|项目))/u;
+const ORGANIZATION_COMMERCIAL_TRACTION_PATTERN = /(?:(?:公司|平台|团队|机构|中心|工作室|产品|SaaS|系统|项目)(?:的)?[^。！？]{0,36}(?:付费(?:试用)?客户|续约意向|续费|试点|订单|合同|签约|回款|收入|营收|盈利)|(?:付费(?:试用)?客户|续约意向|续费|试点|订单|合同|签约|回款|收入|营收|盈利)[^。！？]{0,36}(?:公司|平台|团队|机构|中心|工作室|产品|SaaS|系统|项目))/u;
+const EXPLICIT_PERSONAL_COMPENSATION_RECEIPT_PATTERN = /(?:你|本人|主角)[^。！？]{0,48}(?:收了|收到|拿到|领取|提取|获得)[^。！？]{0,24}(?:工资|薪资|咨询费|顾问费|课酬|报酬|酬劳|服务费|个人(?:净)?收入|个人进账|业主提款|分红)/u;
+const PAST_OR_ENDED_PERSONAL_INCOME_PATTERN = /(?:辞职|辞去|离职|退休|离开|结束|中断|停发|上一份|原工作).{0,36}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资).{0,36}(?:辞职|辞去|离职|退休|结束|中断|停发)/u;
 const EXPLICIT_UNPAID_PATTERN = /(?:暂不|没有|未|不)(?:领取|提取|获得)(?:个人)?(?:工资|薪资|业主提款|分红|收入)|不领薪|无薪/u;
 const TENTATIVE_PERSONAL_INCOME_PATTERN = /(?:个人)?收入[^。！？]{0,16}(?:是否形成|尚待确认|仍需观察|未形成|没有形成|尚未形成|暂时没有)|(?:是否形成|尚待确认|仍需观察|未形成|没有形成|尚未形成|暂时没有)[^。！？]{0,16}(?:个人)?收入/u;
 
@@ -33,7 +35,10 @@ export function narrativeClaimsNewPersonalIncomeActivity(narrativeText: string):
 }
 
 export function sentenceClaimsNewPersonalIncomeActivity(sentence: string): boolean {
+  if (hasExplicitUnpaidPersonalIncomeStatement(sentence)) return false;
   if (TENTATIVE_PERSONAL_INCOME_PATTERN.test(sentence)) return false;
+  if (PAST_OR_ENDED_PERSONAL_INCOME_PATTERN.test(sentence)) return false;
+  if (EXPLICIT_PERSONAL_COMPENSATION_RECEIPT_PATTERN.test(sentence)) return true;
   if (COMPANY_OPERATING_INCOME_PATTERN.test(sentence)) return false;
   if (ORGANIZATION_COMMERCIAL_TRACTION_PATTERN.test(sentence)) return false;
   return NEW_PERSONAL_INCOME_ACTIVITY_PATTERN.test(sentence)

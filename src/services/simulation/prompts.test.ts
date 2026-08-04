@@ -250,6 +250,49 @@ const alreadyQuarantinedLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
   currentFinancialLedger: alreadyQuarantinedLegacyIncomeLedger,
   financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
 });
+const immutableLegacyIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+immutableLegacyIncomeLedger.incomeSources[0]!.activeUntilAgeInMonths = 360;
+immutableLegacyIncomeLedger.incomeSources[0]!.linkedAssetAccountId = "legacy_income_asset_link";
+immutableLegacyIncomeLedger.incomeSources[0]!.linkedBusinessHoldingId = "legacy_income_holding_link";
+const immutableLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: immutableLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const dualAmountLegacyIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+dualAmountLegacyIncomeLedger.incomeSources[0]!.annualNetAmountWan = 30;
+const dualAmountLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: dualAmountLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const ordinaryCareerIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+ordinaryCareerIncomeLedger.incomeSources[0]!.id = "ordinary_salary";
+ordinaryCareerIncomeLedger.incomeSources[0]!.evidence = [{
+  source: "accepted_history",
+  reasonCode: "CURRENT_SALARY",
+  confidence: 0.9
+}];
+const ordinaryCareerIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: ordinaryCareerIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
 const legacyAggregateIncomeLedger = structuredClone(alreadyQuarantinedLegacyIncomeLedger);
 legacyAggregateIncomeLedger.incomeSources[0]!.type = "other";
 const legacyAggregateIncomeGateRetryPrompt = buildNextNodePrompt({
@@ -457,6 +500,9 @@ assert.match(staleLegacyIncomePrompt, /payload\.incomeSourceId=legacy_recurring_
 assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.id=legacy_recurring_income/);
 assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.linkedCareerStateId=career_current/);
 assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.monthlyNetAmountWan=2\.5/);
+assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.factStatus=known/);
+assert.match(staleLegacyIncomePrompt, /financialScope=personal、confidence=0\.8-1/);
+assert.match(staleLegacyIncomePrompt, /项目继续、公司运营或客户付费不能替代下方固定的个人薪资句/);
 assert.match(staleLegacyIncomePrompt, /账本摘要、重试提示和旧节点不是 evidence/);
 assert.match(staleLegacyIncomeGateRetryPrompt, /当前职业收入必须在本次重生中确认/);
 assert.match(staleLegacyIncomeGateRetryPrompt, /incomeSourceId=legacy_recurring_income/);
@@ -470,6 +516,17 @@ assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /incomeSourceId=lega
 assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /accrualReviewStatus=quarantined/);
 assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /不得因重试、账本摘要或旧节点自动恢复计提/);
 assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /“你的税后月薪稳定在2\.5万元。”/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.displayName="迁移工资"/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.activeFromAgeInMonths=200/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.activeUntilAgeInMonths=360/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.linkedAssetAccountId="legacy_income_asset_link"/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.linkedBusinessHoldingId="legacy_income_holding_link"/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.factStatus=known/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /不得新建第二份工资、改换 incomeSourceId、CareerState、金额、类型、计提频率、displayName、状态、activeFrom\/activeUntil 时间窗口或任何账户链接/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /lastConfirmedAtAgeInMonths 由已接受事件写入/);
+assert.match(dualAmountLegacyIncomeGateRetryPrompt, /“你的税后月薪稳定在2\.5万元。”/);
+assert.doesNotMatch(dualAmountLegacyIncomeGateRetryPrompt, /“你的年税后收入稳定在30万元。”/);
+assert.doesNotMatch(ordinaryCareerIncomeGateRetryPrompt, /【当前职业收入必须在本次重生中确认】/);
 assert.match(legacyAggregateIncomeGateRetryPrompt, /payload\.nextSource\.type=salary/);
 assert.doesNotMatch(legacyAggregateIncomeGateRetryPrompt, /payload\.nextSource\.type=other/);
 assert.match(v4ExpensePrompt, /V4 个人持续支出分类摘要（唯一责任事实源）/u);

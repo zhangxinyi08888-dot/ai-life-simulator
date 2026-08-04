@@ -850,6 +850,78 @@ const mismatchedLegacyIncomeCareerRepair = reconcileLegacyIncomeProposalEvidence
 });
 assert.deepEqual(mismatchedLegacyIncomeCareerRepair.reasonCodes, [], "a different CareerState must never be promoted as a reconfirmation of the current income source");
 
+const futureStartLegacyIncomeProposal = structuredClone(legacyIncomeEvidenceProposal(336));
+futureStartLegacyIncomeProposal.payload.nextSource.activeFromAgeInMonths = 999;
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: { ...structuredClone(legacyIncomeEvidenceCandidate), financialEventProposals: [futureStartLegacyIncomeProposal] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a reconfirmation may not push a current salary into the future");
+
+const endedLegacyIncomeProposal = structuredClone(legacyIncomeEvidenceProposal(336));
+endedLegacyIncomeProposal.payload.nextSource.activeUntilAgeInMonths = 335;
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: { ...structuredClone(legacyIncomeEvidenceCandidate), financialEventProposals: [endedLegacyIncomeProposal] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a reconfirmation may not end a current salary behind the gate's back");
+
+const reviewStatusLegacyIncomeProposal = structuredClone(legacyIncomeEvidenceProposal(336));
+reviewStatusLegacyIncomeProposal.payload.nextSource.factStatus = "needs_review";
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: { ...structuredClone(legacyIncomeEvidenceCandidate), financialEventProposals: [reviewStatusLegacyIncomeProposal] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a reconfirmation must establish known fact status rather than re-quarantine the salary");
+
+const dualAmountLegacyIncomeProposal = structuredClone(legacyIncomeEvidenceProposal(336));
+dualAmountLegacyIncomeProposal.payload.nextSource.monthlyNetAmountWan = 2.5;
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: { ...structuredClone(legacyIncomeEvidenceCandidate), financialEventProposals: [dualAmountLegacyIncomeProposal] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a reconfirmation may not introduce an unused monthly amount onto an annual source");
+
+const currentRoleLegacyIncomeCandidate = {
+  ...legacyIncomeEvidenceCandidate,
+  description: "你在当前公司负责产品交付，并把项目节奏稳定下来。",
+  descriptionParagraphs: ["你在当前公司负责产品交付，并把项目节奏稳定下来。"]
+};
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: currentRoleLegacyIncomeCandidate,
+  rawNode: { ...structuredClone(currentRoleLegacyIncomeCandidate), financialEventProposals: [legacyIncomeEvidenceProposal(336)] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, ["LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR"], "the current authoritative CareerState plus a non-conflicting current-role sentence is enough; the repair still promotes only model-provided evidence");
+
+const interruptedLegacyIncomeCandidate = {
+  ...legacyIncomeEvidenceCandidate,
+  description: "你暂时停薪，把时间留给家庭安排。",
+  descriptionParagraphs: ["你暂时停薪，把时间留给家庭安排。"]
+};
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: interruptedLegacyIncomeCandidate,
+  rawNode: { ...structuredClone(interruptedLegacyIncomeCandidate), financialEventProposals: [legacyIncomeEvidenceProposal(336)] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a no-pay fact must never be overwritten by legacy salary recovery");
+
 let legacyIncomeEvidenceRepairCalls = 0;
 const legacyIncomeEvidenceRepairGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
 const reconciledLegacyIncomeNode = await generateNextNode({

@@ -266,6 +266,7 @@ interface NextNodePromptInput {
  */
 function buildFinancialGateRetryPrompt(input: {
   currentFinancialLedger?: FinancialLedger;
+  currentEmploymentStatus?: FinancialState["employmentStatus"];
   reasonCodes?: string[];
 }): string {
   const reasonCodes = input.reasonCodes || [];
@@ -281,7 +282,7 @@ function buildFinancialGateRetryPrompt(input: {
 - 职业变化必须同时包含 employmentTransition 和旧工资关闭/新工资开启；否则保留当前权威职业与收入，不要凭空改写。
 ${careerIncomeTransitionRetryRule}
 - 若拒绝原因包含 EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING，且正文已完成“父/母健康受限 + 你为其找/请康复师或理疗师 + 每周/固定上门”的持续照护安排：必须在 narrativeMeta.worldDeltas 返回一条 amount-free expense_responsibility（responsibilityKind="elder_care"、beneficiary="father"|"mother"|"parents"、owner="protagonist"、cadence="recurring_unknown"、sourceOutcomeId=本轮已选 outcome、evidence=逐字原句、confidence=0.8-1）。病情和服务若跨句，evidence 必须逐字包含病情句与服务句，不能只引用服务句。未知金额由系统建立 needs_review，绝不可编造金额；一次陪诊、高龄、父母自行支付、公司场地或计划不得返回该 delta。
-${formatEmployedIncomeGateRetryRule(input.currentFinancialLedger, reasonCodes)}`;
+${formatEmployedIncomeGateRetryRule(input.currentFinancialLedger, reasonCodes, input.currentEmploymentStatus)}`;
 }
 
 export function buildNextNodePrompt(input: NextNodePromptInput): string {
@@ -344,6 +345,7 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
     : "";
   const financialGateRetryPrompt = buildFinancialGateRetryPrompt({
     currentFinancialLedger,
+    currentEmploymentStatus: currentFinancialState?.employmentStatus,
     reasonCodes: input.financialGateRetryReasonCodes
   });
   const healthPhaseRule = !pressureArcInterleaved && foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
@@ -628,25 +630,31 @@ function formatMissingCareerIncomeRule(ledger: FinancialLedger | undefined, empl
 type IncomeReconfirmationAmount = {
   ledgerAmount: string;
   literalSentence: string;
-  nextSourceAmount: string;
 };
 
 function formatIncomeReconfirmationAmount(source: IncomeSource): IncomeReconfirmationAmount | undefined {
-  if (source.monthlyNetAmountWan !== undefined) {
-    return {
-      ledgerAmount: `monthlyNetAmountWan=${source.monthlyNetAmountWan}`,
-      literalSentence: `你的税后月薪稳定在${source.monthlyNetAmountWan}万元。`,
-      nextSourceAmount: `payload.nextSource.monthlyNetAmountWan=${source.monthlyNetAmountWan}`
-    };
-  }
-  if (source.annualNetAmountWan !== undefined) {
+  // `accrualPolicy` owns which amount is the current recurring salary. Legacy
+  // records may contain the unused field too, but a recovery sentence must not
+  // switch from an annual source to a monthly claim merely because both exist.
+  if (source.accrualPolicy === "annual" && source.annualNetAmountWan !== undefined) {
     return {
       ledgerAmount: `annualNetAmountWan=${source.annualNetAmountWan}`,
-      literalSentence: `你的年税后收入稳定在${source.annualNetAmountWan}万元。`,
-      nextSourceAmount: `payload.nextSource.annualNetAmountWan=${source.annualNetAmountWan}`
+      literalSentence: `你的年税后收入稳定在${source.annualNetAmountWan}万元。`
+    };
+  }
+  if (source.accrualPolicy === "monthly" && source.monthlyNetAmountWan !== undefined) {
+    return {
+      ledgerAmount: `monthlyNetAmountWan=${source.monthlyNetAmountWan}`,
+      literalSentence: `你的税后月薪稳定在${source.monthlyNetAmountWan}万元。`
     };
   }
   return undefined;
+}
+
+function formatPreservedIncomeSourceField(field: string, value: string | number | undefined): string {
+  return value === undefined
+    ? `payload.nextSource.${field} 账本中未设置，必须保持不填`
+    : `payload.nextSource.${field}=${JSON.stringify(value)}`;
 }
 
 /**
@@ -674,8 +682,10 @@ function formatLegacyIncomeReconfirmationContract(source: IncomeSource, employme
     return `- incomeSourceId=${source.id}，${careerState}。账本没有可用于确认的职业收入金额；不得编造或自动确认收入。若本节点没有已发生的个人薪资事实，不得提交 income_source_adjusted，必须如实写明停薪、离职、换岗或工资尚未发放的事实。`;
   }
   return `- incomeSourceId=${source.id}，${careerState}，账本金额=${amount.ledgerAmount}。
-  若主角本节点仍在该职业实际领薪，description 必须逐字包含以下完整句子（不能改写、缩写、拆句，也不能用公司合同额、融资额或营收代替）：\u201c${amount.literalSentence}\u201d
-  financialEventProposals 必须同时返回一条对应的 kind=income_source_adjusted：payload.incomeSourceId=${source.id}；payload.nextSource.id=${source.id}；payload.nextSource.linkedCareerStateId=${source.linkedCareerStateId}；${amount.nextSourceAmount}；payload.nextSource.type=${nextSourceType}；payload.nextSource.accrualPolicy=${source.accrualPolicy}；payload.nextSource.status=active。不得新建第二份工资、改换 incomeSourceId、改换 CareerState、改变金额或计提频率；仅当当前迁移 type=other 时，才按上方当前职业类型写为 ${nextSourceType}，不得改成其他类型。
+  只有权威 CareerState 仍显示主角在当前职业任职，且 description 没有离职、换岗、退休、停薪、工资未发放或待确认的相反事实时，才可使用本确认契约；项目继续、公司运营或客户付费不能替代下方固定的个人薪资句，但也不能凭旧账本自动确认收入。
+  满足上述连续在职条件时，description 必须逐字包含以下完整句子（不能改写、缩写、拆句，也不能用公司合同额、融资额或营收代替）：\u201c${amount.literalSentence}\u201d
+  financialEventProposals 必须同时返回一条对应的 kind=income_source_adjusted，且 financialScope=personal、confidence=0.8-1：payload.incomeSourceId=${source.id}；payload.nextSource.id=${source.id}；payload.nextSource.linkedCareerStateId=${source.linkedCareerStateId}；${formatPreservedIncomeSourceField("monthlyNetAmountWan", source.monthlyNetAmountWan)}；${formatPreservedIncomeSourceField("annualNetAmountWan", source.annualNetAmountWan)}；payload.nextSource.type=${nextSourceType}；payload.nextSource.accrualPolicy=${source.accrualPolicy}；payload.nextSource.displayName=${JSON.stringify(source.displayName)}；payload.nextSource.status=active；payload.nextSource.factStatus=known；payload.nextSource.activeFromAgeInMonths=${source.activeFromAgeInMonths}；${formatPreservedIncomeSourceField("activeUntilAgeInMonths", source.activeUntilAgeInMonths)}；${formatPreservedIncomeSourceField("linkedAssetAccountId", source.linkedAssetAccountId)}；${formatPreservedIncomeSourceField("linkedBusinessHoldingId", source.linkedBusinessHoldingId)}。
+  除了将迁移占位 type=other 规范为上方当前职业类型 ${nextSourceType}，以及将 factStatus=known、evidence 换成当前原文外，以上字段必须逐字保留：不得新建第二份工资、改换 incomeSourceId、CareerState、金额、类型、计提频率、displayName、状态、activeFrom/activeUntil 时间窗口或任何账户链接；lastConfirmedAtAgeInMonths 由已接受事件写入，Proposal 不得伪造或改写它。
   Proposal.evidence 必须逐字引用上述 description 句；账本摘要、重试提示和旧节点不是 evidence，也不能被系统当作自动确认。${quarantineWarning}
   若没有可写成上述句子的本节点已发生个人薪资事实，不得提交该 Proposal；必须如实写明已停薪、离职、换岗或工资尚未发放，并提交相应职业/收入事件。`;
 }
@@ -752,18 +762,23 @@ function formatFinancialCompletenessRules(
  */
 function formatEmployedIncomeGateRetryRule(
   ledger: FinancialLedger | undefined,
-  reasonCodes: string[]
+  reasonCodes: string[],
+  employmentStatus?: FinancialState["employmentStatus"]
 ): string {
   if (!reasonCodes.includes("EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME") || !ledger) return "";
   const sources = ledger.incomeSources.filter((source) => (
     source.status === "active"
     && source.accrualPolicy !== "event_only"
     && Boolean(source.linkedCareerStateId)
+    && source.id === "legacy_recurring_income"
+    && ["estimated", "needs_review"].includes(source.factStatus)
+    && source.evidence.length > 0
+    && source.evidence.every((item) => item.source === "legacy_migration")
   ));
   if (sources.length !== 1) return "";
   const source = sources[0]!;
   return `【当前职业收入必须在本次重生中确认】
-${formatLegacyIncomeReconfirmationContract(source, "employed")}`;
+${formatLegacyIncomeReconfirmationContract(source, employmentStatus ?? "employed")}`;
 }
 
 export function buildFinancialProposalRepairPrompt(input: {
@@ -883,6 +898,7 @@ export function buildEndingNodePrompt(input: {
 }): string {
   const financialGateRetryPrompt = buildFinancialGateRetryPrompt({
     currentFinancialLedger: input.currentFinancialLedger || input.candidateNode.financialLedger,
+    currentEmploymentStatus: input.candidateNode.financialState?.employmentStatus,
     reasonCodes: input.financialGateRetryReasonCodes
   });
   return `你正在为一段写实人生生成自然终章。终章由代码判定，不需要解释概率，也不要描写猎奇或羞辱性的死亡过程。

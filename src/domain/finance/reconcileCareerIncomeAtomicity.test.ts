@@ -6,6 +6,7 @@ import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import {
   collectPersonalIncomeNarrativeContractIssues,
+  narrativeClaimsExplicitPersonalIncome,
   narrativeClaimsNewPersonalIncomeActivity,
   reconcileCareerIncomeAtomicity
 } from "./reconcileCareerIncomeAtomicity";
@@ -357,6 +358,36 @@ test("PB-CAREER-01a company and product traction are not personal compensation",
   assert.equal(narrativeClaimsNewPersonalIncomeActivity(
     "一位老客户办了工作坊，对方当场付了5000元咨询费。"
   ), true);
+  // A client purchasing the protagonist's training/consulting is still a
+  // commercial completion claim. It must not be mistaken for product traction
+  // merely because the same sentence also mentions a company.
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(
+    "客户主动提出采购内部培训，并介绍了一家初创公司做团队咨询。"
+  ), true);
+});
+
+test("PB-CAREER-01b explicit personal compensation overrides organization traction", () => {
+  const mixedOrganizationAndNewPersonalCompensation = [
+    "公司的产品已有至少三个付费客户，你每月收到1.2万元税后工资。",
+    "平台签约了两家付费试用客户，你收到5000元顾问费作为个人服务报酬。"
+  ];
+
+  for (const narrativeText of mixedOrganizationAndNewPersonalCompensation) {
+    assert.equal(narrativeClaimsNewPersonalIncomeActivity(narrativeText), true, narrativeText);
+    assert.equal(collectPersonalIncomeNarrativeContractIssues({
+      narrativeText,
+      acceptedFinancialEvents: [],
+      ageInMonths: 660
+    }).length, 1, narrativeText);
+  }
+
+  const mixedOrganizationAndCurrentPersonalIncome = "团队已经获得续约意向，你的个人收入稳定在2万元/月。";
+  assert.equal(narrativeClaimsExplicitPersonalIncome(mixedOrganizationAndCurrentPersonalIncome), true);
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: mixedOrganizationAndCurrentPersonalIncome,
+    acceptedFinancialEvents: [],
+    ageInMonths: 660
+  }).length, 1);
 });
 
 test("PB-CAREER-02 resignation, old wage closure, and new owner draw commit atomically", () => {
