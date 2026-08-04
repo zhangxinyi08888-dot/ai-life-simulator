@@ -4,7 +4,7 @@ import { initializeFinancialLedger } from "../../domain/finance/initializeLedger
 import { PRIMARY_CASH_ACCOUNT_ID } from "../../domain/finance/ledgerMath";
 import type { FinancialEvidence } from "../../domain/finance/types";
 import { buildFinancialProposalRepairPrompt, formatRestrictedFinancialLedger } from "./prompts";
-import { buildDeterministicFinancialNarrativeRollback, extractMisplacedEmploymentTransition, isCompanyOperatingNarrativeProposal, resolveSelectedOutcomeId, settleRejectedFinancialProposalIssues, stillClaimsRejectedDebtDraw, stillClaimsRejectedDebtRestructure, synthesizeMissingBusinessHoldingStartProposal, synthesizeMissingBusinessOptionGrantProposal, synthesizeMissingDebtCompletionProposals, synthesizeSelectedCareerTransition, validateSelectedDecisionConsistency } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, extractMisplacedEmploymentTransition, isCompanyOperatingNarrativeProposal, resolveSelectedOutcomeId, selectedDecisionExplicitlyRetires, settleRejectedFinancialProposalIssues, stillClaimsRejectedDebtDraw, stillClaimsRejectedDebtRestructure, synthesizeMissingBusinessHoldingStartProposal, synthesizeMissingBusinessOptionGrantProposal, synthesizeMissingDebtCompletionProposals, synthesizeSelectedCareerTransition, validateSelectedDecisionConsistency } from "./simulationService";
 import type { HistoryItem } from "../../types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "TEST", confidence: 1 }];
@@ -153,6 +153,37 @@ test("a completed consultant transition is synthesized while a retained day job 
     currentStatus: "employed"
   });
   assert.equal(retained, undefined);
+});
+
+test("retirement savings and planning do not close an active career", () => {
+  const continuedWorkNarrative = "你决定继续留在城市，用稳定的工作收入支撑父母医疗和乡村教育，同时逐步建立保险和退休储蓄。";
+  for (const selectedDecision of [
+    "继续用稳定的工作收入支持父母医疗和乡村教育，并在未来五年积累退休储蓄安排。",
+    "继续当前岗位，完善退休规划，并保留稳定现金流。",
+    "决定退休储蓄目标，同时继续当前工作。"
+  ]) {
+    assert.equal(selectedDecisionExplicitlyRetires(selectedDecision), false);
+    assert.equal(synthesizeSelectedCareerTransition({
+      selectedDecision,
+      narrativeText: continuedWorkNarrative,
+      acceptedOutcomeId: "continue_work",
+      effectiveAtAgeInMonths: 417,
+      currentStatus: "employed"
+    }), undefined);
+  }
+});
+
+test("an explicit retirement action still closes the active career", () => {
+  for (const selectedDecision of ["正式退休，结束全职工作。", "办理退休，结束全职工作。", "办理退休手续，结束全职工作。"] ) {
+    assert.equal(selectedDecisionExplicitlyRetires(selectedDecision), true);
+    assert.equal(synthesizeSelectedCareerTransition({
+      selectedDecision,
+      narrativeText: "你结束了全职工作，开始安排退休生活。",
+      acceptedOutcomeId: "retire",
+      effectiveAtAgeInMonths: 720,
+      currentStatus: "employed"
+    })?.toStatus, "retired");
+  }
 });
 
 test("loan balance and active monthly payment claims require an accepted debt draw", () => {

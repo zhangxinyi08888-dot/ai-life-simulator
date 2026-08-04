@@ -938,6 +938,15 @@ function isEmployerSalaryMutationProposal(input: {
   return false;
 }
 
+/**
+ * A retirement plan is not a retirement event.  Selected-decision fallback
+ * may close an active career only when the choice says that retirement itself
+ * is happening, not when it merely mentions retirement savings or planning.
+ */
+export function selectedDecisionExplicitlyRetires(decision: string): boolean {
+  return /(?:办理退休(?:手续)?|正式退休|已经退休|已退休|(?:选择|决定)(?:了)?(?:正式|提前)?退休|提前退休|退休(?:了)?)(?=[，。；！？\s]|$)/u.test(decision.trim());
+}
+
 export function synthesizeSelectedCareerTransition(input: {
   selectedDecision?: string;
   narrativeText: string;
@@ -968,7 +977,7 @@ export function synthesizeSelectedCareerTransition(input: {
   let toStatus: EmploymentTransitionProposal["toStatus"] | undefined;
   if (joinsEmployer) toStatus = "employed";
   else if (startsSelfDirectedVenture) toStatus = "self_employed";
-  else if (/退休/u.test(decision)) toStatus = "retired";
+  else if (selectedDecisionExplicitlyRetires(decision)) toStatus = "retired";
   else if (/停止工作|不再工作/u.test(decision)) toStatus = "not_working";
   else if (narrativeEvidence
     && hasCompletedEmployerStartEvidence(narrativeEvidence)) {
@@ -2504,7 +2513,8 @@ async function commitAuthoritativeFinancialProgress(input: {
   const selectedDecisionIsPendingEmployerOffer = isAcceptedEmployerRoleInvitation(selectedDecision)
     && !hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence);
   const selectedDecisionRequiresCareerTransition = !selectedDecisionIsPendingEmployerOffer && (
-    /退休|转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|开始.{0,8}创业|全职.{0,8}创业/iu.test(selectedDecision)
+    selectedDecisionExplicitlyRetires(selectedDecision)
+    || /转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|开始.{0,8}创业|全职.{0,8}创业/iu.test(selectedDecision)
     || hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence)
   );
   const initialPendingOfferStartResolutionIssue = pendingEmployerOfferStartResolutionIssue({

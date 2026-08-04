@@ -2086,6 +2086,79 @@ assert.equal(
 );
 assert.equal(pendingOfferNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
 
+// Planning for retirement is not evidence that the protagonist has retired.
+// The existing employed CareerState and its linked salary must remain the
+// authority when the accepted choice and prose both say that work continues.
+const retirementPlanningDecision = "继续当前岗位，逐步积累退休储蓄，并保留稳定现金流。";
+const retirementPlanningHistory = structuredClone(pendingOfferHistory);
+const retirementPlanningWorld = retirementPlanningHistory[0]!.worldStateSnapshot!;
+const retirementPlanningCurrentCareer = retirementPlanningWorld.careerStates.find((state) => (
+  state.id === retirementPlanningWorld.currentCareerStateId
+));
+assert.ok(retirementPlanningCurrentCareer, "fixture must expose the current career state");
+retirementPlanningCurrentCareer.employmentStatus = "employed";
+retirementPlanningWorld.currentEmploymentStatus = "employed";
+retirementPlanningHistory[0]!.selectedChoice = retirementPlanningDecision;
+retirementPlanningHistory[0]!.choices = [{
+  id: "A",
+  text: retirementPlanningDecision,
+  impactSummary: "继续工作并规划未来",
+  eventOutcomeId: "continue_current_work"
+}];
+const retirementPlanningIncomeBefore = retirementPlanningHistory[0]!.financialLedger?.incomeSources.find((source) => source.status === "active");
+assert.ok(retirementPlanningIncomeBefore, "fixture must expose an active personal income source");
+retirementPlanningIncomeBefore.linkedCareerStateId = retirementPlanningCurrentCareer.id;
+retirementPlanningIncomeBefore.factStatus = "known";
+retirementPlanningIncomeBefore.accrualReviewStatus = "normal";
+const retirementPlanningCareerBefore = retirementPlanningHistory[0]!.worldStateSnapshot?.currentCareerStateId
+  ?? retirementPlanningIncomeBefore?.linkedCareerStateId;
+const retirementPlanningGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+const retirementPlanningNode = await generateNextNode({
+  userData,
+  answers,
+  history: retirementPlanningHistory,
+  currentAttributes: nextNode.attributes,
+  selectedDecision: retirementPlanningDecision,
+  nodeIndex: 2,
+  simulationSeed: "retirement-savings-preserves-current-career"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  onFinancialGateDecision: (decision) => retirementPlanningGateDecisions.push(decision),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 24,
+      stage: "稳定工作与长期准备",
+      title: "把未来放进当下节奏",
+      description: "你继续留在当前岗位，用稳定的工作收入支撑日常生活，并开始逐步积累退休储蓄。",
+      choices: [
+        { id: "A", text: "继续提升专业能力", impactSummary: "稳步积累" },
+        { id: "B", text: "复核长期储蓄计划", impactSummary: "规划未来" },
+        { id: "C", text: "维持工作与生活边界", impactSummary: "保持平衡" }
+      ],
+      attributes,
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+assert.deepEqual(retirementPlanningGateDecisions.map((decision) => decision.disposition), ["accept"]);
+assert.ok(!retirementPlanningGateDecisions[0]?.reasonCodes.includes("CAREER_INCOME_CONFLICT"));
+assert.equal(retirementPlanningNode.worldStateSnapshot?.currentCareerStateId, retirementPlanningCareerBefore);
+assert.equal(retirementPlanningNode.worldStateSnapshot?.currentEmploymentStatus, "employed");
+assert.equal(
+  retirementPlanningNode.financialLedger?.incomeSources.find((source) => source.id === retirementPlanningIncomeBefore?.id)?.status,
+  "active",
+  "retirement savings must not end the existing salary"
+);
+assert.equal(retirementPlanningNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
+
 // “入职后” is completed employment prose, not a bare offer. Without a
 // replacement personal income it must be rejected before it can preserve a
 // pending offer alongside narration that says the protagonist is already at
