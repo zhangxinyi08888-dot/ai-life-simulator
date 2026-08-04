@@ -237,6 +237,31 @@ const nearQuarantineLegacyIncomePrompt = buildNextNodePrompt({
   eventSeed: healthWarningEvent,
   currentFinancialLedger: nearQuarantineLegacyIncomeLedger
 });
+const alreadyQuarantinedLegacyIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+alreadyQuarantinedLegacyIncomeLedger.incomeSources[0]!.factStatus = "needs_review";
+alreadyQuarantinedLegacyIncomeLedger.incomeSources[0]!.accrualReviewStatus = "quarantined";
+const alreadyQuarantinedLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: alreadyQuarantinedLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const legacyAggregateIncomeLedger = structuredClone(alreadyQuarantinedLegacyIncomeLedger);
+legacyAggregateIncomeLedger.incomeSources[0]!.type = "other";
+const legacyAggregateIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: legacyAggregateIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
 const v4ExpenseLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
   id: "v4_expense_prompt",
   asOfAgeInMonths: 288,
@@ -424,12 +449,29 @@ assert.match(endingResponsibilityDeltaRetryPrompt, /本轮唯一已接受的 out
 assert.match(endingResponsibilityDeltaRetryPrompt, /sourceOutcomeId 必须逐字等于 "ending_parent_care"/);
 assert.match(endingResponsibilityDeltaRetryPrompt, /narrativeMeta 必须返回 worldDeltas/);
 assert.match(staleLegacyIncomePrompt, /仍在职的迁移估算收入需要本节点明确确认/);
-assert.match(staleLegacyIncomePrompt, /若金额与账本相同，也必须提交 income_source_adjusted/);
+assert.match(staleLegacyIncomePrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(staleLegacyIncomePrompt, /账本金额=monthlyNetAmountWan=2\.5/);
+assert.match(staleLegacyIncomePrompt, /description 必须逐字包含以下完整句子/);
+assert.match(staleLegacyIncomePrompt, /“你的税后月薪稳定在2\.5万元。”/);
+assert.match(staleLegacyIncomePrompt, /payload\.incomeSourceId=legacy_recurring_income/);
+assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.id=legacy_recurring_income/);
+assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.linkedCareerStateId=career_current/);
+assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.monthlyNetAmountWan=2\.5/);
+assert.match(staleLegacyIncomePrompt, /账本摘要、重试提示和旧节点不是 evidence/);
 assert.match(staleLegacyIncomeGateRetryPrompt, /当前职业收入必须在本次重生中确认/);
 assert.match(staleLegacyIncomeGateRetryPrompt, /incomeSourceId=legacy_recurring_income/);
 assert.match(staleLegacyIncomeGateRetryPrompt, /税后月薪稳定在2\.5万元/);
 assert.match(staleLegacyIncomeGateRetryPrompt, /Proposal\.evidence 必须逐字引用/);
 assert.match(nearQuarantineLegacyIncomePrompt, /仍在职的迁移估算收入需要本节点明确确认/);
+assert.match(nearQuarantineLegacyIncomePrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(nearQuarantineLegacyIncomePrompt, /payload\.nextSource\.id=legacy_recurring_income/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /当前职业收入必须在本次重生中确认/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /accrualReviewStatus=quarantined/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /不得因重试、账本摘要或旧节点自动恢复计提/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /“你的税后月薪稳定在2\.5万元。”/);
+assert.match(legacyAggregateIncomeGateRetryPrompt, /payload\.nextSource\.type=salary/);
+assert.doesNotMatch(legacyAggregateIncomeGateRetryPrompt, /payload\.nextSource\.type=other/);
 assert.match(v4ExpensePrompt, /V4 个人持续支出分类摘要（唯一责任事实源）/u);
 assert.match(v4ExpensePrompt, /responsibilityKey=primary_residence:main/u);
 assert.match(v4ExpensePrompt, /kind=primary_residence/u);

@@ -632,6 +632,12 @@ export interface FinancialProcessingMeta {
   narrativeRepairAttempts?: number;
   narrativeRepairSucceeded?: boolean;
   narrativeFallbackSurfacePaths?: string[];
+  /**
+   * Candidate-only text reconciliation that made a model-supplied financial
+   * evidence sentence visible before ordinary financial validation.  These
+   * codes are audit telemetry, not accepted financial authority by themselves.
+   */
+  candidateNarrativeRepairReasonCodes?: string[];
   financialGateMode?: "off" | "shadow" | "enforced";
   financialGateDisposition?: "accept" | "accept_with_review" | "regenerate";
   financialGateWouldBlock?: boolean;

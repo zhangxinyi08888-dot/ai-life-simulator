@@ -7,7 +7,7 @@ import { AgeContext, formatAgeContextForPrompt } from "../../utils/ageContext";
 import { formatPersonStateForPrompt } from "../../utils/personTimeline";
 import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance";
 import { formatFinancialStateForPrompt } from "../../utils/financialState";
-import type { AcceptedFinancialEvent, DebtHealthState, FinancialEventProposal, FinancialLedger, FinancialLedgerIssue } from "../../domain/finance";
+import type { AcceptedFinancialEvent, DebtHealthState, FinancialEventProposal, FinancialLedger, FinancialLedgerIssue, IncomeSource } from "../../domain/finance";
 import { formatDebtNarrativeAuthorityForPrompt } from "../../utils/debtNarrativeAuthority";
 import { financialEvidenceCandidates } from "../../domain/finance/evidenceMatching";
 import {
@@ -479,7 +479,7 @@ ${formatDecisionIntentRules()}
 ${targetAgeInMonths >= 55 * 12 ? "- 主角已满 55 岁：如果 description 明确写出已经退休、离职或停止工作，必须同时提交 employmentTransition，以及结束或暂停账本摘要中 linkedCareerStateId 对应当前职业的工资收入；租金、版税、年金等非职业收入不得结束。" : ""}
 ${targetAgeInMonths >= 80 * 12 ? "- 主角已满 80 岁：本节点不得继续沿用 employed。若仍持续独立创作、顾问或经营，应提交到 self_employed 的 employmentTransition 并迁移职业收入；否则必须提交 retired 或 not_working，并结束 linkedCareerStateId 对应工资。非职业收入继续保留。" : ""}
 ${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
-${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
+${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths, currentFinancialState?.employmentStatus)}
 - financialEventProposals 必须放在返回 JSON 顶层；没有已经发生的财务变化时返回空数组，不得重复返回全部现有余额。
 - financialNarrativeClaims 必须放在返回 JSON 顶层。每个 financialEventProposal 至少返回一项 Claim：{ "id": "唯一 id", "proposalId": "对应 Proposal.id", "kind": "与 Proposal.kind 完全一致", "surfaceText": "逐字复制 descriptionParagraphs 中宣告该财务事实已经发生的完整句子" }。同一 Proposal 若在多句中宣告到账、生效或由此带来的现金流结果，必须逐句绑定；计划、申请中或未成功的句子不得作为完成事实 Claim。没有 Proposal 时返回空数组。
 - Claim 是财务叙事事实的封闭契约：不得在未绑定 Claim 的正文或选项里另写个人收入到账、借款到账、还债完成、重组生效、资产成交、家庭资金到账、股权/期权取得等已完成事实。
@@ -625,7 +625,66 @@ function formatMissingCareerIncomeRule(ledger: FinancialLedger | undefined, empl
   return "- 当前身份仍为在职/自雇，但账本没有有效职业收入来源。本节点必须在 description 中明确说明当前税后月薪或年薪并提交对应职业收入 Proposal；如果确实无薪或工资延期，必须明确写出无薪事实，不得用公司合同额、融资额或营收代替个人收入。";
 }
 
-function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, targetAgeInMonths: number): string {
+type IncomeReconfirmationAmount = {
+  ledgerAmount: string;
+  literalSentence: string;
+  nextSourceAmount: string;
+};
+
+function formatIncomeReconfirmationAmount(source: IncomeSource): IncomeReconfirmationAmount | undefined {
+  if (source.monthlyNetAmountWan !== undefined) {
+    return {
+      ledgerAmount: `monthlyNetAmountWan=${source.monthlyNetAmountWan}`,
+      literalSentence: `你的税后月薪稳定在${source.monthlyNetAmountWan}万元。`,
+      nextSourceAmount: `payload.nextSource.monthlyNetAmountWan=${source.monthlyNetAmountWan}`
+    };
+  }
+  if (source.annualNetAmountWan !== undefined) {
+    return {
+      ledgerAmount: `annualNetAmountWan=${source.annualNetAmountWan}`,
+      literalSentence: `你的年税后收入稳定在${source.annualNetAmountWan}万元。`,
+      nextSourceAmount: `payload.nextSource.annualNetAmountWan=${source.annualNetAmountWan}`
+    };
+  }
+  return undefined;
+}
+
+/**
+ * This is deliberately a prompt-only recovery contract. It asks the model to
+ * put the reconfirmation in the visible candidate text; the ledger summary is
+ * never evidence and cannot restore an income source by itself.
+ */
+function formatLegacyIncomeReconfirmationContract(source: IncomeSource, employmentStatus?: FinancialState["employmentStatus"]): string {
+  const amount = formatIncomeReconfirmationAmount(source);
+  // Migration deliberately uses `other` until a visible salary/draw fact
+  // confirms the source. Repeating that placeholder type would keep an
+  // employed protagonist outside the ordinary career-income invariant.
+  const nextSourceType = source.id === "legacy_recurring_income" && source.type === "other"
+    ? employmentStatus === "self_employed"
+      ? "self_employment_draw"
+      : "salary"
+    : source.type;
+  const careerState = source.linkedCareerStateId
+    ? `linkedCareerStateId=${source.linkedCareerStateId}`
+    : "linkedCareerStateId=未关联";
+  const quarantineWarning = source.accrualReviewStatus === "quarantined"
+    ? "该来源当前已隔离（accrualReviewStatus=quarantined）；不得因重试、账本摘要或旧节点自动恢复计提。"
+    : "该来源即将因未确认而隔离；不得因账本摘要或旧节点自动确认。";
+  if (!amount || !source.linkedCareerStateId) {
+    return `- incomeSourceId=${source.id}，${careerState}。账本没有可用于确认的职业收入金额；不得编造或自动确认收入。若本节点没有已发生的个人薪资事实，不得提交 income_source_adjusted，必须如实写明停薪、离职、换岗或工资尚未发放的事实。`;
+  }
+  return `- incomeSourceId=${source.id}，${careerState}，账本金额=${amount.ledgerAmount}。
+  若主角本节点仍在该职业实际领薪，description 必须逐字包含以下完整句子（不能改写、缩写、拆句，也不能用公司合同额、融资额或营收代替）：\u201c${amount.literalSentence}\u201d
+  financialEventProposals 必须同时返回一条对应的 kind=income_source_adjusted：payload.incomeSourceId=${source.id}；payload.nextSource.id=${source.id}；payload.nextSource.linkedCareerStateId=${source.linkedCareerStateId}；${amount.nextSourceAmount}；payload.nextSource.type=${nextSourceType}；payload.nextSource.accrualPolicy=${source.accrualPolicy}；payload.nextSource.status=active。不得新建第二份工资、改换 incomeSourceId、改换 CareerState、改变金额或计提频率；仅当当前迁移 type=other 时，才按上方当前职业类型写为 ${nextSourceType}，不得改成其他类型。
+  Proposal.evidence 必须逐字引用上述 description 句；账本摘要、重试提示和旧节点不是 evidence，也不能被系统当作自动确认。${quarantineWarning}
+  若没有可写成上述句子的本节点已发生个人薪资事实，不得提交该 Proposal；必须如实写明已停薪、离职、换岗或工资尚未发放，并提交相应职业/收入事件。`;
+}
+
+function formatFinancialCompletenessRules(
+  ledger: FinancialLedger | undefined,
+  targetAgeInMonths: number,
+  employmentStatus?: FinancialState["employmentStatus"]
+): string {
   if (!ledger) return "";
   const rules: string[] = [];
   const hasActiveExpense = ledger.expenseCommitments.some((item) => item.status === "active");
@@ -633,7 +692,7 @@ function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, t
     rules.push("- 当前是成年阶段，但账本没有任何有效生活支出。description 必须根据本阶段明确的住房、家庭和生活方式写出保守的每月核心支出，并提交 factStatus=estimated 的 expense_commitment_started；不得继续填 0，也不得把无法证明的精确金额标 known。");
   }
   const staleLegacyIncomeSources = ledger.incomeSources.filter((source) => {
-    if (source.status !== "active" || !source.id.startsWith("legacy_") || source.factStatus !== "estimated") return false;
+    if (source.status !== "active" || !source.id.startsWith("legacy_") || source.factStatus !== "estimated" || !source.linkedCareerStateId) return false;
     if (!source.evidence.length || !source.evidence.every((item) => item.source === "legacy_migration")) return false;
     const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
     const materialTransactions = ledger.recentTransactions.filter((transaction) => (
@@ -646,7 +705,7 @@ function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, t
     return targetAgeInMonths - lastConfirmedAt >= 36 || materialTransactions + 1 >= 3;
   });
   if (staleLegacyIncomeSources.length) {
-    rules.push(`- 以下仍在职的迁移估算收入需要本节点明确确认：${staleLegacyIncomeSources.map((source) => source.id).join("、")}。description 必须写明主角当前实际税后月薪或年薪；若金额与账本相同，也必须提交 income_source_adjusted，引用原 incomeSourceId 并保持同一金额，用本节点原文证据替换 legacy_migration 依据。若已停薪、离职或换岗，则提交完整职业转换和收入结束/新收入事件。不得让 employed 状态落入收入为 0。`);
+    rules.push(`- 以下仍在职的迁移估算收入需要本节点明确确认，且已到确认窗口。每一个账户都必须按下列逐字契约处理；这不是系统补写或自动确认：\n${staleLegacyIncomeSources.map((source) => formatLegacyIncomeReconfirmationContract(source, employmentStatus)).join("\n")}`);
   }
   if (targetAgeInMonths >= 55 * 12) {
     const staleCareerSources = ledger.incomeSources.filter((source) => (
@@ -685,7 +744,8 @@ function formatFinancialCompletenessRules(ledger: FinancialLedger | undefined, t
 
 /**
  * A rejected Preview never changes the authoritative ledger, so the retry
- * prompt must use the pre-preview source that was about to be quarantined.
+ * prompt must use the pre-preview source that was about to be quarantined, or
+ * the active quarantined source if a prior preview has already produced it.
  * This is an explicit narrative re-confirmation of that source, not a
  * synthetic continuation: the accepted proposal still has to quote the new
  * node text and pass ordinary evidence/atomicity validation.
@@ -699,20 +759,11 @@ function formatEmployedIncomeGateRetryRule(
     source.status === "active"
     && source.accrualPolicy !== "event_only"
     && Boolean(source.linkedCareerStateId)
-    && source.accrualReviewStatus !== "quarantined"
   ));
   if (sources.length !== 1) return "";
   const source = sources[0]!;
-  const amount = source.annualNetAmountWan !== undefined
-    ? `年税后收入稳定在${source.annualNetAmountWan}万元`
-    : source.monthlyNetAmountWan !== undefined
-      ? `税后月薪稳定在${source.monthlyNetAmountWan}万元`
-      : undefined;
-  if (!amount) return "";
   return `【当前职业收入必须在本次重生中确认】
-- 当前唯一职业收入来源为 incomeSourceId=${source.id}，linkedCareerStateId=${source.linkedCareerStateId}，金额=${amount}。
-- 若主角仍为 employed 且没有已经完成的离职、退休、停薪或换岗：description 必须写出准确的连续性事实，例如“你的${amount}。”；financialEventProposals 必须返回 kind=income_source_adjusted、incomeSourceId=${source.id}，并保持同一金额和 linkedCareerStateId。
-- Proposal.evidence 必须逐字引用该 description 句。不得仅因门禁重试静默延长、创建第二份工资，或把这笔收入迁移到其他 CareerState。`;
+${formatLegacyIncomeReconfirmationContract(source, "employed")}`;
 }
 
 export function buildFinancialProposalRepairPrompt(input: {

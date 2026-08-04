@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
-import { buildDeterministicFinancialNarrativeRollback, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
@@ -778,6 +778,129 @@ const legacyIncomeRetryHistory: HistoryItem[] = [{
   financialState: legacyIncomeRetryState,
   worldStateSnapshot: legacyIncomeRetryWorld
 }];
+
+const legacyIncomeEvidenceProposal = (targetAgeInMonths: number, annualNetAmountWan = 30, linkedCareerStateId = legacyIncomeRetryCareerId) => ({
+  id: "legacy_income_evidence_reconfirmation",
+  kind: "income_source_adjusted" as const,
+  effectiveAtAgeInMonths: targetAgeInMonths,
+  sourceOutcomeId: legacyIncomeRetryChoice.eventOutcomeId,
+  financialScope: "personal" as const,
+  confidence: 0.9,
+  evidence: `你的年税后收入稳定在${annualNetAmountWan}万元。`,
+  payload: {
+    incomeSourceId: "legacy_recurring_income",
+    nextSource: {
+      ...structuredClone(legacyIncomeRetryLedger.incomeSources[0]!),
+      id: "legacy_recurring_income",
+      type: "salary",
+      annualNetAmountWan,
+      monthlyNetAmountWan: undefined,
+      accrualPolicy: "annual",
+      status: "active",
+      linkedCareerStateId,
+      factStatus: "known",
+      accrualReviewStatus: "normal"
+    }
+  }
+});
+const legacyIncomeEvidenceCandidate = {
+  ...structuredClone(nextNode),
+  age: 28,
+  ageInMonths: 336,
+  title: "工作节奏调整",
+  description: "你继续在当前岗位承担项目，并将每周休息时间固定下来。",
+  descriptionParagraphs: ["你继续在当前岗位承担项目，并将每周休息时间固定下来。"]
+};
+const legacyIncomeEvidenceRepair = reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: {
+    ...structuredClone(legacyIncomeEvidenceCandidate),
+    financialEventProposals: [legacyIncomeEvidenceProposal(336)]
+  },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+});
+assert.deepEqual(legacyIncomeEvidenceRepair.reasonCodes, ["LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR"]);
+assert.match(legacyIncomeEvidenceRepair.node.description, /你的年税后收入稳定在30万元。/);
+assert.match(String((legacyIncomeEvidenceRepair.rawNode as { description?: string }).description), /你的年税后收入稳定在30万元。/);
+const mismatchedLegacyIncomeEvidenceRepair = reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: {
+    ...structuredClone(legacyIncomeEvidenceCandidate),
+    financialEventProposals: [legacyIncomeEvidenceProposal(336, 31)]
+  },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+});
+assert.deepEqual(mismatchedLegacyIncomeEvidenceRepair.reasonCodes, [], "a mismatched amount must remain an invalid candidate rather than being promoted into prose");
+const mismatchedLegacyIncomeCareerRepair = reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: {
+    ...structuredClone(legacyIncomeEvidenceCandidate),
+    financialEventProposals: [legacyIncomeEvidenceProposal(336, 30, "career_unrelated")]
+  },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+});
+assert.deepEqual(mismatchedLegacyIncomeCareerRepair.reasonCodes, [], "a different CareerState must never be promoted as a reconfirmation of the current income source");
+
+let legacyIncomeEvidenceRepairCalls = 0;
+const legacyIncomeEvidenceRepairGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
+const reconciledLegacyIncomeNode = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(legacyIncomeRetryHistory),
+  currentAttributes: legacyIncomeRetryHistory[0]!.attributes,
+  selectedDecision: legacyIncomeRetryChoice.text,
+  nodeIndex: 1,
+  simulationSeed: "legacy-income-evidence-narrative-repair"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  onFinancialGateDecision: (decision) => {
+    legacyIncomeEvidenceRepairGateDecisions.push({
+      disposition: decision.disposition,
+      reasonCodes: decision.reasonCodes
+    });
+  },
+  callAiJson: async (prompt) => {
+    legacyIncomeEvidenceRepairCalls += 1;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 336);
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "工作与生活节奏",
+        title: "工作节奏调整",
+        description: "你继续在当前岗位承担项目，并将每周休息时间固定下来。",
+        choices: [
+          { id: "A", text: "维持当前节奏并共同储蓄", impactSummary: "稳步推进" },
+          { id: "B", text: "调整工作时间留给关系", impactSummary: "平衡投入" },
+          { id: "C", text: "暂缓额外项目恢复精力", impactSummary: "留出余地" }
+        ],
+        attributes: legacyIncomeRetryHistory[0]!.attributes,
+        financialEventProposals: [legacyIncomeEvidenceProposal(targetAgeInMonths)],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.ok(legacyIncomeEvidenceRepairCalls >= 1);
+assert.deepEqual(legacyIncomeEvidenceRepairGateDecisions, [{ disposition: "accept", reasonCodes: [] }], "a complete same-source proposal with only a missing body sentence is reconciled before the financial gate consumes a regeneration");
+assert.match(reconciledLegacyIncomeNode.description, /你的年税后收入稳定在30万元。/);
+assert.deepEqual(reconciledLegacyIncomeNode.financialProcessingMeta?.candidateNarrativeRepairReasonCodes, ["LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR"]);
+const reconciledLegacyIncomeSource = reconciledLegacyIncomeNode.financialLedger!.incomeSources.find((source) => source.id === "legacy_recurring_income")!;
+assert.equal(reconciledLegacyIncomeSource.annualNetAmountWan, 30);
+assert.equal(reconciledLegacyIncomeSource.factStatus, "known");
+assert.equal(reconciledLegacyIncomeSource.accrualReviewStatus, "normal");
+assert.equal(reconciledLegacyIncomeNode.financialLedger!.incomeSources.filter((source) => source.status === "active" && source.linkedCareerStateId === legacyIncomeRetryCareerId).length, 1);
+
 const legacyIncomeRetryPrompts: string[] = [];
 const legacyIncomeRetryGateDecisions: string[] = [];
 let legacyIncomeRetryCalls = 0;

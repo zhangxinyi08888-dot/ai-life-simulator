@@ -4,7 +4,11 @@ import { initializeCareerState } from "../career/careerState";
 import type { AcceptedCareerTransition } from "../career/types";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
-import { collectPersonalIncomeNarrativeContractIssues, reconcileCareerIncomeAtomicity } from "./reconcileCareerIncomeAtomicity";
+import {
+  collectPersonalIncomeNarrativeContractIssues,
+  narrativeClaimsNewPersonalIncomeActivity,
+  reconcileCareerIncomeAtomicity
+} from "./reconcileCareerIncomeAtomicity";
 import type { AcceptedFinancialEvent, FinancialEvidence } from "./types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_simulation_outcome", reasonCode: "TEST", confidence: 1 }];
@@ -329,6 +333,30 @@ test("PB-CAREER-01 explicit personal income prose requires an Accepted income ev
     ageInMonths: 662,
     currentLedger: quarantinedLedger
   }).length, 1);
+});
+
+test("PB-CAREER-01a company and product traction are not personal compensation", () => {
+  const companyOrProductOnly = [
+    "公司的产品已有至少三个付费客户，销售团队正在复盘转化路径。",
+    "产品完成第一轮迭代，签约了两家付费试用客户，但公司尚未实现盈利。",
+    "客户对平台给出积极反馈，并明确表达了续约意向。"
+  ];
+
+  for (const narrativeText of companyOrProductOnly) {
+    assert.equal(narrativeClaimsNewPersonalIncomeActivity(narrativeText), false, narrativeText);
+    assert.equal(collectPersonalIncomeNarrativeContractIssues({
+      narrativeText,
+      acceptedFinancialEvents: [],
+      ageInMonths: 660
+    }).length, 0, narrativeText);
+  }
+
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(
+    "你开始每周抽两个晚上接咨询，每次收费800元。"
+  ), true);
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(
+    "一位老客户办了工作坊，对方当场付了5000元咨询费。"
+  ), true);
 });
 
 test("PB-CAREER-02 resignation, old wage closure, and new owner draw commit atomically", () => {

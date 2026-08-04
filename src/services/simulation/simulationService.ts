@@ -453,6 +453,160 @@ function rawFinancialEventProposals(rawNode: any): FinancialEventProposal[] {
     : [];
 }
 
+const LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR = "LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR";
+
+function isMigrationOnlyLegacyIncomeSource(source: FinancialLedger["incomeSources"][number], currentCareerStateId: string): boolean {
+  return source.id === "legacy_recurring_income"
+    && source.status === "active"
+    && source.linkedCareerStateId === currentCareerStateId
+    && ["estimated", "needs_review"].includes(source.factStatus)
+    && source.evidence.length > 0
+    && source.evidence.every((item) => item.source === "legacy_migration");
+}
+
+function legacyIncomeReconfirmationIsDue(input: {
+  ledger: FinancialLedger;
+  source: FinancialLedger["incomeSources"][number];
+  targetAgeInMonths: number;
+}): boolean {
+  if (input.source.accrualReviewStatus === "quarantined") return true;
+  const lastConfirmedAt = input.source.lastConfirmedAtAgeInMonths ?? input.source.activeFromAgeInMonths;
+  const materialTransactions = input.ledger.recentTransactions.filter((transaction) => (
+    transaction.periodEndAgeInMonths > lastConfirmedAt
+  )).length;
+  // Match addLegacyIncomeReconfirmation: the current Preview is the next
+  // material transaction, so candidate text must be reconciled before that
+  // Preview quarantines an otherwise exactly re-confirmed source.
+  return input.targetAgeInMonths - lastConfirmedAt >= 36 || materialTransactions + 1 >= 3;
+}
+
+function amountMatchesLegacyIncomeSource(input: {
+  source: FinancialLedger["incomeSources"][number];
+  nextSource: Record<string, unknown>;
+  evidence: string;
+}): boolean {
+  const isPersonal = /(?:你|主角|本人|个人账户)/u.test(input.evidence);
+  if (!isPersonal) return false;
+  if (input.source.annualNetAmountWan !== undefined) {
+    const nextAnnual = Number(input.nextSource.annualNetAmountWan);
+    const annualEvidence = input.evidence.match(/(?:(?:税后)?(?:年薪|年收入)|年税后收入)[^。！？]{0,20}?(\d+(?:\.\d+)?)\s*万元?/u);
+    return Number.isFinite(nextAnnual)
+      && nextAnnual === input.source.annualNetAmountWan
+      && input.nextSource.monthlyNetAmountWan === undefined
+      && annualEvidence !== null
+      && Number(annualEvidence[1]) === input.source.annualNetAmountWan;
+  }
+  if (input.source.monthlyNetAmountWan !== undefined) {
+    const nextMonthly = Number(input.nextSource.monthlyNetAmountWan);
+    const monthlyEvidence = input.evidence.match(/(?:税后)?(?:月薪|月收入|工资|薪资)[^。！？]{0,20}?(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u);
+    if (!monthlyEvidence || !Number.isFinite(nextMonthly) || nextMonthly !== input.source.monthlyNetAmountWan) return false;
+    const evidenceMonthlyWan = Number(monthlyEvidence[1]) * (monthlyEvidence[2] === "元" ? 0.0001 : 1);
+    return Math.abs(evidenceMonthlyWan - input.source.monthlyNetAmountWan) < 0.000001
+      && input.nextSource.annualNetAmountWan === undefined;
+  }
+  return false;
+}
+
+function hasExplicitPersonalCompensationAmount(text: string): boolean {
+  return /(?:你|主角|本人|个人账户).{0,80}(?:(?:税后)?(?:月薪|年薪|月收入|年收入|工资|薪资)|年税后收入)[^。！？]{0,20}\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(text);
+}
+
+function hasExplicitOngoingEmployment(text: string): boolean {
+  return /(?:你|主角|本人).{0,48}(?:继续|仍(?:然)?|持续|留在|保持).{0,48}(?:岗位|工作|任职|负责|承担|公司|团队)/u.test(text);
+}
+
+/**
+ * The model sometimes provides a complete, same-source migration-income
+ * confirmation in Proposal.evidence but accidentally omits that very sentence
+ * from the user-visible candidate body.  The normal validator correctly
+ * rejects it because evidence is not visible.  This bounded repair reconciles
+ * the two fields only when the model has already supplied every financial fact
+ * and it exactly repeats the one migration baseline.  It never creates an
+ * amount, source, CareerState change or Accepted Event.
+ */
+export function reconcileLegacyIncomeProposalEvidenceNarrative(input: {
+  node: SimulationNode;
+  rawNode: unknown;
+  ledger?: FinancialLedger;
+  currentCareerState: CareerState;
+  targetAgeInMonths: number;
+  acceptedOutcomeId?: string;
+}): { node: SimulationNode; rawNode: unknown; reasonCodes: string[] } {
+  if (!input.ledger || !input.acceptedOutcomeId) return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  if (![
+    "employed",
+    "part_time",
+    "self_employed"
+  ].includes(input.currentCareerState.employmentStatus)) return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  if (narrativeRequiresCareerTransition({
+    narrativeText: input.node.description,
+    currentStatus: input.currentCareerState.employmentStatus
+  }) || !hasExplicitOngoingEmployment(input.node.description) || hasExplicitPersonalCompensationAmount(input.node.description)) {
+    return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  }
+  const sources = input.ledger.incomeSources.filter((source) => (
+    isMigrationOnlyLegacyIncomeSource(source, input.currentCareerState.id)
+    && legacyIncomeReconfirmationIsDue({ ledger: input.ledger!, source, targetAgeInMonths: input.targetAgeInMonths })
+  ));
+  if (sources.length !== 1) return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  const source = sources[0]!;
+  const proposals = rawFinancialEventProposals(input.rawNode);
+  const careerIncomeMutations = proposals.filter((proposal) => (
+    ["income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended"].includes(proposal.kind)
+  ));
+  if (careerIncomeMutations.length !== 1 || careerIncomeMutations[0]?.kind !== "income_source_adjusted") {
+    return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  }
+  const proposal = careerIncomeMutations[0]!;
+  const payload = proposal.payload && typeof proposal.payload === "object"
+    ? proposal.payload as Record<string, unknown>
+    : undefined;
+  const nextSource = payload?.nextSource && typeof payload.nextSource === "object"
+    ? payload.nextSource as Record<string, unknown>
+    : undefined;
+  const evidence = proposal.evidence?.trim() || "";
+  const evidenceSentences = evidence.split(/(?<=[。！？])/u).map((sentence) => sentence.trim()).filter(Boolean);
+  const expectedType = input.currentCareerState.employmentStatus === "self_employed"
+    ? "self_employment_draw"
+    : "salary";
+  const isExactSameSourceAdjustment = payload?.incomeSourceId === source.id
+    && nextSource?.id === source.id
+    && nextSource?.linkedCareerStateId === source.linkedCareerStateId
+    && nextSource?.status === "active"
+    && nextSource?.type === expectedType
+    && nextSource?.accrualPolicy === source.accrualPolicy
+    && proposal.sourceOutcomeId === input.acceptedOutcomeId
+    && proposal.financialScope === "personal"
+    && Number(proposal.confidence) >= 0.8
+    && evidenceSentences.length === 1
+    && amountMatchesLegacyIncomeSource({ source, nextSource, evidence });
+  if (!isExactSameSourceAdjustment || input.node.description.includes(evidence)) {
+    return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  }
+  const visibleEvidence = /[。！？]$/u.test(evidence) ? evidence : `${evidence}。`;
+  const append = (text: string) => `${text.trim()}\n\n${visibleEvidence}`.trim();
+  const raw = input.rawNode && typeof input.rawNode === "object"
+    ? structuredClone(input.rawNode) as Record<string, unknown>
+    : {};
+  const rawDescription = typeof raw.description === "string" && raw.description.trim()
+    ? raw.description
+    : input.node.description;
+  const description = append(input.node.description);
+  return {
+    node: {
+      ...input.node,
+      description,
+      descriptionParagraphs: splitNarrativeParagraphs(description)
+    },
+    rawNode: {
+      ...raw,
+      description: append(rawDescription),
+      descriptionParagraphs: splitNarrativeParagraphs(append(rawDescription))
+    },
+    reasonCodes: [LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR]
+  };
+}
+
 function normalizeFinancialNarrativeClaims(input: {
   rawNode: any;
   proposals: FinancialEventProposal[];
@@ -5512,6 +5666,17 @@ async function generateNextNodeAttempt(
     };
   }
 
+  const legacyIncomeEvidenceNarrativeRepair = reconcileLegacyIncomeProposalEvidenceNarrative({
+    node,
+    rawNode: latestRawNode,
+    ledger: currentFinancialLedger,
+    currentCareerState: currentCareerState(worldState)!,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    acceptedOutcomeId: selectedOutcomeId
+  });
+  node = legacyIncomeEvidenceNarrativeRepair.node;
+  latestRawNode = legacyIncomeEvidenceNarrativeRepair.rawNode;
+
   const financialCandidateOutcome = validateNodeOutcomeProposal({
     worldDeltas: node.narrativeMeta?.worldDeltas,
     arcSignals: node.narrativeMeta?.arcSignals,
@@ -5658,6 +5823,15 @@ async function generateNextNodeAttempt(
     // fields, so a relation-only rendered fallback is visible to production
     // audits without pretending that it was a debt narrative failure.
     node = markRelationshipAuthorityNarrativeFallback(node);
+  }
+  if (legacyIncomeEvidenceNarrativeRepair.reasonCodes.length > 0 && node.financialProcessingMeta) {
+    node = {
+      ...node,
+      financialProcessingMeta: {
+        ...node.financialProcessingMeta,
+        candidateNarrativeRepairReasonCodes: legacyIncomeEvidenceNarrativeRepair.reasonCodes
+      }
+    };
   }
 
   // Financial repair and narrative sanitization may change the final evidence
