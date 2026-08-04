@@ -1422,6 +1422,93 @@ test("allows compensation explicitly offered to the protagonist by another perso
   assert.equal(result.acceptedEvents.length, 1);
 });
 
+test("accepts an explicit monthly take-home amount as salary but never relaxes draw evidence", () => {
+  const completedConsultantEvidence = "老周介绍的那个供应链顾问岗位，你最终接了，按月结算，税后到手约1.2万。";
+  assert.equal(isUnacceptedIncomeOpportunityEvidence(completedConsultantEvidence), false);
+  const salary = validate([proposal({
+    id: "completed_external_consultant_salary",
+    kind: "income_source_started",
+    evidence: completedConsultantEvidence,
+    payload: {
+      id: "income_external_consultant_salary",
+      type: "salary",
+      displayName: "供应链顾问工资",
+      monthlyNetAmountWan: 1.2,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "known",
+      evidence
+    }
+  })], completedConsultantEvidence);
+  assert.deepEqual(salary.issues, []);
+  assert.equal(salary.acceptedEvents.length, 1);
+
+  const draw = validate([proposal({
+    id: "take_home_wording_is_not_owner_draw",
+    kind: "income_source_started",
+    evidence: completedConsultantEvidence,
+    payload: {
+      id: "income_owner_draw",
+      type: "self_employment_draw",
+      displayName: "业主提款",
+      monthlyNetAmountWan: 1.2,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "known",
+      evidence
+    }
+  })], completedConsultantEvidence);
+  assert.equal(draw.acceptedEvents.length, 0);
+  assert.equal(draw.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+
+  const prospectiveConsultantEvidence = "你计划下月接下老周介绍的供应链顾问岗位，按月结算，税后到手约1.2万。";
+  assert.equal(isUnacceptedIncomeOpportunityEvidence(prospectiveConsultantEvidence), true);
+  const prospective = validate([proposal({
+    id: "prospective_external_consultant_salary",
+    kind: "income_source_started",
+    evidence: prospectiveConsultantEvidence,
+    payload: {
+      id: "income_prospective_consultant_salary",
+      type: "salary",
+      displayName: "待入职顾问工资",
+      monthlyNetAmountWan: 1.2,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "known",
+      evidence
+    }
+  })], prospectiveConsultantEvidence);
+  assert.equal(prospective.acceptedEvents.length, 0);
+  assert.equal(prospective.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+
+  const independentProjectEvidence = "老周介绍了一个独立供应链咨询项目，你最终接了，税后到手约1.2万，按月结算。";
+  const independentProject = validate([proposal({
+    id: "independent_project_is_not_salary",
+    kind: "income_source_started",
+    evidence: independentProjectEvidence,
+    payload: {
+      id: "income_independent_project_salary",
+      type: "salary",
+      displayName: "独立项目工资",
+      monthlyNetAmountWan: 1.2,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 312,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "known",
+      evidence
+    }
+  })], independentProjectEvidence);
+  assert.equal(independentProject.acceptedEvents.length, 0);
+  assert.equal(independentProject.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
+});
+
 test("rejects an unaccepted job posting or project invitation as a legacy-income reconfirmation while accepting an exact current salary", () => {
   const context = setup();
   const legacyIncome = {

@@ -64,6 +64,24 @@ test("treats completed post-entry narration as an actual employer start", () => 
   ), false);
 });
 
+test("recognizes a completed external consultant role, but not a future or independent engagement", () => {
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "老周介绍的那个供应链顾问岗位，你最终接了，按月结算，税后到手约1.2万。"
+  ), true);
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "这家企业的供应链顾问工作，你正式接下了。税后到手约1.2万，按月结算。"
+  ), true);
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "你计划下月接下老周介绍的供应链顾问岗位，按月结算，税后到手约1.2万。"
+  ), false);
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "老周介绍了一个独立供应链咨询项目，你最终接了，税后到手约1.2万，按月结算。"
+  ), false);
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "你最终签了老周介绍的供应链顾问合同，税后到手约1.2万，按月结算。"
+  ), false);
+});
+
 test("accepts only protagonist transitions tied to the selected outcome and narrative evidence", () => {
   const narrativeText = "这一年，你正式辞职并开始全职经营公司，收入暂时下降。";
   const delta: WorldDelta = { type: "career_state", summary: "开始创业", employmentTransition: transition() };

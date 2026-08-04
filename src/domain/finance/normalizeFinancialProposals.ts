@@ -16,6 +16,7 @@ export interface FinancialProposalNormalizationAudit {
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
     | "RENT_ONLY_RECLASSIFIED_AS_HOUSING"
     | "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED"
+    | "DEBT_RESTRUCTURE_PAYLOAD_CANONICALIZED"
     | "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED" | "PERSONAL_BUSINESS_INCOME_RECEIPT_MISSING" | "PERSONAL_BUSINESS_INCOME_REPAIR_EVIDENCE_DROPPED" | "REPAIR_PERSONAL_BUSINESS_INCOME_MUTATION_DROPPED" | "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED"
     | "ASSET_ACCOUNT_SHAPE_COMPLETED" | "DEBT_ACCOUNT_SHAPE_COMPLETED";
   originalValue?: string;
@@ -147,6 +148,144 @@ function normalizeDebtDrawPayload(input: {
     destinationCashAccountId: payload.destinationCashAccountId,
     principalDrawnWan: principalWan
   };
+}
+
+/**
+ * A restructure is a replacement of an existing obligation, not a new loan
+ * and not a chance for model output to silently reduce a known balance.  The
+ * model often supplies only a replacement id/type and a prose-confirmed new
+ * payment.  Complete that transport shape from the authoritative old debt
+ * only after the prose says the restructure has actually taken effect.
+ *
+ * Intentionally leave applications, negotiations, and incomplete payloads
+ * untouched.  They must remain validator/gate failures rather than becoming
+ * an invented accepted restructuring event.
+ */
+function hasCompletedDebtRestructureEvidence(evidenceText: string): boolean {
+  const text = evidenceText.normalize("NFKC");
+  const hardPending = /(?:尚未|还未|未获批|没有获批|等待|待(?:审核|审批|批准)|(?:审核|审批|协商|谈判)中)|(?:如果|若|一旦)[^。；]{0,48}(?:重组|调整|展期|月供|还款)/u.test(text);
+  if (hardPending) return false;
+
+  const approvedOrEffective = /(?:(?:申请|审批|审核|重组|调整|展期)[^。；]{0,36}(?:已(?:经)?|正式)?(?:通过|获批|批准|生效|执行|完成)|(?:银行|贷款机构)[^。；]{0,48}(?:已(?:经)?|正式)?(?:通过|获批|批准|同意|确认|完成|实施|执行)[^。；]{0,36}(?:重组|调整|展期|还款计划|月供)|(?:新|调整后(?:的)?)?(?:还款计划|月供)[^。；]{0,36}(?:确认|确认函|获批|批准|已(?:经)?生效|开始执行|正式执行))/u.test(text);
+  if (approvedOrEffective) return true;
+
+  const unapprovedApplication = /(?:申请|计划|准备|拟|希望|尝试|考虑|打算)[^。；]{0,20}(?:将|把|申请|调整|重组|展期)[^。；]{0,36}(?:月供|每月(?:还款|偿还)|还款额|还款计划)/u.test(text);
+  if (unapprovedApplication) return false;
+
+  // A concrete before/after payment statement is a confirmed new repayment
+  // plan when there is no pending marker above. It stays narrower than a bare
+  // "申请调整月供", which is retained for the gate to reject/retry.
+  return /(?:月供|每月(?:还款|偿还)|还款额)[^。；]{0,48}(?:从|由)[^。；]{0,32}(?:降至|降到(?:了)?|降为|调整为|改为|变为)\s*\d+(?:\.\d+)?\s*(?:万元?|元)/u.test(text);
+}
+
+function explicitRestructuredMonthlyPaymentWan(evidenceText: string): number | undefined {
+  const text = evidenceText.normalize("NFKC");
+  const match = text.match(/(?:月供|每月(?:还款|偿还)|还款额)[^。；]{0,64}?(?:降至|降到(?:了)?|降为|调整为|改为|变为)\s*(\d+(?:\.\d+)?)\s*(万元?|元)/u);
+  if (!match) return undefined;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+  return match[2].startsWith("万") ? amount : amount / 10000;
+}
+
+function restructureChangesTerm(evidenceText: string): boolean {
+  return /(?:(?:还款)?(?:期限|年限)[^。；]{0,32}(?:延长|缩短|调整|变更)|(?:延长|缩短|调整|变更)[^。；]{0,20}(?:还款)?(?:期限|年限))/u.test(evidenceText.normalize("NFKC"));
+}
+
+function normalizeDebtRestructurePayload(input: {
+  proposalId: string;
+  payload: Record<string, any>;
+  evidenceText: string;
+  effectiveAtAgeInMonths: number;
+  currentLedger?: FinancialLedger;
+  audit: FinancialProposalNormalizationAudit[];
+}): Record<string, any> {
+  const { proposalId, payload, evidenceText, effectiveAtAgeInMonths, currentLedger, audit } = input;
+  const rawReplacement = payload.replacementDebtAccount;
+  const oldDebtAccountId = typeof payload.oldDebtAccountId === "string" ? payload.oldDebtAccountId.trim() : "";
+  const oldDebt = currentLedger?.debtAccounts.find((account) => (
+    account.id === oldDebtAccountId && (account.status === "active" || account.status === "defaulted")
+  ));
+  if (!oldDebt
+    || !rawReplacement
+    || typeof rawReplacement !== "object"
+    || Array.isArray(rawReplacement)
+    || !Number.isInteger(effectiveAtAgeInMonths)
+    || effectiveAtAgeInMonths < 0
+    || !hasCompletedDebtRestructureEvidence(evidenceText)) return payload;
+
+  const explicitMonthlyPaymentWan = explicitRestructuredMonthlyPaymentWan(evidenceText);
+  const repaymentPolicy = structuredClone(oldDebt.repaymentPolicy);
+  const knownMonthlyInterestWan = Number(repaymentPolicy.monthlyInterestWan
+    ?? (repaymentPolicy.annualInterestRate !== undefined
+      ? oldDebt.principalWan * repaymentPolicy.annualInterestRate / 12
+      : undefined));
+  // A stated new payment below a still-known interest charge cannot be safely
+  // interpreted as an automatic schedule without inventing a new rate.  Keep
+  // it for the gate/repair path instead of recording an impossible plan.
+  if (explicitMonthlyPaymentWan !== undefined
+    && Number.isFinite(knownMonthlyInterestWan)
+    && explicitMonthlyPaymentWan + 0.000001 < knownMonthlyInterestWan) return payload;
+  if (explicitMonthlyPaymentWan !== undefined) {
+    repaymentPolicy.mode = "known_schedule";
+    repaymentPolicy.monthlyPaymentWan = explicitMonthlyPaymentWan;
+    // The old fixed principal amount would override the new payment in the
+    // accrual engine, so it cannot survive a payment-only restructure.
+    delete repaymentPolicy.monthlyPrincipalWan;
+  }
+  const scheduleTermsChanged = explicitMonthlyPaymentWan !== undefined || restructureChangesTerm(evidenceText);
+  if (scheduleTermsChanged) delete repaymentPolicy.remainingTermMonths;
+
+  const requestedId = typeof rawReplacement.id === "string" ? rawReplacement.id.trim() : "";
+  const existingIds = new Set(currentLedger?.debtAccounts.map((account) => account.id) || []);
+  let replacementId = requestedId && requestedId !== oldDebt.id && !existingIds.has(requestedId)
+    ? requestedId
+    : `${oldDebt.id}_restructured_${effectiveAtAgeInMonths}`;
+  let suffix = 2;
+  while (existingIds.has(replacementId)) {
+    replacementId = `${oldDebt.id}_restructured_${effectiveAtAgeInMonths}_${suffix}`;
+    suffix += 1;
+  }
+
+  const replacementDebtAccount: DebtAccount = {
+    id: replacementId,
+    type: oldDebt.type,
+    displayName: `${oldDebt.displayName}（重组后）`,
+    principalWan: oldDebt.principalWan,
+    openedAtAgeInMonths: effectiveAtAgeInMonths,
+    status: "active",
+    repaymentPolicy,
+    // The carried obligation is authoritative, but a partial replacement
+    // payload does not establish the new rate/term.  Keep it reviewable
+    // rather than presenting inherited loan terms as newly known facts.
+    factStatus: scheduleTermsChanged ? "needs_review" : oldDebt.factStatus,
+    // Validator stamps the accepted, prose-grounded event evidence below;
+    // do not retain model-supplied account evidence from a partial payload.
+    evidence: [],
+    origin: "explicit",
+    // Do not emit capitalizedInterestWan: the old unpaid interest remains a
+    // separate liability here, so reducer telemetry must not call it capitalized.
+    accruedUnpaidInterestWan: oldDebt.accruedUnpaidInterestWan ?? 0,
+    servicingStatus: "current",
+    consecutiveMissedPaymentMonths: 0,
+    totalMissedPaymentMonths: 0,
+    recentMissedPaymentAgeInMonths: []
+  };
+  const transactionFeeWan = Number(payload.transactionFeeWan);
+  const normalizedPayload: Record<string, any> = {
+    oldDebtAccountId: oldDebt.id,
+    replacementDebtAccount,
+    transactionFeeWan: Number.isFinite(transactionFeeWan) && transactionFeeWan >= 0 ? transactionFeeWan : 0
+  };
+  if (typeof payload.sourceCashAccountId === "string" && payload.sourceCashAccountId.trim()) {
+    normalizedPayload.sourceCashAccountId = payload.sourceCashAccountId.trim();
+  }
+  audit.push({
+    proposalId,
+    reasonCode: "DEBT_RESTRUCTURE_PAYLOAD_CANONICALIZED",
+    originalValue: oldDebt.id,
+    normalizedValue: replacementDebtAccount.id
+  });
+  return normalizedPayload;
 }
 
 function mergeMissing(base: unknown, repair: unknown): unknown {
@@ -479,6 +618,16 @@ export function normalizeFinancialProposals(input: {
         proposalId: id,
         payload,
         effectiveAtAgeInMonths: Number(source.effectiveAtAgeInMonths),
+        audit
+      });
+    }
+    if (payload && kind === "debt_restructured") {
+      payload = normalizeDebtRestructurePayload({
+        proposalId: id,
+        payload,
+        evidenceText,
+        effectiveAtAgeInMonths: Number(source.effectiveAtAgeInMonths),
+        currentLedger: input.currentLedger,
         audit
       });
     }

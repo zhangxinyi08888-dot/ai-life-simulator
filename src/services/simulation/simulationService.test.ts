@@ -71,6 +71,22 @@ assert.equal(synthesizeSelectedCareerTransition({
   effectiveAtAgeInMonths: 288,
   currentStatus: "employed"
 }), undefined, "accepting an offer without actual entry must not invent a new employed CareerState");
+const externalPaidConsultantNarrative = "老周介绍的那个供应链顾问岗位，你最终接了。税后月薪1.2万元，按月结算。";
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: externalPaidConsultantNarrative,
+  currentStatus: "self_employed"
+}), true, "a completed external paid consultant role replaces the stale self-employed state");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "申请核对并调整还款安排",
+  narrativeText: externalPaidConsultantNarrative,
+  acceptedOutcomeId: "request_debt_restructuring",
+  effectiveAtAgeInMonths: 328,
+  currentStatus: "self_employed"
+})?.toStatus, "employed", "the external paid role must synthesize employment before salary derivation");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你保留自己的工作室，只接了一个独立供应链顾问项目，按项目结算。",
+  currentStatus: "self_employed"
+}), false, "an independent consultant project is not an employer start");
 const pendingOffer = resolvePendingEmployerOffer({
   selectedDecision: "接受AI创业公司的产品负责人邀请，用两年时间验证产品。",
   acceptedOutcomeId: "accept_ai_startup_offer",

@@ -569,6 +569,8 @@ const debtRepairPrompt = buildFinancialProposalRepairPrompt({
 });
 assert.match(debtRepairPrompt, /debt_drawn 的 payload 必须是/);
 assert.match(debtRepairPrompt, /不得返回把 id、type、principalAmountWan/);
+assert.match(debtRepairPrompt, /debt_restructured 只能在正文明确写出银行已经批准且新还款安排已经生效时返回/);
+assert.match(debtRepairPrompt, /不得为了让故事推进而新增卖车到账/);
 assert.match(debtRepairPrompt, /即使正文写“你收到”或“到账”，也必须移除对应个人收入 Proposal/);
 
 const narrativeRepairPrompt = buildFinancialNarrativeRepairPrompt({

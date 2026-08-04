@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { initializeCareerState } from "../career/careerState";
 import { normalizeFinancialProposals, normalizeRepairedFinancialProposals } from "./normalizeFinancialProposals";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
+import { validateFinancialPayloadSchema } from "./financialProposalSchema";
+import { validateFinancialProposals } from "./validateFinancialProposals";
 import type { FinancialEvidence } from "./types";
 
 test("normalizes kind fields, fills a unique outcome id and deduplicates temporary ids", () => {
@@ -193,6 +196,153 @@ test("keeps an explicit newly disbursed mortgage distinct from an existing mortg
   });
   assert.equal(result.proposals.length, 1);
   assert.equal(result.audit.some((item) => item.reasonCode === "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED"), false);
+});
+
+test("canonicalizes a completed debt restructure from the authoritative old obligation without reducing principal or unpaid interest", () => {
+  const currentLedger = initializeFinancialLedger({
+    id: "completed_mortgage_restructure", asOfAgeInMonths: 328,
+    openingPosition: {
+      debtAccounts: [{
+        id: "opening_mortgage", type: "mortgage", displayName: "用户明确的住房按揭",
+        principalWan: 188.775, openedAtAgeInMonths: 288, status: "active",
+        repaymentPolicy: {
+          mode: "estimated_amortizing", monthlyPaymentWan: 1.3,
+          monthlyPrincipalWan: 0.875, monthlyInterestWan: 0.425, remainingTermMonths: 200
+        },
+        factStatus: "known", evidence: [], accruedUnpaidInterestWan: 4.675,
+        servicingStatus: "delinquent", consecutiveMissedPaymentMonths: 3,
+        totalMissedPaymentMonths: 4, recentMissedPaymentAgeInMonths: [326, 327, 328]
+      }]
+    }
+  });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["request_debt_restructuring"], currentLedger,
+    proposals: [{
+      id: "debt_restructured_335", kind: "debt_restructured", effectiveAtAgeInMonths: 335,
+      sourceOutcomeId: "request_debt_restructuring",
+      payload: {
+        oldDebtAccountId: "opening_mortgage",
+        replacementDebtAccount: {
+          id: "opening_mortgage_restructured", type: "mortgage", principalWan: 1,
+          policy: "estimated_amortizing", factStatus: "known"
+        }
+      },
+      evidence: "经理的话还在耳边——月供从1.3万元降到8200元，但还款期限延长了十年，后续贷款审批会受影响。",
+      confidence: 0.9, financialScope: "personal"
+    }]
+  });
+
+  assert.equal(result.proposals.length, 1);
+  const payload = result.proposals[0]?.payload as any;
+  const replacement = payload.replacementDebtAccount;
+  assert.deepEqual(validateFinancialPayloadSchema("debt_restructured", payload), []);
+  assert.equal(payload.oldDebtAccountId, "opening_mortgage");
+  assert.equal(payload.transactionFeeWan, 0);
+  assert.equal(replacement.id, "opening_mortgage_restructured");
+  assert.equal(replacement.displayName, "用户明确的住房按揭（重组后）");
+  assert.equal(replacement.principalWan, 188.775);
+  assert.equal(replacement.accruedUnpaidInterestWan, 4.675);
+  assert.equal(Math.round((replacement.principalWan + replacement.accruedUnpaidInterestWan) * 1000) / 1000, 193.45);
+  assert.equal(replacement.openedAtAgeInMonths, 335);
+  assert.equal(replacement.status, "active");
+  assert.equal(replacement.factStatus, "needs_review");
+  assert.deepEqual(replacement.repaymentPolicy, {
+    mode: "known_schedule", monthlyPaymentWan: 0.82, monthlyInterestWan: 0.425
+  });
+  assert.equal(payload.capitalizedInterestWan, undefined);
+  assert.equal(replacement.servicingStatus, "current");
+  assert.equal(replacement.consecutiveMissedPaymentMonths, 0);
+  assert.equal(replacement.totalMissedPaymentMonths, 0);
+  assert.deepEqual(replacement.recentMissedPaymentAgeInMonths, []);
+  assert.deepEqual(replacement.evidence, []);
+  assert.equal(result.audit.some((item) => item.reasonCode === "DEBT_RESTRUCTURE_PAYLOAD_CANONICALIZED"), true);
+
+  const validation = validateFinancialProposals({
+    proposals: result.proposals,
+    currentLedger,
+    currentCareerState: initializeCareerState({
+      id: "career_current", employmentStatus: "self_employed", effectiveFromAgeInMonths: 328
+    }),
+    acceptedOutcomeId: "request_debt_restructuring",
+    narrativeText: "经理的话还在耳边——月供从1.3万元降到8200元，但还款期限延长了十年，后续贷款审批会受影响。",
+    periodStartAgeInMonths: 328,
+    periodEndAgeInMonths: 335,
+    simulationTransactionId: "completed_mortgage_restructure"
+  });
+  assert.equal(validation.issues.length, 0);
+  assert.equal(validation.acceptedEvents.length, 1);
+  const accepted = validation.acceptedEvents[0];
+  if (accepted?.kind === "debt_restructured") {
+    assert.equal(accepted.payload.replacementDebtAccount.evidence[0]?.excerpt, "经理的话还在耳边——月供从1.3万元降到8200元，但还款期限延长了十年，后续贷款审批会受影响。");
+  } else {
+    assert.fail("expected accepted debt restructure");
+  }
+});
+
+test("keeps a pending debt-restructure application schema-invalid instead of inventing a replacement debt", () => {
+  const currentLedger = initializeFinancialLedger({
+    id: "pending_mortgage_restructure", asOfAgeInMonths: 328,
+    openingPosition: {
+      debtAccounts: [{
+        id: "opening_mortgage", type: "mortgage", displayName: "既有住房按揭",
+        principalWan: 180, openedAtAgeInMonths: 288, status: "active",
+        repaymentPolicy: { mode: "estimated_amortizing", monthlyPrincipalWan: 0.75, remainingTermMonths: 240 },
+        factStatus: "known", evidence: [], accruedUnpaidInterestWan: 2
+      }]
+    }
+  });
+  const rawPayload = {
+    oldDebtAccountId: "opening_mortgage",
+    replacementDebtAccount: { id: "invented_replacement", principalWan: 1 }
+  };
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["request_debt_restructuring"], currentLedger,
+    proposals: [{
+      id: "pending_restructure", kind: "debt_restructured", effectiveAtAgeInMonths: 335,
+      payload: rawPayload,
+      evidence: "你申请将房贷月供从1.3万元降到8200元。",
+      confidence: 0.9
+    }]
+  });
+
+  assert.deepEqual(result.proposals[0]?.payload, rawPayload);
+  assert.notDeepEqual(validateFinancialPayloadSchema("debt_restructured", result.proposals[0]?.payload), []);
+  assert.equal(result.audit.some((item) => item.reasonCode === "DEBT_RESTRUCTURE_PAYLOAD_CANONICALIZED"), false);
+});
+
+test("canonicalizes a completed before-and-after monthly-payment restructure even when the new term is not narrated", () => {
+  const currentLedger = initializeFinancialLedger({
+    id: "payment_only_mortgage_restructure", asOfAgeInMonths: 328,
+    openingPosition: {
+      debtAccounts: [{
+        id: "opening_mortgage", type: "mortgage", displayName: "既有住房按揭",
+        principalWan: 188.775, openedAtAgeInMonths: 288, status: "active",
+        repaymentPolicy: { mode: "estimated_amortizing", monthlyPaymentWan: 1.3, monthlyInterestWan: 0.425, remainingTermMonths: 200 },
+        factStatus: "known", evidence: [], accruedUnpaidInterestWan: 4.675
+      }]
+    }
+  });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["request_debt_restructuring"], currentLedger,
+    proposals: [{
+      id: "debt_restructured_335", kind: "debt_restructured", effectiveAtAgeInMonths: 335,
+      payload: {
+        oldDebtAccountId: "opening_mortgage",
+        replacementDebtAccount: { id: "opening_mortgage_restructured", type: "mortgage", principalWan: 1 }
+      },
+      evidence: "银行受理后，每月还款额从1.3万元降到了0.9万元。",
+      confidence: 0.9
+    }]
+  });
+
+  const replacement = (result.proposals[0]?.payload as any).replacementDebtAccount;
+  assert.equal(replacement.principalWan, 188.775);
+  assert.equal(replacement.accruedUnpaidInterestWan, 4.675);
+  assert.equal(replacement.factStatus, "needs_review");
+  assert.deepEqual(replacement.repaymentPolicy, {
+    mode: "known_schedule", monthlyPaymentWan: 0.9, monthlyInterestWan: 0.425
+  });
+  assert.equal("remainingTermMonths" in replacement.repaymentPolicy, false);
 });
 
 test("drops a self-employment draw without an explicit personal receipt", () => {

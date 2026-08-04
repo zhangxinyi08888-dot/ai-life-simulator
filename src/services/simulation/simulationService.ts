@@ -173,7 +173,13 @@ function normalizeRepairedEmploymentTransition(input: {
     retirement: "retired",
     fully_retired: "retired"
   };
-  const toStatus = statusAliases[rawStatus] || rawStatus as EmploymentTransitionProposal["toStatus"];
+  // A repair must not let a transport label such as "consultant" override
+  // the completed narrative fact.  A named external paid consultant role that
+  // the protagonist has actually accepted is employment; independent projects
+  // remain excluded by hasCompletedEmployerStartEvidence.
+  const toStatus = hasCompletedEmployerStartEvidence(input.narrativeText)
+    ? "employed"
+    : (statusAliases[rawStatus] || rawStatus as EmploymentTransitionProposal["toStatus"]);
   let evidence = typeof merged.evidence === "string" ? merged.evidence : "";
   if (!evidence || !matchesNormalizedEvidence(input.narrativeText, evidence)) {
     const evidencePattern = toStatus === "retired" || toStatus === "not_working"
@@ -1288,6 +1294,20 @@ export function stillClaimsRejectedDebtDraw(description: string): boolean {
   });
 }
 
+/**
+ * A rejected debt-draw narrative must also remove references to the resulting
+ * balance or repayment schedule, hence `stillClaimsRejectedDebtDraw` is
+ * intentionally broad.  That detector cannot be reused to invent a new draw:
+ * "剩余本金" and "月供" are ordinary restatements of an obligation, while
+ * missing-event synthesis needs an actual new disbursement instead.
+ */
+function claimsCompletedNewDebtDisbursement(description: string): boolean {
+  return description.split(/(?<=[。！？])/u).some((sentence) => {
+    if (/尚未|还未|未能|没有|并未|不再|无需|尚在|仍在(?:申请|审核|审批|协商)|(?:计划|预计|将|会|待|等待)[^。！？]{0,18}(?:放款|到账|入账|到手|借到)/u.test(sentence)) return false;
+    return /(?:贷款|借款|经营贷|消费贷|房贷|融资|授信)[^。！？]{0,36}(?:已(?:经)?|正式)?(?:放款|到账|入账|到手)|(?:银行|金融机构)[^。！？]{0,24}(?:已(?:经)?|正式)?放款|(?:你|我|主角)[^。！？]{0,24}(?:借到|拿到|获得|收到)[^。！？]{0,20}(?:贷款|借款|融资(?:款)?|经营贷|消费贷|房贷|授信)|(?:你|我|主角)[^。！？]{0,24}借到[^。！？]{0,20}(?:\d|[一二三四五六七八九十百千万])[\d.一二三四五六七八九十百千万]*\s*(?:万|元)/u.test(sentence);
+  });
+}
+
 export function stillClaimsRejectedDebtRestructure(description: string): boolean {
   return description.split(/(?<=[。！？])/u).some((sentence) => {
     if (/申请|可以申请|待审核|审批中|协商中|尚未|还未|未能|没有通过|被拒/u.test(sentence)
@@ -1544,11 +1564,13 @@ export function synthesizeMissingDebtCompletionProposals(input: {
   if (!input.acceptedOutcomeId) return input.proposals;
   const proposals = [...input.proposals];
   const sentences = input.narrativeText.split(/(?<=[。！？])/u).map((sentence) => sentence.trim()).filter(Boolean);
-  const appendMissing = (kind: "debt_drawn" | "debt_restructured", claimsCompletion: boolean) => {
+  const appendMissing = (
+    kind: "debt_drawn" | "debt_restructured",
+    claimsCompletion: boolean,
+    evidenceMatches: (sentence: string) => boolean
+  ) => {
     if (!claimsCompletion || proposals.some((proposal) => proposal.kind === kind)) return;
-    const evidence = sentences.find((sentence) => (
-      kind === "debt_drawn" ? stillClaimsRejectedDebtDraw(sentence) : stillClaimsRejectedDebtRestructure(sentence)
-    )) || "";
+    const evidence = sentences.find(evidenceMatches) || "";
     proposals.push({
       id: `missing_${kind}_${input.effectiveAtAgeInMonths}`,
       kind,
@@ -1559,8 +1581,12 @@ export function synthesizeMissingDebtCompletionProposals(input: {
       confidence: 0
     });
   };
-  appendMissing("debt_drawn", stillClaimsRejectedDebtDraw(input.narrativeText));
-  appendMissing("debt_restructured", stillClaimsRejectedDebtRestructure(input.narrativeText));
+  appendMissing(
+    "debt_drawn",
+    claimsCompletedNewDebtDisbursement(input.narrativeText),
+    claimsCompletedNewDebtDisbursement
+  );
+  appendMissing("debt_restructured", stillClaimsRejectedDebtRestructure(input.narrativeText), stillClaimsRejectedDebtRestructure);
   return proposals;
 }
 
@@ -1780,7 +1806,9 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   const narrativeEvidence = input.allowNarrativeEvidence
     ? input.narrativeText?.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
         (
-          /(?:你|主角|本人|你的个人账户).{0,48}(?:(?:税后)?(?:月薪|年薪|年收入|工资|薪资|副业月收入|个人月收入)|年税后收入).{0,16}\d+(?:\.\d+)?\s*(?:万(?:元)?|元)|(?:(?:税后)?(?:月薪|年薪|年收入|副业月收入|个人月收入)|年税后收入)(?:约|为|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(sentence)
+          /(?:你|主角|本人|你的个人账户).{0,48}(?:(?:税后)?(?:月薪|年薪|年收入|工资|薪资|副业月收入|个人月收入)|年税后收入).{0,16}\d+(?:\.\d+)?\s*(?:万(?:元)?|元)|(?:(?:税后)?(?:月薪|年薪|年收入|副业月收入|个人月收入)|年税后收入)(?:约|为|有|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(sentence)
+          || (/税后到手(?:约|为|有)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(sentence)
+            && /(?:按月|每月|月度)结算/u.test(sentence))
         )
         && !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:员工|助理|工程师|销售|运营|护工)[^。；]{0,35}(?:月薪|年薪)/u.test(sentence)
         && !/(?:如果|若|预计|计划|考虑|希望|目标|可以给你)[^。；]{0,50}(?:月薪|年薪)/iu.test(sentence)
@@ -1798,15 +1826,18 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   // the one linked career source rather than open a duplicate contract source.
   const sideIncomeSignal = /副业|兼职|稿费|版税|(?:课程|咨询|工作坊|顾问|外包)(?:收入|收费|报酬|酬劳|服务|业务|费)|(?:个人|独立|周末|业余|额外|线上|一对一).{0,12}(?:课程|咨询|工作坊|顾问|外包)/u;
   const sideIncomeEvidence = Boolean(evidenceText) && sideIncomeSignal.test(evidenceText!);
-  const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪|副业月收入|个人月收入/u.test(evidenceText!);
+  const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪|税后到手|副业月收入|个人月收入/u.test(evidenceText!);
   // Parse named personal-income phrases before generic monthly wording.  The
   // old permissive `每月…金额` matcher could skip a salary earlier in the
   // same sentence and capture a later rent/medical outlay instead, silently
   // turning a 1.5 万 salary into a 0.35 万 salary.
   const monthlySalaryMatch = evidenceText?.match(/(?:税后)?(?:月薪|副业月收入|个人月收入)(?:\s*(?:从|由)\s*(?:原来(?:的)?|之前(?:的)?)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元))?\s*(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u);
+  const monthlyTakeHomeMatch = evidenceText && /(?:按月|每月|月度)结算/u.test(evidenceText)
+    ? evidenceText.match(/税后到手(?:\s*(?:约|为|有))?\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u)
+    : undefined;
   const monthlyIncomeNamedMatch = evidenceText?.match(/每月[^，。；]{0,18}?(?:工资|薪资|收入|报酬|分红)[^，。；]{0,16}?(?:支付|发放|领取|获得|拿到|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u);
   const monthlyIncomePaidMatch = evidenceText?.match(/每月[^，。；]{0,16}?(?:支付|发放|领取|获得|拿到)\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)(?:税后)?(?:工资|薪资|收入|报酬|分红)/u);
-  const monthlyMatch = monthlySalaryMatch || monthlyIncomeNamedMatch || monthlyIncomePaidMatch;
+  const monthlyMatch = monthlySalaryMatch || monthlyTakeHomeMatch || monthlyIncomeNamedMatch || monthlyIncomePaidMatch;
   // Real prose frequently combines a change verb with a hedging qualifier
   // (for example, "税后年薪涨到约30万"). The amount is still an explicit
   // personal-income fact and must be allowed to repair a malformed model
@@ -1959,7 +1990,11 @@ export function narrativeRequiresCareerTransition(input: {
     !hypotheticalOnly(sentence)
     && (hasCompletedEmployerStartEvidence(sentence) || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(sentence))
   ));
-  if (startsWorking && ["student", "not_working", "retired", "medical_leave"].includes(input.currentStatus)) return true;
+  // A completed external employer start also replaces a self-employed status.
+  // Without this branch, the prose can declare a stable paid job while the
+  // later income synthesizer still sees the obsolete founder state and writes
+  // an owner draw instead of salary.
+  if (startsWorking && ["student", "not_working", "retired", "medical_leave", "self_employed"].includes(input.currentStatus)) return true;
   return protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesCareerMove(sentence)

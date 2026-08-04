@@ -15,6 +15,7 @@ import { isExpenseCommitmentV4, isFinancialLedgerV4 } from "./types";
 import { parentElderCareCoverageRole, type ParentElderCareCoverageRole } from "./elderCareCoverage";
 import { hasExplicitPersonalBusinessIncomeReceipt, hasMatchingPersonalBusinessIncomeAmount, isNarratedBeforePeriod, matchFinancialEvidence, type EvidenceMatchReason } from "./evidenceMatching";
 import { validateFinancialPayloadSchema } from "./financialProposalSchema";
+import { hasCompletedEmployerStartEvidence } from "../../utils/employmentState";
 
 const FINANCIAL_EVENT_KINDS = new Set<FinancialEventKind>([
   "income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended",
@@ -64,9 +65,10 @@ const PERSONAL_CASH_INFLOW_EVENT_KINDS = new Set<FinancialEventKind>([
  * current income. Only an explicit completed first day can do that.
  */
 export function isUnacceptedIncomeOpportunityEvidence(evidence: string): boolean {
-  const uncompletedStart = /(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:入职|到岗|上班|任职|担任)|入职(?:手续|流程|日期)/u.test(evidence);
+  const uncompletedStart = /(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:入职|到岗|上班|任职|担任)|(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:接下|接了|接受(?:了)?)[^。；]{0,32}(?:顾问|咨询)(?:岗位|职位|工作)|入职(?:手续|流程|日期)/u.test(evidence);
   const completedEmployment = !uncompletedStart
-    && /(?:你|主角|本人)[^。；]{0,48}(?:正式(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已经(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|(?:正式)?加入[^。；]{0,24}(?:公司|企业|机构|团队)[^。；]{0,28}(?:担任|任职|负责|工作|职位|岗位)|换到[^。；]{0,24}(?:岗位|工作))/u.test(evidence);
+    && (hasCompletedEmployerStartEvidence(evidence)
+      || /(?:你|主角|本人)[^。；]{0,48}(?:正式(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已经(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|(?:正式)?加入[^。；]{0,24}(?:公司|企业|机构|团队)[^。；]{0,28}(?:担任|任职|负责|工作|职位|岗位)|换到[^。；]{0,24}(?:岗位|工作))/u.test(evidence));
   if (completedEmployment) return false;
   return uncompletedStart
     || /(?:正在招|招聘|招募|招人|(?:新|该|这个|一个|某个|招聘的).{0,4}(?:岗位|职位)|(?:岗位|职位).{0,20}(?:招聘|招募|开放)|工作机会|猎头|offer|录用通知|(?:签署|签了|签订)[^。；]{0,24}(?:劳动合同|聘用合同)|薪资比(?:现在|目前)|薪资(?:更高|更低)|薪酬(?:更高|更低)|(?:问你愿不愿意|邀请你|希望你|请你|考虑是否)[^。；]{0,42}(?:牵头|负责|接手|加入|参与)[^。；]{0,32}(?:项目|岗位|工作|任务))/iu.test(evidence);
@@ -86,7 +88,17 @@ function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string)
   // term, or an explicit periodic personal receipt/earning statement.
   const compensationTerm = /(?:税后)?(?:月薪|年薪|工资|薪资|年税后收入|税后年收入)|顾问费|咨询收入|副业月收入|个人收入|个人进账|个人账户|可支配收入|报酬/u.test(evidence);
   const periodicPersonalReceipt = /(?:你|我|主角|本人).{0,56}(?:每月|月均|按月|每年|年度|年收入).{0,36}(?:领取|获得|收到|赚|挣|进账|支付|发放)/u.test(evidence);
-  return compensationTerm || periodicPersonalReceipt;
+  // “税后到手约 X 万，按月结算” is an explicit recurring net wage amount,
+  // even when the prose does not repeat the word “工资”.  It is intentionally
+  // a salary-only rule: founder draws and dividends still require an explicit
+  // completed personal business receipt above.
+  const explicitMonthlyTakeHomeSalary = String(type) === "salary"
+    && !/(?:独立|自由职业|自由顾问|项目制|外包)[^。；]{0,32}(?:项目|合同|咨询)|(?:顾问|咨询)[^。；]{0,20}(?:项目|合同)/u.test(evidence)
+    && String(evidence || "").split(/(?<=[。！？；])/u).some((sentence) => (
+      /税后到手(?:约|为|有)?\s*\d+(?:\.\d+)?\s*(?:万|元)/u.test(sentence)
+      && /(?:按月|每月|月度)结算/u.test(sentence)
+    ));
+  return compensationTerm || periodicPersonalReceipt || explicitMonthlyTakeHomeSalary;
 }
 
 function proposalIssue(input: {

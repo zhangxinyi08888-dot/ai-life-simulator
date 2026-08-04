@@ -840,6 +840,8 @@ ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) =>
 - 项目基金、公益资助或拨款若有学校、教师、硬件、受助人或项目运营等专款用途，即使正文写“你收到”或“到账”，也必须移除对应个人收入 Proposal；不要伪造机构账户。明确归主角个人且可自由支配的创作奖、奖金或报酬可以保留。
 - debt_drawn 的 payload 必须是 { "debtAccount": 完整债务账户, "destinationCashAccountId": "账本中的现金账户 id", "principalDrawnWan": 本次到账本金 }。不得返回把 id、type、principalAmountWan、annualInterestRate、termMonths 平铺在 payload 的旧格式；debtAccount.principalWan 必须等于 principalDrawnWan。
 - debt_drawn.evidence 必须逐字引用正文中明确写有“已放款”或“贷款已到账”的完整句子；“申请贷款后”、月供推算或选择文本不能作为放款证据。
+- debt_restructured 只能在正文明确写出银行已经批准且新还款安排已经生效时返回；仅申请、受理、协商或待审核时直接省略。payload 必须引用账本中真实的 oldDebtAccountId，并包含完整 replacementDebtAccount 与 transactionFeeWan。替代债务的 principalWan 加 accruedUnpaidInterestWan 必须守恒为旧债的当前本金加未付利息；不得把未付利息静默抹掉、伪造本金减免、新借款或现金还款。正文只明确新月供或展期期限时，未知条款必须标记 needs_review，不能编造利率。
+- 当前选择只是申请债务重组时，不得为了让故事推进而新增卖车到账、资产出售、新贷款放款、家人转账或其他个人现金流；它们只有在当前正文明确已经发生且能独立通过账本校验时才能返回。
 - asset_purchased 的 payload 必须包含 sourceCashAccountId、完整 assetAccount、正数 cashPaidWan、transactionFeeWan，以及同轮借款资助时的 linkedDebtDrawEventId。贷款资金进入现金账户后再支付也属于现金支付，cashPaidWan 必须填写实际支付总额，不能写 0。
 - 首次个人出资创业使用 business_holding_started，payload 必须包含 sourceCashAccountId、完整 businessHolding、personalCashInvestedWan；businessHolding.personalCarryingValueWan 必须等于个人实际出资。公司运营支出不能用个人 expense Proposal 代替。
 - sourceOutcomeId 必须为 ${input.acceptedOutcomeId}。

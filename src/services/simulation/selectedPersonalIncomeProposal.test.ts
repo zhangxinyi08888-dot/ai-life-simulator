@@ -74,6 +74,26 @@ test("PB-CAREER-06 an actual employment start can ground the exact personal sala
   assert.match(result[0].evidence, /税后月薪约2.6万元/);
 });
 
+test("PB-CAREER-06b a completed external paid consultant role derives salary, not an owner draw", () => {
+  const ledger = initializeFinancialLedger({ id: "external_consultant_salary", asOfAgeInMonths: 328 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "申请核对并调整还款安排",
+    narrativeText: "老周介绍的供应链顾问工作，你接了，按月结算，税后到手约1.2万。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "request_debt_restructuring",
+    periodStartAgeInMonths: 328,
+    currentCareerStateId: "career_external_consultant",
+    currentEmploymentStatus: "employed",
+    migrateToCurrentCareerState: true,
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal((result[0]?.payload as any).type, "salary");
+  assert.equal((result[0]?.payload as any).monthlyNetAmountWan, 1.2);
+  assert.equal((result[0]?.payload as any).linkedCareerStateId, "career_external_consultant");
+});
+
 test("PB-CAREER-06a a future employer offer salary cannot synthesize or adjust current income", () => {
   const ledger = initializeFinancialLedger({ id: "pending_offer_income", asOfAgeInMonths: 639 });
   const result = synthesizeSelectedPersonalIncomeProposal({

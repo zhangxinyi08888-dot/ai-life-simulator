@@ -26,12 +26,23 @@ const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
  */
 export function hasCompletedEmployerStartEvidence(value: string): boolean {
   const uncompletedStart = /(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:入职|到岗|上班|任职|担任)|(?:入职|到岗|上班)后(?:可以|将|会|需|需要|再|先)|入职(?:手续|流程|日期)/u;
+  const uncompletedExternalConsultantStart = /(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:接下|接了|接受(?:了)?)[^。；]{0,32}(?:顾问|咨询)(?:岗位|职位|工作)/u;
   const completedStart = /(?:正式|已经|已(?:经)?|开始|随后)[^。；]{0,24}(?:入职|到岗|上班|任职|担任)|(?:入职|到岗|上班)后(?:[，,。；]|(?:你|我|本人|主角|自己|便|就|开始|发现|负责|进入))|(?:你|我|本人|主角|自己)[^。；]{0,12}(?:入职|到岗|上班|任职|担任)后|(?:正式)?加入[^。；]{0,24}(?:公司|企业|机构|团队)[^。；]{0,28}(?:担任|任职|负责|工作|职位|岗位)/u;
+  // A completed paid external consultant *role* can be an employer start even
+  // when the Chinese sentence puts the role before the protagonist (for
+  // example, “老周介绍的供应链顾问岗位，你最终接了”).  Keep this intentionally
+  // narrow: a freelance/independent project or a signed consulting contract is
+  // not proof that an employer job has started.
+  const completedExternalConsultantRole = /(?=[^。；]{0,72}(?:公司|企业|机构|平台|雇主|客户|猎头|介绍))(?:(?:[^。；]{0,36}(?:顾问|咨询)(?:岗位|职位|工作)[^。；]{0,16}(?:你|我|本人|主角|自己)[^。；]{0,12}(?:最终|正式|已经|已)?(?:接下|接了|接受(?:了)?))|(?:(?:你|我|本人|主角|自己)[^。；]{0,16}(?:最终|正式|已经|已)?(?:接下|接了|接受(?:了)?)[^。；]{0,32}(?:顾问|咨询)(?:岗位|职位|工作)))/u;
+  const independentConsultingEngagement = /(?:独立|自由职业|自由顾问|项目制|外包)[^。；]{0,32}(?:项目|合同|咨询)|(?:顾问|咨询)[^。；]{0,20}(?:项目|合同)/u;
   // A choice may legitimately say “计划下月入职” while the resulting
   // outcome records a later completed start.  Evaluate each sentence so the
   // earlier plan cannot erase a separate, completed employment fact.
   return value.split(/(?<=[。！？；])/u).some((sentence) => (
-    !uncompletedStart.test(sentence) && completedStart.test(sentence)
+    !uncompletedStart.test(sentence)
+    && !uncompletedExternalConsultantStart.test(sentence)
+    && (completedStart.test(sentence)
+      || (!independentConsultingEngagement.test(sentence) && completedExternalConsultantRole.test(sentence)))
   ));
 }
 
