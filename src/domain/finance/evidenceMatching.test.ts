@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isNarratedBeforePeriod, matchFinancialEvidence } from "./evidenceMatching";
+import { hasExplicitPersonalBusinessIncomeReceipt, hasMatchingPersonalBusinessIncomeAmount, isNarratedBeforePeriod, matchFinancialEvidence } from "./evidenceMatching";
 import type { FinancialEventProposal } from "./types";
 
 function proposal(kind: FinancialEventProposal["kind"], evidence: string): FinancialEventProposal {
@@ -99,4 +99,53 @@ test("a relative-past outlay is pre-period only when the narrative explicitly op
     evidence: "此前你一直很关心父亲的健康。",
     periodStartAgeInMonths: 300
   }), false, "ambiguous historical language must not reject an otherwise current fact");
+});
+
+test("personal business income amount matching parses exact numeric tokens instead of substrings", () => {
+  assert.equal(hasMatchingPersonalBusinessIncomeAmount({
+    type: "self_employment_draw",
+    source: { monthlyNetAmountWan: 1.5, accrualPolicy: "monthly" },
+    evidence: "公司从本月起每月向你的个人账户支付11.5万元税后工资。"
+  }), false, "11.5 万 cannot authorize a 1.5 万 draw");
+  assert.equal(hasMatchingPersonalBusinessIncomeAmount({
+    type: "self_employment_draw",
+    source: { monthlyNetAmountWan: 0.5, accrualPolicy: "monthly" },
+    evidence: "你从本月起每月领取10.5万元业主提款。"
+  }), false, "10.5 万 cannot authorize a 0.5 万 draw");
+  assert.equal(hasMatchingPersonalBusinessIncomeAmount({
+    type: "self_employment_draw",
+    source: { monthlyNetAmountWan: 0.5, accrualPolicy: "monthly" },
+    evidence: "你从本月起每月领取5000元业主提款。"
+  }), true, "yuan-denominated evidence still proves the exact 0.5 万 draw");
+});
+
+test("personal business income cadence belongs to its exact amount clause", () => {
+  assert.equal(hasMatchingPersonalBusinessIncomeAmount({
+    type: "self_employment_draw",
+    source: { monthlyNetAmountWan: 12, accrualPolicy: "monthly" },
+    evidence: "公司已向你的个人账户支付年度分红12万元，另有每月一次的运营例会。"
+  }), false, "an annual 12 万 dividend cannot become a monthly draw because another clause says 每月");
+  assert.equal(hasMatchingPersonalBusinessIncomeAmount({
+    type: "business_dividend",
+    source: { annualNetAmountWan: 12, accrualPolicy: "annual" },
+    evidence: "公司从本月起每月向你的个人账户支付12万元税后工资，年度汇总仍在准备。"
+  }), false, "a monthly 12 万 salary cannot become an annual dividend because another clause says 年度");
+});
+
+test("a planned personal business payment is not a completed receipt", () => {
+  const planned = "公司计划从下月起每月向你个人账户支付4万元税后工资。";
+  assert.equal(hasExplicitPersonalBusinessIncomeReceipt({ type: "self_employment_draw", evidence: planned }), false);
+  assert.equal(hasExplicitPersonalBusinessIncomeReceipt({ type: "business_dividend", evidence: planned }), false);
+  assert.equal(hasExplicitPersonalBusinessIncomeReceipt({
+    type: "self_employment_draw",
+    evidence: "你计划接供应链咨询零活，每月能多挣5000元。"
+  }), false);
+  assert.equal(hasExplicitPersonalBusinessIncomeReceipt({
+    type: "self_employment_draw",
+    evidence: "你准备给自己涨薪到每月2.5万元。"
+  }), false);
+  assert.equal(hasExplicitPersonalBusinessIncomeReceipt({
+    type: "self_employment_draw",
+    evidence: "你计划扩大咨询范围，公司从本月起每月向你的个人账户支付4万元税后工资。"
+  }), true, "an unrelated earlier plan must not erase a separate completed payment clause");
 });

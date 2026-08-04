@@ -13,7 +13,7 @@ import type {
 } from "./types";
 import { isExpenseCommitmentV4, isFinancialLedgerV4 } from "./types";
 import { parentElderCareCoverageRole, type ParentElderCareCoverageRole } from "./elderCareCoverage";
-import { isNarratedBeforePeriod, matchFinancialEvidence, type EvidenceMatchReason } from "./evidenceMatching";
+import { hasExplicitPersonalBusinessIncomeReceipt, hasMatchingPersonalBusinessIncomeAmount, isNarratedBeforePeriod, matchFinancialEvidence, type EvidenceMatchReason } from "./evidenceMatching";
 import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 
 const FINANCIAL_EVENT_KINDS = new Set<FinancialEventKind>([
@@ -79,7 +79,7 @@ function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string)
     if (/(?:你|我|主角|本人).{0,32}(?:从|动用)[^。；]{0,20}(?:积蓄|存款|储蓄|备用金|个人账户)[^。；]{0,20}(?:提取|拿出|支取|取出)|(?:你|我|主角|本人).{0,20}(?:从积蓄中|从存款中|从储蓄中|从备用金中)(?:提取|拿出|支取|取出)/u.test(evidence)) {
       return false;
     }
-    return /(?:你|我|主角|本人).{0,80}(?:领取|提取|获得|收到|赚|挣|顾问费|咨询收入|转入个人|给自己发|个人可支配收入|个人收入|个人提款|个人账户|工资|薪资|降薪|涨薪|调薪|业主提款|分红)/u.test(evidence);
+    return hasExplicitPersonalBusinessIncomeReceipt({ type, evidence });
   }
   // Do not treat a generic achievement (for example, \"获得主管肯定\") as
   // wage evidence.  A recurring career source needs either a compensation
@@ -1115,7 +1115,7 @@ export function validateFinancialProposals(input: {
       continue;
     }
     if (proposal.kind === "income_source_started" && payload.type === "business_dividend"
-      && !/分红|股息|利润分配|个人领取|转入个人/u.test(`${proposal.evidence} ${String(payload.displayName || "")}`)) {
+      && !hasExplicitPersonalBusinessIncomeReceipt({ type: payload.type, evidence: proposal.evidence })) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "business_dividend 必须有已向主人公分配利润的证据，不能用公司年费或营收替代", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
     }
@@ -1259,8 +1259,10 @@ export function validateFinancialProposals(input: {
       }
       const linkedCareerStateId = payload.linkedCareerStateId;
       const isCareerIncome = ["salary", "self_employment_draw"].includes(String(payload.type));
-      if (!personalCareerIncomeEvidenceIsExplicit(payload.type, proposal.evidence)) {
-        issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额或营业收入不能证明主角已经领取个人工资、提款或分红", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      const requiresCompletedBusinessIncomeReceipt = payload.type === "self_employment_draw" || payload.type === "business_dividend";
+      if (!personalCareerIncomeEvidenceIsExplicit(payload.type, proposal.evidence)
+        || (requiresCompletedBusinessIncomeReceipt && !hasMatchingPersonalBusinessIncomeAmount({ type: payload.type, source: payload, evidence: proposal.evidence }))) {
+        issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额、营业收入或不匹配金额不能证明主角已经按该金额和频率领取个人工资、提款或分红", ageInMonths: proposal.effectiveAtAgeInMonths }));
         continue;
       }
       if (isCareerIncome && typeof linkedCareerStateId !== "string") {
@@ -1296,9 +1298,13 @@ export function validateFinancialProposals(input: {
         }
       }
     }
+    const adjustedIncomeSource = payload.nextSource as Record<string, unknown> | undefined;
+    const adjustedIncomeType = adjustedIncomeSource?.type;
+    const adjustedRequiresCompletedBusinessIncomeReceipt = adjustedIncomeType === "self_employment_draw" || adjustedIncomeType === "business_dividend";
     if (proposal.kind === "income_source_adjusted"
-      && !personalCareerIncomeEvidenceIsExplicit((payload.nextSource as Record<string, unknown> | undefined)?.type, proposal.evidence)) {
-      issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额或营业收入不能证明主角个人收入已经调整", ageInMonths: proposal.effectiveAtAgeInMonths }));
+      && (!personalCareerIncomeEvidenceIsExplicit(adjustedIncomeType, proposal.evidence)
+        || (adjustedRequiresCompletedBusinessIncomeReceipt && !hasMatchingPersonalBusinessIncomeAmount({ type: adjustedIncomeType, source: adjustedIncomeSource, evidence: proposal.evidence })))) {
+      issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额、营业收入或不匹配金额不能证明主角个人收入已经按该金额和频率调整", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
     }
     if (proposal.kind === "income_source_adjusted"

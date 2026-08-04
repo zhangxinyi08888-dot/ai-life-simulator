@@ -101,7 +101,7 @@ test("repairs an invented CareerState reference to the single accepted next stat
         id: "owner_draw", type: "self_employment_draw", monthlyNetAmountWan: 4,
         linkedCareerStateId: "career_model_invented"
       },
-      evidence: "公司向你个人账户支付4万元税后工资。",
+      evidence: "公司从本月起每月向你个人账户支付4万元税后工资。",
       confidence: 0.9
     }]
   });
@@ -195,17 +195,113 @@ test("keeps an explicit newly disbursed mortgage distinct from an existing mortg
   assert.equal(result.audit.some((item) => item.reasonCode === "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED"), false);
 });
 
-test("never normalizes company revenue into a personal self-employment draw", () => {
-  const result = normalizeFinancialProposals({
+test("drops a self-employment draw without an explicit personal receipt", () => {
+  const nonPersonalBusinessFacts = [
+    "第三个月你们注册了公司，租下共享办公位，开始交付产品。",
+    "公司签下正式客户，客户年费4.8万元已经回款，但资金仍留在公司运营账户。",
+    "老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。"
+  ];
+
+  for (const [index, evidence] of nonPersonalBusinessFacts.entries()) {
+    const result = normalizeFinancialProposals({
+      acceptedOutcomeIds: ["selected"], currentCareerStateId: "career_founder",
+      proposals: [{
+        id: `company_fact_as_draw_${index}`, kind: "income_source_started", effectiveAtAgeInMonths: 420,
+        payload: { id: `invented_draw_${index}`, type: "freelance", monthlyNetAmountWan: 8 },
+        evidence, confidence: 0.9
+      }]
+    });
+    assert.equal(result.proposals.length, 0, evidence);
+    assert.equal(result.audit.some((item) => item.reasonCode === "PERSONAL_BUSINESS_INCOME_RECEIPT_MISSING"), true, evidence);
+  }
+});
+
+test("drops a business dividend inferred from customer revenue or a profit-sharing discussion", () => {
+  for (const evidence of [
+    "公司注册后签下第一个客户，年费4.8万元已经回款。",
+    "老周提醒你该谈分红了，你说等拿到第二个客户再说。"
+  ]) {
+    const result = normalizeFinancialProposals({
+      acceptedOutcomeIds: ["selected"],
+      proposals: [{
+        id: "invented_dividend", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+        payload: { id: "invented_dividend_income", type: "business_dividend", annualNetAmountWan: 8 },
+        evidence, confidence: 0.9
+      }]
+    });
+    assert.equal(result.proposals.length, 0, evidence);
+    assert.equal(result.audit.some((item) => item.reasonCode === "PERSONAL_BUSINESS_INCOME_RECEIPT_MISSING"), true, evidence);
+  }
+});
+
+test("requires the personal draw or dividend amount and cadence to match its evidence", () => {
+  const mismatchedSources = [
+    {
+      id: "mismatched_draw", type: "self_employment_draw", payload: {
+        id: "mismatched_draw_income", type: "self_employment_draw", monthlyNetAmountWan: 1.5
+      }, evidence: "公司从本月起每月向你的个人账户支付1.2万元税后工资。", careerId: "career_founder"
+    },
+    {
+      id: "mismatched_dividend", type: "business_dividend", payload: {
+        id: "mismatched_dividend_income", type: "business_dividend", annualNetAmountWan: 8
+      }, evidence: "公司从本年度起已向你的个人账户支付年度分红6万元。"
+    }
+  ];
+  for (const candidate of mismatchedSources) {
+    const result = normalizeFinancialProposals({
+      acceptedOutcomeIds: ["selected"], currentCareerStateId: candidate.careerId,
+      proposals: [{
+        id: candidate.id, kind: "income_source_started", effectiveAtAgeInMonths: 420,
+        payload: candidate.payload, evidence: candidate.evidence, confidence: 0.9
+      }]
+    });
+    assert.equal(result.proposals.length, 0, candidate.id);
+    assert.equal(result.audit.some((item) => item.reasonCode === "PERSONAL_BUSINESS_INCOME_RECEIPT_MISSING"), true, candidate.id);
+  }
+});
+
+test("rejects a planned personal business payment for starts, adjustments, and repairs", () => {
+  const plannedEvidence = "公司计划从下月起每月向你个人账户支付4万元税后工资。";
+  const currentLedger = initializeFinancialLedger({
+    id: "planned_founder_income",
+    asOfAgeInMonths: 420,
+    openingPosition: {
+      incomeSources: [{
+        id: "owner_draw", type: "self_employment_draw", displayName: "既有业主提款",
+        monthlyNetAmountWan: 3, accrualPolicy: "monthly", activeFromAgeInMonths: 400,
+        status: "active", linkedCareerStateId: "career_founder", factStatus: "known", evidence: []
+      }]
+    }
+  });
+  const start = normalizeFinancialProposals({
     acceptedOutcomeIds: ["selected"], currentCareerStateId: "career_founder",
     proposals: [{
-      id: "company_revenue_as_draw", kind: "income_source_started", effectiveAtAgeInMonths: 420,
-      payload: { id: "invented_draw", type: "freelance", monthlyNetAmountWan: 8 },
-      evidence: "公司的SaaS产品本月营收8万元，客户回款已经到账。", confidence: 0.9
+      id: "planned_start", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+      payload: { id: "planned_draw", type: "self_employment_draw", monthlyNetAmountWan: 4 },
+      evidence: plannedEvidence, confidence: 0.9
     }]
   });
-  assert.equal(result.proposals.length, 0);
-  assert.equal(result.audit.some((item) => item.reasonCode === "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED"), true);
+  const adjustment = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentLedger, currentCareerStateId: "career_founder",
+    proposals: [{
+      id: "planned_adjustment", kind: "income_source_adjusted", effectiveAtAgeInMonths: 420,
+      payload: {
+        incomeSourceId: "owner_draw",
+        nextSource: { ...currentLedger.incomeSources[0], monthlyNetAmountWan: 4 }
+      },
+      evidence: plannedEvidence, confidence: 0.9
+    }]
+  });
+  const repair = normalizeRepairedFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentCareerStateId: "career_founder", narrativeText: plannedEvidence,
+    rejectedProposals: [{
+      id: "planned_repair", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+      payload: { id: "planned_repair_draw", type: "self_employment_draw", monthlyNetAmountWan: 4 },
+      evidence: "你从本月起每月领取4万元业主提款。", confidence: 0.9
+    }],
+    proposals: [{ id: "planned_repair", evidence: plannedEvidence }]
+  });
+  for (const result of [start, adjustment, repair]) assert.equal(result.proposals.length, 0);
 });
 
 test("normalizes a personal self-employment draw only with an authoritative career link", () => {
@@ -220,6 +316,27 @@ test("normalizes a personal self-employment draw only with an authoritative care
   assert.equal(valid.proposals.length, 1);
   assert.equal((valid.proposals[0].payload as any).type, "self_employment_draw");
   assert.equal((valid.proposals[0].payload as any).linkedCareerStateId, "career_founder");
+
+  const salaryBeforeUnpaidDividend = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentCareerStateId: "career_founder",
+    proposals: [{
+      id: "paid_salary_before_unpaid_dividend", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+      payload: { id: "paid_salary_income", type: "self_employment_draw", monthlyNetAmountWan: 4 },
+      evidence: "公司从本月起每月向你的个人账户支付4万元税后工资，但尚未分红。", confidence: 0.9
+    }]
+  });
+  assert.equal(salaryBeforeUnpaidDividend.proposals.length, 1);
+
+  const ownerDraw = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"], currentCareerStateId: "career_founder",
+    proposals: [{
+      id: "explicit_owner_draw", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+      payload: { id: "explicit_owner_draw_income", type: "self_employment_draw", monthlyNetAmountWan: 2 },
+      evidence: "你从本月起每月领取2万元业主提款。", confidence: 0.9
+    }]
+  });
+  assert.equal(ownerDraw.proposals.length, 1);
+  assert.equal((ownerDraw.proposals[0].payload as any).type, "self_employment_draw");
 
   const unlinked = normalizeFinancialProposals({
     acceptedOutcomeIds: ["selected"],
@@ -564,6 +681,53 @@ test("repair evidence is grounded to a verbatim consultant sentence", () => {
     proposals: [{ id: "consulting", evidence: "新的收入已经稳定" }]
   });
   assert.equal(result.proposals[0].evidence, "你转为每周三天的顾问后，顾问年收入稳定在24万左右。家庭生活也慢了下来。".split("家庭")[0]);
+});
+
+test("repair never rewrites a personal draw to a word-only profit-sharing sentence", () => {
+  const result = normalizeRepairedFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    currentCareerStateId: "career_founder",
+    narrativeText: "公司注册后签下正式客户，客户年费4.8万元已经回款。老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。",
+    rejectedProposals: [{
+      id: "invented_owner_draw", kind: "income_source_started", effectiveAtAgeInMonths: 420,
+      payload: {
+        id: "invented_owner_draw_income", type: "self_employment_draw", monthlyNetAmountWan: 1.5,
+        linkedCareerStateId: "career_founder"
+      },
+      sourceOutcomeId: "selected",
+      evidence: "你开始接供应链咨询零活，每月能多挣1.5万元。",
+      confidence: 0.9
+    }],
+    proposals: [{ id: "invented_owner_draw" }]
+  });
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.audit.some((item) => item.reasonCode === "PERSONAL_BUSINESS_INCOME_REPAIR_EVIDENCE_DROPPED"), true);
+});
+
+test("repair cannot relabel a rejected personal business income as another personal cash inflow", () => {
+  const narrativeText = "公司注册后签下正式客户，客户年费4.8万元已经回款。老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。";
+  const rejectedProposals = [{
+    id: "invented_owner_draw", kind: "income_source_started" as const, effectiveAtAgeInMonths: 420,
+    payload: {
+      id: "invented_owner_draw_income", type: "self_employment_draw", monthlyNetAmountWan: 1.5,
+      linkedCareerStateId: "career_founder"
+    },
+    sourceOutcomeId: "selected", evidence: "你开始接供应链咨询零活，每月能多挣1.5万元。", confidence: 0.9
+  }];
+  const attemptedMutations = [
+    { id: "invented_owner_draw", kind: "income_source_started", payload: { type: "rent", monthlyNetAmountWan: 1.5 } },
+    { id: "invented_owner_draw", kind: "income_source_started", payload: { type: "other", monthlyNetAmountWan: 1.5 } },
+    { id: "invented_owner_draw", kind: "income_source_started", payload: { type: "contract", monthlyNetAmountWan: 1.5 } },
+    { id: "invented_owner_draw", kind: "one_off_income_received", payload: { destinationCashAccountId: PRIMARY_CASH_ACCOUNT_ID, amountWan: 1.5 } }
+  ];
+  for (const repairProposal of attemptedMutations) {
+    const result = normalizeRepairedFinancialProposals({
+      acceptedOutcomeIds: ["selected"], currentCareerStateId: "career_founder", narrativeText,
+      rejectedProposals, proposals: [repairProposal]
+    });
+    assert.equal(result.proposals.length, 0, JSON.stringify(repairProposal));
+    assert.equal(result.audit.some((item) => item.reasonCode === "REPAIR_PERSONAL_BUSINESS_INCOME_MUTATION_DROPPED"), true);
+  }
 });
 
 test("repair evidence for a debt draw is grounded to the completed disbursement sentence", () => {

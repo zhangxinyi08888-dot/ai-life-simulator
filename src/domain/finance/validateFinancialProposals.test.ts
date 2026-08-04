@@ -706,6 +706,128 @@ test("PB-BIZ-06 a company customer contract cannot prove a personal owner draw",
   assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true);
 });
 
+test("PB-BIZ-37 a profit-sharing discussion cannot create or adjust personal draw or dividend income", () => {
+  const narrative = "公司注册后签下正式客户，客户年费4.8万元已经回款。老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。";
+  const inventedDraw = proposal({
+    id: "talked_about_dividend_as_draw",
+    kind: "income_source_started",
+    evidence: "老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。",
+    financialScope: "personal",
+    payload: {
+      id: "talked_about_dividend_draw", type: "self_employment_draw", displayName: "创业个人提款",
+      monthlyNetAmountWan: 1.5, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence: []
+    }
+  });
+  const inventedDividend = proposal({
+    id: "talked_about_dividend_as_income",
+    kind: "income_source_started",
+    evidence: "老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。",
+    financialScope: "personal",
+    payload: {
+      id: "talked_about_dividend_income", type: "business_dividend", displayName: "公司分红",
+      annualNetAmountWan: 8, accrualPolicy: "annual", activeFromAgeInMonths: 312,
+      status: "active", factStatus: "estimated", evidence: []
+    }
+  });
+  const result = validate([inventedDraw, inventedDividend], narrative);
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 2);
+
+  const context = setup();
+  context.currentLedger.incomeSources.push({
+    id: "existing_owner_draw", type: "self_employment_draw", displayName: "既有业主提款",
+    monthlyNetAmountWan: 1, accrualPolicy: "monthly", activeFromAgeInMonths: 300,
+    status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+  });
+  const adjustment = proposal({
+    id: "talked_about_dividend_adjustment",
+    kind: "income_source_adjusted",
+    evidence: "老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。",
+    financialScope: "personal",
+    payload: {
+      incomeSourceId: "existing_owner_draw",
+      nextSource: { ...context.currentLedger.incomeSources[0], monthlyNetAmountWan: 1.5 }
+    }
+  });
+  const adjusted = validateFinancialProposals({
+    ...context,
+    proposals: [adjustment],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "talked_about_dividend_adjustment",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(adjusted.acceptedEvents.length, 0);
+  assert.equal(adjusted.issues[0]?.code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+});
+
+test("PB-BIZ-38 exact personal receipt text cannot authorize a mismatched recurring draw or dividend amount", () => {
+  const mismatchedDraw = proposal({
+    id: "mismatched_draw_amount",
+    kind: "income_source_started",
+    evidence: "公司从本月起每月向你的个人账户支付1.2万元税后工资。",
+    financialScope: "personal",
+    payload: {
+      id: "mismatched_draw_income", type: "self_employment_draw", displayName: "创业公司个人工资",
+      monthlyNetAmountWan: 1.5, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence: []
+    }
+  });
+  const mismatchedDividend = proposal({
+    id: "mismatched_dividend_amount",
+    kind: "income_source_started",
+    evidence: "公司从本年度起已向你的个人账户支付年度分红6万元。",
+    financialScope: "personal",
+    payload: {
+      id: "mismatched_dividend_income", type: "business_dividend", displayName: "年度个人分红",
+      annualNetAmountWan: 8, accrualPolicy: "annual", activeFromAgeInMonths: 312,
+      status: "active", factStatus: "estimated", evidence: []
+    }
+  });
+  const result = validate([mismatchedDraw, mismatchedDividend], `${mismatchedDraw.evidence}${mismatchedDividend.evidence}`);
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.filter((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT").length, 2);
+});
+
+test("PB-BIZ-39 a planned founder payment cannot start or adjust personal income", () => {
+  const plannedEvidence = "公司计划从下月起每月向你个人账户支付4万元税后工资。";
+  const plannedStart = proposal({
+    id: "planned_owner_draw", kind: "income_source_started", evidence: plannedEvidence, financialScope: "personal",
+    payload: {
+      id: "planned_owner_draw_income", type: "self_employment_draw", displayName: "计划中的业主提款",
+      monthlyNetAmountWan: 4, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_current", factStatus: "estimated", evidence: []
+    }
+  });
+  const startResult = validate([plannedStart], plannedEvidence);
+  assert.equal(startResult.acceptedEvents.length, 0);
+  assert.equal(startResult.issues[0]?.code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+
+  const context = setup();
+  context.currentLedger.incomeSources.push({
+    id: "existing_owner_draw", type: "self_employment_draw", displayName: "既有业主提款",
+    monthlyNetAmountWan: 3, accrualPolicy: "monthly", activeFromAgeInMonths: 300,
+    status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+  });
+  const plannedAdjustment = proposal({
+    id: "planned_owner_draw_adjustment", kind: "income_source_adjusted", evidence: plannedEvidence, financialScope: "personal",
+    payload: {
+      incomeSourceId: "existing_owner_draw",
+      nextSource: { ...context.currentLedger.incomeSources.at(-1)!, monthlyNetAmountWan: 4 }
+    }
+  });
+  const adjustmentResult = validateFinancialProposals({
+    ...context, proposals: [plannedAdjustment], acceptedOutcomeId: "accepted_choice", narrativeText: plannedEvidence,
+    periodStartAgeInMonths: 300, periodEndAgeInMonths: 312, simulationTransactionId: "planned_owner_draw_adjustment",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.equal(adjustmentResult.acceptedEvents.length, 0);
+  assert.equal(adjustmentResult.issues[0]?.code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+});
+
 test("PB-BIZ-30 rejects restricted project funding from personal cash even when the protagonist receives it", () => {
   const restrictedGrant = proposal({
     id: "restricted_village_school_funding",
@@ -955,11 +1077,11 @@ test("PB-BIZ-11 long-form personal consulting salary and owner draw evidence rem
   const ownerDraw = proposal({
     id: "explicit_owner_draw",
     kind: "income_source_started",
-    evidence: "你给自己发了1万元作为个人提款。",
+    evidence: "你从本月起每月给自己发1万元作为个人提款。",
     financialScope: "personal",
     payload: {
       id: "explicit_owner_draw_income", type: "self_employment_draw", displayName: "创业项目个人提款",
-      monthlyNetAmountWan: 0.4167, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      monthlyNetAmountWan: 1, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
       status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence: []
     }
   });

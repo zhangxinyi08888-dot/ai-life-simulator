@@ -1,7 +1,7 @@
 import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4";
 import { isFinancialLedgerV4, type DebtAccount, type DebtType, type ExpenseCommitment, type FinancialEventKind, type FinancialEventProposal, type FinancialLedger } from "./types";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
-import { financialEvidenceCandidates, matchFinancialEvidence } from "./evidenceMatching";
+import { financialEvidenceCandidates, hasExplicitPersonalBusinessIncomeReceipt, hasMatchingPersonalBusinessIncomeAmount, matchFinancialEvidence } from "./evidenceMatching";
 
 export interface FinancialProposalNormalizationAudit {
   proposalId?: string;
@@ -16,7 +16,7 @@ export interface FinancialProposalNormalizationAudit {
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
     | "RENT_ONLY_RECLASSIFIED_AS_HOUSING"
     | "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED"
-    | "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED" | "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED"
+    | "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED" | "PERSONAL_BUSINESS_INCOME_RECEIPT_MISSING" | "PERSONAL_BUSINESS_INCOME_REPAIR_EVIDENCE_DROPPED" | "REPAIR_PERSONAL_BUSINESS_INCOME_MUTATION_DROPPED" | "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED"
     | "ASSET_ACCOUNT_SHAPE_COMPLETED" | "DEBT_ACCOUNT_SHAPE_COMPLETED";
   originalValue?: string;
   normalizedValue?: string;
@@ -54,14 +54,6 @@ function isExistingMortgagePaymentRestatement(input: {
   if (!paymentOnly) return false;
   const explicitlyDisbursedNewDebt = /(?:贷款|借款|房贷|按揭)[^。；]{0,24}(?:放款|发放|到账|借到|拿到|获得)|(?:放款|发放|到账|借到|拿到|获得)[^。；]{0,24}(?:贷款|借款|房贷|按揭)/u.test(input.evidenceText);
   return !explicitlyDisbursedNewDebt;
-}
-
-function companyRevenueWithoutPersonalDrawEvidence(evidenceText: string): boolean {
-  const companyRevenue = /(?:公司|企业|平台|团队|工作室|机构|中心|产品|SaaS|客户)[^。；]{0,48}(?:营收|营业收入|销售额|合同额|客户回款|客户年费|产品收入|订阅收入|项目收入|月收入|年收入)|(?:营收|营业收入|销售额|合同额|客户回款|客户年费|产品收入|订阅收入|项目收入)[^。；]{0,48}(?:公司|企业|平台|团队|工作室|机构|中心|产品|SaaS|客户)/u.test(evidenceText);
-  if (!companyRevenue) return false;
-  const explicitlyUnpaid = /(?:暂不|没有|未|不)(?:领取|提取|获得|收到|发放)[^。；]{0,20}(?:个人)?(?:工资|薪资|收入|业主提款|分红)|(?:暂不|没有|未|不)(?:领薪|领工资|领分红)/u.test(evidenceText);
-  const personalReceipt = /(?:你|我|主角|本人)[^。；]{0,48}(?:个人账户|个人(?:工资|薪资|收入|提款)|业主提款|给自己发|领取|提取|获得|收到|税后工资|税后薪资|月薪|年薪|工资|薪资|分红)|(?:个人账户|个人(?:工资|薪资|收入|提款)|业主提款)[^。；]{0,32}(?:支付|发放|转入|到账)/u.test(evidenceText);
-  return explicitlyUnpaid || !personalReceipt;
 }
 
 function authoritativeCareerLinkForSelfEmploymentDraw(input: {
@@ -169,6 +161,52 @@ function mergeMissing(base: unknown, repair: unknown): unknown {
   return result;
 }
 
+function strictPersonalBusinessIncomeType(proposal: Pick<FinancialEventProposal, "kind" | "payload">): "self_employment_draw" | "business_dividend" | undefined {
+  if (proposal.kind !== "income_source_started" && proposal.kind !== "income_source_adjusted") return undefined;
+  const payload = proposal.payload as Record<string, unknown>;
+  const source = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
+  const type = source && typeof source === "object" ? String((source as Record<string, unknown>).type || "") : "";
+  return type === "self_employment_draw" || type === "business_dividend" ? type : undefined;
+}
+
+const PERSONAL_CASH_INFLOW_KINDS = new Set<FinancialEventKind>([
+  "income_source_started",
+  "income_source_adjusted",
+  "one_off_income_received",
+  "business_distribution_received",
+  "family_support_received"
+]);
+
+function repairKind(raw: Record<string, unknown>): FinancialEventKind | undefined {
+  const value = raw.kind ?? raw.type ?? raw.deltaType;
+  return typeof value === "string" && KINDS.has(value as FinancialEventKind)
+    ? value as FinancialEventKind
+    : undefined;
+}
+
+/**
+ * A repair is a patch for a rejected proposal, not permission to relabel an
+ * unsupported owner draw as rent, salary, or a one-off cash receipt.  That
+ * would bypass the strict receipt check simply by changing the event shape.
+ */
+function mutatesStrictPersonalBusinessIncomeFallback(input: {
+  fallback: FinancialEventProposal;
+  repair: Record<string, unknown>;
+}): boolean {
+  const fallbackType = strictPersonalBusinessIncomeType(input.fallback);
+  if (!fallbackType) return false;
+  const nextKind = repairKind(input.repair);
+  if (nextKind && nextKind !== input.fallback.kind) return true;
+  const rawPayload = input.repair.payload;
+  if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) return false;
+  const source = input.fallback.kind === "income_source_adjusted"
+    ? (rawPayload as Record<string, unknown>).nextSource
+    : rawPayload;
+  if (!source || typeof source !== "object" || Array.isArray(source)) return false;
+  const nextType = (source as Record<string, unknown>).type;
+  return nextType !== undefined && String(nextType) !== fallbackType;
+}
+
 /**
  * Repair responses are patches over rejected model proposals, not fresh facts.
  * Inherit omitted structural fields from the rejected proposal and collapse
@@ -195,13 +233,27 @@ export function normalizeRepairedFinancialProposals(input: {
     if (!raw || typeof raw !== "object") return;
     const repair = structuredClone(raw) as Record<string, unknown>;
     const repairId = typeof repair.id === "string" && repair.id.trim() ? repair.id.trim() : undefined;
-    const repairKind = repair.kind ?? repair.type ?? repair.deltaType;
-    const kindMatches = typeof repairKind === "string" ? rejectedByKind.get(repairKind as FinancialEventKind) || [] : [];
+    const rawRepairKind = repair.kind ?? repair.type ?? repair.deltaType;
+    const kindMatches = typeof rawRepairKind === "string" ? rejectedByKind.get(rawRepairKind as FinancialEventKind) || [] : [];
     const fallback = (repairId ? rejectedById.get(repairId) : undefined)
       || (kindMatches.length === 1 ? kindMatches[0] : undefined)
       || (input.rejectedProposals.length === 1 ? input.rejectedProposals[0] : undefined);
+    const strictRejectedBusinessIncomeExists = input.rejectedProposals.some((proposal) => (
+      strictPersonalBusinessIncomeType(proposal) !== undefined
+    ));
+    const resolvedRepairKind = repairKind(repair);
+    if ((fallback && mutatesStrictPersonalBusinessIncomeFallback({ fallback, repair }))
+      || (!fallback && strictRejectedBusinessIncomeExists && resolvedRepairKind && PERSONAL_CASH_INFLOW_KINDS.has(resolvedRepairKind))) {
+      audit.push({
+        proposalId: repairId || `${String(rawRepairKind || "proposal")}_${index + 1}`,
+        reasonCode: "REPAIR_PERSONAL_BUSINESS_INCOME_MUTATION_DROPPED",
+        originalValue: fallback ? String(fallback.kind) : "unmatched_strict_personal_business_income",
+        normalizedValue: resolvedRepairKind || "income_type_mutation"
+      });
+      return;
+    }
     const merged = mergeMissing(fallback, repair) as Record<string, unknown>;
-    const key = String(merged.id || repairId || `${repairKind || "proposal"}_${index + 1}`);
+    const key = String(merged.id || repairId || `${rawRepairKind || "proposal"}_${index + 1}`);
     if (fallback) audit.push({ proposalId: key, reasonCode: "REPAIR_FIELDS_INHERITED", originalValue: fallback.id, normalizedValue: key });
     if (mergedByKey.has(key)) {
       mergedByKey.set(key, mergeMissing(mergedByKey.get(key), merged) as Record<string, unknown>);
@@ -224,20 +276,45 @@ export function normalizeRepairedFinancialProposals(input: {
       asset_purchased: /支付.{0,12}(?:设备|房|资产)|购买.{0,12}(?:设备|房|资产)|购置/
     };
     for (const proposal of normalized.proposals) {
+      const payload = proposal.payload as Record<string, unknown>;
+      const personalIncomeSource = (proposal.kind === "income_source_adjusted" ? payload.nextSource : payload) as Record<string, unknown> | undefined;
+      const strictPersonalBusinessIncome = personalIncomeSource?.type === "self_employment_draw"
+        || personalIncomeSource?.type === "business_dividend";
+      const hasCompletedPersonalReceipt = (evidence: string) => !strictPersonalBusinessIncome
+        || (hasExplicitPersonalBusinessIncomeReceipt({ type: personalIncomeSource?.type, evidence })
+          && hasMatchingPersonalBusinessIncomeAmount({ type: personalIncomeSource?.type, source: personalIncomeSource, evidence }));
       const currentMatch = matchFinancialEvidence({ proposal, narrativeText: input.narrativeText });
-      if (currentMatch.matched && currentMatch.reasonCode !== "EVIDENCE_FUZZY_MATCHED") continue;
+      if (currentMatch.matched && currentMatch.reasonCode !== "EVIDENCE_FUZZY_MATCHED" && hasCompletedPersonalReceipt(proposal.evidence)) continue;
       const fallback = rejectedById.get(proposal.id);
       const fallbackMatch = fallback ? matchFinancialEvidence({ proposal: fallback, narrativeText: input.narrativeText }) : undefined;
-      if (fallback && fallbackMatch?.matched && fallbackMatch.reasonCode !== "EVIDENCE_FUZZY_MATCHED") {
+      if (fallback && fallbackMatch?.matched && fallbackMatch.reasonCode !== "EVIDENCE_FUZZY_MATCHED" && hasCompletedPersonalReceipt(fallback.evidence)) {
         proposal.evidence = fallback.evidence;
         continue;
       }
       const pattern = evidencePatterns[proposal.kind];
       if (!pattern) continue;
-      const sentence = financialEvidenceCandidates({ proposal, narrativeText: input.narrativeText, limit: 1 })[0]?.excerpt
-        || input.narrativeText.split(/(?<=[。！？；])/u).find((item) => pattern.test(item));
+      const sentence = financialEvidenceCandidates({ proposal, narrativeText: input.narrativeText, limit: 3 })
+        .find((candidate) => hasCompletedPersonalReceipt(candidate.excerpt))?.excerpt
+        || input.narrativeText.split(/(?<=[。！？；])/u).find((item) => pattern.test(item) && hasCompletedPersonalReceipt(item));
       if (sentence) proposal.evidence = sentence.trim();
     }
+    normalized.proposals = normalized.proposals.filter((proposal) => {
+      const payload = proposal.payload as Record<string, unknown>;
+      const personalIncomeSource = (proposal.kind === "income_source_adjusted" ? payload.nextSource : payload) as Record<string, unknown> | undefined;
+      const type = personalIncomeSource?.type;
+      if (type !== "self_employment_draw" && type !== "business_dividend") return true;
+      const evidenceMatch = matchFinancialEvidence({ proposal, narrativeText: input.narrativeText! });
+      if (hasExplicitPersonalBusinessIncomeReceipt({ type, evidence: proposal.evidence })
+        && hasMatchingPersonalBusinessIncomeAmount({ type, source: personalIncomeSource, evidence: proposal.evidence })
+        && evidenceMatch.matched) return true;
+      audit.push({
+        proposalId: proposal.id,
+        reasonCode: "PERSONAL_BUSINESS_INCOME_REPAIR_EVIDENCE_DROPPED",
+        originalValue: String(type),
+        normalizedValue: "missing_grounded_completed_personal_receipt"
+      });
+      return false;
+    });
   }
   return { proposals: normalized.proposals, audit: [...audit, ...normalized.audit] };
 }
@@ -804,13 +881,12 @@ export function normalizeFinancialProposals(input: {
     }
     if (payload && (kind === "income_source_started" || kind === "income_source_adjusted")) {
       const personalIncomeSource = (kind === "income_source_adjusted" ? payload.nextSource : payload) as Record<string, any> | undefined;
-      if (personalIncomeSource?.type === "self_employment_draw") {
+      if (personalIncomeSource?.type === "self_employment_draw" || personalIncomeSource?.type === "business_dividend") {
         // The personal ledger can record a founder's actual draw, never the
         // company's operating revenue.  A valid draw must also point to the
         // one authoritative current/accepted-next CareerState so the later
         // career-income transaction stays atomic.
-        if (source.financialScope === "business_operating"
-          || companyRevenueWithoutPersonalDrawEvidence(evidenceText)) {
+        if (source.financialScope === "business_operating") {
           audit.push({
             proposalId: id,
             reasonCode: "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED",
@@ -819,18 +895,30 @@ export function normalizeFinancialProposals(input: {
           });
           return [];
         }
-        const authoritativeCareerLink = authoritativeCareerLinkForSelfEmploymentDraw({
-          currentCareerStateId: input.currentCareerStateId,
-          nextCareerStateIds: input.nextCareerStateIds
-        });
-        if (!authoritativeCareerLink || personalIncomeSource.linkedCareerStateId !== authoritativeCareerLink) {
+        if (!hasExplicitPersonalBusinessIncomeReceipt({ type: personalIncomeSource.type, evidence: evidenceText })
+          || !hasMatchingPersonalBusinessIncomeAmount({ type: personalIncomeSource.type, source: personalIncomeSource, evidence: evidenceText })) {
           audit.push({
             proposalId: id,
-            reasonCode: "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED",
-            originalValue: String(personalIncomeSource.linkedCareerStateId || "missing"),
-            normalizedValue: authoritativeCareerLink || "missing"
+            reasonCode: "PERSONAL_BUSINESS_INCOME_RECEIPT_MISSING",
+            originalValue: String(personalIncomeSource.type),
+            normalizedValue: "missing_explicit_personal_receipt"
           });
           return [];
+        }
+        if (personalIncomeSource.type === "self_employment_draw") {
+          const authoritativeCareerLink = authoritativeCareerLinkForSelfEmploymentDraw({
+            currentCareerStateId: input.currentCareerStateId,
+            nextCareerStateIds: input.nextCareerStateIds
+          });
+          if (!authoritativeCareerLink || personalIncomeSource.linkedCareerStateId !== authoritativeCareerLink) {
+            audit.push({
+              proposalId: id,
+              reasonCode: "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED",
+              originalValue: String(personalIncomeSource.linkedCareerStateId || "missing"),
+              normalizedValue: authoritativeCareerLink || "missing"
+            });
+            return [];
+          }
         }
       }
     }

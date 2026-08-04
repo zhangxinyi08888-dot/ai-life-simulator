@@ -1926,6 +1926,91 @@ assert.ok(!sanitizedIncomeGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CA
 assert.doesNotMatch(sanitizedIncomeNode.description, /5000元咨询费/u);
 assert.match(sanitizedIncomeNode.description, /个人收入是否形成仍需继续观察/u);
 
+// A founder may register a company and receive customer revenue before any
+// personal draw.  The false draw must be dropped in the same candidate, while
+// the actual self-employment transition and old-wage closure still commit—no
+// proposal repair, full regeneration, or visible gate pause is allowed.
+const unpaidFounderDecision = "辞职后全职创业，自己创办一家供应链咨询公司。";
+const unpaidFounderHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  selectedChoice: unpaidFounderDecision,
+  choices: [{
+    id: "A",
+    text: unpaidFounderDecision,
+    impactSummary: "先验证业务",
+    eventOutcomeId: "found_supply_chain_consulting_company"
+  }]
+}];
+const unpaidFounderPreviousCareerId = unpaidFounderHistory[0]!.worldStateSnapshot?.currentCareerStateId;
+const unpaidFounderBudget = createNodeGenerationBudget({ fullGenerationLimit: 1 });
+const unpaidFounderGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+const unpaidFounderGenerationStarts: string[] = [];
+let unpaidFounderCalls = 0;
+const unpaidFounderNode = await generateNextNode({
+  userData,
+  answers,
+  history: unpaidFounderHistory,
+  currentAttributes: unpaidFounderHistory[0]!.attributes,
+  selectedDecision: unpaidFounderDecision,
+  nodeIndex: 2,
+  simulationSeed: "venture-customer-revenue-without-personal-draw"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  generationBudget: unpaidFounderBudget,
+  onFinancialGateDecision: (decision) => unpaidFounderGateDecisions.push(decision),
+  onGenerationCallTrace: (trace) => {
+    if (trace.outcome === "started") unpaidFounderGenerationStarts.push(trace.kind);
+  },
+  callAiJson: async (prompt) => {
+    unpaidFounderCalls += 1;
+    assert.doesNotMatch(prompt, /你只负责修复财务 Proposal/u, "an unsupported draw must not consume a repair call");
+    return {
+      text: JSON.stringify({
+        age: 24,
+        stage: "创业起步",
+        title: "第一位客户的年费",
+        description: "你辞去当前岗位后，注册了一家供应链咨询公司。公司签下第一个客户，客户年费4.8万元已经回款，但资金仍留在公司运营账户。老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。",
+        choices: [
+          { id: "A", text: "继续打磨客户交付", impactSummary: "验证产品" },
+          { id: "B", text: "谨慎控制运营成本", impactSummary: "保留缓冲" },
+          { id: "C", text: "等待第二个客户", impactSummary: "观察需求" }
+        ],
+        attributes: unpaidFounderHistory[0]!.attributes,
+        financialEventProposals: [{
+          id: "invented_owner_draw", kind: "income_source_started", effectiveAtAgeInMonths: 288,
+          payload: { id: "invented_owner_draw_income", type: "self_employment_draw", monthlyNetAmountWan: 1.5 },
+          evidence: "老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。",
+          confidence: 0.9
+        }],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(unpaidFounderCalls, 1);
+assert.deepEqual(unpaidFounderGenerationStarts, ["initial_generation"]);
+assert.equal(unpaidFounderBudget.fullGenerationsUsed, 1);
+assert.equal(unpaidFounderBudget.modelPatchesUsed, 0);
+assert.deepEqual(unpaidFounderGateDecisions.map((item) => item.disposition), ["accept"]);
+assert.equal(unpaidFounderNode.financialProcessingMeta?.repairTriggered, false);
+assert.equal(unpaidFounderNode.financialProcessingMeta?.acceptedCareerTransitionCount, 1);
+assert.equal(unpaidFounderNode.financialPeriodSummary?.incomeWan, 0, "the rejected draw cannot become a one-off or recurring personal inflow");
+const unpaidFounderCareer = unpaidFounderNode.worldStateSnapshot?.careerStates.find((state) => (
+  state.id === unpaidFounderNode.worldStateSnapshot?.currentCareerStateId
+));
+assert.equal(unpaidFounderCareer?.employmentStatus, "self_employed");
+assert.equal(unpaidFounderNode.financialLedger?.incomeSources.some((source) => (
+  source.status === "active"
+  && source.linkedCareerStateId === unpaidFounderPreviousCareerId
+  && ["salary", "contract", "self_employment_draw"].includes(source.type)
+)), false, "the prior career's personal income must close atomically with the founder transition");
+assert.equal(unpaidFounderNode.financialLedger?.incomeSources.some((source) => (
+  source.status === "active"
+  && source.linkedCareerStateId === unpaidFounderCareer?.id
+  && ["self_employment_draw", "business_dividend", "rent", "contract", "other"].includes(source.type)
+)), false, "company revenue and a dividend discussion must not create any personal income source");
+
 // A completed employer switch without a replacement personal income must not
 // be downgraded to a resolved rejected Proposal. This exercises the real
 // order: accept transition -> reject atomicity -> settle issues -> gate.

@@ -1089,7 +1089,7 @@ test("E-15 business workshop is classified before housing and cannot become a pe
   assert.equal(result.candidates[0]?.responsibilityKey, "primary_residence:main");
 });
 
-test("company business-premises rent never emits a personal or shared primary residence", () => {
+test("business premises and shared coworking rent never emit a personal or shared primary residence", () => {
   const cases = [
     ["office", "公司租下办公室，每月租金5000元。"],
     ["workshop", "公司租下一间木工坊，每月租金5000元。"],
@@ -1097,7 +1097,9 @@ test("company business-premises rent never emits a personal or shared primary re
     ["store", "公司租下一家门店，每月租金5000元。"],
     ["office site", "公司租下办公场地，每月租金5000元。"],
     ["shop", "公司租下一间商铺，每月租金5000元。"],
-    ["shopfront", "公司租下一间店铺，每月租金5000元。"]
+    ["shopfront", "公司租下一间店铺，每月租金5000元。"],
+    ["shared office", "你和合伙人租下一间共享办公室，每月工位费2000元。"],
+    ["shared coworking seat", "你们注册公司后租下共享办公位，每月工位费2000元。"]
   ] as const;
 
   for (const [label, narrativeText] of cases) {
@@ -1113,6 +1115,32 @@ test("company business-premises rent never emits a personal or shared primary re
       candidate.financialScope === "business_operating"
     )), true, `${label} rent must remain classified as business operating scope`);
   }
+
+  const coworking = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 420,
+    narrativeText: "你们注册公司后租下共享办公位，每月工位费2000元。"
+  }).candidates;
+  const reconciliation = reconcileExpenseCommitments({
+    ledger: migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+      id: "shared_coworking_is_not_housing", asOfAgeInMonths: 420
+    }) as FinancialLedgerV3),
+    candidates: coworking,
+    ageInMonths: 420,
+    sourceOutcomeId: "shared_coworking_is_not_housing",
+    mode: "enforced"
+  });
+  assert.deepEqual(reconciliation.proposals, [], "a business coworking seat must be ignored before personal housing reconciliation");
+
+  const personalResidence = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 420,
+    narrativeText: "你租下一间公寓，每月房租3500元。"
+  }).candidates;
+  assert.deepEqual(personalResidence.map((candidate) => [
+    candidate.responsibilityKey,
+    candidate.proposedType,
+    candidate.financialScope,
+    candidate.protagonistShareWan
+  ]), [["primary_residence:main", "housing", "personal", 0.35]]);
 });
 
 test("high age alone creates no health or care expense; accepted ongoing treatment does", () => {

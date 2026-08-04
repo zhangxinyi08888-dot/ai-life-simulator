@@ -50,7 +50,10 @@ export interface ExplicitExpenseResponsibilityFact {
 }
 
 const NON_COMPLETED = /计划|打算|考虑|准备|希望|可能|如果|将来|未来|讨论|商量|看房|物色|尝试|拟|预期/u;
-const BUSINESS_PLACE = /工坊|工作室|办公室|办公场地|仓库|厂房|门店|商铺|店铺|服务器|团队|员工|原材料|推广|公司租金|经营场地/u;
+// Business-place evidence must win before a shared "租下" phrase is treated
+// as a shared household residence.  Keep the workspace terms narrow: a
+// generic mention of an ordinary desk at work is not itself a lease fact.
+const BUSINESS_PLACE = /工坊|工作室|办公室|办公场地|办公位|共享(?:办公(?:空间|室|位)?|工位)|联合(?:办公(?:空间|室|位)?|工位)|(?:租下|租用|租赁)[^。！？；]{0,12}工位|仓库|厂房|门店|商铺|店铺|服务器|团队|员工|原材料|推广|公司租金|经营场地/u;
 const MONEY = /(\d+(?:\.\d+)?)\s*(万元|万|元)/u;
 const HOUSING_EXPENSE_SIGNAL = /房租|租金|月租|物业费|住房维护|维修费|开始租住|续租|租住|租下|新租(?:的)?(?:公寓|房子|住房)|租的(?:公寓|房子|住房)|搬入|入住/u;
 const PARENT_HEALTHCARE_EXPENSE_SIGNAL = /(?:父母|爸妈|母亲|父亲|妈妈|爸爸)[^。！？；]{0,24}(?:医疗|医药|治疗|复诊|用药|医院|门诊)|(?:医疗|医药|治疗|复诊|用药|医院|门诊)[^。！？；]{0,24}(?:父母|爸妈|母亲|父亲|妈妈|爸爸)/u;
