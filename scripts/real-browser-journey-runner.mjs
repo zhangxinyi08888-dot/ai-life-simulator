@@ -510,6 +510,9 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
 
   async function startJourney() {
     trace = initializeJourneyTrace({ identity, resume: false });
+    // Fail before entering any personal data or starting a paid AI request if
+    // this tab is attached to a stale or incorrectly launched local service.
+    await readState();
     await snapshot();
     // Chromium can expose the native date control a moment before its input
     // segment is ready for keyboard entry.  Wait for that UI settle window

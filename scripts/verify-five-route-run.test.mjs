@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { auditFinancialProductionRecords } from "./lib/financial-production-audit.mjs";
 import { resolveReleaseEnvironment, sourceIdentityFromCandidate } from "./lib/release-candidate.mjs";
 import { verifyFiveRouteRun, writeReleaseApproval } from "./verify-five-route-run.mjs";
 
@@ -112,13 +113,26 @@ async function createValidRun() {
   ].join("\n")).join("\n");
   await writeFile(path.join(root, "full-test-data.md"), fullData);
   await writeFile(path.join(root, "evaluation-report.md"), records.map((record) => record.caseSlug).join("\n"));
+  const productionAudit = auditFinancialProductionRecords(records);
   await writeFile(path.join(root, "finance-audit.json"), `${JSON.stringify({
     generatedAt: "2026-08-03T00:02:00.000Z",
     validationMode: "certify",
     candidateId: candidate.candidateId,
     derivedDiagnostic: false,
     sourceIdentity: { expected: sourceIdentity, matches: true, mismatches: [] },
-    summary: {}
+    summary: {
+      invariantFailures: 0,
+      openingFactMismatchCases: 0,
+      salaryMismatchNodes: 0,
+      financialGateCommittedBlockViolationCount: 0,
+      financialGateNonEnforcedCommittedNodeCount: 0,
+      financialGateModeMissingCommittedNodeCount: 0,
+      adultBelowPolicyExpenseNodes: 0,
+      wealthDirectionMismatches: 0,
+      blockingOpenIssues: 0,
+      visibleGenerationPauseCount: 0
+    },
+    productionAudit
   }, null, 2)}\n`);
   await writeFile(path.join(root, "aggregate.json"), `${JSON.stringify({
     validationMode: "certify",
@@ -185,4 +199,15 @@ test("certification verifier requires the fresh finance machine audit in its evi
   const result = await verifyFiveRouteRun({ root: fixture.root, verifyRepository: false });
   assert.equal(result.ok, false);
   assert.equal(result.failures.some((failure) => failure.includes("finance-audit.json")), true);
+});
+
+test("certification verifier recomputes the finance production summary from raw route cases", async () => {
+  const fixture = await createValidRun();
+  const auditPath = path.join(fixture.root, "finance-audit.json");
+  const audit = JSON.parse(await readFile(auditPath, "utf8"));
+  audit.productionAudit.summary.finalReportFinancialConflictCount = 99;
+  await writeFile(auditPath, `${JSON.stringify(audit, null, 2)}\n`);
+  const result = await verifyFiveRouteRun({ root: fixture.root, verifyRepository: false });
+  assert.equal(result.ok, false);
+  assert.equal(result.failures.some((failure) => failure.includes("production summary differs")), true);
 });

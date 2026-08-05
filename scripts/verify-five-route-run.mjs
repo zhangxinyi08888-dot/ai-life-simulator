@@ -1,15 +1,54 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
 import { access, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import {
   assertCandidateMatchesRepository,
   loadCandidateManifest,
   sameSourceIdentity,
   sourceIdentityFromCandidate
 } from "./lib/release-candidate.mjs";
+import { auditFinancialProductionRecords } from "./lib/financial-production-audit.mjs";
+
+const execFileAsync = promisify(execFile);
+const ANALYZER_PATH = fileURLToPath(new URL("./analyze-financial-real-browser-run.mjs", import.meta.url));
+const ZERO_PRODUCTION_AUDIT_COUNTS = Object.freeze([
+  "fallbackWithoutRepairRecordCount",
+  "userVisibleInternalLedgerTextCount",
+  "finalReportFinancialConflictCount",
+  "unexplainedDebtDeltaNodeCount",
+  "fabricatedOpeningAccountCount",
+  "assetSummaryMismatchNodeCount",
+  "debtConservationFailureCount",
+  "autoShortfallFrozenAboveReserveNodeCount",
+  "knownRateInterestOmissionNodeCount",
+  "unsupportedRepaymentCompletionNodeCount",
+  "userVisibleFinancialPlaceholderCount",
+  "orphanFinancialAmountCount",
+  "financialAmountPrecisionViolationCount",
+  "crossJourneyInvitationEntryCount",
+  "companyOperatingFlowInPersonalLedgerCount",
+  "restrictedProjectFundingInPersonalCashCount",
+  "restrictedProjectFundingAttributionGapCount",
+  "unclassifiedGenerationCallCount",
+  "excessivePatchNodeCount"
+]);
+const ZERO_FINANCE_AUDIT_COUNTS = Object.freeze([
+  "invariantFailures",
+  "openingFactMismatchCases",
+  "salaryMismatchNodes",
+  "financialGateCommittedBlockViolationCount",
+  "financialGateNonEnforcedCommittedNodeCount",
+  "financialGateModeMissingCommittedNodeCount",
+  "adultBelowPolicyExpenseNodes",
+  "wealthDirectionMismatches",
+  "blockingOpenIssues",
+  "visibleGenerationPauseCount"
+]);
 
 function parseArgs(argv) {
   const args = {};
@@ -78,11 +117,26 @@ async function digestEvidence(root, files) {
   return digest.digest("hex");
 }
 
+async function recomputeCertifiedAnalysis({ root, cwd }) {
+  try {
+    await execFileAsync(process.execPath, [ANALYZER_PATH, root, "--mode", "certify"], {
+      cwd,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024
+    });
+  } catch (error) {
+    const detail = [error?.stderr, error?.stdout, error?.message].filter(Boolean).join("\n");
+    throw new Error(`Failed to recompute the certified financial audit: ${detail}`);
+  }
+}
+
 export async function verifyFiveRouteRun({
   root: rootInput,
   fullData: fullDataInput,
   report: reportInput,
-  verifyRepository = true
+  verifyRepository = true,
+  recomputeAudit = verifyRepository,
+  cwd = process.cwd()
 }) {
   const root = path.resolve(rootInput);
   const casesDir = path.join(root, "cases");
@@ -94,6 +148,7 @@ export async function verifyFiveRouteRun({
   const startedAfter = isoTime(candidate.runStartedAt);
   if (!Number.isFinite(startedAfter)) throw new Error(`Invalid candidate runStartedAt: ${candidate.runStartedAt}`);
   if (verifyRepository) await assertCandidateMatchesRepository(candidate);
+  if (recomputeAudit) await recomputeCertifiedAnalysis({ root, cwd });
 
   const failures = [];
   appendFailure(candidate.validationMode === "certify", "candidate is not in certify mode", failures);
@@ -236,6 +291,29 @@ export async function verifyFiveRouteRun({
     appendFailure(sameSourceIdentity(audit.sourceIdentity?.expected, expectedSourceIdentity), "finance audit source identity does not match candidate", failures);
     appendFailure(audit.sourceIdentity?.matches === true, "finance audit reports a source identity mismatch", failures);
     appendFailure(Boolean(audit.summary && typeof audit.summary === "object"), "finance audit summary is missing", failures);
+    for (const key of ZERO_FINANCE_AUDIT_COUNTS) {
+      appendFailure(
+        audit.summary?.[key] === 0,
+        `finance audit reports release blocker ${key}: ${audit.summary?.[key]}`,
+        failures
+      );
+    }
+    const recomputedProductionAudit = auditFinancialProductionRecords(records);
+    appendFailure(Boolean(audit.productionAudit?.summary && typeof audit.productionAudit.summary === "object"), "finance audit production summary is missing", failures);
+    for (const [key, value] of Object.entries(recomputedProductionAudit.summary)) {
+      appendFailure(
+        JSON.stringify(audit.productionAudit?.summary?.[key]) === JSON.stringify(value),
+        `finance audit production summary differs from cases for ${key}`,
+        failures
+      );
+    }
+    for (const key of ZERO_PRODUCTION_AUDIT_COUNTS) {
+      appendFailure(
+        recomputedProductionAudit.summary[key] === 0,
+        `finance audit recomputation found release blocker ${key}: ${recomputedProductionAudit.summary[key]}`,
+        failures
+      );
+    }
   } catch (error) {
     failures.push(`finance-audit.json missing or invalid (${error.message})`);
   }
