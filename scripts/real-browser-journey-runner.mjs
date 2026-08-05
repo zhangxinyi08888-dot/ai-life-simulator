@@ -508,7 +508,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     }
   }
 
-  async function startJourney() {
+  async function beginJourney() {
     trace = initializeJourneyTrace({ identity, resume: false });
     // Fail before entering any personal data or starting a paid AI request if
     // this tab is attached to a stale or incorrectly launched local service.
@@ -551,14 +551,17 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       await branch.fill(config.branches[index]);
     }
     await clickRole("button", "确认，从这里开始");
-    // The visible questionnaire is intentionally fixed to three answers, but
-    // a real provider may return extra suggestion cards.  Preserve every
-    // generated question in the trace while accepting any response that can
-    // render the required three-step UI; waiting for an exact array length
-    // would turn a valid real-AI response into an infinite collector wait.
-    const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length >= 3, "real AI background questions", 120000);
-    appendTrace({ type: "questions_generated", questions: questioning.questions, at: now() });
-    await persist(questioning);
+  }
+
+  async function submitBackgroundAnswers(questioning) {
+    const activeQuestioning = questioning || await readState();
+    if (activeQuestioning.step !== "questioning" || activeQuestioning.questions?.length < 3) {
+      throw new Error("Cannot submit background answers before three real-AI questions are visible");
+    }
+    if (!trace.some((entry) => entry.type === "questions_generated")) {
+      appendTrace({ type: "questions_generated", questions: activeQuestioning.questions, at: now() });
+      await persist(activeQuestioning);
+    }
     await tab.playwright.waitForTimeout(300);
 
     for (let index = 0; index < 3; index += 1) {
@@ -568,10 +571,31 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       await clickRole("button", index < 2 ? "保存补充，继续" : "开始生成平行人生");
       if (index < 2) await tab.playwright.waitForTimeout(350);
     }
+  }
+
+  async function recordSimulationStart(started) {
+    const activeStarted = started || await readState();
+    if (!(activeStarted.step === "simulating" && activeStarted.currentNode && !activeStarted.isLoading)) {
+      throw new Error("Cannot record simulation start before the first real-AI node is ready");
+    }
+    if (!trace.some((entry) => entry.type === "simulation_started")) {
+      appendTrace({ type: "simulation_started", node: activeStarted.currentNode, at: now() });
+      await persist(activeStarted);
+    }
+    return activeStarted;
+  }
+
+  async function startJourney() {
+    await beginJourney();
+    // The visible questionnaire is intentionally fixed to three answers, but
+    // a real provider may return extra suggestion cards.  Preserve every
+    // generated question in the trace while accepting any response that can
+    // render the required three-step UI; waiting for an exact array length
+    // would turn a valid real-AI response into an infinite collector wait.
+    const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length >= 3, "real AI background questions", 120000);
+    await submitBackgroundAnswers(questioning);
     const started = await waitForState((state) => state.step === "simulating" && state.currentNode && !state.isLoading, "real AI simulation start", 120000);
-    appendTrace({ type: "simulation_started", node: started.currentNode, at: now() });
-    await persist(started);
-    return started;
+    return recordSimulationStart(started);
   }
 
   async function advanceOnce(strategy, offset = 0) {
@@ -912,6 +936,9 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     waitForState,
     persist,
     importCheckpoint,
+    beginJourney,
+    submitBackgroundAnswers,
+    recordSimulationStart,
     startJourney,
     advanceOnce,
     beginAdvance,
