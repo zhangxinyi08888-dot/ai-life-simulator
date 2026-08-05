@@ -1,4 +1,5 @@
 import type { EmploymentStatus } from "../../types";
+import { estimateExpenseResponsibility } from "./expenseEstimationPolicyV2";
 import { roundWan } from "./ledgerMath";
 import type { ExpenseCommitment } from "./types";
 
@@ -50,16 +51,28 @@ export const DEFAULT_FINANCIAL_ESTIMATION_POLICY: FinancialEstimationPolicy = {
 };
 
 export function estimatedBasicLivingCommitment(input: FinancialEstimationContext): ExpenseCommitment | undefined {
-  if (input.ageInMonths < 18 * 12) return undefined;
-  const estimate = DEFAULT_FINANCIAL_ESTIMATION_POLICY.estimateBasicLivingCommitment(input);
+  // Keep this V1-named compatibility function as the single automatic-floor
+  // call site, but source every newly produced amount from the versioned V2
+  // responsibility policy.  Historical V1 records stay readable through the
+  // migration path; no new node can silently recreate a separate complete
+  // lifestyle estimate.
+  const estimate = estimateExpenseResponsibility({
+    responsibilityKind: "adult_basic_living",
+    ageInMonths: input.ageInMonths,
+    employmentStatus: input.employmentStatus,
+    livingArrangement: input.livingArrangement || "unknown",
+    cityCostBand: "unknown"
+  });
+  if (!estimate) return undefined;
   return {
     id: `estimated_basic_living_v1_${input.ageInMonths}`,
     type: "basic_living",
     displayName: "基础生活支出（系统保守估计）",
-    monthlyAmountWan: roundWan(estimate.valueWan),
+    monthlyAmountWan: roundWan(estimate.accrualMonthlyAmountWan),
     activeFromAgeInMonths: input.ageInMonths,
     status: "active",
     factStatus: "estimated",
-    evidence: [{ source: "system_policy", reasonCode: estimate.reasonCode, confidence: 0.6 }]
+    estimationPolicyId: estimate.policyId,
+    evidence: [{ source: "system_policy", reasonCode: "ADULT_BASIC_LIVING_ESTIMATED_V2", confidence: 0.6 }]
   };
 }

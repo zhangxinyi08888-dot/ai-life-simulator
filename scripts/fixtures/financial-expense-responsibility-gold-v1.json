@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "financial-expense-responsibility-gold-v1",
+  "corpusKind": "frozen_gold",
+  "nodeIndexBase": 0,
+  "reviewer": "human",
+  "purpose": "Frozen, independently annotated minimum responsibility corpus. It is not generated from the detector.",
+  "annotations": [
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "共同租住，月租5200元，两人各承担一半",
+      "expectedAction": "start",
+      "expectedType": "housing",
+      "expectedScope": "shared_household",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "expectedMonthlyAmountWan": 0.26,
+      "expectedShareRate": 0.5,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 1,
+      "evidenceExcerpt": "孩子出生且由主角承担持续育儿费用",
+      "expectedAction": "start",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "child_support:child_1",
+      "expectedMonthlyAmountWan": 0.3,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 2,
+      "evidenceExcerpt": "开始每月承担父母照护费用",
+      "expectedAction": "start",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:mother",
+      "expectedMonthlyAmountWan": 0.4,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 3,
+      "evidenceExcerpt": "长期用药每月1200元",
+      "expectedAction": "start",
+      "expectedType": "healthcare",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "recurring_healthcare:protagonist",
+      "expectedMonthlyAmountWan": 0.12,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 4,
+      "evidenceExcerpt": "开始缴纳个人商业保险",
+      "expectedAction": "start",
+      "expectedType": "insurance",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "personal_insurance:main",
+      "expectedMonthlyAmountWan": 0.08,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 5,
+      "evidenceExcerpt": "开始自行承担持续教育课程费用",
+      "expectedAction": "start",
+      "expectedType": "education",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "continuing_education:program_1",
+      "expectedMonthlyAmountWan": 0.2,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 6,
+      "evidenceExcerpt": "共同租金份额调整为每月3000元",
+      "expectedAction": "adjust",
+      "expectedType": "housing",
+      "expectedScope": "shared_household",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "expectedMonthlyAmountWan": 0.3,
+      "expectedShareRate": 0.5,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 7,
+      "evidenceExcerpt": "治疗方案调整，持续医疗费变为每月1800元",
+      "expectedAction": "adjust",
+      "expectedType": "healthcare",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "recurring_healthcare:protagonist",
+      "expectedMonthlyAmountWan": 0.18,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 8,
+      "evidenceExcerpt": "保单到期复核，未确认金额但继续原计提",
+      "expectedAction": "review",
+      "expectedType": "insurance",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "personal_insurance:main",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 9,
+      "evidenceExcerpt": "子女已独立，主角不再承担持续抚养费",
+      "expectedAction": "end",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "child_support:child_1",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 10,
+      "evidenceExcerpt": "父母照护责任到期复核，继续按原金额计提",
+      "expectedAction": "review",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:mother",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 11,
+      "evidenceExcerpt": "高龄长期医疗责任复核，继续按原金额计提",
+      "expectedAction": "review",
+      "expectedType": "healthcare",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "recurring_healthcare:protagonist",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-business-negative",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "公司租下木工坊作为经营场地",
+      "expectedAction": "ignore",
+      "expectedScope": "business_operating",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": false,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-third-party-negative",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "配偶独自支付其个人租金",
+      "expectedAction": "ignore",
+      "expectedScope": "third_party",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": false,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-office-negative",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "公司租下办公室作为经营场地",
+      "expectedAction": "ignore",
+      "expectedScope": "business_operating",
+      "expectedResponsibilityKey": "primary_residence:office",
+      "material": false,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "gold-warehouse-negative",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "公司租下仓库用于存放货物",
+      "expectedAction": "ignore",
+      "expectedScope": "business_operating",
+      "expectedResponsibilityKey": "primary_residence:warehouse",
+      "material": false,
+      "reviewer": "human"
+    }
+  ]
+}

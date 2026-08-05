@@ -120,7 +120,7 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
     const duration = Array.isArray(choice?.temporalHint?.durationMonths) && choice.temporalHint.durationMonths.length >= 2
       ? [readNumber(choice.temporalHint.durationMonths[0], defaultDuration[lifeIntensity][0]), readNumber(choice.temporalHint.durationMonths[1], defaultDuration[lifeIntensity][1])] as [number, number]
       : defaultDuration[lifeIntensity];
-    const validDeltaTypes = new Set(["person_status", "person_role", "relationship_change", "career_state", "health_state", "location_change"]);
+    const validDeltaTypes = new Set(["person_status", "person_role", "relationship_change", "career_state", "health_state", "expense_responsibility", "location_change"]);
     const expectedWorldDeltaTypes = Array.isArray(choice?.expectedWorldDeltaTypes)
       ? choice.expectedWorldDeltaTypes.filter((value: unknown): value is WorldDelta["type"] => typeof value === "string" && validDeltaTypes.has(value))
       : [];
@@ -296,7 +296,7 @@ const ROMANCE_CHOICE_CONTRACTS: Record<string, Array<{
   relationship_material_commitment_test: [
     {
       outcomeId: "make_shared_commitment_plan",
-      text: (name) => `与${name}形成一份可执行的共同生活和长期安排`,
+      text: (name) => `与${name}讨论并形成共同生活的筹备计划和长期安排`,
       impactSummary: "共同计划",
       decisionIntent: "romance:commit:shared_plan"
     },
@@ -316,7 +316,7 @@ const ROMANCE_CHOICE_CONTRACTS: Record<string, Array<{
   relationship_commitment_resolution: [
     {
       outcomeId: "make_shared_commitment_plan",
-      text: (name) => `与${name}形成一份可执行的共同生活和长期安排`,
+      text: (name) => `与${name}讨论并形成共同生活的筹备计划和长期安排`,
       impactSummary: "共同计划",
       decisionIntent: "romance:commit:shared_plan"
     },

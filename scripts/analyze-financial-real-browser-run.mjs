@@ -1,10 +1,16 @@
-import { readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   auditFinancialProductionRecords,
   extractFinancialNarrativeAuditMeta
 } from "./lib/financial-production-audit.mjs";
-import { execFile } from "node:child_process";
+import {
+  assertCandidateMatchesRepository,
+  computeSourceState,
+  loadCandidateManifest,
+  sameSourceIdentity,
+  sourceIdentityFromCandidate
+} from "./lib/release-candidate.mjs";
 import {
   adultBelowPolicyExpenseViolation,
   classifyTerminalFinancialIssues,
@@ -15,17 +21,204 @@ import {
   personalCompensationAnnualAmounts,
   personalLedgerBusinessBoundaryViolations
 } from "./financial-real-browser-audit-helpers.mjs";
+import {
+  assessExpenseResponsibilityCorpusCoverage,
+  auditExpenseLifecycleDynamics,
+  auditExpenseLifecycleCandidateTelemetry,
+  auditExpenseResponsibilities,
+  expenseLifecycleReleaseBlockers
+} from "./lib/financial-expense-audit.mjs";
 
-function runGit(args) {
-  return new Promise((resolve, reject) => execFile("git", args, { cwd: process.cwd() }, (error, stdout) => (
-    error ? reject(error) : resolve(stdout.trim())
-  )));
+function parseArgs(argv) {
+  const args = { mode: "explore" };
+  const positional = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index];
+    if (value === "--") continue;
+    if (!value.startsWith("--")) {
+      positional.push(value);
+      continue;
+    }
+    const key = value.slice(2);
+    if (!new Set(["output-root", "mode", "candidate"]).has(key)) {
+      throw new Error(`Unsupported option: ${value}`);
+    }
+    const optionValue = argv[++index];
+    if (!optionValue || optionValue.startsWith("--")) {
+      throw new Error(`${value} requires a value`);
+    }
+    args[key] = optionValue;
+  }
+  if (!positional[0] || positional.length > 2) {
+    throw new Error("usage: analyze-financial-real-browser-run.mjs <source-root> [annotation-path] [--output-root <path>] [--mode explore|certify] [--candidate <manifest-or-root>]");
+  }
+  if (!new Set(["explore", "certify"]).has(args.mode)) {
+    throw new Error(`Unsupported --mode: ${args.mode}`);
+  }
+  return { ...args, root: positional[0], annotationPath: positional[1] };
 }
 
-const root = path.resolve(process.argv[2]);
+const cli = parseArgs(process.argv.slice(2));
+const validationMode = cli.mode;
+// `root` is always read-only input. A derived diagnostic may direct its
+// reports elsewhere, so inspecting an historic run can never rewrite its
+// original audit, report, aggregate, or manifest.
+const root = path.resolve(cli.root);
+const outputRoot = cli["output-root"] ? path.resolve(process.cwd(), cli["output-root"]) : root;
+if (validationMode === "certify" && outputRoot !== root) {
+  throw new Error("Certification must write its reports into the candidate evidence root");
+}
+await mkdir(outputRoot, { recursive: true });
+const requestedAnnotationPath = cli.annotationPath || process.env.EXPENSE_RESPONSIBILITY_ANNOTATIONS;
+const launchUrl = process.env.REAL_BROWSER_LAUNCH_URL || "http://127.0.0.1:4173/";
+const annotationPath = requestedAnnotationPath
+  ? path.resolve(process.cwd(), requestedAnnotationPath)
+  : path.join(root, "expense-responsibility-annotations.json");
 const casesDir = path.join(root, "cases");
 const files = (await readdir(casesDir)).filter((name) => name.endsWith(".json")).sort();
 const records = await Promise.all(files.map(async (name) => JSON.parse(await readFile(path.join(casesDir, name), "utf8"))));
+if (!records.length) throw new Error(`No completed case JSON files found under ${casesDir}`);
+let candidate;
+try {
+  candidate = (await loadCandidateManifest(cli.candidate || root)).manifest;
+} catch (error) {
+  if (error?.code !== "ENOENT" || validationMode === "certify") throw error;
+}
+if (validationMode === "certify" && !candidate) {
+  throw new Error("Certification requires a candidate manifest");
+}
+if (candidate) {
+  if (candidate.validationMode !== validationMode) {
+    throw new Error(`Candidate mode ${candidate.validationMode} does not match analyzer mode ${validationMode}`);
+  }
+  if (path.resolve(candidate.evidenceRoot) !== root) {
+    throw new Error("Candidate evidenceRoot does not match the analyzed run root");
+  }
+  await assertCandidateMatchesRepository(candidate);
+}
+const expectedSourceIdentity = candidate ? sourceIdentityFromCandidate(candidate) : undefined;
+const sourceIdentityMismatches = expectedSourceIdentity
+  ? records.filter((record) => !sameSourceIdentity(record.sourceIdentity, expectedSourceIdentity)).map((record) => record.caseSlug)
+  : [];
+let sourceRunManifest;
+try {
+  sourceRunManifest = JSON.parse(await readFile(path.join(root, "run-manifest.json"), "utf8"));
+} catch {
+  sourceRunManifest = undefined;
+}
+
+async function loadExpenseResponsibilityAnnotations(filePath) {
+  try {
+    const payload = JSON.parse(await readFile(filePath, "utf8"));
+    const annotations = Array.isArray(payload) ? payload : payload.annotations;
+    if (!Array.isArray(annotations)) {
+      return {
+        annotations: [],
+        status: "invalid",
+        sourcePath: filePath,
+        corpusId: undefined,
+        corpusKind: undefined,
+        reviewer: undefined,
+        reviewStatus: undefined,
+        purpose: undefined,
+        sourceRun: undefined,
+        error: "annotation payload must be an array or contain annotations[]"
+      };
+    }
+    const invalid = annotations.find((annotation) => !annotation
+      || typeof annotation.caseSlug !== "string"
+      || !Number.isInteger(annotation.nodeIndex)
+      || !["start", "adjust", "end", "review", "ignore"].includes(annotation.expectedAction)
+      || !["personal", "shared_household", "business_operating", "third_party"].includes(annotation.expectedScope)
+      || (annotation.expectedAction !== "ignore" && typeof annotation.expectedResponsibilityKey !== "string"));
+    if (invalid) {
+      return {
+        annotations: [],
+        status: "invalid",
+        sourcePath: filePath,
+        corpusId: payload?.corpusId,
+        corpusKind: payload?.corpusKind,
+        reviewer: payload?.reviewer,
+        reviewStatus: payload?.reviewStatus,
+        purpose: payload?.purpose,
+        sourceRun: payload?.sourceRun,
+        error: "annotation lacks valid caseSlug/nodeIndex/action/scope/responsibilityKey"
+      };
+    }
+    return {
+      annotations,
+      status: annotations.length > 0 ? "loaded" : "not_covered",
+      sourcePath: filePath,
+      corpusId: payload?.corpusId,
+      corpusKind: payload?.corpusKind,
+      reviewer: payload?.reviewer,
+      reviewStatus: payload?.reviewStatus,
+      purpose: payload?.purpose,
+      sourceRun: payload?.sourceRun,
+      error: undefined
+    };
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        annotations: [], status: "not_provided", sourcePath: filePath, corpusId: undefined, corpusKind: undefined,
+        reviewer: undefined, reviewStatus: undefined, purpose: undefined, sourceRun: undefined, error: undefined
+      };
+    }
+    return {
+      annotations: [],
+      status: "invalid",
+      sourcePath: filePath,
+      corpusId: undefined,
+      corpusKind: undefined,
+      reviewer: undefined,
+      reviewStatus: undefined,
+      purpose: undefined,
+      sourceRun: undefined,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+const expenseResponsibilityAnnotationSource = await loadExpenseResponsibilityAnnotations(annotationPath);
+const humanReviewedAnnotationCorpus = ["human", "human_adjudicated"].includes(
+  expenseResponsibilityAnnotationSource.reviewer
+);
+const expenseResponsibilityAnnotationLabel = humanReviewedAnnotationCorpus
+  ? "人工标注责任"
+  : "机器/AI 辅助诊断标注（非人工、非发布门禁）";
+const isDerivedDiagnostic = outputRoot !== root;
+const expenseAuditRouteRecords = records.map((record) => ({
+  caseSlug: record.caseSlug,
+  history: record.finalState?.history || []
+}));
+const expenseResponsibilityAudit = auditExpenseResponsibilities({
+  annotations: expenseResponsibilityAnnotationSource.annotations,
+  routeRecords: expenseAuditRouteRecords
+});
+// This compares a persisted detector/reconciler trace with independently
+// authored annotations only after the route finishes.  Annotations are never
+// passed back to candidate generation or authority.
+const expenseLifecycleCandidateTelemetryAudit = auditExpenseLifecycleCandidateTelemetry({
+  annotations: expenseResponsibilityAnnotationSource.annotations,
+  routeRecords: expenseAuditRouteRecords
+});
+const expenseLifecycleDynamicAudit = auditExpenseLifecycleDynamics({ routeRecords: expenseAuditRouteRecords });
+const expenseResponsibilityCorpusCoverage = assessExpenseResponsibilityCorpusCoverage({
+  annotations: expenseResponsibilityAnnotationSource.annotations,
+  corpusKind: expenseResponsibilityAnnotationSource.corpusKind
+});
+const { details: expenseResponsibilityAuditDetails, ...expenseResponsibilityAuditSummary } = expenseResponsibilityAudit;
+const {
+  details: expenseLifecycleCandidateTelemetryAuditDetails,
+  ...expenseLifecycleCandidateTelemetryAuditSummary
+} = expenseLifecycleCandidateTelemetryAudit;
+const {
+  summary: expenseLifecycleDynamicAuditSummary,
+  details: expenseLifecycleDynamicAuditDetails
+} = expenseLifecycleDynamicAudit;
+const expenseLifecycleDynamicDiagnosticsByCase = new Map(
+  expenseLifecycleDynamicAuditDetails.routeDiagnostics.map((item) => [item.caseSlug, item])
+);
 const productionAudit = auditFinancialProductionRecords(records);
 const posterEvidence = await Promise.all(records.map(async (record) => {
   const posterPath = record.imagePaths?.posterPath;
@@ -116,9 +309,44 @@ let duplicateSingletonExpenseNodes = 0;
 let visibleGenerationPauseCount = 0;
 let generationRecoveredCount = 0;
 let generationPauseCaseCount = 0;
+let financialGateDecisionCount = 0;
+let financialGateWouldBlockCount = 0;
+let financialGateShadowWouldBlockCount = 0;
+let financialGateEnforcedRejectedAttemptCount = 0;
+let financialGateCommittedBlockViolationCount = 0;
+let financialGateEnforcedCommittedNodeCount = 0;
+let financialGateNonEnforcedCommittedNodeCount = 0;
+let financialGateModeMissingCommittedNodeCount = 0;
+let financialGateCriticalFactGroupCount = 0;
+let financialGateSatisfiedFactGroupCount = 0;
+let expenseLifecycleTriggerCount = 0;
+let expenseLifecycleCoveredTriggerCount = 0;
+const financialGateWouldBlockEvidence = [];
 
 for (const record of records) {
   const history = record.finalState?.history || [];
+  const gateEvents = record.finalState?.financialGateEvents || [];
+  for (const event of gateEvents) {
+    financialGateDecisionCount += 1;
+    if (!event?.wouldBlock) continue;
+    financialGateWouldBlockCount += 1;
+    if (event.mode === "shadow") financialGateShadowWouldBlockCount += 1;
+    if (event.mode === "enforced" && event.allowDomainCommit === false) financialGateEnforcedRejectedAttemptCount += 1;
+    financialGateWouldBlockEvidence.push({
+      caseSlug: record.caseSlug,
+      historyLength: event.historyLength,
+      mode: event.mode,
+      regenerationCount: event.regenerationCount,
+      transactionId: event.transactionId,
+      reasonCodes: event.reasonCodes || [],
+      relatedIssueIds: event.relatedIssueIds || [],
+      relatedProposalIds: event.relatedProposalIds || [],
+      authoritativeAgeBefore: event.authoritativeAgeBefore,
+      previewAgeInMonths: event.previewAgeInMonths,
+      previewPeriodIncomeWan: event.previewPeriodIncomeWan,
+      previewPeriodExpenseWan: event.previewPeriodExpenseWan
+    });
+  }
   totalNodes += history.length;
   const nodes = [];
   let previous;
@@ -245,6 +473,27 @@ for (const record of records) {
     const wealthDelta = previous ? Number(node.attributes?.wealth || 0) - Number(previous.node.attributes?.wealth || 0) : 0;
     const wealthDirectionMismatch = Boolean(previous && ((netWorthDelta > 0.02 && wealthDelta < 0) || (netWorthDelta < -0.02 && wealthDelta > 0)));
     if (wealthDirectionMismatch) wealthDirectionMismatches += 1;
+    const financialMeta = node.financialProcessingMeta || {};
+    // The opening snapshot predates the candidate → Preview → gate flow.  Every
+    // subsequently generated node in a release corpus must declare that the
+    // commit used the enforced gate; otherwise a successful result could be a
+    // shadow-only observation rather than the zero-state-change contract.
+    if (index > 0) {
+      if (financialMeta.financialGateMode === "enforced") {
+        financialGateEnforcedCommittedNodeCount += 1;
+      } else if (financialMeta.financialGateMode === "shadow" || financialMeta.financialGateMode === "off") {
+        financialGateNonEnforcedCommittedNodeCount += 1;
+      } else {
+        financialGateModeMissingCommittedNodeCount += 1;
+      }
+    }
+    financialGateCriticalFactGroupCount += Number(financialMeta.financialGateCriticalFactGroupCount || 0);
+    financialGateSatisfiedFactGroupCount += Number(financialMeta.financialGateSatisfiedCriticalFactGroupCount || 0);
+    expenseLifecycleTriggerCount += Number(financialMeta.expenseLifecycleTriggerCount || 0);
+    expenseLifecycleCoveredTriggerCount += Number(financialMeta.expenseLifecycleCoveredTriggerCount || 0);
+    if (financialMeta.financialGateMode === "enforced" && financialMeta.financialGateWouldBlock === true) {
+      financialGateCommittedBlockViolationCount += 1;
+    }
 
     for (const issue of ledger.unresolvedIssues || []) {
       const key = `${record.caseSlug}:${issue.id}`;
@@ -310,6 +559,7 @@ for (const record of records) {
     recoveredGenerationAttempts,
     firstFinancialState: first,
     finalFinancialState: last,
+    expenseLifecycleDiagnostics: expenseLifecycleDynamicDiagnosticsByCase.get(record.caseSlug),
     openingFactMismatch,
     realityMetrics,
     change: {
@@ -341,6 +591,10 @@ const issueCodeCounts = openIssues.reduce((acc, issue) => {
   return acc;
 }, {});
 const summary = {
+  validationMode,
+  candidateId: candidate?.candidateId ?? null,
+  sourceIdentityMatches: sourceIdentityMismatches.length === 0,
+  sourceIdentityMismatches,
   caseCount: cases.length,
   totalNodes,
   invariantFailures,
@@ -356,6 +610,44 @@ const summary = {
   missingOptionHoldingNodes,
   missingPropertyNodes,
   wealthDirectionMismatches,
+  financialGateDecisionCount,
+  financialGateWouldBlockCount,
+  financialGateShadowWouldBlockCount,
+  financialGateEnforcedRejectedAttemptCount,
+  financialGateCommittedBlockViolationCount,
+  financialGateEnforcedCommittedNodeCount,
+  financialGateNonEnforcedCommittedNodeCount,
+  financialGateModeMissingCommittedNodeCount,
+  rejectedNodeTimelineAdvanceCount: financialGateCommittedBlockViolationCount,
+  rejectedNodePeriodAccrualCount: financialGateCommittedBlockViolationCount,
+  financialGateCriticalFactGroupCount,
+  financialGateSatisfiedFactGroupCount,
+  criticalFactGroupCoverageRatePct: financialGateCriticalFactGroupCount === 0
+    ? 100
+    : percent(financialGateSatisfiedFactGroupCount, financialGateCriticalFactGroupCount),
+  expenseLifecycleTriggerCount,
+  expenseLifecycleCoveredTriggerCount,
+  // Compatibility-only detector handling rate.  It must never be labelled as
+  // real responsibility coverage because the detector created its own
+  // denominator; a zero sample remains null/not_covered rather than 100%.
+  machineDetectedResponsibilityHandlingRatePct: expenseLifecycleTriggerCount === 0
+    ? null
+    : percent(expenseLifecycleCoveredTriggerCount, expenseLifecycleTriggerCount),
+  machineDetectedResponsibilityHandlingStatus: expenseLifecycleTriggerCount === 0 ? "not_covered" : "observed",
+  expenseResponsibilityAnnotationLoadStatus: expenseResponsibilityAnnotationSource.status,
+  expenseResponsibilityAnnotationSourcePath: expenseResponsibilityAnnotationSource.sourcePath,
+  expenseResponsibilityAnnotationCorpusId: expenseResponsibilityAnnotationSource.corpusId ?? null,
+  expenseResponsibilityAnnotationCorpusKind: expenseResponsibilityAnnotationSource.corpusKind ?? null,
+  expenseResponsibilityAnnotationReviewer: expenseResponsibilityAnnotationSource.reviewer ?? null,
+  expenseResponsibilityAnnotationReviewStatus: expenseResponsibilityAnnotationSource.reviewStatus ?? null,
+  expenseResponsibilityAnnotationPurpose: expenseResponsibilityAnnotationSource.purpose ?? null,
+  expenseResponsibilityAnnotationLoadError: expenseResponsibilityAnnotationSource.error ?? null,
+  expenseResponsibilityCorpusCoverageStatus: expenseResponsibilityCorpusCoverage.status,
+  expenseResponsibilityCorpusCoverageFailures: expenseResponsibilityCorpusCoverage.failures,
+  expenseResponsibilityCorpusCoverageCounts: expenseResponsibilityCorpusCoverage.counts,
+  ...expenseResponsibilityAuditSummary,
+  ...expenseLifecycleCandidateTelemetryAuditSummary,
+  ...expenseLifecycleDynamicAuditSummary,
   adultZeroExpenseNodes,
   employedAt80PlusNodes,
   employedAt80PlusWithoutEvidenceNodes,
@@ -383,9 +675,54 @@ const summary = {
   issueCodeCounts,
   ...productionAudit.summary
 };
-const audit = { generatedAt: new Date().toISOString(), root, summary, cases, issues, productionAudit };
-await writeFile(path.join(root, "finance-audit.json"), `${JSON.stringify(audit, null, 2)}\n`);
+const audit = {
+  generatedAt: new Date().toISOString(),
+  validationMode,
+  candidateId: candidate?.candidateId ?? null,
+  sourceIdentity: expectedSourceIdentity
+    ? {
+      expected: expectedSourceIdentity,
+      matches: sourceIdentityMismatches.length === 0,
+      mismatches: sourceIdentityMismatches
+    }
+    : null,
+  root,
+  sourceRoot: root,
+  outputRoot,
+  sourceRun: sourceRunManifest
+    ? {
+      runId: sourceRunManifest.runId,
+      repositoryCommit: sourceRunManifest.repositoryCommit,
+      runStartedAt: sourceRunManifest.runStartedAt,
+      runCompletedAt: sourceRunManifest.runCompletedAt
+    }
+    : null,
+  derivedDiagnostic: isDerivedDiagnostic,
+  summary,
+  cases,
+  issues,
+  productionAudit,
+  financialGateWouldBlockEvidence,
+  expenseResponsibilityAudit: {
+    annotationSource: expenseResponsibilityAnnotationSource,
+    corpusCoverage: expenseResponsibilityCorpusCoverage,
+    ...expenseResponsibilityAuditSummary,
+    details: expenseResponsibilityAuditDetails
+  },
+  expenseLifecycleCandidateTelemetryAudit: {
+    annotationSource: expenseResponsibilityAnnotationSource,
+    ...expenseLifecycleCandidateTelemetryAuditSummary,
+    details: expenseLifecycleCandidateTelemetryAuditDetails
+  },
+  expenseLifecycleDynamicAudit: {
+    ...expenseLifecycleDynamicAuditSummary,
+    details: expenseLifecycleDynamicAuditDetails
+  }
+};
+await writeFile(path.join(outputRoot, "finance-audit.json"), `${JSON.stringify(audit, null, 2)}\n`);
 
+const displayPercent = (value) => value === null || value === undefined ? "未覆盖" : `${value}%`;
+const expenseResponsibilityAuditLabel = `${summary.expenseResponsibilityAnnotationLoadStatus}${summary.expenseResponsibilityAnnotationCorpusId ? ` / ${summary.expenseResponsibilityAnnotationCorpusId}` : ""}`;
 const routeRows = cases.map((item) => {
   const last = item.finalFinancialState;
   return `| ${item.caseSlug} | ${item.scenario} | ${item.closureType} | ${item.nodeCount} | ${item.invitationCount} | ${last.cashWan} | ${last.netWorthWan} | ${last.totalDebtWan} | ${last.annualAfterTaxIncomeWan} | ${last.annualCoreExpenseWan} | ${last.employmentStatus} |`;
@@ -404,11 +741,57 @@ const routeRealityRows = cases.map((item) => {
     + Number(item.openingFactMismatch);
   return `| ${item.caseSlug} | ${metrics.invariantFailures} | ${metrics.salaryMismatchNodes} | ${metrics.adultZeroExpenseNodes} | ${metrics.personalLedgerBusinessBoundaryNodes} | ${metrics.duplicateSingletonExpenseNodes} | ${metrics.missingPropertyNodes} | ${metrics.missingOptionHoldingNodes} | ${metrics.valuedOptionOmittedNodes} | ${metrics.employedAt80PlusNodes} | ${metrics.openIssues} | ${blockerCount === 0 ? "核心现实性门禁通过" : "存在阻断"} |`;
 }).join("\n");
+const displayWan = (value) => value === null || value === undefined ? "未覆盖" : `${value} 万`;
+const dynamicRouteDiagnostics = expenseLifecycleDynamicAuditDetails.routeDiagnostics;
+const caseBySlug = new Map(cases.map((item) => [item.caseSlug, item]));
+const cumulativeFlowRows = dynamicRouteDiagnostics.map((item) => {
+  const flow = item.flow;
+  return `| ${item.caseSlug} | ${flow.periodSummaryStatus} | ${displayWan(flow.cumulativeIncomeWan)} | ${displayWan(flow.cumulativeCoreExpenseWan)} | ${displayWan(flow.cumulativeOneOffExpenseWan)} | ${displayWan(flow.cumulativeDebtServiceWan)} | ${displayWan(flow.cumulativeNetCashFlowWan)} | ${displayPercent(flow.savingsRatePct)} |`;
+}).join("\n") || "| 无 | not_covered | 未覆盖 | 未覆盖 | 未覆盖 | 未覆盖 | 未覆盖 | 未覆盖 |";
+const annualExpenseDistributionRows = summary.annualCoreExpenseDistribution.map((item) => (
+  `| ${item.annualCoreExpenseWan} | ${item.nodeCount} | ${displayPercent(item.nodeRatePct)} |`
+)).join("\n") || "| 未覆盖 | 0 | 未覆盖 |";
+const responsibilityLifecycleRows = summary.responsibilityLifecycleByKind.map((item) => (
+  `| ${item.responsibilityKind} | ${item.starts} | ${item.adjusts} | ${item.ends} | ${item.reviews} | ${item.terminalActiveCount} | ${item.terminalPausedCount} | ${item.terminalEndedCount} | ${item.terminalOverdueReviewCount} |`
+)).join("\n") || "| 未覆盖 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |";
+const familyResponsibilityRunRateRows = expenseLifecycleDynamicAuditDetails.familyResponsibilityRunRateWindows.map((item) => (
+  `| ${item.caseSlug} | ${item.nodeIndex} | ${item.action} | ${item.responsibilityKey} | ${item.responsibilityKind} | ${displayWan(item.before.annualizedCoreExpenseRunRateWan)}（${item.before.availableNodeCount}/3，${item.before.status}） | ${displayWan(item.after.annualizedCoreExpenseRunRateWan)}（${item.after.availableNodeCount}/3，${item.after.status}） |`
+)).join("\n") || "| 未覆盖 | — | — | — | — | 未覆盖 | 未覆盖 |";
+const terminalExpenseStateRows = expenseLifecycleDynamicAuditDetails.terminalExpenseStates.map((item) => {
+  const route = caseBySlug.get(item.caseSlug);
+  const flow = dynamicRouteDiagnostics.find((candidate) => candidate.caseSlug === item.caseSlug)?.flow || {};
+  return `| ${item.caseSlug} | ${displayWan(route?.finalFinancialState?.cashWan)} | ${displayWan(route?.finalFinancialState?.netWorthWan)} | ${displayPercent(flow.savingsRatePct)} | ${item.finalFactStatus} / ${item.finalFactStatusStatus} | ${item.activeCommitmentCount} / ${item.pausedCommitmentCount} / ${item.endedCommitmentCount} | ${item.overdue.length} |`;
+}).join("\n") || "| 未覆盖 | 未覆盖 | 未覆盖 | 未覆盖 | not_covered | 0 / 0 / 0 | 0 |";
 const recoverableRows = cases.flatMap((item) => item.recoverableEvents.map((event) => (
   `| ${item.caseSlug} | ${event.type} | ${event.historyLength ?? 0} | ${String(event.message || "页面可恢复错误").replace(/\|/g, "\\|")} |`
 ))).join("\n") || "| 无 | — | — | 无 |";
+const financialGateEvidenceRows = financialGateWouldBlockEvidence.map((event) => (
+  `| ${event.caseSlug} | ${event.historyLength ?? 0} | ${event.mode} | ${event.regenerationCount ?? 0} | ${(event.reasonCodes || []).join("+") || "—"} | ${(event.relatedIssueIds || []).join("+") || "—"} | ${event.authoritativeAgeBefore ?? "—"} → ${event.previewAgeInMonths ?? "—"} | ${event.previewPeriodIncomeWan ?? 0} / ${event.previewPeriodExpenseWan ?? 0} |`
+)).join("\n") || "| 无 | — | — | — | — | — | — | — |";
 const issueRows = Object.entries(issueCodeCounts).map(([code, count]) => `| ${code} | ${count} |`).join("\n") || "| 无 | 0 |";
+const expenseResponsibilityMissRows = expenseResponsibilityAuditDetails.missed.map((item) => (
+  `| ${item.caseSlug} | ${item.nodeIndex} | ${item.expectedAction} | ${item.expectedResponsibilityKey} | ${item.expectedScope} | ${String(item.evidenceExcerpt || "").replace(/\|/g, "\\|")} |`
+)).join("\n") || "| 无 | — | — | — | — | — |";
+const expenseResponsibilityFalsePositiveRows = expenseResponsibilityAuditDetails.falsePositives.map((item) => (
+  `| ${item.caseSlug} | ${item.nodeIndex} | ${item.action} | ${item.responsibilityKey} | ${item.financialScope} | ${item.source || "machine"} |`
+)).join("\n") || "| 无 | — | — | — | — | — |";
+const lifecycleCandidateTelemetryMatchRows = expenseLifecycleCandidateTelemetryAuditDetails.matches.map((item) => (
+  `| ${item.annotation.caseSlug} | ${item.annotation.nodeIndex} | ${item.candidate.action} | ${item.candidate.responsibilityKey} | ${item.candidate.financialScope} | ${item.candidate.reconcilerDisposition} | ${(item.candidate.reconcilerReasonCodes || []).join(", ") || "—"} |`
+)).join("\n") || "| 无 | — | — | — | — | — | — |";
+const lifecycleCandidateTelemetryMissRows = expenseLifecycleCandidateTelemetryAuditDetails.missed.map((item) => (
+  `| ${item.caseSlug} | ${item.nodeIndex} | ${item.expectedAction} | ${item.expectedResponsibilityKey} | ${item.expectedScope} | ${String(item.evidenceExcerpt || "").replace(/\|/g, "\\|")} |`
+)).join("\n") || "| 无 | — | — | — | — | — |";
+const lifecycleCandidateTelemetryFalsePositiveRows = expenseLifecycleCandidateTelemetryAuditDetails.falsePositives.map((item) => (
+  `| ${item.caseSlug} | ${item.nodeIndex} | ${item.action} | ${item.responsibilityKey} | ${item.financialScope} | ${item.reconcilerDisposition} | ${(item.reconcilerReasonCodes || []).join(", ") || "—"} |`
+)).join("\n") || "| 无 | — | — | — | — | — | — |";
+const lifecycleCandidateTelemetryNegativeViolationRows = expenseLifecycleCandidateTelemetryAuditDetails.negativeViolations.map((item) => (
+  `| ${item.annotation.caseSlug} | ${item.annotation.nodeIndex} | ${item.candidate.action} | ${item.candidate.responsibilityKey} | ${item.candidate.financialScope} | ${item.candidate.reconcilerDisposition} | ${(item.candidate.reconcilerReasonCodes || []).join(", ") || "—"} |`
+)).join("\n") || "| 无 | — | — | — | — | — | — |";
+const frozenExpenseResponsibilityCorpus = expenseResponsibilityAnnotationSource.corpusKind === "frozen_gold";
+const expenseLifecycleInvariantBlockers = expenseLifecycleReleaseBlockers(summary);
+const completedCasesPassed = records.every((record) => record.passed);
 const blockers = [
+  isDerivedDiagnostic && "派生只读诊断不构成当前提交的发布证据",
   invariantFailures > 0 && `账本/派生状态不变量失败：${invariantFailures} 个节点`,
   openingFactMismatchCases > 0 && `人物明确提供房产/房贷但开局账本资产和负债均为 0：${openingFactMismatchCases} 组`,
   salaryMismatchNodes > 0 && `正文个人薪资/收入与权威个人账本不一致：${salaryMismatchNodes} 个节点`,
@@ -429,6 +812,8 @@ const blockers = [
   productionAudit.summary.financialAmountPrecisionViolationCount > 0 && `财务金额长浮点泄漏：${productionAudit.summary.financialAmountPrecisionViolationCount} 处`,
   productionAudit.summary.crossJourneyInvitationEntryCount > 0 && `邀请或压力 Arc 跨 journey 串线：${productionAudit.summary.crossJourneyInvitationEntryCount} 条`,
   productionAudit.summary.companyOperatingFlowInPersonalLedgerCount > 0 && `公司经营收支进入个人账本：${productionAudit.summary.companyOperatingFlowInPersonalLedgerCount} 个账户节点`,
+  productionAudit.summary.restrictedProjectFundingInPersonalCashCount > 0 && `受限项目/公益资金进入个人可支配现金：${productionAudit.summary.restrictedProjectFundingInPersonalCashCount} 笔交易`,
+  productionAudit.summary.restrictedProjectFundingAttributionGapCount > 0 && `受限项目资金缺少逐 Accepted Event 归因：${productionAudit.summary.restrictedProjectFundingAttributionGapCount} 笔交易，无法证明未进入个人现金`,
   productionAudit.summary.blackOrEmptyPosterExportCount > 0 && `海报导出为空或全黑：${productionAudit.summary.blackOrEmptyPosterExportCount} 张`,
   productionAudit.summary.duplicateFinalImageEvidenceCount > 0 && `海报与报告页证据重复：${productionAudit.summary.duplicateFinalImageEvidenceCount} 组`,
   productionAudit.summary.unclassifiedGenerationCallCount > 0 && `未分类模型调用：${productionAudit.summary.unclassifiedGenerationCallCount} 次`,
@@ -437,7 +822,9 @@ const blockers = [
     && productionAudit.summary.singleFullGenerationNodeRate < 0.9
     && `仅一次完整生成的节点比例 ${(productionAudit.summary.singleFullGenerationNodeRate * 100).toFixed(1)}%，低于 90%`,
   visibleGenerationPauseCount > 0 && `用户可见生成暂停：${visibleGenerationPauseCount} 次，涉及 ${generationPauseCaseCount} 组（恢复成功 ${generationRecoveredCount} 次）`,
-  (!records.every((record) => record.passed) || records.length !== 5) && `固定五路线契约未全部通过：${records.filter((record) => record.passed).length}/${records.length}`,
+  !completedCasesPassed && `已完成路线契约未全部通过：${records.filter((record) => record.passed).length}/${records.length}`,
+  validationMode === "certify" && records.length !== 5 && `固定五路线数量不完整：${records.length}/5`,
+  sourceIdentityMismatches.length > 0 && `路线来源指纹与发布候选不一致：${sourceIdentityMismatches.join("、")}`,
   employedAt80PlusNodes > 0 && `80 岁以后仍为 employed：${employedAt80PlusNodes} 个节点（其中无近期工作证据 ${employedAt80PlusWithoutEvidenceNodes} 个）`,
   duplicateActiveShortfallNodes > 0 && `单路线同时存在多个活跃 shortfall 账户：${duplicateActiveShortfallNodes} 个节点`,
   systemShortfallScheduleIssueNodes > 0 && `系统 shortfall 自触发 UNKNOWN_DEBT_SCHEDULE：${systemShortfallScheduleIssueNodes} 个节点`,
@@ -453,21 +840,62 @@ const blockers = [
   personalLedgerBusinessBoundaryNodes > 0 && `公司营收或经营成本进入个人收支：${personalLedgerBusinessBoundaryNodes} 个节点`,
   duplicateSingletonExpenseNodes > 0 && `basic_living 或 housing 存在重复 active 基线：${duplicateSingletonExpenseNodes} 个节点`,
   adultBelowPolicyExpenseNodes > 0 && `23 岁后生活支出仍低于成年保守政策下限：${adultBelowPolicyExpenseNodes} 个节点`,
+  financialGateNonEnforcedCommittedNodeCount > 0 && `生成节点未使用 enforced 财务接受门：${financialGateNonEnforcedCommittedNodeCount} 个节点`,
+  financialGateModeMissingCommittedNodeCount > 0 && `生成节点缺少财务接受门模式证据：${financialGateModeMissingCommittedNodeCount} 个节点`,
+  financialGateCommittedBlockViolationCount > 0 && `接受门阻断候选仍进入历史并发生计提：${financialGateCommittedBlockViolationCount} 个节点`,
+  summary.criticalFactGroupCoverageRatePct < 100 && `重大财务事实组覆盖率 ${summary.criticalFactGroupCoverageRatePct}%，低于 100%`,
+  expenseResponsibilityAnnotationSource.status === "invalid" && `独立支出责任标注文件无效：${expenseResponsibilityAnnotationSource.error || annotationPath}`,
+  frozenExpenseResponsibilityCorpus && summary.expenseResponsibilityAnnotatedCandidateCount === 0 && "冻结支出责任语料未覆盖任何 material 候选",
+  frozenExpenseResponsibilityCorpus && summary.expenseResponsibilityCorpusCoverageStatus !== "covered"
+    && `冻结支出责任语料样本不足：${summary.expenseResponsibilityCorpusCoverageFailures.join(",") || summary.expenseResponsibilityCorpusCoverageStatus}`,
+  frozenExpenseResponsibilityCorpus && summary.expenseResponsibilityMissedCount > 0 && `冻结支出责任语料漏检：${summary.expenseResponsibilityMissedCount} 条`,
+  frozenExpenseResponsibilityCorpus && summary.expenseResponsibilityFalsePositiveCount > 0 && `冻结支出责任语料误报：${summary.expenseResponsibilityFalsePositiveCount} 条`,
+  frozenExpenseResponsibilityCorpus && summary.explicitRecurringExpenseCandidateCount === 0 && "冻结支出责任语料未覆盖任何明确金额责任",
+  frozenExpenseResponsibilityCorpus && summary.explicitRecurringExpenseCoveragePct !== 100
+    && `冻结支出责任明确金额覆盖率：${displayPercent(summary.explicitRecurringExpenseCoveragePct)}`,
+  summary.expenseResponsibilityScopeMismatchCount > 0 && `个人账本存在非法支出 scope：${summary.expenseResponsibilityScopeMismatchCount} 条`,
+  summary.expenseSharedAmountMismatchCount > 0 && `共同支出总额与主角份额不一致：${summary.expenseSharedAmountMismatchCount} 条`,
+  ...expenseLifecycleInvariantBlockers,
+  wealthDirectionMismatches > 0 && `财富属性与净资产变化方向相反：${wealthDirectionMismatches} 个节点`,
   blockingOpenIssues.length > 0 && `终局仍存在 blocking open issue：${blockingOpenIssues.length} 个`,
   issueHealth.servicingWarningOverflow > 0 && `偿付 warning 超过真实困境债务账户：${servicingWarnings.length}/${distressedDebtAccountKeys.size}`,
   issueHealth.orphanServicingWarnings.length > 0 && `已恢复或不存在的债务仍挂偿付 warning：${issueHealth.orphanServicingWarnings.length} 个账户`,
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
 ].filter(Boolean);
-const routeContractPassed = records.length === 5 && records.every((record) => record.passed);
-const releaseCandidate = routeContractPassed && blockers.length === 0;
-const m7Ready = routeContractPassed && blockers.length === 0 && invariantFailures === 0;
-const report = `# 五组真实网页测试：财务完整审计报告
+const routeContractPassed = records.length === 5 && completedCasesPassed;
+const releaseCandidate = validationMode === "certify" && !isDerivedDiagnostic && routeContractPassed && blockers.length === 0;
+const m7Ready = releaseCandidate && invariantFailures === 0;
+const modeLabel = validationMode === "certify" ? "冻结发布候选认证" : "开发探索";
+const runEvidenceLabel = isDerivedDiagnostic
+  ? "原始历史路线"
+  : validationMode === "certify" ? "本轮五条全新真实网页路线" : "本轮已完成的真实网页探索路线";
+const runPossessive = isDerivedDiagnostic ? "原始路线" : "本轮";
+const routeContractLabel = validationMode === "certify"
+  ? `2/2/1 路径契约${routeContractPassed ? "全部通过" : "未全部通过"}`
+  : "探索模式不要求凑齐 2/2/1";
+const nextSteps = releaseCandidate
+  ? "1. 执行全量单测、lint、构建与十张图片检查；全部通过后生成小型发布批准清单。\n2. 后续仅文档、测试或证据归档修改不使本轮运行失效；任何运行时代码变化必须创建新候选。"
+  : validationMode === "explore"
+    ? `1. 本轮只用于发现问题，不构成发布证据。${blockers.length ? "集中关闭本轮全部阻断，并用受影响路线和确定性场景定向复验。" : "当前未发现动态阻断，可继续完成任务级静态与定向门禁。"}\n2. 不要在每次修复后跑完整 2/2/1；所有已知问题关闭后再冻结一个干净候选并完整认证一次。`
+    : "1. 保留并汇总本轮全部失败，不要逐项修复后立即重跑五路线。\n2. 集中修复并完成定向回归后，创建一个新的干净发布候选，再完整认证一次。";
+const recertificationInstruction = validationMode === "explore"
+  ? "本轮属于探索模式；逐项使用确定性回归和受影响路线复验，所有已知阻断关闭后再冻结发布候选。"
+  : releaseCandidate
+    ? "本轮候选已通过；只有运行时指纹变化才需要创建新候选并重新认证。"
+    : "本轮认证失败；集中关闭全部阻断后创建一个新候选，再完整运行一次 2/2/1。";
+const report = `# ${isDerivedDiagnostic
+  ? "历史路线支出责任来源诊断报告"
+  : validationMode === "certify" ? "五组真实网页测试：财务完整审计报告" : "真实网页探索：财务审计报告"}
+
+${isDerivedDiagnostic
+  ? `> 这是对既有路线产物的只读后处理。输入根目录：\`${root}\`；诊断输出目录：\`${outputRoot}\`。它不能证明当前提交，也不能作为发布证据。${sourceRunManifest?.repositoryCommit ? ` 原始路线提交：\`${sourceRunManifest.repositoryCommit}\`。` : ""}`
+  : ""}
 
 ## 结论
 
-本轮五条全新真实网页路线的 **2/2/1 路径契约${records.length === 5 && records.every((record) => record.passed) ? "全部通过" : "未全部通过"}**，账本恒等式、含家庭支持与债务利息的可支配现金流恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。
+本轮模式：**${modeLabel}**。${runEvidenceLabel}的 **${routeContractLabel}**，账本恒等式、含家庭支持与债务利息的可支配现金流恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。
 
-本轮动态发布判断：**${releaseCandidate ? "通过真实路线财务门禁" : "不允许发布"}**。${releaseCandidate ? "以下 P0 动态阻断项均为 0。" : "存在以下阻断项："}
+${isDerivedDiagnostic ? "派生诊断发布判断" : "本轮动态发布判断"}：**${releaseCandidate ? "通过真实路线财务门禁" : validationMode === "explore" ? "探索结果，不作发布判断" : "不允许发布"}**。${releaseCandidate ? "以下 P0 动态阻断项均为 0。" : blockers.length ? "存在以下阻断项：" : "未发现阻断，但当前模式不产生发布证据。"}
 
 ${blockers.length ? blockers.map((item) => `- ${item}`).join("\n") : "- 无"}
 
@@ -477,7 +905,7 @@ ${blockers.length ? blockers.map((item) => `- ${item}`).join("\n") : "- 无"}
 |---|---|---:|---|---|---|---:|---|
 ${routeEvidenceRows}
 
-本轮没有失败后替换人物；所有完成记录均来自同一新 run。页面可恢复错误如下，均通过可见重试流程继续：
+${isDerivedDiagnostic ? "原始路线记录" : "本轮"}没有失败后替换人物；所有完成记录均来自同一${isDerivedDiagnostic ? "历史" : "新"} run。页面可恢复错误如下，均通过可见重试流程继续：
 
 | 人物 | 类型 | 当时历史节点 | 错误 |
 |---|---|---:|---|
@@ -488,6 +916,30 @@ ${recoverableRows}
 | 指标 | 结果 | 判断 |
 |---|---:|---|
 | 算术/现金/年龄不变量失败 | ${invariantFailures} | ${invariantFailures === 0 ? "通过" : "失败"} |
+| 财务接受门决定 | ${financialGateDecisionCount} | shadow 与 enforced 使用同一判断 |
+| shadow would-block | ${financialGateShadowWouldBlockCount} | 必须逐项复核召回与误报 |
+| enforced 拒绝尝试 | ${financialGateEnforcedRejectedAttemptCount} | 允许内部恢复，不得进入历史 |
+| 已提交生成节点的 enforced 接受门 | ${financialGateEnforcedCommittedNodeCount} | 发布门禁必须覆盖全部生成节点 |
+| 已提交生成节点的非 enforced / 缺失模式 | ${financialGateNonEnforcedCommittedNodeCount} / ${financialGateModeMissingCommittedNodeCount} | 发布门禁必须均为 0 |
+| 阻断候选仍提交/推进/计提 | ${financialGateCommittedBlockViolationCount} | 发布门禁必须为 0 |
+| 重大事实组覆盖率 | ${summary.criticalFactGroupCoverageRatePct}%（${financialGateSatisfiedFactGroupCount}/${financialGateCriticalFactGroupCount}） | 目标 100% |
+| 机器检测后的处理率（兼容指标） | ${displayPercent(summary.machineDetectedResponsibilityHandlingRatePct)}（${expenseLifecycleCoveredTriggerCount}/${expenseLifecycleTriggerCount}） | 只表示 detector 已命中后的处理；${summary.machineDetectedResponsibilityHandlingStatus} 时不得称为覆盖 |
+| 独立责任标注语料 | ${expenseResponsibilityAuditLabel} | 标注源：${summary.expenseResponsibilityAnnotationSourcePath} |
+| 冻结语料样本状态 | ${summary.expenseResponsibilityCorpusCoverageStatus} | ${summary.expenseResponsibilityCorpusCoverageFailures.join(", ") || "—"} |
+| 独立责任召回 | ${displayPercent(summary.expenseResponsibilityRecallPct)}（${summary.expenseResponsibilityTruePositiveCount}/${summary.expenseResponsibilityAnnotatedCandidateCount}；漏检 ${summary.expenseResponsibilityMissedCount}） | 冻结 gold 语料必须 100%；新鲜五路线仅诊断 |
+| 独立责任精度 | ${displayPercent(summary.expenseResponsibilityPrecisionPct)}（检测 ${summary.expenseResponsibilityDetectedCandidateCount}；误报 ${summary.expenseResponsibilityFalsePositiveCount}） | 冻结 gold 语料必须 100%；0 个检测样本显示未覆盖 |
+| V4 候选 trace | ${summary.expenseLifecycleCandidateTelemetryStatus}（${summary.expenseLifecycleCandidateTelemetryRecordCount} 条） | shadow / enforced 均记录候选与 reconciler 决定，不代表已入账 |
+| V4 候选对照 recall | ${displayPercent(summary.expenseLifecycleCandidateTelemetryRecallPct)}（匹配 ${summary.expenseLifecycleCandidateTelemetryMatchCount}/${summary.expenseLifecycleCandidateTelemetryAnnotatedCandidateCount}；漏检 ${summary.expenseLifecycleCandidateTelemetryMissedCount}） | 独立标注只在运行后对照，不参与生成 |
+| V4 候选对照 precision | ${displayPercent(summary.expenseLifecycleCandidateTelemetryPrecisionPct)}（计划 ${summary.expenseLifecycleCandidateTelemetryPlannedCandidateCount}；误报 ${summary.expenseLifecycleCandidateTelemetryFalsePositiveCount}） | 仅已标注节点参与误报分母；0 个计划样本显示未覆盖 |
+| 明确金额责任覆盖 | ${displayPercent(summary.explicitRecurringExpenseCoveragePct)}（${summary.explicitRecurringExpenseTruePositiveCount}/${summary.explicitRecurringExpenseCandidateCount}） | 冻结 gold 语料必须 100%，且分母非零 |
+| 独立责任覆盖状态 | ${summary.coverageStatus} / ${summary.precisionStatus} | 0 个 material 标注必须为 not_covered，不能显示 100% |
+| 年化核心支出节点分布 | ${summary.annualCoreExpenseDistributionStatus}（${summary.annualCoreExpenseObservedNodeCount} 个已观测，众数 ${displayWan(summary.annualCoreExpenseModeWan)}，集中度 ${displayPercent(summary.annualCoreExpenseConcentrationPct)}） | 仅诊断，不以储蓄率阈值自动调账 |
+| 仅系统最低线的成年连续月数 | ${summary.systemFloorOnlyAdultMonths} 总月 / 最长 ${summary.maxSystemFloorOnlyStreakMonths} 月（${summary.systemFloorOnlyAdultStatus}） | 长期 floor-only 是财富偏高调查信号 |
+| 活跃支出事实状态快照 | ${summary.activeExpenseFactStatusSnapshotStatus}（known ${summary.activeExpenseFactStatusSnapshotCounts.known} / estimated ${summary.activeExpenseFactStatusSnapshotCounts.estimated} / unknown ${summary.activeExpenseFactStatusSnapshotCounts.unknown} / needs_review ${summary.activeExpenseFactStatusSnapshotCounts.needs_review}） | 分母为 0 不得显示 100% |
+| 期间累计现金流样本 | ${summary.routeCumulativeFinancialsStatus}；收入 ${displayWan(summary.cumulativeIncomeWan)}、持续支出 ${displayWan(summary.cumulativeCoreExpenseWan)}、一次性支出 ${displayWan(summary.cumulativeOneOffExpenseWan)}、债务服务 ${displayWan(summary.cumulativeDebtServiceWan)}、净现金流 ${displayWan(summary.cumulativeNetCashFlowWan)} | 来自 committed financialPeriodSummary |
+| 家庭责任前后 3 节点运行率 | ${summary.familyResponsibilityRunRateWindowStatus}（${summary.familyResponsibilityRunRateWindowCount} 个窗口，${summary.familyResponsibilityRunRateIncompleteWindowCount} 个边界/缺样本窗口） | 不足 3 节点或无期间汇总会如实标为 partial/not_covered |
+| 终局到期未复核责任 | ${summary.overdueExpenseReviewAccountCount} | 按责任类型明细见长期诊断 |
+| 财富/净资产方向冲突 | ${wealthDirectionMismatches} | 目标 0 |
 | 财务叙述节点 | ${financeNarrativeNodes} | 样本基数 |
 | Accepted 覆盖率 | ${summary.acceptedCoverageRatePct}%（${acceptedCoverageNodes}/${financeNarrativeNodes}） | 目标 ≥80% |
 | stale 节点率 | ${summary.staleFinanceRatePct}%（${staleFinanceNodes}/${financeNarrativeNodes}） | 越低越好 |
@@ -514,6 +966,8 @@ ${recoverableRows}
 | 财务金额长浮点 | ${productionAudit.summary.financialAmountPrecisionViolationCount} | 目标 0 |
 | 跨 journey 邀请/Arc | ${productionAudit.summary.crossJourneyInvitationEntryCount} | 目标 0 |
 | 公司经营收支进入个人账本 | ${productionAudit.summary.companyOperatingFlowInPersonalLedgerCount} | 目标 0 |
+| 受限项目/公益资金进入个人可支配现金 | ${productionAudit.summary.restrictedProjectFundingInPersonalCashCount} | 目标 0；按交易 ID 去重 |
+| 受限项目资金逐事件归因缺口 | ${productionAudit.summary.restrictedProjectFundingAttributionGapCount} | 目标 0；没有归因不得以聚合交易文本断言个人现金流 |
 | 空白/全黑海报导出 | ${productionAudit.summary.blackOrEmptyPosterExportCount} | 目标 0 |
 | 海报与报告页证据重复 | ${productionAudit.summary.duplicateFinalImageEvidenceCount} | 目标 0 |
 | 用户可见生成暂停 | ${visibleGenerationPauseCount} 次 / ${generationPauseCaseCount} 组 | 发布门禁必须为 0 |
@@ -538,6 +992,115 @@ ${recoverableRows}
 
 Accepted 覆盖率以“包含财务叙述的节点中，本节点新增已提交交易或核心财务签名发生变化”为可审计代理口径；它不把纯时间计提误算为新事实接受。
 
+## 财务接受门 would-block 明细
+
+| 人物 | 历史节点 | 模式 | 重生次数 | 原因 | issue | 权威年龄 → Preview 年龄（月） | Preview 收入 / 支出（万） |
+|---|---:|---|---:|---|---|---|---:|
+${financialGateEvidenceRows}
+
+## 独立支出责任标注审计
+
+这组指标以${expenseResponsibilityAnnotationLabel}为分母，绝不从 lifecycle detector 自身生成分母。没有加载标注或标注 material 样本为 0 时，状态为 not_covered；新鲜五路线保留为诊断，冻结 gold 语料才执行 precision/recall 100% 门禁。
+
+| 项目 | 结果 |
+|---|---|
+| 标注加载 | ${expenseResponsibilityAuditLabel} |
+| 标注文件 | ${summary.expenseResponsibilityAnnotationSourcePath} |
+| 冻结语料样本状态 | ${summary.expenseResponsibilityCorpusCoverageStatus}（${summary.expenseResponsibilityCorpusCoverageFailures.join(", ") || "—"}） |
+| material 候选 / 正确匹配 / 漏检 | ${summary.expenseResponsibilityAnnotatedCandidateCount} / ${summary.expenseResponsibilityTruePositiveCount} / ${summary.expenseResponsibilityMissedCount} |
+| 机器正例 / 误报 | ${summary.expenseResponsibilityDetectedCandidateCount} / ${summary.expenseResponsibilityFalsePositiveCount} |
+| recall / precision | ${displayPercent(summary.expenseResponsibilityRecallPct)} / ${displayPercent(summary.expenseResponsibilityPrecisionPct)} |
+| 明确金额责任覆盖 | ${displayPercent(summary.explicitRecurringExpenseCoveragePct)}（${summary.explicitRecurringExpenseTruePositiveCount}/${summary.explicitRecurringExpenseCandidateCount}） |
+| coverage / precision status | ${summary.coverageStatus} / ${summary.precisionStatus} |
+
+### 漏检责任
+
+| 人物 | 节点 | 预期动作 | 责任键 | 范围 | 标注证据 |
+|---|---:|---|---|---|---|
+${expenseResponsibilityMissRows}
+
+### 误报责任
+
+| 人物 | 节点 | 机器动作 | 责任键 | 范围 | 来源 |
+|---|---:|---|---|---|---|
+${expenseResponsibilityFalsePositiveRows}
+
+## V4 候选 trace 与独立标注对照
+
+这里读取的是每个节点持久化的 lifecycle candidate/reconciler trace。它在 shadow 和 enforced 使用同一套候选与判定；shadow 中的 planned_* 只是 dry-run 计划，绝不表示账本已经写入。标注在路线结束后由审计器读取，未参与候选生成、reconciler 或权威提交。
+
+| 项目 | 结果 |
+|---|---|
+| trace 状态 / 原始候选记录 | ${summary.expenseLifecycleCandidateTelemetryStatus} / ${summary.expenseLifecycleCandidateTelemetryRecordCount} |
+| material 标注 / 完整匹配 / 漏检 | ${summary.expenseLifecycleCandidateTelemetryAnnotatedCandidateCount} / ${summary.expenseLifecycleCandidateTelemetryMatchCount} / ${summary.expenseLifecycleCandidateTelemetryMissedCount} |
+| 已检测但未形成匹配计划 | ${summary.expenseLifecycleCandidateTelemetryDetectedButNotPlannedCount} |
+| 已标注节点的 planned 候选 / 误报 | ${summary.expenseLifecycleCandidateTelemetryPlannedCandidateCount} / ${summary.expenseLifecycleCandidateTelemetryFalsePositiveCount} |
+| ignore 标注 / 对照命中 / 未被 ignored 的违规候选 | ${summary.expenseLifecycleCandidateTelemetryNegativeAnnotatedCount} / ${summary.expenseLifecycleCandidateTelemetryNegativeMatchCount} / ${summary.expenseLifecycleCandidateTelemetryNegativeViolationCount}（${summary.expenseLifecycleCandidateTelemetryNegativeStatus}） |
+| recall / precision | ${displayPercent(summary.expenseLifecycleCandidateTelemetryRecallPct)} / ${displayPercent(summary.expenseLifecycleCandidateTelemetryPrecisionPct)} |
+| coverage / precision status | ${summary.expenseLifecycleCandidateTelemetryCoverageStatus} / ${summary.expenseLifecycleCandidateTelemetryPrecisionStatus} |
+
+### 匹配候选
+
+| 人物 | 节点 | 动作 | 责任键 | 范围 | reconciler 决定 | 原因码 |
+|---|---:|---|---|---|---|---|
+${lifecycleCandidateTelemetryMatchRows}
+
+### 候选 trace 漏检
+
+| 人物 | 节点 | 预期动作 | 责任键 | 范围 | 标注证据 |
+|---|---:|---|---|---|---|
+${lifecycleCandidateTelemetryMissRows}
+
+### 候选 trace 误报
+
+| 人物 | 节点 | 候选动作 | 责任键 | 范围 | reconciler 决定 | 原因码 |
+|---|---:|---|---|---|---|---|
+${lifecycleCandidateTelemetryFalsePositiveRows}
+
+### ignore 对照中未被忽略的候选
+
+| 人物 | 节点 | 候选动作 | 责任键 | 范围 | reconciler 决定 | 原因码 |
+|---|---:|---|---|---|---|---|
+${lifecycleCandidateTelemetryNegativeViolationRows}
+
+## 长期支出与财富诊断
+
+以下均为已提交账本快照和期间汇总的只读诊断；它们用于发现“收入稳定进入、支出被长期低估”的偏差，绝不按储蓄率阈值自动加账或扣账。任何分母为 0 的字段显示 not_covered 或“未覆盖”，不显示 100%。
+
+### 按路线累计现金流
+
+| 人物 | 期间汇总状态 | 累计收入 | 持续核心支出 | 一次性支出 | 债务服务 | 净现金流 | 储蓄率 |
+|---|---|---:|---:|---:|---:|---:|---:|
+${cumulativeFlowRows}
+
+### 年化核心支出节点分布
+
+| 年支出 | 节点数 | 已观测节点占比 |
+|---:|---:|---:|
+${annualExpenseDistributionRows}
+
+只使用系统最低线的成年月份：${summary.systemFloorOnlyAdultMonths}；最长连续区间：${summary.maxSystemFloorOnlyStreakMonths} 个月；观测状态：${summary.systemFloorOnlyAdultStatus}。
+
+### 按责任类型的生命周期与终局状态
+
+| 责任类型 | start | adjust | end | review | 终局 active | paused | ended | 到期未复核 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+${responsibilityLifecycleRows}
+
+### 家庭责任前后 3 节点的年化核心支出运行率
+
+窗口以责任发生节点为分界：before 为此前最多 3 个已提交节点，after 为当前及后续最多 3 个节点。边界节点不足 3 个或缺少 financialPeriodSummary 时保留 partial/not_covered，而不是补成完整样本。
+
+| 人物 | 节点 | 动作 | 责任键 | 类型 | 前 3 节点运行率 | 后 3 节点运行率 |
+|---|---:|---|---|---|---:|---:|
+${familyResponsibilityRunRateRows}
+
+### 终局财务与支出事实状态
+
+| 人物 | 终局现金 | 终局净资产 | 期间储蓄率 | 支出事实状态 | active / paused / ended | 到期未复核 |
+|---|---:|---:|---:|---|---:|---:|
+${terminalExpenseStateRows}
+
 ## 五条路线终局快照
 
 | 人物 | 路径 | 终局 | 节点 | 邀请 | 现金 | 净资产 | 债务 | 年收入 | 年支出 | 身份 |
@@ -548,7 +1111,7 @@ ${routeRows}
 
 ${cases.map((item) => `- **${item.caseSlug}**：${item.nodeCount} 个节点，${item.invitationCount} 次邀请；终局现金 ${item.finalFinancialState.cashWan} 万、债务 ${item.finalFinancialState.totalDebtWan} 万、净资产 ${item.finalFinancialState.netWorthWan} 万，就业状态 ${item.finalFinancialState.employmentStatus}；路线契约${item.passed ? "通过" : "失败"}。`).join("\n")}
 
-以下结论直接从本轮各节点账本与正文计算，不复用旧批次的路线描述：
+以下结论直接从${runPossessive}各节点账本与正文计算，不复用固定路线描述：
 
 | 人物 | 不变量失败 | 薪资错配 | 成年零支出 | 企业事实污染 | 重复生活/住房基线 | 房产缺口 | 期权 holding 缺口 | 有价值期权漏计 | 80+ employed | 终局 open issue | 判断 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
@@ -562,9 +1125,7 @@ ${issueRows}
 
 ## 下一步
 
-${releaseCandidate
-  ? "1. 继续执行静态 M5/M7、全量单测、lint、typecheck/build 与十张图片检查；全部通过后才可判定发布候选。\n2. open issue、薪资措辞偏差与持股/房产叙述代理指标保留为非阻断质量 backlog，不得伪装为 0。"
-  : blockers.map((item, index) => `${index + 1}. 修复并用全新数据复验：${item}`).join("\n")}
+${nextSteps}
 
 ## 生产阻断明细
 
@@ -582,53 +1143,73 @@ ${releaseCandidate
 - 财务金额长浮点：${productionAudit.financialPrecisionViolations.map((item) => `${item.caseSlug}:${item.path}`).join("、") || "无"}
 - 跨 journey 邀请/Arc：${productionAudit.crossJourneyInvitationEntries.map((item) => `${item.caseSlug}:${item.code}:${item.id}`).join("、") || "无"}
 - 公司经营收支进入个人账本：${productionAudit.companyOperatingFlowsInPersonalLedger.map((item) => `${item.caseSlug}#${item.node}:${item.accountId}`).join("、") || "无"}
+- 受限项目/公益资金进入个人可支配现金：${productionAudit.restrictedProjectFundingInPersonalCash.map((item) => `${item.caseSlug}#${item.node}:${item.transactionId}`).join("、") || "无"}
+- 受限项目资金逐事件归因缺口：${productionAudit.restrictedProjectFundingAttributionGaps.map((item) => `${item.caseSlug}#${item.node}:${item.transactionId}`).join("、") || "无"}
 - 空白/全黑海报：${productionAudit.posterEvidence.filter((item) => !item.nonBlank).map((item) => item.caseSlug).join("、") || "无"}
 - 海报与报告页证据重复：${productionAudit.posterEvidence.filter((item) => !item.distinctFromReportPage).map((item) => item.caseSlug).join("、") || "无"}
 
-1. 逐项处理上方动态生成的阻断项；不得用旧批次的固定结论替代本轮证据。
+1. 逐项处理上方动态生成的阻断项；不得用旧批次的固定结论替代${runPossessive}证据。
 2. 入口事实修复继续使用原句、类型化账户 ID 和一次结构化重试，不降低 Validator 标准。
 3. 期权验收保持双向门禁：可靠折后 carrying value 必须进入企业及其他资产、净资产和财富分；未归属或缺可靠估值期权只保留 contingent holding。
-4. 所有阻断归零后仍需再跑全新的 2/2/1，不能复用本轮 JSON。
+4. ${recertificationInstruction}
 
 逐节点的完整正文、全部选择、用户选择、五项状态、账本快照和终局报告见 \`full-test-data.md\`；机器可读审计见 \`finance-audit.json\`。
 
 证据索引：\`cases/\` 保存五组完整 JSON，\`working/\` 保存同轮 checkpoint，\`images/<case>/report-page.jpg\` 与 \`poster.jpg\` 保存终局页面和海报，\`visual-inspection.json\` 保存人工视觉复核结果。
 `;
-await writeFile(path.join(root, "evaluation-report.md"), report);
+await writeFile(path.join(outputRoot, "evaluation-report.md"), report);
 
 const aggregate = {
   generatedAt: new Date().toISOString(),
+  validationMode,
+  candidateId: candidate?.candidateId ?? null,
   caseCount: records.length,
-  allCasesPassed: routeContractPassed,
+  allCasesPassed: completedCasesPassed,
+  routeContractPassed,
   m7Ready,
   scenarioCounts: records.reduce((acc, record) => ({ ...acc, [record.scenario]: (acc[record.scenario] || 0) + 1 }), {}),
   totalHistoryNodes: totalNodes,
   totalInvitations: records.reduce((sum, record) => sum + (record.finalState?.invitations?.length || 0), 0),
   releaseCandidate,
+  sourceIdentityMatches: sourceIdentityMismatches.length === 0,
   blockers,
   cases: cases.map(({ nodes, ...item }) => item)
 };
-await writeFile(path.join(root, "aggregate.json"), `${JSON.stringify(aggregate, null, 2)}\n`);
-const runStartedAt = records.map((record) => record.startedAt).sort()[0];
+await writeFile(path.join(outputRoot, "aggregate.json"), `${JSON.stringify(aggregate, null, 2)}\n`);
+const runStartedAt = candidate?.runStartedAt || records.map((record) => record.startedAt).sort()[0];
 const runCompletedAt = records.map((record) => record.completedAt).filter(Boolean).sort().at(-1);
-const repositoryCommit = await runGit(["rev-parse", "HEAD"]);
-const repositoryDirty = Boolean(await runGit(["status", "--short"]));
+const sourceState = await computeSourceState(process.cwd());
+const repositoryCommit = sourceState.sourceCommit;
+const repositoryDirty = sourceState.runtimeDirtyPaths.length > 0 || sourceState.collectorDirtyPaths.length > 0;
 const manifest = {
-  runId: path.basename(root),
+  schemaVersion: 2,
+  runId: path.basename(outputRoot),
+  validationMode,
+  candidateId: candidate?.candidateId ?? null,
   runStartedAt,
   runCompletedAt,
   generatedAt: new Date().toISOString(),
   repositoryPath: process.cwd(),
   repositoryCommit,
   repositoryDirty,
-  launchUrl: "http://127.0.0.1:4173/",
+  runtimeFingerprint: candidate?.runtimeFingerprint || sourceState.runtimeFingerprint,
+  collectorFingerprint: candidate?.collectorFingerprint || sourceState.collectorFingerprint,
+  launchUrl: candidate?.launchUrl || launchUrl,
   commands: [
-    "pnpm exec tsx scripts/render-full-browser-test-data-markdown.ts <root>/cases <root>/full-test-data.md",
-    "node scripts/analyze-financial-real-browser-run.mjs <root>",
-    "node $HOME/.codex/skills/run-real-browser-ending-routes/scripts/verify-five-route-run.mjs --root <root> --started-after <runStartedAt> --full-data <root>/full-test-data.md --report <root>/evaluation-report.md"
+    "pnpm exec tsx scripts/render-full-browser-test-data-markdown.ts <source-root>/cases <source-root>/full-test-data.md",
+    `node scripts/analyze-financial-real-browser-run.mjs <source-root> [annotation-path] [--output-root <path>] --mode ${validationMode}`,
+    "node scripts/verify-five-route-run.mjs --root <root> --approval-out release/evidence/<candidate-id>.json"
   ],
+  sourceArtifact: {
+    root,
+    runId: sourceRunManifest?.runId ?? path.basename(root),
+    repositoryCommit: sourceRunManifest?.repositoryCommit ?? null,
+    runStartedAt: sourceRunManifest?.runStartedAt ?? null,
+    runCompletedAt: sourceRunManifest?.runCompletedAt ?? null
+  },
+  derivedDiagnostic: isDerivedDiagnostic,
   artifacts: ["aggregate.json", "finance-audit.json", "full-test-data.md", "evaluation-report.md", "visual-inspection.json", "cases/", "working/", "images/"],
   cases: records.map((record) => ({ caseSlug: record.caseSlug, scenario: record.scenario, path: `cases/${record.caseSlug}.json` }))
 };
-await writeFile(path.join(root, "run-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+await writeFile(path.join(outputRoot, "run-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);

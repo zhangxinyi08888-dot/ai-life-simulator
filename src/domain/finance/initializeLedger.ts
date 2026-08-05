@@ -5,8 +5,8 @@ import type {
   CashAccount,
   DebtAccount,
   ExpenseCommitment,
-  FinancialLedger,
   FinancialLedgerIssue,
+  FinancialLedgerV3,
   IncomeSource
 } from "./types";
 
@@ -42,7 +42,7 @@ export function initializeFinancialLedger(input: {
   id: string;
   asOfAgeInMonths: number;
   openingPosition?: AcceptedOpeningFinancialPosition;
-}): FinancialLedger {
+}): FinancialLedgerV3 {
   const opening = input.openingPosition || {};
   const cashAccounts = opening.cashAccounts?.length
     ? opening.cashAccounts.map((account) => ({ ...account, balanceWan: roundWan(account.balanceWan) }))
@@ -54,7 +54,7 @@ export function initializeFinancialLedger(input: {
         factStatus: "known" as const,
         evidence: []
       }];
-  const ledger: FinancialLedger = {
+  const ledger: FinancialLedgerV3 = {
     id: input.id,
     owner: "protagonist",
     currencyUnit: "CNY_WAN_REAL",

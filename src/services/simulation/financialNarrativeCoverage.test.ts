@@ -77,6 +77,9 @@ test("an authoritative mortgage fact does not imply a separately owned property"
 test("future home plans and relationship metaphors are not completed property facts", () => {
   for (const narrativeText of [
     "你们正式讨论两年后共同购买三居室的计划。",
+    "你们计划两年后购房，眼下先签了一年租房合同。",
+    "你们计划两年后买房，首付预计90万元。签合同那天，房东把租房合同交给了你们。",
+    "你们计划以后买房。签合同那天，你们续签了租约。",
     "林姐的女儿每周来你家住一天，你终于拥有了一个可以称之为家的关系。"
   ]) {
     const issues = detectNarrativeFinancialCoverageIssues({
@@ -97,6 +100,30 @@ test("a completed home down payment requires a property asset fact", () => {
     ageInMonths: 342
   });
   assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_342"), true);
+});
+
+test("a signed home contract after concrete down-payment context requires a property asset fact", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "你开始看房，心仪两居室总价约300万元，首付需要90万元。你们手里的积蓄加上父母支持，勉强够付首付和税费。签合同那天，你看着合同上的名字，知道接下来十几年都要为这套房子努力。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 332
+  });
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_332"), true);
+  // The passage proves ownership, but does not state an actual mortgage;
+  // the detector must not invent a debt account merely from a long horizon.
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_mortgage_332"), false);
+});
+
+test("first-person completed small-home purchase and released loan require property and mortgage facts", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "我们终于决定把城郊那套看了很久的小户型买下来。首付用掉了大部分积蓄，贷款已经发放并开始月供。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 469
+  });
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_469"), true);
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_mortgage_469"), true);
 });
 
 test("employee option grants do not create a protagonist option coverage issue", () => {
@@ -164,6 +191,67 @@ test("matching salary adjustment satisfies compensation coverage while staff pay
   assert.equal(staffPayroll.length, 0);
 });
 
+test("a completed quantified personal medical outlay requires the matching one-off cash event", () => {
+  const narrativeText = "32岁9个月，共同账户规则正式运行了三个月。你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。这笔钱本应从共同账户的父母照护预算中支出。到34岁8个月，你们已经重新梳理了家庭责任。";
+  const missing = detectNarrativeFinancialCoverageIssues({
+    narrativeText,
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.deepEqual(missing.map((issue) => issue.id), ["narrative_coverage_personal_outlay_416"]);
+
+  const incorrectlyMatchedAsCurrentPeriod = detectNarrativeFinancialCoverageIssues({
+    narrativeText,
+    ledger,
+    acceptedEvents: [{ kind: "one_off_expense_paid", payload: { amountWan: 1.2 } }],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.deepEqual(
+    incorrectlyMatchedAsCurrentPeriod.map((issue) => issue.id),
+    ["narrative_coverage_personal_outlay_416"],
+    "a normal period-end one-off event cannot backdate an outlay explicitly narrated before this transaction"
+  );
+
+  const currentPeriodNarrative = "34岁8个月，你本月垫付了1.2万元父亲住院费用，并确认由你最终承担。";
+  const matchedCurrentPeriod = detectNarrativeFinancialCoverageIssues({
+    narrativeText: currentPeriodNarrative,
+    ledger,
+    acceptedEvents: [{ kind: "one_off_expense_paid", payload: { amountWan: 1.2 } }],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.equal(matchedCurrentPeriod.length, 0);
+
+  const wrongAmount = detectNarrativeFinancialCoverageIssues({
+    narrativeText: currentPeriodNarrative,
+    ledger,
+    acceptedEvents: [{ kind: "one_off_expense_paid", payload: { amountWan: 0.2 } }],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.deepEqual(wrongAmount.map((issue) => issue.id), ["narrative_coverage_personal_outlay_416"]);
+
+  for (const nonOutlay of [
+    "你们调整共同账户规则，每月各存1000元作为父母应急医疗金。",
+    "你计划明年垫付1.2万元父亲的住院押金。",
+    "伴侣垫付了1.2万元父亲的住院押金。",
+    "公司垫付了1.2万元员工住院押金。",
+    "你支付了15万元婚房首付，并办理了房贷。"
+  ]) {
+    const issues = detectNarrativeFinancialCoverageIssues({
+      narrativeText: nonOutlay,
+      ledger,
+      acceptedEvents: [],
+      ageInMonths: 416,
+      periodStartAgeInMonths: 393
+    });
+    assert.equal(issues.some((issue) => issue.id.startsWith("narrative_coverage_personal_outlay_")), false, nonOutlay);
+  }
+});
+
 test("historical salary comparisons and a resigned salary do not become current compensation facts", () => {
   for (const narrativeText of [
     "你想起那种踏实感是以前年薪32万时才有的。",
@@ -181,7 +269,9 @@ test("historical salary comparisons and a resigned salary do not become current 
 
 test("explicit protagonist job entry, role change and retirement require authoritative transitions", () => {
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你正式入职一家软件公司。", currentStatus: "student" }), true);
-  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你决定换工作，加入新的团队。", currentStatus: "employed" }), true);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你接受了一家软件公司的 offer，正在确认入职日期。", currentStatus: "student" }), false);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你正式换工作，加入新的团队。", currentStatus: "employed" }), true);
+  assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你决定换工作，正在等待新团队确认入职日期。", currentStatus: "employed" }), false);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你办理退休，结束全职工作。", currentStatus: "employed" }), true);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "你继续当前岗位，本期没有变化。", currentStatus: "employed" }), false);
   assert.equal(narrativeRequiresCareerTransition({ narrativeText: "父亲正式退休，你为他庆祝。", currentStatus: "employed" }), false);

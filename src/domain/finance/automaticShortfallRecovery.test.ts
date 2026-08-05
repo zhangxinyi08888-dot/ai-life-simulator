@@ -103,6 +103,7 @@ test("PB-DEBT-03 sufficient cash closes auto-shortfall without consuming the res
   assert.equal(result.ledger.debtAccounts[0].principalWan, 0);
   assert.equal(result.ledger.debtAccounts[0].status, "repaid");
   assert.equal(result.transaction.automaticLiquidityShortfallRecoveryWan, 3);
+  assert.deepEqual(result.transaction.debtSettlementAccountIds, ["auto_shortfall"]);
 });
 
 test("PB-DEBT-04 missing adult expense facts never means a zero reserve", () => {

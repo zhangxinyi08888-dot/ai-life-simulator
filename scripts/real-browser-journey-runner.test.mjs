@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
+  assertRuntimeIdentityMatchesCandidate,
   assertDistinctFinalImageEvidence,
+  buildDevFsImportReference,
   buildFinalImageRestorePayload,
   buildFinalPosterCropArgs,
+  buildCurrentChoiceSelector,
+  createRealBrowserJourneyRunner,
   FINAL_IMAGE_VIEWPORT,
   initializeJourneyTrace,
+  submittedPersonaMatchesConfig,
   waitForUniqueLocator,
   validateJourneyInvitationIsolation
 } from "./real-browser-journey-runner.mjs";
@@ -111,7 +119,15 @@ test("PB-RUN-06 final-image restore keeps the exact outcome without replaying he
   assert.equal(payload.nodeCount, 68);
 });
 
-test("PB-RUN-07 invitation controls may render shortly after the pending state", async () => {
+test("PB-RUN-07 large checkpoint recovery uses a Vite filesystem reference without encoding plus signs", () => {
+  assert.equal(
+    buildDevFsImportReference("/Users/zz/Documents/new life/artifacts/run+08-00/working/checkpoint.json"),
+    "@file:/@fs/Users/zz/Documents/new%20life/artifacts/run+08-00/working/checkpoint.json"
+  );
+  assert.throws(() => buildDevFsImportReference("working/checkpoint.json"), /absolute/i);
+});
+
+test("PB-RUN-08 invitation controls may render shortly after the pending state", async () => {
   const counts = [0, 0, 1];
   const locator = { count: async () => counts.shift() ?? 1 };
   let waits = 0;
@@ -123,4 +139,62 @@ test("PB-RUN-07 invitation controls may render shortly after the pending state",
   });
   assert.equal(result, locator);
   assert.equal(waits, 2);
+});
+
+test("PB-RUN-09 current choice lookup is scoped to the live decision area", () => {
+  assert.equal(
+    buildCurrentChoiceSelector("choice_continue_side_project"),
+    '#inline-decision-area #preset-choices-container [id="choice-btn-choice_continue_side_project"]'
+  );
+});
+
+test("PB-RUN-10 completion rejects a route whose submitted birthday or birth time differs from its configured persona", () => {
+  const config = { birthday: "1994-06-26", birthtime: "21:00" };
+  assert.equal(submittedPersonaMatchesConfig({ config, finalState: { userData: { birthday: "1994-06-26", birthtime: "21:00" } } }), true);
+  assert.equal(submittedPersonaMatchesConfig({ config, finalState: { userData: { birthday: "1998-05-15", birthtime: "21:00" } } }), false);
+  assert.equal(submittedPersonaMatchesConfig({ config, finalState: { userData: { birthday: "1994-06-26", birthtime: "07:00" } } }), false);
+});
+
+test("PB-RUN-11 a checkpoint cannot cross release-candidate source identities", async () => {
+  const recordRoot = await mkdtemp(path.join(os.tmpdir(), "ai-life-runner-source-"));
+  await mkdir(path.join(recordRoot, "working"), { recursive: true });
+  const candidate = {
+    candidateId: path.basename(recordRoot),
+    sourceCommit: "a".repeat(40),
+    runtimeFingerprint: "b".repeat(64),
+    collectorFingerprint: "c".repeat(64)
+  };
+  await writeFile(path.join(recordRoot, "candidate-manifest.json"), `${JSON.stringify(candidate)}\n`);
+  await writeFile(path.join(recordRoot, "working", "real-venture-second.json"), `${JSON.stringify({
+    identity,
+    sourceIdentity: { ...candidate, runtimeFingerprint: "different" },
+    interactionLog: []
+  })}\n`);
+  await assert.rejects(createRealBrowserJourneyRunner({
+    tab: {},
+    recordRoot,
+    config: { slug: "real-venture-second", scenario: "accept_second" },
+    resume: true
+  }), /different release candidate source identity/u);
+});
+
+test("PB-RUN-12 browser state must expose the frozen candidate identity before it can be collected", () => {
+  const sourceIdentity = {
+    candidateId: "candidate",
+    sourceCommit: "a".repeat(40),
+    runtimeFingerprint: "b".repeat(64),
+    collectorFingerprint: "c".repeat(64)
+  };
+  assert.doesNotThrow(() => assertRuntimeIdentityMatchesCandidate({
+    runtimeIdentity: { ...sourceIdentity },
+    sourceIdentity
+  }));
+  assert.throws(() => assertRuntimeIdentityMatchesCandidate({
+    runtimeIdentity: { ...sourceIdentity, runtimeFingerprint: "wrong" },
+    sourceIdentity
+  }), /Browser runtime identity/u);
+  assert.throws(() => assertRuntimeIdentityMatchesCandidate({
+    runtimeIdentity: undefined,
+    sourceIdentity
+  }), /Browser runtime identity/u);
 });

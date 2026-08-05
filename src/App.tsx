@@ -18,7 +18,10 @@ import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeServic
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
-import { runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import { isFinancialGateGenerationError, runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import { resolveDevTestStateImportText } from "./utils/testStateImport";
+import type { FinancialNodeAcceptanceDecision } from "./domain/finance";
+import { resolveFinancialNodeGateMode } from "./config/financialGatePolicy";
 import { createNodeGenerationBudget } from "./services/simulation/nodeGenerationBudget";
 import type { GenerationCallTrace } from "./services/simulation/generationTelemetry";
 
@@ -37,6 +40,7 @@ interface DevRecordedAppState {
   simulationSeed?: string;
   outcome?: FinalLifeOutcome | null;
   generationEvents?: GenerationEvent[];
+  financialGateEvents?: FinancialGateEvent[];
   generationCallTraces?: GenerationCallTrace[];
 }
 
@@ -50,6 +54,22 @@ interface GenerationEvent {
   message?: string;
   debug?: string;
 }
+
+interface FinancialGateEvent extends FinancialNodeAcceptanceDecision {
+  id: string;
+  at: string;
+  historyLength: number;
+}
+
+// This is intentionally non-secret and only emitted through the DEV test
+// state. The release-candidate server injects it into the compiled browser
+// module so evidence can prove which frozen bundle was actually exercised.
+const releaseRuntimeIdentity = Object.freeze({
+  candidateId: import.meta.env.VITE_RELEASE_CANDIDATE_ID || null,
+  sourceCommit: import.meta.env.VITE_RELEASE_SOURCE_COMMIT || null,
+  runtimeFingerprint: import.meta.env.VITE_RELEASE_RUNTIME_FINGERPRINT || null,
+  collectorFingerprint: import.meta.env.VITE_RELEASE_COLLECTOR_FINGERPRINT || null
+});
 
 function createGenerationEvent(
   type: GenerationEvent["type"],
@@ -148,6 +168,7 @@ export default function App() {
   const [simulationSeed, setSimulationSeed] = useState(() => devRecordedState?.simulationSeed ?? (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`));
   const [outcome, setOutcome] = useState<FinalLifeOutcome | null>(devRecordedState?.outcome ?? null);
   const [generationEvents, setGenerationEvents] = useState<GenerationEvent[]>(devRecordedState?.generationEvents ?? []);
+  const [financialGateEvents, setFinancialGateEvents] = useState<FinancialGateEvent[]>(devRecordedState?.financialGateEvents ?? []);
   const [generationCallTraces, setGenerationCallTraces] = useState<GenerationCallTrace[]>(devRecordedState?.generationCallTraces ?? []);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -167,9 +188,9 @@ export default function App() {
   const [showTestStateImporter, setShowTestStateImporter] = useState(testStateImportEnabled);
   const [testStateImportText, setTestStateImportText] = useState("");
 
-  const handleImportTestState = () => {
+  const handleImportTestState = async () => {
     try {
-      const parsed = JSON.parse(testStateImportText) as DevRecordedAppState & { latestState?: DevRecordedAppState };
+      const parsed = JSON.parse(await resolveDevTestStateImportText(testStateImportText)) as DevRecordedAppState & { latestState?: DevRecordedAppState };
       const restored = parsed.latestState ?? parsed;
       if (!restored.userData || !restored.currentNode || !restored.step) {
         throw new Error("测试状态缺少 userData、currentNode 或 step");
@@ -186,6 +207,7 @@ export default function App() {
       setSimulationSeed(restored.simulationSeed ?? `${Date.now()}`);
       setOutcome(restored.outcome ?? null);
       setGenerationEvents(restored.generationEvents ?? []);
+      setFinancialGateEvents(restored.financialGateEvents ?? []);
       setGenerationCallTraces(restored.generationCallTraces ?? []);
       setIsLoading(false);
       setIsLoadingNext(false);
@@ -210,6 +232,7 @@ export default function App() {
       capturedAt: new Date().toISOString(),
       e2eCase,
       recordTestRun,
+      releaseRuntimeIdentity,
       testDataSource: e2eCase ? "deterministic_fixture" : "real_ai_browser",
       step,
       userName: name,
@@ -223,6 +246,7 @@ export default function App() {
       simulationSeed,
       outcome,
       generationEvents,
+      financialGateEvents,
       generationCallTraces,
       isLoading,
       isLoadingNext,
@@ -248,7 +272,7 @@ export default function App() {
         // The filesystem record remains the source of truth if browser storage is unavailable.
       }
     }
-  }, [answers, attributes, currentNode, errorMsg, generationCallTraces, generationEvents, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
+  }, [answers, attributes, currentNode, errorMsg, financialGateEvents, generationCallTraces, generationEvents, history, isLoading, isLoadingNext, name, nextGenerationError, nextGenerationErrorDebug, nextNarrativePreview, nodeCount, outcome, questions, simulationSeed, step, userData]);
 
   // Confirm the generated anchor, then keep the original three-question flow.
   const handleInitialSubmit = async (data: UserInitialData, userName: string) => {
@@ -423,44 +447,78 @@ export default function App() {
     setHistory(updatedHistory);
     const abortController = new AbortController();
     nextGenerationAbortRef.current = abortController;
-    // One budget spans the service's structural retry and this outer recovery.
-    // This prevents 2x3 nested full generations while retaining one bounded
-    // regeneration for invalid JSON or a failed candidate Patch.
-    const generationBudget = createNodeGenerationBudget();
+    // The service owns the first two complete candidates and one proposal
+    // patch. A rejected financial Preview is still uncommitted, so reserve one
+    // final full candidate for the caller boundary. It receives the exact
+    // blocking reason and cannot multiply into another two-candidate loop.
+    const primaryGenerationBudget = createNodeGenerationBudget();
+    let financialGateRetryReasonCodes: string[] | undefined;
 
     try {
       const body = await runWithInvalidAiResponseRetry(async (attempt) => {
+        const generationBudget = attempt === 1
+          ? primaryGenerationBudget
+          : createNodeGenerationBudget({
+              fullGenerationLimit: 1,
+              modelPatchLimit: Math.max(0, 1 - primaryGenerationBudget.modelPatchesUsed)
+            });
         if (attempt > 1) {
           nextNarrativePreviewRef.current = null;
           setNextNarrativePreview(null);
           setNextGenerationStage("preparing");
         }
-        return generateNextNode(
-          {
-            userData,
-            answers,
-            history: updatedHistory,
-            currentAttributes: attributes,
-            selectedDecision: choiceText,
-            nodeIndex: updatedHistory.length,
-            simulationSeed
-          },
-          {
-            onGenerationStage: setNextGenerationStage,
-            generationBudget,
-            onGenerationCallTrace: (trace) => {
-              setGenerationCallTraces((traces) => [...traces, trace]);
+        try {
+          return await generateNextNode(
+            {
+              userData,
+              answers,
+              history: updatedHistory,
+              currentAttributes: attributes,
+              selectedDecision: choiceText,
+              nodeIndex: updatedHistory.length,
+              simulationSeed
             },
-            enableCandidatePatchRepair: import.meta.env.VITE_ENABLE_CANDIDATE_PATCH_REPAIR === "true",
-            onNarrativeProgress: (preview) => {
-              const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
-              nextNarrativePreviewRef.current = merged;
-              setNextNarrativePreview(merged);
-            },
-            signal: abortController.signal
+            {
+              onGenerationStage: setNextGenerationStage,
+              generationBudget,
+              financialGateRetryReasonCodes,
+              onGenerationCallTrace: (trace) => {
+                setGenerationCallTraces((traces) => [...traces, trace]);
+              },
+              enableCandidatePatchRepair: import.meta.env.VITE_ENABLE_CANDIDATE_PATCH_REPAIR === "true",
+              onNarrativeProgress: (preview) => {
+                const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
+                nextNarrativePreviewRef.current = merged;
+                setNextNarrativePreview(merged);
+              },
+              signal: abortController.signal,
+              financialNodeGateMode: import.meta.env.DEV && typeof window !== "undefined"
+                ? resolveFinancialNodeGateMode(new URLSearchParams(window.location.search).get("financialGateMode"))
+                : undefined,
+              onFinancialGateDecision: (decision) => {
+                setFinancialGateEvents((events) => [...events, {
+                  ...decision,
+                  id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                  at: new Date().toISOString(),
+                  historyLength: updatedHistory.length
+                }]);
+              }
+            }
+          );
+        } catch (error) {
+          if (isFinancialGateGenerationError(error)) {
+            const blockingReasonCodes = (error as { decision?: { blockingReasonCodes?: unknown } }).decision?.blockingReasonCodes;
+            financialGateRetryReasonCodes = Array.isArray(blockingReasonCodes)
+              ? blockingReasonCodes.filter((code): code is string => typeof code === "string")
+              : undefined;
           }
-        );
-      }, 1);
+          throw error;
+        }
+      }, {
+        maxAttempts: 1,
+        maxFinancialGateAttempts: 2,
+        isFinancialGateError: isFinancialGateGenerationError
+      });
 
       setNextGenerationStage("revealing");
       const revealFrames = buildNarrativeRevealFrames(body.title, body.description);

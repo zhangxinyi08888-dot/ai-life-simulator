@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "financial-expense-responsibility-gold-v1-sources",
+  "corpusKind": "frozen_gold_source",
+  "purpose": "Frozen Accepted-source inputs for the expense gold corpus. This file is reviewed separately from the expected annotations so the authority-chain test never manufactures its input from the expected answer.",
+  "facts": [
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 0,
+      "fact": {
+        "responsibilityKey": "primary_residence:main",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "shared",
+        "financialScope": "shared_household",
+        "explicitMonthlyTotalWan": 0.52,
+        "protagonistShareWan": 0.26,
+        "shareRate": 0.5,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "共同租住，月租5200元，两人各承担一半"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 1,
+      "fact": {
+        "responsibilityKey": "child_support:child_1",
+        "responsibilityKind": "child_support",
+        "proposedType": "dependent_support",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "explicitMonthlyTotalWan": 0.3,
+        "protagonistShareWan": 0.3,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "孩子出生后，由主角承担每月3000元持续育儿费用"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 2,
+      "fact": {
+        "responsibilityKey": "elder_care:mother",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "explicitMonthlyTotalWan": 0.4,
+        "protagonistShareWan": 0.4,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "主角开始每月承担母亲照护费用4000元"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 3,
+      "fact": {
+        "responsibilityKey": "recurring_healthcare:protagonist",
+        "responsibilityKind": "recurring_healthcare",
+        "proposedType": "healthcare",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "explicitMonthlyTotalWan": 0.12,
+        "protagonistShareWan": 0.12,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "主角长期用药，每月1200元"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 4,
+      "fact": {
+        "responsibilityKey": "personal_insurance:main",
+        "responsibilityKind": "personal_insurance",
+        "proposedType": "insurance",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "explicitMonthlyTotalWan": 0.08,
+        "protagonistShareWan": 0.08,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "主角开始每月缴纳个人商业保险800元"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 5,
+      "fact": {
+        "responsibilityKey": "continuing_education:program_1",
+        "responsibilityKind": "continuing_education",
+        "proposedType": "education",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "explicitMonthlyTotalWan": 0.2,
+        "protagonistShareWan": 0.2,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "主角开始自行承担持续教育课程费用，每月2000元"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 6,
+      "fact": {
+        "responsibilityKey": "primary_residence:main",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "adjust",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "shared",
+        "financialScope": "shared_household",
+        "explicitMonthlyTotalWan": 0.6,
+        "protagonistShareWan": 0.3,
+        "shareRate": 0.5,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "共同租金份额调整为每月3000元"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 7,
+      "fact": {
+        "responsibilityKey": "recurring_healthcare:protagonist",
+        "responsibilityKind": "recurring_healthcare",
+        "proposedType": "healthcare",
+        "action": "adjust",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "explicitMonthlyTotalWan": 0.18,
+        "protagonistShareWan": 0.18,
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "治疗方案调整，持续医疗费变为每月1800元"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 8,
+      "fact": {
+        "responsibilityKey": "personal_insurance:main",
+        "responsibilityKind": "personal_insurance",
+        "proposedType": "insurance",
+        "action": "review",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "保单到期复核，未确认金额但继续原计提"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 9,
+      "fact": {
+        "responsibilityKey": "child_support:child_1",
+        "responsibilityKind": "child_support",
+        "proposedType": "dependent_support",
+        "action": "end",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "子女已独立，主角不再承担持续抚养费"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 10,
+      "fact": {
+        "responsibilityKey": "elder_care:mother",
+        "responsibilityKind": "elder_care",
+        "proposedType": "dependent_support",
+        "action": "review",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "父母照护责任到期复核，继续按原金额计提"
+      }
+    },
+    {
+      "caseSlug": "gold-lifecycle",
+      "nodeIndex": 11,
+      "fact": {
+        "responsibilityKey": "recurring_healthcare:protagonist",
+        "responsibilityKind": "recurring_healthcare",
+        "proposedType": "healthcare",
+        "action": "review",
+        "completion": "completed",
+        "cadence": "recurring_unknown",
+        "liability": "protagonist",
+        "financialScope": "personal",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "高龄长期医疗责任复核，继续按原金额计提"
+      }
+    },
+    {
+      "caseSlug": "gold-business-negative",
+      "nodeIndex": 0,
+      "fact": {
+        "responsibilityKey": "primary_residence:main",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "third_party",
+        "financialScope": "business_operating",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "公司租下木工坊作为经营场地"
+      }
+    },
+    {
+      "caseSlug": "gold-third-party-negative",
+      "nodeIndex": 0,
+      "fact": {
+        "responsibilityKey": "primary_residence:main",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "third_party",
+        "financialScope": "third_party",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "配偶独自支付其个人租金"
+      }
+    },
+    {
+      "caseSlug": "gold-office-negative",
+      "nodeIndex": 0,
+      "fact": {
+        "responsibilityKey": "primary_residence:office",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "third_party",
+        "financialScope": "business_operating",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "公司租下办公室作为经营场地"
+      }
+    },
+    {
+      "caseSlug": "gold-warehouse-negative",
+      "nodeIndex": 0,
+      "fact": {
+        "responsibilityKey": "primary_residence:warehouse",
+        "responsibilityKind": "primary_residence",
+        "proposedType": "housing",
+        "action": "start",
+        "completion": "completed",
+        "cadence": "monthly",
+        "liability": "third_party",
+        "financialScope": "business_operating",
+        "source": "accepted_outcome",
+        "evidenceExcerpt": "公司租下仓库用于存放货物"
+      }
+    }
+  ]
+}

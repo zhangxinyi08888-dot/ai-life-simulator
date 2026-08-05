@@ -1,17 +1,24 @@
-import type { DebtAccount, DebtType, FinancialEventKind, FinancialEventProposal, FinancialLedger } from "./types";
+import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4";
+import { isFinancialLedgerV4, type DebtAccount, type DebtType, type ExpenseCommitment, type FinancialEventKind, type FinancialEventProposal, type FinancialLedger } from "./types";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
-import { financialEvidenceCandidates, matchFinancialEvidence } from "./evidenceMatching";
+import { financialEvidenceCandidates, hasExplicitPersonalBusinessIncomeReceipt, hasMatchingPersonalBusinessIncomeAmount, matchFinancialEvidence } from "./evidenceMatching";
 
 export interface FinancialProposalNormalizationAudit {
   proposalId?: string;
   reasonCode: "KIND_FIELD_NORMALIZED" | "SOURCE_OUTCOME_FILLED" | "DUPLICATE_ID_RENAMED" | "CAREER_LINK_FILLED" | "CASH_ACCOUNT_FILLED"
     | "REPAIR_FIELDS_INHERITED" | "REPAIR_DUPLICATE_COLLAPSED" | "INCOME_TYPE_NORMALIZED" | "INCOME_SOURCE_ID_FILLED"
     | "DEBT_DRAW_PAYLOAD_NORMALIZED" | "DEBT_TYPE_NORMALIZED" | "ASSET_PURCHASE_PAYLOAD_NORMALIZED"
-    | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED"
+    | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED" | "LEGACY_INCOME_RECONFIRMATION_PRESERVED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED" | "EXPENSE_TYPE_PRESERVED"
+    | "EXPENSE_INCOME_FIELD_DROPPED" | "OPENING_PARENT_HEALTHCARE_RECONFIRMED"
+    | "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"
+    | "V4_EXPENSE_CANONICALIZED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
     | "RENT_ONLY_RECLASSIFIED_AS_HOUSING"
+    | "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED"
+    | "DEBT_RESTRUCTURE_PAYLOAD_CANONICALIZED"
+    | "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED" | "PERSONAL_BUSINESS_INCOME_RECEIPT_MISSING" | "PERSONAL_BUSINESS_INCOME_REPAIR_EVIDENCE_DROPPED" | "REPAIR_PERSONAL_BUSINESS_INCOME_MUTATION_DROPPED" | "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED"
     | "ASSET_ACCOUNT_SHAPE_COMPLETED" | "DEBT_ACCOUNT_SHAPE_COMPLETED";
   originalValue?: string;
   normalizedValue?: string;
@@ -29,6 +36,35 @@ const DEBT_TYPE_ALIASES: Record<string, DebtType> = {
 function normalizedDebtType(value: unknown): DebtType {
   const raw = String(value || "family_or_personal_loan");
   return DEBT_TYPE_ALIASES[raw] || raw as DebtType;
+}
+
+/**
+ * A recurring payment is evidence that an already-open mortgage continues;
+ * it is never evidence that new principal reached the protagonist's cash
+ * account.  Preserve a real new draw only when the prose explicitly says that
+ * the new principal was disbursed.
+ */
+function isExistingMortgagePaymentRestatement(input: {
+  evidenceText: string;
+  currentLedger?: FinancialLedger;
+}): boolean {
+  const hasActiveMortgage = input.currentLedger?.debtAccounts.some((account) => (
+    account.type === "mortgage" && (account.status === "active" || account.status === "defaulted")
+  ));
+  if (!hasActiveMortgage) return false;
+  const paymentOnly = /(?:房贷|按揭)[^。；]{0,32}(?:月供|每月(?:还款|偿还)|还款|偿还)|(?:月供|每月(?:还款|偿还)|还贷)[^。；]{0,32}(?:房贷|按揭)/u.test(input.evidenceText);
+  if (!paymentOnly) return false;
+  const explicitlyDisbursedNewDebt = /(?:贷款|借款|房贷|按揭)[^。；]{0,24}(?:放款|发放|到账|借到|拿到|获得)|(?:放款|发放|到账|借到|拿到|获得)[^。；]{0,24}(?:贷款|借款|房贷|按揭)/u.test(input.evidenceText);
+  return !explicitlyDisbursedNewDebt;
+}
+
+function authoritativeCareerLinkForSelfEmploymentDraw(input: {
+  currentCareerStateId?: string;
+  nextCareerStateIds?: string[];
+}): string | undefined {
+  if (input.nextCareerStateIds?.length === 1) return input.nextCareerStateIds[0];
+  if ((input.nextCareerStateIds?.length || 0) > 1) return undefined;
+  return input.currentCareerStateId;
 }
 
 /**
@@ -115,6 +151,144 @@ function normalizeDebtDrawPayload(input: {
   };
 }
 
+/**
+ * A restructure is a replacement of an existing obligation, not a new loan
+ * and not a chance for model output to silently reduce a known balance.  The
+ * model often supplies only a replacement id/type and a prose-confirmed new
+ * payment.  Complete that transport shape from the authoritative old debt
+ * only after the prose says the restructure has actually taken effect.
+ *
+ * Intentionally leave applications, negotiations, and incomplete payloads
+ * untouched.  They must remain validator/gate failures rather than becoming
+ * an invented accepted restructuring event.
+ */
+function hasCompletedDebtRestructureEvidence(evidenceText: string): boolean {
+  const text = evidenceText.normalize("NFKC");
+  const hardPending = /(?:尚未|还未|未获批|没有获批|等待|待(?:审核|审批|批准)|(?:审核|审批|协商|谈判)中)|(?:如果|若|一旦)[^。；]{0,48}(?:重组|调整|展期|月供|还款)/u.test(text);
+  if (hardPending) return false;
+
+  const approvedOrEffective = /(?:(?:申请|审批|审核|重组|调整|展期)[^。；]{0,36}(?:已(?:经)?|正式)?(?:通过|获批|批准|生效|执行|完成)|(?:银行|贷款机构)[^。；]{0,48}(?:已(?:经)?|正式)?(?:通过|获批|批准|同意|确认|完成|实施|执行)[^。；]{0,36}(?:重组|调整|展期|还款计划|月供)|(?:新|调整后(?:的)?)?(?:还款计划|月供)[^。；]{0,36}(?:确认|确认函|获批|批准|已(?:经)?生效|开始执行|正式执行))/u.test(text);
+  if (approvedOrEffective) return true;
+
+  const unapprovedApplication = /(?:申请|计划|准备|拟|希望|尝试|考虑|打算)[^。；]{0,20}(?:将|把|申请|调整|重组|展期)[^。；]{0,36}(?:月供|每月(?:还款|偿还)|还款额|还款计划)/u.test(text);
+  if (unapprovedApplication) return false;
+
+  // A concrete before/after payment statement is a confirmed new repayment
+  // plan when there is no pending marker above. It stays narrower than a bare
+  // "申请调整月供", which is retained for the gate to reject/retry.
+  return /(?:月供|每月(?:还款|偿还)|还款额)[^。；]{0,48}(?:从|由)[^。；]{0,32}(?:降至|降到(?:了)?|降为|调整为|改为|变为)\s*\d+(?:\.\d+)?\s*(?:万元?|元)/u.test(text);
+}
+
+function explicitRestructuredMonthlyPaymentWan(evidenceText: string): number | undefined {
+  const text = evidenceText.normalize("NFKC");
+  const match = text.match(/(?:月供|每月(?:还款|偿还)|还款额)[^。；]{0,64}?(?:降至|降到(?:了)?|降为|调整为|改为|变为)\s*(\d+(?:\.\d+)?)\s*(万元?|元)/u);
+  if (!match) return undefined;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount <= 0) return undefined;
+  return match[2].startsWith("万") ? amount : amount / 10000;
+}
+
+function restructureChangesTerm(evidenceText: string): boolean {
+  return /(?:(?:还款)?(?:期限|年限)[^。；]{0,32}(?:延长|缩短|调整|变更)|(?:延长|缩短|调整|变更)[^。；]{0,20}(?:还款)?(?:期限|年限))/u.test(evidenceText.normalize("NFKC"));
+}
+
+function normalizeDebtRestructurePayload(input: {
+  proposalId: string;
+  payload: Record<string, any>;
+  evidenceText: string;
+  effectiveAtAgeInMonths: number;
+  currentLedger?: FinancialLedger;
+  audit: FinancialProposalNormalizationAudit[];
+}): Record<string, any> {
+  const { proposalId, payload, evidenceText, effectiveAtAgeInMonths, currentLedger, audit } = input;
+  const rawReplacement = payload.replacementDebtAccount;
+  const oldDebtAccountId = typeof payload.oldDebtAccountId === "string" ? payload.oldDebtAccountId.trim() : "";
+  const oldDebt = currentLedger?.debtAccounts.find((account) => (
+    account.id === oldDebtAccountId && (account.status === "active" || account.status === "defaulted")
+  ));
+  if (!oldDebt
+    || !rawReplacement
+    || typeof rawReplacement !== "object"
+    || Array.isArray(rawReplacement)
+    || !Number.isInteger(effectiveAtAgeInMonths)
+    || effectiveAtAgeInMonths < 0
+    || !hasCompletedDebtRestructureEvidence(evidenceText)) return payload;
+
+  const explicitMonthlyPaymentWan = explicitRestructuredMonthlyPaymentWan(evidenceText);
+  const repaymentPolicy = structuredClone(oldDebt.repaymentPolicy);
+  const knownMonthlyInterestWan = Number(repaymentPolicy.monthlyInterestWan
+    ?? (repaymentPolicy.annualInterestRate !== undefined
+      ? oldDebt.principalWan * repaymentPolicy.annualInterestRate / 12
+      : undefined));
+  // A stated new payment below a still-known interest charge cannot be safely
+  // interpreted as an automatic schedule without inventing a new rate.  Keep
+  // it for the gate/repair path instead of recording an impossible plan.
+  if (explicitMonthlyPaymentWan !== undefined
+    && Number.isFinite(knownMonthlyInterestWan)
+    && explicitMonthlyPaymentWan + 0.000001 < knownMonthlyInterestWan) return payload;
+  if (explicitMonthlyPaymentWan !== undefined) {
+    repaymentPolicy.mode = "known_schedule";
+    repaymentPolicy.monthlyPaymentWan = explicitMonthlyPaymentWan;
+    // The old fixed principal amount would override the new payment in the
+    // accrual engine, so it cannot survive a payment-only restructure.
+    delete repaymentPolicy.monthlyPrincipalWan;
+  }
+  const scheduleTermsChanged = explicitMonthlyPaymentWan !== undefined || restructureChangesTerm(evidenceText);
+  if (scheduleTermsChanged) delete repaymentPolicy.remainingTermMonths;
+
+  const requestedId = typeof rawReplacement.id === "string" ? rawReplacement.id.trim() : "";
+  const existingIds = new Set(currentLedger?.debtAccounts.map((account) => account.id) || []);
+  let replacementId = requestedId && requestedId !== oldDebt.id && !existingIds.has(requestedId)
+    ? requestedId
+    : `${oldDebt.id}_restructured_${effectiveAtAgeInMonths}`;
+  let suffix = 2;
+  while (existingIds.has(replacementId)) {
+    replacementId = `${oldDebt.id}_restructured_${effectiveAtAgeInMonths}_${suffix}`;
+    suffix += 1;
+  }
+
+  const replacementDebtAccount: DebtAccount = {
+    id: replacementId,
+    type: oldDebt.type,
+    displayName: `${oldDebt.displayName}（重组后）`,
+    principalWan: oldDebt.principalWan,
+    openedAtAgeInMonths: effectiveAtAgeInMonths,
+    status: "active",
+    repaymentPolicy,
+    // The carried obligation is authoritative, but a partial replacement
+    // payload does not establish the new rate/term.  Keep it reviewable
+    // rather than presenting inherited loan terms as newly known facts.
+    factStatus: scheduleTermsChanged ? "needs_review" : oldDebt.factStatus,
+    // Validator stamps the accepted, prose-grounded event evidence below;
+    // do not retain model-supplied account evidence from a partial payload.
+    evidence: [],
+    origin: "explicit",
+    // Do not emit capitalizedInterestWan: the old unpaid interest remains a
+    // separate liability here, so reducer telemetry must not call it capitalized.
+    accruedUnpaidInterestWan: oldDebt.accruedUnpaidInterestWan ?? 0,
+    servicingStatus: "current",
+    consecutiveMissedPaymentMonths: 0,
+    totalMissedPaymentMonths: 0,
+    recentMissedPaymentAgeInMonths: []
+  };
+  const transactionFeeWan = Number(payload.transactionFeeWan);
+  const normalizedPayload: Record<string, any> = {
+    oldDebtAccountId: oldDebt.id,
+    replacementDebtAccount,
+    transactionFeeWan: Number.isFinite(transactionFeeWan) && transactionFeeWan >= 0 ? transactionFeeWan : 0
+  };
+  if (typeof payload.sourceCashAccountId === "string" && payload.sourceCashAccountId.trim()) {
+    normalizedPayload.sourceCashAccountId = payload.sourceCashAccountId.trim();
+  }
+  audit.push({
+    proposalId,
+    reasonCode: "DEBT_RESTRUCTURE_PAYLOAD_CANONICALIZED",
+    originalValue: oldDebt.id,
+    normalizedValue: replacementDebtAccount.id
+  });
+  return normalizedPayload;
+}
+
 function mergeMissing(base: unknown, repair: unknown): unknown {
   if (repair === undefined || repair === null || repair === "") return structuredClone(base);
   if (!base || !repair || typeof base !== "object" || typeof repair !== "object" || Array.isArray(base) || Array.isArray(repair)) {
@@ -125,6 +299,52 @@ function mergeMissing(base: unknown, repair: unknown): unknown {
     result[key] = mergeMissing(result[key], value);
   }
   return result;
+}
+
+function strictPersonalBusinessIncomeType(proposal: Pick<FinancialEventProposal, "kind" | "payload">): "self_employment_draw" | "business_dividend" | undefined {
+  if (proposal.kind !== "income_source_started" && proposal.kind !== "income_source_adjusted") return undefined;
+  const payload = proposal.payload as Record<string, unknown>;
+  const source = proposal.kind === "income_source_adjusted" ? payload.nextSource : payload;
+  const type = source && typeof source === "object" ? String((source as Record<string, unknown>).type || "") : "";
+  return type === "self_employment_draw" || type === "business_dividend" ? type : undefined;
+}
+
+const PERSONAL_CASH_INFLOW_KINDS = new Set<FinancialEventKind>([
+  "income_source_started",
+  "income_source_adjusted",
+  "one_off_income_received",
+  "business_distribution_received",
+  "family_support_received"
+]);
+
+function repairKind(raw: Record<string, unknown>): FinancialEventKind | undefined {
+  const value = raw.kind ?? raw.type ?? raw.deltaType;
+  return typeof value === "string" && KINDS.has(value as FinancialEventKind)
+    ? value as FinancialEventKind
+    : undefined;
+}
+
+/**
+ * A repair is a patch for a rejected proposal, not permission to relabel an
+ * unsupported owner draw as rent, salary, or a one-off cash receipt.  That
+ * would bypass the strict receipt check simply by changing the event shape.
+ */
+function mutatesStrictPersonalBusinessIncomeFallback(input: {
+  fallback: FinancialEventProposal;
+  repair: Record<string, unknown>;
+}): boolean {
+  const fallbackType = strictPersonalBusinessIncomeType(input.fallback);
+  if (!fallbackType) return false;
+  const nextKind = repairKind(input.repair);
+  if (nextKind && nextKind !== input.fallback.kind) return true;
+  const rawPayload = input.repair.payload;
+  if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) return false;
+  const source = input.fallback.kind === "income_source_adjusted"
+    ? (rawPayload as Record<string, unknown>).nextSource
+    : rawPayload;
+  if (!source || typeof source !== "object" || Array.isArray(source)) return false;
+  const nextType = (source as Record<string, unknown>).type;
+  return nextType !== undefined && String(nextType) !== fallbackType;
 }
 
 /**
@@ -153,13 +373,27 @@ export function normalizeRepairedFinancialProposals(input: {
     if (!raw || typeof raw !== "object") return;
     const repair = structuredClone(raw) as Record<string, unknown>;
     const repairId = typeof repair.id === "string" && repair.id.trim() ? repair.id.trim() : undefined;
-    const repairKind = repair.kind ?? repair.type ?? repair.deltaType;
-    const kindMatches = typeof repairKind === "string" ? rejectedByKind.get(repairKind as FinancialEventKind) || [] : [];
+    const rawRepairKind = repair.kind ?? repair.type ?? repair.deltaType;
+    const kindMatches = typeof rawRepairKind === "string" ? rejectedByKind.get(rawRepairKind as FinancialEventKind) || [] : [];
     const fallback = (repairId ? rejectedById.get(repairId) : undefined)
       || (kindMatches.length === 1 ? kindMatches[0] : undefined)
       || (input.rejectedProposals.length === 1 ? input.rejectedProposals[0] : undefined);
+    const strictRejectedBusinessIncomeExists = input.rejectedProposals.some((proposal) => (
+      strictPersonalBusinessIncomeType(proposal) !== undefined
+    ));
+    const resolvedRepairKind = repairKind(repair);
+    if ((fallback && mutatesStrictPersonalBusinessIncomeFallback({ fallback, repair }))
+      || (!fallback && strictRejectedBusinessIncomeExists && resolvedRepairKind && PERSONAL_CASH_INFLOW_KINDS.has(resolvedRepairKind))) {
+      audit.push({
+        proposalId: repairId || `${String(rawRepairKind || "proposal")}_${index + 1}`,
+        reasonCode: "REPAIR_PERSONAL_BUSINESS_INCOME_MUTATION_DROPPED",
+        originalValue: fallback ? String(fallback.kind) : "unmatched_strict_personal_business_income",
+        normalizedValue: resolvedRepairKind || "income_type_mutation"
+      });
+      return;
+    }
     const merged = mergeMissing(fallback, repair) as Record<string, unknown>;
-    const key = String(merged.id || repairId || `${repairKind || "proposal"}_${index + 1}`);
+    const key = String(merged.id || repairId || `${rawRepairKind || "proposal"}_${index + 1}`);
     if (fallback) audit.push({ proposalId: key, reasonCode: "REPAIR_FIELDS_INHERITED", originalValue: fallback.id, normalizedValue: key });
     if (mergedByKey.has(key)) {
       mergedByKey.set(key, mergeMissing(mergedByKey.get(key), merged) as Record<string, unknown>);
@@ -182,20 +416,45 @@ export function normalizeRepairedFinancialProposals(input: {
       asset_purchased: /支付.{0,12}(?:设备|房|资产)|购买.{0,12}(?:设备|房|资产)|购置/
     };
     for (const proposal of normalized.proposals) {
+      const payload = proposal.payload as Record<string, unknown>;
+      const personalIncomeSource = (proposal.kind === "income_source_adjusted" ? payload.nextSource : payload) as Record<string, unknown> | undefined;
+      const strictPersonalBusinessIncome = personalIncomeSource?.type === "self_employment_draw"
+        || personalIncomeSource?.type === "business_dividend";
+      const hasCompletedPersonalReceipt = (evidence: string) => !strictPersonalBusinessIncome
+        || (hasExplicitPersonalBusinessIncomeReceipt({ type: personalIncomeSource?.type, evidence })
+          && hasMatchingPersonalBusinessIncomeAmount({ type: personalIncomeSource?.type, source: personalIncomeSource, evidence }));
       const currentMatch = matchFinancialEvidence({ proposal, narrativeText: input.narrativeText });
-      if (currentMatch.matched && currentMatch.reasonCode !== "EVIDENCE_FUZZY_MATCHED") continue;
+      if (currentMatch.matched && currentMatch.reasonCode !== "EVIDENCE_FUZZY_MATCHED" && hasCompletedPersonalReceipt(proposal.evidence)) continue;
       const fallback = rejectedById.get(proposal.id);
       const fallbackMatch = fallback ? matchFinancialEvidence({ proposal: fallback, narrativeText: input.narrativeText }) : undefined;
-      if (fallback && fallbackMatch?.matched && fallbackMatch.reasonCode !== "EVIDENCE_FUZZY_MATCHED") {
+      if (fallback && fallbackMatch?.matched && fallbackMatch.reasonCode !== "EVIDENCE_FUZZY_MATCHED" && hasCompletedPersonalReceipt(fallback.evidence)) {
         proposal.evidence = fallback.evidence;
         continue;
       }
       const pattern = evidencePatterns[proposal.kind];
       if (!pattern) continue;
-      const sentence = financialEvidenceCandidates({ proposal, narrativeText: input.narrativeText, limit: 1 })[0]?.excerpt
-        || input.narrativeText.split(/(?<=[。！？；])/u).find((item) => pattern.test(item));
+      const sentence = financialEvidenceCandidates({ proposal, narrativeText: input.narrativeText, limit: 3 })
+        .find((candidate) => hasCompletedPersonalReceipt(candidate.excerpt))?.excerpt
+        || input.narrativeText.split(/(?<=[。！？；])/u).find((item) => pattern.test(item) && hasCompletedPersonalReceipt(item));
       if (sentence) proposal.evidence = sentence.trim();
     }
+    normalized.proposals = normalized.proposals.filter((proposal) => {
+      const payload = proposal.payload as Record<string, unknown>;
+      const personalIncomeSource = (proposal.kind === "income_source_adjusted" ? payload.nextSource : payload) as Record<string, unknown> | undefined;
+      const type = personalIncomeSource?.type;
+      if (type !== "self_employment_draw" && type !== "business_dividend") return true;
+      const evidenceMatch = matchFinancialEvidence({ proposal, narrativeText: input.narrativeText! });
+      if (hasExplicitPersonalBusinessIncomeReceipt({ type, evidence: proposal.evidence })
+        && hasMatchingPersonalBusinessIncomeAmount({ type, source: personalIncomeSource, evidence: proposal.evidence })
+        && evidenceMatch.matched) return true;
+      audit.push({
+        proposalId: proposal.id,
+        reasonCode: "PERSONAL_BUSINESS_INCOME_REPAIR_EVIDENCE_DROPPED",
+        originalValue: String(type),
+        normalizedValue: "missing_grounded_completed_personal_receipt"
+      });
+      return false;
+    });
   }
   return { proposals: normalized.proposals, audit: [...audit, ...normalized.audit] };
 }
@@ -237,6 +496,41 @@ function normalizeFactStatus(value: unknown, fallback: "estimated" | "needs_revi
   return FACT_STATUS_ALIASES[String(value)] || fallback;
 }
 
+/**
+ * The opening flow can establish that a protagonist has a recurring
+ * parent-healthcare responsibility without knowing its exact amount.  When a
+ * later completed node supplies that amount, it confirms the one existing
+ * responsibility; it must not create a second healthcare accrual account.
+ *
+ * Keep this deliberately narrow.  A generic healthcare proposal may refer to
+ * a different treatment, person, or insurance obligation and must continue
+ * through the ordinary start/validation path.
+ */
+function uniqueOpeningParentHealthcareCommitment(ledger?: FinancialLedger) {
+  if (!ledger || !isFinancialLedgerV4(ledger)) return undefined;
+  const matches = ledger.expenseCommitments.filter((commitment) => (
+    commitment.id === "opening_recurring_healthcare_opening_parent"
+    && commitment.status === "active"
+    && commitment.type === "healthcare"
+    && commitment.responsibilityKind === "recurring_healthcare"
+    && commitment.responsibilityKey === "recurring_healthcare:opening_parent"
+    && commitment.financialScope === "personal"
+    && commitment.factStatus === "needs_review"
+    && commitment.amountBasis === "contextual_estimate"
+  ));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function isExplicitPersonalParentHealthcareProposal(input: {
+  payload: Record<string, any>;
+  evidenceText: string;
+}): boolean {
+  const text = `${input.evidenceText} ${String(input.payload.displayName || input.payload.name || input.payload.label || "")}`;
+  const namesParentAndHealthcare = /(?:父母|爸妈|父亲|母亲|妈妈|爸爸).{0,24}(?:医疗|医药|治疗|理疗|康复|用药|医院|门诊)|(?:医疗|医药|治疗|理疗|康复|用药|医院|门诊).{0,24}(?:父母|爸妈|父亲|母亲|妈妈|爸爸)/u.test(text);
+  const protagonistPays = /(?:^|[。；，、\s])(?:你(?!们)|我(?!们)|主角|本人)[^。！？；]{0,24}(?:承担|支付|负担|缴纳|负责)/u.test(input.evidenceText);
+  return namesParentAndHealthcare && protagonistPays;
+}
+
 export function normalizeFinancialProposals(input: {
   proposals: unknown;
   acceptedOutcomeIds?: string[];
@@ -274,6 +568,18 @@ export function normalizeFinancialProposals(input: {
       : source.payload;
     const effectiveAtAgeInMonths = Number(source.effectiveAtAgeInMonths);
     const evidenceText = typeof source.evidence === "string" ? source.evidence : "";
+    if (kind === "debt_drawn" && isExistingMortgagePaymentRestatement({
+      evidenceText,
+      currentLedger: input.currentLedger
+    })) {
+      audit.push({
+        proposalId: id,
+        reasonCode: "EXISTING_MORTGAGE_PAYMENT_DEBT_DRAW_DROPPED",
+        originalValue: "debt_drawn",
+        normalizedValue: "existing_mortgage_payment"
+      });
+      return [];
+    }
     const monthlyAmountFromEvidence = (): number | undefined => {
       const normalized = evidenceText.normalize("NFKC");
       const wan = normalized.match(/(?:每月|月(?:薪|收入|支出|租|供)?|每个月)[^。；，]{0,12}?(\d+(?:\.\d+)?)\s*万/u)
@@ -348,6 +654,16 @@ export function normalizeFinancialProposals(input: {
         proposalId: id,
         payload,
         effectiveAtAgeInMonths: Number(source.effectiveAtAgeInMonths),
+        audit
+      });
+    }
+    if (payload && kind === "debt_restructured") {
+      payload = normalizeDebtRestructurePayload({
+        proposalId: id,
+        payload,
+        evidenceText,
+        effectiveAtAgeInMonths: Number(source.effectiveAtAgeInMonths),
+        currentLedger: input.currentLedger,
         audit
       });
     }
@@ -562,8 +878,28 @@ export function normalizeFinancialProposals(input: {
     if (expensePayload && typeof expensePayload === "object") {
       const original = JSON.stringify(expensePayload);
       expensePayload.id ||= expensePayload.expenseCommitmentId || expensePayload.commitmentId || `${kind}_${id}`;
-      const expenseAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
-      expensePayload.type = expenseAliases[expensePayload.type] || expensePayload.type || (/房租|月供|住房/u.test(evidenceText) ? "housing" : /照护|护工|赡养/u.test(evidenceText) ? "dependent_support" : "other");
+      const rawExpenseType = String(expensePayload.type || "");
+      const isMortgageRepayment = ["mortgage_payment", "mortgage", "debt_payment"].includes(rawExpenseType)
+        || /(?:月供|房贷|按揭)/u.test(evidenceText);
+      // Mortgage principal and interest are debt-service flows.  Do not hide a
+      // misrouted repayment inside a housing commitment: leave an invalid
+      // expense type for schema validation so the node is repaired into debt
+      // repayment / repayment-policy handling instead of being double counted.
+      if (isMortgageRepayment) {
+        expensePayload.type = "mortgage_payment";
+        audit.push({ proposalId: id, reasonCode: "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING", originalValue: rawExpenseType || "text_fallback", normalizedValue: "mortgage_payment" });
+      } else {
+        const expenseAliases: Record<string, string> = {
+          rent: "housing",
+          caregiver: "dependent_support",
+          caregiving: "dependent_support",
+          medical: "healthcare",
+          recurring_healthcare: "healthcare",
+          tuition: "education",
+          living: "basic_living"
+        };
+        expensePayload.type = expenseAliases[expensePayload.type] || expensePayload.type || (/房租|住房/u.test(evidenceText) ? "housing" : /照护|护工|赡养/u.test(evidenceText) ? "dependent_support" : "other");
+      }
       if (expensePayload.type === "basic_living"
         && /(?:房租|月租|宿舍|租房)/u.test(evidenceText)
         && !/(?:生活费|日常开销|基本生活|伙食|餐饮|水电|通勤|综合支出)/u.test(evidenceText)) {
@@ -577,7 +913,59 @@ export function normalizeFinancialProposals(input: {
       expensePayload.status ||= "active";
       expensePayload.factStatus ||= "estimated";
       expensePayload.evidence = Array.isArray(expensePayload.evidence) ? expensePayload.evidence : [];
+      if (Object.prototype.hasOwnProperty.call(expensePayload, "accrualPolicy")) {
+        delete expensePayload.accrualPolicy;
+        audit.push({ proposalId: id, reasonCode: "EXPENSE_INCOME_FIELD_DROPPED", originalValue: "accrualPolicy", normalizedValue: "expense_commitment" });
+      }
       if (JSON.stringify(expensePayload) !== original) audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: expensePayload.id });
+
+      const openingParentHealthcare = uniqueOpeningParentHealthcareCommitment(input.currentLedger);
+      if (openingParentHealthcare
+        && expensePayload.type === "healthcare"
+        && Number(expensePayload.monthlyAmountWan) > 0
+        && isExplicitPersonalParentHealthcareProposal({ payload: expensePayload, evidenceText })) {
+        const confidence = Number.isFinite(Number(source.confidence))
+          ? Math.min(1, Math.max(0, Number(source.confidence)))
+          : 0.8;
+        kind = "expense_commitment_adjusted";
+        payload = {
+          expenseCommitmentId: openingParentHealthcare.id,
+          nextCommitment: {
+            ...expensePayload,
+            id: openingParentHealthcare.id,
+            type: openingParentHealthcare.type,
+            displayName: openingParentHealthcare.displayName,
+            activeFromAgeInMonths: openingParentHealthcare.activeFromAgeInMonths,
+            status: openingParentHealthcare.status,
+            factStatus: "needs_review",
+            responsibilityKey: openingParentHealthcare.responsibilityKey,
+            responsibilityKind: openingParentHealthcare.responsibilityKind,
+            amountBasis: "last_known",
+            amountSourceIds: [`accepted:${id}`],
+            financialScope: openingParentHealthcare.financialScope,
+            accrualReviewStatus: "conservative",
+            lastReviewedAtAgeInMonths: effectiveAtAgeInMonths,
+            nextReviewAtAgeInMonths: effectiveAtAgeInMonths + 12,
+            evidence: [
+              ...openingParentHealthcare.evidence,
+              {
+                source: "accepted_simulation_outcome",
+                sourceEventId: sourceOutcomeId,
+                excerpt: evidenceText,
+                reasonCode: "OPENING_PARENT_HEALTHCARE_RECONFIRMED",
+                confidence,
+                financialScope: "personal"
+              }
+            ]
+          }
+        };
+        audit.push({
+          proposalId: id,
+          reasonCode: "OPENING_PARENT_HEALTHCARE_RECONFIRMED",
+          originalValue: openingParentHealthcare.id,
+          normalizedValue: "expense_commitment_adjusted"
+        });
+      }
     }
     if (payload && (kind === "asset_purchased" || kind === "asset_balance_discovered")) {
       const candidate = payload.assetAccount && typeof payload.assetAccount === "object" ? payload.assetAccount : payload.asset || payload.account;
@@ -686,21 +1074,46 @@ export function normalizeFinancialProposals(input: {
           payload.nextCommitment.evidence = structuredClone(existingCommitment.evidence);
           audit.push({ proposalId: id, reasonCode: "EXPENSE_EVIDENCE_PRESERVED", normalizedValue: payload.expenseCommitmentId });
         }
-        const typeAliases: Record<string, string> = { rent: "housing", mortgage_payment: "housing", caregiver: "dependent_support", caregiving: "dependent_support", medical: "healthcare", tuition: "education", living: "basic_living" };
-        const requestedType = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
-        if (requestedType !== existingCommitment.type) {
-          payload.nextCommitment.type = existingCommitment.type;
+        const rawRequestedType = String(payload.nextCommitment.type || "");
+        const isMortgageRepayment = ["mortgage_payment", "mortgage", "debt_payment"].includes(rawRequestedType)
+          || /(?:月供|房贷|按揭)/u.test(evidenceText);
+        if (isMortgageRepayment) {
+          payload.nextCommitment.type = "mortgage_payment";
           audit.push({
             proposalId: id,
-            reasonCode: "EXPENSE_TYPE_PRESERVED",
-            originalValue: String(requestedType),
-            normalizedValue: existingCommitment.type
+            reasonCode: "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING",
+            originalValue: rawRequestedType || "text_fallback",
+            normalizedValue: "mortgage_payment"
           });
         } else {
-          payload.nextCommitment.type = requestedType;
+          const typeAliases: Record<string, string> = {
+            rent: "housing",
+            caregiver: "dependent_support",
+            caregiving: "dependent_support",
+            medical: "healthcare",
+            recurring_healthcare: "healthcare",
+            tuition: "education",
+            living: "basic_living"
+          };
+          const requestedType = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
+          if (requestedType !== existingCommitment.type) {
+            payload.nextCommitment.type = existingCommitment.type;
+            audit.push({
+              proposalId: id,
+              reasonCode: "EXPENSE_TYPE_PRESERVED",
+              originalValue: String(requestedType),
+              normalizedValue: existingCommitment.type
+            });
+          } else {
+            payload.nextCommitment.type = requestedType;
+          }
         }
         const nextAmount = payload.nextCommitment.monthlyAmountWan ?? payload.nextCommitment.amountWanPerMonth ?? payload.nextCommitment.monthlyCostWan ?? monthlyAmountFromEvidence();
         if (Number.isFinite(Number(nextAmount))) payload.nextCommitment.monthlyAmountWan = Number(nextAmount);
+        if (Object.prototype.hasOwnProperty.call(payload.nextCommitment, "accrualPolicy")) {
+          delete payload.nextCommitment.accrualPolicy;
+          audit.push({ proposalId: id, reasonCode: "EXPENSE_INCOME_FIELD_DROPPED", originalValue: "accrualPolicy", normalizedValue: "expense_commitment" });
+        }
         audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: payload.expenseCommitmentId });
       }
     }
@@ -723,17 +1136,72 @@ export function normalizeFinancialProposals(input: {
         audit.push({ proposalId: id, reasonCode: "CAREER_LINK_FILLED", normalizedValue: linkedCareerStateId });
       }
     }
+    if (payload && (kind === "income_source_started" || kind === "income_source_adjusted")) {
+      const personalIncomeSource = (kind === "income_source_adjusted" ? payload.nextSource : payload) as Record<string, any> | undefined;
+      if (personalIncomeSource?.type === "self_employment_draw" || personalIncomeSource?.type === "business_dividend") {
+        // The personal ledger can record a founder's actual draw, never the
+        // company's operating revenue.  A valid draw must also point to the
+        // one authoritative current/accepted-next CareerState so the later
+        // career-income transaction stays atomic.
+        if (source.financialScope === "business_operating") {
+          audit.push({
+            proposalId: id,
+            reasonCode: "COMPANY_REVENUE_PERSONAL_DRAW_DROPPED",
+            originalValue: "self_employment_draw",
+            normalizedValue: "business_operating"
+          });
+          return [];
+        }
+        if (!hasExplicitPersonalBusinessIncomeReceipt({ type: personalIncomeSource.type, evidence: evidenceText })
+          || !hasMatchingPersonalBusinessIncomeAmount({ type: personalIncomeSource.type, source: personalIncomeSource, evidence: evidenceText })) {
+          audit.push({
+            proposalId: id,
+            reasonCode: "PERSONAL_BUSINESS_INCOME_RECEIPT_MISSING",
+            originalValue: String(personalIncomeSource.type),
+            normalizedValue: "missing_explicit_personal_receipt"
+          });
+          return [];
+        }
+        if (personalIncomeSource.type === "self_employment_draw") {
+          const authoritativeCareerLink = authoritativeCareerLinkForSelfEmploymentDraw({
+            currentCareerStateId: input.currentCareerStateId,
+            nextCareerStateIds: input.nextCareerStateIds
+          });
+          if (!authoritativeCareerLink || personalIncomeSource.linkedCareerStateId !== authoritativeCareerLink) {
+            audit.push({
+              proposalId: id,
+              reasonCode: "UNLINKED_SELF_EMPLOYMENT_DRAW_DROPPED",
+              originalValue: String(personalIncomeSource.linkedCareerStateId || "missing"),
+              normalizedValue: authoritativeCareerLink || "missing"
+            });
+            return [];
+          }
+        }
+      }
+    }
     if (payload && kind === "income_source_adjusted" && payload.nextSource) {
       const existingSource = input.currentLedger?.incomeSources.find((item) => item.id === payload.incomeSourceId);
       const nextSource = payload.nextSource as Record<string, any>;
+      const explicitlyReconfirmsLegacyMigration = Boolean(existingSource?.id.startsWith("legacy_"))
+        && Boolean(existingSource?.evidence.length)
+        && existingSource!.evidence.every((item) => item.source === "legacy_migration")
+        && (monthlyAmountFromEvidence() !== undefined || annualAmountFromEvidence() !== undefined);
       if (existingSource
         && String(nextSource.type) === existingSource.type
         && String(nextSource.status) === existingSource.status
         && String(nextSource.accrualPolicy) === existingSource.accrualPolicy
         && Number(nextSource.monthlyNetAmountWan || 0) === Number(existingSource.monthlyNetAmountWan || 0)
-        && Number(nextSource.annualNetAmountWan || 0) === Number(existingSource.annualNetAmountWan || 0)) {
+        && Number(nextSource.annualNetAmountWan || 0) === Number(existingSource.annualNetAmountWan || 0)
+        && !explicitlyReconfirmsLegacyMigration) {
         audit.push({ proposalId: id, reasonCode: "NO_OP_PROPOSAL_DROPPED", originalValue: kind });
         return [];
+      }
+      if (explicitlyReconfirmsLegacyMigration) {
+        audit.push({
+          proposalId: id,
+          reasonCode: "LEGACY_INCOME_RECONFIRMATION_PRESERVED",
+          normalizedValue: existingSource!.id
+        });
       }
     }
     const primaryCashId = input.currentLedger?.cashAccounts.find((item) => item.id === PRIMARY_CASH_ACCOUNT_ID && item.status === "active")?.id
@@ -750,6 +1218,26 @@ export function normalizeFinancialProposals(input: {
         audit.push({ proposalId: id, reasonCode: "CASH_ACCOUNT_FILLED", normalizedValue: primaryCashId });
       }
     }
+    // Model transport is allowed to use the compact legacy-shaped expense
+    // payload, but a V4 ledger never writes that shape.  Canonicalize only at
+    // this anti-corruption boundary; invalid/ambiguous conversions deliberately
+    // remain uncanonical so the ordinary schema/gate path can reject them.
+    if (payload && input.currentLedger && isFinancialLedgerV4(input.currentLedger)
+      && (kind === "expense_commitment_started" || kind === "expense_commitment_adjusted")) {
+      const candidate = (kind === "expense_commitment_adjusted" ? payload.nextCommitment : payload) as ExpenseCommitment;
+      if (candidate && typeof candidate === "object"
+        && ["basic_living", "housing", "dependent_support", "education", "healthcare", "insurance", "other"].includes(String(candidate.type))) {
+        const canonical = canonicalizeExpenseCommitmentV4({
+          commitment: candidate,
+          asOfAgeInMonths: effectiveAtAgeInMonths
+        });
+        if (canonical.issues.length === 0) {
+          if (kind === "expense_commitment_adjusted") payload.nextCommitment = canonical.commitment;
+          else payload = canonical.commitment as unknown as Record<string, any>;
+          audit.push({ proposalId: id, reasonCode: "V4_EXPENSE_CANONICALIZED", normalizedValue: canonical.commitment.responsibilityKey });
+        }
+      }
+    }
     return [{
       id,
       kind,
@@ -758,7 +1246,10 @@ export function normalizeFinancialProposals(input: {
       evidence: typeof source.evidence === "string" ? source.evidence : "",
       sourceOutcomeId,
       confidence: Number(source.confidence),
-      financialScope: source.financialScope === "personal" || source.financialScope === "business_operating"
+      financialScope: source.financialScope === "personal"
+        || source.financialScope === "shared_household"
+        || source.financialScope === "business_operating"
+        || source.financialScope === "third_party"
         ? source.financialScope
         : undefined
     } satisfies FinancialEventProposal];

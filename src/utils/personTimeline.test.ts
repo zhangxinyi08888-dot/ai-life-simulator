@@ -48,6 +48,12 @@ const children = rebuildPersonStates({ milestoneRelationship: "我们有一个�
   .filter((person) => person.relation === "child");
 assert.equal(children.length, 3);
 assert.equal(new Set(children.map((person) => person.id)).size, 3);
+assert.ok(children.every((person) => person.source === "user_fact" && person.lifeStatus === "active"));
+assert.equal(
+  rebuildPersonStates({ milestoneRelationship: "我们计划明年要一个儿子。" }, [], 40 * 12)
+    .some((person) => person.relation === "child"),
+  false
+);
 
 const partners = rebuildPersonStates({ milestoneRelationship: "与前妻离婚多年，现在和妻子共同生活。" }, [], 40 * 12)
   .filter((person) => person.relation === "partner");

@@ -15,13 +15,34 @@ export function completeCareerIncomeReplacementProposals(input: {
 }): FinancialEventProposal[] {
   if (!input.transition || !input.acceptedOutcomeId
     || input.transition.fromCareerStateId !== input.currentCareerStateId) return input.proposals;
-  const settledIds = new Set(input.proposals.flatMap((proposal) => {
+  // An adjustment that moves an existing source to the accepted next
+  // CareerState is itself the atomic replacement: it closes the old role and
+  // opens the same source under the new role.  A model-provided end/pause for
+  // that same id would otherwise run after the adjustment and silently leave
+  // the new CareerState with zero active income.
+  const migratedIncomeSourceIds = new Set(input.proposals.flatMap((proposal) => {
+    if (proposal.kind !== "income_source_adjusted") return [];
+    const payload = proposal.payload as {
+      incomeSourceId?: unknown;
+      nextSource?: { linkedCareerStateId?: unknown };
+    };
+    return typeof payload.incomeSourceId === "string"
+      && payload.nextSource?.linkedCareerStateId === input.transition!.nextCareerState.id
+      ? [payload.incomeSourceId]
+      : [];
+  }));
+  const proposals = input.proposals.filter((proposal) => {
+    if (proposal.kind !== "income_source_ended" && proposal.kind !== "income_source_paused") return true;
+    const incomeSourceId = (proposal.payload as { incomeSourceId?: unknown }).incomeSourceId;
+    return typeof incomeSourceId !== "string" || !migratedIncomeSourceIds.has(incomeSourceId);
+  });
+  const settledIds = new Set(proposals.flatMap((proposal) => {
     if (proposal.kind !== "income_source_ended" && proposal.kind !== "income_source_paused" && proposal.kind !== "income_source_adjusted") return [];
     const incomeSourceId = (proposal.payload as { incomeSourceId?: unknown }).incomeSourceId;
     return typeof incomeSourceId === "string" ? [incomeSourceId] : [];
   }));
   const evidence = input.transition.evidence.find((item) => item.excerpt)?.excerpt;
-  if (!evidence) return input.proposals;
+  if (!evidence) return proposals;
   const additions: FinancialEventProposal[] = input.currentLedger.incomeSources
     .filter((source) => source.status === "active"
       && source.linkedCareerStateId === input.currentCareerStateId
@@ -35,5 +56,5 @@ export function completeCareerIncomeReplacementProposals(input: {
       evidence,
       confidence: input.transition!.evidence[0]?.confidence ?? 1
     }));
-  return [...input.proposals, ...additions];
+  return [...proposals, ...additions];
 }

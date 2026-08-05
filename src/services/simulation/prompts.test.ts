@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { LifeEventSeed } from "../../data/lifeEvents";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData, WorldStateSnapshot } from "../../types";
-import { initializeFinancialLedger } from "../../domain/finance";
+import { initializeFinancialLedger, migrateFinancialLedgerV3ToV4 } from "../../domain/finance";
 import {
   buildChoiceTextRepairPrompt,
+  buildEndingNodePrompt,
   buildFinancialNarrativeRepairPrompt,
   buildFinancialProposalRepairPrompt,
   buildNextNodePrompt,
@@ -85,6 +86,480 @@ const prompt = buildNextNodePrompt({
   selectedDecision: "接一个短期高薪项目",
   eventSeed: healthWarningEvent
 });
+const financialGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const careerIncomeTransitionRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接受创业公司的产品负责人邀请",
+  eventSeed: healthWarningEvent,
+  financialGateRetryReasonCodes: ["UNSATISFIED_CAREER_INCOME_TRANSITION"]
+});
+const pendingEmployerOfferPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "确认新岗位的劳动合同",
+  eventSeed: healthWarningEvent,
+  worldState: {
+    people: [],
+    directionArcs: [],
+    pressureArcs: [],
+    committedTransactionIds: [],
+    version: 2,
+    pendingEmployerOffer: {
+      status: "accepted_pending_start",
+      sourceOutcomeId: "accept_ai_startup_offer",
+      acceptedAtAgeInMonths: 288,
+      fromCareerStateId: "career_legacy",
+      decision: "接受AI创业公司的产品负责人邀请",
+      evidence: "接受AI创业公司的产品负责人邀请"
+    }
+  }
+});
+const responsibilityDeltaRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  selectedOutcomeId: "care_choice",
+  financialGateRetryReasonCodes: ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"]
+});
+const endingResponsibilityDeltaRetryPrompt = buildEndingNodePrompt({
+  userData,
+  history,
+  candidateNode: {
+    age: 110,
+    stage: "人生终章",
+    title: "最后的日常",
+    description: "你继续整理晚年的生活安排。",
+    attributes: currentAttributes,
+    choices: [{ id: "A", text: "安静回望", impactSummary: "人生回望" }],
+    isEndingNode: false
+  } as any,
+  targetAgeInMonths: 110 * 12,
+  forcedByHardMaximum: true,
+  selectedOutcomeId: "ending_parent_care",
+  financialGateRetryReasonCodes: ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"]
+});
+const staleLegacyIncomeLedger = initializeFinancialLedger({
+  id: "stale_legacy_income_prompt",
+  asOfAgeInMonths: 288,
+  openingPosition: {
+    incomeSources: [{
+      id: "legacy_recurring_income",
+      type: "salary",
+      displayName: "迁移工资",
+      monthlyNetAmountWan: 2.5,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 200,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "estimated",
+      lastConfirmedAtAgeInMonths: 200,
+      evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+    }]
+  }
+});
+const staleLegacyIncomePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: staleLegacyIncomeLedger
+});
+const staleLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: staleLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const nearQuarantineLegacyIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+nearQuarantineLegacyIncomeLedger.incomeSources[0]!.lastConfirmedAtAgeInMonths = 288;
+nearQuarantineLegacyIncomeLedger.recentTransactions.push(
+  {
+    id: "legacy_material_1",
+    simulationTransactionId: "legacy_material_1",
+    eventIds: [],
+    periodStartAgeInMonths: 289,
+    periodEndAgeInMonths: 289,
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  },
+  {
+    id: "legacy_material_2",
+    simulationTransactionId: "legacy_material_2",
+    eventIds: [],
+    periodStartAgeInMonths: 290,
+    periodEndAgeInMonths: 290,
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  }
+);
+const nearQuarantineLegacyIncomePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: nearQuarantineLegacyIncomeLedger
+});
+const alreadyQuarantinedLegacyIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+alreadyQuarantinedLegacyIncomeLedger.incomeSources[0]!.factStatus = "needs_review";
+alreadyQuarantinedLegacyIncomeLedger.incomeSources[0]!.accrualReviewStatus = "quarantined";
+const alreadyQuarantinedLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: alreadyQuarantinedLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const immutableLegacyIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+immutableLegacyIncomeLedger.incomeSources[0]!.activeUntilAgeInMonths = 360;
+immutableLegacyIncomeLedger.incomeSources[0]!.linkedAssetAccountId = "legacy_income_asset_link";
+immutableLegacyIncomeLedger.incomeSources[0]!.linkedBusinessHoldingId = "legacy_income_holding_link";
+const immutableLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: immutableLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const dualAmountLegacyIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+dualAmountLegacyIncomeLedger.incomeSources[0]!.annualNetAmountWan = 30;
+const dualAmountLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: dualAmountLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const ordinaryCareerIncomeLedger = structuredClone(staleLegacyIncomeLedger);
+ordinaryCareerIncomeLedger.incomeSources[0]!.id = "ordinary_salary";
+ordinaryCareerIncomeLedger.incomeSources[0]!.evidence = [{
+  source: "accepted_history",
+  reasonCode: "CURRENT_SALARY",
+  confidence: 0.9
+}];
+const ordinaryCareerIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: ordinaryCareerIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const legacyAggregateIncomeLedger = structuredClone(alreadyQuarantinedLegacyIncomeLedger);
+legacyAggregateIncomeLedger.incomeSources[0]!.type = "other";
+const legacyAggregateIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: legacyAggregateIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+// This reproduces the release-candidate failure shape: an earlier accepted
+// outcome left the compatibility aggregate estimated because it only said the
+// income had become irregular. That is not a stable salary reconfirmation.
+const estimatedOutcomeLegacyIncomeLedger = structuredClone(legacyAggregateIncomeLedger);
+estimatedOutcomeLegacyIncomeLedger.asOfAgeInMonths = 657;
+estimatedOutcomeLegacyIncomeLedger.incomeSources[0] = {
+  ...estimatedOutcomeLegacyIncomeLedger.incomeSources[0]!,
+  type: "other",
+  monthlyNetAmountWan: 1.5,
+  annualNetAmountWan: 32,
+  accrualPolicy: "monthly",
+  factStatus: "estimated",
+  accrualReviewStatus: "normal",
+  lastConfirmedAtAgeInMonths: 398,
+  evidence: [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "accepted_consulting_income_adjusted",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    excerpt: "项目制合同到期后，你按单结算，收入不再稳定。",
+    confidence: 0.7
+  }]
+};
+const estimatedOutcomeLegacyIncomePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history: [{ ...history[0]!, age: 54, ageInMonths: 657 }],
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: estimatedOutcomeLegacyIncomeLedger,
+  currentFinancialState: {
+    asOfAgeInMonths: 657,
+    employmentStatus: "employed",
+    annualAfterTaxIncomeWan: 18,
+    annualCoreExpenseWan: 4.2,
+    annualDisposableIncomeWan: 13.8,
+    cashWan: 20,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    netWorthWan: 20,
+    incomeStability: "volatile",
+    isEstimated: true,
+    currencyUnit: "CNY_WAN_REAL"
+  },
+  timelineAdvance: {
+    elapsedMonths: 4,
+    targetAgeInMonths: 661,
+    targetAge: 55,
+    lifeIntensity: "normal",
+    reasonCodes: []
+  }
+});
+const estimatedOutcomeLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history: [{ ...history[0]!, age: 54, ageInMonths: 657 }],
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: estimatedOutcomeLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const selfEmployedEstimatedOutcomeLegacyIncomePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history: [{ ...history[0]!, age: 54, ageInMonths: 657 }],
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: estimatedOutcomeLegacyIncomeLedger,
+  currentFinancialState: {
+    asOfAgeInMonths: 657,
+    employmentStatus: "self_employed",
+    annualAfterTaxIncomeWan: 18,
+    annualCoreExpenseWan: 4.2,
+    annualDisposableIncomeWan: 13.8,
+    cashWan: 20,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    netWorthWan: 20,
+    incomeStability: "volatile",
+    isEstimated: true,
+    currencyUnit: "CNY_WAN_REAL"
+  },
+  timelineAdvance: {
+    elapsedMonths: 4,
+    targetAgeInMonths: 661,
+    targetAge: 55,
+    lifeIntensity: "normal",
+    reasonCodes: []
+  }
+});
+const partTimeEstimatedOutcomeLegacyIncomePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history: [{ ...history[0]!, age: 54, ageInMonths: 657 }],
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: estimatedOutcomeLegacyIncomeLedger,
+  currentFinancialState: {
+    asOfAgeInMonths: 657,
+    employmentStatus: "part_time",
+    annualAfterTaxIncomeWan: 18,
+    annualCoreExpenseWan: 4.2,
+    annualDisposableIncomeWan: 13.8,
+    cashWan: 20,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    netWorthWan: 20,
+    incomeStability: "volatile",
+    isEstimated: true,
+    currencyUnit: "CNY_WAN_REAL"
+  },
+  timelineAdvance: {
+    elapsedMonths: 4,
+    targetAgeInMonths: 661,
+    targetAge: 55,
+    lifeIntensity: "normal",
+    reasonCodes: []
+  }
+});
+const knownOutcomeLegacyIncomeLedger = structuredClone(estimatedOutcomeLegacyIncomeLedger);
+knownOutcomeLegacyIncomeLedger.incomeSources[0]!.factStatus = "known";
+knownOutcomeLegacyIncomeLedger.incomeSources[0]!.accrualReviewStatus = "normal";
+const knownOutcomeLegacyIncomePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history: [{ ...history[0]!, age: 54, ageInMonths: 657 }],
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: knownOutcomeLegacyIncomeLedger,
+  timelineAdvance: {
+    elapsedMonths: 4,
+    targetAgeInMonths: 661,
+    targetAge: 55,
+    lifeIntensity: "normal",
+    reasonCodes: []
+  }
+});
+const knownOutcomeLegacyIncomeGateRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history: [{ ...history[0]!, age: 54, ageInMonths: 657 }],
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: knownOutcomeLegacyIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
+const v4ExpenseLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+  id: "v4_expense_prompt",
+  asOfAgeInMonths: 288,
+  openingPosition: {
+    expenseCommitments: [{
+      id: "shared_home",
+      type: "housing",
+      displayName: "共同租住公寓",
+      monthlyAmountWan: 0.3,
+      grossMonthlyAmountWan: 0.6,
+      householdShareRate: 0.5,
+      confirmedMonthlyAmountWan: 0.3,
+      amountBasis: "explicit_shared_amount",
+      amountSourceIds: ["lease:shared_home"],
+      financialScope: "shared_household",
+      activeFromAgeInMonths: 288,
+      status: "active",
+      factStatus: "known",
+      evidence: [{ source: "accepted_history", reasonCode: "TEST_SHARED_HOME", confidence: 1, financialScope: "shared_household" }]
+    }]
+  }
+}));
+const v4ExpensePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: v4ExpenseLedger
+});
+const overdueExpenseReviewPromptLedger = structuredClone(v4ExpenseLedger);
+overdueExpenseReviewPromptLedger.expenseCommitments[0]!.factStatus = "needs_review";
+overdueExpenseReviewPromptLedger.expenseCommitments[0]!.accrualReviewStatus = "review_due";
+overdueExpenseReviewPromptLedger.unresolvedIssues.push({
+  id: "expense_review_due_shared_home",
+  code: "PENDING_FACT",
+  severity: "warning",
+  status: "open",
+  relatedProposalIds: [],
+  relatedAccountIds: ["shared_home"],
+  summary: "持续支出共同租住公寓已到复核时点",
+  createdAtAgeInMonths: 288,
+  occurrenceCount: 2,
+  lastObservedAtAgeInMonths: 300
+});
+const overdueExpenseReviewPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: overdueExpenseReviewPromptLedger
+});
+const firstObservationExpenseReviewLedger = structuredClone(overdueExpenseReviewPromptLedger);
+firstObservationExpenseReviewLedger.unresolvedIssues[0]!.occurrenceCount = 1;
+const firstObservationExpenseReviewPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: firstObservationExpenseReviewLedger
+});
+const overduePolicyEstimatePromptLedger = structuredClone(overdueExpenseReviewPromptLedger);
+overduePolicyEstimatePromptLedger.expenseCommitments[0] = {
+  ...overduePolicyEstimatePromptLedger.expenseCommitments[0]!,
+  id: "policy_floor_basic_living",
+  type: "basic_living",
+  displayName: "基础生活支出（待确认）",
+  responsibilityKey: "adult_basic_living:protagonist",
+  responsibilityKind: "adult_basic_living",
+  monthlyAmountWan: 0.35,
+  grossMonthlyAmountWan: undefined,
+  householdShareRate: undefined,
+  confirmedMonthlyAmountWan: undefined,
+  amountBasis: "policy_floor",
+  amountSourceIds: ["opening_policy_adult_basic_living"],
+  financialScope: "personal",
+  factStatus: "needs_review",
+  evidence: [{ source: "system_policy", reasonCode: "OPENING_POLICY_FLOOR", confidence: 1, financialScope: "personal" }]
+};
+overduePolicyEstimatePromptLedger.unresolvedIssues[0] = {
+  ...overduePolicyEstimatePromptLedger.unresolvedIssues[0]!,
+  id: "expense_review_due_policy_floor_basic_living",
+  relatedAccountIds: ["policy_floor_basic_living"]
+};
+const overduePolicyEstimatePrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "接一个短期高薪项目",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: overduePolicyEstimatePromptLedger
+});
 
 assert.doesNotMatch(prompt, /高薪不是必然伤健康/);
 assert.doesNotMatch(prompt, /高强度、长期、无恢复机制/);
@@ -128,10 +603,21 @@ assert.match(prompt, /financialNarrativeClaims 必须放在返回 JSON 顶层/);
 assert.match(prompt, /每个 financialEventProposal 至少返回一项 Claim/);
 assert.match(prompt, /未绑定 Claim 的正文或选项/);
 assert.match(prompt, /不得返回债务净变化、资产净变化或最终余额/);
+assert.match(prompt, /responsibilityKind（例如 recurring_healthcare）不是 type/);
+assert.match(prompt, /支出 payload 禁止包含 accrualPolicy/);
 assert.match(prompt, /debtAccount.*destinationCashAccountId.*principalDrawnWan/s);
 assert.match(prompt, /debtAccount\.principalWan 必须严格等于 principalDrawnWan/);
 assert.match(prompt, /公司融资只能用 business_financing_recorded/);
+assert.match(prompt, /项目基金、公益资助或拨款/);
+assert.match(prompt, /即使款项暂时打到主角名下，也不得用 income_source_\* 或 one_off_income_received 写入个人现金/);
 assert.match(prompt, /employmentStatus 不属于财务 Proposal/);
+assert.match(prompt, /location_change worldDelta 增加 residence/);
+assert.match(prompt, /工坊、工作室、办公室、仓库、门店、公司租金和团队场地不是主角住所/);
+assert.match(prompt, /房贷或月供仍只走债务 Proposal/);
+assert.match(prompt, /type="expense_responsibility" worldDelta/);
+assert.match(prompt, /不填金额、responsibilityKey、账户 id 或 financialScope/);
+assert.match(prompt, /shared_household 照护不得返回它，必须走带明确主角份额的财务 Proposal/);
+assert.match(prompt, /高龄、父母患病、一次探望\/陪诊、一次理疗、父母或第三方付费、公司场地都不得返回它/);
 assert.doesNotMatch(prompt, /financialSignals 必须放在返回 JSON 顶层/);
 assert.match(prompt, /最终金额由系统统一计算和展示/);
 assert.match(prompt, /不得自行写“连续 N 个月逾期\/拖欠”/);
@@ -140,8 +626,106 @@ assert.match(prompt, /债务叙事权威契约/);
 assert.match(prompt, /permittedInstitutionActions/);
 assert.match(prompt, /descriptionParagraphs、choices、storyEpisode、arcSignals evidence/);
 assert.match(prompt, /不得凭空提交就业状态转换/);
+assert.match(financialGateRetryPrompt, /财务接受门重生修正/);
+assert.match(financialGateRetryPrompt, /EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME/);
+assert.match(financialGateRetryPrompt, /不得返回 income_source_ended、income_source_paused/);
+assert.match(careerIncomeTransitionRetryPrompt, /不得再写“个人收入尚待确认”/);
+assert.match(careerIncomeTransitionRetryPrompt, /原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入/);
+assert.match(pendingEmployerOfferPrompt, /已接受但尚未生效的外部职位/);
+assert.match(pendingEmployerOfferPrompt, /当前权威 CareerState 与个人工资尚未变化/);
+assert.match(pendingEmployerOfferPrompt, /实际入职与主角个人税后薪资事实/);
+assert.match(pendingEmployerOfferPrompt, /pendingEmployerOfferResolution/);
+assert.match(pendingEmployerOfferPrompt, /action:"started"/);
+assert.match(pendingEmployerOfferPrompt, /accept_ai_startup_offer/);
+assert.match(responsibilityDeltaRetryPrompt, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
+assert.match(responsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
+assert.match(responsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);
+assert.match(responsibilityDeltaRetryPrompt, /evidence 必须逐字包含病情句与服务句/);
+assert.match(responsibilityDeltaRetryPrompt, /未知金额由系统建立 needs_review/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /evidence 必须逐字包含病情句与服务句/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /未知金额由系统建立 needs_review/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /本轮唯一已接受的 outcome id：【ending_parent_care】/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /sourceOutcomeId 必须逐字等于 "ending_parent_care"/);
+assert.match(endingResponsibilityDeltaRetryPrompt, /narrativeMeta 必须返回 worldDeltas/);
+assert.match(staleLegacyIncomePrompt, /仍在职的迁移估算收入需要本节点明确确认/);
+assert.match(staleLegacyIncomePrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(staleLegacyIncomePrompt, /账本金额=monthlyNetAmountWan=2\.5/);
+assert.match(staleLegacyIncomePrompt, /description 必须逐字包含以下完整句子/);
+assert.match(staleLegacyIncomePrompt, /“你的税后月薪稳定在2\.5万元。”/);
+assert.match(staleLegacyIncomePrompt, /payload\.incomeSourceId=legacy_recurring_income/);
+assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.id=legacy_recurring_income/);
+assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.linkedCareerStateId=career_current/);
+assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.monthlyNetAmountWan=2\.5/);
+assert.match(staleLegacyIncomePrompt, /payload\.nextSource\.factStatus=known/);
+assert.match(staleLegacyIncomePrompt, /financialScope=personal、confidence=0\.8-1/);
+assert.match(staleLegacyIncomePrompt, /项目继续、公司运营或客户付费不能替代下方固定的个人薪资句/);
+assert.match(staleLegacyIncomePrompt, /账本摘要、重试提示和旧节点不是 evidence/);
+assert.match(staleLegacyIncomeGateRetryPrompt, /当前职业收入必须在本次重生中确认/);
+assert.match(staleLegacyIncomeGateRetryPrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(staleLegacyIncomeGateRetryPrompt, /税后月薪稳定在2\.5万元/);
+assert.match(staleLegacyIncomeGateRetryPrompt, /Proposal\.evidence 必须逐字引用/);
+assert.match(nearQuarantineLegacyIncomePrompt, /仍在职的迁移估算收入需要本节点明确确认/);
+assert.match(nearQuarantineLegacyIncomePrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(nearQuarantineLegacyIncomePrompt, /payload\.nextSource\.id=legacy_recurring_income/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /当前职业收入必须在本次重生中确认/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /accrualReviewStatus=quarantined/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /不得因重试、账本摘要或旧节点自动恢复计提/);
+assert.match(alreadyQuarantinedLegacyIncomeGateRetryPrompt, /“你的税后月薪稳定在2\.5万元。”/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.displayName="迁移工资"/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.activeFromAgeInMonths=200/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.activeUntilAgeInMonths=360/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.linkedAssetAccountId="legacy_income_asset_link"/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.linkedBusinessHoldingId="legacy_income_holding_link"/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /payload\.nextSource\.factStatus=known/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /不得新建第二份工资、改换 incomeSourceId、CareerState、金额、类型、计提频率、displayName、状态、activeFrom\/activeUntil 时间窗口或任何账户链接/);
+assert.match(immutableLegacyIncomeGateRetryPrompt, /lastConfirmedAtAgeInMonths 由已接受事件写入/);
+assert.match(dualAmountLegacyIncomeGateRetryPrompt, /“你的税后月薪稳定在2\.5万元。”/);
+assert.doesNotMatch(dualAmountLegacyIncomeGateRetryPrompt, /“你的年税后收入稳定在30万元。”/);
+assert.doesNotMatch(ordinaryCareerIncomeGateRetryPrompt, /【当前职业收入必须在本次重生中确认】/);
+assert.match(legacyAggregateIncomeGateRetryPrompt, /payload\.nextSource\.type=salary/);
+assert.doesNotMatch(legacyAggregateIncomeGateRetryPrompt, /payload\.nextSource\.type=other/);
+assert.match(estimatedOutcomeLegacyIncomePrompt, /旧版职业收入仍是 estimated\/needs_review/);
+assert.match(estimatedOutcomeLegacyIncomePrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(estimatedOutcomeLegacyIncomePrompt, /旧金额、旧 type 或“此前还能维持开销”都不是当前个人薪酬事实/);
+assert.match(estimatedOutcomeLegacyIncomePrompt, /A\. 若主角仍在当前受雇职业工作/);
+assert.match(estimatedOutcomeLegacyIncomePrompt, /B\. 若主角已经转为独立经营或项目制顾问/);
+assert.match(estimatedOutcomeLegacyIncomePrompt, /C\. 若主角已经离职、退休、停薪或不再有持续有薪工作/);
+assert.doesNotMatch(estimatedOutcomeLegacyIncomePrompt, /你的税后月薪稳定在1\.5万元/);
+assert.match(estimatedOutcomeLegacyIncomeGateRetryPrompt, /【当前职业收入必须在本次重生中确认】/);
+assert.match(estimatedOutcomeLegacyIncomeGateRetryPrompt, /不能留在“仍有些收入”“项目继续”或“能维持开销”/);
+assert.match(estimatedOutcomeLegacyIncomeGateRetryPrompt, /type=salary 或有明确个人顾问合同事实时 type=contract/);
+assert.match(selfEmployedEstimatedOutcomeLegacyIncomePrompt, /若主角仍在当前独立经营或项目制顾问职业中/);
+assert.match(selfEmployedEstimatedOutcomeLegacyIncomePrompt, /继续自雇本身不得虚构 employmentTransition/);
+assert.match(selfEmployedEstimatedOutcomeLegacyIncomePrompt, /type=self_employment_draw 或有明确个人顾问合同事实时 type=contract/);
+assert.match(partTimeEstimatedOutcomeLegacyIncomePrompt, /若主角仍在当前兼职职业工作/);
+assert.match(partTimeEstimatedOutcomeLegacyIncomePrompt, /继续兼职本身不得虚构 employmentTransition/);
+assert.match(partTimeEstimatedOutcomeLegacyIncomePrompt, /toStatus=employed 或 self_employed/);
+assert.doesNotMatch(knownOutcomeLegacyIncomePrompt, /旧版职业收入仍是 estimated\/needs_review/);
+assert.doesNotMatch(knownOutcomeLegacyIncomeGateRetryPrompt, /【当前职业收入必须在本次重生中确认】/);
+assert.match(v4ExpensePrompt, /V4 个人持续支出分类摘要（唯一责任事实源）/u);
+assert.match(v4ExpensePrompt, /responsibilityKey=primary_residence:main/u);
+assert.match(v4ExpensePrompt, /kind=primary_residence/u);
+assert.match(v4ExpensePrompt, /scope=shared_household/u);
+assert.match(v4ExpensePrompt, /monthly=0.3/u);
+assert.match(v4ExpensePrompt, /basis=explicit_shared_amount/u);
+assert.match(v4ExpensePrompt, /factStatus=known/u);
+assert.match(v4ExpensePrompt, /review=normal/u);
+assert.match(overdueExpenseReviewPrompt, /连续至少两个已提交的实质节点未获得新的确认/u);
+assert.match(overdueExpenseReviewPrompt, /expense_review_due_shared_home/u);
+assert.match(overdueExpenseReviewPrompt, /expenseCommitmentId/u);
+assert.match(overdueExpenseReviewPrompt, /expense_commitment_adjusted/u);
+assert.doesNotMatch(firstObservationExpenseReviewPrompt, /连续至少两个已提交的实质节点未获得新的确认/u);
+assert.doesNotMatch(overduePolicyEstimatePrompt, /以下持续支出已连续至少两个已提交的实质节点未获得新的确认/u);
+assert.doesNotMatch(overduePolicyEstimatePrompt, /当前月计提=0\.35/u);
+assert.match(overduePolicyEstimatePrompt, /不能只因账本显示 needs_review、review_due 或门禁重生而凭空“确认”或调整/u);
 assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
 assert.match(prompt, /没有 relationship outcome id 时/);
+assert.match(prompt, /共同育儿/);
+assert.match(prompt, /孩子出生、接送、托育或共同养育/);
 assert.match(prompt, /career_state worldDelta 才能增加 employmentTransition/);
 assert.match(prompt, /sourceOutcomeId 必须等于上方已接受 outcome id/);
 assert.match(prompt, /其他人物上学、退休、工作/);
@@ -162,6 +746,9 @@ const debtRepairPrompt = buildFinancialProposalRepairPrompt({
 });
 assert.match(debtRepairPrompt, /debt_drawn 的 payload 必须是/);
 assert.match(debtRepairPrompt, /不得返回把 id、type、principalAmountWan/);
+assert.match(debtRepairPrompt, /debt_restructured 只能在正文明确写出银行已经批准且新还款安排已经生效时返回/);
+assert.match(debtRepairPrompt, /不得为了让故事推进而新增卖车到账/);
+assert.match(debtRepairPrompt, /即使正文写“你收到”或“到账”，也必须移除对应个人收入 Proposal/);
 
 const narrativeRepairPrompt = buildFinancialNarrativeRepairPrompt({
   narrativeText: "银行完成20万元贷款放款，你开始每月还贷。",

@@ -9,6 +9,22 @@ const INCOME_STATUSES = new Set(["active", "paused", "ended"]);
 const EXPENSE_TYPES = new Set(["basic_living", "housing", "dependent_support", "education", "healthcare", "insurance", "other"]);
 const EXPENSE_STATUSES = new Set(["active", "paused", "ended"]);
 const FACT_STATUSES = new Set(["known", "estimated", "unknown", "needs_review"]);
+const FINANCIAL_FACT_SOURCES = new Set(["user", "accepted_history", "accepted_simulation_outcome", "system_policy", "legacy_migration"]);
+const FINANCIAL_SCOPES = new Set(["personal", "shared_household", "business_operating", "third_party"]);
+const COMMITTED_EXPENSE_SCOPES = new Set(["personal", "shared_household"]);
+const EXPENSE_RESPONSIBILITY_KINDS = new Set([
+  "adult_basic_living", "primary_residence", "child_support", "elder_care", "recurring_healthcare",
+  "personal_insurance", "continuing_education", "legacy_aggregate"
+]);
+const EXPENSE_AMOUNT_BASES = new Set([
+  "explicit_known", "explicit_shared_amount", "last_known", "contextual_estimate", "policy_floor", "legacy_estimate"
+]);
+const EXPENSE_CHANGE_REASONS = new Set([
+  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "dependent_independent",
+  "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
+  "education_completed", "aggregate_atomically_split", "temporary_third_party_coverage",
+  "responsibility_resumed", "responsibility_ended"
+]);
 const ASSET_TYPES = new Set(["investment", "property", "annuity", "insurance_cash_value", "other_personal_asset"]);
 const ASSET_LIQUIDITIES = new Set(["liquid", "semi_liquid", "illiquid"]);
 const ASSET_STATUSES = new Set(["active", "disposed"]);
@@ -39,6 +55,22 @@ function requiredEnum(value: unknown, allowed: Set<string>, path: string, errors
 function requiredArray(value: unknown, path: string, errors: FinancialPayloadSchemaError[]): void {
   if (!Array.isArray(value)) errors.push({ path, reason: "必须是数组" });
 }
+function optionalEnum(value: unknown, allowed: Set<string>, path: string, errors: FinancialPayloadSchemaError[]): void {
+  if (value !== undefined) requiredEnum(value, allowed, path, errors);
+}
+function financialEvidence(value: unknown, path: string, errors: FinancialPayloadSchemaError[]): void {
+  const evidence = requiredRecord(value, path, errors); if (!evidence) return;
+  requiredEnum(evidence.source, FINANCIAL_FACT_SOURCES, `${path}.source`, errors);
+  requiredString(evidence.reasonCode, `${path}.reasonCode`, errors);
+  if (typeof evidence.confidence !== "number" || !Number.isFinite(evidence.confidence) || evidence.confidence < 0 || evidence.confidence > 1) {
+    errors.push({ path: `${path}.confidence`, reason: "必须是 0-1 之间的有限数" });
+  }
+  optionalEnum(evidence.financialScope, FINANCIAL_SCOPES, `${path}.financialScope`, errors);
+}
+function evidenceArray(value: unknown, path: string, errors: FinancialPayloadSchemaError[]): void {
+  requiredArray(value, path, errors);
+  if (Array.isArray(value)) value.forEach((item, index) => financialEvidence(item, `${path}[${index}]`, errors));
+}
 function incomeSource(value: unknown, path: string, errors: FinancialPayloadSchemaError[]): void {
   const source = requiredRecord(value, path, errors); if (!source) return;
   requiredString(source.id, `${path}.id`, errors); requiredEnum(source.type, INCOME_TYPES, `${path}.type`, errors);
@@ -46,32 +78,76 @@ function incomeSource(value: unknown, path: string, errors: FinancialPayloadSche
   if (source.accrualPolicy === "monthly") requiredNumber(source.monthlyNetAmountWan, `${path}.monthlyNetAmountWan`, errors);
   if (source.accrualPolicy === "annual") requiredNumber(source.annualNetAmountWan, `${path}.annualNetAmountWan`, errors);
   requiredInteger(source.activeFromAgeInMonths, `${path}.activeFromAgeInMonths`, errors); requiredEnum(source.status, INCOME_STATUSES, `${path}.status`, errors);
-  requiredEnum(source.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); requiredArray(source.evidence, `${path}.evidence`, errors);
+  requiredEnum(source.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); evidenceArray(source.evidence, `${path}.evidence`, errors);
 }
 function expenseCommitment(value: unknown, path: string, errors: FinancialPayloadSchemaError[]): void {
   const item = requiredRecord(value, path, errors); if (!item) return;
   requiredString(item.id, `${path}.id`, errors); requiredEnum(item.type, EXPENSE_TYPES, `${path}.type`, errors); requiredString(item.displayName, `${path}.displayName`, errors);
   requiredNumber(item.monthlyAmountWan, `${path}.monthlyAmountWan`, errors); requiredInteger(item.activeFromAgeInMonths, `${path}.activeFromAgeInMonths`, errors);
-  requiredEnum(item.status, EXPENSE_STATUSES, `${path}.status`, errors); requiredEnum(item.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); requiredArray(item.evidence, `${path}.evidence`, errors);
+  requiredEnum(item.status, EXPENSE_STATUSES, `${path}.status`, errors); requiredEnum(item.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); evidenceArray(item.evidence, `${path}.evidence`, errors);
+  if (item.status === "active") requiredNumber(item.monthlyAmountWan, `${path}.monthlyAmountWan`, errors, false);
+  for (const forbidden of ["monthlyNetAmountWan", "annualNetAmountWan", "annualAmountWan", "incomeSourceId", "accrualPolicy"]) {
+    if (Object.prototype.hasOwnProperty.call(item, forbidden)) errors.push({ path: `${path}.${forbidden}`, reason: "收入字段不得出现在持续支出 payload" });
+  }
+  const hasV4Fields = ["responsibilityKey", "responsibilityKind", "amountBasis", "amountSourceIds", "financialScope", "nextReviewAtAgeInMonths"]
+    .some((key) => Object.prototype.hasOwnProperty.call(item, key));
+  if (!hasV4Fields) return;
+  requiredString(item.responsibilityKey, `${path}.responsibilityKey`, errors);
+  requiredEnum(item.responsibilityKind, EXPENSE_RESPONSIBILITY_KINDS, `${path}.responsibilityKind`, errors);
+  requiredEnum(item.amountBasis, EXPENSE_AMOUNT_BASES, `${path}.amountBasis`, errors);
+  requiredArray(item.amountSourceIds, `${path}.amountSourceIds`, errors);
+  if (Array.isArray(item.amountSourceIds)) item.amountSourceIds.forEach((id, index) => requiredString(id, `${path}.amountSourceIds[${index}]`, errors));
+  requiredEnum(item.financialScope, COMMITTED_EXPENSE_SCOPES, `${path}.financialScope`, errors);
+  requiredEnum(item.accrualReviewStatus, new Set(["normal", "conservative", "review_due"]), `${path}.accrualReviewStatus`, errors);
+  requiredInteger(item.nextReviewAtAgeInMonths, `${path}.nextReviewAtAgeInMonths`, errors);
+  optionalNumber(item.grossMonthlyAmountWan, `${path}.grossMonthlyAmountWan`, errors);
+  optionalNumber(item.confirmedMonthlyAmountWan, `${path}.confirmedMonthlyAmountWan`, errors);
+  optionalNumber(item.householdShareRate, `${path}.householdShareRate`, errors);
+  if (item.householdShareRate !== undefined && (Number(item.householdShareRate) < 0 || Number(item.householdShareRate) > 1)) {
+    errors.push({ path: `${path}.householdShareRate`, reason: "必须在 0-1 之间" });
+  }
+  const explicitSharedAmount = item.amountBasis === "explicit_shared_amount";
+  if (explicitSharedAmount) {
+    if (item.financialScope !== "shared_household") {
+      errors.push({ path: `${path}.financialScope`, reason: "共同金额必须使用 shared_household 责任范围" });
+    }
+    requiredNumber(item.grossMonthlyAmountWan, `${path}.grossMonthlyAmountWan`, errors, false);
+    requiredNumber(item.householdShareRate, `${path}.householdShareRate`, errors, false);
+  }
+  if (item.financialScope === "shared_household" && item.factStatus === "known" && !explicitSharedAmount) {
+    errors.push({ path: `${path}.amountBasis`, reason: "已知共同家庭金额必须使用 explicit_shared_amount，并提供总额与主角承担比例" });
+  }
+  if (item.grossMonthlyAmountWan !== undefined && item.householdShareRate !== undefined && Number.isFinite(Number(item.monthlyAmountWan))) {
+    if (Math.abs(Number(item.monthlyAmountWan) - Number(item.grossMonthlyAmountWan) * Number(item.householdShareRate)) > 0.005) {
+      errors.push({ path: `${path}.monthlyAmountWan`, reason: "必须等于总额乘主角承担比例" });
+    }
+  }
+  if (["explicit_known", "explicit_shared_amount"].includes(String(item.amountBasis))) {
+    requiredNumber(item.confirmedMonthlyAmountWan, `${path}.confirmedMonthlyAmountWan`, errors, false);
+    requiredInteger(item.lastConfirmedAtAgeInMonths, `${path}.lastConfirmedAtAgeInMonths`, errors);
+  }
+  if (["contextual_estimate", "policy_floor", "legacy_estimate"].includes(String(item.amountBasis))) {
+    requiredString(item.estimationPolicyId, `${path}.estimationPolicyId`, errors);
+  }
 }
 function assetAccount(value: unknown, path: string, errors: FinancialPayloadSchemaError[]): void {
   const item = requiredRecord(value, path, errors); if (!item) return;
   requiredString(item.id, `${path}.id`, errors); requiredEnum(item.type, ASSET_TYPES, `${path}.type`, errors); requiredString(item.displayName, `${path}.displayName`, errors);
   requiredNumber(item.marketValueWan, `${path}.marketValueWan`, errors); requiredEnum(item.liquidity, ASSET_LIQUIDITIES, `${path}.liquidity`, errors);
   requiredEnum(item.status, ASSET_STATUSES, `${path}.status`, errors); requiredEnum(item.factStatus, FACT_STATUSES, `${path}.factStatus`, errors);
-  requiredInteger(item.openedAtAgeInMonths, `${path}.openedAtAgeInMonths`, errors); requiredArray(item.evidence, `${path}.evidence`, errors);
+  requiredInteger(item.openedAtAgeInMonths, `${path}.openedAtAgeInMonths`, errors); evidenceArray(item.evidence, `${path}.evidence`, errors);
 }
 function debtAccount(value: unknown, path: string, errors: FinancialPayloadSchemaError[]): void {
   const item = requiredRecord(value, path, errors); if (!item) return;
   requiredString(item.id, `${path}.id`, errors); requiredEnum(item.type, DEBT_TYPES, `${path}.type`, errors); requiredString(item.displayName, `${path}.displayName`, errors);
   requiredNumber(item.principalWan, `${path}.principalWan`, errors); requiredInteger(item.openedAtAgeInMonths, `${path}.openedAtAgeInMonths`, errors);
-  requiredEnum(item.status, DEBT_STATUSES, `${path}.status`, errors); requiredEnum(item.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); requiredArray(item.evidence, `${path}.evidence`, errors);
+  requiredEnum(item.status, DEBT_STATUSES, `${path}.status`, errors); requiredEnum(item.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); evidenceArray(item.evidence, `${path}.evidence`, errors);
   const policy = requiredRecord(item.repaymentPolicy, `${path}.repaymentPolicy`, errors); if (policy) requiredEnum(policy.mode, DEBT_POLICIES, `${path}.repaymentPolicy.mode`, errors);
 }
 function businessHolding(value: unknown, path: string, errors: FinancialPayloadSchemaError[], requireOption = false): void {
   const item = requiredRecord(value, path, errors); if (!item) return;
   requiredString(item.id, `${path}.id`, errors); requiredNumber(item.personalCarryingValueWan, `${path}.personalCarryingValueWan`, errors);
-  requiredEnum(item.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); requiredArray(item.evidence, `${path}.evidence`, errors);
+  requiredEnum(item.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); evidenceArray(item.evidence, `${path}.evidence`, errors);
   const business = requiredRecord(item.business, `${path}.business`, errors); if (business) requiredString(business.id, `${path}.business.id`, errors);
   if (requireOption && item.instrumentType !== "stock_option") errors.push({ path: `${path}.instrumentType`, reason: "期权必须为 stock_option" });
   if (requireOption) {
@@ -110,8 +186,17 @@ export function validateFinancialPayloadSchema(kind: FinancialEventKind, value: 
     case "income_source_paused": case "income_source_ended": string("incomeSourceId"); break;
     case "one_off_income_received": case "family_support_received": string("destinationCashAccountId"); positive("amountWan"); break;
     case "expense_commitment_started": expenseCommitment(payload, "payload", errors); break;
-    case "expense_commitment_adjusted": string("expenseCommitmentId"); expenseCommitment(payload.nextCommitment, "payload.nextCommitment", errors); break;
-    case "expense_commitment_ended": string("expenseCommitmentId"); break;
+    case "expense_commitment_adjusted":
+      string("expenseCommitmentId");
+      if (payload.previousCommitmentId !== undefined) string("previousCommitmentId");
+      if (payload.changeReason !== undefined) requiredEnum(payload.changeReason, EXPENSE_CHANGE_REASONS, "payload.changeReason", errors);
+      expenseCommitment(payload.nextCommitment, "payload.nextCommitment", errors);
+      break;
+    case "expense_commitment_ended":
+      string("expenseCommitmentId");
+      if (payload.previousCommitmentId !== undefined) string("previousCommitmentId");
+      if (payload.changeReason !== undefined) requiredEnum(payload.changeReason, EXPENSE_CHANGE_REASONS, "payload.changeReason", errors);
+      break;
     case "one_off_expense_paid": case "family_support_paid": string("sourceCashAccountId"); positive("amountWan"); break;
     case "asset_purchased": string("sourceCashAccountId"); assetAccount(payload.assetAccount, "payload.assetAccount", errors); positive("cashPaidWan"); nonNegative("transactionFeeWan"); break;
     case "asset_balance_discovered": assetAccount(payload.assetAccount, "payload.assetAccount", errors); break;

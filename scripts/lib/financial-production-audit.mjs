@@ -9,6 +9,18 @@ const AUTHORITATIVE_OPENING_SOURCES = new Set(["user", "user_profile", "structur
 const FINANCIAL_PLACEHOLDER_TEXT = /金额待账本确认|回报幅度待账本确认|回报率待账本确认|价值待确认|账本确认/u;
 const ORPHAN_FINANCIAL_AMOUNT_TEXT = /(?:负债|债务|净资产|现金|收入|支出)\s*-?\d+(?:\.\d+)?\s*(?:…|\.{2,})/u;
 const LONG_FINANCIAL_FLOAT_TEXT = /-?\d+\.\d{3,}\s*万(?:元)?/u;
+const RESTRICTED_PROJECT_FUNDING_TEXT = /(?:项目|公益|专项|教育)[^。；\n]{0,24}(?:基金|资助|拨款|赞助|项目款|资金|经费|款)|(?:基金|资助|拨款|赞助|项目款|资金|经费|款)[^。；\n]{0,24}(?:项目|公益|专项|教育)/u;
+const RESTRICTED_PROJECT_FUNDING_PUBLIC_PURPOSE_TEXT = /(?:用于|专款|专项|定向|仅限|专门)[^。；\n]{0,48}(?:学校|村小|教师|硬件|设备|教学|助学|课程|培训|公益|志愿者|基金会|社会组织|非营利|社区服务|受助人|服务对象)/u;
+const GENERIC_PROJECT_EXECUTION_PURPOSE_TEXT = /(?:用于|专款|专项|定向|仅限|专门)[^。；\n]{0,48}(?:项目运营|项目实施|项目执行|项目服务|机构运营)/u;
+const EXPLICIT_PUBLIC_BENEFICIARY_CONTEXT = /(?:公益|教育|学校|村小|校园|教师|学生|助学|社区服务|基金会|社会组织|非营利)/u;
+const PERSONAL_DISPOSABLE_AWARD_TEXT = /(?:个人(?:可)?自由支配|个人(?:可)?自行支配|你(?:个人)?(?:可)?自由支配|你(?:个人)?(?:可)?自行支配|无(?:指定|限定)用途)[^。；\n]{0,32}(?:奖(?:金|励)?|奖金)|(?:奖(?:金|励)?|奖金)[^。；\n]{0,48}(?:个人(?:可)?自由支配|个人(?:可)?自行支配|你(?:个人)?(?:可)?自由支配|你(?:个人)?(?:可)?自行支配|无(?:指定|限定)用途)/u;
+const PERSONAL_CASH_INFLOW_EVENT_KINDS = new Set([
+  "income_source_started",
+  "income_source_adjusted",
+  "one_off_income_received",
+  "family_support_received",
+  "business_distribution_received"
+]);
 const FAILED_FINANCIAL_ATTEMPT_TEXT = /(?:尝试申请借款，但这次尚未形成已经到账的结果|尝试申请调整还款安排，但尚未形成生效协议|开始评估资产处置，但这次尚未形成确定成交|尝试寻求外部支持，但这次尚未确认资金到账|实际到账的个人收入尚待确认|关于补发收入的安排仍在核对，暂时没有确定到账|(?:股权补偿|期权补偿|期权归属)仍在确认[^。！？\n]{0,24}尚未形成确定的个人持有结果|已经尝试推进这项财务安排，但它暂时还没有形成确定结果)/u;
 const COMPLETION_AFTER_FAILED_ATTEMPT_TEXT = /(?:这笔|该笔|上述)(?:钱|资金|款项)[^。！？\n]{0,12}(?:到账|到手|入账)(?:后|以后|之后)|(?:借款|贷款)[^。！？\n]{0,12}(?:到账|到手|入账)(?:后|以后|之后)|(?:重组|展期|宽限期|还款安排)[^。！？\n]{0,12}(?:生效|获批|确认)(?:后|以后|之后)|(?:签了|签署|签订)[^。！？\n]{0,8}(?:重组|展期|宽限期|还款|补充)?协议|补发[^。！？\n]{0,16}(?:工资|薪资|奖金)|(?:工资|薪资|奖金)[^。！？\n]{0,16}(?:补发|到账)|(?:签署|签订)[^。！？\n]{0,20}(?:股权|股份|期权)(?:协议)?|(?:你|我|主角)(?:已经|已)?(?:获得|拿到|确认|持有)[^。！？\n]{0,20}(?:股权|股份|期权)|(?:资产|房产|车辆|股份)[^。！？\n]{0,12}(?:成交|出售|卖出)(?:后|以后|之后)/u;
 const RELIEF_AFTER_FAILED_ATTEMPT_TEXT = /(?:松(?:了)?(?:一)?口气|长舒一口气|终于(?:可以)?(?:喘息|缓口气)|(?:现金流|资金|还款|月供|债务|经济|财务)?压力[^。！？\n]{0,12}(?:缓解|减轻|下降|小了)|现金流[^。！？\n]{0,12}(?:缓解|改善)|月供[^。！？\n]{0,16}(?:降低|减轻|轻松)|燃眉之急[^。！？\n]{0,8}(?:得到)?缓解)/u;
@@ -69,6 +81,166 @@ function containsCompletedRepaymentClaim(text) {
     if (/(?:还清|结清|清偿)(?:[^。！？!?\n]{0,20})(?:仍需|还要|尚需|需要|才能|还差|距离|数年|很久|时间)/u.test(sentence)) return false;
     return /(?:(?:还清|结清)(?:了)?[^。！？!?\n]{0,12}(?:债务|欠款|贷款|房贷|信用卡|债)|清偿(?:完毕|了)?[^。！？!?\n]{0,12}(?:债务|欠款|贷款|房贷|信用卡|债)|无债一身轻|不再欠债|(?:终于|已经|成功|彻底).{0,12}(?:还清|结清|清偿|无债)|(?:债务|欠款|贷款|房贷|信用卡).{0,8}(?:归零|清零))/u.test(sentence);
   });
+}
+
+function transactionHasDebtSettlementFactForAccount(transaction, debtAccountId) {
+  if (Array.isArray(transaction?.debtSettlementAccountIds)
+    && transaction.debtSettlementAccountIds.includes(debtAccountId)) return true;
+  // Old reducer snapshots may lack the explicit target list. A service record
+  // still provides account-specific proof; an aggregate debt total does not.
+  return (transaction?.debtServiceRecords || []).some((record) => (
+    record?.debtAccountId === debtAccountId
+    && (Number(record?.principalPaidWan || 0) > 0 || Number(record?.interestPaidWan || 0) > 0)
+  ));
+}
+
+function transactionAuditId(transaction) {
+  const id = transaction?.id || transaction?.simulationTransactionId;
+  return typeof id === "string" && id.trim() ? id.trim() : undefined;
+}
+
+function transactionEvidenceText(transaction) {
+  return [
+    transaction?.id,
+    transaction?.simulationTransactionId,
+    ...(Array.isArray(transaction?.eventIds) ? transaction.eventIds : []),
+    ...(Array.isArray(transaction?.evidence) ? transaction.evidence.flatMap((evidence) => [
+      evidence?.sourceEventId,
+      evidence?.reasonCode,
+      evidence?.excerpt
+    ]) : [])
+  ].filter((value) => typeof value === "string" && value.trim()).join("\n");
+}
+
+function eventAuditEvidenceText(eventAudit) {
+  return [
+    eventAudit?.eventId,
+    eventAudit?.kind,
+    ...(Array.isArray(eventAudit?.evidence) ? eventAudit.evidence.flatMap((evidence) => [
+      evidence?.sourceEventId,
+      evidence?.reasonCode,
+      evidence?.excerpt
+    ]) : [])
+  ].filter((value) => typeof value === "string" && value.trim()).join("\n");
+}
+
+function isRestrictedProjectFundingText(text) {
+  return RESTRICTED_PROJECT_FUNDING_TEXT.test(text)
+    && (RESTRICTED_PROJECT_FUNDING_PUBLIC_PURPOSE_TEXT.test(text)
+      || (GENERIC_PROJECT_EXECUTION_PURPOSE_TEXT.test(text) && EXPLICIT_PUBLIC_BENEFICIARY_CONTEXT.test(text)))
+    && !PERSONAL_DISPOSABLE_AWARD_TEXT.test(text);
+}
+
+function restrictedProjectFundingPersonalCashEventAudits(transaction) {
+  const eventAudits = transaction?.acceptedEventAudit;
+  if (!Array.isArray(eventAudits)) return [];
+  return eventAudits.filter((eventAudit) => {
+    if (!PERSONAL_CASH_INFLOW_EVENT_KINDS.has(eventAudit?.kind)) return false;
+    // The reducer credits the protagonist ledger for every kind above.  An
+    // evidence tag such as business_operating cannot retroactively make that
+    // cash non-personal, so never treat scope as an exemption here.
+    return isRestrictedProjectFundingText(eventAuditEvidenceText(eventAudit));
+  });
+}
+
+function isLegacyRestrictedProjectFundingInPersonalCash(transaction) {
+  // Older transaction snapshots aggregate all event evidence. They can prove
+  // a violation only when exactly one event was accepted; a mixed salary plus
+  // organisation-funding period must never be reclassified from the merged
+  // prose alone.
+  if (Array.isArray(transaction?.acceptedEventAudit)) return false;
+  if (!Array.isArray(transaction?.eventIds) || transaction.eventIds.length !== 1) return false;
+  const cashInflow = Number(transaction?.incomeWan || 0) > 0.01 || Number(transaction?.cashDeltaWan || 0) > 0.01;
+  if (!cashInflow) return false;
+  return isRestrictedProjectFundingText(transactionEvidenceText(transaction));
+}
+
+function isRestrictedProjectFundingInPersonalCash(transaction) {
+  return restrictedProjectFundingPersonalCashEventAudits(transaction).length > 0
+    || isLegacyRestrictedProjectFundingInPersonalCash(transaction);
+}
+
+function isRestrictedProjectFundingAttributionGap(transaction) {
+  if (Array.isArray(transaction?.acceptedEventAudit)) return false;
+  if (!Array.isArray(transaction?.eventIds) || transaction.eventIds.length < 2) return false;
+  const cashInflow = Number(transaction?.incomeWan || 0) > 0.01 || Number(transaction?.cashDeltaWan || 0) > 0.01;
+  return cashInflow && isRestrictedProjectFundingText(transactionEvidenceText(transaction));
+}
+
+/**
+ * Recent transactions are retained in multiple later ledger snapshots.  Count
+ * each canonical transaction at its first occurrence only, otherwise one
+ * restricted grant would be reported once per subsequent history node.
+ */
+export function collectRestrictedProjectFundingInPersonalCash(records) {
+  const findings = [];
+  for (const record of records) {
+    const seenTransactionIds = new Set();
+    for (const [nodeIndex, node] of (record?.finalState?.history || []).entries()) {
+      for (const transaction of node?.financialLedger?.recentTransactions || []) {
+        const transactionId = transactionAuditId(transaction);
+        if (!transactionId || seenTransactionIds.has(transactionId)) continue;
+        seenTransactionIds.add(transactionId);
+        if (!isRestrictedProjectFundingInPersonalCash(transaction)) continue;
+        const eventAudit = restrictedProjectFundingPersonalCashEventAudits(transaction)[0];
+        findings.push({
+          caseSlug: record.caseSlug,
+          node: nodeIndex + 1,
+          ageInMonths: node.ageInMonths,
+          transactionId,
+          simulationTransactionId: transaction.simulationTransactionId,
+          incomeWan: Number(transaction.incomeWan || 0),
+          cashDeltaWan: Number(transaction.cashDeltaWan || 0),
+          eventIds: Array.isArray(transaction.eventIds) ? transaction.eventIds : [],
+          ...(eventAudit ? { eventId: eventAudit.eventId, eventKind: eventAudit.kind } : {}),
+          evidenceExcerpts: (transaction.evidence || []).map((evidence) => evidence?.excerpt).filter(Boolean)
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+export function collectRestrictedProjectFundingAttributionGaps(records) {
+  const findings = [];
+  for (const record of records) {
+    const seenTransactionIds = new Set();
+    for (const [nodeIndex, node] of (record?.finalState?.history || []).entries()) {
+      for (const transaction of node?.financialLedger?.recentTransactions || []) {
+        const transactionId = transactionAuditId(transaction);
+        if (!transactionId || seenTransactionIds.has(transactionId)) continue;
+        seenTransactionIds.add(transactionId);
+        if (!isRestrictedProjectFundingAttributionGap(transaction)) continue;
+        findings.push({
+          caseSlug: record.caseSlug,
+          node: nodeIndex + 1,
+          ageInMonths: node.ageInMonths,
+          transactionId,
+          eventIds: transaction.eventIds,
+          evidenceExcerpts: (transaction.evidence || []).map((evidence) => evidence?.excerpt).filter(Boolean)
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+function hasRecordedDebtSettlementForAccount(history, debtAccountId) {
+  return history.some((node) => {
+    const ledger = node?.financialLedger;
+    const account = ledger?.debtAccounts?.find((candidate) => candidate.id === debtAccountId);
+    if (!ledger || !account || account.status !== "repaid") return false;
+    return (ledger.recentTransactions || []).some((transaction) => (
+      transactionHasDebtSettlementFactForAccount(transaction, debtAccountId)
+    ));
+  });
+}
+
+function hasReliableRepaidDebtAccounts(history, node) {
+  const repaidAccounts = (node?.financialLedger?.debtAccounts || []).filter((account) => account.status === "repaid");
+  return repaidAccounts.length > 0
+    && repaidAccounts.every((account) => (hasAuthoritativeOpeningEvidence(account) || account.origin === "system_auto_shortfall")
+      && hasRecordedDebtSettlementForAccount(history, account.id));
 }
 
 function flattenText(value, output = []) {
@@ -214,19 +386,15 @@ function knownRateInterestOmissionIssue(node, previousNode) {
 
 function unsupportedRepaymentCompletionIssue(node, previousNode, priorNodes = []) {
   if (!containsCompletedRepaymentClaim(node?.description)) return undefined;
-  const transaction = latestTransaction(node);
-  const hasRepaymentFact = Number(transaction?.debtPrincipalPaidWan || 0) > 0
-    || Number(transaction?.debtPrincipalForgivenWan || 0) > 0
-    || (node?.financialLedger?.debtAccounts || []).some((account) => {
-      const previous = previousNode?.financialLedger?.debtAccounts?.find((item) => item.id === account.id);
-      return previous && (previous.status === "active" || previous.status === "defaulted")
-        && ["repaid", "forgiven", "restructured"].includes(account.status);
-    });
-  if (hasRepaymentFact) return undefined;
-  const historicallyGroundedZeroDebt = Number(node?.financialState?.totalDebtWan || 0) <= 0.01
-    && priorNodes.some((item) => Number(item?.financialState?.totalDebtWan || 0) > 0.01);
-  if (historicallyGroundedZeroDebt) return undefined;
-  return { transactionId: transaction?.id };
+  // The opening chapter can truthfully mention a pre-simulation payoff.  There
+  // is no prior in-simulation ledger period to which that background fact can
+  // be attached, so it is not a current-period completion claim.
+  if (!previousNode) return undefined;
+  const historyThroughNode = [...priorNodes, node];
+  const supported = activeDebtTotal(node?.financialLedger) <= 0.01
+    && hasReliableRepaidDebtAccounts(historyThroughNode, node);
+  if (supported) return undefined;
+  return { transactionId: latestTransaction(node)?.id };
 }
 
 export function extractFinancialNarrativeAuditMeta(node) {
@@ -251,7 +419,11 @@ export function collectFinalReportFinancialConflicts(record) {
   const confirmedProperties = activePropertyAccounts(latest.financialLedger)
     .filter((account) => account.factStatus === "known" || hasAuthoritativeOpeningEvidence(account));
   const conflicts = [];
-  if (debtWan > 0.01 && containsCompletedRepaymentClaim(text)) conflicts.push({ code: "REPORT_DEBT_COMPLETION_CONFLICT", debtWan });
+  if (containsCompletedRepaymentClaim(text)
+    && (debtWan > 0.01
+      || !hasReliableRepaidDebtAccounts(history, latest))) {
+    conflicts.push({ code: "REPORT_DEBT_COMPLETION_CONFLICT", debtWan });
+  }
   if (netWorthWan < -0.01 && NEGATIVE_NET_WORTH_SUCCESS_TEXT.test(text)) conflicts.push({ code: "REPORT_NEGATIVE_NET_WORTH_CONFLICT", netWorthWan });
   if (confirmedProperties.length === 0 && PROPERTY_POSSESSION_TEXT.test(text)) conflicts.push({ code: "REPORT_PROPERTY_CONFLICT" });
   return conflicts;
@@ -274,6 +446,8 @@ export function auditFinancialProductionRecords(records) {
   const financialPrecisionViolations = [];
   const crossJourneyInvitationEntries = [];
   const companyOperatingFlowsInPersonalLedger = [];
+  const restrictedProjectFundingInPersonalCash = collectRestrictedProjectFundingInPersonalCash(records);
+  const restrictedProjectFundingAttributionGaps = collectRestrictedProjectFundingAttributionGaps(records);
   const rejectedCompletionContradictionNodes = [];
   const invalidFinancialNarrativeClaimNodes = [];
   const invalidInternalTransitionNodes = [];
@@ -459,6 +633,8 @@ export function auditFinancialProductionRecords(records) {
       financialAmountPrecisionViolationCount: financialPrecisionViolations.length,
       crossJourneyInvitationEntryCount: crossJourneyInvitationEntries.length,
       companyOperatingFlowInPersonalLedgerCount: companyOperatingFlowsInPersonalLedger.length,
+      restrictedProjectFundingInPersonalCashCount: restrictedProjectFundingInPersonalCash.length,
+      restrictedProjectFundingAttributionGapCount: restrictedProjectFundingAttributionGaps.length,
       rejectedCompletionContradictionNodeCount: rejectedCompletionContradictionNodes.length,
       invalidFinancialNarrativeClaimNodeCount: invalidFinancialNarrativeClaimNodes.length,
       invalidInternalTransitionNodeCount: invalidInternalTransitionNodes.length,
@@ -488,6 +664,8 @@ export function auditFinancialProductionRecords(records) {
     financialPrecisionViolations,
     crossJourneyInvitationEntries,
     companyOperatingFlowsInPersonalLedger,
+    restrictedProjectFundingInPersonalCash,
+    restrictedProjectFundingAttributionGaps,
     rejectedCompletionContradictionNodes,
     invalidFinancialNarrativeClaimNodes,
     invalidInternalTransitionNodes,

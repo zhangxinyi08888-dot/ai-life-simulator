@@ -201,13 +201,91 @@ export interface EventMeta {
   pressureArcInterleaved?: boolean;
 }
 
+/**
+ * A completed recurring responsibility, deliberately separated from a money
+ * event.  It carries no account id or amount: the finance lifecycle owns the
+ * stable account key and a policy-backed `needs_review` estimate when the
+ * obligation is real but the price is not known.
+ */
+export interface ExpenseResponsibilityChange {
+  responsibilityKind: "elder_care" | "recurring_healthcare";
+  /** Elder care may target a parent; recurring healthcare may target only the protagonist. */
+  beneficiary: "protagonist" | "mother" | "father" | "parents";
+  /**
+   * `shared_household` may appear in untrusted model transport but is rejected
+   * by the structured guard: an amount-free delta cannot establish the
+   * protagonist's share. Shared care must use an Accepted financial proposal.
+   */
+  owner: "protagonist" | "shared_household";
+  cadence: "recurring_unknown";
+  /** Verbatim completed source sentence; it is rechecked before acceptance. */
+  evidence: string;
+  confidence: number;
+  /** Bound to the already selected outcome, not an arbitrary current-node choice. */
+  sourceOutcomeId?: string;
+}
+
+/** A structured, selected-outcome-bound resolution of a pending employer offer. */
+export interface PendingEmployerOfferResolution {
+  /** `started` may clear an offer only with the matching accepted employer transition. */
+  action: "withdrawn" | "started";
+  pendingOfferSourceOutcomeId: string;
+  sourceOutcomeId?: string;
+  evidence: string;
+  confidence: number;
+}
+
 export type WorldDelta =
   | { type: "person_status"; personId: string; status: PersonLifeStatus; reason: string }
   | { type: "person_role"; personId: string; occupationStatus: PersonState["occupationStatus"] }
   | { type: "relationship_change"; personId: string; summary: string }
-  | { type: "career_state"; summary: string; employmentTransition?: EmploymentTransitionProposal }
+  | {
+      type: "career_state";
+      summary: string;
+      employmentTransition?: EmploymentTransitionProposal;
+      pendingEmployerOfferResolution?: PendingEmployerOfferResolution;
+    }
   | { type: "health_state"; summary: string }
-  | { type: "location_change"; summary: string };
+  | { type: "expense_responsibility"; summary: string; responsibility: ExpenseResponsibilityChange }
+  | { type: "location_change"; summary: string; residence?: ResidenceOccupancyChange };
+
+/**
+ * A completed, accepted change to the protagonist's primary living
+ * arrangement.  This is intentionally part of a location delta rather than
+ * inferred from a narrative phrase: the financial lifecycle may use it only
+ * after the choice outcome itself has been accepted.
+ */
+export interface ResidenceOccupancyChange {
+  livingArrangement: "renting" | "owner_occupied" | "with_family" | "provided";
+  financialScope: "personal" | "shared_household" | "business_operating" | "third_party";
+  liability: "protagonist" | "shared" | "third_party" | "none";
+  /** Exact completed-source excerpt when available; location summary is the fallback evidence. */
+  evidence?: string;
+}
+
+/**
+ * An accepted external offer is not itself proof that the protagonist has
+ * left the current role or started collecting the new salary.  Keep this
+ * non-financial, reversible state separate from CareerState and the ledger
+ * until a later accepted outcome confirms both actual entry and compensation.
+ */
+export interface PendingEmployerOfferState {
+  status: "accepted_pending_start";
+  sourceOutcomeId: string;
+  acceptedAtAgeInMonths: number;
+  /** Career authority that remains active until this offer is actually consumed. */
+  fromCareerStateId: string;
+  /** The user-selected, accepted offer action; never synthesized from prose. */
+  decision: string;
+  evidence: string;
+}
+
+/** Persisted accepted residence state used by the next node's preview. */
+export interface ResidenceOccupancyState extends ResidenceOccupancyChange {
+  effectiveFromAgeInMonths: number;
+  source: "accepted_history";
+  evidence: string;
+}
 
 export interface ArcSignalProposal {
   pressureArcId?: string;
@@ -454,6 +532,8 @@ export interface WorldStateSnapshot {
   relationshipSummary?: string;
   healthSummary?: string;
   locationSummary?: string;
+  residence?: ResidenceOccupancyState;
+  pendingEmployerOffer?: PendingEmployerOfferState;
   currentEmploymentStatus?: EmploymentStatus;
   careerStates?: CareerState[];
   currentCareerStateId?: string;
@@ -552,6 +632,129 @@ export interface FinancialProcessingMeta {
   narrativeRepairAttempts?: number;
   narrativeRepairSucceeded?: boolean;
   narrativeFallbackSurfacePaths?: string[];
+  /**
+   * Candidate-only text reconciliation that made a model-supplied financial
+   * evidence sentence visible before ordinary financial validation.  These
+   * codes are audit telemetry, not accepted financial authority by themselves.
+   */
+  candidateNarrativeRepairReasonCodes?: string[];
+  financialGateMode?: "off" | "shadow" | "enforced";
+  financialGateDisposition?: "accept" | "accept_with_review" | "regenerate";
+  financialGateWouldBlock?: boolean;
+  financialGateReasonCodes?: string[];
+  financialGateRequiredFactGroupCount?: number;
+  financialGateSatisfiedFactGroupCount?: number;
+  financialGateCriticalFactGroupCount?: number;
+  financialGateSatisfiedCriticalFactGroupCount?: number;
+  financialGateUnsatisfiedCriticalFactGroupCount?: number;
+  financialGateRegenerationCount?: number;
+  expenseLifecycleTriggerCount?: number;
+  expenseLifecycleCoveredTriggerCount?: number;
+  expenseLifecycleEstimatedAccountCount?: number;
+  expenseLifecycleResponsibilityCodes?: string[];
+  /**
+   * V4 responsibility reconciliation is deliberately observable even while
+   * it is in shadow mode.  These fields describe a candidate plan, not an
+   * assertion that the plan was committed to the authoritative ledger.
+   */
+  expenseLifecycleTelemetry?: ExpenseLifecycleTelemetry;
+}
+
+export interface ExpenseLifecycleTelemetry {
+  mode: "off" | "shadow" | "enforced";
+  candidateCount: number;
+  /**
+   * Per-candidate reconciliation trace. This is a detector/reconciler
+   * observation only: in shadow mode none of these records is authoritative,
+   * and in enforced mode it still describes the pre-commit plan rather than
+   * a post-hoc human label.
+   */
+  candidates: ExpenseLifecycleCandidateTelemetry[];
+  /**
+   * Counts are accepted by the V4 reconciler/validator plan.  In shadow mode
+   * they are prospective only; in enforced mode they are also part of the
+   * candidate transaction that may become authoritative after the gate.
+   */
+  acceptedStartCount: number;
+  acceptedAdjustCount: number;
+  acceptedEndCount: number;
+  reviewCount: number;
+  ignoredCount: number;
+  reasonCodes: string[];
+  beforeAnnualizedExpenseWan: number;
+  /**
+   * The annualized result of the exact V4 plan preview.  It intentionally
+   * differs from authority in shadow mode, where no plan event is committed.
+   */
+  afterAnnualizedExpenseWan: number;
+  /** Exact account-level V4 diff produced by the dry-run transaction. */
+  projectedCommitmentChanges: ExpenseLifecycleProjectedCommitmentChange[];
+  projectedAnnualizedExpenseDeltaWan: number;
+  baselineDownwardBlocked: boolean;
+  staleResponsibilityKeys: string[];
+  businessScopeRejectedKeys: string[];
+  duplicateAmountSourceIds: string[];
+  schemaRejectedCount: number;
+  /** A shadow-only Critical is recorded here but never changes authority. */
+  wouldBlock: boolean;
+}
+
+export type ExpenseLifecycleCandidateReconcilerDisposition =
+  | "planned_start"
+  | "planned_adjust"
+  | "planned_end"
+  | "planned_review"
+  | "ignored"
+  | "issue"
+  | "blocked";
+
+/**
+ * The candidate's own amount evidence, deliberately separate from a policy
+ * estimate or the dry-run commitment diff. `unknown` means no source amount
+ * was asserted; it must never be presented as a zero amount.
+ */
+export type ExpenseLifecycleCandidateAmountBasis =
+  | "explicit_protagonist_share"
+  | "explicit_shared_amount"
+  | "explicit_monthly_amount"
+  | "unknown";
+
+export interface ExpenseLifecycleCandidateTelemetry {
+  candidateId: string;
+  responsibilityKey: string;
+  responsibilityKind: string;
+  proposedType: string;
+  financialScope: "personal" | "shared_household" | "business_operating" | "third_party";
+  action: "start" | "adjust" | "end" | "review";
+  liability: "protagonist" | "shared" | "third_party" | "none" | "unknown";
+  source: "user_fact" | "accepted_world_delta" | "accepted_outcome" | "narrative_supplement" | "scheduled_review";
+  amountBasis: ExpenseLifecycleCandidateAmountBasis;
+  /** Candidate-provided protagonist cash-flow amount; absent means unknown. */
+  sourceMonthlyAmountWan?: number;
+  /** Candidate-provided gross/shared amount before the protagonist share. */
+  sourceGrossMonthlyAmountWan?: number;
+  shareRate?: number;
+  amountSourceId?: string;
+  evidenceReasonCodes: string[];
+  reconcilerDisposition: ExpenseLifecycleCandidateReconcilerDisposition;
+  reconcilerReasonCodes: string[];
+  relatedProposalIds: string[];
+  relatedIssueIds: string[];
+  /** Would this candidate's own reconciler outcome block an enforced node? */
+  wouldBlock: boolean;
+}
+
+export interface ExpenseLifecycleProjectedCommitmentChange {
+  action: "start" | "adjust" | "end" | "review";
+  commitmentId: string;
+  responsibilityKey: string;
+  responsibilityKind: string;
+  beforeMonthlyAmountWan?: number;
+  afterMonthlyAmountWan?: number;
+  beforeStatus?: "active" | "paused" | "ended";
+  afterStatus?: "active" | "paused" | "ended";
+  amountBasis?: string;
+  financialScope?: "personal" | "shared_household";
 }
 
 export interface PersonalityInsight {

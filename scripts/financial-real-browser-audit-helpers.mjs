@@ -21,15 +21,47 @@ function hasExplicitPersonalServiceReceipt(source) {
   return /(?:个人)?(?:顾问|咨询)(?:费|收入|报酬|薪酬)|(?:顾问|咨询)(?:工作|服务|合同|协议)[^。；]{0,20}(?:收入|报酬|薪酬|费用|年费)/u.test(text);
 }
 
-function hasExplicitPersonalCompensationReceipt(source) {
+function personalCompensationEvidenceSentences(source) {
   const personalEvidence = (source?.evidence || [])
     .filter((evidence) => evidence?.financialScope === "personal")
     .map((evidence) => evidence?.excerpt)
     .filter(Boolean)
     .join(" ");
-  if (!personalEvidence) return false;
-  if (/(?:公司|企业|项目|平台|团队|工作室|机构|中心)(?:的)?(?:年收入|月收入|营收|销售额|回款)/u.test(personalEvidence)) return false;
-  return /(?:你|主角|本人).{0,80}(?:月薪|年薪|工资|薪资|年收入|月收入|个人收入|个人进账)/u.test(personalEvidence);
+  return personalEvidence ? personalEvidence.split(/(?<=[。！？；])/u) : [];
+}
+
+function hasExplicitPersonalCompensationReceipt(source) {
+  return personalCompensationEvidenceSentences(source).some((sentence) => (
+    /(?:你的|你本人(?:的)?|你个人(?:的)?|主角(?:的)?|本人(?:的)?)(?:[^。；]{0,32})(?:税后(?:年|月)?收入|(?:税后)?(?:年薪|月薪)|工资|薪资|年收入|月收入|个人收入|个人进账)|(?:你|主角|本人)(?:仍|一直|继续)?(?:在|于|从|受聘于|入职)[^。；]{0,48}(?:税后(?:年|月)?收入|(?:税后)?(?:年薪|月薪)|工资|薪资|年收入|月收入|个人收入|个人进账)/u.test(sentence)
+  ));
+}
+
+function explicitlyStatedPersonalAnnualCompensationWan(source) {
+  return personalCompensationEvidenceSentences(source).flatMap((sentence) => {
+    const possessiveAmounts = [...sentence.matchAll(/(?:你的|你本人(?:的)?|你个人(?:的)?|主角(?:的)?|本人(?:的)?)(?:[^。；]{0,32}?)(?:年税后收入|税后年收入|(?:税后)?年薪|年工资|年薪资|年收入|个人年收入)(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/gu)]
+      .map((match) => Number(match[1]));
+    const employmentAmounts = [...sentence.matchAll(/(?:你|主角|本人)(?:仍|一直|继续)?(?:在|于|从|受聘于|入职)[^。；]{0,48}?(?:年税后收入|税后年收入|(?:税后)?年薪|年工资|年薪资|年收入|个人年收入)(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/gu)]
+      .map((match) => Number(match[1]));
+    return [...possessiveAmounts, ...employmentAmounts].filter(Number.isFinite);
+  });
+}
+
+function hasAmountMatchedPersonalCompensationReceipt(source) {
+  if (!hasExplicitPersonalCompensationReceipt(source)) return false;
+  const identityText = [source?.id, source?.displayName].filter(Boolean).join(" ");
+  const requiresAmountMatch = source?.type === "other" || /(?:legacy|recurring|持续收入|聚合)/iu.test(identityText);
+  const monthlyAmountWan = Number(source?.monthlyNetAmountWan);
+  const annualAmountWan = Number(source?.annualNetAmountWan);
+  const statedAnnualAmountsWan = explicitlyStatedPersonalAnnualCompensationWan(source);
+  const sourceAnnualAmountWan = Number.isFinite(monthlyAmountWan) && monthlyAmountWan > 0
+    ? monthlyAmountWan * 12
+    : annualAmountWan;
+  if (!requiresAmountMatch || !Number.isFinite(sourceAnnualAmountWan) || sourceAnnualAmountWan <= 0 || statedAnnualAmountsWan.length === 0) {
+    return true;
+  }
+  return statedAnnualAmountsWan.some((statedAnnualAmountWan) => (
+    Math.abs(sourceAnnualAmountWan - statedAnnualAmountWan) <= Math.max(0.1, statedAnnualAmountWan * 0.02)
+  ));
 }
 
 export function personalLedgerBusinessBoundaryViolations(ledger = {}) {
@@ -40,7 +72,7 @@ export function personalLedgerBusinessBoundaryViolations(ledger = {}) {
       const identityText = [source?.id, source?.displayName].filter(Boolean).join(" ");
       const personalIncomeType = ["salary", "contract", "self_employment_draw", "business_dividend"].includes(source.type);
       const explicitPersonalServiceReceipt = hasExplicitPersonalServiceReceipt(source);
-      const explicitPersonalCompensationReceipt = hasExplicitPersonalCompensationReceipt(source);
+      const explicitPersonalCompensationReceipt = hasAmountMatchedPersonalCompensationReceipt(source);
       const thirdPartyIncome = (thirdPartyIncomeReceiptPattern.test(text)
         || thirdPartyIncomeIdentityPattern.test(identityText))
         && !/(?:给你|向你|转入你的|转给你|汇给你|共同账户)/u.test(text);

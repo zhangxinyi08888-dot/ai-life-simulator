@@ -108,6 +108,62 @@ test("keeps a protagonist annual salary at a named company out of company revenu
   }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
 });
 
+test("keeps a protagonist tax-after personal income out of violations when the same sentence also names studio revenue", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    monthlyNetAmountWan: 38 / 12,
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "到55岁11个月，工作室保持稳定。你的年税后收入稳定在38万元，工作室年收入约65万元。"
+    }]
+  }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
+test("keeps time-prefixed continuing employment compensation out of company revenue violations", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    annualNetAmountWan: 32,
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "34岁8个月时，你仍在原公司工作，年税后收入稳定在32万元，但项目基金带来的行政负担让你时常感到疲惫。"
+    }]
+  }] }), { incomeSourceIds: [], expenseCommitmentIds: [] });
+});
+
+test("keeps the annual-amount guard when a time-prefixed salary shares a sentence with project funding", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    annualNetAmountWan: 10,
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "34岁8个月时，你仍在原公司工作，年税后收入稳定在32万元，但项目基金带来的行政负担让你时常感到疲惫。"
+    }]
+  }] }), { incomeSourceIds: ["legacy_recurring_income"], expenseCommitmentIds: [] });
+});
+
+test("does not exempt legacy recurring income when its amount matches studio revenue instead of stated personal compensation", () => {
+  assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    status: "active",
+    monthlyNetAmountWan: 65 / 12,
+    evidence: [{
+      financialScope: "personal",
+      excerpt: "到55岁11个月，工作室保持稳定。你的年税后收入稳定在38万元，工作室年收入约65万元。"
+    }]
+  }] }), { incomeSourceIds: ["legacy_recurring_income"], expenseCommitmentIds: [] });
+});
+
 test("does not let personal scope relabel company operating revenue as consulting income", () => {
   assert.deepEqual(personalLedgerBusinessBoundaryViolations({ incomeSources: [{
     id: "company_revenue",
@@ -211,6 +267,26 @@ test("counts user-visible generation pauses once across app state and runner tra
   assert.equal(pauses.length, 1);
   assert.equal(pauses[0].generationEventId, "pause-1");
   assert.equal(pauses[0].source, "app_state_and_runner");
+  assert.equal(collectRecoveredGenerationAttempts(record), 1);
+});
+
+test("internal financial-gate recovery leaves zero user-visible pauses in release evidence", () => {
+  const record = {
+    finalState: {
+      financialGateEvents: [
+        { mode: "enforced", disposition: "regenerate", allowDomainCommit: false, wouldBlock: true },
+        { mode: "enforced", disposition: "regenerate", allowDomainCommit: false, wouldBlock: true }
+      ],
+      generationEvents: [
+        { id: "recovered-gate-1", type: "recovered", historyLength: 8 }
+      ]
+    },
+    interactionLog: [
+      { type: "recoverable_retry_succeeded", generationEventId: "recovered-gate-1", historyLength: 8 }
+    ]
+  };
+
+  assert.equal(collectVisibleGenerationPauses(record).length, 0);
   assert.equal(collectRecoveredGenerationAttempts(record), 1);
 });
 

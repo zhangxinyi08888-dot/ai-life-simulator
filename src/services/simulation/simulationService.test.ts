@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
-import { buildDeterministicFinancialNarrativeRollback, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
+import { buildDeterministicFinancialNarrativeRollback, detectNarrativeFinancialCoverageIssues, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
+import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
+import { isFinancialGateGenerationError } from "../../utils/generationRetry";
 import { queryDynamicLifeEvent } from "../../data/lifeEvents";
 import { createSelectionEntropy } from "../../config/lineMixPolicy";
 import { buildBranchFingerprint } from "../../utils/timelineAdvance";
@@ -27,9 +30,16 @@ const userData: UserInitialData = {
 };
 
 assert.equal(narrativeRequiresCareerTransition({
-  narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元。",
+  narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元，并于下月正式入职。",
   currentStatus: "student"
-}), true);
+}), false, "a scheduled start remains a pending offer, even when its proposed salary is known");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受成都那家创业公司的 offer，税后月薪9000元，下月入职。",
+  narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元，并于下月正式入职。",
+  acceptedOutcomeId: "accept_chengdu_offer",
+  effectiveAtAgeInMonths: 380,
+  currentStatus: "student"
+}), undefined);
 assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你选择保持当前工作节奏，暂不考虑新的机会。",
   currentStatus: "employed"
@@ -38,6 +48,234 @@ assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你辞别成都来到深圳。新公司做跨境电商SaaS，你负责前端开发。",
   currentStatus: "student"
 }), true);
+const startupEmploymentNarrative = "你辞去大公司产品经理职务后，正式加入那家早期人工智能创业公司，担任产品负责人。";
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: startupEmploymentNarrative,
+  currentStatus: "employed"
+}), true, "leaving one employer to join a startup must not leave CareerState unchanged");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你正式加入自己创办的创业公司，担任产品负责人。",
+  currentStatus: "employed"
+}), true, "a completed own-company start must transition to self-employment");
+const crossSentenceEmployerSwitchNarrative = "做出决定后的第三周，你正式向大公司提交了离职。入职早期人工智能创业公司后，你才发现产品负责人几乎需要承担所有职责。";
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: crossSentenceEmployerSwitchNarrative,
+  currentStatus: "employed"
+}), true, "a completed cross-sentence employer switch must not preserve the old CareerState");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的产品负责人邀请，辞职加入，用两年验证自己能否做出真正的产品。",
+  narrativeText: crossSentenceEmployerSwitchNarrative,
+  acceptedOutcomeId: "join_ai_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed");
+const completedAcceptedEmployerJoinNarrative = "你正式离开原公司，加入了那家早期AI创业公司。公司人手不足，你开始承担产品负责人职责。";
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。",
+  narrativeText: completedAcceptedEmployerJoinNarrative,
+  acceptedOutcomeId: "join_ai_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "a completed company join must override a model's founder-style label for an accepted employer role");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。",
+  narrativeText: "你计划下月加入那家早期AI创业公司，先完成当前项目交接。",
+  acceptedOutcomeId: "join_ai_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+}), undefined, "a planned company join remains a pending employer offer");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你已向大公司提交离职申请，仍在交接当前项目。你计划下月入职早期人工智能创业公司。",
+  currentStatus: "employed"
+}), false, "a resignation submission and planned entry must preserve the current CareerState during handover");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你已向大公司提交离职申请，仍在交接当前项目。入职早期人工智能创业公司后，你将负责产品路线图。",
+  currentStatus: "employed"
+}), false, "future duties after a named employer start cannot close the current salary during handover");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你已向大公司提交离职申请，仍在交接当前项目。等待入职日期确认。入职早期人工智能创业公司后，你需要先完成合规培训。",
+  currentStatus: "employed"
+}), false, "a named employer start with only required onboarding tasks remains pending");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你提交离职申请后重新考虑，决定保留当前工作，暂不去创业公司。",
+  currentStatus: "employed"
+}), false, "a submitted resignation that the protagonist withdraws cannot manufacture a new CareerState");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你接受了AI创业公司的产品负责人邀请。",
+  currentStatus: "employed"
+}), false, "a bare employer-role invitation is an accepted pending offer, not an invented CareerState transition");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受AI创业公司的产品负责人邀请，用两年时间验证产品。",
+  narrativeText: "你接受了AI创业公司的产品负责人邀请。入职后，你发现公司只有8个人，并负责从需求调研到原型设计的全部环节。",
+  acceptedOutcomeId: "accept_ai_startup_offer",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "post-entry narration must require the CareerState transition instead of preserving a pending offer");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受AI创业公司的产品负责人邀请，用两年时间验证产品。",
+  narrativeText: "你接受了AI创业公司的产品负责人邀请，先完成当前项目交接并确认劳动合同。",
+  acceptedOutcomeId: "accept_ai_startup_offer",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+}), undefined, "accepting an offer without actual entry must not invent a new employed CareerState");
+const externalPaidConsultantNarrative = "老周介绍的那个供应链顾问岗位，你最终接了。税后月薪1.2万元，按月结算。";
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: externalPaidConsultantNarrative,
+  currentStatus: "self_employed"
+}), true, "a completed external paid consultant role replaces the stale self-employed state");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "申请核对并调整还款安排",
+  narrativeText: externalPaidConsultantNarrative,
+  acceptedOutcomeId: "request_debt_restructuring",
+  effectiveAtAgeInMonths: 328,
+  currentStatus: "self_employed"
+})?.toStatus, "employed", "the external paid role must synthesize employment before salary derivation");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你保留自己的工作室，只接了一个独立供应链顾问项目，按项目结算。",
+  currentStatus: "self_employed"
+}), false, "an independent consultant project is not an employer start");
+const pendingOffer = resolvePendingEmployerOffer({
+  selectedDecision: "接受AI创业公司的产品负责人邀请，用两年时间验证产品。",
+  acceptedOutcomeId: "accept_ai_startup_offer",
+  narrativeText: "你接受了AI创业公司的产品负责人邀请，先完成当前项目交接并确认劳动合同。",
+  acceptedAtAgeInMonths: 288,
+  currentCareerStateId: "career_current",
+  acceptedCareerTransitions: []
+});
+assert.equal(pendingOffer.action, "set");
+assert.equal(pendingOffer.action === "set" ? pendingOffer.offer.status : undefined, "accepted_pending_start");
+assert.equal(pendingOffer.action === "set" ? pendingOffer.offer.fromCareerStateId : undefined, "career_current");
+assert.equal(resolvePendingEmployerOffer({
+  selectedDecision: "接受创业公司的联合创始人兼产品负责人邀请。",
+  acceptedOutcomeId: "accept_startup_cofounder_product_lead",
+  narrativeText: "你决定先完成当前项目交接，再和伙伴共同筹备创业公司。",
+  acceptedAtAgeInMonths: 288,
+  currentCareerStateId: "career_current",
+  acceptedCareerTransitions: []
+}).action, "preserve", "a founder choice is not an employer-offer pending state");
+if (pendingOffer.action === "set") {
+  assert.equal(resolvePendingEmployerOffer({
+    current: pendingOffer.offer,
+    selectedDecision: "放弃AI创业公司的产品负责人offer，继续留在原公司。",
+    acceptedOutcomeId: "decline_ai_startup_offer",
+    narrativeText: "你放弃AI创业公司的产品负责人offer，继续留在原公司。",
+    acceptedAtAgeInMonths: 292,
+    currentCareerStateId: "career_current",
+    pendingEmployerOfferResolution: {
+      action: "withdrawn",
+      pendingOfferSourceOutcomeId: "accept_ai_startup_offer",
+      sourceOutcomeId: "decline_ai_startup_offer",
+      evidence: "你放弃AI创业公司的产品负责人offer，继续留在原公司。",
+      confidence: 0.9
+    },
+    acceptedCareerTransitions: []
+  }).action, "clear");
+  assert.equal(resolvePendingEmployerOffer({
+    current: pendingOffer.offer,
+    selectedDecision: "放弃另一家公司的运营岗位offer。",
+    acceptedOutcomeId: "decline_other_offer",
+    narrativeText: "你放弃另一家公司的运营岗位offer。",
+    acceptedAtAgeInMonths: 292,
+    currentCareerStateId: "career_current",
+    pendingEmployerOfferResolution: {
+      action: "withdrawn",
+      pendingOfferSourceOutcomeId: "accept_other_offer",
+      sourceOutcomeId: "decline_other_offer",
+      evidence: "你放弃另一家公司的运营岗位offer。",
+      confidence: 0.9
+    },
+    acceptedCareerTransitions: []
+  }).action, "preserve");
+  assert.equal(resolvePendingEmployerOffer({
+    current: pendingOffer.offer,
+    selectedDecision: "正式入职AI创业公司，担任产品负责人。",
+    acceptedOutcomeId: "start_ai_offer",
+    narrativeText: "你于本月正式入职AI创业公司，担任产品负责人。",
+    acceptedAtAgeInMonths: 292,
+    currentCareerStateId: "career_current",
+    pendingEmployerOfferResolution: {
+      action: "started",
+      pendingOfferSourceOutcomeId: "accept_ai_startup_offer",
+      sourceOutcomeId: "start_ai_offer",
+      evidence: "你于本月正式入职AI创业公司，担任产品负责人。",
+      confidence: 0.9
+    },
+    acceptedCareerTransitions: [{
+      fromCareerStateId: "career_current",
+      nextCareerState: { employmentStatus: "employed" }
+    } as any]
+  }).action, "clear");
+  assert.equal(resolvePendingEmployerOffer({
+    current: pendingOffer.offer,
+    selectedDecision: "正式入职另一家公司，担任运营负责人。",
+    acceptedOutcomeId: "start_other_offer",
+    narrativeText: "你于本月正式入职另一家公司，担任运营负责人。",
+    acceptedAtAgeInMonths: 292,
+    currentCareerStateId: "career_current",
+    acceptedCareerTransitions: [{
+      fromCareerStateId: "career_current",
+      nextCareerState: { employmentStatus: "employed" }
+    } as any]
+  }).action, "preserve", "an unrelated employer transition cannot silently consume the pending offer");
+}
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "辞去大公司职务，接受创业公司的产品负责人邀请，用两年时间全力验证产品。",
+  narrativeText: startupEmploymentNarrative,
+  acceptedOutcomeId: "join_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "joining a startup company is employment, not self-employment");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "辞职后全职加入创业公司，担任产品负责人。",
+  narrativeText: "你辞职后全职加入一家创业公司，担任产品负责人。",
+  acceptedOutcomeId: "join_startup_full_time",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "full-time employment at a startup is not a self-directed venture");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的外部董事邀请，每季度提供战略建议。",
+  narrativeText: "你接受了创业公司的外部董事邀请，但仍保留原来的全职岗位。",
+  acceptedOutcomeId: "accept_external_director_role",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+}), undefined, "a non-employment company invitation must not invent a CareerState transition");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "辞职后全职创业，自己创办一家产品咨询工作室。",
+  narrativeText: "你辞去原岗位后，决定自己创办一家产品咨询工作室。",
+  acceptedOutcomeId: "found_product_studio",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "self_employed", "a self-directed venture remains self-employment");
+const cofounderTransition = synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的联合创始人兼产品负责人邀请。",
+  narrativeText: "你正式加入那家早期AI创业公司，成为联合创始人，并负责产品方向。",
+  acceptedOutcomeId: "join_startup_cofounder_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+});
+assert.equal(cofounderTransition?.toStatus, "self_employed", "an explicit cofounder role must not be rewritten as ordinary employment");
+assert.match(cofounderTransition?.evidence || "", /联合创始人/u, "self-employment must cite its founder evidence instead of a generic company-join sentence");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "加入自己创办的创业公司，担任产品负责人。",
+  narrativeText: "你加入自己创办的创业公司，继续担任产品负责人。",
+  acceptedOutcomeId: "join_own_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "self_employed", "joining the protagonist's own company remains self-employment");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "共同创办一家创业公司，作为联合创始人负责产品。",
+  narrativeText: "你与伙伴共同创办创业公司，作为联合创始人负责产品。",
+  acceptedOutcomeId: "found_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "self_employed", "joint founding remains self-employment");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司创始人的产品负责人邀请。",
+  narrativeText: "你作为产品负责人，接受创始人的邀请，正式加入那家早期AI创业公司。",
+  acceptedOutcomeId: "join_startup_founder_invited_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "a founder inviting the protagonist to a normal role is still employer employment");
 assert.equal(synthesizeSelectedCareerTransition({
   selectedDecision: "继续稳步提升技术深度，争取明年带团队",
   narrativeText: "36岁2个月，你正式成为数据可视化组的技术负责人，带4个人的小组。",
@@ -429,7 +667,50 @@ assert.equal(mortgageStarted.startNode.financialState?.totalDebtWan, 210);
 assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.id, "opening_mortgage");
 assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
 assert.equal(mortgageStarted.startNode.financialLedger?.assetAccounts.some((account) => account.type === "property"), true);
-assert.equal(mortgageStarted.startNode.financialState?.annualDisposableIncomeWan, 14.9);
+// The model's opening annualCoreExpenseWan=18 has no authority.  This user
+// supplied opening only establishes mortgage service, so the derived figure
+// uses the accepted adult basic floor (4.2/year) plus mortgage interest.
+assert.equal(mortgageStarted.startNode.financialState?.annualCoreExpenseWan, 4.2);
+assert.equal(mortgageStarted.startNode.financialState?.annualDisposableIncomeWan, 28.7);
+
+const openingNarrativeAuthorityStarted = await startSimulation({
+  ...userData,
+  regressionAge: 24,
+  regressionSituation: "在稳定工作和创业机会之间犹豫，需要保留现金流"
+}, [{
+  id: 1,
+  question: "当时有哪些持续支出？",
+  answer: "我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。"
+}], {
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      initialAttributes: { happiness: 50, intelligence: 70, wealth: 45, relation: 55, health: 68 },
+      initialFinancialState: {
+        cashWan: 18, investmentAssetsWan: 0, propertyMarketValueWan: 0, businessAndOtherAssetsWan: 0,
+        totalDebtWan: 0, annualAfterTaxIncomeWan: 24, annualDisposableIncomeWan: 6, annualCoreExpenseWan: 18,
+        employmentStatus: "employed", incomeStability: "stable", isEstimated: false
+      },
+      startNode: {
+        age: 24, stage: "职业选择", title: "稳定与冒险的岔路口",
+        description: "每月房租四千，父母医疗和家用支出三千，加上日常开销，每月能存下五千左右。",
+        choices: [
+          { id: "A", text: "留在现有岗位", impactSummary: "保持稳定" },
+          { id: "B", text: "加入创业团队", impactSummary: "承担风险" },
+          { id: "C", text: "先兼职尝试", impactSummary: "渐进验证" }
+        ],
+        attributes: { happiness: 50, intelligence: 70, wealth: 45, relation: 55, health: 68 },
+        isEndingNode: false
+      }
+    })
+  })
+});
+assert.equal(
+  openingNarrativeAuthorityStarted.startNode.description,
+  "你仍在承担日常生活、住房与医疗等持续支出，具体金额仍待确认。"
+);
+assert.equal(openingNarrativeAuthorityStarted.startNode.financialLedger?.expenseCommitments.find((item) => item.type === "housing")?.monthlyAmountWan, 0.35);
+assert.equal(openingNarrativeAuthorityStarted.startNode.financialLedger?.expenseCommitments.find((item) => item.type === "healthcare")?.monthlyAmountWan, 0.12);
+assert.equal(openingNarrativeAuthorityStarted.startNode.financialLedger?.expenseCommitments.some((item) => item.type === "dependent_support"), false);
 
 const attributes: LifeAttributes = { happiness: 50, intelligence: 70, wealth: 42, relation: 55, health: 64 };
 const history: HistoryItem[] = [
@@ -514,6 +795,882 @@ assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating",
 assert.equal(nextNarrativePreviews.at(-1)?.title, "新行业的第一年");
 assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /小团队做基础内容执行/);
 
+// The outer caller can reserve a final recovery after the service has spent
+// its own budget. That retry must retain the rejected Preview's hard reason
+// all the way into this new service invocation's full-node prompt.
+let callerProvidedGateReasonPrompt = "";
+const callerProvidedGateReasonHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  selectedChoice: nextNode.choices[0]!.text,
+  selectedChoiceId: nextNode.choices[0]!.id,
+  selectedEventOutcomeId: nextNode.choices[0]!.eventOutcomeId
+}];
+await generateNextNode({
+  userData,
+  answers,
+  history: callerProvidedGateReasonHistory,
+  currentAttributes: nextNode.attributes,
+  selectedDecision: nextNode.choices[0]!.text,
+  nodeIndex: 2,
+  simulationSeed: "caller-financial-gate-reason-reaches-prompt"
+}, {
+  financialNodeGateMode: "shadow",
+  financialGateRetryReasonCodes: ["UNSATISFIED_CAREER_INCOME_TRANSITION"],
+  callAiJson: async (prompt) => {
+    callerProvidedGateReasonPrompt = prompt;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 24 * 12);
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        stage: "继续试错",
+        title: "把新的约束写进下一步",
+        description: "你继续在团队里积累经验，并把眼前的选择拆成更清晰的行动。",
+        choices: [
+          { id: "A", text: "继续推进当前项目", impactSummary: "稳住积累" },
+          { id: "B", text: "复核职业方向", impactSummary: "校准方向" },
+          { id: "C", text: "补足关键技能", impactSummary: "提升能力" }
+        ],
+        attributes: nextNode.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.match(callerProvidedGateReasonPrompt, /财务接受门重生修正/u);
+assert.match(callerProvidedGateReasonPrompt, /UNSATISFIED_CAREER_INCOME_TRANSITION/u);
+
+// A migration-only salary is deliberately quarantined after the third
+// unconfirmed material node.  The acceptance gate must remain strict, but
+// its retry prompt must tell the model exactly how to make the existing source
+// authoritative rather than silently carrying it forward or stalling forever.
+const legacyIncomeRetryLedger = structuredClone(nextNode.financialLedger!);
+const legacyIncomeRetryWorld = structuredClone(nextNode.worldStateSnapshot!);
+const legacyIncomeRetryCareerId = legacyIncomeRetryWorld.currentCareerStateId!;
+const legacyIncomeRetryCareer = legacyIncomeRetryWorld.careerStates.find((state) => state.id === legacyIncomeRetryCareerId)!;
+legacyIncomeRetryCareer.employmentStatus = "employed";
+legacyIncomeRetryWorld.currentEmploymentStatus = "employed";
+legacyIncomeRetryLedger.asOfAgeInMonths = 335;
+legacyIncomeRetryLedger.incomeSources = [{
+  id: "legacy_recurring_income",
+  type: "other",
+  displayName: "旧版持续收入聚合",
+  annualNetAmountWan: 30,
+  accrualPolicy: "annual",
+  activeFromAgeInMonths: 312,
+  status: "active",
+  linkedCareerStateId: legacyIncomeRetryCareerId,
+  factStatus: "estimated",
+  lastConfirmedAtAgeInMonths: 312,
+  evidence: [{
+    source: "legacy_migration",
+    reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION",
+    confidence: 0.5
+  }]
+}];
+legacyIncomeRetryLedger.recentTransactions = [
+  {
+    id: "legacy_income_material_1",
+    simulationTransactionId: "legacy_income_material_1",
+    eventIds: [],
+    periodStartAgeInMonths: 312,
+    periodEndAgeInMonths: 324,
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  },
+  {
+    id: "legacy_income_material_2",
+    simulationTransactionId: "legacy_income_material_2",
+    eventIds: [],
+    periodStartAgeInMonths: 324,
+    periodEndAgeInMonths: 335,
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  }
+];
+const legacyIncomeRetryChoice = nextNode.choices[0]!;
+const legacyIncomeRetryState = {
+  ...structuredClone(nextNode.financialState!),
+  asOfAgeInMonths: 335,
+  annualAfterTaxIncomeWan: 30,
+  annualDisposableIncomeWan: 25.8,
+  annualCoreExpenseWan: 4.2,
+  employmentStatus: "employed" as const,
+  incomeStability: "stable" as const,
+  isEstimated: true
+};
+const legacyIncomeRetryHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  age: 27,
+  ageInMonths: 335,
+  selectedChoice: legacyIncomeRetryChoice.text,
+  selectedChoiceId: legacyIncomeRetryChoice.id,
+  selectedEventOutcomeId: legacyIncomeRetryChoice.eventOutcomeId,
+  financialLedger: legacyIncomeRetryLedger,
+  financialState: legacyIncomeRetryState,
+  worldStateSnapshot: legacyIncomeRetryWorld
+}];
+
+const legacyIncomeEvidenceProposal = (targetAgeInMonths: number, annualNetAmountWan = 30, linkedCareerStateId = legacyIncomeRetryCareerId) => ({
+  id: "legacy_income_evidence_reconfirmation",
+  kind: "income_source_adjusted" as const,
+  effectiveAtAgeInMonths: targetAgeInMonths,
+  sourceOutcomeId: legacyIncomeRetryChoice.eventOutcomeId,
+  financialScope: "personal" as const,
+  confidence: 0.9,
+  evidence: `你的年税后收入稳定在${annualNetAmountWan}万元。`,
+  payload: {
+    incomeSourceId: "legacy_recurring_income",
+    nextSource: {
+      ...structuredClone(legacyIncomeRetryLedger.incomeSources[0]!),
+      id: "legacy_recurring_income",
+      type: "salary",
+      annualNetAmountWan,
+      monthlyNetAmountWan: undefined,
+      accrualPolicy: "annual",
+      status: "active",
+      linkedCareerStateId,
+      factStatus: "known",
+      accrualReviewStatus: "normal"
+    }
+  }
+});
+const legacyIncomeEvidenceCandidate = {
+  ...structuredClone(nextNode),
+  age: 28,
+  ageInMonths: 336,
+  title: "工作节奏调整",
+  description: "你继续在当前岗位承担项目，并将每周休息时间固定下来。",
+  descriptionParagraphs: ["你继续在当前岗位承担项目，并将每周休息时间固定下来。"]
+};
+const legacyIncomeEvidenceRepair = reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: {
+    ...structuredClone(legacyIncomeEvidenceCandidate),
+    financialEventProposals: [legacyIncomeEvidenceProposal(336)]
+  },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+});
+assert.deepEqual(legacyIncomeEvidenceRepair.reasonCodes, ["LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR"]);
+assert.match(legacyIncomeEvidenceRepair.node.description, /你的年税后收入稳定在30万元。/);
+assert.match(String((legacyIncomeEvidenceRepair.rawNode as { description?: string }).description), /你的年税后收入稳定在30万元。/);
+const mismatchedLegacyIncomeEvidenceRepair = reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: {
+    ...structuredClone(legacyIncomeEvidenceCandidate),
+    financialEventProposals: [legacyIncomeEvidenceProposal(336, 31)]
+  },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+});
+assert.deepEqual(mismatchedLegacyIncomeEvidenceRepair.reasonCodes, [], "a mismatched amount must remain an invalid candidate rather than being promoted into prose");
+const mismatchedLegacyIncomeCareerRepair = reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: {
+    ...structuredClone(legacyIncomeEvidenceCandidate),
+    financialEventProposals: [legacyIncomeEvidenceProposal(336, 30, "career_unrelated")]
+  },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+});
+assert.deepEqual(mismatchedLegacyIncomeCareerRepair.reasonCodes, [], "a different CareerState must never be promoted as a reconfirmation of the current income source");
+
+const futureStartLegacyIncomeProposal = structuredClone(legacyIncomeEvidenceProposal(336));
+futureStartLegacyIncomeProposal.payload.nextSource.activeFromAgeInMonths = 999;
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: { ...structuredClone(legacyIncomeEvidenceCandidate), financialEventProposals: [futureStartLegacyIncomeProposal] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a reconfirmation may not push a current salary into the future");
+
+const endedLegacyIncomeProposal = structuredClone(legacyIncomeEvidenceProposal(336));
+endedLegacyIncomeProposal.payload.nextSource.activeUntilAgeInMonths = 335;
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: { ...structuredClone(legacyIncomeEvidenceCandidate), financialEventProposals: [endedLegacyIncomeProposal] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a reconfirmation may not end a current salary behind the gate's back");
+
+const reviewStatusLegacyIncomeProposal = structuredClone(legacyIncomeEvidenceProposal(336));
+reviewStatusLegacyIncomeProposal.payload.nextSource.factStatus = "needs_review";
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: { ...structuredClone(legacyIncomeEvidenceCandidate), financialEventProposals: [reviewStatusLegacyIncomeProposal] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a reconfirmation must establish known fact status rather than re-quarantine the salary");
+
+const dualAmountLegacyIncomeProposal = structuredClone(legacyIncomeEvidenceProposal(336));
+dualAmountLegacyIncomeProposal.payload.nextSource.monthlyNetAmountWan = 2.5;
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: legacyIncomeEvidenceCandidate,
+  rawNode: { ...structuredClone(legacyIncomeEvidenceCandidate), financialEventProposals: [dualAmountLegacyIncomeProposal] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a reconfirmation may not introduce an unused monthly amount onto an annual source");
+
+const currentRoleLegacyIncomeCandidate = {
+  ...legacyIncomeEvidenceCandidate,
+  description: "你在当前公司负责产品交付，并把项目节奏稳定下来。",
+  descriptionParagraphs: ["你在当前公司负责产品交付，并把项目节奏稳定下来。"]
+};
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: currentRoleLegacyIncomeCandidate,
+  rawNode: { ...structuredClone(currentRoleLegacyIncomeCandidate), financialEventProposals: [legacyIncomeEvidenceProposal(336)] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, ["LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR"], "the current authoritative CareerState plus a non-conflicting current-role sentence is enough; the repair still promotes only model-provided evidence");
+
+const interruptedLegacyIncomeCandidate = {
+  ...legacyIncomeEvidenceCandidate,
+  description: "你暂时停薪，把时间留给家庭安排。",
+  descriptionParagraphs: ["你暂时停薪，把时间留给家庭安排。"]
+};
+assert.deepEqual(reconcileLegacyIncomeProposalEvidenceNarrative({
+  node: interruptedLegacyIncomeCandidate,
+  rawNode: { ...structuredClone(interruptedLegacyIncomeCandidate), financialEventProposals: [legacyIncomeEvidenceProposal(336)] },
+  ledger: legacyIncomeRetryLedger,
+  currentCareerState: legacyIncomeRetryCareer,
+  targetAgeInMonths: 336,
+  acceptedOutcomeId: legacyIncomeRetryChoice.eventOutcomeId
+}).reasonCodes, [], "a no-pay fact must never be overwritten by legacy salary recovery");
+
+let legacyIncomeEvidenceRepairCalls = 0;
+const legacyIncomeEvidenceRepairGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
+const reconciledLegacyIncomeNode = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(legacyIncomeRetryHistory),
+  currentAttributes: legacyIncomeRetryHistory[0]!.attributes,
+  selectedDecision: legacyIncomeRetryChoice.text,
+  nodeIndex: 1,
+  simulationSeed: "legacy-income-evidence-narrative-repair"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  onFinancialGateDecision: (decision) => {
+    legacyIncomeEvidenceRepairGateDecisions.push({
+      disposition: decision.disposition,
+      reasonCodes: decision.reasonCodes
+    });
+  },
+  callAiJson: async (prompt) => {
+    legacyIncomeEvidenceRepairCalls += 1;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 336);
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "工作与生活节奏",
+        title: "工作节奏调整",
+        description: "你继续在当前岗位承担项目，并将每周休息时间固定下来。",
+        choices: [
+          { id: "A", text: "维持当前节奏并共同储蓄", impactSummary: "稳步推进" },
+          { id: "B", text: "调整工作时间留给关系", impactSummary: "平衡投入" },
+          { id: "C", text: "暂缓额外项目恢复精力", impactSummary: "留出余地" }
+        ],
+        attributes: legacyIncomeRetryHistory[0]!.attributes,
+        financialEventProposals: [legacyIncomeEvidenceProposal(targetAgeInMonths)],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.ok(legacyIncomeEvidenceRepairCalls >= 1);
+assert.deepEqual(legacyIncomeEvidenceRepairGateDecisions, [{ disposition: "accept", reasonCodes: [] }], "a complete same-source proposal with only a missing body sentence is reconciled before the financial gate consumes a regeneration");
+assert.match(reconciledLegacyIncomeNode.description, /你的年税后收入稳定在30万元。/);
+assert.deepEqual(reconciledLegacyIncomeNode.financialProcessingMeta?.candidateNarrativeRepairReasonCodes, ["LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR"]);
+const reconciledLegacyIncomeSource = reconciledLegacyIncomeNode.financialLedger!.incomeSources.find((source) => source.id === "legacy_recurring_income")!;
+assert.equal(reconciledLegacyIncomeSource.annualNetAmountWan, 30);
+assert.equal(reconciledLegacyIncomeSource.factStatus, "known");
+assert.equal(reconciledLegacyIncomeSource.accrualReviewStatus, "normal");
+assert.equal(reconciledLegacyIncomeNode.financialLedger!.incomeSources.filter((source) => source.status === "active" && source.linkedCareerStateId === legacyIncomeRetryCareerId).length, 1);
+
+const legacyIncomeRetryPrompts: string[] = [];
+const legacyIncomeRetryGateDecisions: string[] = [];
+const legacyIncomeRetryGenerationStarts: string[] = [];
+let legacyIncomeRetryCalls = 0;
+const legacyIncomeRetrySharedBudget = createNodeGenerationBudget();
+const legacyIncomeRetryNode = await generateNextNode({
+  userData,
+  answers,
+  history: legacyIncomeRetryHistory,
+  currentAttributes: legacyIncomeRetryHistory[0]!.attributes,
+  selectedDecision: legacyIncomeRetryChoice.text,
+  nodeIndex: 1,
+  simulationSeed: "legacy-income-enforced-retry"
+}, {
+  financialNodeGateMode: "enforced",
+  generationBudget: legacyIncomeRetrySharedBudget,
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  onGenerationCallTrace: (trace) => {
+    if (trace.outcome === "started") legacyIncomeRetryGenerationStarts.push(trace.kind);
+  },
+  // This regression isolates the legacy-income retry contract.  The V4
+  // scheduled expense-review projection has its own enforced-mode coverage
+  // below and must not become a second, unrelated retry subject here.
+  expenseLifecycleMode: "off",
+  onFinancialGateDecision: (decision) => {
+    legacyIncomeRetryGateDecisions.push(decision.disposition);
+  },
+  callAiJson: async (prompt) => {
+    legacyIncomeRetryCalls += 1;
+    legacyIncomeRetryPrompts.push(prompt);
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 336);
+    const confirmsIncome = prompt.includes("当前职业收入必须在本次重生中确认");
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        // Keep this financial retry fixture outside the relationship-authority
+        // surface.  Relationship wording would intentionally trigger the
+        // separate deterministic relationship repair before this test reaches
+        // the income gate.
+        stage: "工作与生活节奏",
+        title: confirmsIncome ? "稳定收入下的生活安排" : "工作节奏调整",
+        description: confirmsIncome
+          ? "你继续在当前岗位承担项目，并将每周休息时间固定下来。你的年税后收入稳定在30万元。"
+          : "你继续在当前岗位承担项目，并将每周休息时间固定下来。",
+        choices: [
+          { id: "A", text: "维持当前节奏并共同储蓄", impactSummary: "稳步推进" },
+          { id: "B", text: "调整工作时间留给关系", impactSummary: "平衡投入" },
+          { id: "C", text: "暂缓额外项目恢复精力", impactSummary: "留出余地" }
+        ],
+        attributes: legacyIncomeRetryHistory[0]!.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(legacyIncomeRetryCalls, 2, "the strict preview must use only the initial and one full regenerated candidate");
+assert.deepEqual(legacyIncomeRetryGenerationStarts, ["initial_generation", "full_regeneration"]);
+assert.equal(legacyIncomeRetrySharedBudget.fullGenerationsUsed, 2);
+assert.equal(legacyIncomeRetrySharedBudget.modelPatchesUsed, 0);
+assert.ok(legacyIncomeRetryPrompts.some((prompt) => /仍在职的迁移估算收入需要本节点明确确认/.test(prompt)));
+const legacyIncomeRetryPrompt = legacyIncomeRetryPrompts.find((prompt) => /当前职业收入必须在本次重生中确认/.test(prompt));
+assert.ok(legacyIncomeRetryPrompt, "the retry must require confirmation of the current legacy income source");
+assert.match(legacyIncomeRetryPrompt, /incomeSourceId=legacy_recurring_income/);
+assert.match(legacyIncomeRetryPrompt, /年税后收入稳定在30万元/);
+assert.deepEqual(legacyIncomeRetryGateDecisions, ["regenerate", "accept"]);
+const legacyIncomeRetrySource = legacyIncomeRetryNode.financialLedger!.incomeSources.find((source) => source.id === "legacy_recurring_income")!;
+assert.equal(legacyIncomeRetrySource.annualNetAmountWan, 30);
+assert.equal(legacyIncomeRetrySource.linkedCareerStateId, legacyIncomeRetryCareerId);
+assert.equal(legacyIncomeRetrySource.factStatus, "known");
+assert.equal(legacyIncomeRetrySource.accrualReviewStatus, "normal");
+
+// A real route can have a legacy aggregate whose old amount became explicitly
+// uncertain in an accepted outcome. It must be quarantined and resolved, but
+// the recovery may not fabricate the old amount as a stable wage. A new,
+// visible current salary fact is allowed to adjust the same source and resume
+// the ordinary employed-income invariant.
+const staleEstimatedLegacyIncomeLedger = structuredClone(legacyIncomeRetryLedger);
+staleEstimatedLegacyIncomeLedger.asOfAgeInMonths = 657;
+staleEstimatedLegacyIncomeLedger.recentTransactions = [];
+staleEstimatedLegacyIncomeLedger.incomeSources = [{
+  id: "legacy_recurring_income",
+  type: "other",
+  displayName: "旧版持续收入聚合",
+  monthlyNetAmountWan: 1.5,
+  annualNetAmountWan: 32,
+  accrualPolicy: "monthly",
+  activeFromAgeInMonths: 300,
+  status: "active",
+  linkedCareerStateId: legacyIncomeRetryCareerId,
+  factStatus: "estimated",
+  lastConfirmedAtAgeInMonths: 398,
+  evidence: [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "accepted_consulting_income_adjusted",
+    excerpt: "项目制合同到期后，你按单结算，收入不再稳定。",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    confidence: 0.7
+  }]
+}];
+const staleEstimatedLegacyIncomeState = {
+  ...structuredClone(legacyIncomeRetryState),
+  asOfAgeInMonths: 657,
+  annualAfterTaxIncomeWan: 18,
+  annualDisposableIncomeWan: 13.8,
+  incomeStability: "volatile" as const,
+  isEstimated: true
+};
+const staleEstimatedLegacyIncomeHistory: HistoryItem[] = [{
+  ...structuredClone(legacyIncomeRetryHistory[0]!),
+  age: 54,
+  ageInMonths: 657,
+  financialLedger: staleEstimatedLegacyIncomeLedger,
+  financialState: staleEstimatedLegacyIncomeState,
+  worldStateSnapshot: structuredClone(legacyIncomeRetryWorld)
+}];
+const staleEstimatedLegacyIncomeLedgerBefore = structuredClone(staleEstimatedLegacyIncomeLedger);
+assert.deepEqual(detectNarrativeFinancialCoverageIssues({
+  narrativeText: "你继续在当前岗位负责交付，眼下的税后月薪为1.8万元。",
+  ledger: staleEstimatedLegacyIncomeLedger,
+  acceptedEvents: [{
+    kind: "income_source_adjusted",
+    payload: {
+      incomeSourceId: "legacy_recurring_income",
+      nextSource: {
+        ...structuredClone(staleEstimatedLegacyIncomeLedger.incomeSources[0]!),
+        type: "salary",
+        monthlyNetAmountWan: 1.8,
+        annualNetAmountWan: undefined,
+        accrualPolicy: "monthly",
+        factStatus: "known"
+      }
+    }
+  }],
+  ageInMonths: 661,
+  periodStartAgeInMonths: 657
+}), [], "an exact submitted same-source salary Proposal must cover its visible compensation fact");
+const staleEstimatedLegacyIncomePrompts: string[] = [];
+const staleEstimatedLegacyIncomeGateDecisions: string[] = [];
+const staleEstimatedLegacyIncomeGenerationKinds: string[] = [];
+let staleEstimatedLegacyIncomeCalls = 0;
+let staleEstimatedLegacyIncomeProposalRepairCalls = 0;
+const staleEstimatedLegacyIncomeNode = await generateNextNode({
+  userData,
+  answers,
+  history: staleEstimatedLegacyIncomeHistory,
+  currentAttributes: staleEstimatedLegacyIncomeHistory[0]!.attributes,
+  selectedDecision: legacyIncomeRetryChoice.text,
+  nodeIndex: 1,
+  simulationSeed: "stale-estimated-legacy-income-resolution"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  onFinancialGateDecision: (decision) => {
+    staleEstimatedLegacyIncomeGateDecisions.push(decision.disposition);
+  },
+  onGenerationCallTrace: (trace) => {
+    if (trace.outcome === "started") staleEstimatedLegacyIncomeGenerationKinds.push(trace.kind);
+  },
+  callAiJson: async (prompt) => {
+    if (prompt.includes("你只修复财务 Proposal")) {
+      staleEstimatedLegacyIncomeProposalRepairCalls += 1;
+      return { text: JSON.stringify({ employmentTransition: null, financialEventProposals: [] }) };
+    }
+    staleEstimatedLegacyIncomeCalls += 1;
+    staleEstimatedLegacyIncomePrompts.push(prompt);
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 661);
+    const resolvesIncome = staleEstimatedLegacyIncomeCalls > 1;
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "工作与生活节奏",
+        title: resolvesIncome ? "明确当下的工作收入" : "工作节奏调整",
+        description: resolvesIncome
+          ? "你继续在当前岗位负责交付，眼下的税后月薪为1.8万元。"
+          : "你继续在当前岗位负责交付，并把节奏调整得更可持续。",
+        choices: [
+          { id: "A", text: "维持当前节奏并共同储蓄", impactSummary: "稳步推进" },
+          { id: "B", text: "调整工作时间留给关系", impactSummary: "平衡投入" },
+          { id: "C", text: "暂缓额外项目恢复精力", impactSummary: "留出余地" }
+        ],
+        attributes: staleEstimatedLegacyIncomeHistory[0]!.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(staleEstimatedLegacyIncomeCalls, 2, "one invalid candidate may regenerate, but an explicit new income fact must resolve the same source");
+assert.equal(staleEstimatedLegacyIncomeProposalRepairCalls, 1, "the bounded proposal-only repair may decline to invent a missing current income fact");
+assert.deepEqual(staleEstimatedLegacyIncomeGenerationKinds, ["initial_generation", "proposal_repair", "initial_generation"]);
+assert.match(staleEstimatedLegacyIncomePrompts[0]!, /旧版职业收入仍是 estimated\/needs_review/);
+assert.match(staleEstimatedLegacyIncomePrompts[0]!, /不能留在“仍有些收入”“项目继续”或“能维持开销”/);
+const staleEstimatedLegacyIncomeRetryPrompt = staleEstimatedLegacyIncomePrompts[1]!;
+assert.match(staleEstimatedLegacyIncomeRetryPrompt, /【当前职业收入必须在本次重生中确认】/);
+assert.match(staleEstimatedLegacyIncomeRetryPrompt, /A\. 若主角仍在当前受雇职业工作/);
+assert.doesNotMatch(staleEstimatedLegacyIncomeRetryPrompt, /你的税后月薪稳定在1\.5万元/);
+assert.deepEqual(staleEstimatedLegacyIncomeGateDecisions, ["regenerate", "accept"]);
+assert.deepEqual(staleEstimatedLegacyIncomeLedger, staleEstimatedLegacyIncomeLedgerBefore, "the rejected Preview must not quarantine or accrue the authoritative history");
+const resolvedStaleEstimatedIncome = staleEstimatedLegacyIncomeNode.financialLedger!.incomeSources.find((source) => source.id === "legacy_recurring_income")!;
+assert.equal(resolvedStaleEstimatedIncome.type, "salary");
+assert.equal(resolvedStaleEstimatedIncome.monthlyNetAmountWan, 1.8);
+assert.equal(resolvedStaleEstimatedIncome.factStatus, "known");
+assert.equal(resolvedStaleEstimatedIncome.accrualReviewStatus, "normal");
+assert.ok(staleEstimatedLegacyIncomeNode.financialLedger!.recentTransactions.at(-1)?.eventIds.some((id) => id.startsWith("accepted_selected_personal_income_")), "only the visible 1.8 万 current-income fact may form the compatibility Proposal; the old ledger estimate must not recover itself");
+assert.equal(staleEstimatedLegacyIncomeNode.financialLedger!.incomeSources.filter((source) => (
+  source.status === "active" && source.linkedCareerStateId === legacyIncomeRetryCareerId
+)).length, 1);
+
+// An overdue policy-floor baseline is a deterministic nonzero safeguard, not
+// a narrator fact that can be reconfirmed.  Once its open review has already
+// been observed twice, an ordinary node must still commit exactly once with a
+// review disposition; exhausting financial-gate regeneration here caused the
+// user-visible Venture pause found in the fresh v10 run.
+const policyFloorReviewBaseline = structuredClone(nextNode);
+const policyFloorReviewChoice = policyFloorReviewBaseline.choices[0]!;
+const policyFloorReviewStartAge = policyFloorReviewBaseline.ageInMonths!;
+const policyFloorReviewLedger = policyFloorReviewBaseline.financialLedger!;
+const policyFloorReviewAccountId = "opening_adult_basic_living_protagonist";
+const policyFloorReviewDueAt = policyFloorReviewStartAge - 12;
+const policyFloorTemplate = policyFloorReviewLedger.expenseCommitments[0]!;
+policyFloorReviewLedger.expenseCommitments = [{
+  ...policyFloorTemplate,
+  id: policyFloorReviewAccountId,
+  type: "basic_living",
+  displayName: "个人基础生活支出（待确认）",
+  monthlyAmountWan: 0.35,
+  activeFromAgeInMonths: policyFloorReviewStartAge - 36,
+  status: "active",
+  factStatus: "needs_review",
+  responsibilityKey: "adult_basic_living:protagonist",
+  responsibilityKind: "adult_basic_living",
+  amountBasis: "policy_floor",
+  amountSourceIds: ["opening_policy_adult_basic_living"],
+  estimationPolicyId: "cn_conservative_basic_living@1",
+  financialScope: "personal",
+  accrualReviewStatus: "review_due",
+  confirmedMonthlyAmountWan: undefined,
+  lastReviewedAtAgeInMonths: policyFloorReviewDueAt,
+  nextReviewAtAgeInMonths: policyFloorReviewDueAt,
+  evidence: [{
+    source: "system_policy",
+    reasonCode: "OPENING_POLICY_FLOOR",
+    confidence: 1,
+    financialScope: "personal"
+  }]
+}];
+policyFloorReviewLedger.unresolvedIssues = [{
+  id: `expense_review_due_${policyFloorReviewAccountId}`,
+  code: "PENDING_FACT",
+  severity: "warning",
+  status: "open",
+  relatedProposalIds: [],
+  relatedAccountIds: [policyFloorReviewAccountId],
+  summary: "持续支出 个人基础生活支出（待确认） 已到复核时点；继续按现有金额计提，等待金额或责任范围确认",
+  createdAtAgeInMonths: policyFloorReviewDueAt,
+  lastObservedAtAgeInMonths: policyFloorReviewStartAge,
+  occurrenceCount: 2
+}];
+const policyFloorReviewHistory: HistoryItem[] = [{
+  ...policyFloorReviewBaseline,
+  selectedChoice: policyFloorReviewChoice.text,
+  selectedChoiceId: policyFloorReviewChoice.id,
+  selectedEventOutcomeId: policyFloorReviewChoice.eventOutcomeId
+}];
+const policyFloorReviewCommittedBefore = policyFloorReviewLedger.committedTransactionIds.length;
+const policyFloorReviewTransactionsBefore = policyFloorReviewLedger.recentTransactions.length;
+const policyFloorGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
+let policyFloorReviewCalls = 0;
+const policyFloorReviewNode = await generateNextNode({
+  userData,
+  answers,
+  history: policyFloorReviewHistory,
+  currentAttributes: policyFloorReviewHistory[0]!.attributes,
+  selectedDecision: policyFloorReviewChoice.text,
+  nodeIndex: 2,
+  simulationSeed: "overdue-policy-floor-accept-with-review"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "enforced",
+  onFinancialGateDecision: (decision) => policyFloorGateDecisions.push({
+    disposition: decision.disposition,
+    reasonCodes: decision.reasonCodes
+  }),
+  callAiJson: async (prompt) => {
+    policyFloorReviewCalls += 1;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || policyFloorReviewStartAge + 12);
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "日常节奏",
+        title: "重新安排一周的时间",
+        description: "你把周末留给整理作品和散步，也重新安排了下一阶段的学习计划。",
+        choices: [
+          { id: "A", text: "继续按当前节奏积累作品", impactSummary: "稳定投入" },
+          { id: "B", text: "报名一个短期课程", impactSummary: "拓展视野" },
+          { id: "C", text: "多参加线下交流", impactSummary: "补充连接" }
+        ],
+        attributes: policyFloorReviewHistory[0]!.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(policyFloorReviewCalls, 1, "a policy floor review must not trigger an invented confirmation or regeneration");
+assert.deepEqual(policyFloorGateDecisions.map((item) => item.disposition), ["accept_with_review"]);
+assert.ok(
+  policyFloorGateDecisions[0]!.reasonCodes.includes(`expense_review_due_${policyFloorReviewAccountId}`),
+  `the open policy review must remain visible in gate telemetry: ${JSON.stringify(policyFloorGateDecisions)}`
+);
+const policyFloorReviewAccount = policyFloorReviewNode.financialLedger!.expenseCommitments.find((item) => (
+  item.id === policyFloorReviewAccountId
+));
+const policyFloorReviewIssue = policyFloorReviewNode.financialLedger!.unresolvedIssues.find((item) => (
+  item.id === `expense_review_due_${policyFloorReviewAccountId}`
+));
+assert.equal(policyFloorReviewAccount?.status, "active");
+assert.equal(policyFloorReviewAccount?.monthlyAmountWan, 0.35, "the floor remains a nonzero recurring cash outflow");
+assert.equal(policyFloorReviewIssue?.status, "open", "the unknown real-world amount remains an explicit review item");
+assert.equal(policyFloorReviewIssue?.occurrenceCount, 3, "the accepted period observes the one stable review exactly once");
+assert.equal(policyFloorReviewNode.financialLedger!.committedTransactionIds.length, policyFloorReviewCommittedBefore + 1);
+assert.equal(policyFloorReviewNode.financialLedger!.recentTransactions.length, policyFloorReviewTransactionsBefore + 1);
+assert.equal(policyFloorReviewNode.financialPeriodSummary?.transactionIds.length, 1);
+assert.equal(policyFloorReviewNode.financialPeriodSummary?.periodStartAgeInMonths, policyFloorReviewStartAge);
+assert.ok((policyFloorReviewNode.ageInMonths || 0) > policyFloorReviewStartAge, "accepted policy review advances time");
+assert.ok((policyFloorReviewNode.financialPeriodSummary?.coreExpenseWan || 0) > 0, "accepted policy review accrues the active floor once");
+
+// Shadow runs the exact V4 reconciler/validator/reducer plan, but that plan
+// must remain prospective: a newly narrated personal lease appears in
+// telemetry and never becomes an authoritative commitment in this node.
+const shadowLifecycleChoice = nextNode.choices[0]!;
+const shadowLifecycleBaseline = structuredClone(nextNode);
+const shadowLifecycleLegacyExpense = shadowLifecycleBaseline.financialLedger?.expenseCommitments[0];
+assert.ok(shadowLifecycleLegacyExpense, "fixture must carry an opening expense commitment");
+// Isolate the shadow-plan test from the separate legacy-aggregate migration
+// rule.  A V4 basic-living account is the normal post-migration baseline;
+// its coverage is known, so a new housing responsibility can be previewed.
+if (shadowLifecycleBaseline.financialLedger) {
+  shadowLifecycleBaseline.financialLedger.expenseCommitments = [{
+    ...shadowLifecycleLegacyExpense,
+    id: "shadow_test_basic_living",
+    type: "basic_living",
+    displayName: "个人基础生活支出",
+    responsibilityKey: "adult_basic_living:main",
+    responsibilityKind: "adult_basic_living",
+    amountBasis: "policy_floor",
+    amountSourceIds: ["shadow_test_basic_living_floor"],
+    estimationPolicyId: "adult_basic_living_v1",
+    financialScope: "personal",
+    accrualReviewStatus: "normal",
+    nextReviewAtAgeInMonths: shadowLifecycleLegacyExpense.activeFromAgeInMonths,
+    evidence: [{
+      source: "system_policy",
+      reasonCode: "SHADOW_TEST_BASIC_LIVING_FLOOR",
+      confidence: 1,
+      financialScope: "personal"
+    }]
+  }];
+}
+const shadowLifecycleHistory: HistoryItem[] = [{
+  ...shadowLifecycleBaseline,
+  selectedChoice: shadowLifecycleChoice.text,
+  selectedChoiceId: shadowLifecycleChoice.id,
+  selectedEventOutcomeId: shadowLifecycleChoice.eventOutcomeId
+}];
+const shadowLifecycleLedgerBefore = structuredClone(shadowLifecycleHistory[0]!.financialLedger);
+const shadowLifecycleNode = await generateNextNode({
+  userData,
+  answers,
+  history: shadowLifecycleHistory,
+  currentAttributes: shadowLifecycleHistory[0]!.attributes,
+  selectedDecision: shadowLifecycleChoice.text,
+  nodeIndex: 2,
+  simulationSeed: "expense-lifecycle-shadow-projected-diff"
+}, {
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "shadow",
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 24,
+      stage: "独立生活安排",
+      title: "签下新的租约",
+      description: "你租下一间靠近公司的公寓，每月房租 6000 元，并已经搬入开始独立生活。",
+      choices: [
+        { id: "A", text: "先稳定现金流", impactSummary: "维持预算" },
+        { id: "B", text: "继续积累职业能力", impactSummary: "长期成长" },
+        { id: "C", text: "重新评估居住开支", impactSummary: "复核支出" }
+      ],
+      attributes: shadowLifecycleHistory[0]!.attributes,
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+const shadowLifecycleTelemetry = shadowLifecycleNode.financialProcessingMeta?.expenseLifecycleTelemetry;
+assert.equal(shadowLifecycleTelemetry?.mode, "shadow");
+assert.equal(
+  shadowLifecycleTelemetry?.acceptedStartCount,
+  1,
+  `expected a validated V4 start in shadow telemetry: ${JSON.stringify(shadowLifecycleTelemetry)}`
+);
+assert.ok(
+  shadowLifecycleTelemetry?.projectedCommitmentChanges.some((change) => (
+    change.action === "start"
+    && change.responsibilityKey === "primary_residence:main"
+    && change.afterMonthlyAmountWan === 0.6
+  )),
+  `shadow telemetry must retain the prospective housing plan: ${JSON.stringify(shadowLifecycleTelemetry)}`
+);
+assert.ok(
+  (shadowLifecycleTelemetry?.afterAnnualizedExpenseWan || 0)
+  > (shadowLifecycleTelemetry?.beforeAnnualizedExpenseWan || 0),
+  "shadow telemetry must expose the planned annual expense increase"
+);
+assert.equal(shadowLifecycleTelemetry?.baselineDownwardBlocked, false, "telemetry must not invent a baseline-protection block");
+assert.deepEqual(shadowLifecycleTelemetry?.staleResponsibilityKeys, ["adult_basic_living:main"], "review telemetry must expose responsibility keys, not ledger IDs");
+assert.equal(shadowLifecycleTelemetry?.schemaRejectedCount, 0, "valid lifecycle proposals must not be counted as schema rejects");
+const shadowHousingCandidate = shadowLifecycleTelemetry?.candidates.find((candidate) => (
+  candidate.responsibilityKey === "primary_residence:main"
+));
+assert.ok(shadowHousingCandidate, "shadow telemetry must persist the raw lifecycle candidate trace");
+assert.equal(shadowHousingCandidate.reconcilerDisposition, "planned_start");
+assert.equal(shadowHousingCandidate.amountBasis, "explicit_protagonist_share");
+assert.equal(shadowHousingCandidate.sourceMonthlyAmountWan, 0.6);
+assert.equal(shadowHousingCandidate.wouldBlock, false);
+assert.ok(shadowHousingCandidate.evidenceReasonCodes.length > 0);
+assert.equal(
+  shadowLifecycleNode.financialLedger?.expenseCommitments.some((commitment) => commitment.responsibilityKey === "primary_residence:main"),
+  false,
+  "shadow V4 plan must not write a housing commitment into authority"
+);
+assert.equal(
+  shadowLifecycleHistory[0]!.financialLedger?.expenseCommitments.some((commitment) => commitment.responsibilityKey === "primary_residence:main"),
+  false,
+  "shadow preview must not mutate the historical ledger input"
+);
+assert.deepEqual(
+  shadowLifecycleHistory[0]!.financialLedger,
+  shadowLifecycleLedgerBefore,
+  "shadow preview must leave the historical ledger byte-for-byte intact"
+);
+
+// A model proposal that has already crossed the Accepted-event boundary is
+// the first writer for its stable responsibility. The lifecycle detector sees
+// the same completed rent sentence, but may not start a second account or
+// accrue the rent twice in this node.
+const directExpenseLifecycleBaseline = structuredClone(shadowLifecycleBaseline);
+const directExpenseLifecycleHistory: HistoryItem[] = [{
+  ...directExpenseLifecycleBaseline,
+  selectedChoice: shadowLifecycleChoice.text,
+  selectedChoiceId: shadowLifecycleChoice.id,
+  selectedEventOutcomeId: shadowLifecycleChoice.eventOutcomeId
+}];
+const directExpenseOutcomeId = shadowLifecycleChoice.eventOutcomeId;
+assert.ok(directExpenseOutcomeId, "fixture must retain the Accepted outcome id for a direct financial fact");
+let directExpenseLifecycleCalls = 0;
+const directExpenseLifecycleNode = await generateNextNode({
+  userData,
+  answers,
+  history: directExpenseLifecycleHistory,
+  currentAttributes: directExpenseLifecycleHistory[0]!.attributes,
+  selectedDecision: shadowLifecycleChoice.text,
+  nodeIndex: 2,
+  simulationSeed: "expense-lifecycle-direct-first-writer"
+}, {
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "enforced",
+  callAiJson: async (prompt) => {
+    directExpenseLifecycleCalls += 1;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 24 * 12);
+    const directRentProposal = {
+      id: "direct_lifecycle_rent",
+      kind: "expense_commitment_started",
+      effectiveAtAgeInMonths: targetAgeInMonths,
+      payload: {
+        id: "direct_lifecycle_primary_residence",
+        type: "housing",
+        displayName: "个人租房",
+        monthlyAmountWan: 0.6,
+        activeFromAgeInMonths: targetAgeInMonths,
+        status: "active",
+        factStatus: "known",
+        evidence: [{
+          source: "accepted_simulation_outcome",
+          reasonCode: "DIRECT_LIFECYCLE_RENT",
+          confidence: 1,
+          financialScope: "personal",
+          excerpt: "你已经签下靠近公司的个人租约，每月房租6000元。"
+        }],
+        responsibilityKey: "primary_residence:main",
+        responsibilityKind: "primary_residence",
+        amountBasis: "explicit_known",
+        amountSourceIds: ["direct_lifecycle_rent_6000"],
+        financialScope: "personal",
+        accrualReviewStatus: "normal",
+        confirmedMonthlyAmountWan: 0.6,
+        lastConfirmedAtAgeInMonths: targetAgeInMonths,
+        nextReviewAtAgeInMonths: targetAgeInMonths + 12
+      },
+      evidence: "你已经签下靠近公司的个人租约，每月房租6000元。",
+      sourceOutcomeId: directExpenseOutcomeId,
+      confidence: 1,
+      financialScope: "personal"
+    };
+    if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+      return { text: JSON.stringify({ financialEventProposals: [directRentProposal] }) };
+    }
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "独立生活安排",
+        title: "个人租约落定",
+        description: "你已经签下靠近公司的个人租约，每月房租6000元，并已经搬入开始独立生活。",
+        choices: [
+          { id: "A", text: "先稳定现金流", impactSummary: "维持预算" },
+          { id: "B", text: "继续积累职业能力", impactSummary: "长期成长" },
+          { id: "C", text: "重新评估居住开支", impactSummary: "复核支出" }
+        ],
+        attributes: directExpenseLifecycleHistory[0]!.attributes,
+        financialEventProposals: [directRentProposal],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(directExpenseLifecycleCalls, 1, "the direct Accepted rent fact must not trigger a duplicate-lifecycle repair");
+assert.equal(directExpenseLifecycleNode.financialProcessingMeta?.expenseLifecycleTelemetry?.acceptedStartCount, 0,
+  "the lifecycle plan must not add a second start for the direct responsibility");
+const directResidenceCommitments = directExpenseLifecycleNode.financialLedger!.expenseCommitments.filter((commitment) => (
+  commitment.status === "active" && commitment.responsibilityKey === "primary_residence:main"
+));
+assert.equal(directResidenceCommitments.length, 1, "one node may accrue a stable responsibility only once");
+assert.equal(directResidenceCommitments[0]!.id, "direct_lifecycle_primary_residence");
+assert.equal(directResidenceCommitments[0]!.monthlyAmountWan, 0.6);
+
+// Candidate patch and bounded-fallback regressions from main. They run after
+// the finance-lifecycle first-writer regression above so both authority paths
+// remain covered in this combined integration suite.
 let malformedInitialGenerationCalls = 0;
 const malformedInitialGenerationNode = await generateNextNode({
   userData,
@@ -954,6 +2111,1694 @@ assert.equal(
   estimateFinancialStateFromWealth(attributes.wealth, history[0].age * 12).propertyMarketValueWan
 );
 
+const enforcedHistorySnapshot = structuredClone(history);
+const enforcedGateDecisions: Array<{ disposition: string; regenerationCount?: number; previewIncome?: number }> = [];
+let enforcedAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    selectedDecision: "购入住房并办理房贷",
+    nodeIndex: 1,
+    simulationSeed: "financial-gate-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    onFinancialGateDecision: (decision) => enforcedGateDecisions.push({
+      disposition: decision.disposition,
+      regenerationCount: decision.regenerationCount,
+      previewIncome: decision.previewPeriodIncomeWan
+    }),
+    callAiJson: async (prompt) => {
+      enforcedAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: 23,
+          stage: "安家选择",
+          title: "房产已经成交",
+          description: "你购入一套价值180万的住房，并背上120万房贷。",
+          choices: [
+            { id: "A", text: "稳定工作并按期还贷", impactSummary: "稳步还贷" },
+            { id: "B", text: "出租房间增加收入", impactSummary: "补充现金" },
+            { id: "C", text: "控制支出建立应急金", impactSummary: "建立缓冲" }
+          ],
+          attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    assert.equal(isFinancialGateGenerationError(error), true, "only rejected, uncommitted Preview errors receive the extended internal retry budget");
+    return true;
+  }
+);
+assert.equal(enforcedAiCalls, 6, "three bounded full-node attempts plus one proposal repair per attempt");
+assert.deepEqual(enforcedGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.deepEqual(enforcedGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(history, enforcedHistorySnapshot, "a rejected preview never advances History or mutates its financial snapshots");
+
+// An unsupported new personal-income claim is safely removed from the final
+// prose.  The gate must use that post-sanitization issue set: it may not keep
+// rejecting the now-safe node as if an uncommitted career transition remained.
+const sanitizedIncomeHistory = [{
+  ...structuredClone(nextNode),
+  selectedChoice: nextNode.choices[0]!.text
+}];
+const sanitizedIncomeGateDecisions: Array<{ disposition: string; reasonCodes: string[] }> = [];
+const sanitizedIncomeNode = await generateNextNode({
+  userData,
+  answers,
+  history: sanitizedIncomeHistory,
+  currentAttributes: nextNode.attributes,
+  selectedDecision: nextNode.choices[0]!.text,
+  nodeIndex: 2,
+  simulationSeed: "sanitized-personal-income-gate"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  onFinancialGateDecision: (decision) => sanitizedIncomeGateDecisions.push({
+    disposition: decision.disposition,
+    reasonCodes: decision.reasonCodes
+  }),
+  callAiJson: async (prompt) => {
+    if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+      return { text: JSON.stringify({ financialEventProposals: [] }) };
+    }
+    return {
+      text: JSON.stringify({
+        age: 24,
+        stage: "项目推进",
+        title: "案例逐渐成形",
+        description: "对方当场付了5000元咨询费。你把案例整理成了方法论。",
+        choices: [
+          { id: "A", text: "继续打磨案例", impactSummary: "积累能力" },
+          { id: "B", text: "复盘客户反馈", impactSummary: "稳住节奏" },
+          { id: "C", text: "控制额外投入", impactSummary: "保留缓冲" }
+        ],
+        attributes: nextNode.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.deepEqual(sanitizedIncomeGateDecisions.map((item) => item.disposition), ["accept"]);
+assert.ok(!sanitizedIncomeGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"));
+assert.doesNotMatch(sanitizedIncomeNode.description, /5000元咨询费/u);
+assert.match(sanitizedIncomeNode.description, /个人收入是否形成仍需继续观察/u);
+
+// A founder may register a company and receive customer revenue before any
+// personal draw.  The false draw must be dropped in the same candidate, while
+// the actual self-employment transition and old-wage closure still commit—no
+// proposal repair, full regeneration, or visible gate pause is allowed.
+const unpaidFounderDecision = "辞职后全职创业，自己创办一家供应链咨询公司。";
+const unpaidFounderHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  selectedChoice: unpaidFounderDecision,
+  choices: [{
+    id: "A",
+    text: unpaidFounderDecision,
+    impactSummary: "先验证业务",
+    eventOutcomeId: "found_supply_chain_consulting_company"
+  }]
+}];
+const unpaidFounderPreviousCareerId = unpaidFounderHistory[0]!.worldStateSnapshot?.currentCareerStateId;
+const unpaidFounderBudget = createNodeGenerationBudget({ fullGenerationLimit: 1 });
+const unpaidFounderGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+const unpaidFounderGenerationStarts: string[] = [];
+let unpaidFounderCalls = 0;
+const unpaidFounderNode = await generateNextNode({
+  userData,
+  answers,
+  history: unpaidFounderHistory,
+  currentAttributes: unpaidFounderHistory[0]!.attributes,
+  selectedDecision: unpaidFounderDecision,
+  nodeIndex: 2,
+  simulationSeed: "venture-customer-revenue-without-personal-draw"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  generationBudget: unpaidFounderBudget,
+  onFinancialGateDecision: (decision) => unpaidFounderGateDecisions.push(decision),
+  onGenerationCallTrace: (trace) => {
+    if (trace.outcome === "started") unpaidFounderGenerationStarts.push(trace.kind);
+  },
+  callAiJson: async (prompt) => {
+    unpaidFounderCalls += 1;
+    assert.doesNotMatch(prompt, /你只负责修复财务 Proposal/u, "an unsupported draw must not consume a repair call");
+    return {
+      text: JSON.stringify({
+        age: 24,
+        stage: "创业起步",
+        title: "第一位客户的年费",
+        description: "你辞去当前岗位后，注册了一家供应链咨询公司。公司签下第一个客户，客户年费4.8万元已经回款，但资金仍留在公司运营账户。老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。",
+        choices: [
+          { id: "A", text: "继续打磨客户交付", impactSummary: "验证产品" },
+          { id: "B", text: "谨慎控制运营成本", impactSummary: "保留缓冲" },
+          { id: "C", text: "等待第二个客户", impactSummary: "观察需求" }
+        ],
+        attributes: unpaidFounderHistory[0]!.attributes,
+        financialEventProposals: [{
+          id: "invented_owner_draw", kind: "income_source_started", effectiveAtAgeInMonths: 288,
+          payload: { id: "invented_owner_draw_income", type: "self_employment_draw", monthlyNetAmountWan: 1.5 },
+          evidence: "老周提醒你该谈分红了，你又一次以‘等拿到第二个客户再说’搪塞过去。",
+          confidence: 0.9
+        }],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(unpaidFounderCalls, 1);
+assert.deepEqual(unpaidFounderGenerationStarts, ["initial_generation"]);
+assert.equal(unpaidFounderBudget.fullGenerationsUsed, 1);
+assert.equal(unpaidFounderBudget.modelPatchesUsed, 0);
+assert.deepEqual(unpaidFounderGateDecisions.map((item) => item.disposition), ["accept"]);
+assert.equal(unpaidFounderNode.financialProcessingMeta?.repairTriggered, false);
+assert.equal(unpaidFounderNode.financialProcessingMeta?.acceptedCareerTransitionCount, 1);
+assert.equal(unpaidFounderNode.financialPeriodSummary?.incomeWan, 0, "the rejected draw cannot become a one-off or recurring personal inflow");
+const unpaidFounderCareer = unpaidFounderNode.worldStateSnapshot?.careerStates.find((state) => (
+  state.id === unpaidFounderNode.worldStateSnapshot?.currentCareerStateId
+));
+assert.equal(unpaidFounderCareer?.employmentStatus, "self_employed");
+assert.equal(unpaidFounderNode.financialLedger?.incomeSources.some((source) => (
+  source.status === "active"
+  && source.linkedCareerStateId === unpaidFounderPreviousCareerId
+  && ["salary", "contract", "self_employment_draw"].includes(source.type)
+)), false, "the prior career's personal income must close atomically with the founder transition");
+assert.equal(unpaidFounderNode.financialLedger?.incomeSources.some((source) => (
+  source.status === "active"
+  && source.linkedCareerStateId === unpaidFounderCareer?.id
+  && ["self_employment_draw", "business_dividend", "rent", "contract", "other"].includes(source.type)
+)), false, "company revenue and a dividend discussion must not create any personal income source");
+
+// A completed employer switch without a replacement personal income must not
+// be downgraded to a resolved rejected Proposal. This exercises the real
+// order: accept transition -> reject atomicity -> settle issues -> gate.
+const careerAuthorityDecision = "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品";
+const pendingOfferHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  selectedChoice: careerAuthorityDecision,
+  selectedDecisionIntent: "career:accept_offer:ai_startup_product_head",
+  choices: [{
+    id: "A",
+    text: careerAuthorityDecision,
+    impactSummary: "进入创业公司",
+    eventOutcomeId: "join_ai_startup_product_lead"
+  }]
+}];
+const pendingOfferIncomeBefore = pendingOfferHistory[0]!.financialLedger?.incomeSources.find((source) => source.status === "active");
+const pendingOfferCareerBefore = pendingOfferHistory[0]!.worldStateSnapshot?.currentCareerStateId
+  ?? pendingOfferIncomeBefore?.linkedCareerStateId;
+assert.ok(pendingOfferCareerBefore, "fixture must expose the authoritative current CareerState");
+const pendingOfferNode = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(pendingOfferHistory),
+  currentAttributes: nextNode.attributes,
+  selectedDecision: careerAuthorityDecision,
+  nodeIndex: 2,
+  simulationSeed: "pending-employer-offer-preserves-current-authority"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 24,
+      stage: "职业交接",
+      title: "接受邀请后的交接期",
+      description: "你接受了AI创业公司的产品负责人邀请，先完成当前项目交接，并和对方确认劳动合同与入职日期。",
+      choices: [
+        { id: "A", text: "确认合同后再安排入职", impactSummary: "确认条件" },
+        { id: "B", text: "完成当前项目交接", impactSummary: "平稳交接" },
+        { id: "C", text: "重新评估这份 offer", impactSummary: "审慎确认" }
+      ],
+      attributes,
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(pendingOfferNode.worldStateSnapshot?.pendingEmployerOffer?.status, "accepted_pending_start");
+assert.equal(pendingOfferNode.worldStateSnapshot?.pendingEmployerOffer?.sourceOutcomeId, "join_ai_startup_product_lead");
+assert.equal(pendingOfferNode.worldStateSnapshot?.pendingEmployerOffer?.fromCareerStateId, pendingOfferCareerBefore);
+assert.equal(pendingOfferNode.worldStateSnapshot?.currentCareerStateId, pendingOfferCareerBefore, "offer acceptance must preserve the old CareerState until actual entry");
+assert.equal(
+  pendingOfferNode.financialLedger?.incomeSources.find((source) => source.id === pendingOfferIncomeBefore?.id)?.linkedCareerStateId,
+  pendingOfferIncomeBefore?.linkedCareerStateId,
+  "offer acceptance must preserve the old linked salary until actual entry"
+);
+assert.equal(pendingOfferNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
+
+// Planning for retirement is not evidence that the protagonist has retired.
+// The existing employed CareerState and its linked salary must remain the
+// authority when the accepted choice and prose both say that work continues.
+const retirementPlanningDecision = "继续当前岗位，逐步积累退休储蓄，并保留稳定现金流。";
+const retirementPlanningHistory = structuredClone(pendingOfferHistory);
+const retirementPlanningWorld = retirementPlanningHistory[0]!.worldStateSnapshot!;
+const retirementPlanningCurrentCareer = retirementPlanningWorld.careerStates.find((state) => (
+  state.id === retirementPlanningWorld.currentCareerStateId
+));
+assert.ok(retirementPlanningCurrentCareer, "fixture must expose the current career state");
+retirementPlanningCurrentCareer.employmentStatus = "employed";
+retirementPlanningWorld.currentEmploymentStatus = "employed";
+retirementPlanningHistory[0]!.selectedChoice = retirementPlanningDecision;
+retirementPlanningHistory[0]!.choices = [{
+  id: "A",
+  text: retirementPlanningDecision,
+  impactSummary: "继续工作并规划未来",
+  eventOutcomeId: "continue_current_work"
+}];
+const retirementPlanningIncomeBefore = retirementPlanningHistory[0]!.financialLedger?.incomeSources.find((source) => source.status === "active");
+assert.ok(retirementPlanningIncomeBefore, "fixture must expose an active personal income source");
+retirementPlanningIncomeBefore.linkedCareerStateId = retirementPlanningCurrentCareer.id;
+retirementPlanningIncomeBefore.factStatus = "known";
+retirementPlanningIncomeBefore.accrualReviewStatus = "normal";
+const retirementPlanningCareerBefore = retirementPlanningHistory[0]!.worldStateSnapshot?.currentCareerStateId
+  ?? retirementPlanningIncomeBefore?.linkedCareerStateId;
+const retirementPlanningGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+const retirementPlanningNode = await generateNextNode({
+  userData,
+  answers,
+  history: retirementPlanningHistory,
+  currentAttributes: nextNode.attributes,
+  selectedDecision: retirementPlanningDecision,
+  nodeIndex: 2,
+  simulationSeed: "retirement-savings-preserves-current-career"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  onFinancialGateDecision: (decision) => retirementPlanningGateDecisions.push(decision),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 24,
+      stage: "稳定工作与长期准备",
+      title: "把未来放进当下节奏",
+      description: "你继续留在当前岗位，用稳定的工作收入支撑日常生活，并开始逐步积累退休储蓄。",
+      choices: [
+        { id: "A", text: "继续提升专业能力", impactSummary: "稳步积累" },
+        { id: "B", text: "复核长期储蓄计划", impactSummary: "规划未来" },
+        { id: "C", text: "维持工作与生活边界", impactSummary: "保持平衡" }
+      ],
+      attributes,
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+assert.deepEqual(retirementPlanningGateDecisions.map((decision) => decision.disposition), ["accept"]);
+assert.ok(!retirementPlanningGateDecisions[0]?.reasonCodes.includes("CAREER_INCOME_CONFLICT"));
+assert.equal(retirementPlanningNode.worldStateSnapshot?.currentCareerStateId, retirementPlanningCareerBefore);
+assert.equal(retirementPlanningNode.worldStateSnapshot?.currentEmploymentStatus, "employed");
+assert.equal(
+  retirementPlanningNode.financialLedger?.incomeSources.find((source) => source.id === retirementPlanningIncomeBefore?.id)?.status,
+  "active",
+  "retirement savings must not end the existing salary"
+);
+assert.equal(retirementPlanningNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
+
+// A completed employer start, including a cross-sentence "提交离职。入职创业
+// 公司后" switch, is not a bare offer. Without a
+// replacement personal income it must be rejected before it can preserve a
+// pending offer alongside narration that says the protagonist is already at
+// work.
+const postEntryWithoutIncomeHistory = structuredClone(pendingOfferHistory);
+const postEntryWithoutIncomeHistoryBefore = structuredClone(postEntryWithoutIncomeHistory);
+const postEntryWithoutIncomeGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: postEntryWithoutIncomeHistory,
+    currentAttributes: nextNode.attributes,
+    selectedDecision: careerAuthorityDecision,
+    nodeIndex: 2,
+    simulationSeed: "post-entry-without-income-cannot-commit-pending-offer"
+  }, {
+    financialNodeGateMode: "enforced",
+    expenseLifecycleMode: "off",
+    relationshipDispatchFeatureFlags: {
+      enableAuthoritativeRelationshipStages: false,
+      enableRomanceFormationEvents: false,
+      enableRomanceLifecycleScheduling: false
+    },
+    generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+    onFinancialGateDecision: (decision) => postEntryWithoutIncomeGateDecisions.push(decision),
+    callAiJson: async (prompt) => {
+      if (prompt.includes("你只修复财务 Proposal")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: 24,
+          stage: "创业试炼场",
+          title: "产品负责人新岗位",
+          description: "你最终接受了那家早期AI创业公司的产品负责人邀请。离职交接期持续了三周。入职后的前三个月，你几乎每天都要面对从0到1的混乱，既是产品负责人，也要亲自画原型、跑客户。个人收入是否形成仍需继续观察。",
+          choices: [
+            { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+            { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+            { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+          ],
+          attributes,
+          narrativeMeta: {
+            worldDeltas: [{
+              type: "career_state",
+              summary: "错误地把创业公司产品负责人当成自主创业",
+              employmentTransition: {
+                subject: "protagonist",
+                toStatus: "self_employed",
+                effectiveAtAgeInMonths: 288,
+                sourceOutcomeId: "join_ai_startup_product_lead",
+                evidence: "你最终接受了那家早期AI创业公司的产品负责人邀请。离职交接期持续了三周。入职后的前三个月，你几乎每天都要面对从0到1的混乱，既是产品负责人，也要亲自画原型、跑客户。",
+                confidence: 0.9
+              }
+            }]
+          },
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    return true;
+  }
+);
+assert.deepEqual(postEntryWithoutIncomeGateDecisions.map((decision) => decision.disposition), ["regenerate"]);
+assert.ok(
+  postEntryWithoutIncomeGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"),
+  "post-entry prose without an atomic replacement income must be a blocking career-income conflict"
+);
+assert.deepEqual(
+  postEntryWithoutIncomeHistory,
+  postEntryWithoutIncomeHistoryBefore,
+  "a rejected post-entry candidate must leave history, time, CareerState and ledger unchanged"
+);
+
+const pendingOfferWithQuotedSalaryNode = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(pendingOfferHistory),
+  currentAttributes: nextNode.attributes,
+  selectedDecision: careerAuthorityDecision,
+  nodeIndex: 2,
+  simulationSeed: "pending-employer-offer-quoted-salary-cannot-write-authority"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 24,
+      stage: "职业交接",
+      title: "确认新的岗位条件",
+      description: "你接受了AI创业公司的产品负责人邀请。对方给出的税后月薪为3.5万元，你计划下月正式入职。",
+      choices: [
+        { id: "A", text: "确认合同细节", impactSummary: "确认条件" },
+        { id: "B", text: "完成当前项目交接", impactSummary: "平稳交接" },
+        { id: "C", text: "重新评估这份 offer", impactSummary: "审慎确认" }
+      ],
+      attributes,
+      financialEventProposals: [{
+        id: "premature_offer_salary",
+        kind: "income_source_started",
+        effectiveAtAgeInMonths: pendingOfferHistory[0]!.ageInMonths,
+        sourceOutcomeId: "join_ai_startup_product_lead",
+        evidence: "对方给出的税后月薪为3.5万元，你计划下月正式入职。",
+        confidence: 0.9,
+        payload: {
+          id: "salary_premature_offer",
+          type: "salary",
+          displayName: "AI创业公司拟议工资",
+          monthlyNetAmountWan: 3.5,
+          activeFromAgeInMonths: pendingOfferHistory[0]!.ageInMonths,
+          linkedCareerStateId: pendingOfferCareerBefore
+        }
+      }],
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(pendingOfferWithQuotedSalaryNode.worldStateSnapshot?.pendingEmployerOffer?.status, "accepted_pending_start");
+assert.deepEqual(
+  pendingOfferWithQuotedSalaryNode.financialLedger?.incomeSources.map((source) => ({
+    id: source.id,
+    status: source.status,
+    linkedCareerStateId: source.linkedCareerStateId,
+    monthlyNetAmountWan: source.monthlyNetAmountWan
+  })),
+  pendingOfferHistory[0]!.financialLedger?.incomeSources.map((source) => ({
+    id: source.id,
+    status: source.status,
+    linkedCareerStateId: source.linkedCareerStateId,
+    monthlyNetAmountWan: source.monthlyNetAmountWan
+  })),
+  "a quoted future offer salary must not alter existing income authority"
+);
+assert.equal(pendingOfferWithQuotedSalaryNode.financialLedger?.incomeSources.some((source) => source.id === "salary_premature_offer"), false);
+
+const pendingOfferCancellationDecision = "放弃AI创业公司的产品负责人 offer，继续当前安排";
+const pendingOfferCancellationHistory: HistoryItem[] = [{
+  ...structuredClone(pendingOfferNode),
+  selectedChoice: pendingOfferCancellationDecision,
+  choices: [{
+    id: "A",
+    text: pendingOfferCancellationDecision,
+    impactSummary: "留在当前安排",
+    eventOutcomeId: "withdraw_ai_startup_product_lead"
+  }]
+}];
+const pendingOfferCareerIdBeforeWithdrawal = pendingOfferNode.worldStateSnapshot?.currentCareerStateId;
+const pendingOfferIncomeAuthorityBeforeWithdrawal = pendingOfferNode.financialLedger?.incomeSources.map((source) => ({
+  id: source.id,
+  status: source.status,
+  linkedCareerStateId: source.linkedCareerStateId,
+  monthlyNetAmountWan: source.monthlyNetAmountWan
+}));
+const pendingOfferWithdrawalNode = await generateNextNode({
+  userData,
+  answers,
+  history: pendingOfferCancellationHistory,
+  currentAttributes: pendingOfferNode.attributes,
+  selectedDecision: pendingOfferCancellationDecision,
+  nodeIndex: 3,
+  simulationSeed: "pending-employer-offer-withdrawal-preserves-current-authority"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 25,
+      stage: "职业取舍",
+      title: "保留当前安排",
+      description: "你放弃了已经接受的AI创业公司产品负责人 offer，继续保持当前安排。",
+      choices: [
+        { id: "A", text: "继续沉淀现有能力", impactSummary: "稳住节奏" },
+        { id: "B", text: "重新评估职业方向", impactSummary: "保留选择" },
+        { id: "C", text: "投入学习", impactSummary: "补足能力" }
+      ],
+      attributes,
+      narrativeMeta: {
+        worldDeltas: [{
+          type: "career_state",
+          summary: "放弃待入职 offer",
+          pendingEmployerOfferResolution: {
+            action: "withdrawn",
+            pendingOfferSourceOutcomeId: "join_ai_startup_product_lead",
+            sourceOutcomeId: "withdraw_ai_startup_product_lead",
+            evidence: "你放弃了已经接受的AI创业公司产品负责人 offer，继续保持当前安排。",
+            confidence: 0.9
+          }
+        }]
+      },
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(pendingOfferWithdrawalNode.worldStateSnapshot?.pendingEmployerOffer, undefined);
+assert.equal(pendingOfferWithdrawalNode.worldStateSnapshot?.currentCareerStateId, pendingOfferCareerIdBeforeWithdrawal);
+assert.deepEqual(
+  pendingOfferWithdrawalNode.financialLedger?.incomeSources.map((source) => ({
+    id: source.id,
+    status: source.status,
+    linkedCareerStateId: source.linkedCareerStateId,
+    monthlyNetAmountWan: source.monthlyNetAmountWan
+  })),
+  pendingOfferIncomeAuthorityBeforeWithdrawal,
+  "withdrawing a pending offer must not change the existing income authority"
+);
+
+const pendingOfferStartDecision = "确认劳动合同后正式入职AI创业公司，担任产品负责人";
+const pendingOfferStartHistory: HistoryItem[] = [{
+  ...structuredClone(pendingOfferNode),
+  selectedChoice: pendingOfferStartDecision,
+  choices: [{
+    id: "A",
+    text: pendingOfferStartDecision,
+    impactSummary: "正式入职",
+    eventOutcomeId: "start_ai_startup_product_lead"
+  }]
+}];
+const pendingOfferStartNode = await generateNextNode({
+  userData,
+  answers,
+  history: pendingOfferStartHistory,
+  currentAttributes: pendingOfferNode.attributes,
+  selectedDecision: pendingOfferStartDecision,
+  nodeIndex: 3,
+  simulationSeed: "pending-employer-offer-starts-atomically"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({
+    text: JSON.stringify({
+      age: 25,
+          stage: "正式入职",
+          title: "产品负责人新岗位",
+          description: "你正式向大公司提交了离职。入职AI创业公司后，你才发现产品负责人需要承担广泛职责，税后月薪3.5万元。",
+      choices: [
+        { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+        { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+        { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+      ],
+      attributes,
+        narrativeMeta: {
+          worldDeltas: [{
+            type: "career_state",
+            summary: "模型错误地把外部创业公司产品负责人标为自主创业",
+            employmentTransition: {
+              subject: "protagonist",
+              toStatus: "self_employed",
+            effectiveAtAgeInMonths: pendingOfferNode.ageInMonths,
+            sourceOutcomeId: "start_ai_startup_product_lead",
+            evidence: "入职AI创业公司后，你才发现产品负责人需要承担广泛职责，税后月薪3.5万元。",
+            confidence: 0.9
+          },
+          pendingEmployerOfferResolution: {
+            action: "started",
+            pendingOfferSourceOutcomeId: "join_ai_startup_product_lead",
+            sourceOutcomeId: "start_ai_startup_product_lead",
+            evidence: "入职AI创业公司后，你才发现产品负责人需要承担广泛职责，税后月薪3.5万元。",
+            confidence: 0.9
+          }
+        }]
+      },
+      financialEventProposals: [],
+      isEndingNode: false
+    })
+  })
+});
+assert.equal(pendingOfferStartNode.worldStateSnapshot?.pendingEmployerOffer, undefined);
+assert.notEqual(pendingOfferStartNode.worldStateSnapshot?.currentCareerStateId, pendingOfferCareerBefore);
+const activeEmployerSalarySources = pendingOfferStartNode.financialLedger?.incomeSources.filter((source) => (
+  source.status === "active" && source.type === "salary"
+)) || [];
+assert.equal(activeEmployerSalarySources.length, 1, "actual entry must leave exactly one active employer salary");
+assert.equal(activeEmployerSalarySources[0]?.monthlyNetAmountWan, 3.5);
+assert.equal(activeEmployerSalarySources[0]?.linkedCareerStateId, pendingOfferStartNode.worldStateSnapshot?.currentCareerStateId);
+assert.equal(
+  pendingOfferStartNode.financialLedger?.incomeSources.find((source) => source.id === pendingOfferIncomeBefore?.id)?.status,
+  "ended",
+  "a cross-sentence employer switch must close the prior salary instead of stacking it"
+);
+
+// Proposal repair revalidates the candidate from scratch. A pending offer
+// start without its source-bound `started` resolution must therefore remain
+// blocking after that revalidation; it must never commit a new CareerState
+// while leaving a stale pending offer behind.
+const pendingOfferRepairHistory: HistoryItem[] = [{
+  ...structuredClone(pendingOfferNode),
+  selectedChoice: pendingOfferStartDecision,
+  choices: [{
+    id: "A",
+    text: pendingOfferStartDecision,
+    impactSummary: "正式入职",
+    eventOutcomeId: "start_ai_startup_product_lead"
+  }]
+}];
+const pendingOfferRepairHistoryBefore = structuredClone(pendingOfferRepairHistory);
+const pendingOfferRepairGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+let pendingOfferRepairCallCount = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: pendingOfferRepairHistory,
+    currentAttributes: pendingOfferNode.attributes,
+    selectedDecision: pendingOfferStartDecision,
+    nodeIndex: 3,
+    simulationSeed: "pending-employer-offer-repair-cannot-drop-start-resolution"
+  }, {
+    financialNodeGateMode: "enforced",
+    expenseLifecycleMode: "off",
+    relationshipDispatchFeatureFlags: {
+      enableAuthoritativeRelationshipStages: false,
+      enableRomanceFormationEvents: false,
+      enableRomanceLifecycleScheduling: false
+    },
+    generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+    onFinancialGateDecision: (decision) => pendingOfferRepairGateDecisions.push(decision),
+    callAiJson: async (prompt) => {
+      if (prompt.includes("你只修复财务 Proposal")) {
+        pendingOfferRepairCallCount += 1;
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: 25,
+          stage: "正式入职",
+          title: "产品负责人新岗位",
+          description: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+          choices: [
+            { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+            { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+            { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+          ],
+          attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    return true;
+  }
+);
+assert.equal(pendingOfferRepairCallCount, 1, "the regression must cross the proposal-repair revalidation boundary");
+assert.deepEqual(pendingOfferRepairGateDecisions.map((decision) => decision.disposition), ["regenerate"]);
+assert.match(
+  pendingOfferRepairGateDecisions[0]?.rejectionDiagnostic?.validatorIssues.map((issue) => issue.id).join(",") || "",
+  /pending_employer_offer_start_resolution_missing/
+);
+assert.deepEqual(
+  pendingOfferRepairHistory,
+  pendingOfferRepairHistoryBefore,
+  "a rejected repaired pending-offer start must leave history, time, CareerState and ledger unchanged"
+);
+
+const careerAuthorityHistory: HistoryItem[] = [{
+  ...structuredClone(history[0]!),
+  selectedChoice: careerAuthorityDecision,
+  selectedDecisionIntent: "career:accept_offer:ai_startup_product_head",
+  choices: [{
+    id: "A",
+    text: careerAuthorityDecision,
+    impactSummary: "进入创业公司",
+    eventOutcomeId: "join_ai_startup_product_lead"
+  }]
+}];
+const careerAuthorityHistoryBefore = structuredClone(careerAuthorityHistory);
+const careerAuthorityGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: careerAuthorityHistory,
+    currentAttributes: attributes,
+    selectedDecision: careerAuthorityDecision,
+    nodeIndex: 1,
+    simulationSeed: "career-income-atomicity-zero-mutation"
+  }, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  onFinancialGateDecision: (decision) => careerAuthorityGateDecisions.push(decision),
+    callAiJson: async () => ({
+      text: JSON.stringify({
+        age: 23,
+        stage: "职业转换",
+        title: "接受邀请，踏上产品负责人征程",
+        description: "你已正式入职AI创业公司，担任产品负责人，但实际到账的个人收入尚待确认。（调试标记 sk-test-real-secret，Bearer raw-token）",
+        choices: [
+          { id: "A", text: "继续完成产品上线", impactSummary: "推进产品" },
+          { id: "B", text: "先确认劳动合同与薪酬", impactSummary: "确认薪酬" },
+          { id: "C", text: "保留原岗位等待结果", impactSummary: "保留选择" }
+        ],
+        attributes,
+        narrativeMeta: {
+          worldDeltas: [{
+            type: "career_state",
+            summary: "接受AI创业公司产品负责人岗位",
+            employmentTransition: {
+              subject: "protagonist",
+              toStatus: "employed",
+              effectiveAtAgeInMonths: 276,
+              sourceOutcomeId: "join_ai_startup_product_lead",
+              evidence: "你已正式入职AI创业公司，担任产品负责人。",
+              confidence: 0.9
+            }
+          }]
+        },
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    })
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    return true;
+  }
+);
+assert.deepEqual(careerAuthorityGateDecisions.map((item) => item.disposition), ["regenerate"]);
+assert.ok(careerAuthorityGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"));
+assert.equal(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.schemaVersion, 1);
+assert.match(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.candidate.descriptionExcerpt || "", /正式入职AI创业公司/);
+assert.ok(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.unsatisfiedFactGroups.some((group) => group.kind === "career_income_transition"));
+assert.equal(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.provisionalCareerTransitions.length, 1);
+assert.match(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.validatorIssues.map((issue) => issue.id).join(",") || "", /career_income_atomicity/);
+assert.doesNotMatch(JSON.stringify(careerAuthorityGateDecisions[0]?.rejectionDiagnostic), /sk-test-real-secret|Bearer raw-token/u);
+assert.deepEqual(careerAuthorityHistory, careerAuthorityHistoryBefore, "rejected career transition must leave history, time and old authority unchanged");
+
+// The production App shares one 2-full / 1-patch budget across this entire
+// call. Once its second candidate is rejected, the service must return that
+// authoritative rejection instead of starting an impossible third generation
+// and surfacing FULL_GENERATION_BUDGET_EXHAUSTED to the user.
+const sharedBudgetGateHistoryBefore = structuredClone(history);
+const sharedBudgetGate = createNodeGenerationBudget();
+const sharedBudgetGateDecisions: Array<{ disposition: string; regenerationCount?: number }> = [];
+const sharedBudgetGenerationStarts: string[] = [];
+let sharedBudgetAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    selectedDecision: "购入住房并办理房贷",
+    nodeIndex: 1,
+    simulationSeed: "financial-gate-shared-budget-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    generationBudget: sharedBudgetGate,
+    onFinancialGateDecision: (decision) => sharedBudgetGateDecisions.push({
+      disposition: decision.disposition,
+      regenerationCount: decision.regenerationCount
+    }),
+    onGenerationCallTrace: (trace) => {
+      if (trace.outcome === "started") sharedBudgetGenerationStarts.push(trace.kind);
+    },
+    callAiJson: async (prompt) => {
+      sharedBudgetAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: 23,
+          stage: "安家选择",
+          title: "房产已经成交",
+          description: "你购入一套价值180万的住房，并背上120万房贷。",
+          choices: [
+            { id: "A", text: "稳定工作并按期还贷", impactSummary: "稳步还贷" },
+            { id: "B", text: "出租房间增加收入", impactSummary: "补充现金" },
+            { id: "C", text: "控制支出建立应急金", impactSummary: "建立缓冲" }
+          ],
+          attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    assert.equal(isFinancialGateGenerationError(error), true, "the final error remains the rejected, uncommitted financial Preview");
+    assert.doesNotMatch(error instanceof Error ? error.message : String(error), /FULL_GENERATION_BUDGET_EXHAUSTED/);
+    return true;
+  }
+);
+assert.equal(sharedBudgetAiCalls, 3, "two full candidates and one bounded proposal repair respect the App budget");
+assert.deepEqual(sharedBudgetGenerationStarts, ["initial_generation", "proposal_repair", "full_regeneration"]);
+assert.deepEqual(sharedBudgetGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
+assert.deepEqual(sharedBudgetGateDecisions.map((item) => item.regenerationCount), [0, 1]);
+assert.equal(sharedBudgetGate.fullGenerationsUsed, 2);
+assert.equal(sharedBudgetGate.modelPatchesUsed, 1);
+assert.deepEqual(history, sharedBudgetGateHistoryBefore, "budget exhaustion after a rejection must not advance History or write financial state");
+
+// Phase 4/5: an expense-specific critical error must force the same atomic
+// rejection contract even when the legacy financial gate is only shadowing.
+// Start from a fully authoritative historical node so this covers every
+// persisted financial surface, not only an empty legacy history record.
+const expenseGateChoice = nextNode.choices[0]!;
+const expenseGateHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  selectedChoice: expenseGateChoice.text,
+  selectedChoiceId: expenseGateChoice.id,
+  selectedEventOutcomeId: expenseGateChoice.eventOutcomeId
+}];
+const expenseGateHistoryBefore = structuredClone(expenseGateHistory);
+const expenseGateLedgerBefore = structuredClone(expenseGateHistory[0]!.financialLedger);
+const expenseGateWorldBefore = structuredClone(expenseGateHistory[0]!.worldStateSnapshot);
+const expenseGatePeriodBefore = structuredClone(expenseGateHistory[0]!.financialPeriodSummary);
+const expenseGateAgeBefore = expenseGateHistory[0]!.ageInMonths ?? expenseGateHistory[0]!.age * 12;
+const expenseGateAttributesBefore = structuredClone(expenseGateHistory[0]!.attributes);
+const expenseGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[]; regenerationCount?: number }> = [];
+let expenseGateAiCalls = 0;
+const rejectedMortgageExpense = (ageInMonths: number) => ({
+  id: "phase45_mortgage_payment_as_expense",
+  kind: "expense_commitment_started",
+  effectiveAtAgeInMonths: ageInMonths,
+  payload: {
+    id: "phase45_mortgage_payment_commitment",
+    type: "mortgage_payment",
+    displayName: "房贷月供",
+    monthlyAmountWan: 1,
+    activeFromAgeInMonths: ageInMonths,
+    status: "active",
+    factStatus: "known",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "TEST_MORTGAGE_PAYMENT_AS_EXPENSE",
+      confidence: 1,
+      financialScope: "personal"
+    }]
+  },
+  evidence: "你已经支付首期房贷月供 1 万元。",
+  confidence: 1,
+  financialScope: "personal"
+});
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: expenseGateHistory,
+    currentAttributes: expenseGateHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "expense-enforced-zero-mutation"
+  }, {
+    // This deliberately proves the expense lifecycle's enforced mode cannot
+    // fall back to the generic shadow gate when an EXPENSE_* fact is blocked.
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "enforced",
+    onFinancialGateDecision: (decision) => expenseGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes,
+      regenerationCount: decision.regenerationCount
+    }),
+    callAiJson: async (prompt) => {
+      expenseGateAiCalls += 1;
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || expenseGateAgeBefore + 12);
+      const financialEventProposals = [rejectedMortgageExpense(targetAgeInMonths)];
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        // Keep the same invalid route through its one bounded repair so the
+        // test observes an actual EXPENSE_* blocking issue at the final gate.
+        return { text: JSON.stringify({ financialEventProposals }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          stage: "房贷偿付核对",
+          title: "首期月供已经支付",
+          description: "你已经支付首期房贷月供 1 万元。",
+          choices: [
+            { id: "A", text: "继续维持当前工作节奏", impactSummary: "保持现金流" },
+            { id: "B", text: "重新核对债务偿付安排", impactSummary: "确认房贷" },
+            { id: "C", text: "暂缓新增固定支出", impactSummary: "保守安排" }
+          ],
+          attributes: expenseGateAttributesBefore,
+          financialEventProposals,
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  /财务节点接受门拒绝候选/
+);
+assert.equal(expenseGateAiCalls, 6, "each of three attempts performs one full-node generation and one bounded proposal repair; rejected narrative rollback is deterministic");
+assert.deepEqual(expenseGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(expenseGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(expenseGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(
+  expenseGateDecisions.every((item) => item.reasonCodes.includes("REJECTED_COMPLETED_EXPENSE_LIFECYCLE")),
+  `expected the enforced gate to retain the expense lifecycle reason: ${JSON.stringify(expenseGateDecisions)}`
+);
+assert.deepEqual(expenseGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(expenseGateHistory, expenseGateHistoryBefore, "rejected EXPENSE preview must not write History");
+assert.deepEqual(expenseGateHistory[0]!.financialLedger, expenseGateLedgerBefore, "rejected EXPENSE preview must not write the ledger");
+assert.deepEqual(expenseGateHistory[0]!.worldStateSnapshot, expenseGateWorldBefore, "rejected EXPENSE preview must not write WorldState");
+assert.equal(expenseGateHistory[0]!.ageInMonths ?? expenseGateHistory[0]!.age * 12, expenseGateAgeBefore, "rejected EXPENSE preview must not advance time");
+assert.deepEqual(expenseGateHistory[0]!.financialPeriodSummary, expenseGatePeriodBefore, "rejected EXPENSE preview must not write period accrual");
+
+// The same no-mutation contract specifically covers the shared-responsibility
+// P0: a model cannot relabel a jointly stated household total as the
+// protagonist's personal recurring rent. Keep it on the full generate/repair
+// route so a future normalizer or retry change cannot bypass the validator.
+const collectiveExpenseHistory = structuredClone(expenseGateHistoryBefore);
+const collectiveExpenseLedgerBefore = structuredClone(collectiveExpenseHistory[0]!.financialLedger);
+const collectiveExpenseWorldBefore = structuredClone(collectiveExpenseHistory[0]!.worldStateSnapshot);
+const collectiveExpensePeriodBefore = structuredClone(collectiveExpenseHistory[0]!.financialPeriodSummary);
+const collectiveExpenseAgeBefore = collectiveExpenseHistory[0]!.ageInMonths ?? collectiveExpenseHistory[0]!.age * 12;
+let collectiveExpenseAiCalls = 0;
+const collectiveExpenseGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[] }> = [];
+const rejectedCollectiveExpense = (ageInMonths: number) => ({
+  id: "phase45_collective_household_total_as_personal",
+  kind: "expense_commitment_started",
+  effectiveAtAgeInMonths: ageInMonths,
+  payload: {
+    id: "phase45_collective_household_total_as_personal",
+    type: "housing",
+    displayName: "共同房租",
+    monthlyAmountWan: 0.5,
+    activeFromAgeInMonths: ageInMonths,
+    status: "active",
+    factStatus: "known",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "TEST_COLLECTIVE_TOTAL_AS_PERSONAL",
+      confidence: 1,
+      financialScope: "personal"
+    }],
+    responsibilityKey: "primary_residence:collective_test",
+    responsibilityKind: "primary_residence",
+    amountBasis: "explicit_known",
+    amountSourceIds: ["test:collective-rent-5000"],
+    financialScope: "personal",
+    accrualReviewStatus: "normal",
+    confirmedMonthlyAmountWan: 0.5,
+    lastConfirmedAtAgeInMonths: ageInMonths,
+    nextReviewAtAgeInMonths: ageInMonths + 12
+  },
+  evidence: "你们每月共同承担房租5000元。",
+  confidence: 1,
+  financialScope: "personal"
+});
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: collectiveExpenseHistory,
+    currentAttributes: collectiveExpenseHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "expense-collective-zero-mutation"
+  }, {
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "enforced",
+    onFinancialGateDecision: (decision) => {
+      collectiveExpenseGateDecisions.push({
+        mode: decision.mode,
+        disposition: decision.disposition,
+        allowDomainCommit: decision.allowDomainCommit,
+        reasonCodes: decision.reasonCodes
+      });
+    },
+    callAiJson: async (prompt) => {
+      collectiveExpenseAiCalls += 1;
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || collectiveExpenseAgeBefore + 12);
+      const financialEventProposals = [rejectedCollectiveExpense(targetAgeInMonths)];
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          stage: "共同住房核对",
+          title: "共同房租仍待确认个人份额",
+          description: "你们每月共同承担房租5000元。",
+          choices: [
+            { id: "A", text: "继续维持当前工作节奏", impactSummary: "保持现金流" },
+            { id: "B", text: "重新核对住房安排", impactSummary: "确认份额" },
+            { id: "C", text: "暂缓新增固定支出", impactSummary: "保守安排" }
+          ],
+          attributes: collectiveExpenseHistory[0]!.attributes,
+          financialEventProposals,
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  /财务节点接受门拒绝候选/
+);
+assert.equal(
+  collectiveExpenseAiCalls,
+  6,
+  "collective ownership rejection must exhaust three full-node attempts and their proposal repairs without inventing a completion rollback"
+);
+assert.deepEqual(collectiveExpenseGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(collectiveExpenseGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(collectiveExpenseGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(
+  collectiveExpenseGateDecisions.every((item) => item.reasonCodes.includes("REJECTED_COMPLETED_EXPENSE_LIFECYCLE")),
+  `expected the enforced gate to retain the collective expense lifecycle reason: ${JSON.stringify(collectiveExpenseGateDecisions)}`
+);
+assert.deepEqual(collectiveExpenseHistory, expenseGateHistoryBefore, "rejected collective expense must not write History");
+assert.deepEqual(collectiveExpenseHistory[0]!.financialLedger, collectiveExpenseLedgerBefore, "rejected collective expense must not write the ledger");
+assert.deepEqual(collectiveExpenseHistory[0]!.worldStateSnapshot, collectiveExpenseWorldBefore, "rejected collective expense must not write WorldState");
+assert.equal(collectiveExpenseHistory[0]!.ageInMonths ?? collectiveExpenseHistory[0]!.age * 12, collectiveExpenseAgeBefore, "rejected collective expense must not advance time");
+assert.deepEqual(collectiveExpenseHistory[0]!.financialPeriodSummary, collectiveExpensePeriodBefore, "rejected collective expense must not write period accrual");
+
+// This is the real-life route P0, not a malformed model Proposal: the prose
+// commits a jointly arranged elder-care service and gives its monthly total,
+// but never says what the protagonist pays. The lifecycle detector must carry
+// that material omission to the enforced gate. It must not advance time or
+// accrue the still-active income/expense state while waiting for a corrected
+// allocation.
+const jointCaregiverHistory = structuredClone(expenseGateHistoryBefore);
+// The live regression occurs after a relationship has already become
+// authoritative. Establish that prerequisite here so the relationship guard
+// does not quite correctly replace the financial evidence with its unrelated
+// deterministic narrative fallback before the expense lifecycle sees it.
+const jointCaregiverWorld = jointCaregiverHistory[0]!.worldStateSnapshot!;
+jointCaregiverHistory[0]!.worldStateSnapshot = {
+  ...jointCaregiverWorld,
+  people: [
+    ...(jointCaregiverWorld.people || []),
+    {
+      id: "joint_caregiver_partner",
+      displayName: "伴侣",
+      relation: "partner",
+      lifeStatus: "active",
+      source: "accepted_history",
+      confidence: 1
+    }
+  ],
+  relationships: [
+    ...(jointCaregiverWorld.relationships || []),
+    {
+      id: "joint_caregiver_relationship",
+      participantPersonIds: ["joint_caregiver_partner"],
+      type: "romantic",
+      stage: "cohabiting",
+      status: "active",
+      livingTogether: true,
+      effectiveFromAgeInMonths: jointCaregiverHistory[0]!.ageInMonths ?? jointCaregiverHistory[0]!.age * 12,
+      source: "accepted_history",
+      confidence: 1
+    }
+  ],
+  relationshipRevision: (jointCaregiverWorld.relationshipRevision || 0) + 1
+};
+const jointCaregiverHistoryBefore = structuredClone(jointCaregiverHistory);
+const jointCaregiverLedgerBefore = structuredClone(jointCaregiverHistory[0]!.financialLedger);
+const jointCaregiverWorldBefore = structuredClone(jointCaregiverHistory[0]!.worldStateSnapshot);
+const jointCaregiverPeriodBefore = structuredClone(jointCaregiverHistory[0]!.financialPeriodSummary);
+const jointCaregiverAgeBefore = jointCaregiverHistory[0]!.ageInMonths ?? jointCaregiverHistory[0]!.age * 12;
+const jointCaregiverCashBefore = jointCaregiverLedgerBefore?.cashAccounts.map((account) => [account.id, account.balanceWan]);
+const jointCaregiverIncomeBefore = jointCaregiverLedgerBefore?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]);
+let jointCaregiverAiCalls = 0;
+const jointCaregiverGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[] }> = [];
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: jointCaregiverHistory,
+    currentAttributes: jointCaregiverHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "expense-joint-caregiver-zero-mutation"
+  }, {
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "enforced",
+    onFinancialGateDecision: (decision) => jointCaregiverGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes
+    }),
+    callAiJson: async (prompt) => {
+      jointCaregiverAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || jointCaregiverAgeBefore + 12);
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          stage: "双方老人照护安排",
+          title: "共同照护费用仍待确认个人份额",
+          description: "你和伴侣商量后，决定请一个白班阿姨，每周来三天，帮忙做饭和打扫，减轻两边老人的负担。这笔开销不小，你算了算，每月要多支出三千多元，但暂时还能承受。",
+          choices: [
+            { id: "A", text: "共同确认照护费用分担", impactSummary: "明确个人现金流" },
+            { id: "B", text: "继续协调双方家庭安排", impactSummary: "缓解照护压力" },
+            { id: "C", text: "先核对可承担的预算", impactSummary: "避免透支" }
+          ],
+          attributes: jointCaregiverHistory[0]!.attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  /财务节点接受门拒绝候选/
+);
+assert.ok(jointCaregiverAiCalls >= 3, "the material shared-care omission must exhaust bounded generation attempts");
+assert.deepEqual(jointCaregiverGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(jointCaregiverGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(jointCaregiverGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(jointCaregiverGateDecisions.every((item) => item.reasonCodes.includes("UNSATISFIED_EXPENSE_LIFECYCLE")));
+assert.deepEqual(jointCaregiverHistory, jointCaregiverHistoryBefore, "unallocated material caregiver cost must not write History");
+assert.deepEqual(jointCaregiverHistory[0]!.financialLedger, jointCaregiverLedgerBefore, "rejected caregiver cost must not write the ledger");
+assert.deepEqual(jointCaregiverHistory[0]!.worldStateSnapshot, jointCaregiverWorldBefore, "rejected caregiver cost must not write WorldState");
+assert.equal(jointCaregiverHistory[0]!.ageInMonths ?? jointCaregiverHistory[0]!.age * 12, jointCaregiverAgeBefore, "rejected caregiver cost must not advance time");
+assert.deepEqual(jointCaregiverHistory[0]!.financialPeriodSummary, jointCaregiverPeriodBefore, "rejected caregiver cost must not accrue the period");
+assert.deepEqual(jointCaregiverHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), jointCaregiverCashBefore, "rejected caregiver cost must not change cash");
+assert.deepEqual(jointCaregiverHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), jointCaregiverIncomeBefore, "rejected caregiver cost must not accrue or alter income sources");
+
+// v18 showed the inverse failure: a completed, individually arranged parent
+// rehabilitation service appeared in the final prose but the model omitted
+// its amount-free expense_responsibility delta. The semantic detector is
+// deliberately narrow, yet once it matches, the entire Preview must reject
+// before history, WorldState, time, income or cash can move.
+const missingCareDeltaHistory = structuredClone(expenseGateHistoryBefore);
+const missingCareDeltaHistoryBefore = structuredClone(missingCareDeltaHistory);
+const missingCareDeltaLedgerBefore = structuredClone(missingCareDeltaHistory[0]!.financialLedger);
+const missingCareDeltaWorldBefore = structuredClone(missingCareDeltaHistory[0]!.worldStateSnapshot);
+const missingCareDeltaPeriodBefore = structuredClone(missingCareDeltaHistory[0]!.financialPeriodSummary);
+const missingCareDeltaAgeBefore = missingCareDeltaHistory[0]!.ageInMonths ?? missingCareDeltaHistory[0]!.age * 12;
+const missingCareDeltaCashBefore = missingCareDeltaLedgerBefore?.cashAccounts.map((account) => [account.id, account.balanceWan]);
+const missingCareDeltaIncomeBefore = missingCareDeltaLedgerBefore?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]);
+const missingCareDeltaGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[]; regenerationCount?: number; requiredFactGroupCount: number; criticalFactGroupCount: number; unsatisfiedCriticalFactGroupCount: number }> = [];
+let missingCareDeltaAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: missingCareDeltaHistory,
+    currentAttributes: missingCareDeltaHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "expense-care-delta-zero-mutation"
+  }, {
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "enforced",
+    onFinancialGateDecision: (decision) => missingCareDeltaGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes,
+      regenerationCount: decision.regenerationCount,
+      requiredFactGroupCount: decision.requiredFactGroupCount,
+      criticalFactGroupCount: decision.criticalFactGroupCount,
+      unsatisfiedCriticalFactGroupCount: decision.unsatisfiedCriticalFactGroupCount
+    }),
+    callAiJson: async (prompt) => {
+      missingCareDeltaAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || missingCareDeltaAgeBefore + 12);
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          stage: "父亲康复安排",
+          title: "持续照护的责任确认",
+          description: "父亲膝盖的旧疾需要持续理疗。你为他在县城找了一位康复师，每周两次上门指导。母亲腰椎旧伤需要持续理疗。你为她请了一位理疗师，每周固定上门理疗。",
+          choices: [
+            { id: "A", text: "继续陪父亲完成康复安排", impactSummary: "照护延续" },
+            { id: "B", text: "协调更稳定的上门服务", impactSummary: "稳定支持" },
+            { id: "C", text: "重新安排工作与探望节奏", impactSummary: "平衡责任" }
+          ],
+          attributes: missingCareDeltaHistory[0]!.attributes,
+          financialEventProposals: [],
+          isEndingNode: false,
+          narrativeMeta: { worldDeltas: [] }
+        })
+      };
+    }
+  }),
+  /财务节点接受门拒绝候选/
+);
+assert.equal(missingCareDeltaAiCalls, 3, "the missing structured care fact must use only bounded full-node regeneration");
+// The ordinary financial gate remains in shadow mode for this focused
+// regression, so each attempt records a dry-run shadow decision before the
+// final expense-authority gate emits its enforced rejection. Only the latter
+// may decide whether the Preview commits.
+const missingCareDeltaEnforcedDecisions = missingCareDeltaGateDecisions.filter((item) => item.mode === "enforced");
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(missingCareDeltaEnforcedDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(missingCareDeltaEnforcedDecisions.every((item) => item.reasonCodes.includes("EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING")));
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.requiredFactGroupCount), [2, 2, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.criticalFactGroupCount), [2, 2, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.unsatisfiedCriticalFactGroupCount), [2, 2, 2]);
+assert.deepEqual(missingCareDeltaHistory, missingCareDeltaHistoryBefore, "missing care delta must not write History");
+assert.deepEqual(missingCareDeltaHistory[0]!.financialLedger, missingCareDeltaLedgerBefore, "missing care delta must not write the ledger");
+assert.deepEqual(missingCareDeltaHistory[0]!.worldStateSnapshot, missingCareDeltaWorldBefore, "missing care delta must not write WorldState");
+assert.equal(missingCareDeltaHistory[0]!.ageInMonths ?? missingCareDeltaHistory[0]!.age * 12, missingCareDeltaAgeBefore, "missing care delta must not advance time");
+assert.deepEqual(missingCareDeltaHistory[0]!.financialPeriodSummary, missingCareDeltaPeriodBefore, "missing care delta must not accrue the period");
+assert.deepEqual(missingCareDeltaHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), missingCareDeltaCashBefore, "missing care delta must not change cash");
+assert.deepEqual(missingCareDeltaHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), missingCareDeltaIncomeBefore, "missing care delta must not alter income sources");
+
+// The same authority boundary applies to a natural ending. A terminal
+// rejection reruns the whole candidate, so the ending prompt itself must
+// carry the reason and the retry must commit only its final, grounded result.
+const endingCareRetryHistory = structuredClone(expenseGateHistoryBefore);
+const endingCareRetryPrevious = endingCareRetryHistory[0]!;
+const endingCareRetryStartAgeInMonths = 109 * 12 + 11;
+endingCareRetryPrevious.age = 109;
+endingCareRetryPrevious.ageInMonths = endingCareRetryStartAgeInMonths;
+endingCareRetryPrevious.stage = "晚年日常";
+endingCareRetryPrevious.title = "家庭的安稳节奏";
+endingCareRetryPrevious.selectedChoice = "继续安排晚年的家庭日常";
+endingCareRetryPrevious.selectedChoiceId = "ending_parent_care";
+endingCareRetryPrevious.selectedEventOutcomeId = "ending_parent_care";
+endingCareRetryPrevious.choices = [{
+  id: "ending_parent_care",
+  text: "继续安排晚年的家庭日常",
+  impactSummary: "维持照护",
+  eventOutcomeId: "ending_parent_care"
+}];
+endingCareRetryPrevious.financialState = {
+  ...endingCareRetryPrevious.financialState!,
+  asOfAgeInMonths: endingCareRetryStartAgeInMonths
+};
+endingCareRetryPrevious.financialLedger = {
+  ...endingCareRetryPrevious.financialLedger!,
+  asOfAgeInMonths: endingCareRetryStartAgeInMonths,
+  incomeSources: endingCareRetryPrevious.financialLedger!.incomeSources.map((source) => ({
+    ...source,
+    lastConfirmedAtAgeInMonths: endingCareRetryStartAgeInMonths
+  })),
+  expenseCommitments: endingCareRetryPrevious.financialLedger!.expenseCommitments.map((commitment) => ({
+    ...commitment,
+    lastConfirmedAtAgeInMonths: endingCareRetryStartAgeInMonths,
+    nextReviewAtAgeInMonths: endingCareRetryStartAgeInMonths + 12
+  }))
+};
+endingCareRetryPrevious.worldStateSnapshot = {
+  ...endingCareRetryPrevious.worldStateSnapshot!,
+  people: [
+    ...(endingCareRetryPrevious.worldStateSnapshot?.people || []),
+    {
+      id: "ending_retry_father",
+      identityKey: { namespace: "user_role", key: "parent:father" },
+      displayName: "父亲",
+      relation: "parent",
+      lifeStatus: "active",
+      source: "accepted_history",
+      confidence: 1
+    }
+  ]
+};
+const endingCareRetryCommittedIdsBefore = [...endingCareRetryPrevious.financialLedger.committedTransactionIds];
+const endingCareRetryTransactionIdsBefore = new Set(
+  endingCareRetryPrevious.financialLedger.recentTransactions.map((transaction) => transaction.simulationTransactionId)
+);
+const endingCareRetryEndingPrompts: string[] = [];
+const endingCareRetryGateDecisions: Array<{ disposition: string; reasonCodes: string[]; regenerationCount?: number }> = [];
+let endingCareRetryCandidateCalls = 0;
+let endingCareRetryEndingCalls = 0;
+const endingCareRetryNode = await generateNextNode({
+  userData,
+  answers,
+  history: endingCareRetryHistory,
+  currentAttributes: endingCareRetryPrevious.attributes,
+  selectedDecision: "继续安排晚年的家庭日常",
+  nodeIndex: 110,
+  simulationSeed: "ending-care-retry-grounded-delta"
+}, {
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "enforced",
+  onFinancialGateDecision: (decision) => endingCareRetryGateDecisions.push({
+    disposition: decision.disposition,
+    reasonCodes: decision.reasonCodes,
+    regenerationCount: decision.regenerationCount
+  }),
+  callAiJson: async (prompt) => {
+    if (prompt.includes("你正在为一段写实人生生成自然终章")) {
+      endingCareRetryEndingCalls += 1;
+      endingCareRetryEndingPrompts.push(prompt);
+      const withRequiredDelta = endingCareRetryEndingCalls > 1;
+      const careEvidence = "父亲膝盖的旧疾需要持续理疗。你为他在县城找了一位康复师，每周两次上门指导。";
+      return {
+        text: JSON.stringify({
+          age: 110,
+          ageInMonths: 110 * 12,
+          stage: "人生终章",
+          title: "照护与回望",
+          descriptionParagraphs: [
+            `${careEvidence}你把探望和自己的生活重新排进同一张日历。`,
+            "多年以后，你不再急着证明什么，只把能承担的责任一点点做好，也把温柔留给身边的人。"
+          ],
+          attributes: endingCareRetryPrevious.attributes,
+          choices: [{ id: "ENDING", text: "安详落幕，查看一生洞察", impactSummary: "一生回望" }],
+          isEndingNode: true,
+          narrativeMeta: {
+            worldDeltas: withRequiredDelta ? [{
+              type: "expense_responsibility",
+              summary: "持续父亲照护",
+              responsibility: {
+                responsibilityKind: "elder_care",
+                beneficiary: "father",
+                owner: "protagonist",
+                cadence: "recurring_unknown",
+                sourceOutcomeId: "ending_parent_care",
+                evidence: careEvidence,
+                confidence: 0.9
+              }
+            }] : []
+          }
+        })
+      };
+    }
+    endingCareRetryCandidateCalls += 1;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 110 * 12);
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "晚年日常",
+        title: "家庭日常仍在继续",
+        description: "你继续安排晚年的家庭日常，也在每周的探望中保持与家人的联系。",
+        choices: [
+          { id: "A", text: "维持现有生活节奏", impactSummary: "安稳维系" },
+          { id: "B", text: "多留出时间陪伴家人", impactSummary: "增加陪伴" },
+          { id: "C", text: "整理重要的人生资料", impactSummary: "沉淀回望" }
+        ],
+        attributes: endingCareRetryPrevious.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(endingCareRetryCandidateCalls, 2, "a rejected ending must regenerate the full candidate exactly once");
+assert.equal(endingCareRetryEndingCalls, 2, "the first ending omits the delta and the second supplies it");
+assert.doesNotMatch(endingCareRetryEndingPrompts[0]!, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
+assert.match(endingCareRetryEndingPrompts[1]!, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
+assert.match(endingCareRetryEndingPrompts[1]!, /evidence 必须逐字包含病情句与服务句/);
+assert.match(endingCareRetryEndingPrompts[1]!, /本轮唯一已接受的 outcome id：【ending_parent_care】/);
+assert.match(endingCareRetryEndingPrompts[1]!, /sourceOutcomeId 必须逐字等于 "ending_parent_care"/);
+assert.equal(endingCareRetryNode.isEndingNode, true);
+assert.equal(
+  endingCareRetryNode.narrativeMeta?.worldDeltas.some((delta) => (
+    delta.type === "expense_responsibility"
+    && delta.responsibility.responsibilityKind === "elder_care"
+    && delta.responsibility.beneficiary === "father"
+    && delta.responsibility.sourceOutcomeId === "ending_parent_care"
+  )),
+  true,
+  "the valid retry delta must survive the terminal authority path"
+);
+assert.equal(
+  endingCareRetryNode.financialLedger!.committedTransactionIds.length,
+  endingCareRetryCommittedIdsBefore.length + 1,
+  "only the final terminal candidate may commit a ledger transaction"
+);
+assert.equal(
+  endingCareRetryNode.financialLedger!.recentTransactions.filter((transaction) => (
+    !endingCareRetryTransactionIdsBefore.has(transaction.simulationTransactionId)
+  )).length,
+  1,
+  "the rejected terminal preview must leave no duplicate transaction"
+);
+const endingCareRetryMissingDeltaDecisions = endingCareRetryGateDecisions.filter((decision) => (
+  decision.reasonCodes.includes("EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING")
+));
+assert.deepEqual(endingCareRetryMissingDeltaDecisions, [{
+  disposition: "regenerate",
+  reasonCodes: ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"],
+  regenerationCount: 0
+}]);
+
+// A completed, quantified first-person medical payment is a current-period
+// cash outlay, not a recurring care commitment.  If the model narrates the
+// actual payment but cannot provide its one-off event, the ordinary enforced
+// acceptance gate must reject every bounded Preview before time, income, or
+// cash accrual can move.  This is the exact fact shape found in the live
+// relationship route; the later "共同账户" reserve must not disguise it as a
+// monthly medical expense.
+const personalMedicalOutlayHistory = structuredClone(expenseGateHistoryBefore);
+const personalMedicalOutlayHistoryBefore = structuredClone(personalMedicalOutlayHistory);
+const personalMedicalOutlayLedgerBefore = structuredClone(personalMedicalOutlayHistory[0]!.financialLedger);
+const personalMedicalOutlayWorldBefore = structuredClone(personalMedicalOutlayHistory[0]!.worldStateSnapshot);
+const personalMedicalOutlayPeriodBefore = structuredClone(personalMedicalOutlayHistory[0]!.financialPeriodSummary);
+const personalMedicalOutlayAgeBefore = personalMedicalOutlayHistory[0]!.ageInMonths ?? personalMedicalOutlayHistory[0]!.age * 12;
+const personalMedicalOutlayCashBefore = personalMedicalOutlayLedgerBefore?.cashAccounts.map((account) => [account.id, account.balanceWan]);
+const personalMedicalOutlayIncomeBefore = personalMedicalOutlayLedgerBefore?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]);
+const personalMedicalOutlayGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[]; regenerationCount?: number }> = [];
+let personalMedicalOutlayAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: personalMedicalOutlayHistory,
+    currentAttributes: personalMedicalOutlayHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "personal-medical-outlay-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    // Isolate the one-off cash-flow acceptance contract from recurring
+    // lifecycle classification: this medical deposit must not become a
+    // synthesized monthly healthcare account just to let the node commit.
+    expenseLifecycleMode: "off",
+    onFinancialGateDecision: (decision) => personalMedicalOutlayGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes,
+      regenerationCount: decision.regenerationCount
+    }),
+    callAiJson: async (prompt) => {
+      personalMedicalOutlayAiCalls += 1;
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals: [] }) };
+      }
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || personalMedicalOutlayAgeBefore + 12);
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          ageInMonths: targetAgeInMonths,
+          stage: "父母医疗照护",
+          title: "住院押金仍待入账",
+          description: "你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。这笔钱本应从共同账户的父母照护预算中支出，但预算只覆盖常规体检和药物，没有预留突发医疗。",
+          choices: [
+            { id: "A", text: "先核对住院费用与报销", impactSummary: "确认医疗现金流" },
+            { id: "B", text: "补足家庭应急预算", impactSummary: "留出照护缓冲" },
+            { id: "C", text: "与家人确认后续分担", impactSummary: "明确责任边界" }
+          ],
+          attributes: personalMedicalOutlayHistory[0]!.attributes,
+          financialEventProposals: [],
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    assert.equal(isFinancialGateGenerationError(error), true, "the uncommitted personal outlay Preview receives only the bounded financial-gate retry budget");
+    return true;
+  }
+);
+assert.equal(personalMedicalOutlayAiCalls, 6, "each of three bounded attempts repairs the missing one-off event once before the gate rejects it");
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(personalMedicalOutlayGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(
+  personalMedicalOutlayGateDecisions.every((item) => item.reasonCodes.includes("UNSATISFIED_LARGE_PERSONAL_CASHFLOW")),
+  `expected the personal-outlay coverage issue to stay a critical financial fact: ${JSON.stringify(personalMedicalOutlayGateDecisions)}`
+);
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(personalMedicalOutlayHistory, personalMedicalOutlayHistoryBefore, "unmodeled completed medical outlay must not write History");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.financialLedger, personalMedicalOutlayLedgerBefore, "unmodeled completed medical outlay must not write the ledger");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.worldStateSnapshot, personalMedicalOutlayWorldBefore, "unmodeled completed medical outlay must not write WorldState");
+assert.equal(personalMedicalOutlayHistory[0]!.ageInMonths ?? personalMedicalOutlayHistory[0]!.age * 12, personalMedicalOutlayAgeBefore, "unmodeled completed medical outlay must not advance time");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.financialPeriodSummary, personalMedicalOutlayPeriodBefore, "unmodeled completed medical outlay must not accrue the period");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), personalMedicalOutlayCashBefore, "unmodeled completed medical outlay must not change cash");
+assert.deepEqual(personalMedicalOutlayHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), personalMedicalOutlayIncomeBefore, "unmodeled completed medical outlay must not accrue or alter income sources");
+
+// The late-arriving route fact is stronger than a missing current-period
+// Proposal: the narrative opens at this transaction's authoritative age, then
+// says the payment happened "上个月".  Supplying an otherwise valid 1.2 万元
+// one-off at this period end must still be rejected; accepting it would forge
+// a backdated historical cash movement and double-count the time boundary.
+const historicalMedicalOutlayHistory = structuredClone(expenseGateHistoryBefore);
+const historicalMedicalOutlayHistoryBefore = structuredClone(historicalMedicalOutlayHistory);
+const historicalMedicalOutlayLedgerBefore = structuredClone(historicalMedicalOutlayHistory[0]!.financialLedger);
+const historicalMedicalOutlayWorldBefore = structuredClone(historicalMedicalOutlayHistory[0]!.worldStateSnapshot);
+const historicalMedicalOutlayPeriodBefore = structuredClone(historicalMedicalOutlayHistory[0]!.financialPeriodSummary);
+const historicalMedicalOutlayAgeBefore = historicalMedicalOutlayHistory[0]!.ageInMonths ?? historicalMedicalOutlayHistory[0]!.age * 12;
+const historicalMedicalOutlayCashBefore = historicalMedicalOutlayLedgerBefore?.cashAccounts.map((account) => [account.id, account.balanceWan]);
+const historicalMedicalOutlayIncomeBefore = historicalMedicalOutlayLedgerBefore?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]);
+const historicalMedicalOutlayCashAccountId = historicalMedicalOutlayLedgerBefore!.cashAccounts.find((account) => account.status === "active")!.id;
+const formatNarrativeAge = (ageInMonths: number) => `${Math.floor(ageInMonths / 12)}岁${ageInMonths % 12}个月`;
+const historicalMedicalOutlayDescription = (periodEndAgeInMonths: number) => (
+  `${formatNarrativeAge(historicalMedicalOutlayAgeBefore)}，共同账户规则正式运行了三个月。`
+  + "你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。这笔钱本应从共同账户的父母照护预算中支出，但预算只覆盖常规体检和药物，没有预留突发医疗。"
+  + `到${formatNarrativeAge(periodEndAgeInMonths)}，你们开始重新梳理家庭责任。`
+);
+const falseCurrentPeriodMedicalOutlay = (periodEndAgeInMonths: number) => ({
+  id: "historical_medical_outlay_as_current_period_expense",
+  kind: "one_off_expense_paid",
+  effectiveAtAgeInMonths: periodEndAgeInMonths,
+  payload: {
+    sourceCashAccountId: historicalMedicalOutlayCashAccountId,
+    amountWan: 1.2
+  },
+  evidence: "你父亲上个月因腰椎问题住院，你垫付了1.2万元住院押金。",
+  confidence: 1,
+  financialScope: "personal"
+});
+const historicalMedicalOutlayGateDecisions: Array<{ mode: string; disposition: string; allowDomainCommit: boolean; reasonCodes: string[]; regenerationCount?: number }> = [];
+let historicalMedicalOutlayAiCalls = 0;
+await assert.rejects(
+  generateNextNode({
+    userData,
+    answers,
+    history: historicalMedicalOutlayHistory,
+    currentAttributes: historicalMedicalOutlayHistory[0]!.attributes,
+    selectedDecision: expenseGateChoice.text,
+    nodeIndex: 2,
+    simulationSeed: "historical-medical-outlay-current-period-zero-mutation"
+  }, {
+    financialNodeGateMode: "enforced",
+    expenseLifecycleMode: "off",
+    onFinancialGateDecision: (decision) => historicalMedicalOutlayGateDecisions.push({
+      mode: decision.mode,
+      disposition: decision.disposition,
+      allowDomainCommit: decision.allowDomainCommit,
+      reasonCodes: decision.reasonCodes,
+      regenerationCount: decision.regenerationCount
+    }),
+    callAiJson: async (prompt) => {
+      historicalMedicalOutlayAiCalls += 1;
+      const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || historicalMedicalOutlayAgeBefore + 12);
+      const financialEventProposals = [falseCurrentPeriodMedicalOutlay(targetAgeInMonths)];
+      if (prompt.includes("你只负责补全一段人生剧情对应的财务变化")) {
+        return { text: JSON.stringify({ financialEventProposals }) };
+      }
+      return {
+        text: JSON.stringify({
+          age: Math.floor(targetAgeInMonths / 12),
+          ageInMonths: targetAgeInMonths,
+          stage: "父母医疗照护",
+          title: "历史住院押金不能伪装为本期支出",
+          description: historicalMedicalOutlayDescription(targetAgeInMonths),
+          choices: [
+            { id: "A", text: "核对住院历史费用", impactSummary: "确认历史事实" },
+            { id: "B", text: "建立后续照护预算", impactSummary: "补足生活安排" },
+            { id: "C", text: "确认后续分担方式", impactSummary: "明确责任边界" }
+          ],
+          attributes: historicalMedicalOutlayHistory[0]!.attributes,
+          financialEventProposals,
+          isEndingNode: false
+        })
+      };
+    }
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    assert.equal(isFinancialGateGenerationError(error), true);
+    return true;
+  }
+);
+assert.equal(historicalMedicalOutlayAiCalls, 6, "a rejected pre-period one-off performs one full-node generation and one proposal repair per bounded attempt; narrative rollback stays deterministic");
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(historicalMedicalOutlayGateDecisions.every((item) => item.allowDomainCommit === false));
+assert.ok(
+  historicalMedicalOutlayGateDecisions.every((item) => item.reasonCodes.includes("REJECTED_COMPLETED_LARGE_PERSONAL_CASHFLOW")),
+  `a rejected period-end one-off must remain a critical cash-flow fact: ${JSON.stringify(historicalMedicalOutlayGateDecisions)}`
+);
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(historicalMedicalOutlayHistory, historicalMedicalOutlayHistoryBefore, "a rejected historical outlay correction must not write History");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialLedger, historicalMedicalOutlayLedgerBefore, "a rejected historical outlay correction must not write the ledger");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.worldStateSnapshot, historicalMedicalOutlayWorldBefore, "a rejected historical outlay correction must not write WorldState");
+assert.equal(historicalMedicalOutlayHistory[0]!.ageInMonths ?? historicalMedicalOutlayHistory[0]!.age * 12, historicalMedicalOutlayAgeBefore, "a rejected historical outlay correction must not advance time");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialPeriodSummary, historicalMedicalOutlayPeriodBefore, "a rejected historical outlay correction must not accrue the period");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialLedger?.cashAccounts.map((account) => [account.id, account.balanceWan]), historicalMedicalOutlayCashBefore, "a rejected historical outlay correction must not change cash");
+assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialLedger?.incomeSources.map((source) => [source.id, source.monthlyNetAmountWan, source.status]), historicalMedicalOutlayIncomeBefore, "a rejected historical outlay correction must not accrue or alter income sources");
+
+// Keeping a rejected EXPENSE_* issue open must not turn the repair path into a
+// dead end. When the bounded repair replaces the same Proposal with evidence
+// for the exact personal share, only the repaired final payload reaches the
+// gate and the authoritative node may commit.
+const repairedCollectiveHistory = structuredClone(expenseGateHistoryBefore);
+let repairedCollectiveFullCalls = 0;
+let repairedCollectiveProposalRepairCalls = 0;
+const correctedCollectiveExpense = (ageInMonths: number) => {
+  const proposal = rejectedCollectiveExpense(ageInMonths);
+  const evidence = "你们每月共同承担房租5000元，其中你每月承担2500元（各半）。";
+  return {
+    ...proposal,
+    financialScope: "shared_household",
+    evidence,
+    payload: {
+      ...proposal.payload,
+      monthlyAmountWan: 0.25,
+      financialScope: "shared_household",
+      amountBasis: "explicit_shared_amount",
+      grossMonthlyAmountWan: 0.5,
+      householdShareRate: 0.5,
+      confirmedMonthlyAmountWan: 0.25,
+      evidence: proposal.payload.evidence.map((item) => ({
+        ...item,
+        financialScope: "shared_household"
+      }))
+    }
+  };
+};
+const repairedCollectiveNode = await generateNextNode({
+  userData,
+  answers,
+  history: repairedCollectiveHistory,
+  currentAttributes: repairedCollectiveHistory[0]!.attributes,
+  selectedDecision: expenseGateChoice.text,
+  nodeIndex: 2,
+  simulationSeed: "expense-collective-repaired-authority"
+}, {
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "enforced",
+  callAiJson: async (prompt) => {
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || collectiveExpenseAgeBefore + 12);
+    if (prompt.includes("你只修复财务 Proposal")) {
+      repairedCollectiveProposalRepairCalls += 1;
+      return { text: JSON.stringify({ financialEventProposals: [correctedCollectiveExpense(targetAgeInMonths)] }) };
+    }
+    repairedCollectiveFullCalls += 1;
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        stage: "共同住房核对",
+        title: "共同房租的个人份额已确认",
+        description: "你们每月共同承担房租5000元，其中你每月承担2500元（各半）。",
+        choices: [
+          { id: "A", text: "继续维持当前工作节奏", impactSummary: "保持现金流" },
+          { id: "B", text: "重新核对住房安排", impactSummary: "确认份额" },
+          { id: "C", text: "暂缓新增固定支出", impactSummary: "保守安排" }
+        ],
+        attributes: repairedCollectiveHistory[0]!.attributes,
+        financialEventProposals: [rejectedCollectiveExpense(targetAgeInMonths)],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(repairedCollectiveFullCalls, 1);
+assert.equal(repairedCollectiveProposalRepairCalls, 1);
+const repairedCollectiveCommitment = repairedCollectiveNode.financialLedger?.expenseCommitments.find((item) => (
+  item.id === "phase45_collective_household_total_as_personal"
+));
+assert.equal(repairedCollectiveCommitment?.financialScope, "shared_household");
+assert.equal(repairedCollectiveCommitment?.monthlyAmountWan, 0.25);
+assert.equal(repairedCollectiveCommitment?.grossMonthlyAmountWan, 0.5);
+assert.equal(repairedCollectiveCommitment?.householdShareRate, 0.5);
+
 let failedRepairCalls = 0;
 const failedRepairNode = await generateNextNode({
   userData,
@@ -964,6 +3809,10 @@ const failedRepairNode = await generateNextNode({
   nodeIndex: 1,
   simulationSeed: "finance-repair-fallback"
 }, {
+  // This fallback regression is about graceful handling of an unparseable
+  // legacy financial repair, not production acceptance of that legacy input.
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "shadow",
   relationshipDispatchFeatureFlags: { enableRomanceFormationEvents: false },
   callAiJson: async (prompt) => {
     failedRepairCalls += 1;
@@ -1005,6 +3854,12 @@ const rejectedDebtNarrativeNode = await generateNextNode({
   nodeIndex: 1,
   simulationSeed: "rejected-debt-narrative-repair"
 }, {
+  // This compatibility regression isolates debt-narrative repair.  It uses
+  // explicit shadow modes so the ordinary product default can remain
+  // enforced: the test is proving the safe prose repair path, not that an
+  // unresolved completed-loan fact may commit in production.
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "shadow",
   callAiJson: async (prompt) => {
     if (prompt.includes("你只修复财务 Proposal")) {
       rejectedDebtProposalRepairCalls += 1;
@@ -1512,6 +4367,11 @@ const postResolutionNode = await generateNextNode({
   nodeIndex: postResolutionHistory.length,
   simulationSeed: "health-post-resolution-dynamic-event"
 }, {
+  // The synthetic pressure-arc history intentionally has no independently
+  // confirmed career-income source. Keep this non-financial dispatch
+  // regression out of the production enforced acceptance contract.
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "shadow",
   callAiJson: async (prompt) => {
     postResolutionPrompt = prompt;
     return { text: JSON.stringify(healthArcRawNode({ arcId: operationArcId })) };
@@ -1647,6 +4507,10 @@ try {
     nodeIndex: genericOperationHistory.length,
     simulationSeed: "generic-operation-dynamic-event"
   }, {
+    // Long synthetic pressure histories do not model a confirmed income
+    // source. This assertion covers pressure-arc resolution only.
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "shadow",
     callAiJson: async () => ({ text: JSON.stringify(genericArcRawNode({ arcId: genericOperationArcId, includeResolvedSignal: true })) })
   });
 
@@ -2129,6 +4993,13 @@ const relationshipOptionAHistory: HistoryItem[] = [{
   isEndingNode: false
 }];
 const relationshipOptionADecision = relationshipOptionAHistory[0].selectedChoice!;
+// This group tests relationship redispatch and rescheduling against a
+// deliberately finance-incomplete fixture. Its shadow setting is explicit so
+// the application default remains the production enforced contract.
+const relationshipCompatibilityFinancialDeps = {
+  financialNodeGateMode: "shadow" as const,
+  expenseLifecycleMode: "shadow" as const
+};
 const relationshipOptionABranch = buildBranchFingerprint(relationshipOptionAHistory, relationshipOptionADecision, 1);
 let romanceFallbackSeed = "";
 for (let index = 0; index < 2_000; index += 1) {
@@ -2164,6 +5035,7 @@ const optionAFallbackNode = await generateNextNode({
   nodeIndex: 1,
   simulationSeed: romanceFallbackSeed
 }, {
+  ...relationshipCompatibilityFinancialDeps,
   callAiJson: async (prompt) => {
     if (/你只负责从既有正文中提取一个候选人物脚手架/.test(prompt)) {
       romanceCandidateRepairCalls += 1;
@@ -2240,6 +5112,7 @@ const deferredOnceNode = await generateNextNode({
   nodeIndex: 2,
   simulationSeed: immediateRomanceSeed
 }, {
+  ...relationshipCompatibilityFinancialDeps,
   callAiJson: async () => ({
     text: JSON.stringify({
       age: 38,
@@ -2289,6 +5162,7 @@ const fulfilledRomanceNode = await generateNextNode({
   nodeIndex: 3,
   simulationSeed: "relationship-option-a-reschedule"
 }, {
+  ...relationshipCompatibilityFinancialDeps,
   callAiJson: async (prompt) => {
     assert.match(prompt, /type: romance_new_connection/);
     fulfilledRomanceCalls += 1;

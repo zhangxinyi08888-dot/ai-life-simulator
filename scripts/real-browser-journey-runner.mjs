@@ -16,9 +16,65 @@ export async function waitForUniqueLocator({ locator, label, wait, attempts = 40
   throw new Error(`Expected one ${label}, got 0`);
 }
 const execFileAsync = promisify(execFile);
+const CANDIDATE_MANIFEST_NAME = "candidate-manifest.json";
 
 function now() {
   return new Date().toISOString();
+}
+
+function sourceIdentityFromCandidate(candidate) {
+  const sourceIdentity = {
+    candidateId: candidate?.candidateId,
+    sourceCommit: candidate?.sourceCommit,
+    runtimeFingerprint: candidate?.runtimeFingerprint,
+    collectorFingerprint: candidate?.collectorFingerprint
+  };
+  if (!Object.values(sourceIdentity).every((value) => typeof value === "string" && value.length > 0)) {
+    throw new Error("Candidate manifest is missing a complete source identity");
+  }
+  return sourceIdentity;
+}
+
+function sameSourceIdentity(left, right) {
+  return Boolean(left && right
+    && left.candidateId === right.candidateId
+    && left.sourceCommit === right.sourceCommit
+    && left.runtimeFingerprint === right.runtimeFingerprint
+    && left.collectorFingerprint === right.collectorFingerprint);
+}
+
+export function runtimeIdentityMatchesCandidate({ runtimeIdentity, sourceIdentity }) {
+  return !sourceIdentity || sameSourceIdentity(runtimeIdentity, sourceIdentity);
+}
+
+export function assertRuntimeIdentityMatchesCandidate({ runtimeIdentity, sourceIdentity }) {
+  if (!runtimeIdentityMatchesCandidate({ runtimeIdentity, sourceIdentity })) {
+    throw new Error("Browser runtime identity does not match the frozen release candidate");
+  }
+}
+
+export async function loadRunSourceIdentity(recordRoot) {
+  try {
+    const manifest = JSON.parse(await readFile(path.join(recordRoot, CANDIDATE_MANIFEST_NAME), "utf8"));
+    return sourceIdentityFromCandidate(manifest);
+  } catch (error) {
+    if (error?.code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+export function buildDevFsImportReference(filePath) {
+  if (!path.isAbsolute(filePath)) {
+    throw new Error("Checkpoint import path must be absolute");
+  }
+  return `@file:/@fs${encodeURI(filePath)}`;
+}
+
+export function buildCurrentChoiceSelector(choiceId) {
+  // Choice ids may repeat in an archived chapter while the current decision
+  // area is visible.  Limit the collector to the live decision controls so a
+  // retry can never click a historical choice with the same semantic id.
+  return `#inline-decision-area #preset-choices-container [id=${JSON.stringify(`choice-btn-${choiceId}`)}]`;
 }
 
 export function assertDistinctFinalImageEvidence({ poster, page }) {
@@ -30,6 +86,12 @@ export function assertDistinctFinalImageEvidence({ poster, page }) {
   if (posterBytes.equals(pageBytes)) {
     throw new Error("Final poster and report-page evidence are identical viewport captures");
   }
+}
+
+export function submittedPersonaMatchesConfig({ config, finalState }) {
+  const submitted = finalState?.userData || {};
+  return submitted.birthday === config?.birthday
+    && submitted.birthtime === config?.birthtime;
 }
 
 export function buildFinalPosterCropArgs({ pagePath, posterPath, posterRect }) {
@@ -174,6 +236,14 @@ function chooseId(state, strategy, offset = 0) {
 }
 
 async function locateChoiceButton(tab, choice) {
+  // Prefer the live decision area. Historical chapters can render an archived
+  // button with the same id/text, which must never be selected on retry.
+  const current = tab.playwright.locator(buildCurrentChoiceSelector(choice.id));
+  const currentCount = await current.count();
+  if (currentCount === 1) return current;
+  if (currentCount > 1) {
+    throw new Error(`Expected one current choice ${choice.id}, got ${currentCount}`);
+  }
   const byId = tab.playwright.locator(`[id=${JSON.stringify(`choice-btn-${choice.id}`)}]`);
   const idCount = await byId.count();
   if (idCount === 1) return byId;
@@ -208,6 +278,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
   await mkdir(workingDir, { recursive: true });
   await mkdir(casesDir, { recursive: true });
   await mkdir(imagesDir, { recursive: true });
+  const sourceIdentity = await loadRunSourceIdentity(recordRoot);
 
   let previousRecord;
   if (resume) {
@@ -216,6 +287,10 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     } catch {
       previousRecord = undefined;
     }
+  }
+  if (resume && (previousRecord?.sourceIdentity || sourceIdentity)
+    && !sameSourceIdentity(previousRecord?.sourceIdentity, sourceIdentity)) {
+    throw new Error("Cannot resume a browser journey under a different release candidate source identity");
   }
   const startedAt = previousRecord?.identity?.startedAt || now();
   const identity = resume && previousRecord?.identity
@@ -248,7 +323,12 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       const count = await locator.count();
       if (count === 1) {
         const raw = await locator.textContent();
-        return JSON.parse(raw || "{}");
+        const state = JSON.parse(raw || "{}");
+        assertRuntimeIdentityMatchesCandidate({
+          runtimeIdentity: state.releaseRuntimeIdentity,
+          sourceIdentity
+        });
+        return state;
       }
       if (count > 1) throw new Error(`Expected one test state node, got ${count}`);
       await tab.playwright.waitForTimeout(50);
@@ -337,6 +417,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       runId: path.basename(recordRoot),
       journeyId: identity.journeyId,
       identity,
+      ...(sourceIdentity ? { sourceIdentity } : {}),
       dataSource: "real_ai_browser",
       caseSlug: config.slug,
       scenario: config.scenario,
@@ -356,18 +437,21 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const saved = JSON.parse(storedRaw);
     const importPayload = finalImageOnly ? buildFinalImageRestorePayload(saved) : saved;
     const raw = finalImageOnly ? JSON.stringify(importPayload) : storedRaw;
+    const importText = !finalImageOnly && Buffer.byteLength(raw, "utf8") > 250_000
+      ? buildDevFsImportReference(workingPath)
+      : raw;
     await snapshot();
     const input = await unique(tab.playwright.getByRole("textbox", { name: "测试状态 JSON", exact: true }), "test state import textbox");
     // Large authoritative ledgers can exceed the browser bridge's default
-    // action window. Give the controlled textarea enough time, then let React
-    // commit the onChange state before clicking the importer button.
+    // action window. Full checkpoints use the dev-only local-file reference,
+    // while small and final-image payloads retain the direct UI path.
     try {
-      await input.fill(raw, { timeoutMs: 60000 });
+      await input.fill(importText, { timeoutMs: 60000 });
     } catch (error) {
       // Very long lifespan checkpoints can exceed the extension bridge's
       // direct fill payload limit. Preserve the same visible import contract
       // by focusing the textarea and pasting the exact serialized checkpoint.
-      await tab.clipboard.writeText(raw);
+      await tab.clipboard.writeText(importText);
       await input.click();
       await input.press("ControlOrMeta+V", { timeoutMs: 10000 });
     }
@@ -384,23 +468,72 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     ), "imported browser checkpoint", 30000);
   }
 
-  async function clickRole(role, name) {
+  async function clickRole(role, name, attempts = 40) {
     await snapshot();
-    const locator = await unique(tab.playwright.getByRole(role, { name, exact: true }), `${role} ${name}`);
+    const locator = await waitForUniqueLocator({
+      locator: tab.playwright.getByRole(role, { name, exact: true }),
+      label: `${role} ${name}`,
+      wait: () => tab.playwright.waitForTimeout(50),
+      attempts
+    });
     await locator.click();
   }
 
-  async function startJourney() {
+  async function fillControlledInput(locator, value, label) {
+    // The controlled date input accepts a browser-level `fill`, but the
+    // synthetic React change handler does not reliably retain that update in
+    // the in-app browser.  Drive the native control as a user would instead.
+    await locator.click();
+    await tab.playwright.waitForTimeout(250);
+    await locator.press("ControlOrMeta+A");
+    await tab.playwright.waitForTimeout(250);
+    await locator.press("Backspace");
+    await tab.playwright.waitForTimeout(500);
+    await locator.type(value, { delay: 100 });
+    // Let the controlled value commit before the next UI action.  Without
+    // this, the immediately following click can submit the previous default
+    // date even though the DOM briefly shows the requested value.
+    await tab.playwright.waitForTimeout(750);
+    let actualValue = await locator.evaluate((element) => element.value);
+    // Some Chromium date inputs consume the first keystroke sequence only to
+    // focus their native segments.  Retry the same visible typing once before
+    // rejecting the route; a second failed attempt remains a hard failure.
+    if (actualValue !== value) {
+      await locator.type(value, { delay: 100 });
+      await tab.playwright.waitForTimeout(750);
+      actualValue = await locator.evaluate((element) => element.value);
+    }
+    if (actualValue !== value) {
+      throw new Error(`Expected ${label} to retain ${value}, received ${actualValue || "empty"}`);
+    }
+  }
+
+  async function beginJourney() {
     trace = initializeJourneyTrace({ identity, resume: false });
+    // Fail before entering any personal data or starting a paid AI request if
+    // this tab is attached to a stale or incorrectly launched local service.
+    await readState();
     await snapshot();
+    // Chromium can expose the native date control a moment before its input
+    // segment is ready for keyboard entry.  Wait for that UI settle window
+    // before performing the visible date interaction.
+    await tab.playwright.waitForTimeout(750);
     const birthday = await unique(tab.playwright.getByLabel("出生日期", { exact: true }), "birth date field");
-    await birthday.fill(config.birthday);
+    await fillControlledInput(birthday, config.birthday, "birth date field");
     await snapshot();
     const birthtime = await unique(tab.playwright.getByLabel("出生时辰", { exact: true }), "birth time select");
     await birthtime.selectOption({ value: config.birthtime });
+    await tab.playwright.waitForTimeout(350);
+    const actualBirthtime = await birthtime.evaluate((element) => element.value);
+    if (actualBirthtime !== config.birthtime) {
+      throw new Error(`Expected birth time select to retain ${config.birthtime}, received ${actualBirthtime || "empty"}`);
+    }
     await clickRole("button", "生成我的命格角色卡");
     await tab.playwright.waitForTimeout(350);
-    await clickRole("button", config.returnPointName);
+    // Character-card generation renders its selectable return points
+    // asynchronously.  A normal click wait is sufficient for static buttons,
+    // but this particular generated control may need the full UI settle window.
+    await clickRole("button", config.returnPointName, 240);
     await tab.playwright.waitForTimeout(350);
 
     await snapshot();
@@ -418,9 +551,17 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       await branch.fill(config.branches[index]);
     }
     await clickRole("button", "确认，从这里开始");
-    const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length === 3, "real AI background questions", 120000);
-    appendTrace({ type: "questions_generated", questions: questioning.questions, at: now() });
-    await persist(questioning);
+  }
+
+  async function submitBackgroundAnswers(questioning) {
+    const activeQuestioning = questioning || await readState();
+    if (activeQuestioning.step !== "questioning" || activeQuestioning.questions?.length < 3) {
+      throw new Error("Cannot submit background answers before three real-AI questions are visible");
+    }
+    if (!trace.some((entry) => entry.type === "questions_generated")) {
+      appendTrace({ type: "questions_generated", questions: activeQuestioning.questions, at: now() });
+      await persist(activeQuestioning);
+    }
     await tab.playwright.waitForTimeout(300);
 
     for (let index = 0; index < 3; index += 1) {
@@ -430,10 +571,31 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       await clickRole("button", index < 2 ? "保存补充，继续" : "开始生成平行人生");
       if (index < 2) await tab.playwright.waitForTimeout(350);
     }
+  }
+
+  async function recordSimulationStart(started) {
+    const activeStarted = started || await readState();
+    if (!(activeStarted.step === "simulating" && activeStarted.currentNode && !activeStarted.isLoading)) {
+      throw new Error("Cannot record simulation start before the first real-AI node is ready");
+    }
+    if (!trace.some((entry) => entry.type === "simulation_started")) {
+      appendTrace({ type: "simulation_started", node: activeStarted.currentNode, at: now() });
+      await persist(activeStarted);
+    }
+    return activeStarted;
+  }
+
+  async function startJourney() {
+    await beginJourney();
+    // The visible questionnaire is intentionally fixed to three answers, but
+    // a real provider may return extra suggestion cards.  Preserve every
+    // generated question in the trace while accepting any response that can
+    // render the required three-step UI; waiting for an exact array length
+    // would turn a valid real-AI response into an infinite collector wait.
+    const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length >= 3, "real AI background questions", 120000);
+    await submitBackgroundAnswers(questioning);
     const started = await waitForState((state) => state.step === "simulating" && state.currentNode && !state.isLoading, "real AI simulation start", 120000);
-    appendTrace({ type: "simulation_started", node: started.currentNode, at: now() });
-    await persist(started);
-    return started;
+    return recordSimulationStart(started);
   }
 
   async function advanceOnce(strategy, offset = 0) {
@@ -583,26 +745,44 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     return { before, after, invitation: before.currentNode.reportInvitation };
   }
 
-  async function acceptInvitation() {
+  async function beginAcceptInvitation() {
     const before = await recordPendingInvitation();
     const invitation = before.currentNode.reportInvitation;
     await snapshot();
     const locator = await unique(tab.playwright.locator("#report-invitation-accept-btn"), "accept invitation button");
     await locator.click();
-    const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real reflection report");
+    return { before, invitation };
+  }
+
+  async function finishAcceptInvitation(pendingAcceptance, timeoutMs = 180000) {
+    const { before, invitation } = pendingAcceptance;
+    const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real reflection report", timeoutMs);
     appendTrace({ type: "invitation_accepted", invitation, historyLength: after.history.length, closureType: after.outcome.meta.closureType, at: now() });
     return { before, after, invitation };
   }
 
-  async function openMortalityReport() {
+  async function acceptInvitation() {
+    return finishAcceptInvitation(await beginAcceptInvitation());
+  }
+
+  async function beginOpenMortalityReport() {
     const before = await readState();
     if (!before.currentNode?.isEndingNode) throw new Error("Current node is not a physiological ending");
     await snapshot();
     const locator = await unique(tab.playwright.locator("#ending-report-btn"), "ending report button");
     await locator.click();
-    const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real mortality report");
+    return { before };
+  }
+
+  async function finishOpenMortalityReport(pendingMortality, timeoutMs = 180000) {
+    const { before } = pendingMortality;
+    const after = await waitForState((state) => state.step === "insight" && state.outcome && !state.isLoading, "real mortality report", timeoutMs);
     appendTrace({ type: "mortality_report_opened", historyLength: after.history.length, closureType: after.outcome.meta.closureType, at: now() });
     return { before, after };
+  }
+
+  async function openMortalityReport() {
+    return finishOpenMortalityReport(await beginOpenMortalityReport());
   }
 
   async function captureFinalImages() {
@@ -688,6 +868,10 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const expectedClosure = config.scenario === "natural_lifespan" ? "mortality" : "user_reflection";
     const genericTemplatePattern = /第\s*\d+\s*个阶段带来了新的现实反馈/;
     const validation = {
+      runtimeIdentityMatchesCandidate: runtimeIdentityMatchesCandidate({
+        runtimeIdentity: finalState.releaseRuntimeIdentity,
+        sourceIdentity
+      }),
       realAiBrowserSource: finalState.testDataSource === "real_ai_browser" && !finalState.e2eCase,
       completeWebHistory: history.length > 0,
       allStoryBodiesPresent: history.every((item) => typeof item.description === "string" && item.description.trim().length > 0),
@@ -696,17 +880,20 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       allUserChoicesPreserved: history.every((item) => typeof item.selectedChoice === "string" && item.selectedChoice.length > 0),
       allAttributesPreserved: history.every((item) => item.attributes && ["happiness", "intelligence", "wealth", "relation", "health"].every((key) => Number.isFinite(item.attributes[key]))),
       allFinancialStatesPreserved: history.every((item) => item.financialState && Number.isFinite(item.financialState.netWorthWan)),
+      submittedPersonaMatchesConfig: submittedPersonaMatchesConfig({ config, finalState }),
       allInvitationsPreserved: JSON.stringify(invitationIds(invitations)) === JSON.stringify(invitationIds(expectedInvitations)),
       invitationJourneyIsolation: invitationIsolationIssues.length === 0,
       expectedClosureType: finalState.outcome?.meta?.closureType === expectedClosure,
       finalReportPresent: Boolean(finalState.outcome?.share && finalState.outcome?.report),
       finalImagesPresent: Boolean(imagePaths?.posterPath && imagePaths?.pagePath)
     };
+    if (sourceIdentity) validation.sourceIdentityPinned = true;
     const record = {
       schemaVersion: 2,
       runId: path.basename(recordRoot),
       journeyId: identity.journeyId,
       identity,
+      ...(sourceIdentity ? { sourceIdentity } : {}),
       dataSource: "real_ai_browser",
       caseSlug: config.slug,
       scenario: config.scenario,
@@ -749,14 +936,21 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     waitForState,
     persist,
     importCheckpoint,
+    beginJourney,
+    submitBackgroundAnswers,
+    recordSimulationStart,
     startJourney,
     advanceOnce,
     beginAdvance,
     finishAdvance,
     advanceCustomOnce,
     recordPendingInvitation,
+    beginAcceptInvitation,
+    finishAcceptInvitation,
     declineInvitation,
     acceptInvitation,
+    beginOpenMortalityReport,
+    finishOpenMortalityReport,
     openMortalityReport,
     captureFinalImages,
     captureCheckpointImage,
