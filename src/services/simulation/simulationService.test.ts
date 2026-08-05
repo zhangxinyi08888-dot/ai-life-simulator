@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
-import { buildDeterministicFinancialNarrativeRollback, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, detectNarrativeFinancialCoverageIssues, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
@@ -1065,6 +1065,149 @@ assert.equal(legacyIncomeRetrySource.annualNetAmountWan, 30);
 assert.equal(legacyIncomeRetrySource.linkedCareerStateId, legacyIncomeRetryCareerId);
 assert.equal(legacyIncomeRetrySource.factStatus, "known");
 assert.equal(legacyIncomeRetrySource.accrualReviewStatus, "normal");
+
+// A real route can have a legacy aggregate whose old amount became explicitly
+// uncertain in an accepted outcome. It must be quarantined and resolved, but
+// the recovery may not fabricate the old amount as a stable wage. A new,
+// visible current salary fact is allowed to adjust the same source and resume
+// the ordinary employed-income invariant.
+const staleEstimatedLegacyIncomeLedger = structuredClone(legacyIncomeRetryLedger);
+staleEstimatedLegacyIncomeLedger.asOfAgeInMonths = 657;
+staleEstimatedLegacyIncomeLedger.recentTransactions = [];
+staleEstimatedLegacyIncomeLedger.incomeSources = [{
+  id: "legacy_recurring_income",
+  type: "other",
+  displayName: "旧版持续收入聚合",
+  monthlyNetAmountWan: 1.5,
+  annualNetAmountWan: 32,
+  accrualPolicy: "monthly",
+  activeFromAgeInMonths: 300,
+  status: "active",
+  linkedCareerStateId: legacyIncomeRetryCareerId,
+  factStatus: "estimated",
+  lastConfirmedAtAgeInMonths: 398,
+  evidence: [{
+    source: "accepted_simulation_outcome",
+    sourceEventId: "accepted_consulting_income_adjusted",
+    excerpt: "项目制合同到期后，你按单结算，收入不再稳定。",
+    reasonCode: "EVIDENCE_EXACT_MATCHED",
+    confidence: 0.7
+  }]
+}];
+const staleEstimatedLegacyIncomeState = {
+  ...structuredClone(legacyIncomeRetryState),
+  asOfAgeInMonths: 657,
+  annualAfterTaxIncomeWan: 18,
+  annualDisposableIncomeWan: 13.8,
+  incomeStability: "volatile" as const,
+  isEstimated: true
+};
+const staleEstimatedLegacyIncomeHistory: HistoryItem[] = [{
+  ...structuredClone(legacyIncomeRetryHistory[0]!),
+  age: 54,
+  ageInMonths: 657,
+  financialLedger: staleEstimatedLegacyIncomeLedger,
+  financialState: staleEstimatedLegacyIncomeState,
+  worldStateSnapshot: structuredClone(legacyIncomeRetryWorld)
+}];
+const staleEstimatedLegacyIncomeLedgerBefore = structuredClone(staleEstimatedLegacyIncomeLedger);
+assert.deepEqual(detectNarrativeFinancialCoverageIssues({
+  narrativeText: "你继续在当前岗位负责交付，眼下的税后月薪为1.8万元。",
+  ledger: staleEstimatedLegacyIncomeLedger,
+  acceptedEvents: [{
+    kind: "income_source_adjusted",
+    payload: {
+      incomeSourceId: "legacy_recurring_income",
+      nextSource: {
+        ...structuredClone(staleEstimatedLegacyIncomeLedger.incomeSources[0]!),
+        type: "salary",
+        monthlyNetAmountWan: 1.8,
+        annualNetAmountWan: undefined,
+        accrualPolicy: "monthly",
+        factStatus: "known"
+      }
+    }
+  }],
+  ageInMonths: 661,
+  periodStartAgeInMonths: 657
+}), [], "an exact submitted same-source salary Proposal must cover its visible compensation fact");
+const staleEstimatedLegacyIncomePrompts: string[] = [];
+const staleEstimatedLegacyIncomeGateDecisions: string[] = [];
+const staleEstimatedLegacyIncomeGenerationKinds: string[] = [];
+let staleEstimatedLegacyIncomeCalls = 0;
+let staleEstimatedLegacyIncomeProposalRepairCalls = 0;
+const staleEstimatedLegacyIncomeNode = await generateNextNode({
+  userData,
+  answers,
+  history: staleEstimatedLegacyIncomeHistory,
+  currentAttributes: staleEstimatedLegacyIncomeHistory[0]!.attributes,
+  selectedDecision: legacyIncomeRetryChoice.text,
+  nodeIndex: 1,
+  simulationSeed: "stale-estimated-legacy-income-resolution"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  onFinancialGateDecision: (decision) => {
+    staleEstimatedLegacyIncomeGateDecisions.push(decision.disposition);
+  },
+  onGenerationCallTrace: (trace) => {
+    if (trace.outcome === "started") staleEstimatedLegacyIncomeGenerationKinds.push(trace.kind);
+  },
+  callAiJson: async (prompt) => {
+    if (prompt.includes("你只修复财务 Proposal")) {
+      staleEstimatedLegacyIncomeProposalRepairCalls += 1;
+      return { text: JSON.stringify({ employmentTransition: null, financialEventProposals: [] }) };
+    }
+    staleEstimatedLegacyIncomeCalls += 1;
+    staleEstimatedLegacyIncomePrompts.push(prompt);
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 661);
+    const resolvesIncome = staleEstimatedLegacyIncomeCalls > 1;
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: "工作与生活节奏",
+        title: resolvesIncome ? "明确当下的工作收入" : "工作节奏调整",
+        description: resolvesIncome
+          ? "你继续在当前岗位负责交付，眼下的税后月薪为1.8万元。"
+          : "你继续在当前岗位负责交付，并把节奏调整得更可持续。",
+        choices: [
+          { id: "A", text: "维持当前节奏并共同储蓄", impactSummary: "稳步推进" },
+          { id: "B", text: "调整工作时间留给关系", impactSummary: "平衡投入" },
+          { id: "C", text: "暂缓额外项目恢复精力", impactSummary: "留出余地" }
+        ],
+        attributes: staleEstimatedLegacyIncomeHistory[0]!.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(staleEstimatedLegacyIncomeCalls, 2, "one invalid candidate may regenerate, but an explicit new income fact must resolve the same source");
+assert.equal(staleEstimatedLegacyIncomeProposalRepairCalls, 1, "the bounded proposal-only repair may decline to invent a missing current income fact");
+assert.deepEqual(staleEstimatedLegacyIncomeGenerationKinds, ["initial_generation", "proposal_repair", "initial_generation"]);
+assert.match(staleEstimatedLegacyIncomePrompts[0]!, /旧版职业收入仍是 estimated\/needs_review/);
+assert.match(staleEstimatedLegacyIncomePrompts[0]!, /不能留在“仍有些收入”“项目继续”或“能维持开销”/);
+const staleEstimatedLegacyIncomeRetryPrompt = staleEstimatedLegacyIncomePrompts[1]!;
+assert.match(staleEstimatedLegacyIncomeRetryPrompt, /【当前职业收入必须在本次重生中确认】/);
+assert.match(staleEstimatedLegacyIncomeRetryPrompt, /A\. 若主角仍在当前受雇职业工作/);
+assert.doesNotMatch(staleEstimatedLegacyIncomeRetryPrompt, /你的税后月薪稳定在1\.5万元/);
+assert.deepEqual(staleEstimatedLegacyIncomeGateDecisions, ["regenerate", "accept"]);
+assert.deepEqual(staleEstimatedLegacyIncomeLedger, staleEstimatedLegacyIncomeLedgerBefore, "the rejected Preview must not quarantine or accrue the authoritative history");
+const resolvedStaleEstimatedIncome = staleEstimatedLegacyIncomeNode.financialLedger!.incomeSources.find((source) => source.id === "legacy_recurring_income")!;
+assert.equal(resolvedStaleEstimatedIncome.type, "salary");
+assert.equal(resolvedStaleEstimatedIncome.monthlyNetAmountWan, 1.8);
+assert.equal(resolvedStaleEstimatedIncome.factStatus, "known");
+assert.equal(resolvedStaleEstimatedIncome.accrualReviewStatus, "normal");
+assert.ok(staleEstimatedLegacyIncomeNode.financialLedger!.recentTransactions.at(-1)?.eventIds.some((id) => id.startsWith("accepted_selected_personal_income_")), "only the visible 1.8 万 current-income fact may form the compatibility Proposal; the old ledger estimate must not recover itself");
+assert.equal(staleEstimatedLegacyIncomeNode.financialLedger!.incomeSources.filter((source) => (
+  source.status === "active" && source.linkedCareerStateId === legacyIncomeRetryCareerId
+)).length, 1);
 
 // An overdue policy-floor baseline is a deterministic nonzero safeguard, not
 // a narrator fact that can be reconfirmed.  Once its open review has already

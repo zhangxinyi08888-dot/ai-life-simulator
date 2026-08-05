@@ -87,6 +87,9 @@ export interface FinancialNodeAcceptanceDecision {
   disposition: FinancialNodeDisposition;
   allowDomainCommit: boolean;
   wouldBlock: boolean;
+  /** Reasons that caused a rejected Preview; excludes non-blocking review telemetry. */
+  blockingReasonCodes: string[];
+  /** Complete audit reason set, including non-blocking review telemetry. */
   reasonCodes: string[];
   relatedIssueIds: string[];
   relatedProposalIds: string[];
@@ -232,6 +235,7 @@ export function evaluateFinancialNodeAcceptance(input: {
       disposition: "accept",
       allowDomainCommit: true,
       wouldBlock: false,
+      blockingReasonCodes: [],
       reasonCodes: [],
       relatedIssueIds: [],
       relatedProposalIds: [],
@@ -269,13 +273,17 @@ export function evaluateFinancialNodeAcceptance(input: {
   const allCritical = input.requiredFactGroups.filter((group) => group.materiality === "critical");
   const critical = allCritical.filter((group) => !group.satisfied);
   const review = input.requiredFactGroups.filter((group) => group.materiality === "review" && !group.satisfied);
-  const reasonCodes = new Set([...critical, ...review].map((group) => group.reasonCode));
+  const blockingReasonCodes = new Set(critical.map((group) => group.reasonCode));
   if (employedIncomeInvalid) {
-    reasonCodes.add(activeCareerIncomeCount === 0
+    blockingReasonCodes.add(activeCareerIncomeCount === 0
       ? "EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"
       : "EMPLOYED_WITH_MULTIPLE_ACTIVE_CAREER_INCOMES");
   }
-  if (!previewAgeAligned) reasonCodes.add("PREVIEW_AGE_MISMATCH");
+  if (!previewAgeAligned) blockingReasonCodes.add("PREVIEW_AGE_MISMATCH");
+  const reasonCodes = new Set([
+    ...blockingReasonCodes,
+    ...review.map((group) => group.reasonCode)
+  ]);
   const unsatisfiedCriticalFactGroupCount = critical.length
     + (employedIncomeInvalid ? 1 : 0)
     + (!previewAgeAligned ? 1 : 0);
@@ -285,6 +293,7 @@ export function evaluateFinancialNodeAcceptance(input: {
     disposition: wouldBlock ? "regenerate" : review.length > 0 ? "accept_with_review" : "accept",
     allowDomainCommit: input.mode !== "enforced" || !wouldBlock,
     wouldBlock,
+    blockingReasonCodes: [...blockingReasonCodes],
     reasonCodes: [...reasonCodes],
     relatedIssueIds: [...new Set(critical.flatMap((group) => group.relatedIssueIds))],
     relatedProposalIds: [...new Set(critical.flatMap((group) => group.relatedProposalIds))],

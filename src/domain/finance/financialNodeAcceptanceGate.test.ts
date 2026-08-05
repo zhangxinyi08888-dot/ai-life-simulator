@@ -137,6 +137,56 @@ test("shadow and enforced make the same blocking decision but only enforced reje
   assert.equal(enforced.disposition, "regenerate");
 });
 
+test("an overdue elder-care review remains accept_with_review when career income is valid", () => {
+  const input = transactionInput("employed");
+  const preview = previewFinancialDomainTransaction(input);
+  const groups = buildRequiredFinancialFactGroups({
+    issues: [],
+    rejectedCompletedProposals: [],
+    reviewReasonCodes: ["expense_review_due_expense_elder_care:person_parent_unspecified"],
+    ageInMonths: 372
+  });
+  const decision = evaluateFinancialNodeAcceptance({
+    mode: "enforced",
+    preview,
+    requiredFactGroups: groups,
+    expectedAgeInMonths: 372
+  });
+
+  assert.equal(decision.disposition, "accept_with_review");
+  assert.equal(decision.allowDomainCommit, true);
+  assert.equal(decision.wouldBlock, false);
+  assert.deepEqual(decision.blockingReasonCodes, []);
+  assert.deepEqual(decision.reasonCodes, ["expense_review_due_expense_elder_care:person_parent_unspecified"]);
+});
+
+test("a quarantined employed salary blocks while review telemetry stays out of retry reasons", () => {
+  const input = transactionInput("employed");
+  input.currentFinancialLedger.incomeSources[0]!.accrualReviewStatus = "quarantined";
+  const preview = previewFinancialDomainTransaction(input);
+  const groups = buildRequiredFinancialFactGroups({
+    issues: [],
+    rejectedCompletedProposals: [],
+    reviewReasonCodes: ["expense_review_due_expense_elder_care:person_parent_unspecified"],
+    ageInMonths: 372
+  });
+  const decision = evaluateFinancialNodeAcceptance({
+    mode: "enforced",
+    preview,
+    requiredFactGroups: groups,
+    expectedAgeInMonths: 372
+  });
+
+  assert.equal(decision.disposition, "regenerate");
+  assert.equal(decision.allowDomainCommit, false);
+  assert.equal(decision.activeCareerIncomeCount, 0);
+  assert.deepEqual(decision.blockingReasonCodes, ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]);
+  assert.deepEqual(decision.reasonCodes, [
+    "EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME",
+    "expense_review_due_expense_elder_care:person_parent_unspecified"
+  ]);
+});
+
 test("an enforced EXPENSE blocker regenerates and leaves the authoritative transaction input untouched", () => {
   const input = transactionInput("employed");
   const before = structuredClone(input);

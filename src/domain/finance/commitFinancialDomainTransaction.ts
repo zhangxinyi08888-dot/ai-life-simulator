@@ -286,6 +286,46 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     }
   }
 
+  // A legacy identifier is only referential stability, not proof that an
+  // estimated recurring income remains current.  This has to run before the
+  // reducer accrues the period: applying the quarantine afterwards lets
+  // shadow/off callers count one more unsupported wage even though the same
+  // candidate is already due for a current compensation fact.
+  for (const source of input.ledger.incomeSources) {
+    if (source.status !== "active"
+      || !source.id.startsWith("legacy_")
+      || !["estimated", "needs_review"].includes(source.factStatus)
+      || source.accrualPolicy === "event_only"
+      || source.accrualReviewStatus === "quarantined") continue;
+    const hasAcceptedResolution = input.events.some((event) => {
+      if (!eventReferences(event).incomeSourceIds.includes(source.id)) return false;
+      if (event.kind === "income_source_ended") return true;
+      if (event.kind !== "income_source_adjusted") return false;
+      return (event.payload as { nextSource?: { factStatus?: string } }).nextSource?.factStatus === "known";
+    });
+    if (hasAcceptedResolution) continue;
+    const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
+    const materialTransactions = input.ledger.recentTransactions.filter((transaction) => (
+      transaction.periodEndAgeInMonths > lastConfirmedAt
+    )).length;
+    // The candidate transaction itself would become the next material node,
+    // so use the same threshold as the Preview prompt and quarantine it before
+    // that node can accrue an extra unconfirmed period.
+    if (input.periodEndAgeInMonths - lastConfirmedAt < 36 && materialTransactions + 1 < 3) continue;
+    source.factStatus = "needs_review";
+    source.accrualReviewStatus = "quarantined";
+    issues.push({
+      id: `pending_fact_legacy_income_${source.id}`,
+      code: "PENDING_FACT",
+      severity: "warning",
+      status: "open",
+      relatedProposalIds: [],
+      relatedIncomeSourceIds: [source.id],
+      summary: `旧版估算收入 ${source.displayName} 已连续多个实质节点未获确认，确定性计提已隔离；下一节点需要确认当前收入`,
+      createdAtAgeInMonths: input.periodEndAgeInMonths
+    });
+  }
+
   if (input.periodEndAgeInMonths >= 55 * 12) {
     const confirmedIncomeIds = new Set(input.events.flatMap((event) => eventReferences(event).incomeSourceIds));
     for (const source of input.ledger.incomeSources) {
@@ -488,35 +528,6 @@ function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedger
   }
 }
 
-function addLegacyIncomeReconfirmation(ledger: FinancialLedger, ageInMonths: number): void {
-  for (const source of ledger.incomeSources) {
-    if (source.status !== "active" || !source.id.startsWith("legacy_") || source.factStatus !== "estimated" || source.accrualReviewStatus === "quarantined") continue;
-    const stillMigrationOnly = source.evidence.length === 0
-      || source.evidence.every((item) => item.source === "legacy_migration");
-    // A migrated account keeps its legacy id for referential stability. Once
-    // an accepted simulation outcome has re-confirmed that exact source, it is
-    // no longer an unverified migration estimate and must follow the ordinary
-    // recurring-income lifecycle instead of being quarantined by its id.
-    if (!stillMigrationOnly) continue;
-    const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
-    const materialTransactions = ledger.recentTransactions.filter((transaction) => transaction.periodEndAgeInMonths > lastConfirmedAt).length;
-    if (ageInMonths - lastConfirmedAt < 36 && materialTransactions < 3) continue;
-    source.factStatus = "needs_review";
-    source.accrualReviewStatus = "quarantined";
-    const issueId = `pending_fact_legacy_income_${source.id}`;
-    addOrObserveIssue(ledger, {
-      id: issueId,
-      code: "PENDING_FACT",
-      severity: "warning",
-      status: "open",
-      relatedProposalIds: [],
-      relatedIncomeSourceIds: [source.id],
-      summary: `旧版估算收入 ${source.displayName} 已连续多个实质节点未获确认，确定性计提已隔离；下一节点需要确认当前收入`,
-      createdAtAgeInMonths: ageInMonths
-    }, ageInMonths);
-  }
-}
-
 function resolveRecoveredDebtDelinquencyIssues(
   ledger: FinancialLedger,
   ageInMonths: number,
@@ -666,7 +677,6 @@ export function commitFinancialDomainTransaction(
   applyPendingFactPolicy(committedLedger, observedIssues, input.periodEndAgeInMonths);
   resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
   resolveCareerTransitionIssues(committedLedger, input.acceptedCareerTransitions, input.periodEndAgeInMonths);
-  addLegacyIncomeReconfirmation(committedLedger, input.periodEndAgeInMonths);
   resolveRecoveredDebtDelinquencyIssues(committedLedger, input.periodEndAgeInMonths, input.transactionId);
   const nextWorldState: WorldStateSnapshot = {
     ...structuredClone(input.currentWorldState),

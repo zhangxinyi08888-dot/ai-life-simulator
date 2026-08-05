@@ -248,7 +248,7 @@ class FinancialNodeGateError extends AiClientError {
   readonly retryScope = "financial_gate" as const;
 
   constructor(decision: FinancialNodeAcceptanceDecision) {
-    super("AI_RESPONSE_INVALID", `财务节点接受门拒绝候选：${decision.reasonCodes.join(",")}`);
+    super("AI_RESPONSE_INVALID", `财务节点接受门拒绝候选：${decision.blockingReasonCodes.join(",")}`);
     this.name = "FinancialNodeGateError";
     this.decision = decision;
   }
@@ -428,6 +428,7 @@ function requireFinalExpenseResponsibilityEvidence(input: {
     disposition: "regenerate",
     allowDomainCommit: false,
     wouldBlock: true,
+    blockingReasonCodes: reasonCodes,
     reasonCodes,
     relatedIssueIds: [],
     relatedProposalIds: [],
@@ -6053,7 +6054,11 @@ export async function generateNextNode(
         financialNodeGateMode: gateMode,
         expenseLifecycleMode: expenseMode,
         financialGateRegenerationCount: regenerationCount,
-        financialGateRetryReasonCodes: lastGateError?.decision.reasonCodes
+        // Review telemetry remains in the rejection diagnostic, but asking the
+        // model to repair it alongside a hard gate failure encourages invented
+        // expense facts. Regeneration must receive only the reasons that
+        // actually prevented the Preview from committing.
+        financialGateRetryReasonCodes: lastGateError?.decision.blockingReasonCodes
       });
     } catch (error) {
       if (!(error instanceof FinancialNodeGateError) || (gateMode !== "enforced" && expenseMode !== "enforced")) throw error;

@@ -1079,6 +1079,7 @@ test("legacy estimated income is quarantined after three unconfirmed material no
     acceptedFinancialEvents: []
   });
   assert.equal(result.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
+  assert.equal(result.financialPeriodSummary?.incomeWan, 0, "the third unconfirmed node must be isolated before it accrues");
   assert.ok(result.financialLedger.unresolvedIssues.some((issue) => (
     issue.code === "PENDING_FACT"
     && issue.severity === "warning"
@@ -1086,7 +1087,67 @@ test("legacy estimated income is quarantined after three unconfirmed material no
   )));
 });
 
-test("an accepted outcome reconfirmed legacy account follows the normal recurring lifecycle", () => {
+test("a same-node known adjustment resolves a due legacy income before pre-accrual isolation", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版估算收入",
+    monthlyNetAmountWan: 4,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "estimated",
+    lastConfirmedAtAgeInMonths: 359,
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }]
+  });
+  current.ledger.recentTransactions.push(...[1, 2].map((index) => ({
+    id: `legacy_due_material_${index}`,
+    simulationTransactionId: `legacy_due_material_${index}`,
+    eventIds: [],
+    periodStartAgeInMonths: 359 + index,
+    periodEndAgeInMonths: 360 + index,
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  })));
+  const result = commitFinancialDomainTransaction({
+    transactionId: "legacy_due_income_confirmed",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [accepted("legacy_due_income_confirmed", "income_source_adjusted", 361, {
+      incomeSourceId: "legacy_recurring_income",
+      nextSource: {
+        ...current.ledger.incomeSources[0]!,
+        type: "salary",
+        monthlyNetAmountWan: 4.5,
+        factStatus: "known",
+        accrualReviewStatus: "normal"
+      }
+    })]
+  });
+  const source = result.financialLedger.incomeSources.find((item) => item.id === "legacy_recurring_income");
+  assert.equal(source?.factStatus, "known");
+  assert.equal(source?.accrualReviewStatus, "normal");
+  assert.equal(source?.monthlyNetAmountWan, 4.5);
+  assert.equal(result.financialPeriodSummary?.incomeWan, 4, "the pre-adjustment period accrues only because the same node supplied an accepted known fact");
+  assert.equal(result.financialLedger.unresolvedIssues.some((issue) => issue.id === "pending_fact_legacy_income_legacy_recurring_income"), false);
+});
+
+test("a known legacy account with exact accepted compensation follows the normal recurring lifecycle", () => {
   const current = setup();
   current.ledger.incomeSources.push({
     id: "legacy_recurring_income",
@@ -1098,7 +1159,7 @@ test("an accepted outcome reconfirmed legacy account follows the normal recurrin
     activeFromAgeInMonths: 336,
     status: "active",
     linkedCareerStateId: "career_employed",
-    factStatus: "estimated",
+    factStatus: "known",
     lastConfirmedAtAgeInMonths: 336,
     evidence: [{
       source: "accepted_simulation_outcome",
@@ -1128,4 +1189,120 @@ test("an accepted outcome reconfirmed legacy account follows the normal recurrin
   assert.equal(result.financialLedger.unresolvedIssues.some((issue) => (
     issue.id === "pending_fact_legacy_income_legacy_recurring_income"
   )), false);
+});
+
+test("a vague accepted outcome does not silently reconfirm an estimated legacy income", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    monthlyNetAmountWan: 1.5,
+    annualNetAmountWan: 32,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "estimated",
+    lastConfirmedAtAgeInMonths: 359,
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      sourceEventId: "accepted_consulting_income_adjusted",
+      excerpt: "项目制合同到期后，你按单结算，收入不再稳定。",
+      reasonCode: "EVIDENCE_EXACT_MATCHED",
+      confidence: 0.7
+    }]
+  });
+  current.ledger.recentTransactions.push(...[1, 2, 3].map((index) => ({
+    id: `vague_legacy_material_${index}`,
+    simulationTransactionId: `vague_legacy_material_${index}`,
+    eventIds: [],
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 360 + index,
+    cashDeltaWan: 0,
+    assetDeltaWan: 0,
+    debtDeltaWan: 0,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: 0,
+    evidence: []
+  })));
+
+  const result = commitFinancialDomainTransaction({
+    transactionId: "vague_legacy_income_reconfirm",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+
+  const source = result.financialLedger.incomeSources.find((item) => item.id === "legacy_recurring_income");
+  assert.equal(source?.factStatus, "needs_review");
+  assert.equal(source?.accrualReviewStatus, "quarantined");
+  assert.equal(source?.type, "other");
+  assert.equal(source?.monthlyNetAmountWan, 1.5);
+  assert.equal(source?.annualNetAmountWan, 32);
+  assert.equal(source?.lastConfirmedAtAgeInMonths, 359);
+  assert.equal(result.financialPeriodSummary?.incomeWan, 0, "a vague accepted outcome cannot fund one extra pre-55 period");
+  assert.ok(result.financialLedger.unresolvedIssues.some((issue) => (
+    issue.id === "pending_fact_legacy_income_legacy_recurring_income"
+    && issue.relatedIncomeSourceIds?.includes("legacy_recurring_income")
+  )));
+});
+
+test("late-life stale estimated legacy income is quarantined before accrual without rewriting its old amount", () => {
+  const current = setup();
+  current.ledger.asOfAgeInMonths = 657;
+  current.ledger.incomeSources.push({
+    id: "legacy_recurring_income",
+    type: "other",
+    displayName: "旧版持续收入聚合",
+    monthlyNetAmountWan: 1.5,
+    annualNetAmountWan: 32,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "estimated",
+    lastConfirmedAtAgeInMonths: 398,
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      sourceEventId: "accepted_consulting_income_adjusted",
+      excerpt: "项目制合同到期后，你按单结算，收入不再稳定。",
+      reasonCode: "EVIDENCE_EXACT_MATCHED",
+      confidence: 0.7
+    }]
+  });
+
+  const result = commitFinancialDomainTransaction({
+    transactionId: "late_stale_legacy_income",
+    periodStartAgeInMonths: 657,
+    periodEndAgeInMonths: 661,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: current.ledger,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+
+  const source = result.financialLedger.incomeSources.find((item) => item.id === "legacy_recurring_income");
+  assert.equal(source?.factStatus, "needs_review");
+  assert.equal(source?.accrualReviewStatus, "quarantined");
+  assert.equal(source?.type, "other");
+  assert.equal(source?.monthlyNetAmountWan, 1.5);
+  assert.equal(source?.annualNetAmountWan, 32);
+  assert.equal(result.financialPeriodSummary?.incomeWan, 0);
+  assert.ok(result.financialLedger.unresolvedIssues.some((issue) => (
+    issue.code === "CAREER_STATE_STALE"
+    && issue.relatedIncomeSourceIds?.includes("legacy_recurring_income")
+  )));
 });
