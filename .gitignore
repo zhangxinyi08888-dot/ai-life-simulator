@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Historical browser corpora remain tracked for compatibility. New runs must
+# use the external evidence root created by `pnpm release:prepare`.
+/artifacts/report-invitation-browser/*/

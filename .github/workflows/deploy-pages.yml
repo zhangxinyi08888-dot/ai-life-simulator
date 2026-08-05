@@ -1,9 +1,12 @@
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      approval_path:
+        description: "Committed release approval under release/evidence/"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -25,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -36,6 +41,11 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+
+      - name: Verify certified runtime fingerprint
+        env:
+          APPROVAL_PATH: ${{ inputs.approval_path }}
+        run: pnpm release:verify-approval -- --approval "$APPROVAL_PATH"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

@@ -134,6 +134,38 @@ test("real-browser analyzer reports responsibility 0/0 as not_covered, never 100
   }
 });
 
+test("explore permits a partial corpus but never calls it a release candidate", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "financial-expense-explore-"));
+  try {
+    await mkdir(path.join(root, "cases"));
+    await writeFile(path.join(root, "cases", "case.json"), `${JSON.stringify(record())}\n`);
+    await writeFile(path.join(root, "expense-responsibility-annotations.json"), `${JSON.stringify({ annotations: [] })}\n`);
+    await runNode([script, root, "--mode", "explore"], here);
+    const aggregate = JSON.parse(await readFile(path.join(root, "aggregate.json"), "utf8"));
+    assert.equal(aggregate.validationMode, "explore");
+    assert.equal(aggregate.allCasesPassed, true);
+    assert.equal(aggregate.routeContractPassed, false);
+    assert.equal(aggregate.releaseCandidate, false);
+    assert.equal(aggregate.blockers.some((blocker) => blocker.includes("固定五路线数量不完整")), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("certify refuses an evidence root without a frozen candidate manifest", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "financial-expense-certify-"));
+  try {
+    await mkdir(path.join(root, "cases"));
+    await writeFile(path.join(root, "cases", "case.json"), `${JSON.stringify(record())}\n`);
+    await assert.rejects(
+      runNode([script, root, "--mode", "certify"], here),
+      /candidate-manifest\.json|ENOENT/u
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("derived diagnostics preserve the source run and disclose machine annotations", async () => {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "financial-expense-derived-audit-"));
   const sourceRoot = path.join(workspace, "source-run");

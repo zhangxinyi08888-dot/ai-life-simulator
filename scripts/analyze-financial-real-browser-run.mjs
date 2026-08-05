@@ -4,7 +4,13 @@ import {
   auditFinancialProductionRecords,
   extractFinancialNarrativeAuditMeta
 } from "./lib/financial-production-audit.mjs";
-import { execFile } from "node:child_process";
+import {
+  assertCandidateMatchesRepository,
+  computeSourceState,
+  loadCandidateManifest,
+  sameSourceIdentity,
+  sourceIdentityFromCandidate
+} from "./lib/release-candidate.mjs";
 import {
   adultBelowPolicyExpenseViolation,
   classifyTerminalFinancialIssues,
@@ -23,36 +29,47 @@ import {
   expenseLifecycleReleaseBlockers
 } from "./lib/financial-expense-audit.mjs";
 
-function runGit(args) {
-  return new Promise((resolve, reject) => execFile("git", args, { cwd: process.cwd() }, (error, stdout) => (
-    error ? reject(error) : resolve(stdout.trim())
-  )));
+function parseArgs(argv) {
+  const args = { mode: "explore" };
+  const positional = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const value = argv[index];
+    if (value === "--") continue;
+    if (!value.startsWith("--")) {
+      positional.push(value);
+      continue;
+    }
+    const key = value.slice(2);
+    if (!new Set(["output-root", "mode", "candidate"]).has(key)) {
+      throw new Error(`Unsupported option: ${value}`);
+    }
+    const optionValue = argv[++index];
+    if (!optionValue || optionValue.startsWith("--")) {
+      throw new Error(`${value} requires a value`);
+    }
+    args[key] = optionValue;
+  }
+  if (!positional[0] || positional.length > 2) {
+    throw new Error("usage: analyze-financial-real-browser-run.mjs <source-root> [annotation-path] [--output-root <path>] [--mode explore|certify] [--candidate <manifest-or-root>]");
+  }
+  if (!new Set(["explore", "certify"]).has(args.mode)) {
+    throw new Error(`Unsupported --mode: ${args.mode}`);
+  }
+  return { ...args, root: positional[0], annotationPath: positional[1] };
 }
 
-const cliArgs = process.argv.slice(2);
-const positionalArgs = [];
-let requestedOutputRoot;
-for (let index = 0; index < cliArgs.length; index += 1) {
-  if (cliArgs[index] === "--output-root") {
-    requestedOutputRoot = cliArgs[index + 1];
-    index += 1;
-    continue;
-  }
-  positionalArgs.push(cliArgs[index]);
-}
-if (!positionalArgs[0]) {
-  throw new Error("usage: analyze-financial-real-browser-run.mjs <source-root> [annotation-path] [--output-root <path>]");
-}
-if (requestedOutputRoot === "" || requestedOutputRoot === undefined && cliArgs.includes("--output-root")) {
-  throw new Error("--output-root requires a path");
-}
+const cli = parseArgs(process.argv.slice(2));
+const validationMode = cli.mode;
 // `root` is always read-only input. A derived diagnostic may direct its
 // reports elsewhere, so inspecting an historic run can never rewrite its
 // original audit, report, aggregate, or manifest.
-const root = path.resolve(positionalArgs[0]);
-const outputRoot = requestedOutputRoot ? path.resolve(process.cwd(), requestedOutputRoot) : root;
+const root = path.resolve(cli.root);
+const outputRoot = cli["output-root"] ? path.resolve(process.cwd(), cli["output-root"]) : root;
+if (validationMode === "certify" && outputRoot !== root) {
+  throw new Error("Certification must write its reports into the candidate evidence root");
+}
 await mkdir(outputRoot, { recursive: true });
-const requestedAnnotationPath = positionalArgs[1] || process.env.EXPENSE_RESPONSIBILITY_ANNOTATIONS;
+const requestedAnnotationPath = cli.annotationPath || process.env.EXPENSE_RESPONSIBILITY_ANNOTATIONS;
 const launchUrl = process.env.REAL_BROWSER_LAUNCH_URL || "http://127.0.0.1:4173/";
 const annotationPath = requestedAnnotationPath
   ? path.resolve(process.cwd(), requestedAnnotationPath)
@@ -60,6 +77,29 @@ const annotationPath = requestedAnnotationPath
 const casesDir = path.join(root, "cases");
 const files = (await readdir(casesDir)).filter((name) => name.endsWith(".json")).sort();
 const records = await Promise.all(files.map(async (name) => JSON.parse(await readFile(path.join(casesDir, name), "utf8"))));
+if (!records.length) throw new Error(`No completed case JSON files found under ${casesDir}`);
+let candidate;
+try {
+  candidate = (await loadCandidateManifest(cli.candidate || root)).manifest;
+} catch (error) {
+  if (error?.code !== "ENOENT" || validationMode === "certify") throw error;
+}
+if (validationMode === "certify" && !candidate) {
+  throw new Error("Certification requires a candidate manifest");
+}
+if (candidate) {
+  if (candidate.validationMode !== validationMode) {
+    throw new Error(`Candidate mode ${candidate.validationMode} does not match analyzer mode ${validationMode}`);
+  }
+  if (path.resolve(candidate.evidenceRoot) !== root) {
+    throw new Error("Candidate evidenceRoot does not match the analyzed run root");
+  }
+  await assertCandidateMatchesRepository(candidate);
+}
+const expectedSourceIdentity = candidate ? sourceIdentityFromCandidate(candidate) : undefined;
+const sourceIdentityMismatches = expectedSourceIdentity
+  ? records.filter((record) => !sameSourceIdentity(record.sourceIdentity, expectedSourceIdentity)).map((record) => record.caseSlug)
+  : [];
 let sourceRunManifest;
 try {
   sourceRunManifest = JSON.parse(await readFile(path.join(root, "run-manifest.json"), "utf8"));
@@ -551,6 +591,10 @@ const issueCodeCounts = openIssues.reduce((acc, issue) => {
   return acc;
 }, {});
 const summary = {
+  validationMode,
+  candidateId: candidate?.candidateId ?? null,
+  sourceIdentityMatches: sourceIdentityMismatches.length === 0,
+  sourceIdentityMismatches,
   caseCount: cases.length,
   totalNodes,
   invariantFailures,
@@ -633,6 +677,15 @@ const summary = {
 };
 const audit = {
   generatedAt: new Date().toISOString(),
+  validationMode,
+  candidateId: candidate?.candidateId ?? null,
+  sourceIdentity: expectedSourceIdentity
+    ? {
+      expected: expectedSourceIdentity,
+      matches: sourceIdentityMismatches.length === 0,
+      mismatches: sourceIdentityMismatches
+    }
+    : null,
   root,
   sourceRoot: root,
   outputRoot,
@@ -736,6 +789,7 @@ const lifecycleCandidateTelemetryNegativeViolationRows = expenseLifecycleCandida
 )).join("\n") || "| 无 | — | — | — | — | — | — |";
 const frozenExpenseResponsibilityCorpus = expenseResponsibilityAnnotationSource.corpusKind === "frozen_gold";
 const expenseLifecycleInvariantBlockers = expenseLifecycleReleaseBlockers(summary);
+const completedCasesPassed = records.every((record) => record.passed);
 const blockers = [
   isDerivedDiagnostic && "派生只读诊断不构成当前提交的发布证据",
   invariantFailures > 0 && `账本/派生状态不变量失败：${invariantFailures} 个节点`,
@@ -768,7 +822,9 @@ const blockers = [
     && productionAudit.summary.singleFullGenerationNodeRate < 0.9
     && `仅一次完整生成的节点比例 ${(productionAudit.summary.singleFullGenerationNodeRate * 100).toFixed(1)}%，低于 90%`,
   visibleGenerationPauseCount > 0 && `用户可见生成暂停：${visibleGenerationPauseCount} 次，涉及 ${generationPauseCaseCount} 组（恢复成功 ${generationRecoveredCount} 次）`,
-  (!records.every((record) => record.passed) || records.length !== 5) && `固定五路线契约未全部通过：${records.filter((record) => record.passed).length}/${records.length}`,
+  !completedCasesPassed && `已完成路线契约未全部通过：${records.filter((record) => record.passed).length}/${records.length}`,
+  validationMode === "certify" && records.length !== 5 && `固定五路线数量不完整：${records.length}/5`,
+  sourceIdentityMismatches.length > 0 && `路线来源指纹与发布候选不一致：${sourceIdentityMismatches.join("、")}`,
   employedAt80PlusNodes > 0 && `80 岁以后仍为 employed：${employedAt80PlusNodes} 个节点（其中无近期工作证据 ${employedAt80PlusWithoutEvidenceNodes} 个）`,
   duplicateActiveShortfallNodes > 0 && `单路线同时存在多个活跃 shortfall 账户：${duplicateActiveShortfallNodes} 个节点`,
   systemShortfallScheduleIssueNodes > 0 && `系统 shortfall 自触发 UNKNOWN_DEBT_SCHEDULE：${systemShortfallScheduleIssueNodes} 个节点`,
@@ -806,12 +862,30 @@ const blockers = [
   issueHealth.orphanServicingWarnings.length > 0 && `已恢复或不存在的债务仍挂偿付 warning：${issueHealth.orphanServicingWarnings.length} 个账户`,
   summary.acceptedCoverageRatePct < 80 && `财务叙述节点 Accepted 覆盖率 ${summary.acceptedCoverageRatePct}%，低于 80% 目标`
 ].filter(Boolean);
-const routeContractPassed = records.length === 5 && records.every((record) => record.passed);
-const releaseCandidate = !isDerivedDiagnostic && routeContractPassed && blockers.length === 0;
-const m7Ready = !isDerivedDiagnostic && routeContractPassed && blockers.length === 0 && invariantFailures === 0;
-const runEvidenceLabel = isDerivedDiagnostic ? "原始历史路线" : "本轮五条全新真实网页路线";
+const routeContractPassed = records.length === 5 && completedCasesPassed;
+const releaseCandidate = validationMode === "certify" && !isDerivedDiagnostic && routeContractPassed && blockers.length === 0;
+const m7Ready = releaseCandidate && invariantFailures === 0;
+const modeLabel = validationMode === "certify" ? "冻结发布候选认证" : "开发探索";
+const runEvidenceLabel = isDerivedDiagnostic
+  ? "原始历史路线"
+  : validationMode === "certify" ? "本轮五条全新真实网页路线" : "本轮已完成的真实网页探索路线";
 const runPossessive = isDerivedDiagnostic ? "原始路线" : "本轮";
-const report = `# ${isDerivedDiagnostic ? "历史路线支出责任来源诊断报告" : "五组真实网页测试：财务完整审计报告"}
+const routeContractLabel = validationMode === "certify"
+  ? `2/2/1 路径契约${routeContractPassed ? "全部通过" : "未全部通过"}`
+  : "探索模式不要求凑齐 2/2/1";
+const nextSteps = releaseCandidate
+  ? "1. 执行全量单测、lint、构建与十张图片检查；全部通过后生成小型发布批准清单。\n2. 后续仅文档、测试或证据归档修改不使本轮运行失效；任何运行时代码变化必须创建新候选。"
+  : validationMode === "explore"
+    ? `1. 本轮只用于发现问题，不构成发布证据。${blockers.length ? "集中关闭本轮全部阻断，并用受影响路线和确定性场景定向复验。" : "当前未发现动态阻断，可继续完成任务级静态与定向门禁。"}\n2. 不要在每次修复后跑完整 2/2/1；所有已知问题关闭后再冻结一个干净候选并完整认证一次。`
+    : "1. 保留并汇总本轮全部失败，不要逐项修复后立即重跑五路线。\n2. 集中修复并完成定向回归后，创建一个新的干净发布候选，再完整认证一次。";
+const recertificationInstruction = validationMode === "explore"
+  ? "本轮属于探索模式；逐项使用确定性回归和受影响路线复验，所有已知阻断关闭后再冻结发布候选。"
+  : releaseCandidate
+    ? "本轮候选已通过；只有运行时指纹变化才需要创建新候选并重新认证。"
+    : "本轮认证失败；集中关闭全部阻断后创建一个新候选，再完整运行一次 2/2/1。";
+const report = `# ${isDerivedDiagnostic
+  ? "历史路线支出责任来源诊断报告"
+  : validationMode === "certify" ? "五组真实网页测试：财务完整审计报告" : "真实网页探索：财务审计报告"}
 
 ${isDerivedDiagnostic
   ? `> 这是对既有路线产物的只读后处理。输入根目录：\`${root}\`；诊断输出目录：\`${outputRoot}\`。它不能证明当前提交，也不能作为发布证据。${sourceRunManifest?.repositoryCommit ? ` 原始路线提交：\`${sourceRunManifest.repositoryCommit}\`。` : ""}`
@@ -819,9 +893,9 @@ ${isDerivedDiagnostic
 
 ## 结论
 
-${runEvidenceLabel}的 **2/2/1 路径契约${records.length === 5 && records.every((record) => record.passed) ? "全部通过" : "未全部通过"}**，账本恒等式、含家庭支持与债务利息的可支配现金流恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。
+本轮模式：**${modeLabel}**。${runEvidenceLabel}的 **${routeContractLabel}**，账本恒等式、含家庭支持与债务利息的可支配现金流恒等式、现金 floor 与年龄对齐共 ${totalNodes} 个节点、${invariantFailures} 个失败。
 
-${isDerivedDiagnostic ? "派生诊断发布判断" : "本轮动态发布判断"}：**${releaseCandidate ? "通过真实路线财务门禁" : "不允许发布"}**。${releaseCandidate ? "以下 P0 动态阻断项均为 0。" : "存在以下阻断项："}
+${isDerivedDiagnostic ? "派生诊断发布判断" : "本轮动态发布判断"}：**${releaseCandidate ? "通过真实路线财务门禁" : validationMode === "explore" ? "探索结果，不作发布判断" : "不允许发布"}**。${releaseCandidate ? "以下 P0 动态阻断项均为 0。" : blockers.length ? "存在以下阻断项：" : "未发现阻断，但当前模式不产生发布证据。"}
 
 ${blockers.length ? blockers.map((item) => `- ${item}`).join("\n") : "- 无"}
 
@@ -1051,9 +1125,7 @@ ${issueRows}
 
 ## 下一步
 
-${releaseCandidate
-  ? "1. 继续执行静态 M5/M7、全量单测、lint、typecheck/build 与十张图片检查；全部通过后才可判定发布候选。\n2. open issue、薪资措辞偏差与持股/房产叙述代理指标保留为非阻断质量 backlog，不得伪装为 0。"
-  : blockers.map((item, index) => `${index + 1}. 修复并用全新数据复验：${item}`).join("\n")}
+${nextSteps}
 
 ## 生产阻断明细
 
@@ -1079,7 +1151,7 @@ ${releaseCandidate
 1. 逐项处理上方动态生成的阻断项；不得用旧批次的固定结论替代${runPossessive}证据。
 2. 入口事实修复继续使用原句、类型化账户 ID 和一次结构化重试，不降低 Validator 标准。
 3. 期权验收保持双向门禁：可靠折后 carrying value 必须进入企业及其他资产、净资产和财富分；未归属或缺可靠估值期权只保留 contingent holding。
-4. 所有阻断归零后仍需再跑全新的 2/2/1，不能复用${runPossessive} JSON。
+4. ${recertificationInstruction}
 
 逐节点的完整正文、全部选择、用户选择、五项状态、账本快照和终局报告见 \`full-test-data.md\`；机器可读审计见 \`finance-audit.json\`。
 
@@ -1089,34 +1161,44 @@ await writeFile(path.join(outputRoot, "evaluation-report.md"), report);
 
 const aggregate = {
   generatedAt: new Date().toISOString(),
+  validationMode,
+  candidateId: candidate?.candidateId ?? null,
   caseCount: records.length,
-  allCasesPassed: routeContractPassed,
+  allCasesPassed: completedCasesPassed,
+  routeContractPassed,
   m7Ready,
   scenarioCounts: records.reduce((acc, record) => ({ ...acc, [record.scenario]: (acc[record.scenario] || 0) + 1 }), {}),
   totalHistoryNodes: totalNodes,
   totalInvitations: records.reduce((sum, record) => sum + (record.finalState?.invitations?.length || 0), 0),
   releaseCandidate,
+  sourceIdentityMatches: sourceIdentityMismatches.length === 0,
   blockers,
   cases: cases.map(({ nodes, ...item }) => item)
 };
 await writeFile(path.join(outputRoot, "aggregate.json"), `${JSON.stringify(aggregate, null, 2)}\n`);
-const runStartedAt = records.map((record) => record.startedAt).sort()[0];
+const runStartedAt = candidate?.runStartedAt || records.map((record) => record.startedAt).sort()[0];
 const runCompletedAt = records.map((record) => record.completedAt).filter(Boolean).sort().at(-1);
-const repositoryCommit = await runGit(["rev-parse", "HEAD"]);
-const repositoryDirty = Boolean(await runGit(["status", "--short"]));
+const sourceState = await computeSourceState(process.cwd());
+const repositoryCommit = sourceState.sourceCommit;
+const repositoryDirty = sourceState.runtimeDirtyPaths.length > 0 || sourceState.collectorDirtyPaths.length > 0;
 const manifest = {
+  schemaVersion: 2,
   runId: path.basename(outputRoot),
+  validationMode,
+  candidateId: candidate?.candidateId ?? null,
   runStartedAt,
   runCompletedAt,
   generatedAt: new Date().toISOString(),
   repositoryPath: process.cwd(),
   repositoryCommit,
   repositoryDirty,
-  launchUrl,
+  runtimeFingerprint: candidate?.runtimeFingerprint || sourceState.runtimeFingerprint,
+  collectorFingerprint: candidate?.collectorFingerprint || sourceState.collectorFingerprint,
+  launchUrl: candidate?.launchUrl || launchUrl,
   commands: [
     "pnpm exec tsx scripts/render-full-browser-test-data-markdown.ts <source-root>/cases <source-root>/full-test-data.md",
-    "node scripts/analyze-financial-real-browser-run.mjs <source-root> [annotation-path] [--output-root <path>]",
-    "node $HOME/.codex/skills/run-real-browser-ending-routes/scripts/verify-five-route-run.mjs --root <source-root> --started-after <runStartedAt> --full-data <source-root>/full-test-data.md --report <output-root>/evaluation-report.md"
+    `node scripts/analyze-financial-real-browser-run.mjs <source-root> [annotation-path] [--output-root <path>] --mode ${validationMode}`,
+    "node scripts/verify-five-route-run.mjs --root <root> --approval-out release/evidence/<candidate-id>.json"
   ],
   sourceArtifact: {
     root,
