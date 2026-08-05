@@ -18,7 +18,7 @@ import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeServic
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
-import { runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import { isFinancialGateGenerationError, runWithInvalidAiResponseRetry } from "./utils/generationRetry";
 import { resolveDevTestStateImportText } from "./utils/testStateImport";
 import type { FinancialNodeAcceptanceDecision } from "./domain/finance";
 import { resolveFinancialNodeGateMode } from "./config/financialGatePolicy";
@@ -447,55 +447,78 @@ export default function App() {
     setHistory(updatedHistory);
     const abortController = new AbortController();
     nextGenerationAbortRef.current = abortController;
-    // One budget spans the service's structural retry and this outer recovery.
-    // This prevents 2x3 nested full generations while retaining one bounded
-    // regeneration for invalid JSON or a failed candidate Patch.
-    const generationBudget = createNodeGenerationBudget();
+    // The service owns the first two complete candidates and one proposal
+    // patch. A rejected financial Preview is still uncommitted, so reserve one
+    // final full candidate for the caller boundary. It receives the exact
+    // blocking reason and cannot multiply into another two-candidate loop.
+    const primaryGenerationBudget = createNodeGenerationBudget();
+    let financialGateRetryReasonCodes: string[] | undefined;
 
     try {
       const body = await runWithInvalidAiResponseRetry(async (attempt) => {
+        const generationBudget = attempt === 1
+          ? primaryGenerationBudget
+          : createNodeGenerationBudget({
+              fullGenerationLimit: 1,
+              modelPatchLimit: Math.max(0, 1 - primaryGenerationBudget.modelPatchesUsed)
+            });
         if (attempt > 1) {
           nextNarrativePreviewRef.current = null;
           setNextNarrativePreview(null);
           setNextGenerationStage("preparing");
         }
-        return generateNextNode(
-          {
-            userData,
-            answers,
-            history: updatedHistory,
-            currentAttributes: attributes,
-            selectedDecision: choiceText,
-            nodeIndex: updatedHistory.length,
-            simulationSeed
-          },
-          {
-            onGenerationStage: setNextGenerationStage,
-            generationBudget,
-            onGenerationCallTrace: (trace) => {
-              setGenerationCallTraces((traces) => [...traces, trace]);
+        try {
+          return await generateNextNode(
+            {
+              userData,
+              answers,
+              history: updatedHistory,
+              currentAttributes: attributes,
+              selectedDecision: choiceText,
+              nodeIndex: updatedHistory.length,
+              simulationSeed
             },
-            enableCandidatePatchRepair: import.meta.env.VITE_ENABLE_CANDIDATE_PATCH_REPAIR === "true",
-            onNarrativeProgress: (preview) => {
-              const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
-              nextNarrativePreviewRef.current = merged;
-              setNextNarrativePreview(merged);
-            },
-            signal: abortController.signal,
-            financialNodeGateMode: import.meta.env.DEV && typeof window !== "undefined"
-              ? resolveFinancialNodeGateMode(new URLSearchParams(window.location.search).get("financialGateMode"))
-              : undefined,
-            onFinancialGateDecision: (decision) => {
-              setFinancialGateEvents((events) => [...events, {
-                ...decision,
-                id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
-                at: new Date().toISOString(),
-                historyLength: updatedHistory.length
-              }]);
+            {
+              onGenerationStage: setNextGenerationStage,
+              generationBudget,
+              financialGateRetryReasonCodes,
+              onGenerationCallTrace: (trace) => {
+                setGenerationCallTraces((traces) => [...traces, trace]);
+              },
+              enableCandidatePatchRepair: import.meta.env.VITE_ENABLE_CANDIDATE_PATCH_REPAIR === "true",
+              onNarrativeProgress: (preview) => {
+                const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
+                nextNarrativePreviewRef.current = merged;
+                setNextNarrativePreview(merged);
+              },
+              signal: abortController.signal,
+              financialNodeGateMode: import.meta.env.DEV && typeof window !== "undefined"
+                ? resolveFinancialNodeGateMode(new URLSearchParams(window.location.search).get("financialGateMode"))
+                : undefined,
+              onFinancialGateDecision: (decision) => {
+                setFinancialGateEvents((events) => [...events, {
+                  ...decision,
+                  id: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+                  at: new Date().toISOString(),
+                  historyLength: updatedHistory.length
+                }]);
+              }
             }
+          );
+        } catch (error) {
+          if (isFinancialGateGenerationError(error)) {
+            const blockingReasonCodes = (error as { decision?: { blockingReasonCodes?: unknown } }).decision?.blockingReasonCodes;
+            financialGateRetryReasonCodes = Array.isArray(blockingReasonCodes)
+              ? blockingReasonCodes.filter((code): code is string => typeof code === "string")
+              : undefined;
           }
-        );
-      }, 1);
+          throw error;
+        }
+      }, {
+        maxAttempts: 1,
+        maxFinancialGateAttempts: 2,
+        isFinancialGateError: isFinancialGateGenerationError
+      });
 
       setNextGenerationStage("revealing");
       const revealFrames = buildNarrativeRevealFrames(body.title, body.description);

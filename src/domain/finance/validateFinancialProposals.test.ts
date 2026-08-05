@@ -1888,6 +1888,78 @@ test("an internally reconciled accepted WorldState expense uses structured autho
   assert.equal(result.acceptedEvents[0]?.evidence[0]?.reasonCode, "ACCEPTED_WORLD_DELTA");
 });
 
+test("only a canonical system expense reconciliation bypasses a company-text false positive", () => {
+  const context = v4Context();
+  const narrative = "公司团队的运营成本近期增加。你仍每月支付房租3500元。";
+  const candidate: ExpenseResponsibilityCandidate = {
+    id: "personal_rent_with_company_context",
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    proposedType: "housing",
+    action: "start",
+    completion: "completed",
+    cadence: "monthly",
+    liability: "protagonist",
+    financialScope: "personal",
+    explicitMonthlyTotalWan: 0.35,
+    protagonistShareWan: 0.35,
+    amountSourceId: "narrative:personal-rent:3500",
+    participantPersonIds: [],
+    source: "narrative_supplement",
+    evidence: [{
+      source: "accepted_simulation_outcome",
+      reasonCode: "EXPENSE_HOUSING_NARRATIVE",
+      excerpt: narrative,
+      confidence: 1,
+      financialScope: "personal"
+    }]
+  };
+  const reconciliation = reconcileExpenseCommitments({
+    ledger: context.currentLedger,
+    candidates: [candidate],
+    ageInMonths: 312,
+    sourceOutcomeId: "accepted_choice",
+    mode: "enforced"
+  });
+  assert.equal(reconciliation.proposals[0]?.systemGenerated, "expense_responsibility_reconciliation");
+
+  const canonical = validateFinancialProposals({
+    ...context,
+    proposals: reconciliation.proposals,
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "canonical_company_text_false_positive"
+  });
+  assert.deepEqual(canonical.issues, []);
+  assert.equal(canonical.acceptedEvents.length, 1);
+
+  const modelProposal = proposal({
+    id: "model_personal_rent_with_company_context",
+    kind: "expense_commitment_started",
+    financialScope: "personal",
+    evidence: narrative,
+    payload: v4Expense({
+      id: "model_personal_rent_with_company_context",
+      monthlyAmountWan: 0.35,
+      confirmedMonthlyAmountWan: 0.35,
+      amountSourceIds: ["narrative:personal-rent:3500"]
+    })
+  });
+  const ordinary = validateFinancialProposals({
+    ...context,
+    proposals: [modelProposal],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: narrative,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "model_company_text_false_positive"
+  });
+  assert.equal(ordinary.acceptedEvents.length, 0);
+  assert.equal(ordinary.issues[0]?.code, "BUSINESS_PERSONAL_BOUNDARY_CONFLICT");
+});
+
 test("a completed narrative joint account for rent accepts a policy-based shared housing review without treating its contribution rate as rent", () => {
   const context = v4Context();
   const narrative = "43岁过半，你与伴侣正式设立了共同账户，每月按税后收入的30%存入用于房租和家庭共同支出，剩余各自保留。起初的几个月，你们像两个谨慎的合伙人，每笔支出都记录在案，季度复盘时仔细核对每一项。";

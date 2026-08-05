@@ -1151,8 +1151,20 @@ export function validateFinancialProposals(input: {
       }));
       continue;
     }
+    // The deterministic reconciler may preserve a legitimate personal
+    // responsibility whose evidence sentence also discusses a company.  Its
+    // canonical V4 proposal has already been scope-classified by the
+    // responsibility path, so do not let the broad text-only business regex
+    // reject it.  A model proposal (including a forged system marker) does
+    // not satisfy this predicate and remains subject to the normal boundary
+    // guard below.
+    const isCanonicalSystemExpenseReconciliation = isValidSystemExpenseResponsibilityReconciliation({
+      proposal,
+      ledger: input.currentLedger
+    });
     if (["expense_commitment_started", "expense_commitment_adjusted", "one_off_expense_paid"].includes(proposal.kind)
-      && businessOperatingFact(proposal)) {
+      && businessOperatingFact(proposal)
+      && !isCanonicalSystemExpenseReconciliation) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司团队工资或经营成本不得进入主人公个人支出账本", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
     }

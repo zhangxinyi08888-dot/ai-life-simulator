@@ -55,6 +55,7 @@ const NON_COMPLETED = /计划|打算|考虑|准备|希望|可能|如果|将来|�
 // generic mention of an ordinary desk at work is not itself a lease fact.
 const BUSINESS_PLACE = /工坊|工作室|办公室|办公场地|办公位|共享(?:办公(?:空间|室|位)?|工位)|联合(?:办公(?:空间|室|位)?|工位)|(?:租下|租用|租赁)[^。！？；]{0,12}工位|仓库|厂房|门店|商铺|店铺|服务器|团队|员工|原材料|推广|公司租金|经营场地/u;
 const MONEY = /(\d+(?:\.\d+)?)\s*(万元|万|元)/u;
+const INCOME_AMOUNT_PREFIX = /(?:税后|到手)?(?:月薪|工资|薪资|收入|年薪|年收入|税后收入|税后年收入|报酬|顾问费|咨询收入|副业收入|营收|营业收入|合同额|回款|奖金|分红|股息)[^\d]{0,12}$/u;
 const HOUSING_EXPENSE_SIGNAL = /房租|租金|月租|物业费|住房维护|维修费|开始租住|续租|租住|租下|新租(?:的)?(?:公寓|房子|住房)|租的(?:公寓|房子|住房)|搬入|入住/u;
 const PARENT_HEALTHCARE_EXPENSE_SIGNAL = /(?:父母|爸妈|母亲|父亲|妈妈|爸爸)[^。！？；]{0,24}(?:医疗|医药|治疗|复诊|用药|医院|门诊)|(?:医疗|医药|治疗|复诊|用药|医院|门诊)[^。！？；]{0,24}(?:父母|爸妈|母亲|父亲|妈妈|爸爸)/u;
 const CHINESE_DIGIT_WAN: Record<string, number> = {
@@ -91,8 +92,9 @@ function monthlyAmount(text: string): number | undefined {
  * A narrative sentence may mention salary, rent and family care together.
  * Never let the first amount in that sentence become every responsibility's
  * amount: bind a value only when it is locally adjacent to the responsibility
- * signal. If the sentence contains one amount total, the ordinary parser is
- * still safe to use as a compatibility fallback.
+ * signal. In particular, a lone salary/income amount is not a rent or medical
+ * amount. Callers must retain an amount-unknown review candidate instead of
+ * borrowing that number as a compatibility fallback.
  */
 
 function monthlyAmountNearExpenseSignal(
@@ -114,6 +116,11 @@ function monthlyAmountNearExpenseSignal(
       const moneyStart = moneyMatch.index;
       if (moneyStart === undefined) continue;
       const moneyEnd = moneyStart + moneyMatch[0].length;
+      // A salary/income figure can be syntactically close to a later
+      // deduction ("月收入 1.8 万，在扣除房租后"). It remains an income
+      // amount, never a locally-bound housing or healthcare amount.
+      const leadingContext = text.slice(Math.max(0, moneyStart - 32), moneyStart);
+      if (INCOME_AMOUNT_PREFIX.test(leadingContext)) continue;
       const afterSignal = moneyStart >= signalEnd;
       const distance = afterSignal ? moneyStart - signalEnd : signalStart - moneyEnd;
       if (distance < 0 || distance > 16) continue;
@@ -151,8 +158,7 @@ function monthlyAmountNearExpenseSignal(
     if (/每季|季度/u.test(match.localEvidence)) return roundWan(raw / 3);
     return raw;
   }
-  const allAmounts = [...text.matchAll(new RegExp(MONEY.source, "gu"))];
-  return allAmounts.length === 1 ? monthlyAmount(text) : undefined;
+  return undefined;
 }
 
 /**
@@ -1217,16 +1223,18 @@ function deriveNarrativeCandidates(input: {
     // with their locally-bound amounts before either legacy branch can
     // `continue` and hide the other one.
     if (HOUSING_EXPENSE_SIGNAL.test(evidenceSentence)
-      && PARENT_HEALTHCARE_EXPENSE_SIGNAL.test(evidenceSentence)
-      && housingAmount !== undefined
-      && parentHealthcareAmount !== undefined) {
+      && PARENT_HEALTHCARE_EXPENSE_SIGNAL.test(evidenceSentence)) {
       addCandidate(input.target, input.diagnostics, {
         responsibilityKey: "primary_residence:main",
         responsibilityKind: "primary_residence",
         proposedType: "housing",
-        action: candidateActionForLiability(liability),
+        // A completed personal/shared responsibility with an unknown amount
+        // must remain an explicit review path.  Do not fall through to the
+        // housing-only branch below, which would erase the paired healthcare
+        // responsibility after a salary/income number was rejected.
+        action: housingAmount === undefined ? "review" : candidateActionForLiability(liability),
         completion: "completed",
-        cadence: "monthly",
+        cadence: housingAmount === undefined ? "recurring_unknown" : "monthly",
         liability,
         financialScope: scope,
         explicitMonthlyTotalWan: housingAmount,
@@ -1234,7 +1242,7 @@ function deriveNarrativeCandidates(input: {
           ? undefined
           : shareRate === undefined ? housingAmount : roundWan(housingAmount * shareRate),
         shareRate,
-        amountSourceId: `narrative_housing_${evidenceSentence}`,
+        amountSourceId: housingAmount === undefined ? undefined : `narrative_housing_${evidenceSentence}`,
         participantPersonIds: [],
         source: "narrative_supplement",
         evidence: [sourceEvidence({
@@ -1262,9 +1270,11 @@ function deriveNarrativeCandidates(input: {
         responsibilityKey: `recurring_healthcare:${parentKey}`,
         responsibilityKind: "recurring_healthcare",
         proposedType: "healthcare",
-        action: liability === "unknown" ? "review" : healthcareTarget ? "adjust" : "start",
+        action: parentHealthcareAmount === undefined
+          ? "review"
+          : liability === "unknown" ? "review" : healthcareTarget ? "adjust" : "start",
         completion: "completed",
-        cadence: "monthly",
+        cadence: parentHealthcareAmount === undefined ? "recurring_unknown" : "monthly",
         liability,
         financialScope: scope,
         explicitMonthlyTotalWan: parentHealthcareAmount,
@@ -1272,7 +1282,7 @@ function deriveNarrativeCandidates(input: {
           ? shareRate === undefined ? parentHealthcareAmount : roundWan(parentHealthcareAmount * shareRate)
           : undefined,
         shareRate,
-        amountSourceId: `narrative_parent_healthcare_${evidenceSentence}`,
+        amountSourceId: parentHealthcareAmount === undefined ? undefined : `narrative_parent_healthcare_${evidenceSentence}`,
         participantPersonIds: healthcareTarget?.participantPersonIds || parent.participantPersonIds,
         source: "narrative_supplement",
         evidence: [sourceEvidence({

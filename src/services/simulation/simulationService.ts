@@ -179,14 +179,18 @@ function normalizeRepairedEmploymentTransition(input: {
   // the completed narrative fact.  A named external paid consultant role that
   // the protagonist has actually accepted is employment; independent projects
   // remain excluded by hasCompletedEmployerStartEvidence.
-  const toStatus = hasCompletedEmployerStartEvidence(input.narrativeText)
-    ? "employed"
-    : (statusAliases[rawStatus] || rawStatus as EmploymentTransitionProposal["toStatus"]);
+  const toStatus = hasExplicitSelfDirectedVentureEvidence(input.narrativeText, "narrative")
+    ? "self_employed"
+    : (hasCompletedEmployerStartEvidence(input.narrativeText)
+      ? "employed"
+      : (statusAliases[rawStatus] || rawStatus as EmploymentTransitionProposal["toStatus"]));
   let evidence = typeof merged.evidence === "string" ? merged.evidence : "";
   if (!evidence || !matchesNormalizedEvidence(input.narrativeText, evidence)) {
     const evidencePattern = toStatus === "retired" || toStatus === "not_working"
       ? /退休|离职|停止工作|结束工资|离开工资序列/
-      : /顾问|咨询|转为|岗位|工作节奏|工时/;
+      : (toStatus === "self_employed"
+        ? /联合创始人|创始人|共同创办|自己创办|自主创办|独立创办|创业/
+        : /顾问|咨询|转为|岗位|工作节奏|工时/);
     evidence = input.narrativeText.split(/(?<=[。！？；])/u).find((sentence) => evidencePattern.test(sentence))?.trim() || evidence;
   }
   const effectiveAtAgeInMonths = Number.isInteger(Number(merged.effectiveAtAgeInMonths))
@@ -777,9 +781,56 @@ export function extractMisplacedEmploymentTransition(rawNode: any): EmploymentTr
   } as EmploymentTransitionProposal;
 }
 
-function isAcceptedEmployerRoleInvitation(value: string): boolean {
+/**
+ * Career authority treats founding/ownership as self-employment.  The
+ * protagonist marker is intentional: a sentence about a company's founder
+ * inviting the protagonist to a normal role must remain an employer fact.
+ */
+type SelfDirectedVentureEvidenceContext = "selected_decision" | "narrative";
+
+function hasExplicitSelfDirectedVentureEvidence(
+  value: string,
+  context: SelfDirectedVentureEvidenceContext
+): boolean {
+  return value.split(/(?<=[。！？；])/u).some((sentence) => (
+    /(?:你|本人|你们)[^。；]{0,32}(?:作为|成为|担任|是)[^。；]{0,12}(?:联合创始人|创始人)(?=(?:兼|、|，|,|和|与|及|职位|岗位|角色|身份|负责|主导|领导|[。；！？]|$))/u.test(sentence)
+    || /(?:你|本人|你们)[^。；]{0,32}(?:作为|成为|担任|是)[^。；]{0,12}合伙人(?=(?:兼|、|，|,|和|与|及|职位|岗位|角色|身份|负责|主导|领导|[。；！？]|$))(?=[^。；]{0,24}(?:股权|持股|共同创办|自己创办|自主创办|独立创办|创业所有权))/u.test(sentence)
+    || /(?:你|本人|你们)[^。；]{0,32}(?:共同|自己|自主|独立)(?:创办|成立|创建)[^。；]{0,32}(?:公司|企业|工作室|团队)/u.test(sentence)
+    || /(?:你|本人|你们)[^。；]{0,24}(?:加入|进入)[^。；]{0,16}(?:自己|本人)[^。；]{0,16}(?:创办|成立|创建)[^。；]{0,32}(?:公司|企业|工作室|团队)/u.test(sentence)
+    || (context === "selected_decision"
+      && /(?:接受|选择|决定|同意)[^。；]{0,40}(?:联合创始人|创始人)(?=(?:兼|、|，|,|和|与|及|职位|岗位|角色|身份|$))/u.test(sentence))
+    || (context === "selected_decision"
+      && /(?:^|(?:选择|决定|接受)[^。；]{0,16})(?:共同|自己|自主|独立)(?:创办|成立|创建)[^。；]{0,32}(?:公司|企业|工作室|团队)/u.test(sentence))
+  ));
+}
+
+function isAcceptedEmployerRoleInvitation(
+  value: string,
+  context: SelfDirectedVentureEvidenceContext = "selected_decision"
+): boolean {
   return /(?:接受|选择)[^。；]{0,40}(?:offer|职位|岗位|工作|入职|任职|担任|负责人)/iu.test(value)
-    && !/(?:外部董事|独立董事|外部顾问|兼职顾问|非执行董事|外部合伙人)/u.test(value);
+    && !/(?:外部董事|独立董事|外部顾问|兼职顾问|非执行董事|外部合伙人)/u.test(value)
+    && !hasExplicitSelfDirectedVentureEvidence(value, context);
+}
+
+/**
+ * A selected external role can resolve a bare offer only after the outcome
+ * records that the protagonist actually joined its employer.  Keep this
+ * coupled to the selected role: “加入公司” alone can also describe founding
+ * or joining a project, whereas an accepted product-role invitation plus a
+ * completed company join is an employed CareerState fact.
+ */
+function hasCompletedAcceptedEmployerRoleStart(input: {
+  selectedDecision?: string;
+  narrativeText: string;
+}): boolean {
+  if (!isAcceptedEmployerRoleInvitation(input.selectedDecision || "")
+    || hasExplicitSelfDirectedVentureEvidence(input.narrativeText, "narrative")) return false;
+  return input.narrativeText.split(/(?<=[。！？；])/u).some((sentence) => {
+    if (/(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}加入[^。；]{0,24}(?:公司|企业|机构|团队)/u.test(sentence)) return false;
+    return hasCompletedEmployerStartEvidence(sentence)
+      || /(?:你|本人)[^。；]{0,36}(?:正式|已经|已(?:经)?)?加入(?:了)?[^。；]{0,24}(?:公司|企业|机构|团队)/u.test(sentence);
+  });
 }
 
 /**
@@ -959,21 +1010,34 @@ export function synthesizeSelectedCareerTransition(input: {
   const decision = input.selectedDecision;
   // "创业公司" is an employer, not evidence that the protagonist became a
   // founder.  Keep that distinction explicit: leaving one job to join a
-  // startup must create an employed CareerState, while only an actual
-  // self-directed venture becomes self_employed.
+  // startup must create an employed CareerState, while an explicit founder or
+  // self-directed venture remains self_employed.
   const selfDirectedVenture = /(?:自己|自主|独立|全职|(?:辞职|辞去|辞掉|离职)[^。；]{0,12})创业(?!公司|企业|团队)|(?:创办|成立).{0,12}(?:自己|个人|独立)?(?:公司|工作室|企业|团队)/u;
   const joinedEmployer = /(?:辞职|辞去|辞掉|离职|离开[^。；]{0,12}(?:岗位|公司|平台))[^。；]{0,48}(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)|(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)[^。；]{0,20}(?:担任|任职|负责|岗位|职位|工作)/u;
-  const narrativeEvidence = input.narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
-    /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|转为.{0,12}顾问|顾问角色|被任命|晋升|提升为|成为.{0,12}负责人)/iu.test(sentence)
+  const narrativeSentences = input.narrativeText.split(/(?<=[。！？；])/u).map((item) => item.trim());
+  const narrativeEvidence = narrativeSentences.find((sentence) => (
+    /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|转为.{0,12}顾问|顾问角色|被任命|晋升|提升为|成为.{0,12}(?:负责人|联合创始人|创始人|合伙人)|(?:共同|自己|自主|独立)(?:创办|成立|创建))/iu.test(sentence)
   ));
-  const completedEmployerNarrativeEvidence = input.narrativeText
-    .split(/(?<=[。！？])/u)
-    .map((item) => item.trim())
-    .find((sentence) => hasCompletedEmployerStartEvidence(sentence));
-  const joinsEmployer = hasCompletedEmployerStartEvidence(decision)
+  const explicitSelfDirectedNarrativeEvidence = narrativeSentences.find((sentence) => (
+    hasExplicitSelfDirectedVentureEvidence(sentence, "narrative")
+  ));
+  const completedEmployerNarrativeEvidence = narrativeSentences.find((sentence) => (
+    hasCompletedEmployerStartEvidence(sentence)
+  ));
+  const completedAcceptedEmployerRoleStart = hasCompletedAcceptedEmployerRoleStart({
+    selectedDecision: decision,
+    narrativeText: input.narrativeText
+  });
+  const explicitSelfDirectedVenture = hasExplicitSelfDirectedVentureEvidence(decision, "selected_decision")
+    || hasExplicitSelfDirectedVentureEvidence(input.narrativeText, "narrative");
+  const joinsEmployer = !explicitSelfDirectedVenture && (
+    hasCompletedEmployerStartEvidence(decision)
     || joinedEmployer.test(decision)
-    || Boolean(completedEmployerNarrativeEvidence && (hasCompletedEmployerStartEvidence(completedEmployerNarrativeEvidence) || joinedEmployer.test(completedEmployerNarrativeEvidence)));
-  const startsSelfDirectedVenture = selfDirectedVenture.test(decision)
+    || completedAcceptedEmployerRoleStart
+    || Boolean(completedEmployerNarrativeEvidence && (hasCompletedEmployerStartEvidence(completedEmployerNarrativeEvidence) || joinedEmployer.test(completedEmployerNarrativeEvidence)))
+  );
+  const startsSelfDirectedVenture = explicitSelfDirectedVenture
+    || selfDirectedVenture.test(decision)
     || Boolean(narrativeEvidence && selfDirectedVenture.test(narrativeEvidence));
   let toStatus: EmploymentTransitionProposal["toStatus"] | undefined;
   if (joinsEmployer) toStatus = "employed";
@@ -1006,7 +1070,14 @@ export function synthesizeSelectedCareerTransition(input: {
   // The accepted choice is itself authoritative action evidence. Narrative text
   // may use a synonym such as "递交辞呈", so a prose regex miss must not leave
   // CareerState behind the accepted branch.
-  const evidence = completedEmployerNarrativeEvidence || narrativeEvidence || decision.trim();
+  const evidence = toStatus === "self_employed"
+    ? explicitSelfDirectedNarrativeEvidence || narrativeEvidence || decision.trim()
+    : (completedEmployerNarrativeEvidence
+      || (completedAcceptedEmployerRoleStart
+        ? narrativeSentences.find((sentence) => /(?:你|本人)[^。；]{0,36}(?:正式|已经|已(?:经)?)?加入(?:了)?[^。；]{0,24}(?:公司|企业|机构|团队)/u.test(sentence))
+        : undefined)
+      || narrativeEvidence
+      || decision.trim());
   return {
     subject: "protagonist",
     toStatus,
@@ -1995,16 +2066,30 @@ export function narrativeRequiresCareerTransition(input: {
     !hypotheticalOnly(sentence)
     && !negatesCareerMove(sentence)
     && !negatesEmployerRoleInvitation(sentence)
-    && isAcceptedEmployerRoleInvitation(sentence)
+    && isAcceptedEmployerRoleInvitation(sentence, "narrative")
     && hasCompletedEmployerStartEvidence(sentence)
  ));
   if (startsAcceptedEmployerRole) return true;
+  const startsSelfDirectedVenture = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesCareerMove(sentence)
+    && hasExplicitSelfDirectedVentureEvidence(sentence, "narrative")
+  ));
+  if (startsSelfDirectedVenture && input.currentStatus !== "self_employed") return true;
   const stopsWorking = protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesExit(sentence)
-    && /(?:你|本人)[^。；]{0,24}(?:正式退休|办理退休|已经退休|已退休|最终决定[^。；]{0,8}(?:离职|辞职|辞去|停止工作)|递交了?辞呈|提交了?辞职申请|正式离职|正式辞职|已经离职|已经辞职|辞去了|停止了?工作|结束了?全职工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(employmentRelevantText(sentence))
+    && /(?:你|本人)[^。；]{0,24}(?:正式退休|办理退休|已经退休|已退休|最终决定[^。；]{0,8}(?:离职|辞职|辞去|停止工作)|正式离职|正式辞职|已经离职|已经辞职|辞去了|停止了?工作|结束了?全职工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(employmentRelevantText(sentence))
   ));
   if (stopsWorking && !["retired", "not_working"].includes(input.currentStatus)) return true;
+  // Handing in a resignation is an auditable change of intent, but the old
+  // job can remain active through its handover.  It only proves a replacement
+  // CareerState together with a completed start at the new employer below.
+  const submittedCurrentJobExit = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesExit(sentence)
+    && /(?:你|本人)[^。；]{0,24}(?:递交了?辞呈|提交了?(?:辞职|离职)(?:申请)?)/u.test(employmentRelevantText(sentence))
+  ));
   const startsWorking = protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && (hasCompletedEmployerStartEvidence(sentence) || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(sentence))
@@ -2014,6 +2099,12 @@ export function narrativeRequiresCareerTransition(input: {
   // later income synthesizer still sees the obsolete founder state and writes
   // an owner draw instead of salary.
   if (startsWorking && ["student", "not_working", "retired", "medical_leave", "self_employed"].includes(input.currentStatus)) return true;
+  // An already-employed protagonist needs a new CareerState too when this
+  // period completes both sides of an employer switch.  Do not infer that
+  // transition from an isolated resignation or a generic old onboarding
+  // memory: require a completed new employer start and a non-negated current
+  // job exit in the same candidate.
+  if (startsWorking && input.currentStatus === "employed" && (stopsWorking || submittedCurrentJobExit)) return true;
   return protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesCareerMove(sentence)
@@ -2511,12 +2602,18 @@ async function commitAuthoritativeFinancialProgress(input: {
   // entry is established in the accepted outcome and its salary is known.
   const selectedDecision = input.selectedDecision || "";
   const selectedEmployerOfferEvidence = [selectedDecision, input.node.description].filter(Boolean).join("\n");
+  const selectedEmployerRoleStarted = hasCompletedAcceptedEmployerRoleStart({
+    selectedDecision,
+    narrativeText: input.node.description
+  });
   const selectedDecisionIsPendingEmployerOffer = isAcceptedEmployerRoleInvitation(selectedDecision)
-    && !hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence);
+    && !hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence)
+    && !selectedEmployerRoleStarted;
   const selectedDecisionRequiresCareerTransition = !selectedDecisionIsPendingEmployerOffer && (
     selectedDecisionExplicitlyRetires(selectedDecision)
     || /转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|开始.{0,8}创业|全职.{0,8}创业/iu.test(selectedDecision)
     || hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence)
+    || selectedEmployerRoleStarted
   );
   const initialPendingOfferStartResolutionIssue = pendingEmployerOfferStartResolutionIssue({
     current: input.currentWorldState.pendingEmployerOffer,
@@ -6059,6 +6156,7 @@ export async function generateNextNode(
         // expense facts. Regeneration must receive only the reasons that
         // actually prevented the Preview from committing.
         financialGateRetryReasonCodes: lastGateError?.decision.blockingReasonCodes
+          ?? deps.financialGateRetryReasonCodes
       });
     } catch (error) {
       if (!(error instanceof FinancialNodeGateError) || (gateMode !== "enforced" && expenseMode !== "enforced")) throw error;

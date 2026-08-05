@@ -192,6 +192,26 @@ test("a mixed salary, rent and parent-medical sentence binds each recurring outl
   assert.equal(candidates.some((item) => item.responsibilityKind === "elder_care"), false);
 });
 
+test("a lone salary amount never becomes rent or parent healthcare, and both unknown responsibilities remain reviewable", () => {
+  const candidates = deriveExpenseResponsibilityCandidates({
+    ageInMonths: 288,
+    narrativeText: "你每月税后收入1.8万元，在扣除房租和父母医疗支出后，现金流变得紧张。"
+  }).candidates;
+
+  assert.deepEqual(candidates.map((item) => [
+    item.responsibilityKey,
+    item.action,
+    item.cadence,
+    item.explicitMonthlyTotalWan,
+    item.protagonistShareWan,
+    item.amountSourceId
+  ]), [
+    ["primary_residence:main", "review", "recurring_unknown", undefined, undefined, undefined],
+    ["recurring_healthcare:parents", "review", "recurring_unknown", undefined, undefined, undefined]
+  ]);
+  assert.equal(candidates.some((item) => item.explicitMonthlyTotalWan === 1.8), false);
+});
+
 test("local rent and parent-health frequencies are monthlyized without borrowing the salary cadence", () => {
   const annual = deriveExpenseResponsibilityCandidates({
     ageInMonths: 288,

@@ -54,6 +54,53 @@ assert.equal(narrativeRequiresCareerTransition({
   currentStatus: "employed"
 }), true, "leaving one employer to join a startup must not leave CareerState unchanged");
 assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你正式加入自己创办的创业公司，担任产品负责人。",
+  currentStatus: "employed"
+}), true, "a completed own-company start must transition to self-employment");
+const crossSentenceEmployerSwitchNarrative = "做出决定后的第三周，你正式向大公司提交了离职。入职早期人工智能创业公司后，你才发现产品负责人几乎需要承担所有职责。";
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: crossSentenceEmployerSwitchNarrative,
+  currentStatus: "employed"
+}), true, "a completed cross-sentence employer switch must not preserve the old CareerState");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的产品负责人邀请，辞职加入，用两年验证自己能否做出真正的产品。",
+  narrativeText: crossSentenceEmployerSwitchNarrative,
+  acceptedOutcomeId: "join_ai_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed");
+const completedAcceptedEmployerJoinNarrative = "你正式离开原公司，加入了那家早期AI创业公司。公司人手不足，你开始承担产品负责人职责。";
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。",
+  narrativeText: completedAcceptedEmployerJoinNarrative,
+  acceptedOutcomeId: "join_ai_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "a completed company join must override a model's founder-style label for an accepted employer role");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。",
+  narrativeText: "你计划下月加入那家早期AI创业公司，先完成当前项目交接。",
+  acceptedOutcomeId: "join_ai_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+}), undefined, "a planned company join remains a pending employer offer");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你已向大公司提交离职申请，仍在交接当前项目。你计划下月入职早期人工智能创业公司。",
+  currentStatus: "employed"
+}), false, "a resignation submission and planned entry must preserve the current CareerState during handover");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你已向大公司提交离职申请，仍在交接当前项目。入职早期人工智能创业公司后，你将负责产品路线图。",
+  currentStatus: "employed"
+}), false, "future duties after a named employer start cannot close the current salary during handover");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你已向大公司提交离职申请，仍在交接当前项目。等待入职日期确认。入职早期人工智能创业公司后，你需要先完成合规培训。",
+  currentStatus: "employed"
+}), false, "a named employer start with only required onboarding tasks remains pending");
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: "你提交离职申请后重新考虑，决定保留当前工作，暂不去创业公司。",
+  currentStatus: "employed"
+}), false, "a submitted resignation that the protagonist withdraws cannot manufacture a new CareerState");
+assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你接受了AI创业公司的产品负责人邀请。",
   currentStatus: "employed"
 }), false, "a bare employer-role invitation is an accepted pending offer, not an invented CareerState transition");
@@ -98,6 +145,14 @@ const pendingOffer = resolvePendingEmployerOffer({
 assert.equal(pendingOffer.action, "set");
 assert.equal(pendingOffer.action === "set" ? pendingOffer.offer.status : undefined, "accepted_pending_start");
 assert.equal(pendingOffer.action === "set" ? pendingOffer.offer.fromCareerStateId : undefined, "career_current");
+assert.equal(resolvePendingEmployerOffer({
+  selectedDecision: "接受创业公司的联合创始人兼产品负责人邀请。",
+  acceptedOutcomeId: "accept_startup_cofounder_product_lead",
+  narrativeText: "你决定先完成当前项目交接，再和伙伴共同筹备创业公司。",
+  acceptedAtAgeInMonths: 288,
+  currentCareerStateId: "career_current",
+  acceptedCareerTransitions: []
+}).action, "preserve", "a founder choice is not an employer-offer pending state");
 if (pendingOffer.action === "set") {
   assert.equal(resolvePendingEmployerOffer({
     current: pendingOffer.offer,
@@ -191,6 +246,36 @@ assert.equal(synthesizeSelectedCareerTransition({
   effectiveAtAgeInMonths: 288,
   currentStatus: "employed"
 })?.toStatus, "self_employed", "a self-directed venture remains self-employment");
+const cofounderTransition = synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司的联合创始人兼产品负责人邀请。",
+  narrativeText: "你正式加入那家早期AI创业公司，成为联合创始人，并负责产品方向。",
+  acceptedOutcomeId: "join_startup_cofounder_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+});
+assert.equal(cofounderTransition?.toStatus, "self_employed", "an explicit cofounder role must not be rewritten as ordinary employment");
+assert.match(cofounderTransition?.evidence || "", /联合创始人/u, "self-employment must cite its founder evidence instead of a generic company-join sentence");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "加入自己创办的创业公司，担任产品负责人。",
+  narrativeText: "你加入自己创办的创业公司，继续担任产品负责人。",
+  acceptedOutcomeId: "join_own_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "self_employed", "joining the protagonist's own company remains self-employment");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "共同创办一家创业公司，作为联合创始人负责产品。",
+  narrativeText: "你与伙伴共同创办创业公司，作为联合创始人负责产品。",
+  acceptedOutcomeId: "found_startup_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "self_employed", "joint founding remains self-employment");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受创业公司创始人的产品负责人邀请。",
+  narrativeText: "你作为产品负责人，接受创始人的邀请，正式加入那家早期AI创业公司。",
+  acceptedOutcomeId: "join_startup_founder_invited_product_lead",
+  effectiveAtAgeInMonths: 288,
+  currentStatus: "employed"
+})?.toStatus, "employed", "a founder inviting the protagonist to a normal role is still employer employment");
 assert.equal(synthesizeSelectedCareerTransition({
   selectedDecision: "继续稳步提升技术深度，争取明年带团队",
   narrativeText: "36岁2个月，你正式成为数据可视化组的技术负责人，带4个人的小组。",
@@ -709,6 +794,51 @@ assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, derive
 assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating", "finalizing"]);
 assert.equal(nextNarrativePreviews.at(-1)?.title, "新行业的第一年");
 assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /小团队做基础内容执行/);
+
+// The outer caller can reserve a final recovery after the service has spent
+// its own budget. That retry must retain the rejected Preview's hard reason
+// all the way into this new service invocation's full-node prompt.
+let callerProvidedGateReasonPrompt = "";
+const callerProvidedGateReasonHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  selectedChoice: nextNode.choices[0]!.text,
+  selectedChoiceId: nextNode.choices[0]!.id,
+  selectedEventOutcomeId: nextNode.choices[0]!.eventOutcomeId
+}];
+await generateNextNode({
+  userData,
+  answers,
+  history: callerProvidedGateReasonHistory,
+  currentAttributes: nextNode.attributes,
+  selectedDecision: nextNode.choices[0]!.text,
+  nodeIndex: 2,
+  simulationSeed: "caller-financial-gate-reason-reaches-prompt"
+}, {
+  financialNodeGateMode: "shadow",
+  financialGateRetryReasonCodes: ["UNSATISFIED_CAREER_INCOME_TRANSITION"],
+  callAiJson: async (prompt) => {
+    callerProvidedGateReasonPrompt = prompt;
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 24 * 12);
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        stage: "继续试错",
+        title: "把新的约束写进下一步",
+        description: "你继续在团队里积累经验，并把眼前的选择拆成更清晰的行动。",
+        choices: [
+          { id: "A", text: "继续推进当前项目", impactSummary: "稳住积累" },
+          { id: "B", text: "复核职业方向", impactSummary: "校准方向" },
+          { id: "C", text: "补足关键技能", impactSummary: "提升能力" }
+        ],
+        attributes: nextNode.attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.match(callerProvidedGateReasonPrompt, /财务接受门重生修正/u);
+assert.match(callerProvidedGateReasonPrompt, /UNSATISFIED_CAREER_INCOME_TRANSITION/u);
 
 // A migration-only salary is deliberately quarantined after the third
 // unconfirmed material node.  The acceptance gate must remain strict, but
@@ -2302,7 +2432,8 @@ assert.equal(
 );
 assert.equal(retirementPlanningNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
 
-// “入职后” is completed employment prose, not a bare offer. Without a
+// A completed employer start, including a cross-sentence "提交离职。入职创业
+// 公司后" switch, is not a bare offer. Without a
 // replacement personal income it must be rejected before it can preserve a
 // pending offer alongside narration that says the protagonist is already at
 // work.
@@ -2337,13 +2468,27 @@ await assert.rejects(
           age: 24,
           stage: "创业试炼场",
           title: "产品负责人新岗位",
-          description: "你正式接受了那家早期AI创业公司的产品负责人offer，主动降薪一半。入职后，你发现公司只有8个人，开始负责从需求调研到原型设计的全部环节。个人收入是否形成仍需继续观察。",
+          description: "你最终接受了那家早期AI创业公司的产品负责人邀请。离职交接期持续了三周。入职后的前三个月，你几乎每天都要面对从0到1的混乱，既是产品负责人，也要亲自画原型、跑客户。个人收入是否形成仍需继续观察。",
           choices: [
             { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
             { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
             { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
           ],
           attributes,
+          narrativeMeta: {
+            worldDeltas: [{
+              type: "career_state",
+              summary: "错误地把创业公司产品负责人当成自主创业",
+              employmentTransition: {
+                subject: "protagonist",
+                toStatus: "self_employed",
+                effectiveAtAgeInMonths: 288,
+                sourceOutcomeId: "join_ai_startup_product_lead",
+                evidence: "你最终接受了那家早期AI创业公司的产品负责人邀请。离职交接期持续了三周。入职后的前三个月，你几乎每天都要面对从0到1的混乱，既是产品负责人，也要亲自画原型、跑客户。",
+                confidence: 0.9
+              }
+            }]
+          },
           financialEventProposals: [],
           isEndingNode: false
         })
@@ -2542,32 +2687,32 @@ const pendingOfferStartNode = await generateNextNode({
   callAiJson: async () => ({
     text: JSON.stringify({
       age: 25,
-      stage: "正式入职",
-      title: "产品负责人新岗位",
-      description: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+          stage: "正式入职",
+          title: "产品负责人新岗位",
+          description: "你正式向大公司提交了离职。入职AI创业公司后，你才发现产品负责人需要承担广泛职责，税后月薪3.5万元。",
       choices: [
         { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
         { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
         { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
       ],
       attributes,
-      narrativeMeta: {
-        worldDeltas: [{
-          type: "career_state",
-          summary: "正式入职AI创业公司产品负责人",
-          employmentTransition: {
-            subject: "protagonist",
-            toStatus: "employed",
+        narrativeMeta: {
+          worldDeltas: [{
+            type: "career_state",
+            summary: "模型错误地把外部创业公司产品负责人标为自主创业",
+            employmentTransition: {
+              subject: "protagonist",
+              toStatus: "self_employed",
             effectiveAtAgeInMonths: pendingOfferNode.ageInMonths,
             sourceOutcomeId: "start_ai_startup_product_lead",
-            evidence: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+            evidence: "入职AI创业公司后，你才发现产品负责人需要承担广泛职责，税后月薪3.5万元。",
             confidence: 0.9
           },
           pendingEmployerOfferResolution: {
             action: "started",
             pendingOfferSourceOutcomeId: "join_ai_startup_product_lead",
             sourceOutcomeId: "start_ai_startup_product_lead",
-            evidence: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+            evidence: "入职AI创业公司后，你才发现产品负责人需要承担广泛职责，税后月薪3.5万元。",
             confidence: 0.9
           }
         }]
@@ -2585,6 +2730,11 @@ const activeEmployerSalarySources = pendingOfferStartNode.financialLedger?.incom
 assert.equal(activeEmployerSalarySources.length, 1, "actual entry must leave exactly one active employer salary");
 assert.equal(activeEmployerSalarySources[0]?.monthlyNetAmountWan, 3.5);
 assert.equal(activeEmployerSalarySources[0]?.linkedCareerStateId, pendingOfferStartNode.worldStateSnapshot?.currentCareerStateId);
+assert.equal(
+  pendingOfferStartNode.financialLedger?.incomeSources.find((source) => source.id === pendingOfferIncomeBefore?.id)?.status,
+  "ended",
+  "a cross-sentence employer switch must close the prior salary instead of stacking it"
+);
 
 // Proposal repair revalidates the candidate from scratch. A pending offer
 // start without its source-bound `started` resolution must therefore remain

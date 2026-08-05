@@ -62,6 +62,27 @@ test("treats completed post-entry narration as an actual employer start", () => 
   assert.equal(hasCompletedEmployerStartEvidence(
     "入职后可以先观察三个月再决定是否长期留下。"
   ), false);
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "入职早期人工智能创业公司后，你才发现产品负责人几乎需要承担所有职责。"
+  ), true, "an employer qualifier between 入职 and 后 remains a completed start");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "你计划下月入职早期人工智能创业公司后，再决定是否承担产品负责人的职责。"
+  ), false, "a scheduled employer start remains pending even when the employer is named");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "入职早期人工智能创业公司后可以先观察三个月再决定是否长期留下。"
+  ), false, "a named employer start remains pending when the prose says only what may happen after entry");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "入职早期人工智能创业公司后，你将负责产品路线图和首批客户访谈。"
+  ), false, "future responsibilities after a named employer start remain pending");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "等待入职日期确认。入职早期人工智能创业公司后，你需要先完成合规培训。"
+  ), false, "a required post-entry task cannot turn a pending start into an active employer job");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "入职后的前三个月，你几乎每天都要处理客户反馈和产品迭代。"
+  ), true, "a completed post-entry duration is evidence that employment has already started");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "入职后的前三个月，你将接受产品培训并完成交接。"
+  ), false, "a future post-entry duration remains pending");
 });
 
 test("recognizes a completed external consultant role, but not a future or independent engagement", () => {
