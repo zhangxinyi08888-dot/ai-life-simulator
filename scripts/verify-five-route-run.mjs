@@ -89,6 +89,7 @@ export async function verifyFiveRouteRun({
   const imagesRoot = path.join(root, "images");
   const fullData = path.resolve(fullDataInput || path.join(root, "full-test-data.md"));
   const report = path.resolve(reportInput || path.join(root, "evaluation-report.md"));
+  const financeAudit = path.join(root, "finance-audit.json");
   const { manifest: candidate, manifestPath: candidatePath } = await loadCandidateManifest(root);
   const startedAfter = isoTime(candidate.runStartedAt);
   if (!Number.isFinite(startedAfter)) throw new Error(`Invalid candidate runStartedAt: ${candidate.runStartedAt}`);
@@ -105,7 +106,7 @@ export async function verifyFiveRouteRun({
   appendFailure(caseFiles.length === 5, `Expected exactly 5 completed case JSON files, found ${caseFiles.length}`, failures);
 
   const records = [];
-  const evidenceFiles = [candidatePath, fullData, report];
+  const evidenceFiles = [candidatePath, fullData, report, financeAudit];
   for (const fileName of caseFiles) {
     const file = path.join(casesDir, fileName);
     const metadata = await stat(file);
@@ -127,6 +128,8 @@ export async function verifyFiveRouteRun({
 
     appendFailure(record.runId === path.basename(root), `${label}: runId does not match run root`, failures);
     appendFailure(sameSourceIdentity(record.sourceIdentity, expectedSourceIdentity), `${label}: source identity does not match candidate`, failures);
+    appendFailure(sameSourceIdentity(state.releaseRuntimeIdentity, expectedSourceIdentity), `${label}: browser runtime identity does not match candidate`, failures);
+    appendFailure(record.validation?.runtimeIdentityMatchesCandidate === true, `${label}: completion did not validate browser runtime identity`, failures);
     appendFailure(record.dataSource === "real_ai_browser", `${label}: dataSource is not real_ai_browser`, failures);
     appendFailure(state.testDataSource === "real_ai_browser" && !state.e2eCase, `${label}: final state is not proven real-AI browser data`, failures);
     appendFailure(record.passed === true, `${label}: record.passed is not true`, failures);
@@ -219,6 +222,22 @@ export async function verifyFiveRouteRun({
     for (const record of records) appendFailure(body.includes(record.caseSlug), `evaluation report: missing ${record.caseSlug}`, failures);
   } catch (error) {
     failures.push(`evaluation report missing or invalid (${error.message})`);
+  }
+
+  try {
+    const metadata = await stat(financeAudit);
+    const audit = JSON.parse(await readFile(financeAudit, "utf8"));
+    appendFailure(metadata.size > 0, "finance audit is empty", failures);
+    appendFailure(metadata.mtimeMs >= startedAfter, "finance audit predates candidate", failures);
+    appendFailure(isoTime(audit.generatedAt) >= startedAfter, "finance audit generatedAt predates candidate", failures);
+    appendFailure(audit.validationMode === "certify", "finance audit is not certify mode", failures);
+    appendFailure(audit.candidateId === candidate.candidateId, "finance audit candidateId mismatch", failures);
+    appendFailure(audit.derivedDiagnostic === false, "finance audit is a derived diagnostic, not certification evidence", failures);
+    appendFailure(sameSourceIdentity(audit.sourceIdentity?.expected, expectedSourceIdentity), "finance audit source identity does not match candidate", failures);
+    appendFailure(audit.sourceIdentity?.matches === true, "finance audit reports a source identity mismatch", failures);
+    appendFailure(Boolean(audit.summary && typeof audit.summary === "object"), "finance audit summary is missing", failures);
+  } catch (error) {
+    failures.push(`finance-audit.json missing or invalid (${error.message})`);
   }
 
   const aggregatePath = path.join(root, "aggregate.json");

@@ -61,6 +61,16 @@ interface FinancialGateEvent extends FinancialNodeAcceptanceDecision {
   historyLength: number;
 }
 
+// This is intentionally non-secret and only emitted through the DEV test
+// state. The release-candidate server injects it into the compiled browser
+// module so evidence can prove which frozen bundle was actually exercised.
+const releaseRuntimeIdentity = Object.freeze({
+  candidateId: import.meta.env.VITE_RELEASE_CANDIDATE_ID || null,
+  sourceCommit: import.meta.env.VITE_RELEASE_SOURCE_COMMIT || null,
+  runtimeFingerprint: import.meta.env.VITE_RELEASE_RUNTIME_FINGERPRINT || null,
+  collectorFingerprint: import.meta.env.VITE_RELEASE_COLLECTOR_FINGERPRINT || null
+});
+
 function createGenerationEvent(
   type: GenerationEvent["type"],
   input: Omit<GenerationEvent, "id" | "type" | "at">
@@ -222,6 +232,7 @@ export default function App() {
       capturedAt: new Date().toISOString(),
       e2eCase,
       recordTestRun,
+      releaseRuntimeIdentity,
       testDataSource: e2eCase ? "deterministic_fixture" : "real_ai_browser",
       step,
       userName: name,

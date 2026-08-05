@@ -43,6 +43,16 @@ function sameSourceIdentity(left, right) {
     && left.collectorFingerprint === right.collectorFingerprint);
 }
 
+export function runtimeIdentityMatchesCandidate({ runtimeIdentity, sourceIdentity }) {
+  return !sourceIdentity || sameSourceIdentity(runtimeIdentity, sourceIdentity);
+}
+
+export function assertRuntimeIdentityMatchesCandidate({ runtimeIdentity, sourceIdentity }) {
+  if (!runtimeIdentityMatchesCandidate({ runtimeIdentity, sourceIdentity })) {
+    throw new Error("Browser runtime identity does not match the frozen release candidate");
+  }
+}
+
 export async function loadRunSourceIdentity(recordRoot) {
   try {
     const manifest = JSON.parse(await readFile(path.join(recordRoot, CANDIDATE_MANIFEST_NAME), "utf8"));
@@ -313,7 +323,12 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       const count = await locator.count();
       if (count === 1) {
         const raw = await locator.textContent();
-        return JSON.parse(raw || "{}");
+        const state = JSON.parse(raw || "{}");
+        assertRuntimeIdentityMatchesCandidate({
+          runtimeIdentity: state.releaseRuntimeIdentity,
+          sourceIdentity
+        });
+        return state;
       }
       if (count > 1) throw new Error(`Expected one test state node, got ${count}`);
       await tab.playwright.waitForTimeout(50);
@@ -826,6 +841,10 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const expectedClosure = config.scenario === "natural_lifespan" ? "mortality" : "user_reflection";
     const genericTemplatePattern = /第\s*\d+\s*个阶段带来了新的现实反馈/;
     const validation = {
+      runtimeIdentityMatchesCandidate: runtimeIdentityMatchesCandidate({
+        runtimeIdentity: finalState.releaseRuntimeIdentity,
+        sourceIdentity
+      }),
       realAiBrowserSource: finalState.testDataSource === "real_ai_browser" && !finalState.e2eCase,
       completeWebHistory: history.length > 0,
       allStoryBodiesPresent: history.every((item) => typeof item.description === "string" && item.description.trim().length > 0),

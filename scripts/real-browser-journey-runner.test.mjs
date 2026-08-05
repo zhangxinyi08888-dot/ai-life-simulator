@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  assertRuntimeIdentityMatchesCandidate,
   assertDistinctFinalImageEvidence,
   buildDevFsImportReference,
   buildFinalImageRestorePayload,
@@ -175,4 +176,25 @@ test("PB-RUN-11 a checkpoint cannot cross release-candidate source identities", 
     config: { slug: "real-venture-second", scenario: "accept_second" },
     resume: true
   }), /different release candidate source identity/u);
+});
+
+test("PB-RUN-12 browser state must expose the frozen candidate identity before it can be collected", () => {
+  const sourceIdentity = {
+    candidateId: "candidate",
+    sourceCommit: "a".repeat(40),
+    runtimeFingerprint: "b".repeat(64),
+    collectorFingerprint: "c".repeat(64)
+  };
+  assert.doesNotThrow(() => assertRuntimeIdentityMatchesCandidate({
+    runtimeIdentity: { ...sourceIdentity },
+    sourceIdentity
+  }));
+  assert.throws(() => assertRuntimeIdentityMatchesCandidate({
+    runtimeIdentity: { ...sourceIdentity, runtimeFingerprint: "wrong" },
+    sourceIdentity
+  }), /Browser runtime identity/u);
+  assert.throws(() => assertRuntimeIdentityMatchesCandidate({
+    runtimeIdentity: undefined,
+    sourceIdentity
+  }), /Browser runtime identity/u);
 });

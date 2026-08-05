@@ -25,6 +25,9 @@ jobs:
       VITE_DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       VITE_DEEPSEEK_MODEL: deepseek-v4-flash
       VITE_DEEPSEEK_BASE_URL: https://api.deepseek.com
+      VITE_FINANCIAL_NODE_GATE_MODE: enforced
+      VITE_EXPENSE_LIFECYCLE_MODE: enforced
+      VITE_ENABLE_CANDIDATE_PATCH_REPAIR: "false"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -15,6 +15,7 @@
     "test": "node scripts/run-typescript-tests.mjs",
     "test:test-process": "node --test scripts/release-candidate.test.mjs scripts/verify-five-route-run.test.mjs scripts/real-browser-journey-runner.test.mjs",
     "release:prepare": "node scripts/prepare-release-candidate.mjs",
+    "release:serve": "node scripts/serve-release-candidate.mjs",
     "release:analyze": "node scripts/analyze-financial-real-browser-run.mjs",
     "release:verify": "node scripts/verify-five-route-run.mjs",
     "release:verify-approval": "node scripts/verify-release-approval.mjs",

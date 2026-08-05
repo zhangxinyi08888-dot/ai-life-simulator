@@ -8,6 +8,8 @@ import { promisify } from "node:util";
 import {
   computeSourceState,
   prepareReleaseCandidate,
+  releaseRuntimeEnvFromCandidate,
+  resolveReleaseEnvironment,
   resolveEvidenceRoot
 } from "./lib/release-candidate.mjs";
 import { verifyReleaseApproval } from "./verify-release-approval.mjs";
@@ -19,11 +21,15 @@ async function createRepository() {
   await mkdir(path.join(repositoryPath, "src"), { recursive: true });
   await mkdir(path.join(repositoryPath, "scripts"), { recursive: true });
   await mkdir(path.join(repositoryPath, "docs"), { recursive: true });
+  await mkdir(path.join(repositoryPath, ".github", "workflows"), { recursive: true });
+  await mkdir(path.join(repositoryPath, "public"), { recursive: true });
   await Promise.all([
     writeFile(path.join(repositoryPath, "src", "runtime.ts"), "export const value = 1;\n"),
     writeFile(path.join(repositoryPath, "src", "runtime.test.ts"), "// test\n"),
     writeFile(path.join(repositoryPath, "scripts", "collector.mjs"), "export const collector = 1;\n"),
     writeFile(path.join(repositoryPath, "docs", "guide.md"), "guide\n"),
+    writeFile(path.join(repositoryPath, ".github", "workflows", "deploy-pages.yml"), "name: deploy\n"),
+    writeFile(path.join(repositoryPath, "public", "favicon.txt"), "icon\n"),
     writeFile(path.join(repositoryPath, "package.json"), "{\"type\":\"module\"}\n")
   ]);
   await execFileAsync("git", ["init"], { cwd: repositoryPath });
@@ -47,6 +53,14 @@ test("runtime fingerprint ignores docs and tests but changes with production sou
   const runtimeChange = await computeSourceState(repositoryPath);
   assert.notEqual(runtimeChange.runtimeFingerprint, baseline.runtimeFingerprint);
   assert.deepEqual(runtimeChange.runtimeDirtyPaths, ["src/runtime.ts"]);
+
+  await writeFile(path.join(repositoryPath, ".github", "workflows", "deploy-pages.yml"), "name: changed deploy\n");
+  const deployChange = await computeSourceState(repositoryPath);
+  assert.notEqual(deployChange.runtimeFingerprint, runtimeChange.runtimeFingerprint);
+
+  await writeFile(path.join(repositoryPath, "public", "favicon.txt"), "changed icon\n");
+  const publicChange = await computeSourceState(repositoryPath);
+  assert.notEqual(publicChange.runtimeFingerprint, deployChange.runtimeFingerprint);
 });
 
 test("certification candidate requires clean source and an evidence root outside Git", async () => {
@@ -60,6 +74,8 @@ test("certification candidate requires clean source and an evidence root outside
     now: () => "2026-08-03T00:00:00.000Z"
   });
   assert.equal(result.manifest.validationMode, "certify");
+  assert.deepEqual(result.manifest.releaseEnvironment, resolveReleaseEnvironment({}));
+  assert.equal(result.manifest.launchUrl, "http://127.0.0.1:5174/ai-life-simulator/");
   assert.equal(result.manifest.repositoryPath, await realpath(repositoryPath));
   assert.equal(result.manifest.evidenceRoot, path.join(evidenceBase, runId));
 
@@ -68,6 +84,36 @@ test("certification candidate requires clean source and an evidence root outside
     runId: "inside-root",
     root: path.join(repositoryPath, "artifacts", "inside-root")
   }), /outside the Git worktree/u);
+
+  await assert.rejects(prepareReleaseCandidate({
+    cwd: repositoryPath,
+    runId: "wrong-launch-path",
+    root: path.join(evidenceBase, "wrong-launch-path"),
+    launchUrl: "http://127.0.0.1:5174/"
+  }), /launchUrl path/u);
+});
+
+test("candidate runtime server receives the frozen non-secret identity and effective environment", () => {
+  const candidate = {
+    candidateId: "candidate",
+    sourceCommit: "a".repeat(40),
+    runtimeFingerprint: "b".repeat(64),
+    collectorFingerprint: "c".repeat(64),
+    releaseEnvironment: resolveReleaseEnvironment({
+      BASE_PATH: "/release",
+      VITE_DEEPSEEK_MODEL: "test-model",
+      VITE_DEEPSEEK_BASE_URL: "https://example.test/",
+      VITE_FINANCIAL_NODE_GATE_MODE: "shadow",
+      VITE_EXPENSE_LIFECYCLE_MODE: "enforced",
+      VITE_ENABLE_CANDIDATE_PATCH_REPAIR: "true"
+    })
+  };
+  const environment = releaseRuntimeEnvFromCandidate(candidate);
+  assert.equal(environment.BASE_PATH, "/release/");
+  assert.equal(environment.VITE_DEEPSEEK_MODEL, "test-model");
+  assert.equal(environment.VITE_DEEPSEEK_BASE_URL, "https://example.test");
+  assert.equal(environment.VITE_RELEASE_CANDIDATE_ID, candidate.candidateId);
+  assert.equal(environment.VITE_RELEASE_RUNTIME_FINGERPRINT, candidate.runtimeFingerprint);
 });
 
 test("certification candidate rejects dirty runtime while explore mode records it", async () => {
@@ -101,7 +147,8 @@ test("deployment approval survives evidence-only changes but rejects runtime dri
     candidateId: "candidate",
     sourceCommit: source.sourceCommit,
     runtimeFingerprint: source.runtimeFingerprint,
-    releaseEnvironment: { basePath: null, model: null, modelBaseUrl: null },
+    collectorFingerprint: source.collectorFingerprint,
+    releaseEnvironment: resolveReleaseEnvironment({}),
     evidenceDigest: "d".repeat(64),
     routeVerification: {
       ok: true,
@@ -115,12 +162,28 @@ test("deployment approval survives evidence-only changes but rejects runtime dri
   });
   assert.equal(approved.ok, true, approved.failures.join("\n"));
 
+  const wrongEnvironment = await verifyReleaseApproval({
+    approvalPath: "release/evidence/candidate.json",
+    cwd: repositoryPath,
+    env: { BASE_PATH: "/unexpected/" }
+  });
+  assert.equal(wrongEnvironment.ok, false);
+  assert.equal(wrongEnvironment.failures.some((failure) => failure.includes("basePath differs")), true);
+
   await writeFile(path.join(repositoryPath, "docs", "guide.md"), "evidence-only follow-up\n");
   const stillApproved = await verifyReleaseApproval({
     approvalPath: "release/evidence/candidate.json",
     cwd: repositoryPath
   });
   assert.equal(stillApproved.ok, true, stillApproved.failures.join("\n"));
+
+  await writeFile(path.join(repositoryPath, "scripts", "collector.mjs"), "export const collector = 99;\n");
+  const collectorRejected = await verifyReleaseApproval({
+    approvalPath: "release/evidence/candidate.json",
+    cwd: repositoryPath
+  });
+  assert.equal(collectorRejected.ok, false);
+  assert.equal(collectorRejected.failures.some((failure) => failure.includes("collector fingerprint")), true);
 
   await writeFile(path.join(repositoryPath, "src", "runtime.ts"), "export const value = 99;\n");
   const rejected = await verifyReleaseApproval({

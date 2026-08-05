@@ -5,7 +5,12 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { computeSourceState, resolveRepositoryRoot } from "./lib/release-candidate.mjs";
+import {
+  assertCompleteReleaseEnvironment,
+  computeSourceState,
+  resolveReleaseEnvironment,
+  resolveRepositoryRoot
+} from "./lib/release-candidate.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -43,21 +48,31 @@ export async function verifyReleaseApproval({ approvalPath, cwd = process.cwd(),
     || approval.routeVerification?.scenarioCounts?.natural_lifespan !== 1) failures.push("approval scenario allocation is not 2/2/1");
   if (!/^[a-f0-9]{64}$/u.test(approval.evidenceDigest || "")) failures.push("approval evidence digest is missing or invalid");
   if (current.runtimeFingerprint !== approval.runtimeFingerprint) failures.push("runtime fingerprint differs from the certified candidate");
+  if (current.collectorFingerprint !== approval.collectorFingerprint) failures.push("collector fingerprint differs from the certified candidate");
   if (current.runtimeDirtyPaths.length) failures.push(`runtime files are dirty: ${current.runtimeDirtyPaths.join(", ")}`);
+  if (current.collectorDirtyPaths.length) failures.push(`collector files are dirty: ${current.collectorDirtyPaths.join(", ")}`);
   try {
     await execFileAsync("git", ["merge-base", "--is-ancestor", approval.sourceCommit, "HEAD"], { cwd: repositoryPath });
   } catch {
     failures.push("certified source commit is not an ancestor of the deployment revision");
   }
-  const expectedEnvironment = approval.releaseEnvironment || {};
-  const actualEnvironment = {
-    basePath: env.BASE_PATH || null,
-    model: env.VITE_DEEPSEEK_MODEL || null,
-    modelBaseUrl: env.VITE_DEEPSEEK_BASE_URL || null
-  };
-  for (const key of Object.keys(expectedEnvironment)) {
-    if (expectedEnvironment[key] != null && expectedEnvironment[key] !== actualEnvironment[key]) {
-      failures.push(`release environment ${key} differs from certification`);
+  let expectedEnvironment;
+  try {
+    expectedEnvironment = assertCompleteReleaseEnvironment(approval.releaseEnvironment);
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : "approval release environment is invalid");
+  }
+  let actualEnvironment;
+  try {
+    actualEnvironment = resolveReleaseEnvironment(env);
+  } catch (error) {
+    failures.push(error instanceof Error ? error.message : "deployment release environment is invalid");
+  }
+  if (expectedEnvironment && actualEnvironment) {
+    for (const [key, value] of Object.entries(expectedEnvironment)) {
+      if (value !== actualEnvironment[key]) {
+        failures.push(`release environment ${key} differs from certification`);
+      }
     }
   }
   return {
@@ -67,6 +82,7 @@ export async function verifyReleaseApproval({ approvalPath, cwd = process.cwd(),
     sourceCommit: approval.sourceCommit,
     deploymentCommit: current.sourceCommit,
     runtimeFingerprint: current.runtimeFingerprint,
+    collectorFingerprint: current.collectorFingerprint,
     failures
   };
 }

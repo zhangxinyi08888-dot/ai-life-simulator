@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { sourceIdentityFromCandidate } from "./lib/release-candidate.mjs";
+import { resolveReleaseEnvironment, sourceIdentityFromCandidate } from "./lib/release-candidate.mjs";
 import { verifyFiveRouteRun, writeReleaseApproval } from "./verify-five-route-run.mjs";
 
 const routes = [
@@ -57,7 +57,7 @@ async function createValidRun() {
     runtimeFingerprint: "b".repeat(64),
     collectorFingerprint: "c".repeat(64),
     evidenceRoot: root,
-    releaseEnvironment: { basePath: null, model: null, modelBaseUrl: null }
+    releaseEnvironment: resolveReleaseEnvironment({})
   };
   await writeFile(path.join(root, "candidate-manifest.json"), `${JSON.stringify(candidate, null, 2)}\n`);
   const sourceIdentity = sourceIdentityFromCandidate(candidate);
@@ -83,8 +83,10 @@ async function createValidRun() {
       startedAt: "2026-08-03T00:00:00.000Z",
       completedAt: "2026-08-03T00:01:00.000Z",
       interactionLog: interactions(scenario, slug),
+      validation: { runtimeIdentityMatchesCandidate: true },
       passed: true,
       finalState: {
+        releaseRuntimeIdentity: sourceIdentity,
         testDataSource: "real_ai_browser",
         questions: [{}, {}, {}],
         answers: [{}, {}, {}],
@@ -110,6 +112,14 @@ async function createValidRun() {
   ].join("\n")).join("\n");
   await writeFile(path.join(root, "full-test-data.md"), fullData);
   await writeFile(path.join(root, "evaluation-report.md"), records.map((record) => record.caseSlug).join("\n"));
+  await writeFile(path.join(root, "finance-audit.json"), `${JSON.stringify({
+    generatedAt: "2026-08-03T00:02:00.000Z",
+    validationMode: "certify",
+    candidateId: candidate.candidateId,
+    derivedDiagnostic: false,
+    sourceIdentity: { expected: sourceIdentity, matches: true, mismatches: [] },
+    summary: {}
+  }, null, 2)}\n`);
   await writeFile(path.join(root, "aggregate.json"), `${JSON.stringify({
     validationMode: "certify",
     caseCount: 5,
@@ -156,4 +166,23 @@ test("certification verifier rejects a route collected from another source finge
   const result = await verifyFiveRouteRun({ root: fixture.root, verifyRepository: false });
   assert.equal(result.ok, false);
   assert.equal(result.failures.some((failure) => failure.includes("source identity")), true);
+});
+
+test("certification verifier rejects a route whose browser runtime does not prove the candidate identity", async () => {
+  const fixture = await createValidRun();
+  const file = path.join(fixture.root, "cases", "real-career-first.json");
+  const record = JSON.parse(await readFile(file, "utf8"));
+  record.finalState.releaseRuntimeIdentity.runtimeFingerprint = "wrong";
+  await writeFile(file, `${JSON.stringify(record, null, 2)}\n`);
+  const result = await verifyFiveRouteRun({ root: fixture.root, verifyRepository: false });
+  assert.equal(result.ok, false);
+  assert.equal(result.failures.some((failure) => failure.includes("browser runtime identity")), true);
+});
+
+test("certification verifier requires the fresh finance machine audit in its evidence digest", async () => {
+  const fixture = await createValidRun();
+  await writeFile(path.join(fixture.root, "finance-audit.json"), "not-json\n");
+  const result = await verifyFiveRouteRun({ root: fixture.root, verifyRepository: false });
+  assert.equal(result.ok, false);
+  assert.equal(result.failures.some((failure) => failure.includes("finance-audit.json")), true);
 });
