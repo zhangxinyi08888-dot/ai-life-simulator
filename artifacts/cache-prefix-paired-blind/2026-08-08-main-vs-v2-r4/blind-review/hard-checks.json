@@ -1,0 +1,30 @@
+{
+  "verdict": "ready_for_human_review_with_observed_generation_failure",
+  "checks": [
+    {
+      "name": "exactly 10 successful paired outputs",
+      "status": "pass",
+      "detail": "count=10"
+    },
+    {
+      "name": "all paired inputs are identical",
+      "status": "pass",
+      "detail": "10/10 samePromptInput=true"
+    },
+    {
+      "name": "both sides expose body, choices, and attributes",
+      "status": "pass",
+      "detail": "10/10 pairs"
+    },
+    {
+      "name": "reviewer labels are source-balanced",
+      "status": "pass",
+      "detail": "mainLabels=10; candidateLabels=10"
+    },
+    {
+      "name": "generation failures are retained as separate evidence",
+      "status": "observed",
+      "detail": "count=1"
+    }
+  ]
+}

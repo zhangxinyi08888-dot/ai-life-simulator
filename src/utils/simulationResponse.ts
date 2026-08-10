@@ -1,4 +1,4 @@
-import { LifeIntensity, RecoveryState, SimulationChoice, SimulationNode, TimelineTransition, WorldDelta } from "../types";
+import { LifeAttributes, LifeIntensity, RecoveryState, SimulationChoice, SimulationNode, TimelineTransition, WorldDelta } from "../types";
 import { deriveLifeStage } from "./timelineAdvance";
 import { stableHash } from "./stableRandom";
 import { isValidRomanceDisplayName } from "./romanceCandidateName";
@@ -12,7 +12,17 @@ interface NormalizeOptions {
   elapsedMonths?: number;
   lifeIntensity?: LifeIntensity;
   pressureArcId?: string;
+  /**
+   * Next-node generation may safely retain the prior authoritative values when
+   * an AI response mistakes a delta for an absolute attribute value. Opening
+   * and time-travel nodes deliberately omit this so malformed values retry.
+   */
+  fallbackAttributes?: LifeAttributes;
 }
+
+export const ATTRIBUTE_MIN = 0;
+export const ATTRIBUTE_MAX = 100;
+export const MAX_NARRATIVE_ATTRIBUTE_DELTA = 12;
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -28,12 +38,42 @@ function clampNumber(value: number, min?: number, max?: number): number {
   return value;
 }
 
-function normalizeAttributes(attributes: any): SimulationNode["attributes"] {
+function normalizeAttributes(
+  attributes: any,
+  fallbackAttributes?: LifeAttributes
+): SimulationNode["attributes"] {
+  const intelligence = attributes?.intelligence ?? attributes?.wisdom ?? attributes?.talent;
+  const relation = attributes?.relation ?? attributes?.social ?? attributes?.relationships;
+  const repair = (
+    value: unknown,
+    previous: number,
+    preservePrevious = false,
+    enforceDelta = true
+  ): number => {
+    if (preservePrevious) return previous;
+    if (typeof value !== "number" || !Number.isFinite(value)) return previous;
+    if (value < ATTRIBUTE_MIN || value > ATTRIBUTE_MAX) return previous;
+    if (enforceDelta && Math.abs(value - previous) > MAX_NARRATIVE_ATTRIBUTE_DELTA) return previous;
+    return value;
+  };
+  if (fallbackAttributes) {
+    return {
+      happiness: repair(attributes?.happiness, fallbackAttributes.happiness),
+      intelligence: repair(intelligence, fallbackAttributes.intelligence),
+      // Wealth is a derived ledger result. A model-proposed display value must
+      // never become the next node's financial source of truth.
+      wealth: repair(attributes?.wealth, fallbackAttributes.wealth, true),
+      relation: repair(relation, fallbackAttributes.relation),
+      // Health has its own authoritative reconciliation cap after narrative
+      // generation, including the major-health-event exception.
+      health: repair(attributes?.health, fallbackAttributes.health, false, false)
+    };
+  }
   return {
     happiness: readNumber(attributes?.happiness, 50),
-    intelligence: readNumber(attributes?.intelligence ?? attributes?.wisdom ?? attributes?.talent, 50),
+    intelligence: readNumber(intelligence, 50),
     wealth: readNumber(attributes?.wealth, 50),
-    relation: readNumber(attributes?.relation ?? attributes?.social ?? attributes?.relationships, 50),
+    relation: readNumber(relation, 50),
     health: readNumber(attributes?.health, 50)
   };
 }
@@ -147,6 +187,29 @@ export function normalizeSimulationNodeChoices<T extends Record<string, any>>(no
   };
 }
 
+/**
+ * New model responses sometimes use semantic or numeric choice ids even when
+ * the response contract asks for A/B/C.  Those ids are not user-facing facts:
+ * a freshly generated node has not yet been selected or persisted.  Canonical
+ * ids therefore make the public choice contract deterministic without
+ * replacing the model's choice text, impact summary, intent, or outcome.
+ *
+ * This intentionally stays separate from `normalizeSimulationNodeChoices`.
+ * The latter is also used for legacy/persisted data, where changing an
+ * existing id could break a saved selection reference.
+ */
+export function canonicalizeGeneratedChoiceIds<T extends Record<string, any>>(node: T): WithNormalizedChoices<T> {
+  const normalized = normalizeSimulationNodeChoices(node);
+  if (normalized.choices.length !== 3) return normalized;
+  return {
+    ...normalized,
+    choices: normalized.choices.map((choice, index) => ({
+      ...choice,
+      id: String.fromCharCode(65 + index)
+    }))
+  };
+}
+
 function normalizeInternalTransitions(
   value: unknown,
   startAgeInMonths: number,
@@ -185,8 +248,36 @@ function normalizeInternalTransitions(
 export interface SimulationNodeValidationOptions {
   allowedOutcomeIds?: string[];
   eventIntentType?: string;
+  previousAttributes?: LifeAttributes;
   /** New AI responses must provide a real text field; legacy history normalization remains tolerant. */
   requireExplicitChoiceText?: boolean;
+}
+
+function hasAbsoluteAttributeValues(attributes: any): boolean {
+  return [
+    attributes?.happiness,
+    attributes?.intelligence ?? attributes?.wisdom ?? attributes?.talent,
+    attributes?.wealth,
+    attributes?.relation ?? attributes?.social ?? attributes?.relationships,
+    attributes?.health
+  ].every((value) => (
+    typeof value === "number"
+    && Number.isFinite(value)
+    && value >= ATTRIBUTE_MIN
+    && value <= ATTRIBUTE_MAX
+  ));
+}
+
+function exceedsNarrativeAttributeDelta(attributes: any, previousAttributes?: LifeAttributes): boolean {
+  if (!previousAttributes || !hasCompleteAttributes(attributes)) return false;
+  const values = {
+    happiness: attributes.happiness,
+    intelligence: attributes.intelligence ?? attributes.wisdom ?? attributes.talent,
+    relation: attributes.relation ?? attributes.social ?? attributes.relationships
+  };
+  return Object.entries(values).some(([key, value]) => (
+    Math.abs(value as number - previousAttributes[key as keyof Omit<LifeAttributes, "wealth">]) > MAX_NARRATIVE_ATTRIBUTE_DELTA
+  ));
 }
 
 function matchesRomanceOutcomeSemantics(outcomeId: string, text: string): boolean {
@@ -399,6 +490,18 @@ export function repairDeterministicRomanceChoices<T extends Record<string, any>>
     && normalized.choices.every((choice) => matchesRomanceOutcomeSemantics(choice.eventOutcomeId || "", choice.text));
   if (alreadyValid) return { ...node, choices: normalized.choices };
 
+  // This helper may supply missing outcome ids and normalize a genuinely
+  // romance-focused choice set. It must not swap a different, still-visible
+  // decision (for example a career crossroads) for romance choices merely
+  // because the prose happens to introduce a new person. Leaving such a node
+  // untouched lets the contract validator redispatch or safely reschedule it.
+  const romanceDecisionLanguage = /关系|伴侣|相处|彼此|浪漫|恋爱|约会|见面|联系|朋友|边界|共同|承诺|交往|分手|相识|熟人|对方/;
+  const unrelatedDecisionLanguage = /创业|公司|岗位|职位|职业|工作|收入|项目|投资|财务|现金流|健康|治疗|休息|照护|学习|课程|搬家|城市/;
+  const unrelatedDecisionCount = normalized.choices.filter((choice) => (
+    unrelatedDecisionLanguage.test(choice.text) && !romanceDecisionLanguage.test(choice.text)
+  )).length;
+  if (unrelatedDecisionCount >= 2) return { ...node, choices: normalized.choices };
+
   const displayName = readString(groundedCharacter.displayName) || "对方";
   const unused = [...normalized.choices];
   const choices = contract.map((item, index) => {
@@ -430,6 +533,8 @@ export function getSimulationNodeValidationIssues(
 
   if (!readNodeDescription(node)) issues.push("description");
   if (!hasCompleteAttributes(node?.attributes)) issues.push("attributes");
+  else if (!hasAbsoluteAttributeValues(node.attributes)) issues.push("attributesRange");
+  else if (exceedsNarrativeAttributeDelta(node.attributes, options.previousAttributes)) issues.push("attributesChange");
   if (choices.length !== requiredChoiceCount) issues.push("choices");
   if (
     options.requireExplicitChoiceText
@@ -500,7 +605,7 @@ export function normalizeSimulationNode<T extends Record<string, any>>(node: T, 
     title,
     description,
     descriptionParagraphs,
-    attributes: normalizeAttributes(normalized.attributes),
+    attributes: normalizeAttributes(normalized.attributes, options.fallbackAttributes),
     isEndingNode: Boolean(normalized.isEndingNode),
     narrativeMeta: {
       elapsedMonths,

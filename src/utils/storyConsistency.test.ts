@@ -91,6 +91,52 @@ const romanticWorld = (stage: "exploring" | "dating" | "cohabiting" | "married")
   version: 2 as const
 });
 
+const endedRomanceWorld = {
+  people: [romanticPerson],
+  directionArcs: [],
+  pressureArcs: [],
+  relationships: [{
+    id: "relationship_ended_romantic",
+    participantPersonIds: [romanticPerson.id],
+    type: "romantic" as const,
+    stage: "ended" as const,
+    status: "ended" as const,
+    statusEffectiveFromAgeInMonths: 960,
+    effectiveFromAgeInMonths: 960,
+    source: "accepted_history" as const,
+    confidence: 0.95
+  }],
+  version: 2 as const
+};
+
+assert.equal(validateStoryConsistency({
+  node: { ...node, description: "你和林遥已经分开近两年，仍在重新安排自己的生活。" },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: endedRomanceWorld
+}).some((issue) => issue.code === "relative_time_authority_conflict"), false);
+
+assert.ok(validateStoryConsistency({
+  node: { ...node, description: "你和林遥已经分开近四年，仍在重新安排自己的生活。" },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: endedRomanceWorld
+}).some((issue) => issue.code === "relative_time_authority_conflict"));
+
+const endedRomanceWithoutStatusTiming = {
+  ...endedRomanceWorld,
+  relationships: endedRomanceWorld.relationships.map((relationship) => {
+    const { statusEffectiveFromAgeInMonths: _statusEffectiveFromAgeInMonths, ...legacyRelationship } = relationship;
+    return legacyRelationship;
+  })
+};
+assert.equal(validateStoryConsistency({
+  node: { ...node, description: "你和林遥已经分开近四年，仍在重新安排自己的生活。" },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: endedRomanceWithoutStatusTiming
+}).some((issue) => issue.code === "relative_time_authority_conflict"), false);
+
 assert.ok(validateStoryConsistency({
   node: { ...node, description: "你们已经正式交往，并开始以伴侣身份安排生活。" },
   targetAgeInMonths: 984,

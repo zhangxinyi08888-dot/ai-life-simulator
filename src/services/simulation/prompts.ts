@@ -7,8 +7,8 @@ import {
   buildNullEventPrompt,
   NEXT_NODE_EVENT_POLICY_CATALOG_V1
 } from "../../utils/eventPrompt";
-import { StoryContextPack } from "../../utils/storyContext";
-import { EmploymentTransitionProposal, FinancialState, HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
+import { formatCacheAwareStoryContextStablePrefix, type StoryContextPack } from "../../utils/storyContext";
+import { EmploymentTransitionProposal, FinancialState, HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, RelationshipState, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
 import { AgeContext, formatAgeContextForPrompt } from "../../utils/ageContext";
 import { formatPersonStateForPrompt } from "../../utils/personTimeline";
 import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance";
@@ -52,6 +52,31 @@ function formatHistoryForSimulation(history: HistoryItem[]): string {
 累计净财富：${item.financialState ? `${item.financialState.netWorthWan} 万元` : "暂无快照"}`).join("\n\n");
 }
 
+/**
+ * Relationship origin and relationship-status timing are distinct facts.  In
+ * particular, an ended relationship's origin cannot be used as its breakup
+ * date: legacy histories may know the former while lacking the latter.
+ */
+function formatRelationshipTimingForPrompt(
+  relationship: RelationshipState,
+  targetAgeInMonths: number
+): string {
+  const origin = Number.isSafeInteger(relationship.effectiveFromAgeInMonths)
+    && relationship.effectiveFromAgeInMonths >= 0
+    ? `，relationshipOriginAgeInMonths=${relationship.effectiveFromAgeInMonths}`
+    : "";
+  const statusEffective = relationship.statusEffectiveFromAgeInMonths;
+  if (
+    !Number.isSafeInteger(statusEffective)
+    || statusEffective < 0
+    || statusEffective > targetAgeInMonths
+  ) return origin;
+  const endedElapsed = relationship.status === "ended"
+    ? `，statusToTargetElapsedMonths=${targetAgeInMonths - statusEffective}`
+    : "";
+  return `${origin}，statusEffectiveFromAgeInMonths=${statusEffective}${endedElapsed}`;
+}
+
 function formatHistoryForInsight(history: HistoryItem[]): string {
   return history.map((item) => `【${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} - ${item.title} (${item.stage})】
 情境描述：${item.description}
@@ -90,6 +115,8 @@ export function buildNodePromptWithRetryNotice(prompt: string, previousIssues: s
     invalidJson: "返回内容不是可解析的完整 JSON",
     description: "descriptionParagraphs 剧情正文段落",
     attributes: "attributes 五维数值",
+    attributesRange: "attributes 必须是 0-100 的绝对值，不能是负数、超过 100 或增减量",
+    attributesChange: "attributes 相对上轮变化超过允许边界；财富由账本计算，其他属性通常不得超过 ±12",
     choices: "choices 选项",
     choiceText: "每个 choice 自己的非空 text 展示正文",
     eventOutcomeId: "choice.eventOutcomeId 缺失或不在本事件 allowedOutcomes 中",
@@ -280,7 +307,8 @@ function buildNextNodePromptLegacy(input: NextNodePromptInput): string {
         const progression = relationship.progression
           ? `，checkpoint=${relationship.progression.checkpointKind}，policy=${relationship.progression.policyId}，reviewCount=${relationship.progression.reviewCount}，eligibleAt=${relationship.progression.eligibleAtAgeInMonths}，dueAt=${relationship.progression.dueAtAgeInMonths}，maxAt=${relationship.progression.maxAtAgeInMonths}`
           : "";
-        return `- relationshipId=${relationship.id}，type=${relationship.type}，stage=${relationship.stage || "unknown"}，status=${relationship.status}${progression}，人物=${identities}`;
+        const timing = formatRelationshipTimingForPrompt(relationship, targetAgeInMonths);
+        return `- relationshipId=${relationship.id}，type=${relationship.type}，stage=${relationship.stage || "unknown"}，status=${relationship.status}${timing}${progression}，人物=${identities}`;
       }).join("\n")
     : "- 暂无权威关系状态";
   const familyRelationshipPrompt = worldState?.familyRelationships?.length
@@ -518,6 +546,11 @@ ${formatAttributeChangeRules()}
 }
 
 export const NEXT_NODE_INVARIANT_PREFIX_VERSION = "next_node_cache_prefix_v1_full_context_system_r1";
+// r4 corrects the contradictory choice-id contract: the decision boundary
+// consumes positional A/B/C ids, so the prompt must not invite semantic ids.
+// Keep prior artifacts distinct so cache and quality evidence cannot
+// accidentally mix prompt revisions.
+export const NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION = "next_node_cache_prefix_v2_reference_context_r4";
 
 const NEXT_NODE_FINANCIAL_PROPOSAL_EXAMPLES_V1 = `【固定 Proposal JSON 示例】
 financialEventProposals 示例（仅在正文确实发生对应事实时使用；否则返回 []）：
@@ -576,7 +609,7 @@ export const NEXT_NODE_INVARIANT_PREFIX_V1 = `你是一个才华横溢、精通�
 
 【choice.text 展示正文规则】
 - 每个 choice 必须单独返回非空 text，内容是用户可以直接执行的完整中文选择；id、decisionIntent 和 impactSummary 都是内部或辅助字段，不能代替 text。
-- choice.id 是内部稳定键，允许使用语义 ID；不要把 id 加到 text 前面，禁止用“\${id}. \${impactSummary}”拼接结果充当 text。
+- choice.id 必须严格按显示顺序使用 A、B、C；不要使用数字、option_1 或语义 ID。不要把 id 加到 text 前面，禁止用“\${id}. \${impactSummary}”拼接结果充当 text。
 - text 不能只重复 impactSummary，不能只返回内部 ID。
 
 【decisionIntent 稳定性规则】
@@ -661,7 +694,7 @@ ${NEXT_NODE_EVENT_POLICY_CATALOG_V1}
 ${NEXT_NODE_FINANCIAL_PROPOSAL_EXAMPLES_V1}`;
 
 export interface NextNodePromptLayout {
-  prefixVersion: typeof NEXT_NODE_INVARIANT_PREFIX_VERSION;
+  prefixVersion: typeof NEXT_NODE_INVARIANT_PREFIX_VERSION | typeof NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION;
   invariantPrefix: string;
   sessionContext: string;
   turnContext: string;
@@ -671,16 +704,42 @@ export interface NextNodePromptLayout {
 
 export interface NextNodePromptOptions {
   cacheAwarePromptV1?: boolean;
+  /** Candidate V2: preserve facts while eliminating duplicate dynamic copies. */
+  cacheAwarePromptV2?: boolean;
 }
 
-function buildNextNodePromptV1(input: NextNodePromptInput): NextNodePromptLayout {
+/**
+ * V2 references the authoritative recent-history section instead of repeating
+ * Story Context's copy. Do not make that substitution unless both sources
+ * describe the same five nodes; callers outside SimulationService may supply
+ * a stale context pack.
+ */
+function canUseReferenceStoryContext(storyContext: StoryContextPack | undefined, history: HistoryItem[]): boolean {
+  if (!storyContext) return false;
+  const expected = history.slice(-5);
+  const supplied = storyContext.recentHistory;
+  return supplied.length === expected.length && supplied.every((item, index) => {
+    const counterpart = expected[index];
+    return item.age === counterpart.age
+      && item.ageInMonths === counterpart.ageInMonths
+      && item.title === counterpart.title
+      && item.description === counterpart.description
+      && item.selectedChoice === counterpart.selectedChoice;
+  });
+}
+
+function buildNextNodePromptV1(
+  input: NextNodePromptInput,
+  options: { referenceContext?: boolean } = {}
+): NextNodePromptLayout {
   const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, currentDebtHealthState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc, pressureArcInterleaved } = input;
+  const referenceContext = options.referenceContext === true && canUseReferenceStoryContext(storyContext, history);
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
   const selectedOutcomeId = input.selectedOutcomeId;
   const eventSeedPrompt = eventSeed
-    ? buildCacheAwareEventIntentTail(eventSeed, storyContext)
-    : buildCacheAwareNullEventTail(storyContext);
+    ? buildCacheAwareEventIntentTail(eventSeed, storyContext, { referenceContext })
+    : buildCacheAwareNullEventTail(storyContext, { referenceContext });
   const targetAgeInMonths = timelineAdvance?.targetAgeInMonths ?? (lastAge + 1) * 12;
   const elapsedMonths = timelineAdvance?.elapsedMonths ?? 12;
   const ageContextPrompt = ageContext ? formatAgeContextForPrompt(ageContext) : `【当前年龄与世界状态】\n- 目标时间：${Math.floor(targetAgeInMonths / 12)}岁`;
@@ -694,7 +753,8 @@ function buildNextNodePromptV1(input: NextNodePromptInput): NextNodePromptLayout
         const progression = relationship.progression
           ? `，checkpoint=${relationship.progression.checkpointKind}，policy=${relationship.progression.policyId}，reviewCount=${relationship.progression.reviewCount}，eligibleAt=${relationship.progression.eligibleAtAgeInMonths}，dueAt=${relationship.progression.dueAtAgeInMonths}，maxAt=${relationship.progression.maxAtAgeInMonths}`
           : "";
-        return `- relationshipId=${relationship.id}，type=${relationship.type}，stage=${relationship.stage || "unknown"}，status=${relationship.status}${progression}，人物=${identities}`;
+        const timing = formatRelationshipTimingForPrompt(relationship, targetAgeInMonths);
+        return `- relationshipId=${relationship.id}，type=${relationship.type}，stage=${relationship.stage || "unknown"}，status=${relationship.status}${timing}${progression}，人物=${identities}`;
       }).join("\n")
     : "- 暂无权威关系状态";
   const familyRelationshipPrompt = worldState?.familyRelationships?.length
@@ -728,6 +788,9 @@ function buildNextNodePromptV1(input: NextNodePromptInput): NextNodePromptLayout
           : ""
     : "";
 
+  const stableStoryContext = referenceContext && storyContext
+    ? `\n\n${formatCacheAwareStoryContextStablePrefix(storyContext)}`
+    : "";
   const sessionContext = `【用户改写起点与真实背景图谱】
 - 性别：${userData.gender}
 - 本次重置宿命起点：${userData.regressionAge || 20} 岁
@@ -736,7 +799,7 @@ function buildNextNodePromptV1(input: NextNodePromptInput): NextNodePromptLayout
 - 核心关注主线：${focusLabel(userData.coreStoryFocus)}
 
 【3道剧本背景补全问题得到的真实材料】
-${formatAnswerTurns(answers, { question: "背景补全问题", answer: "用户补充的当时真实信息" }) || "暂无描述"}`;
+${formatAnswerTurns(answers, { question: "背景补全问题", answer: "用户补充的当时真实信息" }) || "暂无描述"}${stableStoryContext}`;
 
   const turnContext = `【平行宇宙既往旅程】
 ${formatHistoryForSimulation(history) || "无更早经历"}
@@ -793,6 +856,10 @@ ${targetAgeInMonths >= 55 * 12 ? "- 主角已满 55 岁：如果 description 明
 ${targetAgeInMonths >= 80 * 12 ? "- 主角已满 80 岁：本节点不得继续沿用 employed。若仍持续独立创作、顾问或经营，应提交到 self_employed 的 employmentTransition 并迁移职业收入；否则必须提交 retired 或 not_working，并结束 linkedCareerStateId 对应工资。非职业收入继续保留。" : ""}
 ${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
 ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
+${referenceContext ? `
+【V2 内容完整性边界】
+- attributes 是本节点结束时的五维绝对总值，不是本轮变化量；幸福、才智、财富、人际、健康均须为 0-100 的有限数值。除财富由账本统一计算外，其余属性相对上轮通常不得超过 ±12。
+- 对 status=ended 的权威爱情关系，正文若写“分开/分手 N 年（个月）”，必须与该关系的 statusEffectiveFromAgeInMonths 和 statusToTargetElapsedMonths 相符；relationshipOriginAgeInMonths 只是关系开始时间，不能当作分手时间。没有可核对的状态生效时间时不要编造精确相对时长。` : ""}
 
 【固定 Proposal JSON 示例的本轮参数】
 - TARGET_AGE_IN_MONTHS=${targetAgeInMonths}
@@ -805,7 +872,9 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
 - 本轮选择、历史与所有权威状态必须一致；只提交已发生且有证据的事实。
 - 返回合法 JSON，不要解释，不要 Markdown。`;
   return {
-    prefixVersion: NEXT_NODE_INVARIANT_PREFIX_VERSION,
+    prefixVersion: referenceContext
+      ? NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION
+      : NEXT_NODE_INVARIANT_PREFIX_VERSION,
     invariantPrefix: NEXT_NODE_INVARIANT_PREFIX_V1,
     sessionContext,
     turnContext,
@@ -814,32 +883,36 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
   };
 }
 
-export function buildNextNodePromptLayout(input: NextNodePromptInput): NextNodePromptLayout {
-  return buildNextNodePromptV1(input);
+export function buildNextNodePromptLayout(input: NextNodePromptInput, options: NextNodePromptOptions = {}): NextNodePromptLayout {
+  return buildNextNodePromptV1(input, { referenceContext: options.cacheAwarePromptV2 === true });
 }
 
 export function buildNextNodePrompt(input: NextNodePromptInput, options: NextNodePromptOptions = {}): string {
   return options.cacheAwarePromptV1 === false
     ? buildNextNodePromptLegacy(input)
-    : buildNextNodePromptV1(input).text;
+    : buildNextNodePromptV1(input, { referenceContext: options.cacheAwarePromptV2 === true }).text;
+}
+
+export function buildNextNodePromptRequestFromLayout(layout: NextNodePromptLayout): AiPromptInput {
+  return {
+    systemPrefix: [layout.invariantPrefix, layout.sessionContext].join("\n\n"),
+    userPrompt: [layout.turnContext, layout.tailChecklist].join("\n\n")
+  };
 }
 
 /**
- * Keep the same concatenated prompt text while transporting the invariant
- * rules and immutable user session as a leading system segment. The dynamic
- * five-node history and current authoritative state stay intact in the user
- * segment, so cache optimisation never relies on removing context.
+ * V1 preserves its historical flattened prompt exactly. Opt-in V2 transports
+ * stable user facts into the system segment and leaves authoritative history
+ * and current state intact in the user segment, replacing only redundant
+ * dynamic copies with explicit references.
  */
 export function buildNextNodePromptRequest(
   input: NextNodePromptInput,
   options: NextNodePromptOptions = {}
 ): AiPromptInput {
   if (options.cacheAwarePromptV1 === false) return buildNextNodePromptLegacy(input);
-  const layout = buildNextNodePromptV1(input);
-  return {
-    systemPrefix: [layout.invariantPrefix, layout.sessionContext].join("\n\n"),
-    userPrompt: [layout.turnContext, layout.tailChecklist].join("\n\n")
-  };
+  const layout = buildNextNodePromptV1(input, { referenceContext: options.cacheAwarePromptV2 === true });
+  return buildNextNodePromptRequestFromLayout(layout);
 }
 
 export function formatRestrictedFinancialLedger(ledger?: FinancialLedger): string {

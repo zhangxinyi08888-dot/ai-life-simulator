@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "sampleCount": 10,
+  "expectedPromptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+  "sourceEligibility": "completed_or_verified_short_sample",
+  "packetSha256": "8e8d745355349f22084e3ca85d4c00e81c353185ee2bf847edb5eab5dbcf97a2",
+  "samples": [
+    {
+      "blindId": "N01",
+      "sourceCaseSlug": "short-relationship-r4-guard",
+      "sourceNodeNumber": 4,
+      "nodeSha256": "7152f20cd75baa46c9a984c136884716368af59c99de99dcf7ff474bf827b2aa"
+    },
+    {
+      "blindId": "N02",
+      "sourceCaseSlug": "short-career-r4-guard",
+      "sourceNodeNumber": 3,
+      "nodeSha256": "e1638984f118c4314b872368f1c573b02c03165ba204c9041ea05c29dc6bf8c2"
+    },
+    {
+      "blindId": "N03",
+      "sourceCaseSlug": "short-career-r4-guard",
+      "sourceNodeNumber": 5,
+      "nodeSha256": "305ab91566d0749d092167bf56b1ad5e2a611117677dc6c04337fb9a17594ddd"
+    },
+    {
+      "blindId": "N04",
+      "sourceCaseSlug": "short-relationship-r4-guard",
+      "sourceNodeNumber": 2,
+      "nodeSha256": "d8152f563a795dc8a04bb7a45c64d7043d82528edb6bdfed210c060b14fa36ce"
+    },
+    {
+      "blindId": "N05",
+      "sourceCaseSlug": "short-career-r4-guard",
+      "sourceNodeNumber": 4,
+      "nodeSha256": "3177257b837a0868de492568d97eb98f5e68e9ba80c0913ce3e15fc83f166f87"
+    },
+    {
+      "blindId": "N06",
+      "sourceCaseSlug": "short-career-r4-guard",
+      "sourceNodeNumber": 1,
+      "nodeSha256": "e8c0a890186cfa380b2a37100d066393276cfb6615d4fbe6dfa881d06440b299"
+    },
+    {
+      "blindId": "N07",
+      "sourceCaseSlug": "short-relationship-r4-guard",
+      "sourceNodeNumber": 3,
+      "nodeSha256": "aa1c89c3310f69fd249c378286a6aca4f62581d99aaf2432757cb2af1cfdbfbb"
+    },
+    {
+      "blindId": "N08",
+      "sourceCaseSlug": "short-relationship-r4-guard",
+      "sourceNodeNumber": 1,
+      "nodeSha256": "72f3acb4d6ba7f7530657b0b74d00c8e62db9d3f8bf449d58084a99ec5c2ab61"
+    },
+    {
+      "blindId": "N09",
+      "sourceCaseSlug": "short-career-r4-guard",
+      "sourceNodeNumber": 2,
+      "nodeSha256": "0f75d40991ef62f8f8db37168ed0b392c4a1ed1ab4e4367798790c16ed54bb96"
+    },
+    {
+      "blindId": "N10",
+      "sourceCaseSlug": "short-relationship-r4-guard",
+      "sourceNodeNumber": 5,
+      "nodeSha256": "cad4cbb750f59e019f3336fe6b221d15f43453af347b3dc5f39ef15aecac1b6f"
+    }
+  ]
+}

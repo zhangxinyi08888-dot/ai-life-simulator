@@ -285,6 +285,12 @@ export interface RelationshipState {
   livingTogether?: boolean;
   financialConnection?: boolean;
   responsibilitySummary?: string;
+  /**
+   * When the current status (active/strained/distant/ended) took effect.
+   * `effectiveFromAgeInMonths` remains the relationship's origin, so it must
+   * not be used as an implicit breakup timestamp.
+   */
+  statusEffectiveFromAgeInMonths?: number;
   effectiveFromAgeInMonths: number;
   progression?: RelationshipProgressionState;
   source: "user" | "answer" | "accepted_history";

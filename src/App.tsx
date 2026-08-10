@@ -8,7 +8,7 @@ import SoulQuestioning from "./components/SoulQuestioning";
 import SimulationEngine from "./components/SimulationEngine";
 import DestinyReport from "./components/DestinyReport";
 import { isAiClientError } from "./services/ai/errors";
-import { getBrowserCacheAwarePromptV1 } from "./services/ai/env";
+import { getBrowserCacheAwarePromptV1, getBrowserCacheAwarePromptV2 } from "./services/ai/env";
 import {
   generateNextNode,
   generateQuestions,
@@ -454,6 +454,7 @@ export default function App() {
             },
             enableCandidatePatchRepair: import.meta.env.VITE_ENABLE_CANDIDATE_PATCH_REPAIR === "true",
             cacheAwarePromptV1: getBrowserCacheAwarePromptV1(),
+            cacheAwarePromptV2: getBrowserCacheAwarePromptV2(),
             onNarrativeProgress: (preview) => {
               const merged = mergeStreamedNodePreview(nextNarrativePreviewRef.current, preview, true);
               nextNarrativePreviewRef.current = merged;

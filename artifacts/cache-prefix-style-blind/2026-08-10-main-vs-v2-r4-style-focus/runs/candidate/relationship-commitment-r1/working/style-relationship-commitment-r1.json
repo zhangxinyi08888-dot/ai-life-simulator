@@ -1,0 +1,1196 @@
+{
+  "schemaVersion": 2,
+  "runId": "relationship-commitment-r1",
+  "journeyId": "ac3226d4-0d9e-4197-82f7-4132612e744a",
+  "identity": {
+    "runId": "relationship-commitment-r1",
+    "journeyId": "ac3226d4-0d9e-4197-82f7-4132612e744a",
+    "caseSlug": "style-relationship-commitment-r1",
+    "scenario": "style_paired_blind",
+    "startedAt": "2026-08-10T03:02:34.615Z"
+  },
+  "dataSource": "real_ai_browser",
+  "caseSlug": "style-relationship-commitment-r1",
+  "scenario": "style_paired_blind",
+  "config": {
+    "slug": "style-relationship-commitment-r1",
+    "scenario": "style_paired_blind",
+    "birthday": "1994-06-26",
+    "birthtime": "21:00",
+    "returnPointName": "重做情感选择 回到关系的关键节点，重新回应或告别 约 26 岁",
+    "anchorText": "28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。",
+    "branches": [
+      "放弃外地晋升，与伴侣共同制定结婚和家庭计划",
+      "接受一年外派，约定固定见面并在年底重新评估关系",
+      "接受长期调任，结束这段无法兼顾的关系"
+    ],
+    "answers": [
+      "我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市。",
+      "冲突时我通常先沉默，等情绪平复后再谈，但也容易为了避免争执而让步。",
+      "我拿到的晋升会让年收入增加约12万元，手里有20万元存款，伴侣有稳定职业和自己的社交支持。"
+    ],
+    "targetSelectedNodeCount": 1
+  },
+  "updatedAt": "2026-08-10T03:03:07.513Z",
+  "complete": false,
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "style-relationship-commitment-r1",
+      "scenario": "style_paired_blind",
+      "runId": "relationship-commitment-r1",
+      "journeyId": "ac3226d4-0d9e-4197-82f7-4132612e744a",
+      "at": "2026-08-10T03:02:34.615Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "晋升与承诺的岔路口",
+      "sourceAgeInMonths": 312,
+      "displayedChoices": [
+        {
+          "id": "A",
+          "text": "放弃外地晋升，与伴侣共同制定结婚和家庭计划，包括购房、照顾父母的时间表，并主动沟通彼此的职业发展。",
+          "impactSummary": "情感优先",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "情感优先"
+          },
+          "decisionIntent": "career:decline_promotion:stay_with_partner",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "B",
+          "text": "接受一年外派，约定每月见面两次，每天视频，年底重新评估关系，同时开始储蓄和规划未来。",
+          "impactSummary": "折中试炼",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "折中试炼"
+          },
+          "decisionIntent": "career:accept_short_term_expat:relocate_temporarily",
+          "expectedWorldDeltaTypes": []
+        },
+        {
+          "id": "C",
+          "text": "接受长期调任，与伴侣坦诚长谈，承认无法兼顾，和平分手，并专注新城市的事业发展。",
+          "impactSummary": "事业前行",
+          "temporalHint": {
+            "lifeIntensity": "stable",
+            "durationMonths": [
+              36,
+              60
+            ],
+            "requiresFollowUp": false,
+            "reason": "事业前行"
+          },
+          "decisionIntent": "career:accept_long_term_transfer:relocate_permanently",
+          "eventOutcomeId": "end_existing_romantic_relationship",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "selectedChoiceId": "B",
+      "selectedChoice": "接受一年外派，约定每月见面两次，每天视频，年底重新评估关系，同时开始储蓄和规划未来。",
+      "resultingNodeTitle": "长途跋涉后的清晰信号",
+      "resultingAgeInMonths": 332,
+      "resultingAttributes": {
+        "happiness": 62,
+        "intelligence": 73,
+        "wealth": 61,
+        "relation": 57,
+        "health": 72
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 332,
+        "cashWan": 38.334,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 38.334,
+        "annualAfterTaxIncomeWan": 20,
+        "annualDisposableIncomeWan": 15.8,
+        "annualCoreExpenseWan": 4.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-08-10T03:03:07.513Z",
+      "runId": "relationship-commitment-r1",
+      "journeyId": "ac3226d4-0d9e-4197-82f7-4132612e744a"
+    }
+  ],
+  "latestState": {
+    "capturedAt": "2026-08-10T03:03:07.446Z",
+    "e2eCase": null,
+    "recordTestRun": "style-v2-relationship-commitment-r1",
+    "testDataSource": "real_ai_browser",
+    "step": "simulating",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "21:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "26 岁 · 关系与遗憾",
+      "milestones": [
+        {
+          "id": "relationship",
+          "title": "关系与遗憾",
+          "content": "28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "",
+      "milestoneRelationship": "28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。",
+      "milestoneOther": "",
+      "regressionNodeKey": "relationship",
+      "regressionAge": 26,
+      "regressionSituation": "【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+      "coreStoryFocus": "romance"
+    },
+    "questions": [
+      {
+        "question": "26岁时，你和伴侣的感情状态具体是怎样的？你们在一起多久了，是否已经谈婚论嫁，或者有没有讨论过未来？",
+        "suggestions": [
+          "我们在一起两年多，感情稳定，但还没正式讨论过结婚。",
+          "我们在一起五年了，双方父母都见过，但还没提结婚。",
+          "我们感情很好，但异地两年，刚结束异地不久。",
+          "我们在一起不到一年，还在热恋期，没想过太远。",
+          "我们关系有些紧张，经常因为未来规划吵架。"
+        ]
+      },
+      {
+        "question": "26岁时，你的事业状态是怎样的？你目前在哪个城市、什么行业、什么岗位？是否已经面临晋升机会或职业瓶颈？",
+        "suggestions": [
+          "我在外地（比如上海/深圳）工作，做互联网运营，刚升到小主管。",
+          "我在老家城市做公务员，工作稳定但想出去闯。",
+          "我在读研，还没正式工作，在考虑毕业后去哪里发展。",
+          "我从事销售，业绩不错，但压力很大，经常出差。",
+          "我在创业，刚起步，很难抽身去外地。"
+        ]
+      },
+      {
+        "question": "26岁时，你父母和伴侣父母对你们关系的态度如何？有没有家庭压力或现实阻力？",
+        "suggestions": [
+          "我父母希望我回老家发展，不同意我远嫁/远走。",
+          "双方父母都催婚，但伴侣还没准备好。",
+          "我父母很开明，支持我的选择，但伴侣父母希望我们尽快结婚。",
+          "我父母反对我们在一起，因为家庭条件差异。",
+          "我们还没跟父母深入聊过，他们不知道我的纠结。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "26岁时，你和伴侣的感情状态具体是怎样的？你们在一起多久了，是否已经谈婚论嫁，或者有没有讨论过未来？",
+        "answer": "我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市。"
+      },
+      {
+        "id": 2,
+        "question": "26岁时，你的事业状态是怎样的？你目前在哪个城市、什么行业、什么岗位？是否已经面临晋升机会或职业瓶颈？",
+        "answer": "冲突时我通常先沉默，等情绪平复后再谈，但也容易为了避免争执而让步。"
+      },
+      {
+        "id": 3,
+        "question": "26岁时，你父母和伴侣父母对你们关系的态度如何？有没有家庭压力或现实阻力？",
+        "answer": "我拿到的晋升会让年收入增加约12万元，手里有20万元存款，伴侣有稳定职业和自己的社交支持。"
+      }
+    ],
+    "history": [
+      {
+        "age": 26,
+        "ageInMonths": 312,
+        "lifeStage": "early_adulthood",
+        "title": "晋升与承诺的岔路口",
+        "stage": "选择前夜",
+        "description": "你和伴侣已交往四年，感情稳定，但双方父母都需要照顾。伴侣的工作稳定，但无法轻易换城市，你们也从未正式谈过婚姻。这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。你习惯在冲突中沉默，等情绪平复再谈，这次却不得不立刻给公司答复。伴侣希望你留下，一起规划婚姻和照顾父母。\n\n你手头的存款和积蓄不足以解决所有现实问题，但机会难得。你需要在事业晋升和感情承诺之间做出选择，而这一决定将影响未来数年的人生轨迹。",
+        "selectedChoice": "接受一年外派，约定每月见面两次，每天视频，年底重新评估关系，同时开始储蓄和规划未来。",
+        "selectedChoiceId": "B",
+        "selectedDecisionIntent": "career:accept_short_term_expat:relocate_temporarily",
+        "attributes": {
+          "happiness": 65,
+          "intelligence": 70,
+          "wealth": 54,
+          "relation": 60,
+          "health": 75
+        },
+        "financialLedger": {
+          "id": "financial_opening_312",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 312,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 12,
+              "status": "active",
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "user",
+                  "excerpt": "【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市。\n冲突时我通常先沉默，等情绪平复后再谈，但也容易为了避免争执而让步。\n我拿到的晋升会让年收入增加约12万元，手里有20万元存款，伴侣有稳定职业和自己的社交支持。",
+                  "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                  "confidence": 1
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [
+            {
+              "id": "legacy_recurring_income",
+              "type": "other",
+              "displayName": "旧版持续收入聚合",
+              "annualNetAmountWan": 20,
+              "accrualPolicy": "annual",
+              "activeFromAgeInMonths": 312,
+              "status": "active",
+              "linkedCareerStateId": "career_opening_312",
+              "factStatus": "estimated",
+              "lastConfirmedAtAgeInMonths": 312,
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 1,
+              "activeFromAgeInMonths": 312,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [],
+          "committedTransactionIds": [],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_312",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 312
+            }
+          ],
+          "revision": 0,
+          "version": 3,
+          "openingAcceptedEventIds": [
+            "accepted_opening_cash_primary_cash",
+            "accepted_opening_income_source_legacy_recurring_income",
+            "accepted_opening_expense_commitment_legacy_core_expense"
+          ]
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 312,
+          "cashWan": 12,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 12,
+          "annualAfterTaxIncomeWan": 20,
+          "annualDisposableIncomeWan": 8,
+          "annualCoreExpenseWan": 12,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "debtHealthState": {
+          "asOfAgeInMonths": 312,
+          "level": "none",
+          "totalDebtWan": 0,
+          "scheduledDebtServiceNext12MonthsWan": 0,
+          "availableCashForDebtNext12MonthsWan": 20,
+          "cashBufferMonths": 12,
+          "liquidityShortfallDebtWan": 0,
+          "consecutiveMissedPaymentMonths": 0,
+          "missedPaymentMonthsLast12": 0,
+          "activeDefaultedDebtCount": 0,
+          "source": "authoritative_ledger",
+          "sourceLedgerRevision": 0,
+          "trend": "unknown",
+          "reasonCodes": [
+            "NO_ACTIVE_DEBT"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "放弃外地晋升，与伴侣共同制定结婚和家庭计划，包括购房、照顾父母的时间表，并主动沟通彼此的职业发展。",
+            "impactSummary": "情感优先",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "情感优先"
+            },
+            "decisionIntent": "career:decline_promotion:stay_with_partner",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "接受一年外派，约定每月见面两次，每天视频，年底重新评估关系，同时开始储蓄和规划未来。",
+            "impactSummary": "折中试炼",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "折中试炼"
+            },
+            "decisionIntent": "career:accept_short_term_expat:relocate_temporarily",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "接受长期调任，与伴侣坦诚长谈，承认无法兼顾，和平分手，并专注新城市的事业发展。",
+            "impactSummary": "事业前行",
+            "temporalHint": {
+              "lifeIntensity": "stable",
+              "durationMonths": [
+                36,
+                60
+              ],
+              "requiresFollowUp": false,
+              "reason": "事业前行"
+            },
+            "decisionIntent": "career:accept_long_term_transfer:relocate_permanently",
+            "eventOutcomeId": "end_existing_romantic_relationship",
+            "expectedWorldDeltaTypes": [
+              "relationship_change"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_7df8c1fd",
+            "startAgeInMonths": 312,
+            "endAgeInMonths": 312,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_1ed1cab5",
+            "summary": "你和伴侣已交往四年，感情稳定，但双方父母都需要照顾。伴侣的工作稳定，但无法轻易换城市，你们也从未正式谈过婚姻。你目前在这座城市工作，月薪约1.5万，略有积蓄，但"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": [],
+          "relationshipProposals": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "person_parent_unspecified",
+              "identityKey": {
+                "namespace": "user_role",
+                "key": "parent:unspecified"
+              },
+              "displayName": "父母",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                44,
+                71
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 312,
+              "lifeStatus": "active",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业；我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市",
+              "source": "user_fact",
+              "confidence": 0.9
+            },
+            {
+              "id": "person_partner_current",
+              "identityKey": {
+                "namespace": "user_role",
+                "key": "partner:current"
+              },
+              "displayName": "伴侣",
+              "relation": "partner",
+              "estimatedAgeRange": [
+                14,
+                38
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 312,
+              "lifeStatus": "active",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "伴侣",
+              "source": "user_fact",
+              "confidence": 0.9
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_dd665c17",
+              "directionType": "romance",
+              "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+              "status": "active",
+              "startedAtAgeInMonths": 312,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_312",
+              "employmentStatus": "employed",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 312,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_312",
+          "currentEmploymentStatus": "employed",
+          "careerRevision": 0,
+          "relationships": [
+            {
+              "id": "relationship_person_partner_current",
+              "participantPersonIds": [
+                "person_partner_current"
+              ],
+              "type": "romantic",
+              "stage": "dating",
+              "status": "active",
+              "effectiveFromAgeInMonths": 312,
+              "progression": {
+                "policyId": "romance_commitment_v1",
+                "checkpointKind": "commitment_review",
+                "startedAtAgeInMonths": 312,
+                "eligibleAtAgeInMonths": 324,
+                "dueAtAgeInMonths": 336,
+                "maxAtAgeInMonths": 360,
+                "reviewCount": 0,
+                "lifecycleStatus": "active",
+                "migrationCreated": true,
+                "delayCount": 0
+              },
+              "source": "user",
+              "confidence": 0.9
+            }
+          ],
+          "familyRelationships": [
+            {
+              "id": "family_person_parent_unspecified",
+              "participantPersonId": "person_parent_unspecified",
+              "role": "parent_unspecified",
+              "activation": "active",
+              "contact": "unknown",
+              "emotionalSupport": "unknown",
+              "practicalSupport": "unknown",
+              "autonomyRespect": "unknown",
+              "conflictIntensity": "unknown",
+              "topicStances": [],
+              "revision": 1
+            }
+          ],
+          "routePreferences": [],
+          "relationshipRevision": 1,
+          "familyRelationshipRevision": 1,
+          "relationshipProgressionVersion": 1
+        }
+      }
+    ],
+    "currentNode": {
+      "title": "长途跋涉后的清晰信号",
+      "descriptionParagraphs": [
+        "二十个月的外派生活像一场漫长的拉练，你在新城市站稳了脚跟，年收入比离开时多了约十二万，持续支出正在消耗已经积累了一些储蓄。",
+        "两座城市之间的高铁成了你生活的常态，每月两次的见面雷打不动，视频里伴侣的轮廓渐渐从清晰变得模糊，你们的话题从日常琐事滑向更深的沉默。",
+        "你发现自己变得更擅长在电话里报喜不报忧，而伴侣也开始用‘你忙你的’来结束通话，那种默契像一层薄冰，谁都不愿先踩碎。",
+        "年底重新评估的承诺如期而至，你们坐在熟悉的咖啡馆里，第一次把‘各自父母需要照顾’这个事实摊开。",
+        "你翻出手机里计算过无数次的数字——每个月往返的路费、见面的时间成本，还有那笔本打算作为首付的存款，突然觉得它们像一道无形的墙，把你们隔在两侧。",
+        "就在上个周末，你接到母亲的电话，她语气犹豫地提起父亲膝盖的老毛病，说想去省城拍个片子，又怕耽误你工作。",
+        "你听出她没说出口的话——她希望你能帮忙联系医院，甚至陪他们跑一趟。",
+        "你握着电话，第一次意识到‘照顾父母’不是一句计划，而是具体到一次挂号、一张床位、一趟陪护的琐碎。",
+        "你想起伴侣之前说‘我们总不能一直这样漂着’，心里某个一直回避的角落开始松动。"
+      ],
+      "age": 27,
+      "ageInMonths": 332,
+      "stage": "commitment_review",
+      "choices": [
+        {
+          "id": "A",
+          "text": "接受父母求助，安排父亲来省城检查，同时把积蓄的一部分作为应急备用金，并借此机会和伴侣认真讨论一次未来。",
+          "impactSummary": "主动承担照护",
+          "temporalHint": {
+            "lifeIntensity": "critical",
+            "durationMonths": [
+              1,
+              6
+            ],
+            "requiresFollowUp": true,
+            "reason": "主动承担照护"
+          },
+          "decisionIntent": "family:accept_help:parents_medical_support",
+          "eventOutcomeId": "accept_specific_family_help",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "主动提出帮父母联系医院和安排检查，但明确告知他们自己每月可动用的时间和资金有限，希望他们也能帮忙分担一部分。",
+          "impactSummary": "有限度伸出援手",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "有限度伸出援手"
+          },
+          "decisionIntent": "family:offer_limited_help:parents_medical_care",
+          "eventOutcomeId": "offer_specific_help_with_limits",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "先不急着答应父母，告诉他们自己最近工作压力大，过段时间再说，同时把这件事暂时放下，专注处理手头的项目。",
+          "impactSummary": "暂缓家庭事务",
+          "temporalHint": {
+            "lifeIntensity": "critical",
+            "durationMonths": [
+              1,
+              6
+            ],
+            "requiresFollowUp": true,
+            "reason": "暂缓家庭事务"
+          },
+          "decisionIntent": "family:postpone_help:parents_request",
+          "eventOutcomeId": "decline_help_without_rejecting_contact",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "attributes": {
+        "happiness": 62,
+        "intelligence": 73,
+        "wealth": 61,
+        "relation": 57,
+        "health": 72
+      },
+      "financialEventProposals": [],
+      "financialNarrativeClaims": [],
+      "isEndingNode": false,
+      "narrativeMeta": {
+        "elapsedMonths": 20,
+        "elapsedYears": 1.6666666666666667,
+        "lifeIntensity": "normal",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_22727596",
+          "startAgeInMonths": 312,
+          "endAgeInMonths": 332,
+          "internalTransitions": [
+            {
+              "atAgeInMonths": 318,
+              "materiality": "transition",
+              "summary": "外派半年，适应新城市工作节奏，与伴侣保持每月两次见面，视频通话频率逐渐降低。",
+              "worldDeltas": []
+            },
+            {
+              "atAgeInMonths": 326,
+              "materiality": "meaningful_update",
+              "summary": "年底评估关系，双方坦诚讨论未来，但工作与家庭现实阻碍明显。",
+              "worldDeltas": []
+            }
+          ],
+          "decisionCheckpointId": "checkpoint_14deef23",
+          "summary": "外派期间维持异地关系，工作取得进展，但关系与家庭需求逐渐浮现，面临重新评估。"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [
+          {
+            "signal": "relationship_crossroads",
+            "evidence": "年底重新评估时，双方坦诚讨论未来，但现实阻力依然明显。"
+          },
+          {
+            "signal": "family_need_emerging",
+            "evidence": "母亲电话求助父亲就医事宜，家庭照护需求浮出水面。"
+          }
+        ],
+        "activeCharacters": [
+          {
+            "characterId": "partner",
+            "name": "伴侣",
+            "relationshipType": "romantic",
+            "currentStage": "dating",
+            "candidateOrdinal": 0
+          },
+          {
+            "characterId": "parent",
+            "name": "父母",
+            "relationshipType": "family",
+            "currentStage": "active"
+          }
+        ],
+        "primaryActivity": "外派工作与异地恋维持",
+        "worldDeltas": [
+          {
+            "type": "relationship_status",
+            "description": "伴侣关系进入关键评估期，双方对未来的不确定性加剧。"
+          },
+          {
+            "type": "family_need",
+            "description": "父母健康问题出现，需要实际支持。"
+          }
+        ],
+        "relationshipProposals": []
+      },
+      "lifeStage": "early_adulthood",
+      "description": "二十个月的外派生活像一场漫长的拉练，你在新城市站稳了脚跟，年收入比离开时多了约十二万，持续支出正在消耗已经积累了一些储蓄。\n\n两座城市之间的高铁成了你生活的常态，每月两次的见面雷打不动，视频里伴侣的轮廓渐渐从清晰变得模糊，你们的话题从日常琐事滑向更深的沉默。\n\n你发现自己变得更擅长在电话里报喜不报忧，而伴侣也开始用‘你忙你的’来结束通话，那种默契像一层薄冰，谁都不愿先踩碎。\n\n年底重新评估的承诺如期而至，你们坐在熟悉的咖啡馆里，第一次把‘各自父母需要照顾’这个事实摊开。\n\n你翻出手机里计算过无数次的数字——每个月往返的路费、见面的时间成本，还有那笔本打算作为首付的存款，突然觉得它们像一道无形的墙，把你们隔在两侧。\n\n就在上个周末，你接到母亲的电话，她语气犹豫地提起父亲膝盖的老毛病，说想去省城拍个片子，又怕耽误你工作。\n\n你听出她没说出口的话——她希望你能帮忙联系医院，甚至陪他们跑一趟。\n\n你握着电话，第一次意识到‘照顾父母’不是一句计划，而是具体到一次挂号、一张床位、一趟陪护的琐碎。\n\n你想起伴侣之前说‘我们总不能一直这样漂着’，心里某个一直回避的角落开始松动。",
+      "eventMeta": {
+        "eventId": "family_practical_support_exchange",
+        "eventCategory": "relationship",
+        "eventTags": [
+          "relationship",
+          "family",
+          "practical_support",
+          "reciprocity"
+        ],
+        "eventIntensity": "minor",
+        "eventMode": "stability_meaning",
+        "eventSemanticFamily": "family_practical_support",
+        "phasePolicyId": "generic_pressure_v1",
+        "routeLine": "family",
+        "selectionKind": "unmixed"
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 332,
+        "cashWan": 38.334,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 38.334,
+        "annualAfterTaxIncomeWan": 20,
+        "annualDisposableIncomeWan": 15.8,
+        "annualCoreExpenseWan": 4.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "financialLedger": {
+        "id": "financial_opening_312",
+        "owner": "protagonist",
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 332,
+        "cashAccounts": [
+          {
+            "id": "primary_cash",
+            "type": "bank_deposit",
+            "balanceWan": 38.334,
+            "status": "active",
+            "factStatus": "known",
+            "evidence": [
+              {
+                "source": "user",
+                "excerpt": "【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n\n【系统生成的回溯锚点】\n回到 26 岁，在事件发生前重新做出选择。\n28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业。\n我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市。\n冲突时我通常先沉默，等情绪平复后再谈，但也容易为了避免争执而让步。\n我拿到的晋升会让年收入增加约12万元，手里有20万元存款，伴侣有稳定职业和自己的社交支持。",
+                "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                "confidence": 1
+              }
+            ]
+          }
+        ],
+        "assetAccounts": [],
+        "debtAccounts": [],
+        "incomeSources": [
+          {
+            "id": "legacy_recurring_income",
+            "type": "other",
+            "displayName": "旧版持续收入聚合",
+            "annualNetAmountWan": 20,
+            "accrualPolicy": "annual",
+            "activeFromAgeInMonths": 312,
+            "status": "active",
+            "linkedCareerStateId": "career_opening_312",
+            "factStatus": "estimated",
+            "lastConfirmedAtAgeInMonths": 312,
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ]
+          }
+        ],
+        "expenseCommitments": [
+          {
+            "id": "legacy_core_expense",
+            "type": "basic_living",
+            "displayName": "旧版核心支出聚合",
+            "monthlyAmountWan": 1,
+            "activeFromAgeInMonths": 312,
+            "status": "ended",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ],
+            "activeUntilAgeInMonths": 312
+          },
+          {
+            "id": "estimated_basic_living_v1_312",
+            "type": "basic_living",
+            "displayName": "基础生活支出（系统保守估计）",
+            "monthlyAmountWan": 0.35,
+            "activeFromAgeInMonths": 312,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "system_policy",
+                "reasonCode": "ADULT_BASIC_LIVING_ESTIMATED_V1",
+                "confidence": 0.6
+              }
+            ]
+          }
+        ],
+        "businessHoldings": [],
+        "recentTransactions": [
+          {
+            "id": "financial_3eb794f1",
+            "simulationTransactionId": "3eb794f1",
+            "eventIds": [],
+            "periodStartAgeInMonths": 312,
+            "periodEndAgeInMonths": 332,
+            "cashDeltaWan": 26.334,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": 0,
+            "incomeWan": 33.334,
+            "expenseWan": 7,
+            "valuationChangeWan": 0,
+            "priorFactCorrectionWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": 26.334,
+            "debtServiceRecords": [],
+            "automaticLiquidityShortfallIncreaseWan": 0,
+            "automaticLiquidityShortfallRecoveryWan": 0,
+            "debtPrincipalDrawnWan": 0,
+            "debtBalanceDiscoveredWan": 0,
+            "debtPrincipalPaidWan": 0,
+            "debtPrincipalForgivenWan": 0,
+            "debtInterestAccruedWan": 0,
+            "debtInterestPaidWan": 0,
+            "debtInterestLiabilityPaidWan": 0,
+            "debtInterestForgivenWan": 0,
+            "debtCapitalizedInterestWan": 0,
+            "evidence": []
+          }
+        ],
+        "committedTransactionIds": [
+          "3eb794f1"
+        ],
+        "unresolvedIssues": [
+          {
+            "id": "legacy_uncertainty_312",
+            "code": "LEGACY_UNCERTAINTY",
+            "severity": "warning",
+            "relatedProposalIds": [],
+            "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+            "createdAtAgeInMonths": 312
+          },
+          {
+            "id": "proposal_issue_career_settlement_3eb794f1_selected_career_legacy_recurring_income_312",
+            "code": "UNBALANCED_TRANSACTION",
+            "severity": "blocking",
+            "status": "resolved",
+            "relatedProposalIds": [
+              "career_settlement_3eb794f1_selected_career_legacy_recurring_income"
+            ],
+            "relatedAccountIds": [],
+            "relatedIncomeSourceIds": [
+              "legacy_recurring_income"
+            ],
+            "relatedDebtAccountIds": [],
+            "relatedBusinessHoldingIds": [],
+            "summary": "财务 Proposal 缺少可靠正文证据或 confidence",
+            "createdAtAgeInMonths": 312,
+            "resolvedAtAgeInMonths": 332,
+            "resolvedByEventId": "system:rejected_proposal_narrative_rollback",
+            "occurrenceCount": 1,
+            "lastObservedAtAgeInMonths": 332
+          },
+          {
+            "id": "career_income_atomicity_3eb794f1_selected_career_332",
+            "code": "CAREER_INCOME_CONFLICT",
+            "severity": "blocking",
+            "status": "resolved",
+            "relatedProposalIds": [
+              "3eb794f1_selected_career"
+            ],
+            "relatedIncomeSourceIds": [
+              "legacy_recurring_income"
+            ],
+            "summary": "职业转换缺少关联到新 CareerState 的有效收入来源：career_3eb794f1_selected_career",
+            "createdAtAgeInMonths": 332,
+            "resolvedAtAgeInMonths": 332,
+            "resolvedByEventId": "system:rejected_proposal_narrative_rollback",
+            "occurrenceCount": 1,
+            "lastObservedAtAgeInMonths": 332
+          }
+        ],
+        "revision": 1,
+        "version": 3,
+        "openingAcceptedEventIds": [
+          "accepted_opening_cash_primary_cash",
+          "accepted_opening_income_source_legacy_recurring_income",
+          "accepted_opening_expense_commitment_legacy_core_expense"
+        ]
+      },
+      "financialLedgerMode": "authoritative",
+      "debtHealthState": {
+        "asOfAgeInMonths": 332,
+        "level": "none",
+        "totalDebtWan": 0,
+        "scheduledDebtServiceNext12MonthsWan": 0,
+        "availableCashForDebtNext12MonthsWan": 54.134,
+        "cashBufferMonths": 109.5257,
+        "liquidityShortfallDebtWan": 0,
+        "consecutiveMissedPaymentMonths": 0,
+        "missedPaymentMonthsLast12": 0,
+        "activeDefaultedDebtCount": 0,
+        "source": "authoritative_ledger",
+        "sourceLedgerRevision": 1,
+        "trend": "stable",
+        "reasonCodes": [
+          "NO_ACTIVE_DEBT"
+        ]
+      },
+      "financialPeriodSummary": {
+        "periodStartAgeInMonths": 312,
+        "periodEndAgeInMonths": 332,
+        "incomeWan": 33.334,
+        "coreExpenseWan": 7,
+        "otherExpenseWan": 0,
+        "debtPrincipalPaidWan": 0,
+        "debtInterestPaidWan": 0,
+        "debtInterestUnpaidWan": 0,
+        "automaticLiquidityShortfallRecoveryWan": 0,
+        "assetPurchaseWan": 0,
+        "assetSaleProceedsWan": 0,
+        "valuationChangeWan": 0,
+        "priorFactCorrectionWan": 0,
+        "netCashFlowWan": 26.334,
+        "netWorthChangeWan": 26.334,
+        "transactionIds": [
+          "financial_3eb794f1"
+        ]
+      },
+      "financialProcessingMeta": {
+        "proposalCount": 1,
+        "acceptedEventCount": 0,
+        "acceptedCareerTransitionCount": 0,
+        "blockingIssueCount": 0,
+        "repairTriggered": true,
+        "repairLatencyMs": 1233,
+        "totalProcessingLatencyMs": 1243,
+        "debtNarrativeAuthorityVersion": "debt_narrative_v1",
+        "narrativeFallback": true,
+        "narrativeFallbackReasonCodes": [
+          "FINANCIAL_COMPLETION_ROLLBACK"
+        ],
+        "rejectedDebtClaimKinds": [
+          "FINANCIAL_COMPLETION_ROLLBACK"
+        ],
+        "rejectedFinancialProposalKinds": [
+          "income_source_ended"
+        ],
+        "financialNarrativeAuthorityVersion": "financial_narrative_claims_v1",
+        "financialNarrativeClaimCount": 1,
+        "rejectedFinancialNarrativeClaimCount": 1,
+        "rawInvalidFinancialNarrativeClaimCount": 0,
+        "invalidFinancialNarrativeClaimCount": 0,
+        "narrativeRepairAttempts": 1,
+        "narrativeRepairSucceeded": false,
+        "narrativeFallbackSurfacePaths": []
+      },
+      "committedArcMeta": {
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "person_parent_unspecified",
+            "identityKey": {
+              "namespace": "user_role",
+              "key": "parent:unspecified"
+            },
+            "displayName": "父母",
+            "relation": "parent",
+            "estimatedAgeRange": [
+              45.666666666666664,
+              72.66666666666667
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 332,
+            "lifeStatus": "active",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "28岁时伴侣希望我放弃外地晋升机会留在同一座城市，我们第一次认真讨论婚姻、照顾父母和各自事业；我们交往四年，关系稳定，但双方父母都需要照顾，伴侣的工作无法轻易换城市",
+            "source": "user_fact",
+            "confidence": 0.9
+          },
+          {
+            "id": "person_partner_current",
+            "identityKey": {
+              "namespace": "user_role",
+              "key": "partner:current"
+            },
+            "displayName": "伴侣",
+            "relation": "partner",
+            "estimatedAgeRange": [
+              15.666666666666666,
+              39.666666666666664
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 332,
+            "lifeStatus": "active",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "伴侣",
+            "source": "user_fact",
+            "confidence": 0.9
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_dd665c17",
+            "directionType": "romance",
+            "summary": "A. 放弃外地晋升，与伴侣共同制定结婚和家庭计划\nB. 接受一年外派，约定固定见面并在年底重新评估关系\nC. 接受长期调任，结束这段无法兼顾的关系",
+            "status": "active",
+            "startedAtAgeInMonths": 312,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [],
+        "committedTransactionIds": [
+          "3eb794f1"
+        ],
+        "version": 2,
+        "careerStates": [
+          {
+            "id": "career_opening_312",
+            "employmentStatus": "employed",
+            "activeProjectIds": [],
+            "effectiveFromAgeInMonths": 312,
+            "source": "accepted_history",
+            "confidence": 0.6
+          }
+        ],
+        "currentCareerStateId": "career_opening_312",
+        "currentEmploymentStatus": "employed",
+        "careerRevision": 0,
+        "relationships": [
+          {
+            "id": "relationship_person_partner_current",
+            "participantPersonIds": [
+              "person_partner_current"
+            ],
+            "type": "romantic",
+            "stage": "dating",
+            "status": "active",
+            "effectiveFromAgeInMonths": 312,
+            "progression": {
+              "policyId": "romance_commitment_v1",
+              "checkpointKind": "commitment_review",
+              "startedAtAgeInMonths": 312,
+              "eligibleAtAgeInMonths": 324,
+              "dueAtAgeInMonths": 336,
+              "maxAtAgeInMonths": 360,
+              "reviewCount": 0,
+              "lifecycleStatus": "active",
+              "migrationCreated": true,
+              "delayCount": 0
+            },
+            "source": "user",
+            "confidence": 0.9
+          }
+        ],
+        "familyRelationships": [
+          {
+            "id": "family_person_parent_unspecified",
+            "participantPersonId": "person_parent_unspecified",
+            "role": "parent_unspecified",
+            "activation": "active",
+            "contact": "unknown",
+            "emotionalSupport": "unknown",
+            "practicalSupport": "unknown",
+            "autonomyRespect": "unknown",
+            "conflictIntensity": "unknown",
+            "topicStances": [],
+            "revision": 1
+          }
+        ],
+        "routePreferences": [],
+        "relationshipRevision": 1,
+        "familyRelationshipRevision": 1,
+        "relationshipProgressionVersion": 1
+      }
+    },
+    "currentAttributes": {
+      "happiness": 62,
+      "intelligence": 73,
+      "wealth": 61,
+      "relation": 57,
+      "health": 72
+    },
+    "nodeCount": 2,
+    "simulationSeed": "a297f7f0-f433-48b1-8349-78d3f8907bb6",
+    "outcome": null,
+    "generationEvents": [],
+    "generationCallTraces": [
+      {
+        "traceId": "2774a799-55c5-4063-b724-2d0ea5553224",
+        "transactionId": "3eb794f1",
+        "nodeIndex": 1,
+        "candidateRevision": 0,
+        "kind": "initial_generation",
+        "promptFamily": "next_node",
+        "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+        "issueCodes": [],
+        "startedAt": "2026-08-10T03:02:52.654Z",
+        "outcome": "started"
+      },
+      {
+        "traceId": "2774a799-55c5-4063-b724-2d0ea5553224",
+        "transactionId": "3eb794f1",
+        "nodeIndex": 1,
+        "candidateRevision": 0,
+        "kind": "initial_generation",
+        "promptFamily": "next_node",
+        "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+        "issueCodes": [],
+        "startedAt": "2026-08-10T03:02:52.654Z",
+        "outcome": "succeeded",
+        "promptTokens": 9158,
+        "cacheHitTokens": 9088,
+        "cacheMissTokens": 70,
+        "completionTokens": 1363,
+        "totalTokens": 10521,
+        "inputTokens": 9158,
+        "outputTokens": 1363,
+        "providerRequestId": "4c7943f8-56a3-428f-9a19-42ac5a0df7a7",
+        "model": "deepseek-v4-flash",
+        "firstTokenAt": "2026-08-10T03:02:53.769Z",
+        "completedAt": "2026-08-10T03:03:04.906Z",
+        "durationMs": 12252
+      },
+      {
+        "traceId": "668da5a6-1788-413d-813c-dbd867904f7f",
+        "transactionId": "3eb794f1",
+        "nodeIndex": 1,
+        "kind": "proposal_repair",
+        "promptFamily": "financial_proposal_repair",
+        "issueCodes": [
+          "UNBALANCED_TRANSACTION"
+        ],
+        "startedAt": "2026-08-10T03:03:04.917Z",
+        "outcome": "started"
+      },
+      {
+        "traceId": "668da5a6-1788-413d-813c-dbd867904f7f",
+        "transactionId": "3eb794f1",
+        "nodeIndex": 1,
+        "kind": "proposal_repair",
+        "promptFamily": "financial_proposal_repair",
+        "issueCodes": [
+          "UNBALANCED_TRANSACTION"
+        ],
+        "startedAt": "2026-08-10T03:03:04.917Z",
+        "outcome": "succeeded",
+        "promptTokens": 2435,
+        "cacheHitTokens": 0,
+        "cacheMissTokens": 2435,
+        "completionTokens": 17,
+        "totalTokens": 2452,
+        "inputTokens": 2435,
+        "outputTokens": 17,
+        "providerRequestId": "17c261a3-1747-4d77-8239-2ad57157d447",
+        "model": "deepseek-v4-flash",
+        "firstTokenAt": "2026-08-10T03:03:06.150Z",
+        "completedAt": "2026-08-10T03:03:06.150Z",
+        "durationMs": 1233
+      }
+    ],
+    "isLoading": false,
+    "isLoadingNext": false,
+    "nextNarrativePreview": {
+      "title": "长途跋涉后的清晰信号",
+      "paragraphs": [
+        "二十个月的外派生活像一场漫长的拉练，你在新城市站稳了脚跟，年收入比离开时多了约十二万，持续支出正在消耗已经积累了一些储蓄。",
+        "两座城市之间的高铁成了你生活的常态，每月两次的见面雷打不动，视频里伴侣的轮廓渐渐从清晰变得模糊，你们的话题从日常琐事滑向更深的沉默。",
+        "你发现自己变得更擅长在电话里报喜不报忧，而伴侣也开始用‘你忙你的’来结束通话，那种默契像一层薄冰，谁都不愿先踩碎。",
+        "年底重新评估的承诺如期而至，你们坐在熟悉的咖啡馆里，第一次把‘各自父母需要照顾’这个事实摊开。",
+        "你翻出手机里计算过无数次的数字——每个月往返的路费、见面的时间成本，还有那笔本打算作为首付的存款，突然觉得它们像一道无形的墙，把你们隔在两侧。",
+        "就在上个周末，你接到母亲的电话，她语气犹豫地提起父亲膝盖的老毛病，说想去省城拍个片子，又怕耽误你工作。",
+        "你听出她没说出口的话——她希望你能帮忙联系医院，甚至陪他们跑一趟。",
+        "你握着电话，第一次意识到‘照顾父母’不是一句计划，而是具体到一次挂号、一张床位、一趟陪护的琐碎。",
+        "你想起伴侣之前说‘我们总不能一直这样漂着’，心里某个一直回避的角落开始松动。"
+      ],
+      "descriptionComplete": true
+    },
+    "nextGenerationError": null,
+    "nextGenerationErrorDebug": null,
+    "errorMsg": null,
+    "invitations": []
+  }
+}

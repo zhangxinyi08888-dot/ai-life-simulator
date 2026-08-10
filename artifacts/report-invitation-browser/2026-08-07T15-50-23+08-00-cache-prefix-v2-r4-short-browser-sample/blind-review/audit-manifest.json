@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "sampleCount": 10,
+  "expectedPromptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+  "sourceEligibility": "completed_or_verified_short_sample",
+  "packetSha256": "5bffce93a1994fef677876610760290693b898eca33a6e27ae8e75acdf67c3e1",
+  "samples": [
+    {
+      "blindId": "N01",
+      "sourceCaseSlug": "short-career-r4",
+      "sourceNodeNumber": 5,
+      "nodeSha256": "0d49ff44fb38c01376076fbdcee14c2875a754849e75a9dfbcb4ceb1335408bc"
+    },
+    {
+      "blindId": "N02",
+      "sourceCaseSlug": "short-relationship-r4",
+      "sourceNodeNumber": 2,
+      "nodeSha256": "6e49745d9d88685cf5a2a94dc0cc9493382ffaceb2222caf95ec81f47e46ff9f"
+    },
+    {
+      "blindId": "N03",
+      "sourceCaseSlug": "short-career-r4",
+      "sourceNodeNumber": 3,
+      "nodeSha256": "03c5dee56a58c64664b1c2fad40c8753e915acdb1159db7478f965980578bacf"
+    },
+    {
+      "blindId": "N04",
+      "sourceCaseSlug": "short-career-r4",
+      "sourceNodeNumber": 1,
+      "nodeSha256": "96053563c1d90a0a674d77d65319442a39dde187ff5724dcb68402e16fb86288"
+    },
+    {
+      "blindId": "N05",
+      "sourceCaseSlug": "short-career-r4",
+      "sourceNodeNumber": 4,
+      "nodeSha256": "bb96a883034c346d1b2aebc936b15207160d742e7958c5c1c529c814dc58fcef"
+    },
+    {
+      "blindId": "N06",
+      "sourceCaseSlug": "short-relationship-r4",
+      "sourceNodeNumber": 1,
+      "nodeSha256": "8068b6f22e5bdd8163e7141de297f8d12beb1ed6bce7b4048f5451793a7749f6"
+    },
+    {
+      "blindId": "N07",
+      "sourceCaseSlug": "short-relationship-r4",
+      "sourceNodeNumber": 3,
+      "nodeSha256": "8a9522205282d82d3f8cf4f90a92cc27e0d1c4e5dc7f490dcf8013f873dd10d3"
+    },
+    {
+      "blindId": "N08",
+      "sourceCaseSlug": "short-relationship-r4",
+      "sourceNodeNumber": 5,
+      "nodeSha256": "cd974a96cf2a6b5b5f955f6bc304afb026d4100ccab4c25f7eaf3ef91491ec5c"
+    },
+    {
+      "blindId": "N09",
+      "sourceCaseSlug": "short-career-r4",
+      "sourceNodeNumber": 2,
+      "nodeSha256": "76dd8c2de369e91a028cc4747252d8ac66d3fca0be7faeb4f3397a9dd2ba8761"
+    },
+    {
+      "blindId": "N10",
+      "sourceCaseSlug": "short-relationship-r4",
+      "sourceNodeNumber": 4,
+      "nodeSha256": "2dbe0046a8e4c1b42e11bbd5110c9b0fd80f1eb57381842ce67c77a9f8c3bbb9"
+    }
+  ]
+}

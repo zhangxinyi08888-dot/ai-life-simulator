@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 2,
+  "sampleCount": 10,
+  "expectedPromptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r3",
+  "packetSha256": "27ef988f188e0bea3d0b54690bb89c36c72efa75a8670828859ce17d4b34f5ce",
+  "samples": [
+    {
+      "blindId": "N01",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 12,
+      "nodeSha256": "4ab4ce99e3cb912b82e0d27576b02590d1965e12fa6edae90f41c0bf4ed9be09"
+    },
+    {
+      "blindId": "N02",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 5,
+      "nodeSha256": "67edbf81ea65d6b68b8e1d778ff5013d19d83b296c342072b6af7a8053471271"
+    },
+    {
+      "blindId": "N03",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 9,
+      "nodeSha256": "87db69b96a6729b801896b101ecebbcd478bc2ddf4ea9f4d464b3090e45eadcb"
+    },
+    {
+      "blindId": "N04",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 2,
+      "nodeSha256": "d3d33947c8b4cc3cdc39a7fe7e71d019eb8c2db61741d6f1d802d8f1ee9b6d62"
+    },
+    {
+      "blindId": "N05",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 8,
+      "nodeSha256": "499fac6d53d9b1de69072f8fa5f9a94faef1ae0d11a8a297cd7fc09c0cb5b946"
+    },
+    {
+      "blindId": "N06",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 6,
+      "nodeSha256": "44a23a3ca91ef38f665da3023b6a40fd07bad3eecf67b320a3c68966e47960a0"
+    },
+    {
+      "blindId": "N07",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 3,
+      "nodeSha256": "8a5060752cee38e699f66d40310739387328e2f54b873f5f0f4cd331b8ad01ed"
+    },
+    {
+      "blindId": "N08",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 15,
+      "nodeSha256": "6a3ddf528aa35568541262a6ee3adcbe26a237815ba7630d0676f83c8d413465"
+    },
+    {
+      "blindId": "N09",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 14,
+      "nodeSha256": "e0623fe387dd64c4ff32be7103989e02f503def77d8857a057a14f5c41c97913"
+    },
+    {
+      "blindId": "N10",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 11,
+      "nodeSha256": "09cd46f6c1c32db1b0d262b46d180525d62fca2cc5bb01f64160b2ee67b71e8c"
+    }
+  ]
+}

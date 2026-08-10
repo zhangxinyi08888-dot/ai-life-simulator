@@ -51,7 +51,7 @@ const repairedMissingAttributes = await generateCompleteSimulationNode(async () 
       { id: "B", text: "调整方向", impactSummary: "调整" },
       { id: "C", text: "暂缓决定", impactSummary: "暂缓" }
     ],
-    attributes: { happiness: 63, intelligence: 72, wealth: 48, relation: 57 },
+    attributes: { happiness: 62, intelligence: 72, wealth: 48, relation: 57 },
     isEndingNode: false
   };
 }, {
@@ -61,8 +61,40 @@ const repairedMissingAttributes = await generateCompleteSimulationNode(async () 
 });
 
 assert.equal(missingAttributeAttempts, 1);
-assert.equal(repairedMissingAttributes.attributes.happiness, 63);
+assert.equal(repairedMissingAttributes.attributes.happiness, 62);
 assert.equal(repairedMissingAttributes.attributes.health, 44);
+
+let deltaLikeAttributeAttempts = 0;
+const repairedDeltaLikeAttributes = await generateCompleteSimulationNode(async () => {
+  deltaLikeAttributeAttempts += 1;
+  return {
+    age: 32,
+    stage: "关系与工作交错",
+    title: "不把变化量当作总值",
+    description: "这段时间仍在处理工作节奏与人际关系，身体状况略有波动。",
+    choices: [
+      { id: "A", text: "继续推进当前工作安排", impactSummary: "继续推进" },
+      { id: "B", text: "重新安排与他人的沟通边界", impactSummary: "调整边界" },
+      { id: "C", text: "先降低额外投入并观察结果", impactSummary: "降低投入" }
+    ],
+    // This mirrors the failure mode: the first four fields look like deltas,
+    // while health is a valid absolute end-state.
+    attributes: { happiness: -2, intelligence: 1, wealth: 99, relation: 0, health: 67 },
+    isEndingNode: false
+  };
+}, {
+  fallbackAge: 32,
+  maxAttempts: 1,
+  fallbackAttributes: { happiness: 72, intelligence: 77, wealth: 46, relation: 77, health: 73 }
+});
+assert.equal(deltaLikeAttributeAttempts, 1, "invalid attribute fields are repaired locally instead of spending another model call");
+assert.deepEqual(repairedDeltaLikeAttributes.attributes, {
+  happiness: 72,
+  intelligence: 77,
+  wealth: 46,
+  relation: 77,
+  health: 67
+});
 
 const invalidJsonAttempts: string[] = [];
 const recoveredFromInvalidJson = await generateCompleteSimulationNode(async (_attempt, issues) => {

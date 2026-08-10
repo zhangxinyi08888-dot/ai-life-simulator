@@ -1,11 +1,20 @@
 import { LifeEventSeed } from "../data/lifeEvents";
-import { formatStoryContextPack, StoryContextPack } from "./storyContext";
+import { formatCacheAwareStoryContextDynamic, formatStoryContextPack, type StoryContextPack } from "./storyContext";
 
 function formatList(items: string[]): string {
   return items.map((item, index) => `  ${index + 1}. ${item}`).join("\n");
 }
 
 const directionChoiceRule = "\n- 生成 A/B/C 选项时，只有 state=stage_main_arc 或 long_term_main_arc 的方向可以成为职业、创业、重大转型方向\n- state=background_detail 的方向不得进入选项主语；state=side_thread 只能作为附带考虑；state=mentioned 不得主动出现在选项中\n- state=cooldown 或 dormant 的 decisionIntent 不得再次进入 A/B/C，初始事实、追问答案和 background thread 都不能绕过冷却\n- 延续 background thread 是推进人物关系、压力或既有后果，不等于把用户未采纳的具体方案换一种文案再次提供";
+
+export interface CacheAwareEventTailOptions {
+  /**
+   * V2 retains user facts, answers and full recent history in earlier prompt
+   * segments, then uses reference-based dynamic context here to avoid sending
+   * the same facts repeatedly after changing state.
+   */
+  referenceContext?: boolean;
+}
 
 /**
  * Parameter-free policy catalogue for the high-volume next-node path.
@@ -78,16 +87,31 @@ function formatCacheAwareEventData(event: LifeEventSeed): string {
  * path may move stable material into a cacheable system prefix, but it must
  * never gain cache hits by dropping facts from the current turn.
  */
-export function buildCacheAwareEventIntentTail(event: LifeEventSeed, storyContext?: StoryContextPack): string {
-  const context = storyContext ? formatStoryContextPack(storyContext) : "【Story Context Pack】\n- 暂无上下文";
+export function buildCacheAwareEventIntentTail(
+  event: LifeEventSeed,
+  storyContext?: StoryContextPack,
+  options: CacheAwareEventTailOptions = {}
+): string {
+  const context = storyContext
+    ? options.referenceContext
+      ? formatCacheAwareStoryContextDynamic(storyContext)
+      : formatStoryContextPack(storyContext)
+    : "【Story Context Pack】\n- 暂无上下文";
   const answerRule = storyContext?.answerFacts.length
     ? "\n- 追问答案非空，本轮剧情必须至少显性使用 1 条追问答案中的事实或限制；不要机械复述原话，要转化成场景约束、人物反应、可选路径或心理惯性"
     : "";
   return `${context}\n\n${formatCacheAwareEventData(event)}${formatNarrativeModeRules(event)}${answerRule}${formatEventSpecificRules(event)}`;
 }
 
-export function buildCacheAwareNullEventTail(storyContext?: StoryContextPack): string {
-  const context = storyContext ? formatStoryContextPack(storyContext) : "【Story Context Pack】\n- 暂无上下文";
+export function buildCacheAwareNullEventTail(
+  storyContext?: StoryContextPack,
+  options: CacheAwareEventTailOptions = {}
+): string {
+  const context = storyContext
+    ? options.referenceContext
+      ? formatCacheAwareStoryContextDynamic(storyContext)
+      : formatStoryContextPack(storyContext)
+    : "【Story Context Pack】\n- 暂无上下文";
   const answerRule = storyContext?.answerFacts.length
     ? "\n- 追问答案非空，本轮剧情必须至少显性使用 1 条追问答案中的事实或限制"
     : "";

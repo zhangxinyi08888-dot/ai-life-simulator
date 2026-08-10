@@ -9,6 +9,7 @@ import {
   getInvalidExplicitChoiceTextIndexes,
   getRawSimulationNodeChoices,
   getSimulationNodeValidationIssues,
+  canonicalizeGeneratedChoiceIds,
   groundedRomanceCharacter,
   normalizeSimulationNodeChoices,
   normalizeSimulationNode,
@@ -92,8 +93,9 @@ import { extractStreamedNodePreview, type StreamedNodePreview } from "../../util
 import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
 import {
   buildChoiceTextRepairPrompt,
+  buildNextNodePromptLayout,
   buildNextNodePromptRequest,
-  NEXT_NODE_INVARIANT_PREFIX_VERSION,
+  buildNextNodePromptRequestFromLayout,
   buildEndingNodePrompt,
   buildFinancialProposalRepairPrompt,
   buildNodePromptWithRetryNotice,
@@ -192,6 +194,8 @@ export interface SimulationServiceDeps {
   enableCandidatePatchRepair?: boolean;
   /** Build-time escape hatch for Cache Prefix V1; default is enabled. */
   cacheAwarePromptV1?: boolean;
+  /** Opt-in reference-context candidate; default remains the proven V1 layout. */
+  cacheAwarePromptV2?: boolean;
   /** Internal reason propagation for a recursive full regeneration. */
   fullRegenerationReasonCodes?: string[];
   relationshipDispatchFeatureFlags?: Partial<RelationshipDispatchFeatureFlags>;
@@ -2580,16 +2584,78 @@ function buildDeterministicRomanceRescheduleNode(
   };
 }
 
+export function eventSpecificFallbackDefinitions(event?: LifeEventSeed): Array<{
+  text: string;
+  summary: string;
+  intent: string;
+  delta: WorldDelta["type"];
+}> {
+  if (!event) {
+    return [
+      { text: "按当前方向继续推进，并在三个月内核验已经发生的现实结果", summary: "继续核验", intent: "growth:continue_with_review", delta: "career_state" },
+      { text: "缩小当前投入，优先稳定现金流、健康和日常责任", summary: "收缩稳定", intent: "growth:stabilize_resources", delta: "health_state" },
+      { text: "暂停当前方向，转向另一项可以立即验证的现实机会", summary: "暂停转向", intent: "growth:pivot_to_alternative", delta: "location_change" }
+    ];
+  }
+
+  const subject = `“${event.title}”`;
+  const prefix = `event:${event.id}`;
+  switch (event.category) {
+    case "career":
+      return [
+        { text: `围绕${subject}与相关方确认一项可执行的工作安排，并在本周期核验结果`, summary: "确认工作", intent: `${prefix}:confirm_work_plan`, delta: "career_state" },
+        { text: `暂缓${subject}中的高风险承诺，先把职责、时间和现实边界谈清楚`, summary: "厘清边界", intent: `${prefix}:bound_commitment`, delta: "health_state" },
+        { text: `保留${subject}的关键信息，同时把精力投入一条能尽快验证的职业备选路径`, summary: "验证备选", intent: `${prefix}:test_alternative`, delta: "location_change" }
+      ];
+    case "financial":
+      return [
+        { text: `为${subject}列出可承受的资金边界，再决定是否继续投入`, summary: "核定边界", intent: `${prefix}:set_cash_boundary`, delta: "career_state" },
+        { text: `缩小${subject}的支出或承诺，优先守住必要生活与现有现金流`, summary: "保留现金", intent: `${prefix}:reduce_exposure`, delta: "health_state" },
+        { text: `放弃${subject}中无法核验的部分，改用低成本方案验证下一步`, summary: "低成本试", intent: `${prefix}:test_low_cost`, delta: "location_change" }
+      ];
+    case "relationship":
+      return [
+        { text: `围绕${subject}把彼此的边界和下一步安排说清楚，再决定是否继续投入`, summary: "沟通边界", intent: `${prefix}:clarify_boundary`, delta: "relationship_change" },
+        { text: `保留${subject}中的必要联系，但暂不作出超出现实条件的承诺`, summary: "保留联系", intent: `${prefix}:maintain_boundary`, delta: "health_state" },
+        { text: `退出${subject}中让自己持续消耗的部分，把注意力放回当下责任`, summary: "退出消耗", intent: `${prefix}:step_back`, delta: "career_state" }
+      ];
+    case "health":
+      return [
+        { text: `围绕${subject}落实作息、治疗或减负安排，并在短期内复查效果`, summary: "落实修复", intent: `${prefix}:follow_recovery_plan`, delta: "health_state" },
+        { text: `保留${subject}相关的必要活动，但把强度降到身体能够承受的范围`, summary: "降低强度", intent: `${prefix}:reduce_load`, delta: "career_state" },
+        { text: `暂停${subject}中会继续透支的部分，先重建稳定的生活节奏`, summary: "暂停透支", intent: `${prefix}:pause_overload`, delta: "location_change" }
+      ];
+    case "opportunity":
+      return [
+        { text: `为${subject}安排一次小范围试做，用真实结果判断是否继续投入`, summary: "小范围试", intent: `${prefix}:run_small_trial`, delta: "career_state" },
+        { text: `保留${subject}的机会窗口，但先核对时间、资金和已有责任是否匹配`, summary: "核对条件", intent: `${prefix}:verify_constraints`, delta: "health_state" },
+        { text: `婉拒${subject}中不合适的条件，把资源留给当前更重要的方向`, summary: "保留资源", intent: `${prefix}:decline_terms`, delta: "location_change" }
+      ];
+    case "community":
+      return [
+        { text: `把${subject}落实为一次具体参与，先观察它是否能形成持续支持`, summary: "实际参与", intent: `${prefix}:participate_once`, delta: "relationship_change" },
+        { text: `保留${subject}中的联系，但控制投入频率以免挤占现有责任`, summary: "控制投入", intent: `${prefix}:limit_commitment`, delta: "health_state" },
+        { text: `暂不继续${subject}中无明确回报的安排，重新选择更适合当前阶段的连接`, summary: "调整连接", intent: `${prefix}:redirect_connection`, delta: "career_state" }
+      ];
+    case "growth":
+    default:
+      return [
+        { text: `围绕${subject}继续推进一个可核验的步骤，并在本周期回看实际影响`, summary: "推进核验", intent: `${prefix}:continue_and_review`, delta: "career_state" },
+        { text: `缩小${subject}中的非必要投入，优先稳定健康和日常责任`, summary: "收缩稳定", intent: `${prefix}:stabilize_commitment`, delta: "health_state" },
+        { text: `暂停${subject}当前的做法，转向一条可以立即验证的现实路径`, summary: "转向验证", intent: `${prefix}:pivot_to_test`, delta: "location_change" }
+      ];
+  }
+}
+
 function applyDeterministicDecisionGateFallback(
   node: SimulationNode,
   allowedOutcomeIds: string[] = [],
-  intentScope = String(node.ageInMonths ?? node.age)
+  intentScope = String(node.ageInMonths ?? node.age),
+  event?: LifeEventSeed,
+  reasonCodes: string[] = []
 ): SimulationNode {
-  const definitions = [
-    { text: "按当前方向继续推进，但设置明确的三个月复盘点", summary: "继续并复盘", intent: "growth:continue_with_review", delta: "career_state" as const },
-    { text: "缩小当前投入，优先稳定现金流、健康和日常责任", summary: "收缩并稳定", intent: "growth:stabilize_resources", delta: "health_state" as const },
-    { text: "暂停当前方向，转向另一项可以立即验证的现实机会", summary: "暂停并转向", intent: "growth:pivot_to_alternative", delta: "location_change" as const }
-  ];
+  const definitions = eventSpecificFallbackDefinitions(event);
+  const fallbackReason = `decision_gate_deterministic:${reasonCodes.join("+") || "unspecified"}`;
   return {
     ...node,
     choices: definitions.map((definition, index) => ({
@@ -2603,14 +2669,18 @@ function applyDeterministicDecisionGateFallback(
         lifeIntensity: "normal",
         durationMonths: [3, 6],
         requiresFollowUp: false,
-        reason: "候选修复预算已用尽后的确定性选择降级"
+        reason: `DecisionGate 修复：${reasonCodes.join("、") || "候选选项未形成可验证分岔"}`
       }
     })),
     narrativeMeta: node.narrativeMeta ? {
       ...node.narrativeMeta,
       nodeMateriality: "decision_checkpoint",
       lifeIntensity: "normal"
-    } : node.narrativeMeta
+    } : node.narrativeMeta,
+    eventMeta: node.eventMeta ? {
+      ...node.eventMeta,
+      fallbackReason
+    } : node.eventMeta
   };
 }
 
@@ -2620,8 +2690,16 @@ function buildDeterministicCandidateFallback(input: {
   allowedOutcomeIds?: string[];
   issueCodes: string[];
   intentScope?: string;
+  event?: LifeEventSeed;
+  decisionGateReasonCodes?: string[];
 }): SimulationNode {
-  const safeNode = applyDeterministicDecisionGateFallback(input.node, input.allowedOutcomeIds, input.intentScope);
+  const safeNode = applyDeterministicDecisionGateFallback(
+    input.node,
+    input.allowedOutcomeIds,
+    input.intentScope,
+    input.event,
+    input.decisionGateReasonCodes ?? input.issueCodes
+  );
   const description = input.selectedDecision.trim()
     ? "你已经开始执行上一轮的选择。这一步尚未被写成未经权威状态确认的成功结果；接下来的变化仍要由实际事件、人物状态和账本记录确认。你重新安排了时间、精力与现实责任，并为三个月后保留了复盘点。"
     : "你重新安排了时间、精力与现实责任，但尚未形成可以由权威状态确认的新结果。接下来的变化仍要由实际事件、人物状态和账本记录确认。";
@@ -3084,10 +3162,8 @@ export async function generateNextNode(
   });
   const storyContext = buildStoryContextPack(input.userData, input.answers, input.history);
   const cacheAwarePromptV1 = deps.cacheAwarePromptV1 !== false;
-  const promptPrefixVersion = cacheAwarePromptV1
-    ? NEXT_NODE_INVARIANT_PREFIX_VERSION
-    : "next_node_legacy_v0";
-  const prompt = buildNextNodePromptRequest({
+  const cacheAwarePromptV2 = cacheAwarePromptV1 && deps.cacheAwarePromptV2 === true;
+  const promptInput = {
     ...input,
     currentFinancialState,
     currentFinancialLedger,
@@ -3100,7 +3176,16 @@ export async function generateNextNode(
     worldState,
     foregroundPressureArc: workingPressureArc,
     pressureArcInterleaved: isPressureArcInterleave
-  }, { cacheAwarePromptV1 });
+  };
+  const promptLayout = cacheAwarePromptV1
+    ? buildNextNodePromptLayout(promptInput, { cacheAwarePromptV2 })
+    : undefined;
+  // The trace must describe the request actually sent. V2 can safely fall
+  // back to the V1 layout if a caller supplies a stale Story Context Pack.
+  const promptPrefixVersion = promptLayout?.prefixVersion ?? "next_node_legacy_v0";
+  const prompt = promptLayout
+    ? buildNextNodePromptRequestFromLayout(promptLayout)
+    : buildNextNodePromptRequest(promptInput, { cacheAwarePromptV1, cacheAwarePromptV2 });
 
   let latestRawNode: any = {};
   deps.onGenerationStage?.("generating");
@@ -3218,6 +3303,7 @@ export async function generateNextNode(
       expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length ? choice.expectedWorldDeltaTypes : fallbackWorldDeltaTypes({ ...node, eventMeta: nodeEventMeta })
     }))
   };
+  node = canonicalizeGeneratedChoiceIds(node);
   node = attachPendingFinancialContext({
     node,
     previousState: currentFinancialState
@@ -3405,6 +3491,7 @@ export async function generateNextNode(
         node: stripUnauthorizedRomanticCharacters(patchedNode as SimulationNode, worldState),
         previousState: currentFinancialState
       });
+      node = canonicalizeGeneratedChoiceIds(node);
       node = stripUnauthorizedRelationshipChoices(node, worldState);
       node = applyDecisionDensityDowngrade(node, candidateDecisionGate);
       node = downgradeDensityLimitedNode(node, candidateDecisionGate.reasonCodes);
@@ -3426,7 +3513,13 @@ export async function generateNextNode(
     candidateIssues.length > 0
     && candidateIssues.every((issue) => issue.code === CANDIDATE_ISSUE.decisionGate)
   ) {
-    node = applyDeterministicDecisionGateFallback(node, nodeEvent?.intent.allowedOutcomes, `node-${nodeIndex}`);
+    node = applyDeterministicDecisionGateFallback(
+      node,
+      nodeEvent?.intent.allowedOutcomes,
+      `node-${nodeIndex}`,
+      nodeEvent,
+      candidateDecisionGate.reasonCodes
+    );
     latestRawNode = {
       ...node,
       financialEventProposals: rawFinancialEventProposals(latestRawNode)
@@ -3463,7 +3556,9 @@ export async function generateNextNode(
       selectedDecision: input.selectedDecision,
       allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
       issueCodes: candidateIssues.map((issue) => issue.code),
-      intentScope: `node-${nodeIndex}`
+      intentScope: `node-${nodeIndex}`,
+      event: nodeEvent,
+      decisionGateReasonCodes: candidateDecisionGate.reasonCodes
     });
     latestRawNode = node;
     candidateDecisionGate = evaluateDecisionGate({
@@ -3650,9 +3745,10 @@ export async function generateNextNode(
       previousAgeInMonths: currentAgeInMonths,
       elapsedMonths: timelineAdvance.elapsedMonths,
       lifeIntensity: timelineAdvance.lifeIntensity,
-      pressureArcId: workingPressureArc?.id
+      pressureArcId: workingPressureArc?.id,
+      fallbackAttributes: input.currentAttributes
     });
-    node = { ...node, isEndingNode: false, eventMeta: nodeEventMeta };
+    node = canonicalizeGeneratedChoiceIds({ ...node, isEndingNode: false, eventMeta: nodeEventMeta });
     node = attachPendingFinancialContext({
       node,
       previousState: currentFinancialState
@@ -3737,7 +3833,8 @@ export async function generateNextNode(
         previousAgeInMonths: currentAgeInMonths,
         elapsedMonths: timelineAdvance.elapsedMonths,
         lifeIntensity: timelineAdvance.lifeIntensity,
-        pressureArcId: workingPressureArc.id
+        pressureArcId: workingPressureArc.id,
+        fallbackAttributes: input.currentAttributes
       });
       repairedNode = {
         ...repairedNode,
@@ -3750,6 +3847,7 @@ export async function generateNextNode(
             : fallbackWorldDeltaTypes({ ...repairedNode, eventMeta: nodeEventMeta })
         }))
       };
+      repairedNode = canonicalizeGeneratedChoiceIds(repairedNode) as SimulationNode;
       repairedNode = attachPendingFinancialContext({
         node: repairedNode,
         previousState: currentFinancialState

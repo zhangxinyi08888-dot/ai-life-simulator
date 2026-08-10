@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "sampleCount": 10,
+  "packetSha256": "1a366b30dd6dc1c61d09fbe932aee3013d754d977c6edc98319f9ac9c755e0e4",
+  "provenance": {
+    "mainCommit": "7748a6419dadfcb25d1511f4cabd1e7da7f513eb",
+    "candidateId": "cache-prefix-v2-reference-context-r4",
+    "candidateSourceSha256": "f8e20a7a7882d9f89aac5d3acf3543352fbe3609bfa18e6f00b2e49746e59344"
+  },
+  "observedGenerationFailures": [
+    {
+      "key": "relationship",
+      "pairIndex": 3,
+      "status": "candidate_generation_failed",
+      "sha256": "b91d54d7a9ce5ab21ea4e90e561109af264526e0f091699687f62022fda9f971"
+    }
+  ],
+  "labelCounts": {
+    "main": 10,
+    "v2_r4": 10
+  },
+  "samples": [
+    {
+      "blindId": "N01",
+      "pairKey": "career",
+      "pairIndex": 1,
+      "inputStateSha256": "a734ee75fb62df3f69bfbfb83157927f7f5a16800e139ccb3aa0d9af684f7ad2",
+      "mainOutputSha256": "ed1015a523f820a60a277ee8b466d4662c0ec1a6abf65e5cd27477a673c1f5fb",
+      "candidateOutputSha256": "ae4b3ebff7e1654de42e58e7c160eb2432e1523c02cc34c77a48d17b64b67e1f",
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      }
+    },
+    {
+      "blindId": "N02",
+      "pairKey": "career",
+      "pairIndex": 2,
+      "inputStateSha256": "53c1934bc6493c3ca17dd133612e751df6bea3db3c4e36c559f81499420d7aaf",
+      "mainOutputSha256": "b6793b8d090857f5777d2162aa53eb93f9bba291ab9205a291eabb5bddc6ab47",
+      "candidateOutputSha256": "9d0b3d744e63422bf17df8f2c54094210f4ad90f5e0d21bb17947baff8344c1e",
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      }
+    },
+    {
+      "blindId": "N03",
+      "pairKey": "career",
+      "pairIndex": 3,
+      "inputStateSha256": "fbb2eeeed78f41f760f66c55b61ffa1b93dca09eebf7a2949a5f4fdec192e439",
+      "mainOutputSha256": "bfeee3dfaa7f84cc3f66ffc14f472a06975c363620e6735a0263cef5d8bd850e",
+      "candidateOutputSha256": "6134cbc04a7f49c9eb4a57e2ec364f890f6667da0963fd16b1abd056a7d853f8",
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      }
+    },
+    {
+      "blindId": "N04",
+      "pairKey": "career",
+      "pairIndex": 4,
+      "inputStateSha256": "1b232a416a9c67f3a9a04f83c216063bcb56d71a7e7d7e8e165b46a84444e180",
+      "mainOutputSha256": "79d3f31061bb758ebc0c44aab18e82c49a9eb3fbe95916eb357514bed835657b",
+      "candidateOutputSha256": "47841f8768325e985b55a736d935432b83cc9c340fcf5d021a0a962ed4ea3727",
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      }
+    },
+    {
+      "blindId": "N05",
+      "pairKey": "career",
+      "pairIndex": 5,
+      "inputStateSha256": "4188661427fe8524f3f11e3d1d90b9708a26300de796b4e0e2df5f43f119bc5d",
+      "mainOutputSha256": "775a01d86086fe8cf3244d8418dbf0ccda624b50388ed298491cbb617beb176b",
+      "candidateOutputSha256": "be36c05a79ebb2082acd7dd95e2c2f419f4769a66fca0131f9c83d96ac46c796",
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      }
+    },
+    {
+      "blindId": "N06",
+      "pairKey": "relationship",
+      "pairIndex": 1,
+      "inputStateSha256": "5d239734050392e37fa4cd4dcc611d844fd361282a73c5b427f5b120a5dce2d7",
+      "mainOutputSha256": "027bf41dd68ba0b8fcc90db141d417e639c79833c465764553db1318ae7e289c",
+      "candidateOutputSha256": "3ba4924fcac4ab5037ea093c636920c547ae6419538eb8b93934aeac6cdc2f89",
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      }
+    },
+    {
+      "blindId": "N07",
+      "pairKey": "relationship",
+      "pairIndex": 2,
+      "inputStateSha256": "1162b3626da6dcc9f5c6d5c61256f0b4a146bf4d7cef861303862cfa59795c0f",
+      "mainOutputSha256": "9373a409753bca55f1459ff56233818f9bdcf2d2da45a82616577030e8a82944",
+      "candidateOutputSha256": "a8c2e360347d7d601a96fccf51b8b65f518f98b5c340db779bd6f2d6b708b839",
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      }
+    },
+    {
+      "blindId": "N08",
+      "pairKey": "relationship",
+      "pairIndex": 4,
+      "inputStateSha256": "6dc4098c250414455253dbe92d4c158eca9bced07cfeca7ddcb25d6b78bcfc5b",
+      "mainOutputSha256": "0a4ad404bb114d15cc4c68f372d5b97b6fe83172a4c8bd04f480e70d15d354f3",
+      "candidateOutputSha256": "6dd41b66fb1e626a43484c22793e76230a8111e45a41b1ef085a8c1d309e0261",
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      }
+    },
+    {
+      "blindId": "N09",
+      "pairKey": "relationship",
+      "pairIndex": 5,
+      "inputStateSha256": "2c3ffc2a408d34ef33f686afcca4accea39670e4a84d90b6634d94f054c1e380",
+      "mainOutputSha256": "b20b7a911c6a1a2236cdcc29d81f9fccdaa72d6358737987f264bbad878da632",
+      "candidateOutputSha256": "0991f2896ead329f66051d34c56e51c7a107b88fd96a50f08ec7b44ed4e3a249",
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      }
+    },
+    {
+      "blindId": "N10",
+      "pairKey": "relationship",
+      "pairIndex": 6,
+      "inputStateSha256": "56a743450feddd2e9529c5ca8e7e74e9c3769f276c060b9c6a03853628e5b69a",
+      "mainOutputSha256": "a901fefd072650f59e2c59a46039ca215a4585528aac6368e6672bf4a51e261a",
+      "candidateOutputSha256": "2f8d883e52ee6077123b480e722feebff5bbbf170b428fcad8572bc9a37f04dc",
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      }
+    }
+  ]
+}

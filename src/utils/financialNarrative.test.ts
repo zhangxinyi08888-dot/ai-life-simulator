@@ -59,6 +59,10 @@ test("replaces precise current savings and balance totals", () => {
     sanitizeFinancialNarrative("备用金以每月2万元的速度消耗，压力加重。", state),
     "持续支出正在消耗现金缓冲。"
   );
+  assert.equal(
+    sanitizeFinancialNarrative("你手里还有约20万元存款，但这笔钱不足以让你忽视眼前风险。", state),
+    "仍有一定现金缓冲，但这笔钱不足以让你忽视眼前风险。"
+  );
 });
 
 test("preserves salary, expenses and transaction amounts", () => {
@@ -79,6 +83,10 @@ test("preserves salary, expenses and transaction amounts", () => {
   assert.equal(
     sanitizeFinancialNarrative("你们用各自12万元积蓄作为启动资金，租了一间共享办公室。", state),
     "你们各自投入了一笔启动资金，租了一间共享办公室。"
+  );
+  assert.equal(
+    sanitizeFinancialNarrative("你已用20万元存款支付首付，剩余资金继续留作周转。", state),
+    "你已用20万元存款支付首付，剩余资金继续留作周转。"
   );
   assert.equal(
     sanitizeFinancialNarrative("外包确实带来了持续支出正在消耗现金缓冲的税后工资。", state),

@@ -7,8 +7,10 @@ import {
   buildNextNodePrompt,
   buildNextNodePromptLayout,
   buildNextNodePromptRequest,
+  buildNextNodePromptRequestFromLayout,
   NEXT_NODE_INVARIANT_PREFIX_V1,
-  NEXT_NODE_INVARIANT_PREFIX_VERSION
+  NEXT_NODE_INVARIANT_PREFIX_VERSION,
+  NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION
 } from "./prompts";
 
 function longestCommonPrefixLength(left: string, right: string): number {
@@ -16,6 +18,10 @@ function longestCommonPrefixLength(left: string, right: string): number {
   let index = 0;
   while (index < length && left[index] === right[index]) index += 1;
   return index;
+}
+
+function occurrences(text: string, value: string): number {
+  return text.split(value).length - 1;
 }
 
 const cacheEvent = LIFE_EVENTS_DATABASE.find((event) => event.intent.type === "career_venture_pressure");
@@ -211,7 +217,7 @@ assert.match(v1DensePrompt, /CACHE_DENSE_REALITY_20/);
 for (const requiredRule of [
   "canonicalFacts 是代码拥有的事实句",
   "sourceOutcomeId 必须等于上方已接受 outcome id",
-  "choice.id 是内部稳定键",
+  "choice.id 必须严格按显示顺序使用 A、B、C",
   "arcSignals 只能提出",
   "期权必须走生命周期事件",
   "attributes 必须由上一步选择和本轮现实后果共同决定"
@@ -257,6 +263,121 @@ if (typeof twentiethRequest !== "string") {
     assert.ok(currentIndex > previousIndex, `${section} moved before the required prompt context`);
     previousIndex = currentIndex;
   }
+}
+
+const v2Layout = buildNextNodePromptLayout(twentieth, { cacheAwarePromptV2: true });
+const v2Prompt = buildNextNodePrompt(twentieth, { cacheAwarePromptV2: true });
+const v2Request = buildNextNodePromptRequest(twentieth, { cacheAwarePromptV2: true });
+assert.equal(v2Layout.prefixVersion, NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION);
+assert.match(v2Prompt, /【V2 内容完整性边界】/);
+assert.match(v2Prompt, /attributes 是本节点结束时的五维绝对总值/);
+assert.match(v2Prompt, /statusEffectiveFromAgeInMonths/);
+assert.doesNotMatch(v2Prompt, /stateEffectiveFromAgeInMonths/);
+assert.doesNotMatch(v1Prompt, /【V2 内容完整性边界】/);
+assert.notEqual(typeof v2Request, "string");
+if (typeof v2Request !== "string" && typeof twentiethRequest !== "string") {
+  assert.equal(flattenAiPromptInput(v2Request), v2Prompt);
+  assert.match(v2Request.systemPrefix, /Story Context Pack：稳定用户材料/);
+  assert.match(v2Request.systemPrefix, /CACHE_ANSWER_VALUE_ALPHA/);
+  assert.match(v2Request.systemPrefix, /CACHE_MILESTONE_CAREER_ALPHA/);
+  assert.match(v2Request.userPrompt, /CACHE_HISTORY_DESCRIPTION_16/);
+  assert.match(v2Request.userPrompt, /CACHE_HISTORY_DESCRIPTION_20/);
+  assert.match(v2Request.userPrompt, /Story Context Pack：动态状态/);
+  assert.doesNotMatch(v2Request.userPrompt, /最近 5 个历史节点：/);
+  assert.doesNotMatch(v2Request.userPrompt, /CACHE_ANSWER_VALUE_ALPHA/);
+  assert.equal(occurrences(v2Request.userPrompt, "CACHE_HISTORY_DESCRIPTION_16"), 1);
+  assert.ok(
+    v2Request.systemPrefix.length / v2Prompt.length > twentiethRequest.systemPrefix.length / v1Prompt.length,
+    "V2 should increase the deterministic cacheable prefix share"
+  );
+}
+
+const endedRelationshipInput = {
+  ...twentieth,
+  worldState: {
+    people: [{
+      id: "CACHE_ENDED_PARTNER",
+      displayName: "缓存伴侣",
+      relation: "other",
+      lifeStatus: "active",
+      source: "accepted_history",
+      confidence: 1
+    }],
+    directionArcs: [],
+    pressureArcs: [],
+    relationships: [{
+      id: "CACHE_ENDED_RELATIONSHIP",
+      participantPersonIds: ["CACHE_ENDED_PARTNER"],
+      type: "romantic",
+      stage: "separated",
+      status: "ended",
+      effectiveFromAgeInMonths: 312,
+      statusEffectiveFromAgeInMonths: 456,
+      source: "accepted_history",
+      confidence: 1
+    }],
+    version: 2
+  }
+};
+const endedRelationshipPrompt = buildNextNodePrompt(endedRelationshipInput, { cacheAwarePromptV2: true });
+const endedRelationshipLine = endedRelationshipPrompt.split("\n").find((line) => line.includes("relationshipId=CACHE_ENDED_RELATIONSHIP"));
+assert.ok(endedRelationshipLine, "ended relationship must remain in the prompt");
+assert.match(endedRelationshipLine, /relationshipOriginAgeInMonths=312/);
+assert.match(endedRelationshipLine, /statusEffectiveFromAgeInMonths=456/);
+assert.match(endedRelationshipLine, /statusToTargetElapsedMonths=24/);
+assert.doesNotMatch(endedRelationshipLine, /stateEffectiveFromAgeInMonths|toTargetElapsedMonths/);
+
+const legacyEndedRelationshipInput = {
+  ...endedRelationshipInput,
+  worldState: {
+    ...endedRelationshipInput.worldState,
+    relationships: endedRelationshipInput.worldState.relationships.map((relationship) => {
+      const { statusEffectiveFromAgeInMonths: _statusEffectiveFromAgeInMonths, ...legacyRelationship } = relationship;
+      return legacyRelationship;
+    })
+  }
+};
+const legacyEndedRelationshipPrompt = buildNextNodePrompt(legacyEndedRelationshipInput, { cacheAwarePromptV2: true });
+const legacyEndedRelationshipLine = legacyEndedRelationshipPrompt.split("\n").find((line) => line.includes("relationshipId=CACHE_ENDED_RELATIONSHIP"));
+assert.ok(legacyEndedRelationshipLine, "legacy ended relationship must remain in the prompt");
+assert.match(legacyEndedRelationshipLine, /relationshipOriginAgeInMonths=312/);
+assert.doesNotMatch(legacyEndedRelationshipLine, /statusEffectiveFromAgeInMonths|statusToTargetElapsedMonths/);
+
+const v2DensePrompt = buildNextNodePrompt(denseTwentieth, { cacheAwarePromptV2: true });
+assert.ok(
+  v2DensePrompt.length < v1DensePrompt.length,
+  `reference context failed to remove duplicated dense history: v1=${v1DensePrompt.length}, v2=${v2DensePrompt.length}`
+);
+for (const expected of [
+  "CACHE_USER_SITUATION_ALPHA",
+  "CACHE_ANSWER_VALUE_ALPHA",
+  "CACHE_MILESTONE_CAREER_ALPHA",
+  "CACHE_HISTORY_TITLE_16",
+  "CACHE_HISTORY_DESCRIPTION_16",
+  "CACHE_LEDGER_CASH_ALPHA",
+  "CACHE_SELECTED_DECISION_BETA",
+  "CACHE_OUTCOME_BETA",
+  "CACHE_PRESSURE_ARC_ALPHA"
+]) {
+  assert.match(v2Prompt, new RegExp(expected));
+}
+
+const mismatchedStoryContext = inputFor({ historyCount: 6 });
+mismatchedStoryContext.storyContext = buildStoryContextPack(
+  mismatchedStoryContext.userData,
+  mismatchedStoryContext.answers,
+  mismatchedStoryContext.history.map((item: any, index: number) => index === 5
+    ? { ...item, description: "CACHE_STALE_STORY_CONTEXT_ONLY" }
+    : item)
+);
+const mismatchedV2Layout = buildNextNodePromptLayout(mismatchedStoryContext, { cacheAwarePromptV2: true });
+const mismatchedV2Request = buildNextNodePromptRequest(mismatchedStoryContext, { cacheAwarePromptV2: true });
+assert.equal(mismatchedV2Layout.prefixVersion, NEXT_NODE_INVARIANT_PREFIX_VERSION);
+assert.notEqual(typeof mismatchedV2Request, "string");
+if (typeof mismatchedV2Request !== "string") {
+  assert.deepEqual(buildNextNodePromptRequestFromLayout(mismatchedV2Layout), mismatchedV2Request);
+  assert.match(mismatchedV2Request.userPrompt, /CACHE_STALE_STORY_CONTEXT_ONLY/);
+  assert.doesNotMatch(mismatchedV2Request.systemPrefix, /Story Context Pack：稳定用户材料/);
 }
 
 const retryPrompt = `${v1Prompt}\n\n【上一次返回不完整，必须重新生成】`;

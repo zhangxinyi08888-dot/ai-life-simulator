@@ -14,6 +14,13 @@ const BALANCE_TOTAL = new RegExp(
   `${BALANCE_TERM}[^。！？；]{0,64}?${MONEY_AMOUNT}`,
   "g"
 );
+// The model also frequently writes the amount before the balance noun, for
+// example “你手里还有约20万元存款”. Keep this separate from BALANCE_TOTAL so
+// transaction wording can inspect the preceding context before replacement.
+const BALANCE_TOTAL_AMOUNT_FIRST = new RegExp(
+  `(?:(?:你|主角|本人)(?:手里|手头)?(?:还)?有\\s*)?(?:约|近|大约)?\\s*${MONEY_AMOUNT}\\s*(?:的)?${BALANCE_TERM}`,
+  "g"
+);
 const TRANSACTION_CONTEXT = /支付|付了|拿出|取出|投入|用于|花费|支援|借出|偿还|入账|收到|获得|首付|贷款|房贷|医疗费|学费|房租|项目收入|稿费|月薪|工资|还差|缺口/;
 const DECLINING_BALANCE = /从|由|降至|降到|减少|消耗|见底/;
 const CANONICAL_FINANCIAL_FALLBACK_SENTENCES = new Set([
@@ -42,6 +49,17 @@ function replaceBalanceTotal(match: string, state: FinancialState): string {
   if (TRANSACTION_CONTEXT.test(match)) return match;
   if (DECLINING_BALANCE.test(match)) return "持续支出正在消耗现金缓冲";
   return getFinancialStatusText(state);
+}
+
+function replaceAmountFirstBalanceTotal(
+  match: string,
+  state: FinancialState,
+  offset: number,
+  source: string
+): string {
+  const precedingContext = source.slice(Math.max(0, offset - 18), offset);
+  if (TRANSACTION_CONTEXT.test(`${precedingContext}${match}`)) return match;
+  return replaceBalanceTotal(match, state);
 }
 
 function formatWan(value: number): string {
@@ -252,7 +270,10 @@ export function sanitizeFinancialNarrative(
     }
     return sentence
       .replace(BALANCE_RANGE, (match) => replaceBalanceTotal(match, state))
-      .replace(BALANCE_TOTAL, (match) => replaceBalanceTotal(match, state));
+      .replace(BALANCE_TOTAL, (match) => replaceBalanceTotal(match, state))
+      .replace(BALANCE_TOTAL_AMOUNT_FIRST, (match, offset, source) => (
+        replaceAmountFirstBalanceTotal(match, state, offset, source)
+      ));
     }).join("")));
 }
 

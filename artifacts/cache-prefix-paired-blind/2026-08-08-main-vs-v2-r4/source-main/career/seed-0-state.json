@@ -1,0 +1,422 @@
+{
+  "capturedAt": "2026-08-08T14:28:37.614Z",
+  "e2eCase": null,
+  "recordTestRun": "cache-blind-main-career-seed-20260808",
+  "testDataSource": "real_ai_browser",
+  "step": "simulating",
+  "userName": "旅人",
+  "userData": {
+    "birthday": "1998-05-15",
+    "birthtime": "09:00",
+    "gender": "未知",
+    "currentSituation": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+    "isReturnToPast": true,
+    "targetAgeNode": "24 岁 · 工作与转折",
+    "milestones": [
+      {
+        "id": "career",
+        "title": "工作与转折",
+        "content": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。"
+      }
+    ],
+    "milestoneGaokao": "",
+    "milestoneCareer": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。",
+    "milestoneRelationship": "",
+    "milestoneOther": "",
+    "regressionNodeKey": "career",
+    "regressionAge": 24,
+    "regressionSituation": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+    "regressionChoices": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+    "coreStoryFocus": "career"
+  },
+  "questions": [
+    {
+      "question": "回到24岁，你当时在大公司的具体岗位和收入情况是怎样的？",
+      "suggestions": [
+        "我当时是产品经理，月薪1.5万左右，年终奖丰厚，公积金也高，所以很舍不得。",
+        "我负责一个成熟业务模块，工作稳定但重复，年薪大概20万，在大城市不算高但稳定。",
+        "我是技术岗，写代码两年了，晋升需要排队，但跳槽有风险，所以一直没动。",
+        "记不清了，大概是市场岗，收入中等，但领导很看重我，承诺明年升职。"
+      ]
+    },
+    {
+      "question": "24岁时，你第一次听说或接触那家AI创业公司是什么情形？",
+      "suggestions": [
+        "是前同事拉我去的，他已经是联合创始人，说缺一个产品负责人，我犹豫了很久。",
+        "在行业论坛上认识的创始人，聊过几次，觉得方向很靠谱，但给不起高薪。",
+        "朋友推荐我去面试，通过后才知道他们连A轮都没融，只有天使轮的钱。",
+        "不确定，可能是网上看到的招聘信息，当时觉得AI是风口，但没想过离开大公司。"
+      ]
+    },
+    {
+      "question": "24岁，你当时最担心的是什么？",
+      "suggestions": [
+        "最担心收入下降，我每个月要还房贷，家里还等着我补贴，不能冒风险。",
+        "担心创业公司撑不过两年，到时候简历花了，再回大公司就难了。",
+        "担心自己能力不够，带不了产品，辜负创始人的信任，也怕丢脸。",
+        "担心家人反对，他们一直觉得大公司稳定，创业就是瞎折腾。"
+      ]
+    },
+    {
+      "question": "24岁，你当时的性格和应对压力的方式是什么？",
+      "suggestions": [
+        "我平时挺稳的，但遇到大事就容易失眠，会反复权衡利弊，不太敢冒险。",
+        "我比较冲动，但这次因为牵扯钱的事，就变得特别谨慎，连续问了好几个朋友。",
+        "我习惯自己扛，不怎么跟别人说，晚上会想很多，但白天还是正常工作。",
+        "我其实很想拼一把，但父母身体不好，我不得不考虑稳定，最后选择保守。"
+      ]
+    },
+    {
+      "question": "24岁，你当时有什么具体的兴趣、技能或资源？",
+      "suggestions": [
+        "我自学过机器学习，也会写一点代码，但不算精通，产品设计是我的强项。",
+        "我特别关注AI行业，有行业人脉，但自己没做过创业，也不懂融资。",
+        "我手里有点积蓄，够活一年，但不够创业，而且没有其他收入来源。",
+        "我认识几个投资人，但关系一般，不确定能不能拉来资源。"
+      ]
+    },
+    {
+      "question": "24岁，你当时在情感或家庭方面有什么牵绊？",
+      "suggestions": [
+        "我谈着异地恋，女朋友支持我创业，但家里人催我买房结婚，压力很大。",
+        "我单身，家里是普通工薪阶层，父母希望我稳定，我也觉得自己没资本输。",
+        "我刚结婚，老婆刚怀孕，急需用钱，所以更不敢动。",
+        "我家庭条件还行，父母说可以支持我两年，但我自己不好意思啃老。"
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "id": 1,
+      "question": "回到24岁，你当时在大公司的具体岗位和收入情况是怎样的？",
+      "answer": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。"
+    },
+    {
+      "id": 2,
+      "question": "24岁时，你第一次听说或接触那家AI创业公司是什么情形？",
+      "answer": "面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。"
+    },
+    {
+      "id": 3,
+      "question": "24岁，你当时最担心的是什么？",
+      "answer": "我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。"
+    },
+    {
+      "id": 4,
+      "question": "24岁，你当时的性格和应对压力的方式是什么？",
+      "answer": "我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。"
+    },
+    {
+      "id": 5,
+      "question": "24岁，你当时有什么具体的兴趣、技能或资源？",
+      "answer": "我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。"
+    },
+    {
+      "id": 6,
+      "question": "24岁，你当时在情感或家庭方面有什么牵绊？",
+      "answer": "我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。"
+    }
+  ],
+  "history": [],
+  "currentNode": {
+    "age": 24,
+    "stage": "分岔路口",
+    "title": "大公司与创业公司的抉择",
+    "descriptionParagraphs": [
+      "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。房租每月6000元，加上给父母的医疗费用，每月固定支出约1.5万，压力不小。",
+      "你手头有18万元存款，但不敢乱动。",
+      "朋友推荐你加入一家早期AI创业公司，做产品负责人。你调研后发现公司方向有前景，但薪酬会降三成，且期权可能打水漂。",
+      "你既想抓住机会做出真正属于自己的产品，又担心现金流断裂。你习惯先搜集信息、推演最坏情况，再找朋友讨论。"
+    ],
+    "choices": [
+      {
+        "id": "A",
+        "text": "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。",
+        "impactSummary": "投身创业",
+        "temporalHint": {
+          "lifeIntensity": "high_tension",
+          "durationMonths": [
+            6,
+            12
+          ],
+          "requiresFollowUp": true,
+          "reason": "投身创业"
+        },
+        "decisionIntent": "career:join:early_ai_startup",
+        "expectedWorldDeltaTypes": []
+      },
+      {
+        "id": "B",
+        "text": "保留现有工作，利用晚上和周末参与创业项目，边上班边积累经验。",
+        "impactSummary": "双线并行",
+        "temporalHint": {
+          "lifeIntensity": "high_tension",
+          "durationMonths": [
+            6,
+            12
+          ],
+          "requiresFollowUp": true,
+          "reason": "双线并行"
+        },
+        "decisionIntent": "career:side_project:ai_startup",
+        "expectedWorldDeltaTypes": []
+      },
+      {
+        "id": "C",
+        "text": "拒绝创业机会，留在大公司争取管理岗位，稳步晋升。",
+        "impactSummary": "稳中求进",
+        "temporalHint": {
+          "lifeIntensity": "high_tension",
+          "durationMonths": [
+            6,
+            12
+          ],
+          "requiresFollowUp": true,
+          "reason": "稳中求进"
+        },
+        "decisionIntent": "career:stay:large_company_management",
+        "expectedWorldDeltaTypes": []
+      }
+    ],
+    "attributes": {
+      "happiness": 60,
+      "intelligence": 70,
+      "wealth": 55,
+      "relation": 65,
+      "health": 70
+    },
+    "isEndingNode": false,
+    "ageInMonths": 288,
+    "lifeStage": "emerging_adulthood",
+    "description": "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。房租每月6000元，加上给父母的医疗费用，每月固定支出约1.5万，压力不小。你手头有18万元存款，但不敢乱动。\n\n朋友推荐你加入一家早期AI创业公司，做产品负责人。你调研后发现公司方向有前景，但薪酬会降三成，且期权可能打水漂。你既想抓住机会做出真正属于自己的产品，又担心现金流断裂。你习惯先搜集信息、推演最坏情况，再找朋友讨论。",
+    "narrativeMeta": {
+      "elapsedMonths": 0,
+      "elapsedYears": 0,
+      "lifeIntensity": "normal",
+      "nodeMateriality": "decision_checkpoint",
+      "storyEpisode": {
+        "id": "episode_fc981a14",
+        "startAgeInMonths": 288,
+        "endAgeInMonths": 288,
+        "internalTransitions": [],
+        "decisionCheckpointId": "checkpoint_f356b5fe",
+        "summary": "24岁，你在一家稳定的大公司做着产品经理，月薪到手约2万，每年能攒下12万左右。房租每月6000元，加上给父母的医疗费用，每月固定支出约1.5万，压力不小。你手"
+      },
+      "recoveryState": "neutral",
+      "recoveryEvidence": [],
+      "arcSignals": [],
+      "activeCharacters": [],
+      "worldDeltas": [],
+      "relationshipProposals": []
+    },
+    "financialLedger": {
+      "id": "financial_opening_288",
+      "owner": "protagonist",
+      "currencyUnit": "CNY_WAN_REAL",
+      "asOfAgeInMonths": 288,
+      "cashAccounts": [
+        {
+          "id": "primary_cash",
+          "type": "bank_deposit",
+          "balanceWan": 18,
+          "status": "active",
+          "factStatus": "known",
+          "evidence": [
+            {
+              "source": "user",
+              "excerpt": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。\n面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。\n我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。",
+              "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+              "confidence": 1
+            }
+          ]
+        }
+      ],
+      "assetAccounts": [],
+      "debtAccounts": [],
+      "incomeSources": [
+        {
+          "id": "legacy_recurring_income",
+          "type": "other",
+          "displayName": "旧版持续收入聚合",
+          "annualNetAmountWan": 30,
+          "accrualPolicy": "annual",
+          "activeFromAgeInMonths": 288,
+          "status": "active",
+          "linkedCareerStateId": "career_opening_288",
+          "factStatus": "estimated",
+          "lastConfirmedAtAgeInMonths": 288,
+          "evidence": [
+            {
+              "source": "legacy_migration",
+              "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+              "confidence": 0.5
+            }
+          ]
+        }
+      ],
+      "expenseCommitments": [
+        {
+          "id": "legacy_core_expense",
+          "type": "basic_living",
+          "displayName": "旧版核心支出聚合",
+          "monthlyAmountWan": 1.5,
+          "activeFromAgeInMonths": 288,
+          "status": "active",
+          "factStatus": "estimated",
+          "evidence": [
+            {
+              "source": "legacy_migration",
+              "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+              "confidence": 0.5
+            }
+          ]
+        }
+      ],
+      "businessHoldings": [],
+      "recentTransactions": [],
+      "committedTransactionIds": [],
+      "unresolvedIssues": [
+        {
+          "id": "legacy_uncertainty_288",
+          "code": "LEGACY_UNCERTAINTY",
+          "severity": "warning",
+          "relatedProposalIds": [],
+          "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+          "createdAtAgeInMonths": 288
+        }
+      ],
+      "revision": 0,
+      "version": 3,
+      "openingAcceptedEventIds": [
+        "accepted_opening_cash_primary_cash",
+        "accepted_opening_income_source_legacy_recurring_income",
+        "accepted_opening_expense_commitment_legacy_core_expense"
+      ]
+    },
+    "financialLedgerMode": "authoritative",
+    "financialState": {
+      "currencyUnit": "CNY_WAN_REAL",
+      "asOfAgeInMonths": 288,
+      "cashWan": 18,
+      "investmentAssetsWan": 0,
+      "propertyMarketValueWan": 0,
+      "businessAndOtherAssetsWan": 0,
+      "totalDebtWan": 0,
+      "netWorthWan": 18,
+      "annualAfterTaxIncomeWan": 30,
+      "annualDisposableIncomeWan": 12,
+      "annualCoreExpenseWan": 18,
+      "employmentStatus": "employed",
+      "incomeStability": "stable",
+      "isEstimated": true
+    },
+    "debtHealthState": {
+      "asOfAgeInMonths": 288,
+      "level": "none",
+      "totalDebtWan": 0,
+      "scheduledDebtServiceNext12MonthsWan": 0,
+      "availableCashForDebtNext12MonthsWan": 30,
+      "cashBufferMonths": 12,
+      "liquidityShortfallDebtWan": 0,
+      "consecutiveMissedPaymentMonths": 0,
+      "missedPaymentMonthsLast12": 0,
+      "activeDefaultedDebtCount": 0,
+      "source": "authoritative_ledger",
+      "sourceLedgerRevision": 0,
+      "trend": "unknown",
+      "reasonCodes": [
+        "NO_ACTIVE_DEBT"
+      ]
+    },
+    "worldStateSnapshot": {
+      "people": [
+        {
+          "id": "person_parent_unspecified",
+          "identityKey": {
+            "namespace": "user_role",
+            "key": "parent:unspecified"
+          },
+          "displayName": "父母",
+          "relation": "parent",
+          "estimatedAgeRange": [
+            42,
+            69
+          ],
+          "protagonistAgeInMonthsAtLastUpdate": 288,
+          "lifeStatus": "active",
+          "occupationStatus": "unknown",
+          "healthStatus": "unknown",
+          "relationshipSummary": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元",
+          "source": "user_fact",
+          "confidence": 0.9
+        }
+      ],
+      "directionArcs": [
+        {
+          "id": "direction_efb88fbf",
+          "directionType": "career",
+          "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+          "status": "active",
+          "startedAtAgeInMonths": 288,
+          "userReinforcementCount": 1,
+          "establishedAssets": []
+        }
+      ],
+      "pressureArcs": [],
+      "committedTransactionIds": [],
+      "version": 2,
+      "careerStates": [
+        {
+          "id": "career_opening_288",
+          "employmentStatus": "employed",
+          "activeProjectIds": [],
+          "effectiveFromAgeInMonths": 288,
+          "source": "accepted_history",
+          "confidence": 0.6
+        }
+      ],
+      "currentCareerStateId": "career_opening_288",
+      "currentEmploymentStatus": "employed",
+      "careerRevision": 0,
+      "relationships": [],
+      "familyRelationships": [
+        {
+          "id": "family_person_parent_unspecified",
+          "participantPersonId": "person_parent_unspecified",
+          "role": "parent_unspecified",
+          "activation": "active",
+          "contact": "unknown",
+          "emotionalSupport": "unknown",
+          "practicalSupport": "unknown",
+          "autonomyRespect": "unknown",
+          "conflictIntensity": "unknown",
+          "topicStances": [],
+          "revision": 1
+        }
+      ],
+      "routePreferences": [],
+      "relationshipRevision": 0,
+      "familyRelationshipRevision": 1,
+      "relationshipProgressionVersion": 1
+    }
+  },
+  "currentAttributes": {
+    "happiness": 60,
+    "intelligence": 70,
+    "wealth": 55,
+    "relation": 65,
+    "health": 70
+  },
+  "nodeCount": 1,
+  "simulationSeed": "0db15866-00d0-476d-83a9-79041f0dcc05",
+  "outcome": null,
+  "generationEvents": [],
+  "generationCallTraces": [],
+  "isLoading": false,
+  "isLoadingNext": false,
+  "nextNarrativePreview": null,
+  "nextGenerationError": null,
+  "nextGenerationErrorDebug": null,
+  "errorMsg": null,
+  "invitations": []
+}

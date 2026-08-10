@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "pairId": "relationship-cohabitation-r1",
+  "key": "relationship-cohabitation",
+  "theme": "结束异地后的共同生活",
+  "replicate": 1,
+  "inputStatePath": "/Users/zz/Documents/new life/test---cache-prefix-v1/artifacts/cache-prefix-paired-blind/2026-08-08-main-vs-v2-r4/source-main/relationship/seed-6-state.json",
+  "selection": {
+    "id": "choice_3",
+    "text": "跟伴侣商量，把线上做饭改成每月一次线下短聚，其他时间用短信和照片保持联系，减少远程消耗。"
+  },
+  "callOrder": [
+    "main",
+    "v2_r4"
+  ],
+  "error": {
+    "name": "BrowserUseSecurityError",
+    "message": "Browser Use rejected this action due to browser security policy. Reason: Auto-review denied this action; this was not a manual user rejection. Browser use cannot access http://127.0.0.1:43184 because Auto-review denied permission for this request. The agent must not attempt to achieve the same outcome via workaround, indirect execution, raw CDP or browser commands, alternate browser surfaces, or policy circumvention. Proceed only with a materially safer alternative that does not require this blocked browser action; if none exists, stop and request user input.",
+    "stack": "BrowserUseSecurityError: Browser Use rejected this action due to browser security policy. Reason: Auto-review denied this action; this was not a manual user rejection. Browser use cannot access http://127.0.0.1:43184 because Auto-review denied permission for this request. The agent must not attempt to achieve the same outcome via workaround, indirect execution, raw CDP or browser commands, alternate browser surfaces, or policy circumvention. Proceed only with a materially safer alternative that does not require this blocked browser action; if none exists, stop and request user input.\n    at de (/Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:1007:42126)\n    at tr (/Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:1007:42912)\n    at rr (/Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:1007:43288)\n    at ZA (/Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:1007:45918)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async pd.ensureUrlOriginConsentAllowed (/Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:1007:58782)\n    at async pd.ensureUrlOriginAllowed (/Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:1007:58640)\n    at async pd.ensureCurrentTabOriginAllowed (/Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:1007:59046)\n    at async pd.ensureCommandAllowed (/Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:1007:57116)\n    at async /Users/zz/.codex/plugins/cache/openai-bundled/browser/26.730.61639/scripts/browser-client.mjs:4121:2234"
+  },
+  "capturedAt": "2026-08-10T03:13:33.669Z"
+}

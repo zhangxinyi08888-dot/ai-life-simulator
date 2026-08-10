@@ -1,7 +1,10 @@
 import { LifeAttributes, LifeIntensity, SimulationNode } from "../types";
 import {
+  ATTRIBUTE_MAX,
+  ATTRIBUTE_MIN,
   getInvalidExplicitChoiceTextIndexes,
   getSimulationNodeValidationIssues,
+  MAX_NARRATIVE_ATTRIBUTE_DELTA,
   normalizeSimulationNode,
   repairDeterministicRomanceChoices
 } from "./simulationResponse";
@@ -62,15 +65,31 @@ function repairMissingAttributes(
     : {};
   const intelligence = attributes.intelligence ?? attributes.wisdom ?? attributes.talent;
   const relation = attributes.relation ?? attributes.social ?? attributes.relationships;
+  const repair = (
+    value: unknown,
+    previous: number,
+    preservePrevious = false,
+    enforceDelta = true
+  ): number => {
+    if (preservePrevious) return previous;
+    if (!finiteNumber(value)) return previous;
+    if (value < ATTRIBUTE_MIN || value > ATTRIBUTE_MAX) return previous;
+    if (enforceDelta && Math.abs(value - previous) > MAX_NARRATIVE_ATTRIBUTE_DELTA) return previous;
+    return value;
+  };
   return {
     ...node,
     attributes: {
       ...attributes,
-      happiness: finiteNumber(attributes.happiness) ? attributes.happiness : fallbackAttributes.happiness,
-      intelligence: finiteNumber(intelligence) ? intelligence : fallbackAttributes.intelligence,
-      wealth: finiteNumber(attributes.wealth) ? attributes.wealth : fallbackAttributes.wealth,
-      relation: finiteNumber(relation) ? relation : fallbackAttributes.relation,
-      health: finiteNumber(attributes.health) ? attributes.health : fallbackAttributes.health
+      happiness: repair(attributes.happiness, fallbackAttributes.happiness),
+      intelligence: repair(intelligence, fallbackAttributes.intelligence),
+      // Wealth is later calculated from the accepted ledger transaction, not
+      // from the model's narrative estimate.
+      wealth: repair(attributes.wealth, fallbackAttributes.wealth, true),
+      relation: repair(relation, fallbackAttributes.relation),
+      // Health is bounded by reconcileHealth after the candidate pipeline;
+      // retain its proposal here so a major health event can use that policy.
+      health: repair(attributes.health, fallbackAttributes.health, false, false)
     }
   };
 }
@@ -112,6 +131,7 @@ export async function generateCompleteSimulationNode(
     let candidateIssues = getSimulationNodeValidationIssues(candidate, {
       allowedOutcomeIds: options.allowedOutcomeIds,
       eventIntentType: options.eventIntentType,
+      previousAttributes: options.fallbackAttributes,
       requireExplicitChoiceText: options.requireExplicitChoiceText ?? true
     });
     if (options.deferRomanceContractValidation) {
