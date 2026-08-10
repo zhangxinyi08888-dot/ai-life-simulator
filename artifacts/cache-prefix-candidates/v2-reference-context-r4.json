@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "frozenAt": "2026-08-08T14:45:57.190Z",
+  "frozenAt": "2026-08-10T16:16:04.245Z",
   "candidate": {
     "id": "cache-prefix-v2-reference-context-r4",
     "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
@@ -11,30 +11,9 @@
     }
   },
   "sourceIdentity": {
-    "repositoryCommit": "c0426f54b5091b433ace3bd3953695e3e7e15837",
-    "sourceSha256": "f8e20a7a7882d9f89aac5d3acf3543352fbe3609bfa18e6f00b2e49746e59344",
-    "dirtyCandidateFiles": [
-      "package.json",
-      "scripts/analyze-cache-prefix-acceptance.mjs",
-      "scripts/evaluate-cache-prefix-blind-review.mjs",
-      "scripts/prepare-cache-prefix-blind-review.mjs",
-      "scripts/probe-cache-prefix-layout.mjs",
-      "scripts/real-browser-journey-runner.mjs",
-      "scripts/summarize-cache-prefix-run.mjs",
-      "src/App.tsx",
-      "src/domain/relationship/relationshipOutcome.ts",
-      "src/domain/relationship/relationshipState.ts",
-      "src/services/ai/env.ts",
-      "src/services/simulation/prompts.ts",
-      "src/services/simulation/simulationService.ts",
-      "src/types.ts",
-      "src/utils/eventPrompt.ts",
-      "src/utils/financialNarrative.ts",
-      "src/utils/simulationNodeRetry.ts",
-      "src/utils/simulationResponse.ts",
-      "src/utils/storyConsistency.ts",
-      "src/utils/storyContext.ts"
-    ],
+    "repositoryCommit": "a08e8493b9ce875b27af8d16d872772d8777e31d",
+    "sourceSha256": "8a7df35b75883cd63169f373836a941b95c6547257002d26a5ba87c4c840de95",
+    "dirtyCandidateFiles": [],
     "files": [
       {
         "file": "package.json",
@@ -50,7 +29,7 @@
       },
       {
         "file": "scripts/prepare-cache-prefix-blind-review.mjs",
-        "sha256": "03b104e5e25f01609a02ab711ae92f66dec9cfd1603f996715974e661533f08e"
+        "sha256": "2b0f575a899e72cb136e2694ff3a215eed91c6a84364267147eccb1aba91ca88"
       },
       {
         "file": "scripts/probe-cache-prefix-layout.mjs",
@@ -90,7 +69,7 @@
       },
       {
         "file": "src/services/simulation/simulationService.ts",
-        "sha256": "8c66ff37e179e08ae4e67619fccab4b7393356ed936df8b5a3f0e413d04a4a12"
+        "sha256": "606450185b02ce647b8aa01909b6aee63fc064659dc046349c82e1121022be34"
       },
       {
         "file": "src/types.ts",
@@ -106,11 +85,11 @@
       },
       {
         "file": "src/utils/financialNarrative.ts",
-        "sha256": "36ce80acd2770fec7096da907e51e84331e7af260f1d05ba322e6a970568b322"
+        "sha256": "80b28af5a83e28bf132e7484b5fbccb68dddba178fe8483018c791cf8412275c"
       },
       {
         "file": "src/utils/simulationNodeRetry.ts",
-        "sha256": "ca5b65472bcdd019142f567420ae9267bd84caa9bafb1b1a93aa236fd45555d6"
+        "sha256": "45dc0bd3358a46cab4c7b83e3d65dfeddc315ff45b32a34550a8b12dcefeccaf"
       },
       {
         "file": "src/utils/simulationResponse.ts",
