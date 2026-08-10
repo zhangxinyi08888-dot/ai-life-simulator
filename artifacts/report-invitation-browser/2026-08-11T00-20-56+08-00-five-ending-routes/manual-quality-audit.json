@@ -1,0 +1,50 @@
+{
+  "auditedAt": "2026-08-10T17:19:00.000Z",
+  "releaseDecision": "fail",
+  "routeContractDecision": "pass",
+  "summary": "The 2/2/1 route contract and structural finance checks pass, but generated prose still contains deterministic audit language, damaged sentence joins, and one state/outcome contradiction. These are release blockers even though the route collector passed.",
+  "findings": [
+    {
+      "severity": "blocking",
+      "caseSlug": "real-relationship-first",
+      "type": "internal_audit_template_leak",
+      "evidence": "你已经开始执行上一轮的选择。这一步尚未被写成未经权威状态确认的成功结果；接下来的变化仍要由实际事件、人物状态和账本记录确认。",
+      "requiredFix": "Do not inject validator or authority-state explanations into literary prose. Generate a scene-specific neutral bridge from accepted facts."
+    },
+    {
+      "severity": "blocking",
+      "caseSlug": "real-venture-second",
+      "type": "internal_audit_template_leak",
+      "evidence": "你已经开始执行上一轮的选择。这一步尚未被写成未经权威状态确认的成功结果；接下来的变化仍要由实际事件、人物状态和账本记录确认。",
+      "requiredFix": "Replace the shared audit fallback with fact-aware narrative repair that preserves scene grammar and does not expose internal validation semantics."
+    },
+    {
+      "severity": "blocking",
+      "caseSlug": "real-career-first",
+      "type": "damaged_sentence_join",
+      "evidence": "比原来少了三分之一，加上房租和父母的医疗支出……；你盯着账本上依然见底的整体仍处于负债状态的欠款。",
+      "requiredFix": "Repair at sentence or clause boundaries instead of deleting financial spans and concatenating the remainder. Add grammar regression cases for missing subjects and duplicated financial predicates."
+    },
+    {
+      "severity": "blocking",
+      "caseSlug": "real-venture-second",
+      "type": "state_outcome_contradiction",
+      "evidence": "你已经尝试申请调整还款安排，但尚未形成生效协议。过去十六个月里，你严格执行新计划……",
+      "requiredFix": "A non-effective agreement cannot be treated as an executed new plan. Bind dependent outcomes to an accepted agreement event or narrate continued execution of the old plan."
+    },
+    {
+      "severity": "blocking",
+      "caseSlug": "real-venture-second",
+      "type": "authoritative_income_conflict",
+      "evidence": "Terminal blocking issue CAREER_INCOME_CONFLICT: personal_income_claim_without_event_551.",
+      "requiredFix": "Require an accepted personal income event before prose may assert newly formed personal income activity."
+    },
+    {
+      "severity": "test_fixture",
+      "caseSlug": "real-venture-second",
+      "type": "persona_age_mismatch",
+      "evidence": "Persona anchor describes age 31 with a mortgage, while returnPointName and the generated opening use age 24.",
+      "requiredFix": "Align the persona anchor and return point before any future focused retest."
+    }
+  ]
+}

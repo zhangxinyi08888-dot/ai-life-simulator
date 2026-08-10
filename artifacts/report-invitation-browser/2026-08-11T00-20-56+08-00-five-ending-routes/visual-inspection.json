@@ -1,0 +1,13 @@
+{
+  "inspectedAt": "2026-08-10T17:18:00.000Z",
+  "inspector": "Codex visual inspection",
+  "result": "pass",
+  "summary": "All five posters and all five full report-page captures rendered successfully, are non-blank, and contain readable report content.",
+  "checks": [
+    { "caseSlug": "real-career-first", "poster": "pass", "reportPage": "pass", "notes": "Poster and full report page are readable and visually complete." },
+    { "caseSlug": "real-relationship-first", "poster": "pass", "reportPage": "pass", "notes": "Poster and full report page are readable and visually complete." },
+    { "caseSlug": "real-education-second", "poster": "pass", "reportPage": "pass", "notes": "Poster and full report page are readable and visually complete." },
+    { "caseSlug": "real-venture-second", "poster": "pass", "reportPage": "pass", "notes": "Poster and full report page are readable and visually complete." },
+    { "caseSlug": "real-custom-lifespan", "poster": "pass", "reportPage": "pass", "notes": "Poster and full report page are readable and non-blank; long milestone summaries are visibly ellipsized by the current card layout." }
+  ]
+}

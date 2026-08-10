@@ -1,0 +1,353 @@
+{
+  "generatedAt": "2026-08-10T17:08:44.725Z",
+  "caseCount": 5,
+  "allCasesPassed": true,
+  "m7Ready": false,
+  "scenarioCounts": {
+    "accept_first": 2,
+    "natural_lifespan": 1,
+    "accept_second": 2
+  },
+  "totalHistoryNodes": 122,
+  "totalInvitations": 9,
+  "releaseCandidate": false,
+  "blockers": [
+    "终局仍存在 blocking open issue：1 个"
+  ],
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "scenario": "accept_first",
+      "closureType": "user_reflection",
+      "passed": true,
+      "nodeCount": 17,
+      "finalAgeInMonths": 368,
+      "invitationCount": 1,
+      "invitationSequence": [
+        "7425ddf4:accepted"
+      ],
+      "recoverableEvents": [],
+      "recoveredGenerationAttempts": 0,
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 288,
+        "cashWan": 18,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 18,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 368,
+        "cashWan": 0,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 6.7,
+        "netWorthWan": -6.7,
+        "annualAfterTaxIncomeWan": 3.6,
+        "annualDisposableIncomeWan": -0.6,
+        "annualCoreExpenseWan": 4.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "realityMetrics": {
+        "invariantFailures": 0,
+        "salaryMismatchNodes": 0,
+        "salaryConversionMismatchNodes": 0,
+        "adultZeroExpenseNodes": 0,
+        "personalLedgerBusinessBoundaryNodes": 0,
+        "duplicateSingletonExpenseNodes": 0,
+        "missingPropertyNodes": 0,
+        "missingOptionHoldingNodes": 0,
+        "valuedOptionOmittedNodes": 0,
+        "employedAt80PlusNodes": 0,
+        "employedAt80PlusWithoutEvidenceNodes": 0,
+        "openIssues": 1
+      },
+      "change": {
+        "cashWan": -18,
+        "netWorthWan": -24.7,
+        "debtWan": 6.7
+      }
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "closureType": "mortality",
+      "passed": true,
+      "nodeCount": 34,
+      "finalAgeInMonths": 944,
+      "invitationCount": 3,
+      "invitationSequence": [
+        "7e3e7f27:declined",
+        "a4d06f8c:declined",
+        "b1a7af67:declined"
+      ],
+      "recoverableEvents": [],
+      "recoveredGenerationAttempts": 0,
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 300,
+        "cashWan": 25,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 25,
+        "annualAfterTaxIncomeWan": 32,
+        "annualDisposableIncomeWan": 14,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 944,
+        "cashWan": 0,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 68.5599,
+        "netWorthWan": -68.5599,
+        "annualAfterTaxIncomeWan": 0,
+        "annualDisposableIncomeWan": -4.2,
+        "annualCoreExpenseWan": 4.2,
+        "employmentStatus": "not_working",
+        "incomeStability": "unstable",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "realityMetrics": {
+        "invariantFailures": 0,
+        "salaryMismatchNodes": 0,
+        "salaryConversionMismatchNodes": 0,
+        "adultZeroExpenseNodes": 0,
+        "personalLedgerBusinessBoundaryNodes": 0,
+        "duplicateSingletonExpenseNodes": 0,
+        "missingPropertyNodes": 0,
+        "missingOptionHoldingNodes": 0,
+        "valuedOptionOmittedNodes": 0,
+        "employedAt80PlusNodes": 0,
+        "employedAt80PlusWithoutEvidenceNodes": 0,
+        "openIssues": 1
+      },
+      "change": {
+        "cashWan": -25,
+        "netWorthWan": -93.5599,
+        "debtWan": 68.5599
+      }
+    },
+    {
+      "caseSlug": "real-education-second",
+      "scenario": "accept_second",
+      "closureType": "user_reflection",
+      "passed": true,
+      "nodeCount": 29,
+      "finalAgeInMonths": 373,
+      "invitationCount": 2,
+      "invitationSequence": [
+        "ccebc956:declined",
+        "25396e10:accepted"
+      ],
+      "recoverableEvents": [],
+      "recoveredGenerationAttempts": 0,
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 216,
+        "cashWan": 0,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 0,
+        "annualAfterTaxIncomeWan": 0,
+        "annualDisposableIncomeWan": -2.4,
+        "annualCoreExpenseWan": 2.4,
+        "employmentStatus": "student",
+        "incomeStability": "unstable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 373,
+        "cashWan": 0,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 31.4,
+        "netWorthWan": -31.4,
+        "annualAfterTaxIncomeWan": 0,
+        "annualDisposableIncomeWan": -2.4,
+        "annualCoreExpenseWan": 2.4,
+        "employmentStatus": "student",
+        "incomeStability": "unstable",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "realityMetrics": {
+        "invariantFailures": 0,
+        "salaryMismatchNodes": 0,
+        "salaryConversionMismatchNodes": 0,
+        "adultZeroExpenseNodes": 0,
+        "personalLedgerBusinessBoundaryNodes": 0,
+        "duplicateSingletonExpenseNodes": 0,
+        "missingPropertyNodes": 0,
+        "missingOptionHoldingNodes": 0,
+        "valuedOptionOmittedNodes": 0,
+        "employedAt80PlusNodes": 0,
+        "employedAt80PlusWithoutEvidenceNodes": 0,
+        "openIssues": 1
+      },
+      "change": {
+        "cashWan": 0,
+        "netWorthWan": -31.4,
+        "debtWan": 31.4
+      }
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "scenario": "accept_first",
+      "closureType": "user_reflection",
+      "passed": true,
+      "nodeCount": 17,
+      "finalAgeInMonths": 535,
+      "invitationCount": 1,
+      "invitationSequence": [
+        "562c76e4:accepted"
+      ],
+      "recoverableEvents": [],
+      "recoveredGenerationAttempts": 0,
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 312,
+        "cashWan": 12,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 12,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 12,
+        "annualCoreExpenseWan": 18,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 535,
+        "cashWan": 62.15,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 62.15,
+        "annualAfterTaxIncomeWan": 2.4,
+        "annualDisposableIncomeWan": -1.8,
+        "annualCoreExpenseWan": 4.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "realityMetrics": {
+        "invariantFailures": 0,
+        "salaryMismatchNodes": 0,
+        "salaryConversionMismatchNodes": 0,
+        "adultZeroExpenseNodes": 0,
+        "personalLedgerBusinessBoundaryNodes": 0,
+        "duplicateSingletonExpenseNodes": 0,
+        "missingPropertyNodes": 0,
+        "missingOptionHoldingNodes": 0,
+        "valuedOptionOmittedNodes": 0,
+        "employedAt80PlusNodes": 0,
+        "employedAt80PlusWithoutEvidenceNodes": 0,
+        "openIssues": 2
+      },
+      "change": {
+        "cashWan": 50.15,
+        "netWorthWan": 50.15,
+        "debtWan": 0
+      }
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "scenario": "accept_second",
+      "closureType": "user_reflection",
+      "passed": true,
+      "nodeCount": 25,
+      "finalAgeInMonths": 606,
+      "invitationCount": 2,
+      "invitationSequence": [
+        "fc857a63:declined",
+        "ea29e399:accepted"
+      ],
+      "recoverableEvents": [],
+      "recoveredGenerationAttempts": 0,
+      "firstFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 288,
+        "cashWan": 35,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 210,
+        "netWorthWan": -175,
+        "annualAfterTaxIncomeWan": 38,
+        "annualDisposableIncomeWan": 6.8996,
+        "annualCoreExpenseWan": 26.0004,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "finalFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 606,
+        "cashWan": 1.05,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 14.0147,
+        "netWorthWan": -12.9647,
+        "annualAfterTaxIncomeWan": 19.2,
+        "annualDisposableIncomeWan": 15,
+        "annualCoreExpenseWan": 4.2,
+        "employmentStatus": "self_employed",
+        "incomeStability": "volatile",
+        "isEstimated": true
+      },
+      "openingFactMismatch": false,
+      "realityMetrics": {
+        "invariantFailures": 0,
+        "salaryMismatchNodes": 0,
+        "salaryConversionMismatchNodes": 0,
+        "adultZeroExpenseNodes": 0,
+        "personalLedgerBusinessBoundaryNodes": 0,
+        "duplicateSingletonExpenseNodes": 0,
+        "missingPropertyNodes": 0,
+        "missingOptionHoldingNodes": 0,
+        "valuedOptionOmittedNodes": 0,
+        "employedAt80PlusNodes": 0,
+        "employedAt80PlusWithoutEvidenceNodes": 0,
+        "openIssues": 3
+      },
+      "change": {
+        "cashWan": -33.95,
+        "netWorthWan": 162.0353,
+        "debtWan": -195.9853
+      }
+    }
+  ]
+}
