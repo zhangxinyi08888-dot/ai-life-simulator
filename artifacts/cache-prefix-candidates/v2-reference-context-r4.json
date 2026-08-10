@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "frozenAt": "2026-08-10T17:22:34.791Z",
+  "frozenAt": "2026-08-10T17:27:28.986Z",
   "candidate": {
     "id": "cache-prefix-v2-reference-context-r4",
     "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
@@ -11,8 +11,8 @@
     }
   },
   "sourceIdentity": {
-    "repositoryCommit": "e713b50875099ed6a0dc773ea27457c9163d69c5",
-    "sourceSha256": "40f7f34f43128f5fe47804b902e491a92ce82a666c749a30051b646911728fd8",
+    "repositoryCommit": "6b5945dae282ca2d50758e150bd42c9d758ec45b",
+    "sourceSha256": "9ca936000d6abdba6ece3a6ba6d4577b0cde464e98f5810c5880a5427bddb0b3",
     "dirtyCandidateFiles": [],
     "files": [
       {
@@ -73,7 +73,7 @@
       },
       {
         "file": "src/services/simulation/simulationService.ts",
-        "sha256": "374d8ec4277f3794417e6f16c5f98fc20adefec4d670cc863e56869e35663bc9"
+        "sha256": "651bd489b2916065c616be8bfad521e17dd8ba9c609584c73548e164f345711e"
       },
       {
         "file": "src/types.ts",
@@ -89,7 +89,7 @@
       },
       {
         "file": "src/utils/financialNarrative.ts",
-        "sha256": "b2d3228dcfa1a3ea7f3524c66f7b41559af025630a73e1bac8ec3939fdfcc6f4"
+        "sha256": "b0d1cdd8b9bfc23e6c8ddcfcb7fcd1e78b4f8d3f8b89244d6b3e23264a5cce96"
       },
       {
         "file": "src/utils/simulationNodeRetry.ts",
