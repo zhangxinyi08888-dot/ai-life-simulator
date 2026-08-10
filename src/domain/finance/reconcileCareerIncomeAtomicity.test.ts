@@ -4,10 +4,24 @@ import { initializeCareerState } from "../career/careerState";
 import type { AcceptedCareerTransition } from "../career/types";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
-import { collectPersonalIncomeNarrativeContractIssues, reconcileCareerIncomeAtomicity } from "./reconcileCareerIncomeAtomicity";
+import { collectPersonalIncomeNarrativeContractIssues, narrativeClaimsNewPersonalIncomeActivity, reconcileCareerIncomeAtomicity } from "./reconcileCareerIncomeAtomicity";
 import type { AcceptedFinancialEvent, FinancialEvidence } from "./types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_simulation_outcome", reasonCode: "TEST", confidence: 1 }];
+
+test("a proposed company consulting contract is not completed personal income", () => {
+  const narrative = "一个前同事介绍你参与制造企业的诊断项目，对方只愿支付很低的顾问费。经过几轮书面沟通，对方签下一份只覆盖诊断与方案设计的合同，实施部分另议。";
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(narrative), false);
+  assert.deepEqual(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: narrative,
+    acceptedFinancialEvents: [],
+    ageInMonths: 551
+  }), []);
+});
+
+test("an actually paid consulting fee remains personal-income activity", () => {
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity("对方当场付了5000元咨询费。"), true);
+});
 
 function fixture() {
   const currentCareer = initializeCareerState({ id: "career_job", employmentStatus: "employed", effectiveFromAgeInMonths: 600 });

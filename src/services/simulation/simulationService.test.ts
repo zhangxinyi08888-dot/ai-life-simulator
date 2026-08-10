@@ -130,6 +130,7 @@ const rejectedRestructureRollback = buildDeterministicFinancialNarrativeRollback
     confidence: 0.9
   }],
   acceptedEvents: [],
+  selectedDecision: "申请调整还款计划",
   narrativeText: "银行已经批准调整还款计划。你松了一口气，虽然月供仍不轻松，但压力减轻了不少。你继续整理未来六个月的收支材料。两个月后，你签了补充协议。"
 });
 assert.match(rejectedRestructureRollback.join("\n"), /尚未形成生效协议/u);
@@ -568,7 +569,8 @@ const malformedInitialGenerationNode = await generateNextNode({
 });
 
 assert.equal(malformedInitialGenerationCalls, 2);
-assert.match(malformedInitialGenerationNode.description, /尚未被写成未经权威状态确认的成功结果/u);
+assert.match(malformedInitialGenerationNode.description, /继续推进，但不把尚未发生的结果写成事实/u);
+assert.doesNotMatch(malformedInitialGenerationNode.description, /权威状态|账本记录|尚未形成可以/u);
 assert.equal(malformedInitialGenerationNode.choices.length, 3);
 
 const cooledExternalIntent = "career:accept_external_role:startup_data_lead";
@@ -1108,7 +1110,8 @@ assert.equal(rejectedDebtProposalRepairCalls, 1);
 assert.equal(rejectedDebtNarrativeRepairCalls, 0);
 assert.equal(rejectedDebtNarrativeNode.financialState?.totalDebtWan, 0);
 assert.doesNotMatch(rejectedDebtNarrativeNode.description, /贷款到账|完成20万元经营贷款放款|每月还贷6083元/);
-assert.match(rejectedDebtNarrativeNode.description, /尚未形成已经到账的结果/);
+assert.match(rejectedDebtNarrativeNode.description, /继续寻找稳定客户/);
+assert.doesNotMatch(rejectedDebtNarrativeNode.description, /尚未形成已经到账的结果|尚待确认|仍需观察/);
 assert.equal(rejectedDebtNarrativeNode.financialNarrativeClaims?.length, 0);
 assert.equal(rejectedDebtNarrativeNode.financialProcessingMeta?.rejectedFinancialNarrativeClaimCount, 2);
 
@@ -1391,7 +1394,8 @@ const deterministicBudgetFallbackNode = await generateNextNode({
 
 assert.equal(exhaustedRecursiveGenerationCalls, 2);
 assert.equal(deterministicBudgetFallbackNode.eventMeta?.eventId, "candidate_authority_fallback");
-assert.match(deterministicBudgetFallbackNode.description, /尚未被写成未经权威状态确认的成功结果/u);
+assert.match(deterministicBudgetFallbackNode.description, /继续硬撑但观察身体状态/u);
+assert.doesNotMatch(deterministicBudgetFallbackNode.description, /权威状态|账本记录|尚未形成可以/u);
 assert.doesNotMatch(deterministicBudgetFallbackNode.description, /突然胸闷倒地/u);
 
 let invalidCandidatePatchCalls = 0;
@@ -2240,6 +2244,7 @@ assert.equal(optionAFallbackNode.eventMeta?.romanceRepairAttempted, true);
 assert.equal(optionAFallbackNode.eventMeta?.romanceRepairSucceeded, false);
 assert.equal(optionAFallbackNode.eventMeta?.romanceRescheduled, true);
 assert.equal(optionAFallbackNode.worldStateSnapshot?.relationships.length || 0, 0, "render-time fallback must not commit a relationship");
+assert.doesNotMatch(optionAFallbackNode.description, /权威状态|账本记录|尚未形成可以/u);
 
 let mismatchedRomanceNodeCalls = 0;
 let mismatchedRomanceFallbackCalls = 0;

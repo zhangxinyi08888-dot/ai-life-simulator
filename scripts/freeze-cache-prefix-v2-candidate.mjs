@@ -37,6 +37,7 @@ export const CACHE_PREFIX_V2_SOURCE_FILES = Object.freeze([
   "src/utils/simulationResponse.ts",
   "src/utils/storyConsistency.ts",
   "src/utils/storyContext.ts",
+  "src/domain/finance/reconcileCareerIncomeAtomicity.ts",
   "src/domain/relationship/relationshipOutcome.ts",
   "src/domain/relationship/relationshipState.ts",
   "scripts/probe-cache-prefix-layout.mjs",

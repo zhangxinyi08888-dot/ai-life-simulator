@@ -626,6 +626,7 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
   rejectedProposals: FinancialEventProposal[];
   acceptedEvents: AcceptedFinancialEvent[];
   narrativeText?: string;
+  selectedDecision?: string;
   narrativeClaims?: FinancialNarrativeClaim[];
   onRepairActions?: (actions: FinancialNarrativeRepairAction[]) => void;
 }): string[] {
@@ -651,6 +652,14 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
   };
   const fallbackFor = (proposal: FinancialEventProposal) => pendingByKind[proposal.kind]
     ?? "";
+  const attemptIsGrounded = (proposal: FinancialEventProposal): boolean => {
+    const evidence = `${input.selectedDecision || ""}\n${proposal.evidence || ""}`;
+    if (proposal.kind === "debt_drawn") return /(?:申请|提交|支用|借入)(?:了)?[^。！？]{0,24}(?:借款|贷款|授信|额度)|(?:借款|贷款|授信)[^。！？]{0,24}(?:申请|提交|支用)(?:了)?/u.test(evidence);
+    if (proposal.kind === "debt_restructured") return /(?:申请|协商|沟通|谈判|请求|提交)(?:了)?[^。！？]{0,28}(?:重组|展期|宽限|还款安排|还款计划|月供|还款协商)|(?:重组|展期|宽限|还款安排|还款计划|还款协商)[^。！？]{0,28}(?:申请|协商|沟通|谈判|请求|提交)(?:了)?/u.test(evidence);
+    if (proposal.kind === "asset_sold") return /(?:挂牌|联系中介|寻找买家|议价|评估出售|申请出售|处置资产)/u.test(evidence);
+    if (proposal.kind === "family_support_received") return /(?:开口|求助|请求|商量|协商|寻求)[^。！？]{0,20}(?:父母|家人|伴侣|支持|帮助|资金)/u.test(evidence);
+    return false;
+  };
   const stripRejectedHoldingClaim = (sentence: string): string => {
     const terminal = sentence.match(/[。！？]$/u)?.[0] ?? "。";
     const clauses = sentence.replace(/[。！？]$/u, "").split(/[，；]/u)
@@ -658,6 +667,39 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       .filter((clause) => clause && !/(?:股权|股份|期权|持股|占股|归属)[^，；]{0,24}(?:签署|签订|获得|拿到|确认|持有|协议)|(?:签署|签订|获得|拿到|确认|持有)[^，；]{0,24}(?:股权|股份|期权|持股|占股|归属)/u.test(clause))
       .map((clause) => clause.replace(/^(?:并|但|而|同时)[，、]?/u, "").trim())
       .filter(Boolean);
+    return clauses.length > 0 ? `${clauses.join("，")}${terminal}` : "";
+  };
+  const stripRejectedCompletionClaim = (sentence: string, proposal: FinancialEventProposal): string => {
+    const terminal = sentence.match(/[。！？]$/u)?.[0] ?? "。";
+    const rejectedClause = proposal.kind === "debt_drawn"
+      ? /(?:借款|贷款|授信|放款|月供|还贷|资金到账|款项到账|这笔钱到账)/u
+      : proposal.kind === "debt_restructured"
+        ? /(?:债务重组|重组协议|展期|宽限|还款计划|还款安排|月供|拖欠|逾期|现金流转正|正余量)/u
+        : proposal.kind === "family_support_received"
+          ? /(?:支持款|援助款|家人借款|(?:父母|父亲|母亲|爸爸|妈妈)[^，；]{0,16}(?:转来|借给|支持)|资金到账|款项到账|这笔钱到账)/u
+          : proposal.kind === "asset_sold"
+            ? /(?:出售|售出|卖房|卖车|资产处置|成交|回款)/u
+            : proposal.kind === "income_source_ended"
+              ? /(?:工资|薪资|收入)[^，；]{0,16}(?:停止|结束|停发)|(?:停止|结束|停发)[^，；]{0,16}(?:工资|薪资|收入)/u
+              : proposal.kind === "income_source_paused"
+                ? /(?:工资|薪资|收入)[^，；]{0,16}(?:暂停|中断)|(?:暂停|中断)[^，；]{0,16}(?:工资|薪资|收入)/u
+                : proposal.kind === "expense_commitment_ended"
+                  ? /(?:支出|开支|月供|费用)[^，；]{0,16}(?:停止|结束|取消)|(?:停止|结束|取消)[^，；]{0,16}(?:支出|开支|月供|费用)/u
+                  : /$^/u;
+    let removed = false;
+    let dependsOnRejectedReceipt = false;
+    const clauses = sentence.replace(/[。！？]$/u, "").split(/[，；]/u).flatMap((rawClause) => {
+      let clause = rawClause.trim();
+      if (!clause) return [];
+      if (dependsOnRejectedReceipt) return [];
+      if (rejectedClause.test(clause)) {
+        removed = true;
+        dependsOnRejectedReceipt = /(?:这笔|该笔|上述)(?:钱|资金|款项)[^，；]{0,12}(?:到账|到手|入账)(?:后|以后|之后)/u.test(clause);
+        return [];
+      }
+      if (removed) clause = clause.replace(/^(?:但|而|因此|所以|同时)[，、]?/u, "").trim();
+      return clause ? [clause] : [];
+    });
     return clauses.length > 0 ? `${clauses.join("，")}${terminal}` : "";
   };
   const sourceParagraphs = String(input.narrativeText || "").split(/\n\s*\n+/u).map((item) => item.trim()).filter(Boolean);
@@ -691,9 +733,11 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
         changed = true;
         rejectedImmediatelyBefore = true;
         rejectedImmediatelyBeforeKind = rejected.kind;
-        const fallback = fallbackFor(rejected);
+        const fallback = attemptIsGrounded(rejected) ? fallbackFor(rejected) : "";
         if (fallback) {
           repaired.push(fallback);
+          const preservedAction = stripRejectedCompletionClaim(sentence, rejected);
+          if (preservedAction) repaired.push(preservedAction);
           repairActions.push({ type: "render_attempt_outcome", proposalId: rejected.id, sourceText: sentence, outputText: fallback });
         } else if (["income_source_started", "income_source_adjusted", "one_off_income_received", "business_distribution_received"].includes(rejected.kind)) {
           let preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
@@ -703,6 +747,17 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
               preservedAction = stripRejectedHoldingClaim(preservedAction);
             }
           }
+          if (preservedAction) repaired.push(preservedAction);
+          repairActions.push({
+            type: preservedAction ? "remove_clause" : "remove_sentence",
+            proposalId: rejected.id,
+            sourceText: sentence,
+            outputText: preservedAction || undefined
+          });
+        } else {
+          const preservedAction = ["business_holding_started", "business_option_granted", "business_option_vested"].includes(rejected.kind)
+            ? stripRejectedHoldingClaim(sentence)
+            : stripRejectedCompletionClaim(sentence, rejected);
           if (preservedAction) repaired.push(preservedAction);
           repairActions.push({
             type: preservedAction ? "remove_clause" : "remove_sentence",
@@ -763,7 +818,8 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
   }).filter(Boolean);
   const rejectedRestructure = input.rejectedProposals.find((proposal) => proposal.kind === "debt_restructured");
   const restructurePending = Boolean(rejectedRestructure);
-  if (rejectedRestructure && !repairedParagraphs.some((paragraph) => paragraph.includes("尚未形成生效协议"))) {
+  if (rejectedRestructure && attemptIsGrounded(rejectedRestructure)
+    && !repairedParagraphs.some((paragraph) => paragraph.includes("尚未形成生效协议"))) {
     repairedParagraphs.push(fallbackFor(rejectedRestructure));
     changed = true;
   }
@@ -773,7 +829,7 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       const sanitized = sentences.filter((sentence) => {
         if (sentence.includes("尚未形成生效协议")) return true;
         if (stillClaimsRejectedDebtRestructure(sentence)) return false;
-        return !/(?:每月|月供)[^。！？]{0,20}(?:多出(?:来)?(?:的)?|释放|降低|降到|降至|少还)\s*\d|(?:每月还款|月供)(?:压力)?[^。！？]{0,16}(?:下降|减轻|缓解|降低)|提前还(?:掉|了)?[^。！？]{0,16}(?:房贷|贷款|债务)(?:本金)?|(?:这份|该份|新的?)(?:补充)?协议|用更长的还款周期[^。！？]{0,16}(?:喘息|缓解)|(?:松(?:了)?(?:一)?口气|喘息空间|宽慰)[^。！？]{0,24}(?:月供|还款|利息|现金流)|(?:利息总额|还款期限)[^。！？]{0,20}(?:增加|延长)[^。！？]{0,20}(?:月供|现金流|喘息|缓解)/u.test(sentence);
+        return !/(?:每月|月供)[^。！？]{0,20}(?:多出(?:来)?(?:的)?|释放|降低|降到|降至|少还)\s*\d|(?:每月还款|月供)(?:压力)?[^。！？]{0,16}(?:下降|减轻|缓解|降低)|提前还(?:掉|了)?[^。！？]{0,16}(?:房贷|贷款|债务)(?:本金)?|(?:这份|该份|新的?)(?:补充)?协议|用更长的还款周期[^。！？]{0,16}(?:喘息|缓解)|(?:执行|按照|依照)[^。！？]{0,18}(?:新|调整后)(?:的)?(?:还款)?计划|(?:拖欠|逾期)[^。！？]{0,18}(?:止住|停止|归零|减少)|现金流[^。！？]{0,16}(?:转正|正余量|好转|改善)|(?:松(?:了)?(?:一)?口气|喘息空间|终于能喘口气|宽慰)[^。！？]{0,24}(?:月供|还款|利息|现金流)?|(?:利息总额|还款期限)[^。！？]{0,20}(?:增加|延长)[^。！？]{0,20}(?:月供|现金流|喘息|缓解)/u.test(sentence);
       });
       repairedParagraphs[index] = sanitized.join("");
     }
@@ -1837,6 +1893,7 @@ async function commitAuthoritativeFinancialProgress(input: {
         rejectedProposals: rejectedCompletedProposals,
         acceptedEvents: validated.acceptedEvents,
         narrativeText: input.node.description,
+        selectedDecision: input.selectedDecision,
         narrativeClaims: rejectedNarrativeClaims
       }))];
       repairedDescription = paragraphs.join("\n\n");
@@ -2616,10 +2673,10 @@ function buildDeterministicRomanceRescheduleNode(
     "重新安排时间和责任，为未来选择留出空间",
     "把注意力放回最紧迫的现实任务，暂不推进新的关系"
   ];
-  const description = "这次新联系尚未形成可由权威状态确认的人物与关系结果。你没有把它写成已经发生的关系推进，而是继续处理当前工作、健康和生活安排。";
+  const description = "这次见面停留在工作与日常交流上。你照常处理手边的工作、健康和生活安排，没有急着把一次联系推向更远的关系。";
   return {
     ...node,
-    title: "新联系尚未落定",
+    title: "一次尚未展开的联系",
     description,
     descriptionParagraphs: [description],
     choices: fallbackChoices.map((text, index) => ({
@@ -2768,9 +2825,10 @@ function buildDeterministicCandidateFallback(input: {
     input.event,
     input.decisionGateReasonCodes ?? input.issueCodes
   );
-  const description = input.selectedDecision.trim()
-    ? "你已经开始执行上一轮的选择。这一步尚未被写成未经权威状态确认的成功结果；接下来的变化仍要由实际事件、人物状态和账本记录确认。你重新安排了时间、精力与现实责任，并为三个月后保留了复盘点。"
-    : "你重新安排了时间、精力与现实责任，但尚未形成可以由权威状态确认的新结果。接下来的变化仍要由实际事件、人物状态和账本记录确认。";
+  const selectedDecision = input.selectedDecision.trim().replace(/[。！？]+$/u, "");
+  const description = selectedDecision
+    ? `你把“${selectedDecision}”写进接下来三个月的安排里。能立刻动手的部分先做，暂时卡住的部分留到下一次复盘。`
+    : "你把眼前的责任重新排了一遍，能立刻动手的部分先做，暂时卡住的部分留到下一次复盘。";
   return {
     ...safeNode,
     title: "选择落地前的现实调整",
@@ -2786,7 +2844,7 @@ function buildDeterministicCandidateFallback(input: {
       storyEpisode: {
         ...safeNode.narrativeMeta.storyEpisode,
         internalTransitions: [],
-        summary: "上一轮选择进入执行准备，尚未形成新的权威事实。"
+        summary: selectedDecision ? `开始落实“${selectedDecision}”，并设置下一次复盘。` : "重新安排当前责任，并设置下一次复盘。"
       }
     } : safeNode.narrativeMeta,
     eventMeta: {
@@ -2815,7 +2873,7 @@ function buildInvalidInitialGenerationFallback(input: {
 }): SimulationNode {
   const baseNode = normalizeSimulationNode({
     title: "选择落地前的现实调整",
-    description: "上一轮选择已经进入执行准备，但尚未形成可以由权威状态确认的新结果。",
+    description: "你把眼前的责任重新排了一遍，能立刻动手的部分先做，暂时卡住的部分留到下一次复盘。",
     attributes: input.currentAttributes,
     choices: [],
     narrativeMeta: {
@@ -2827,7 +2885,7 @@ function buildInvalidInitialGenerationFallback(input: {
       arcSignals: [],
       recoveryEvidence: [],
       storyEpisode: {
-        summary: "上一轮选择进入执行准备，尚未形成新的权威事实。",
+        summary: "重新安排当前责任，并设置下一次复盘。",
         internalTransitions: []
       }
     }

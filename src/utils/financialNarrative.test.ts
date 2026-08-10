@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FinancialState, type SimulationNode } from "../types";
-import { getFinancialStatusText, sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, validateDebtNarrativeConsistency } from "./financialNarrative";
+import { getFinancialStatusText, sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, stripUnsupportedPersonalIncomeClaim, validateDebtNarrativeConsistency } from "./financialNarrative";
 import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "../domain/finance/ledgerMath";
 
@@ -302,6 +302,20 @@ test("a current annual salary claim is removed when the closing ledger has no au
   assert.equal(adjusted.includes("36万"), false);
   assert.match(adjusted, /正式任命为ESG转型小组副负责人/);
   assert.doesNotMatch(adjusted, /尚待确认|仍需观察/);
+});
+
+test("removing unsupported income does not leave an orphaned finance clause", () => {
+  const result = stripUnsupportedPersonalIncomeClaim("你的收入比原来少了三分之一，加上房租和父母的医疗支出，你仍然每天去客户现场记录使用问题。");
+  assert.equal(result, "你仍然每天去客户现场记录使用问题。");
+  assert.doesNotMatch(result, /^(?:比原来|加上)/u);
+});
+
+test("financial grounding repairs nested status joins and stays idempotent", () => {
+  const malformed = "你盯着账本上依然见底的整体仍处于负债状态的欠款，没有像从前那样焦虑到失眠。";
+  const once = sanitizeFinancialNarrative(malformed, { ...state, netWorthWan: -6.7, totalDebtWan: 6.7 });
+  const twice = sanitizeFinancialNarrative(once, { ...state, netWorthWan: -6.7, totalDebtWan: 6.7 });
+  assert.equal(once, "你盯着账本上仍未缓解的欠款，没有像从前那样焦虑到失眠。");
+  assert.equal(twice, once);
 });
 
 test("rewrites an unsupported mortgage type without discarding real debt servicing", () => {

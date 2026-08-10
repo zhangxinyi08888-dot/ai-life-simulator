@@ -67,12 +67,20 @@ export function stripUnsupportedPersonalIncomeClaim(sentence: string): string {
       continue;
     }
     const unsupported = (removedBefore && /(?:生活|经济|财务|现金流)?压力[^，；]{0,10}(?:小了|减轻|缓解|下降)/u.test(clause))
-      || /(?:个人)?(?:月薪|年薪|年收入|月收入|工资|薪资|个人收入|个人进账|个人净收入|可支配收入|业主提款|分红)|(?:你|本人|主角)[^，；]{0,20}(?:收到|拿到|获得|收了|支取|领取)[^，；]{0,20}(?:元|收入|费用|款项|报酬|酬劳|工资|薪资)|(?:收了|收到|拿到|获得)[^，；]{0,12}[零一二三四五六七八九十百千万两]+元|(?:你|本人|主角)[^，；]{0,20}(?:多了|新增|形成|建立)[^，；]{0,12}收入来源|对方[^，；]{0,20}(?:付了|支付|结算)[^，；]{0,16}(?:咨询费|顾问费|课酬)|(?:父母|家人|伴侣|配偶)[^，；]{0,20}(?:分担|承担|支付)[^，；]{0,16}(?:房租|生活费|生活开支|家庭开支)|(?:账户|存款|积蓄|储蓄|现金|余额|应急金)[^，；]{0,20}(?:多出|增加|增长|攒下|积累|新增)|(?:攒下|积累|新增)[^，；]{0,16}(?:存款|积蓄|储蓄|现金|余额|应急金)|(?:这笔|该笔)[^，；]{0,18}(?:收入|进账|现金流)|(?:收入|进账|现金流)[^，；]{0,16}(?:稳定|增加|新增|形成|基本盘|带来)|(?:带来|形成|获得)[^，；]{0,12}(?:额外的?)?(?:个人)?(?:收入|进账|现金流)|(?:每月|每年)[^，；]{0,12}(?:增加|获得|收到)[^，；]{0,12}(?:元|收入)/u.test(clause);
+      || /(?:个人)?(?:月薪|年薪|年收入|月收入|工资|薪资|个人收入|个人进账|个人净收入|可支配收入|业主提款|分红)|(?:你|本人|主角)(?:的)?(?:收入|进账|现金流)[^，；]{0,24}(?:减少|增加|形成|稳定|到账|少了|多了)|(?:你|本人|主角)[^，；]{0,20}(?:收到|拿到|获得|收了|支取|领取)[^，；]{0,20}(?:元|收入|费用|款项|报酬|酬劳|工资|薪资)|(?:收了|收到|拿到|获得)[^，；]{0,12}[零一二三四五六七八九十百千万两]+元|(?:你|本人|主角)[^，；]{0,20}(?:多了|新增|形成|建立)[^，；]{0,12}收入来源|对方[^，；]{0,20}(?:付了|支付|结算)[^，；]{0,16}(?:咨询费|顾问费|课酬)|(?:父母|家人|伴侣|配偶)[^，；]{0,20}(?:分担|承担|支付)[^，；]{0,16}(?:房租|生活费|生活开支|家庭开支)|(?:账户|存款|积蓄|储蓄|现金|余额|应急金)[^，；]{0,20}(?:多出|增加|增长|攒下|积累|新增)|(?:攒下|积累|新增)[^，；]{0,16}(?:存款|积蓄|储蓄|现金|余额|应急金)|(?:这笔|该笔)[^，；]{0,18}(?:收入|进账|现金流)|(?:收入|进账|现金流)[^，；]{0,16}(?:稳定|增加|新增|形成|基本盘|带来)|(?:带来|形成|获得)[^，；]{0,12}(?:额外的?)?(?:个人)?(?:收入|进账|现金流)|(?:每月|每年)[^，；]{0,12}(?:增加|获得|收到)[^，；]{0,12}(?:元|收入)/u.test(clause);
     if (unsupported) {
       removedBefore = true;
       continue;
     }
     if (removedBefore) clause = clause.replace(/^(?:但|而|因此|所以|同时)[，、]?/u, "").trim();
+    // Removing an unsupported income assertion can also remove the sentence
+    // subject. Dependent finance clauses such as “比原来少了…” or “加上房租…”
+    // must not survive as standalone fragments; keep looking for the next
+    // independent scene/action clause instead.
+    if (removedBefore
+      && /^(?:比原来|较原来|加上|再加上|算上|扣除|除去|其中|这笔|该笔|由此|这让|让你|使你)[^，；]*$/u.test(clause)) {
+      continue;
+    }
     if (clause) kept.push(clause);
     removedBefore = false;
   }
@@ -116,6 +124,13 @@ function sanitizeLongWanPrecision(text: string): string {
     if (Math.abs(valueWan) < 1) return `${Math.round(valueWan * 10_000)}元`;
     return `${formatWan(valueWan)}万元`;
   });
+}
+
+function repairFinancialNarrativeJoins(text: string): string {
+  return text
+    .replace(/账本上(?:依然|仍然)?见底的整体仍处于负债状态的欠款/gu, "账本上仍未缓解的欠款")
+    .replace(/(?:依然|仍然)?见底的整体仍处于负债状态(?:的)?/gu, "持续紧张的现金流下")
+    .replace(/(?:整体仍处于负债状态的){2,}/gu, "整体仍处于负债状态的");
 }
 
 function dedupeCanonicalFinancialFallbackSentences(text: string): string {
@@ -301,7 +316,7 @@ export function sanitizeFinancialNarrative(
     sanitizePersonalDebtClaims(sanitizeUnsupportedMortgageClaims(sanitizeUnsupportedIncomeComposition(sanitizeUnconfirmedPersonalDrawClaims(sanitizeRecurringIncomeClaims(prepared, ledger), ledger, acceptedEvents), ledger), ledger), state),
     ledger
   );
-  return dedupeCanonicalFinancialFallbackSentences(sanitizeLongWanPrecision(grounded
+  return repairFinancialNarrativeJoins(dedupeCanonicalFinancialFallbackSentences(sanitizeLongWanPrecision(grounded
     .replace(/你个人的持续支出正在消耗(?:现金缓冲)?整体仍处于负债状态/gu, "持续支出仍在消耗个人现金缓冲")
     .replace(/(?:依靠|靠着)整体仍处于负债状态(?:的)?备用金/gu, "依靠有限的现金缓冲")
     .split(/(?<=[。！？])/u).map((sentence) => {
@@ -318,7 +333,7 @@ export function sanitizeFinancialNarrative(
       .replace(BALANCE_TOTAL_AMOUNT_FIRST, (match, offset, source) => (
         replaceAmountFirstBalanceTotal(match, state, offset, source)
       ));
-    }).join("")));
+    }).join(""))));
 }
 
 export function sanitizeUnsupportedOpeningAccountClaims(description: string, ledger: FinancialLedger): string {

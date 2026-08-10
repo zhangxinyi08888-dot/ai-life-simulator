@@ -183,6 +183,7 @@ test("failed model rollback degrades rejected completion facts deterministically
       confidence: 0.9
     }],
     acceptedEvents: [],
+    selectedDecision: "去银行申请调整还款安排",
     narrativeText: "你继续处理工作。银行已经批准重组并把月供降至0.3万元。晚上你照常回家吃饭。"
   });
   assert.equal(paragraphs.length, 1);
@@ -286,6 +287,7 @@ test("rejected debt draw rollback removes dependent arrival claims without dupli
       confidence: 0.9
     }],
     acceptedEvents: [],
+    selectedDecision: "提交借款申请并等待审批",
     narrativeText: "你申请的借款已经到账。你尝试申请借款，但这次尚未形成已经到账的结果。这笔钱到账后，你暂时缓解了年底护工费和物业费的压力。你继续重新安排接下来的生活支出。"
   });
   const repaired = paragraphs.join("\n");
@@ -305,12 +307,49 @@ test("rejected family support rollback removes dependent arrival claims", () => 
       confidence: 0.9
     }],
     acceptedEvents: [],
+    selectedDecision: "向父亲开口寻求资金支持",
     narrativeText: "父亲借给你的10万元已经到账。这笔钱到账后，你先补缴了5万元逾期利息。你继续重新安排接下来的生活支出。"
   });
   const repaired = paragraphs.join("\n");
   assert.equal(repaired.match(/你尝试寻求外部支持，但这次尚未确认资金到账。/gu)?.length, 1);
   assert.doesNotMatch(repaired, /这笔钱到账后|10万元已经到账/u);
   assert.match(repaired, /你继续重新安排接下来的生活支出/u);
+});
+
+test("rejected completion without a grounded user attempt is deleted without an audit fallback", () => {
+  const repaired = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [{
+      id: "unsolicited_support_rejected",
+      kind: "family_support_received",
+      effectiveAtAgeInMonths: 312,
+      payload: {},
+      evidence: "父亲主动转来10万元。",
+      confidence: 0.9
+    }],
+    acceptedEvents: [],
+    narrativeText: "父亲主动转来10万元。你继续整理客户访谈记录。"
+  }).join("\n");
+  assert.equal(repaired, "你继续整理客户访谈记录。");
+  assert.doesNotMatch(repaired, /尚未|确认|等待|财务安排/u);
+});
+
+test("rejected restructure removes every dependent new-plan outcome", () => {
+  const repaired = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [{
+      id: "restructure_rejected_with_consequence",
+      kind: "debt_restructured",
+      effectiveAtAgeInMonths: 540,
+      payload: {},
+      evidence: "银行批准了新的还款计划。",
+      confidence: 0.9
+    }],
+    acceptedEvents: [],
+    selectedDecision: "申请调整还款安排",
+    narrativeText: "银行批准了新的还款计划。过去十六个月里，你严格执行新计划，连续拖欠的月份终于止住，现金流开始有了正余量，你第一次觉得能喘口气。你把实施手册整理成三个模块。"
+  }).join("\n");
+  assert.match(repaired, /尚未形成生效协议/u);
+  assert.match(repaired, /实施手册整理成三个模块/u);
+  assert.doesNotMatch(repaired, /执行新计划|拖欠的月份终于止住|正余量|喘口气/u);
 });
 
 test("rejected proposal diagnostics are closed after the proposal is not committed", () => {
@@ -365,6 +404,7 @@ test("PB-NARR-16 rollback never renders custom-decision control text as a story 
       acceptedByReasonCodes: ["EVIDENCE_EXACT_MATCHED"],
       evidence: [{ source: "accepted_simulation_outcome", sourceEventId: "custom", excerpt: "自定义抉择: 从本月起公司向我的个人账户每月支付4万元税后工资。", reasonCode: "EVIDENCE_EXACT_MATCHED", confidence: 1 }]
     } as any],
+    selectedDecision: "向银行申请债务重组",
     narrativeText: "银行已经批准重组。\n\n公司开始按决议发放个人工资。"
   });
   assert.doesNotMatch(paragraphs.join("\n"), /自定义抉择/u);
