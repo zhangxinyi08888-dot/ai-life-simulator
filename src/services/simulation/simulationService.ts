@@ -28,7 +28,7 @@ import { isValidRomanceDisplayName } from "../../utils/romanceCandidateName";
 import { containsForbiddenArcWrite, stripForbiddenArcWrites, stripUnauthorizedRelationshipChoices, stripUnauthorizedRomanticCharacters, validateStoryConsistency } from "../../utils/storyConsistency";
 import { estimateFinancialStateFromWealth, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
 import { resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
-import { sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, sanitizeUnsupportedOpeningAccountClaims, validateDebtNarrativeConsistency } from "../../utils/financialNarrative";
+import { sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, sanitizeUnsupportedOpeningAccountClaims, stripUnsupportedPersonalIncomeClaim, validateDebtNarrativeConsistency } from "../../utils/financialNarrative";
 import { applyDebtNarrativeAuthorityToNode, applyDebtNarrativeFallback, collectDebtNarrativeSurfaceIssues, deriveDebtNarrativeAuthority, repairDebtNarrativeSurfaces } from "../../utils/debtNarrativeAuthority";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
@@ -615,12 +615,21 @@ function stillClaimsRejectedProposal(proposal: FinancialEventProposal, descripti
   return rejectedProposalClaimsCompletedFact(proposal) && description.includes(proposal.evidence.trim());
 }
 
+export type FinancialNarrativeRepairAction = {
+  type: "remove_clause" | "remove_sentence" | "render_attempt_outcome";
+  proposalId?: string;
+  sourceText: string;
+  outputText?: string;
+};
+
 export function buildDeterministicFinancialNarrativeRollback(input: {
   rejectedProposals: FinancialEventProposal[];
   acceptedEvents: AcceptedFinancialEvent[];
   narrativeText?: string;
   narrativeClaims?: FinancialNarrativeClaim[];
+  onRepairActions?: (actions: FinancialNarrativeRepairAction[]) => void;
 }): string[] {
+  const repairActions: FinancialNarrativeRepairAction[] = [];
   const acceptedEvidence = [...new Set(input.acceptedEvents.flatMap((event) => (
     event.evidence.map((item) => item.excerpt?.trim()).filter((item): item is string => Boolean(item))
   )))];
@@ -632,13 +641,25 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
     debt_restructured: "你已经尝试申请调整还款安排，但尚未形成生效协议。",
     asset_sold: "你开始评估资产处置，但这次尚未形成确定成交。",
     family_support_received: "你尝试寻求外部支持，但这次尚未确认资金到账。",
-    one_off_income_received: "关于补发收入的安排仍在核对，暂时没有确定到账。",
-    business_holding_started: "股权补偿仍在确认安排阶段，尚未形成确定的个人持有结果。",
-    business_option_granted: "期权补偿仍在确认安排阶段，尚未形成确定的个人持有结果。",
-    business_option_vested: "期权归属仍在确认阶段，尚未形成确定的个人持有结果。"
+    one_off_income_received: "",
+    business_holding_started: "",
+    business_option_granted: "",
+    business_option_vested: "",
+    income_source_started: "",
+    income_source_adjusted: "",
+    business_distribution_received: ""
   };
   const fallbackFor = (proposal: FinancialEventProposal) => pendingByKind[proposal.kind]
-    ?? "你已经尝试推进这项财务安排，但它暂时还没有形成确定结果。";
+    ?? "";
+  const stripRejectedHoldingClaim = (sentence: string): string => {
+    const terminal = sentence.match(/[。！？]$/u)?.[0] ?? "。";
+    const clauses = sentence.replace(/[。！？]$/u, "").split(/[，；]/u)
+      .map((clause) => clause.trim())
+      .filter((clause) => clause && !/(?:股权|股份|期权|持股|占股|归属)[^，；]{0,24}(?:签署|签订|获得|拿到|确认|持有|协议)|(?:签署|签订|获得|拿到|确认|持有)[^，；]{0,24}(?:股权|股份|期权|持股|占股|归属)/u.test(clause))
+      .map((clause) => clause.replace(/^(?:并|但|而|同时)[，、]?/u, "").trim())
+      .filter(Boolean);
+    return clauses.length > 0 ? `${clauses.join("，")}${terminal}` : "";
+  };
   const sourceParagraphs = String(input.narrativeText || "").split(/\n\s*\n+/u).map((item) => item.trim()).filter(Boolean);
   const rejectedProposalIds = new Set(input.rejectedProposals.map((proposal) => proposal.id));
   const rejectedClaims = (input.narrativeClaims || []).filter((claim) => rejectedProposalIds.has(claim.proposalId));
@@ -658,6 +679,7 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
   const repairedParagraphs = sourceParagraphs.map((paragraph) => {
     const sentences = paragraph.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
     let rejectedImmediatelyBefore = false;
+    let rejectedImmediatelyBeforeKind: FinancialEventProposal["kind"] | undefined;
     const repaired: string[] = [];
     for (const sentence of sentences) {
       const linkedClaim = rejectedClaims.find((claim) => sentence.includes(claim.surfaceText));
@@ -668,28 +690,73 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       if (rejected) {
         changed = true;
         rejectedImmediatelyBefore = true;
+        rejectedImmediatelyBeforeKind = rejected.kind;
         const fallback = fallbackFor(rejected);
-        if (fallback) repaired.push(fallback);
+        if (fallback) {
+          repaired.push(fallback);
+          repairActions.push({ type: "render_attempt_outcome", proposalId: rejected.id, sourceText: sentence, outputText: fallback });
+        } else if (["income_source_started", "income_source_adjusted", "one_off_income_received", "business_distribution_received"].includes(rejected.kind)) {
+          let preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+          for (const otherRejected of input.rejectedProposals) {
+            if (!preservedAction || otherRejected.id === rejected.id || !stillClaimsRejectedProposal(otherRejected, preservedAction)) continue;
+            if (["business_holding_started", "business_option_granted", "business_option_vested"].includes(otherRejected.kind)) {
+              preservedAction = stripRejectedHoldingClaim(preservedAction);
+            }
+          }
+          if (preservedAction) repaired.push(preservedAction);
+          repairActions.push({
+            type: preservedAction ? "remove_clause" : "remove_sentence",
+            proposalId: rejected.id,
+            sourceText: sentence,
+            outputText: preservedAction || undefined
+          });
+        }
         continue;
       }
       if (claimsUnsupportedPersonalBalanceIncrease(sentence)) {
         changed = true;
-        repaired.push("这部分个人收入尚未形成可由权威账本确认的到账结果。");
+        repairActions.push({ type: "remove_sentence", sourceText: sentence });
         continue;
+      }
+      if (rejectedPersonalIncome
+        && !acceptedEvidence.some((excerpt) => sentence.includes(excerpt) || excerpt.includes(sentence))) {
+        const preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+        if (preservedAction !== sentence) {
+          changed = true;
+          if (preservedAction) repaired.push(preservedAction);
+          repairActions.push({
+            type: preservedAction ? "remove_clause" : "remove_sentence",
+            sourceText: sentence,
+            outputText: preservedAction || undefined
+          });
+          continue;
+        }
       }
       if (rejectedPersonalIncome
         && sentenceClaimsNewPersonalIncomeActivity(sentence)
         && !acceptedEvidence.some((excerpt) => sentence.includes(excerpt) || excerpt.includes(sentence))) {
         changed = true;
-        repaired.push("你已经尝试拓展新的收入渠道，但实际个人收入仍需等待后续结果确认。");
+        const preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+        if (preservedAction) repaired.push(preservedAction);
+        repairActions.push({
+          type: preservedAction ? "remove_clause" : "remove_sentence",
+          sourceText: sentence,
+          outputText: preservedAction || undefined
+        });
         continue;
       }
       if (rejectedImmediatelyBefore && claimsImmediateReliefFromRejectedFinancialCompletion(sentence)) {
         changed = true;
         rejectedImmediatelyBefore = false;
+        if (rejectedImmediatelyBeforeKind && ["income_source_started", "income_source_adjusted", "one_off_income_received", "business_distribution_received"].includes(rejectedImmediatelyBeforeKind)) {
+          const preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+          if (preservedAction) repaired.push(preservedAction);
+        }
+        rejectedImmediatelyBeforeKind = undefined;
         continue;
       }
       rejectedImmediatelyBefore = false;
+      rejectedImmediatelyBeforeKind = undefined;
       repaired.push(sentence);
     }
     return [...new Set(repaired)].join("");
@@ -725,13 +792,13 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
     }
   }
   if (rejectedPersonalIncome) {
-    const unsupportedRelief = /(?:(?:父母|家人|伴侣|配偶)[^。！？]{0,24}(?:分担|承担|支付)[^。！？]{0,20}(?:房租|生活费|生活开支|家庭开支)|(?:收入|现金流|存款|现金|余额|应急金|房租|生活费|开支)[^。！？]{0,36}(?:缓解|减轻|增加|攒下|分担|承担|支付|小了))/u;
+    const unsupportedRelief = /(?:(?:父母|家人|伴侣|配偶)[^。！？]{0,24}(?:分担|承担|支付)[^。！？]{0,20}(?:房租|生活费|生活开支|家庭开支)|(?:收入|现金流|存款|积蓄|储蓄|现金|余额|应急金|房租|生活费|开支)[^。！？]{0,36}(?:缓解|减轻|增加|攒下|分担|承担|支付|小了))/u;
     for (let index = repairedParagraphs.length - 1; index >= 0; index -= 1) {
       const sentences = repairedParagraphs[index].split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
-      repairedParagraphs[index] = sentences.filter((sentence) => (
-        acceptedEvidence.some((excerpt) => sentence.includes(excerpt) || excerpt.includes(sentence))
-        || !unsupportedRelief.test(sentence)
-      )).join("");
+      repairedParagraphs[index] = sentences.map((sentence) => {
+        if (acceptedEvidence.some((excerpt) => sentence.includes(excerpt) || excerpt.includes(sentence))) return sentence;
+        return unsupportedRelief.test(sentence) ? stripUnsupportedPersonalIncomeClaim(sentence) : sentence;
+      }).filter(Boolean).join("");
     }
   }
   if (!changed) repairedParagraphs.push(...[...new Set(input.rejectedProposals.map(fallbackFor).filter(Boolean))]);
@@ -747,9 +814,10 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       }));
     if (!alreadyVisible) repairedParagraphs.push(excerpt);
   }
+  input.onRepairActions?.(repairActions);
   return repairedParagraphs.length > 0
     ? repairedParagraphs
-    : ["你把这次行动保留为仍在推进的尝试，没有把尚未确认的结果提前写进生活。"];
+    : [];
 }
 
 export function settleRejectedFinancialProposalIssues(input: {
@@ -3251,6 +3319,7 @@ export async function generateNextNode(
       eventIntentType: nodeEvent?.intent.type,
       deferRomanceContractValidation: isDeterministicRomanceIntent(nodeEvent?.intent.type),
       fallbackAttributes: input.currentAttributes,
+      fallbackAttributeHistory: input.history.map((item) => item.attributes),
       repairMissingChoiceText: deps.enableCandidatePatchRepair === true
         ? async (rawNode, invalidChoiceIndexes) => {
             if (!canPatch(generationBudget)) return rawNode;
@@ -3990,7 +4059,7 @@ export async function generateNextNode(
     generationBudget
   });
   node = authoritativeFinance.node;
-  node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger);
+  node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger, authoritativeFinance.acceptedFinancialEvents);
   const debtNarrativeAuthority = deriveDebtNarrativeAuthority({
     ledger: node.financialLedger!,
     debtHealthState: node.debtHealthState!,
@@ -4034,7 +4103,7 @@ export async function generateNextNode(
   // first financial sanitizer pass. Re-ground every user-visible surface once
   // more against the closing ledger so canonical debt totals also obey the
   // public two-decimal display contract.
-  node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger);
+  node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger, authoritativeFinance.acceptedFinancialEvents);
   // Financial grounding can remove or rewrite a paragraph that contained the
   // evidence selected by the earlier deterministic romance proposal pass. The
   // accepted choice and event contract are unchanged, so re-derive against the

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { generateCompleteSimulationNode, isRetryableNodeGenerationError } from "./simulationNodeRetry";
+import { generateCompleteSimulationNode, isRetryableNodeGenerationError, resolveSafeFallbackAttributes } from "./simulationNodeRetry";
 
 const attempts: string[] = [];
 const node = await generateCompleteSimulationNode(async (_attempt, issues) => {
@@ -95,6 +95,22 @@ assert.deepEqual(repairedDeltaLikeAttributes.attributes, {
   relation: 77,
   health: 67
 });
+
+const repairedLegacyRelationshipBaseline = resolveSafeFallbackAttributes(
+  { happiness: -2, intelligence: 2, wealth: 61, relation: 55, health: 64 },
+  [
+    { happiness: 65, intelligence: 70, wealth: 54, relation: 60, health: 75 },
+    { happiness: 58, intelligence: 72, wealth: 61, relation: 55, health: 70 },
+    { happiness: -2, intelligence: 2, wealth: 61, relation: 55, health: 64 }
+  ]
+);
+assert.deepEqual(repairedLegacyRelationshipBaseline, {
+  happiness: 58,
+  intelligence: 72,
+  wealth: 61,
+  relation: 55,
+  health: 64
+}, "relationship-03 recovers the last valid absolute baseline instead of reusing a delta-like imported snapshot");
 
 const invalidJsonAttempts: string[] = [];
 const recoveredFromInvalidJson = await generateCompleteSimulationNode(async (_attempt, issues) => {

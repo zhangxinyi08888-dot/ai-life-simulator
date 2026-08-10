@@ -202,6 +202,7 @@ test("structured claims remove rejected recurring income prose without relying o
     confidence: 0.9
   };
   const surfaceText = "很快签下了两家短期咨询合同，每家月费0.25万元，合计每月增加0.5万元税后收入。";
+  const repairActions: Array<{ type: string; outputText?: string }> = [];
   const repaired = buildDeterministicFinancialNarrativeRollback({
     rejectedProposals: [proposal],
     acceptedEvents: [],
@@ -211,11 +212,14 @@ test("structured claims remove rejected recurring income prose without relying o
       proposalId: proposal.id,
       kind: proposal.kind,
       surfaceText
-    }]
+    }],
+    onRepairActions: (actions) => repairActions.push(...actions)
   }).join("\n");
-  assert.doesNotMatch(repaired, /两家短期咨询合同|每月增加0\.5万元/u);
-  assert.match(repaired, /暂时还没有形成确定结果/u);
+  assert.match(repaired, /两家短期咨询合同/u);
+  assert.doesNotMatch(repaired, /月费0\.25万元|每月增加0\.5万元|尚待确认|仍需等待|暂时还没有形成确定结果/u);
   assert.match(repaired, /继续维持原有工作/u);
+  assert.deepEqual(repairActions.map((action) => action.type), ["remove_clause"]);
+  assert.match(repairActions[0]?.outputText || "", /签下了两家短期咨询合同/u);
 });
 
 test("rejected personal income removes a later unbound numeric savings increase", () => {
@@ -232,7 +236,8 @@ test("rejected personal income removes a later unbound numeric savings increase"
     narrativeText: "副业安排开始进入验证。你继续保留主业。看着账户里多出来的六万块积蓄，你开始考虑把副业变成主业。"
   }).join("\n");
   assert.doesNotMatch(repaired, /账户里多出来的六万块积蓄/u);
-  assert.match(repaired, /个人收入尚未形成可由权威账本确认的到账结果/u);
+  assert.doesNotMatch(repaired, /尚待确认|仍需等待|个人收入尚未形成/u);
+  assert.match(repaired, /继续保留主业|考虑把副业变成主业/u);
 });
 
 test("rejected personal income removes an immediate qualitative savings benefit", () => {
@@ -249,7 +254,8 @@ test("rejected personal income removes an immediate qualitative savings benefit"
     narrativeText: "对方当场付了5000元咨询费。你的储蓄因此略有增加，但客户圈子也稳定下来。"
   }).join("\n");
   assert.doesNotMatch(repaired, /储蓄因此略有增加/u);
-  assert.equal(repaired.match(/暂时还没有形成确定结果/gu)?.length, 1);
+  assert.doesNotMatch(repaired, /暂时还没有形成确定结果|尚待确认|仍需等待/u);
+  assert.match(repaired, /客户圈子也稳定下来/u);
 });
 
 test("rejected personal income removes unbound paid-course and consulting completions across later paragraphs", () => {
@@ -265,8 +271,8 @@ test("rejected personal income removes unbound paid-course and consulting comple
     acceptedEvents: [],
     narrativeText: "你尝试启动咨询收入。\n\n一个月卖出了14份，收入不到三千元。\n\n你帮客户梳理话术，收了五千元。\n\n咨询业务已经积累了26个付费咨询客户。\n\n你开始每周抽两个晚上接咨询，每次收费800元。"
   }).join("\n");
-  assert.doesNotMatch(repaired, /卖出了14份|收入不到三千元|收了五千元|26个付费咨询客户|每次收费800元/u);
-  assert.match(repaired, /实际个人收入仍需等待后续结果确认/u);
+  assert.match(repaired, /卖出了14份|帮客户梳理话术|26个付费咨询客户|每周抽两个晚上接咨询/u);
+  assert.doesNotMatch(repaired, /收入不到三千元|收了五千元|每次收费800元|尚待确认|仍需等待/u);
 });
 
 test("rejected debt draw rollback removes dependent arrival claims without duplicating fallback copy", () => {

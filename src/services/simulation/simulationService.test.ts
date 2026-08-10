@@ -169,7 +169,7 @@ const rejectedCompensationRollback = buildDeterministicFinancialNarrativeRollbac
 });
 assert.match(rejectedCompensationRollback.join("\n"), /领投方资金到账/u);
 assert.doesNotMatch(rejectedCompensationRollback.join("\n"), /补发了过去14个月|签署了5%的股权协议/u);
-assert.match(rejectedCompensationRollback.join("\n"), /补发收入的安排仍在核对|股权补偿仍在确认/u);
+assert.doesNotMatch(rejectedCompensationRollback.join("\n"), /仍在核对|仍在确认|尚待确认/u);
 assert.equal(rollbackRejectedFinancialCompletionTitle("融资交割与股权确认", [{
   id: "rejected_equity_title",
   kind: "business_holding_started",
@@ -254,7 +254,8 @@ const rejectedRecurringIncomeBenefitRollback = buildDeterministicFinancialNarrat
   narrativeText: "你开始接周末项目。副业带来的收入暂时缓解了经济紧张，也让你攒下一小笔应急金。你继续维护客户关系。"
 });
 assert.doesNotMatch(rejectedRecurringIncomeBenefitRollback.join("\n"), /副业带来的收入|攒下一小笔应急金/u);
-assert.match(rejectedRecurringIncomeBenefitRollback.join("\n"), /实际到账的个人收入尚待确认|财务安排/u);
+assert.doesNotMatch(rejectedRecurringIncomeBenefitRollback.join("\n"), /尚待确认|仍需观察|财务安排/u);
+assert.match(rejectedRecurringIncomeBenefitRollback.join("\n"), /开始接周末项目/u);
 assert.match(rejectedRecurringIncomeBenefitRollback.join("\n"), /继续维护客户关系/u);
 
 const rejectedIncomeCrossParagraphReliefRollback = buildDeterministicFinancialNarrativeRollback({

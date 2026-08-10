@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FinancialState } from "../types";
+import { FinancialState, type SimulationNode } from "../types";
 import { getFinancialStatusText, sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, validateDebtNarrativeConsistency } from "./financialNarrative";
 import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "../domain/finance/ledgerMath";
@@ -213,11 +213,11 @@ test("unconfirmed personal draws and assumed family members do not reach the sto
   const ledger = initializeFinancialLedger({ id: "no_draw", asOfAgeInMonths: 400 });
   assert.equal(
     sanitizeFinancialNarrative("你个人只从公司支取了很少的生活费，房贷靠积蓄和妻子（假设有）的工资撑着。", state, ledger),
-    "创业初期，个人可支配收入仍未形成稳定来源。"
+    "你们继续根据实际现金流调整家庭支出与储蓄安排。"
   );
   assert.equal(
     sanitizeFinancialNarrative("你给自己开1.5万月薪以覆盖基本生活，公司账上还剩20万。", { ...state, annualAfterTaxIncomeWan: 0 }, ledger, []),
-    "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。"
+    "公司账上还剩20万。"
   );
   assert.equal(
     sanitizeFinancialNarrative("你不得已动用了35万积蓄来还贷。", state, ledger, []),
@@ -234,7 +234,7 @@ test("unsupported personal net income is rewritten while company progress remain
     []
   );
   assert.doesNotMatch(text, /个人净收入仅4万元/);
-  assert.match(text, /公司经营已有进展/);
+  assert.match(text, /半年内总营收13万元/);
 });
 
 test("unsupported dividend composition is removed while the authoritative salary total remains", () => {
@@ -292,14 +292,16 @@ test("a current annual salary claim is removed when the closing ledger has no au
     noIncomeLedger
   );
   assert.equal(result.includes("60万"), false);
-  assert.match(result, /实际到账的个人收入尚待确认/);
+  assert.match(result, /正式调任区域总监/);
+  assert.doesNotMatch(result, /尚待确认|仍需观察/);
   const adjusted = sanitizeFinancialNarrative(
     "你被正式任命为ESG转型小组副负责人，年薪调整为36万元。",
     { ...state, annualAfterTaxIncomeWan: 0 },
     noIncomeLedger
   );
   assert.equal(adjusted.includes("36万"), false);
-  assert.match(adjusted, /实际到账的个人收入尚待确认/);
+  assert.match(adjusted, /正式任命为ESG转型小组副负责人/);
+  assert.doesNotMatch(adjusted, /尚待确认|仍需观察/);
 });
 
 test("rewrites an unsupported mortgage type without discarding real debt servicing", () => {
@@ -336,7 +338,7 @@ test("closing coverage blockers rewrite only the unsupported fact sentences", ()
     "narrative_coverage_personal_option_649",
     "narrative_coverage_personal_compensation_649"
   ]);
-  assert.equal(sanitized, "你们继续根据实际现金流评估居住安排与生活成本。你们继续根据实际现金流调整家庭支出与储蓄安排。相关权益仍在讨论与条件确认阶段，尚未真正落到你个人名下。这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。家人的生活节奏保持稳定。");
+  assert.equal(sanitized, "家人的生活节奏保持稳定。");
 });
 
 test("missing personal-income authority rewrites paid workshops and consulting orders", () => {
@@ -344,8 +346,8 @@ test("missing personal-income authority rewrites paid workshops and consulting o
   const sanitized = sanitizeUnsupportedFinancialCoverageClaims(original, [
     "personal_income_claim_without_event_406"
   ]);
-  assert.doesNotMatch(sanitized, /5000元咨询费|付费学员|课程销量|接到了两三个小单子|这笔收入|额外的现金流|多了一条收入来源/u);
-  assert.match(sanitized, /个人收入是否形成仍需继续观察/u);
+  assert.doesNotMatch(sanitized, /5000元咨询费|这笔收入|额外的现金流|多了一条收入来源|尚待确认|仍需观察/u);
+  assert.match(sanitized, /付费学员|课程销量|接到了两三个小单子/u);
   assert.match(sanitized, /案例整理成了方法论/u);
 });
 
@@ -354,8 +356,9 @@ test("missing personal-income authority rewrites every unsupported commercial co
   const sanitized = sanitizeUnsupportedFinancialCoverageClaims(original, [
     "personal_income_claim_without_event_406"
   ]);
-  assert.doesNotMatch(sanitized, /采购内部培训|这笔订单|稳定收入|收费调整|现金流稳定|每月3-4单|开课后|十几位学员|没有带来多少收入|收入基本盘/u);
-  assert.match(sanitized, /个人收入是否形成仍需继续观察/u);
+  assert.match(sanitized, /采购内部培训|每月3-4单|开课后|十几位学员/u);
+  assert.match(sanitized, /收费调整|没有带来多少收入/u);
+  assert.doesNotMatch(sanitized, /稳定收入|现金流稳定|收入基本盘|尚待确认|仍需观察/u);
   assert.match(sanitized, /课程材料仍在继续打磨/u);
 });
 
@@ -375,7 +378,8 @@ test("a generic protagonist annual-income claim is removed when the closing sour
     quarantinedLedger
   );
   assert.equal(result.includes("52万"), false);
-  assert.match(result, /实际到账的个人收入尚待确认/);
+  assert.match(result, /创新部门站稳脚跟/);
+  assert.doesNotMatch(result, /尚待确认|仍需观察/);
 });
 
 test("closing-ledger debt counts sanitize every user-visible narrative surface", () => {
@@ -498,7 +502,7 @@ test("does not render a quarantined career income as current personal salary", (
   });
   assert.equal(
     sanitizeFinancialNarrative("你的月薪1.67万元仍在继续，但这笔收入已经很久没有确认。", { ...state, annualAfterTaxIncomeWan: 0 }, ledger),
-    "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。"
+    ""
   );
 });
 
@@ -513,13 +517,41 @@ test("canonical financial fallback copy is rendered at most once", () => {
   const sentence = "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
   assert.equal(
     sanitizeFinancialNarrative(`${sentence}${sentence}你的生活仍在继续。${sentence}`, { ...state, annualAfterTaxIncomeWan: 0 }, ledger),
-    `${sentence}你的生活仍在继续。`
+    "你的生活仍在继续。"
   );
   const rejectedDebtFallback = "你尝试申请借款，但这次尚未形成已经到账的结果。";
   assert.equal(
     sanitizeFinancialNarrative(`${rejectedDebtFallback}你继续安排生活。${rejectedDebtFallback}`, state, ledger),
     `${rejectedDebtFallback}你继续安排生活。`
   );
+});
+
+test("whole-node financial cleanup is idempotent and removes legacy income templates across paragraphs", () => {
+  const ledger = initializeFinancialLedger({ id: "whole_node_idempotence", asOfAgeInMonths: 660 });
+  const input = {
+    age: 55,
+    ageInMonths: 660,
+    stage: "经营复盘",
+    title: "下一阶段",
+    description: "你完成了客户访谈。\n\n这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。\n\n你把访谈结论整理成产品清单。",
+    descriptionParagraphs: [
+      "你完成了客户访谈。",
+      "这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。",
+      "你把访谈结论整理成产品清单。"
+    ],
+    choices: [
+      { id: "A", text: "继续验证客户需求", impactSummary: "验证需求" },
+      { id: "B", text: "暂停并复盘", impactSummary: "控制节奏" },
+      { id: "C", text: "转向另一个细分场景", impactSummary: "调整方向" }
+    ],
+    attributes: { happiness: 50, intelligence: 60, wealth: 55, relation: 50, health: 58 },
+    isEndingNode: false
+  } as SimulationNode;
+  const once = sanitizeSimulationNodeFinancialNarrative(input, { ...state, annualAfterTaxIncomeWan: 0 }, ledger, []);
+  const twice = sanitizeSimulationNodeFinancialNarrative(once, { ...state, annualAfterTaxIncomeWan: 0 }, ledger, []);
+  assert.deepEqual(twice, once);
+  assert.doesNotMatch(once.description, /尚待确认|仍需观察|尚未形成确定结果/u);
+  assert.match(once.description, /完成了客户访谈|整理成产品清单/u);
 });
 
 test("runtime narrative boundary tolerates non-string model output", () => {

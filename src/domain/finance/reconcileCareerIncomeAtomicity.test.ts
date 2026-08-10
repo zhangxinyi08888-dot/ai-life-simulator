@@ -219,7 +219,7 @@ test("PB-CAREER-01 explicit personal income prose requires an Accepted income ev
     acceptedFinancialEvents: [],
     ageInMonths: 660,
     currentLedger: current.ledger
-  }).length, 1);
+  }).length, 0);
 
   assert.equal(collectPersonalIncomeNarrativeContractIssues({
     narrativeText: "这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。",
@@ -233,14 +233,14 @@ test("PB-CAREER-01 explicit personal income prose requires an Accepted income ev
     acceptedFinancialEvents: [],
     ageInMonths: 660,
     currentLedger: current.ledger
-  }).length, 1);
+  }).length, 0);
 
   assert.equal(collectPersonalIncomeNarrativeContractIssues({
     narrativeText: "开课后你根据学员反馈调整节奏。课程结束时十几位学员给出评价。这次尝试虽然没有带来多少收入，却像另一种收入来源。",
     acceptedFinancialEvents: [],
     ageInMonths: 660,
     currentLedger: current.ledger
-  }).length, 1);
+  }).length, 0);
 
   assert.equal(collectPersonalIncomeNarrativeContractIssues({
     narrativeText: "有公司请你做内部分享，你按次收取费用。",

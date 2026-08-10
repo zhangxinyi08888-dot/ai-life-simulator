@@ -183,6 +183,7 @@ ${formatFinalFinancialNarrativeAuthorityForPrompt(deriveFinalFinancialNarrativeA
 
 强制约束：
 - share.viralTitle 必须包含“我”，不得用“你”做标题主语。
+- share.viralTitle 可以直接使用【报告唯一财务事实源】中的金额；只要逐项匹配权威数值，不得仅因金额位于标题中就改成定性表述。事实源没有提供的金额仍然禁止使用。
 - share.timeline.length 必须是 4 到 6。
 - 所有 keyMomentIndexes 必须引用上方历史索引，不能越界。
 - executiveSummary.patterns 必须刚好 3 条。

@@ -81,6 +81,7 @@ const outcome = await generateFinalOutcome({
 assert.match(capturedPrompt, /人生运行模式/);
 assert.match(capturedPrompt, /Cause -> Effect -> Future/);
 assert.match(capturedPrompt, /海报标题用第一人称“我”/);
+assert.match(capturedPrompt, /viralTitle 可以直接使用【报告唯一财务事实源】中的金额/);
 assert.doesNotMatch(capturedPrompt, /"decisionPatterns"/);
 assert.equal(outcome.share.viralTitle.includes("我"), true);
 assert.equal(outcome.report.executiveSummary.patterns.length, 3);
