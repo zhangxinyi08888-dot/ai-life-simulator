@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "frozenAt": "2026-08-10T16:16:04.245Z",
+  "frozenAt": "2026-08-10T17:22:34.791Z",
   "candidate": {
     "id": "cache-prefix-v2-reference-context-r4",
     "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
@@ -11,8 +11,8 @@
     }
   },
   "sourceIdentity": {
-    "repositoryCommit": "a08e8493b9ce875b27af8d16d872772d8777e31d",
-    "sourceSha256": "8a7df35b75883cd63169f373836a941b95c6547257002d26a5ba87c4c840de95",
+    "repositoryCommit": "e713b50875099ed6a0dc773ea27457c9163d69c5",
+    "sourceSha256": "40f7f34f43128f5fe47804b902e491a92ce82a666c749a30051b646911728fd8",
     "dirtyCandidateFiles": [],
     "files": [
       {
@@ -48,6 +48,10 @@
         "sha256": "5fbf28cff2f14ec51237d06fea476bece77ad0d69352909dadb340b4a9bc9a5e"
       },
       {
+        "file": "src/domain/finance/reconcileCareerIncomeAtomicity.ts",
+        "sha256": "078b9ec97c91dbe7d412bc69a0504ca302a43e544a61e36d88d9beb03aa1af7f"
+      },
+      {
         "file": "src/domain/relationship/relationshipOutcome.ts",
         "sha256": "41a07afc8224583424b9dd3b3d68c3ad199ae4d9ce85877a3406d962426ddab4"
       },
@@ -69,7 +73,7 @@
       },
       {
         "file": "src/services/simulation/simulationService.ts",
-        "sha256": "606450185b02ce647b8aa01909b6aee63fc064659dc046349c82e1121022be34"
+        "sha256": "374d8ec4277f3794417e6f16c5f98fc20adefec4d670cc863e56869e35663bc9"
       },
       {
         "file": "src/types.ts",
@@ -85,7 +89,7 @@
       },
       {
         "file": "src/utils/financialNarrative.ts",
-        "sha256": "80b28af5a83e28bf132e7484b5fbccb68dddba178fe8483018c791cf8412275c"
+        "sha256": "b2d3228dcfa1a3ea7f3524c66f7b41559af025630a73e1bac8ec3939fdfcc6f4"
       },
       {
         "file": "src/utils/simulationNodeRetry.ts",
