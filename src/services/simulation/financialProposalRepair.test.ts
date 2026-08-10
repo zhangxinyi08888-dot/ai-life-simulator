@@ -203,7 +203,7 @@ test("structured claims remove rejected recurring income prose without relying o
     confidence: 0.9
   };
   const surfaceText = "很快签下了两家短期咨询合同，每家月费0.25万元，合计每月增加0.5万元税后收入。";
-  const repairActions: Array<{ type: string; outputText?: string }> = [];
+  const repairActions: Array<{ claimType: string; action: string; sentenceIndex: number; outputText?: string }> = [];
   const repaired = buildDeterministicFinancialNarrativeRollback({
     rejectedProposals: [proposal],
     acceptedEvents: [],
@@ -219,8 +219,38 @@ test("structured claims remove rejected recurring income prose without relying o
   assert.match(repaired, /两家短期咨询合同/u);
   assert.doesNotMatch(repaired, /月费0\.25万元|每月增加0\.5万元|尚待确认|仍需等待|暂时还没有形成确定结果/u);
   assert.match(repaired, /继续维持原有工作/u);
-  assert.deepEqual(repairActions.map((action) => action.type), ["remove_clause"]);
+  assert.deepEqual(repairActions.map(({ claimType, action, sentenceIndex }) => ({ claimType, action, sentenceIndex })), [{
+    claimType: "unsupported_personal_income",
+    action: "remove_clause",
+    sentenceIndex: 0
+  }]);
   assert.match(repairActions[0]?.outputText || "", /签下了两家短期咨询合同/u);
+});
+
+test("rejected income adjustment removes only the financial clause and preserves relationship dialogue", () => {
+  const repairActions: Array<{ claimType: string; action: string; sentenceIndex: number; outputText?: string }> = [];
+  const repaired = buildDeterministicFinancialNarrativeRollback({
+    rejectedProposals: [{
+      id: "salary_adjustment_rejected",
+      kind: "income_source_adjusted",
+      effectiveAtAgeInMonths: 480,
+      payload: {},
+      evidence: "公司随后把你的年薪调整为48万元。",
+      confidence: 0.9
+    }],
+    acceptedEvents: [],
+    narrativeText: "项目复盘结束后，你们仍坐在会议室里。公司随后把你的年薪调整为48万元，但林岚把热茶推到你手边，说你不必一个人扛。你们约好周末一起去看展。",
+    onRepairActions: (actions) => repairActions.push(...actions)
+  }).join("\n");
+  assert.match(repaired, /项目复盘结束后/u);
+  assert.match(repaired, /林岚把热茶推到你手边，说你不必一个人扛/u);
+  assert.match(repaired, /约好周末一起去看展/u);
+  assert.doesNotMatch(repaired, /48万元|年薪调整|尚待确认|仍需观察/u);
+  assert.deepEqual(repairActions.map(({ claimType, action, sentenceIndex }) => ({ claimType, action, sentenceIndex })), [{
+    claimType: "unsupported_personal_income",
+    action: "remove_clause",
+    sentenceIndex: 1
+  }]);
 });
 
 test("rejected personal income removes a later unbound numeric savings increase", () => {

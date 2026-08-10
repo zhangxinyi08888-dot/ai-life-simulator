@@ -616,7 +616,18 @@ function stillClaimsRejectedProposal(proposal: FinancialEventProposal, descripti
 }
 
 export type FinancialNarrativeRepairAction = {
-  type: "remove_clause" | "remove_sentence" | "render_attempt_outcome";
+  claimType:
+    | "unsupported_personal_income"
+    | "unsupported_personal_balance"
+    | "unsupported_business_holding"
+    | "rejected_debt_draw"
+    | "rejected_debt_restructure"
+    | "rejected_asset_sale"
+    | "rejected_family_support"
+    | "unsupported_financial_completion"
+    | "unsupported_financial_consequence";
+  action: "remove_clause" | "remove_sentence" | "render_attempt_outcome";
+  sentenceIndex: number;
   proposalId?: string;
   sourceText: string;
   outputText?: string;
@@ -652,6 +663,15 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
   };
   const fallbackFor = (proposal: FinancialEventProposal) => pendingByKind[proposal.kind]
     ?? "";
+  const claimTypeFor = (proposal: FinancialEventProposal): FinancialNarrativeRepairAction["claimType"] => {
+    if (["income_source_started", "income_source_adjusted", "one_off_income_received", "business_distribution_received"].includes(proposal.kind)) return "unsupported_personal_income";
+    if (["business_holding_started", "business_option_granted", "business_option_vested"].includes(proposal.kind)) return "unsupported_business_holding";
+    if (proposal.kind === "debt_drawn") return "rejected_debt_draw";
+    if (proposal.kind === "debt_restructured") return "rejected_debt_restructure";
+    if (proposal.kind === "asset_sold") return "rejected_asset_sale";
+    if (proposal.kind === "family_support_received") return "rejected_family_support";
+    return "unsupported_financial_completion";
+  };
   const attemptIsGrounded = (proposal: FinancialEventProposal): boolean => {
     const evidence = `${input.selectedDecision || ""}\n${proposal.evidence || ""}`;
     if (proposal.kind === "debt_drawn") return /(?:申请|提交|支用|借入)(?:了)?[^。！？]{0,24}(?:借款|贷款|授信|额度)|(?:借款|贷款|授信)[^。！？]{0,24}(?:申请|提交|支用)(?:了)?/u.test(evidence);
@@ -703,6 +723,9 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
     return clauses.length > 0 ? `${clauses.join("，")}${terminal}` : "";
   };
   const sourceParagraphs = String(input.narrativeText || "").split(/\n\s*\n+/u).map((item) => item.trim()).filter(Boolean);
+  const sourceSentences = sourceParagraphs.flatMap((paragraph) => (
+    paragraph.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean)
+  ));
   const rejectedProposalIds = new Set(input.rejectedProposals.map((proposal) => proposal.id));
   const rejectedClaims = (input.narrativeClaims || []).filter((claim) => rejectedProposalIds.has(claim.proposalId));
   const rejectedPersonalIncome = input.rejectedProposals.some((proposal) => [
@@ -718,12 +741,15 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
     && /(?:账户|存款|积蓄|现金|余额)[^。！？]{0,20}(?:多出|增加|增长|攒下|积累|新增)[^。！？]{0,12}(?:\d+(?:\.\d+)?|[零一二三四五六七八九十百千万两]+)\s*(?:万|元)/u.test(sentence)
   );
   let changed = false;
+  let sentenceIndexCursor = 0;
   const repairedParagraphs = sourceParagraphs.map((paragraph) => {
     const sentences = paragraph.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
     let rejectedImmediatelyBefore = false;
     let rejectedImmediatelyBeforeKind: FinancialEventProposal["kind"] | undefined;
     const repaired: string[] = [];
     for (const sentence of sentences) {
+      const sentenceIndex = sentenceIndexCursor;
+      sentenceIndexCursor += 1;
       const linkedClaim = rejectedClaims.find((claim) => sentence.includes(claim.surfaceText));
       const rejected = linkedClaim
         ? input.rejectedProposals.find((proposal) => proposal.id === linkedClaim.proposalId)
@@ -738,7 +764,7 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
           repaired.push(fallback);
           const preservedAction = stripRejectedCompletionClaim(sentence, rejected);
           if (preservedAction) repaired.push(preservedAction);
-          repairActions.push({ type: "render_attempt_outcome", proposalId: rejected.id, sourceText: sentence, outputText: fallback });
+          repairActions.push({ claimType: claimTypeFor(rejected), action: "render_attempt_outcome", sentenceIndex, proposalId: rejected.id, sourceText: sentence, outputText: fallback });
         } else if (["income_source_started", "income_source_adjusted", "one_off_income_received", "business_distribution_received"].includes(rejected.kind)) {
           let preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
           for (const otherRejected of input.rejectedProposals) {
@@ -749,7 +775,9 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
           }
           if (preservedAction) repaired.push(preservedAction);
           repairActions.push({
-            type: preservedAction ? "remove_clause" : "remove_sentence",
+            claimType: claimTypeFor(rejected),
+            action: preservedAction ? "remove_clause" : "remove_sentence",
+            sentenceIndex,
             proposalId: rejected.id,
             sourceText: sentence,
             outputText: preservedAction || undefined
@@ -760,7 +788,9 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
             : stripRejectedCompletionClaim(sentence, rejected);
           if (preservedAction) repaired.push(preservedAction);
           repairActions.push({
-            type: preservedAction ? "remove_clause" : "remove_sentence",
+            claimType: claimTypeFor(rejected),
+            action: preservedAction ? "remove_clause" : "remove_sentence",
+            sentenceIndex,
             proposalId: rejected.id,
             sourceText: sentence,
             outputText: preservedAction || undefined
@@ -770,7 +800,7 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       }
       if (claimsUnsupportedPersonalBalanceIncrease(sentence)) {
         changed = true;
-        repairActions.push({ type: "remove_sentence", sourceText: sentence });
+        repairActions.push({ claimType: "unsupported_personal_balance", action: "remove_sentence", sentenceIndex, sourceText: sentence });
         continue;
       }
       if (rejectedPersonalIncome
@@ -780,7 +810,9 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
           changed = true;
           if (preservedAction) repaired.push(preservedAction);
           repairActions.push({
-            type: preservedAction ? "remove_clause" : "remove_sentence",
+            claimType: "unsupported_personal_income",
+            action: preservedAction ? "remove_clause" : "remove_sentence",
+            sentenceIndex,
             sourceText: sentence,
             outputText: preservedAction || undefined
           });
@@ -794,7 +826,9 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
         const preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
         if (preservedAction) repaired.push(preservedAction);
         repairActions.push({
-          type: preservedAction ? "remove_clause" : "remove_sentence",
+          claimType: "unsupported_personal_income",
+          action: preservedAction ? "remove_clause" : "remove_sentence",
+          sentenceIndex,
           sourceText: sentence,
           outputText: preservedAction || undefined
         });
@@ -870,6 +904,17 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       }));
     if (!alreadyVisible) repairedParagraphs.push(excerpt);
   }
+  const finalNarrativeText = repairedParagraphs.join("\n\n");
+  const coveredSourceTexts = new Set(repairActions.map((action) => action.sourceText));
+  sourceSentences.forEach((sentence, sentenceIndex) => {
+    if (coveredSourceTexts.has(sentence) || finalNarrativeText.includes(sentence)) return;
+    repairActions.push({
+      claimType: "unsupported_financial_consequence",
+      action: "remove_sentence",
+      sentenceIndex,
+      sourceText: sentence
+    });
+  });
   input.onRepairActions?.(repairActions);
   return repairedParagraphs.length > 0
     ? repairedParagraphs

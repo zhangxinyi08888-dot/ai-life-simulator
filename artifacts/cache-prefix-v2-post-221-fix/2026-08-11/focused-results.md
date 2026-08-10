@@ -14,8 +14,21 @@
 | “比原来少了三分之一，加上房租……” | 删除收入主句后保留了失去主语的从句 | 继续删除依赖财务从句，保留后续客户现场动作 |
 | “账本上依然见底的整体仍处于负债状态的欠款” | 余额规范化与原句定语发生嵌套拼接 | 规范为“账本上仍未缓解的欠款”，二次清洗结果不再变化 |
 | “尚未被写成未经权威状态确认……” | 生成预算耗尽时使用内部审计口吻的确定性节点 | 改为引用用户实际选择的三个月行动与复盘安排，不出现权威状态或账本术语 |
+| 修复动作只有内部 `type`，无法定位原句 | 缺少 `claimType`、动作名和整节点句子序号 | 每项动作统一记录 `claimType`、`action`、`sentenceIndex`、`proposalId`、原文与保留文本 |
+| 已接受调薪仍可能被二次清洗删除 | closing ledger 条目缺少 narrative evidence 时，没有继续读取 AcceptedFinancialEvent | 已接受的 `income_source_started/adjusted` 可直接证明对应收入来源，正确工资继续显示 |
 
 债务、借款、资产出售和家人支持只有在用户选择或正文确实包含申请、协商、挂牌、求助等行动时，才允许呈现具体失败结果；模型凭空写出的完成事实直接删除，不补“尚待确认”。
+
+修复动作现在使用以下可审计结构，且只支持三种动作：`remove_clause`、`remove_sentence`、`render_attempt_outcome`。
+
+```json
+{
+  "claimType": "unsupported_personal_income",
+  "action": "remove_clause",
+  "sentenceIndex": 1,
+  "proposalId": "salary_adjustment_rejected"
+}
+```
 
 ## 精确失败句离线复放
 
@@ -32,11 +45,11 @@
 
 | 检查 | 结果 |
 |---|---:|
-| 新增及直接受影响测试 | 82/82 |
+| 新增及直接受影响测试 | 72/72 |
 | 公司/个人财务边界 | 55/55 |
 | 债务叙事 D4.5 | 49/49 |
 | 缓存前缀测试 | 44/44 |
-| 全量 TypeScript 测试 | 543/543 |
+| 全量 TypeScript 测试 | 545/545 |
 | `pnpm lint` | 通过 |
 | `pnpm build` | 通过；仅保留既有 chunk size 警告 |
 

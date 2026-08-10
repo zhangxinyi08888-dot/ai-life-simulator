@@ -194,6 +194,43 @@ test("preserves salary, expenses and transaction amounts", () => {
   }), ["已有连续拖欠事实，不能把本轮写成第一次或首次逾期"]);
 });
 
+test("an accepted salary adjustment remains visible at its authoritative amount", () => {
+  const acceptedIncomeLedger = initializeFinancialLedger({
+    id: "accepted_salary_adjustment",
+    asOfAgeInMonths: 480,
+    openingPosition: {
+      incomeSources: [{
+        id: "salary_current",
+        type: "salary",
+        displayName: "当前工资",
+        annualNetAmountWan: 48,
+        accrualPolicy: "annual",
+        activeFromAgeInMonths: 480,
+        status: "active",
+        linkedCareerStateId: "career_current",
+        factStatus: "known",
+        evidence: []
+      }]
+    }
+  });
+  const acceptedAdjustment = {
+    id: "accepted_salary_48",
+    proposalId: "salary_adjustment_48",
+    kind: "income_source_adjusted",
+    effectiveAtAgeInMonths: 480,
+    payload: {
+      incomeSourceId: "salary_current",
+      nextSource: acceptedIncomeLedger.incomeSources[0]
+    },
+    evidence: [{ source: "accepted_simulation_outcome", excerpt: "你的年薪调整为48万元。", reasonCode: "TEST", confidence: 1 }],
+    acceptedByReasonCodes: ["TEST"]
+  } as any;
+  assert.equal(
+    sanitizeFinancialNarrative("你正式接下产品负责人职责，年薪调整为48万元。", { ...state, annualAfterTaxIncomeWan: 48 }, acceptedIncomeLedger, [acceptedAdjustment]),
+    "你正式接下产品负责人职责，年薪调整为48万元。"
+  );
+});
+
 test("a rejected informal debt amount cannot remain beside the authoritative total", () => {
   assert.equal(
     sanitizeFinancialNarrative("你已经欠下10万元个人债务，仍在安排还款。", { ...state, totalDebtWan: 199.5 }),

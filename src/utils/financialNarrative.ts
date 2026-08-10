@@ -145,14 +145,23 @@ function dedupeCanonicalFinancialFallbackSentences(text: string): string {
   }).join("");
 }
 
-function sanitizeRecurringIncomeClaims(description: string, ledger?: FinancialLedger): string {
+function sanitizeRecurringIncomeClaims(
+  description: string,
+  ledger?: FinancialLedger,
+  acceptedEvents?: AcceptedFinancialEvent[]
+): string {
   if (!ledger) return description;
+  const acceptedIncomeSourceIds = new Set((acceptedEvents || []).flatMap((event) => {
+    if (event.kind === "income_source_started") return [event.payload.id];
+    if (event.kind === "income_source_adjusted") return [event.payload.nextSource.id];
+    return [];
+  }));
   const careerIncome = ledger.incomeSources.filter((source) => (
     source.status === "active"
     && Boolean(source.linkedCareerStateId)
     && source.accrualPolicy !== "event_only"
     && source.accrualReviewStatus !== "quarantined"
-    && isNarrativeEligibleFinancialFact(source)
+    && (isNarrativeEligibleFinancialFact(source) || acceptedIncomeSourceIds.has(source.id))
   ));
   if (careerIncome.length === 0) return description.split(/(?<=[。！？])/u).map((sentence) => (
     /(?:你|主角|本人|你的).{0,28}(?:月薪|年薪|年收入|月收入|工资|薪资)|(?:当前|税后)?(?:月薪|年薪|年收入|月收入)(?:约|为|达到|调整为|调整至|提升至|降至|降到|升至|稳定在)?\s*\d/u.test(sentence)
@@ -313,7 +322,7 @@ export function sanitizeFinancialNarrative(
     .replace(/持续支出正在消耗现金缓冲的(?:个人)?(?:税后)?(?:工资|薪资|收入)/gu, "已经到账的个人税后收入")
     .replace(new RegExp(`(?:你|主角|本人)(?:不得已|只好)?动用了?\s*${MONEY_AMOUNT}\s*(?:的)?(?:存款|积蓄|备用金)[^。！？]{0,12}(?:还贷|偿还房贷)`, "gu"), "你继续动用现金缓冲偿还房贷");
   const grounded = sanitizeDebtServicingClaims(
-    sanitizePersonalDebtClaims(sanitizeUnsupportedMortgageClaims(sanitizeUnsupportedIncomeComposition(sanitizeUnconfirmedPersonalDrawClaims(sanitizeRecurringIncomeClaims(prepared, ledger), ledger, acceptedEvents), ledger), ledger), state),
+    sanitizePersonalDebtClaims(sanitizeUnsupportedMortgageClaims(sanitizeUnsupportedIncomeComposition(sanitizeUnconfirmedPersonalDrawClaims(sanitizeRecurringIncomeClaims(prepared, ledger, acceptedEvents), ledger, acceptedEvents), ledger), ledger), state),
     ledger
   );
   return repairFinancialNarrativeJoins(dedupeCanonicalFinancialFallbackSentences(sanitizeLongWanPrecision(grounded
