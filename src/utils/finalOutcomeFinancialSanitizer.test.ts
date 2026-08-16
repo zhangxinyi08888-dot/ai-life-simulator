@@ -5,11 +5,12 @@ import { initializeCareerState } from "../domain/career/careerState";
 import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "../domain/finance/ledgerMath";
 import type { FinancialEvidence } from "../domain/finance/types";
-import { sanitizeFinalOutcomeFinancialClaims } from "./finalOutcomeFinancialSanitizer";
+import { collectFinalFinancialNarrativeIssues } from "./finalFinancialNarrativeAuthority";
+import { getAuthoritativeFinalFinancialContext } from "./finalOutcomeFinancialContext";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "TEST", confidence: 1 }];
 
-test("final report keeps derived amounts and removes unsupported narrative money and return claims", () => {
+test("final financial context validates model prose without replacing it", () => {
   const career = initializeCareerState({ id: "career", employmentStatus: "self_employed", effectiveFromAgeInMonths: 360 });
   const ledger = initializeFinancialLedger({
     id: "report_ledger",
@@ -44,11 +45,10 @@ test("final report keeps derived amounts and removes unsupported narrative money
     report: { finalLifeReading: { paragraphs: ["你的净资产为20万元，公司估值达到100万元，回报率达到300%。"] } },
     meta: {}
   } as unknown as FinalLifeOutcome;
-  const sanitized = sanitizeFinalOutcomeFinancialClaims(outcome, history);
-  assert.match(sanitized.share.viralTitle, /20万元/);
-  assert.doesNotMatch(sanitized.share.oneLineSummary, /100万元|3倍/);
-  assert.doesNotMatch(sanitized.report.finalLifeReading.paragraphs[0], /100万元|300%/);
-  assert.match(sanitized.report.finalLifeReading.paragraphs[0], /财务现实仍在变化/);
-  assert.doesNotMatch(sanitized.report.finalLifeReading.paragraphs[0], /价值待确认|账本确认|金额待/u);
-  assert.doesNotMatch(JSON.stringify(sanitized), /金额待账本确认|回报幅度待账本确认|回报率待账本确认/);
+  const before = JSON.stringify(outcome);
+  const context = getAuthoritativeFinalFinancialContext(history);
+  const issues = collectFinalFinancialNarrativeIssues({ outcome, authority: context.narrativeAuthority });
+  assert.equal(context.allowedWanValues.includes(20), true);
+  assert.equal(issues.some((issue) => issue.code === "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT"), true);
+  assert.equal(JSON.stringify(outcome), before);
 });

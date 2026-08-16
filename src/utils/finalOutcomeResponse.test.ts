@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { normalizeFinalLifeOutcome } from "./finalOutcomeResponse";
+import { collectFinalOutcomeQualityIssues } from "./finalOutcomeQuality";
 import { HistoryItem } from "../types";
 
 const history = [
@@ -81,24 +82,31 @@ const outcome = normalizeFinalLifeOutcome({
   meta: {}
 }, history);
 
-assert.match(outcome.share.viralTitle, /我/);
-assert.doesNotMatch(outcome.share.viralTitle, /你/);
-assert.equal(outcome.share.timeline.length, 6);
-assert.deepEqual(outcome.share.timeline[1].keyMomentIndexes, [1]);
-assert.equal(outcome.share.posterTheme, "warm_realistic");
+assert.equal(outcome.share.viralTitle, "重生之你把兴趣当副业坚持了半辈子");
+assert.equal(outcome.share.timeline.length, 7);
+assert.deepEqual(outcome.share.timeline[1].keyMomentIndexes, [1, 99]);
+assert.equal(outcome.share.posterTheme, "unknown");
+assert.equal(outcome.share.downloadFileName, "..badname.png");
 assert.equal(outcome.meta.reportVersion, "life-pattern-v2");
 assert.equal(outcome.meta.closureType, "mortality");
-assert.equal(outcome.report.repeatedPatterns[0].keyMomentIndexes.includes(99), false);
+assert.equal(outcome.report.repeatedPatterns[0].keyMomentIndexes.includes(99), true);
 assert.equal(outcome.report.executiveSummary.patterns.length >= 1, true);
 assert.equal(outcome.report.patternsToAdjust[0].closingLine, "请把自己做，升级成一起做。");
 
 const fallback = normalizeFinalLifeOutcome({}, history);
-assert.match(fallback.share.viralTitle, /我/);
-assert.equal(fallback.share.timeline.length, 4);
-assert.equal(fallback.report.repeatedPatterns.length >= 1, true);
+assert.equal(fallback.share.viralTitle, "");
+assert.equal(fallback.share.timeline.length, 0);
+assert.equal(fallback.report.repeatedPatterns.length, 0);
 assert.equal(fallback.meta.reportVersion, "life-pattern-v2");
+assert.equal(
+  collectFinalOutcomeQualityIssues({ data: {}, history, closureType: "mortality" })
+    .some((issue) => issue.code === "FINAL_REPORT_ARRAY_LENGTH_INVALID"),
+  true
+);
+assert.equal(JSON.stringify(fallback).includes("模式1"), false);
+assert.equal(JSON.stringify(fallback).includes("AI 看到的是"), false);
 
 const reflection = normalizeFinalLifeOutcome({}, history, "user_reflection");
 assert.equal(reflection.meta.closureType, "user_reflection");
-assert.equal(reflection.share.downloadFileName, "这段人生的报告.png");
-assert.doesNotMatch(reflection.share.imageAlt, /人生终章/);
+assert.equal(reflection.share.downloadFileName, "");
+assert.equal(reflection.share.imageAlt, "");

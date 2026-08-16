@@ -52,6 +52,10 @@ function formatParagraphs(paragraphs: string[]): string {
 
 function buildFullReportText(outcome: FinalLifeOutcome): string {
   const report = outcome.report;
+  const isReflection = outcome.meta.closureType === "user_reflection";
+  const chapterThree = isReflection ? "第三章：如果继续这样走" : "第三章：留下了哪些持续影响";
+  const chapterFour = isReflection ? "第四章：哪些值得保留？" : "第四章：哪些模式在生前确实有效？";
+  const chapterFive = isReflection ? "第五章：哪些值得调整？" : "第五章：哪些模式形成了长期限制？";
   return `${buildShareText(outcome)}
 
 【AI人生模式分析】
@@ -67,13 +71,13 @@ ${report.repeatedPatterns.map((pattern) => `### ${pattern.title}\n${formatParagr
 【第二章：这些模式给你带来了什么？】
 ${report.patternEffects.map((effect) => `### ${effect.patternName}\n${formatParagraphs(effect.paragraphs)}\n复利：${effect.compoundReturn}\n代价：${effect.hiddenCost}\n${effect.closingLine}`).join("\n\n")}
 
-【第三章：如果继续这样走】
+【${chapterThree}】
 ${report.futureTrends.map((trend) => `### ${trend.title}\n${trend.trend}\n${trend.reason}`).join("\n\n")}
 
-【第四章：哪些值得保留？】
+【${chapterFour}】
 ${report.patternsToKeep.map((item) => `### ${item.title}\n${item.why}\n${formatParagraphs(item.paragraphs)}\n${item.closingLine}`).join("\n\n")}
 
-【第五章：哪些值得调整？】
+【${chapterFive}】
 ${report.patternsToAdjust.map((item) => `### ${item.title}\n${item.why}\n${formatParagraphs(item.paragraphs)}\n${item.closingLine}`).join("\n\n")}
 
 【AI看到的人生】
@@ -332,15 +336,15 @@ export default function DestinyReport({
           </div>
         </ChapterShell>
 
-        <ChapterShell title="第三章：如果继续这样走" icon={<Wand2 className="h-4 w-4 text-[#b9aa79]" />}>
+        <ChapterShell title={isReflection ? "第三章：如果继续这样走" : "第三章：留下了哪些持续影响"} icon={<Wand2 className="h-4 w-4 text-[#b9aa79]" />}>
           <TrendList trends={outcome.report.futureTrends} />
         </ChapterShell>
 
-        <ChapterShell title="第四章：哪些值得保留？" icon={<Sparkles className="h-4 w-4 text-[#b9aa79]" />}>
+        <ChapterShell title={isReflection ? "第四章：哪些值得保留？" : "第四章：哪些模式在生前确实有效？"} icon={<Sparkles className="h-4 w-4 text-[#b9aa79]" />}>
           <UpgradeList items={outcome.report.patternsToKeep} />
         </ChapterShell>
 
-        <ChapterShell title="第五章：哪些值得调整？" icon={<RefreshCw className="h-4 w-4 text-[#b9aa79]" />}>
+        <ChapterShell title={isReflection ? "第五章：哪些值得调整？" : "第五章：哪些模式形成了长期限制？"} icon={<RefreshCw className="h-4 w-4 text-[#b9aa79]" />}>
           <UpgradeList items={outcome.report.patternsToAdjust} />
         </ChapterShell>
 

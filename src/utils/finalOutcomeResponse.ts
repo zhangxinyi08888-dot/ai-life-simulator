@@ -1,250 +1,126 @@
-import {
+import type {
   FinalLifeOutcome,
-  FutureTrend,
   HistoryItem,
-  LifePattern,
   LifePatternReport,
-  PatternEffect,
-  PatternSummary,
-  PatternUpgradeItem,
   PosterTheme,
   ShareEndingCard,
-  ShareTimelineItem,
   SimulationClosureType
 } from "../types";
-import { formatAgeInMonths } from "./timelineAdvance";
 
 const THEMES: PosterTheme[] = ["warm_realistic", "quiet_dark", "clean_magazine"];
 
-function readString(value: unknown, fallback = ""): string {
-  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
-function readStringArray(value: unknown, fallback: string[]): string[] {
-  const items = Array.isArray(value)
-    ? value.map((item) => readString(item)).filter(Boolean)
-    : [];
-  return items.length > 0 ? items : fallback;
+function textArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(text) : [];
 }
 
-function clampText(value: string, maxLength: number): string {
-  const chars = Array.from(value);
-  if (chars.length <= maxLength) return value;
-  return `${chars.slice(0, Math.max(0, maxLength - 1)).join("")}…`;
+function indexes(value: unknown): number[] {
+  return Array.isArray(value) ? [...value] as number[] : [];
 }
 
-function sanitizeFileName(value: unknown, closureType: SimulationClosureType): string {
-  const fallback = closureType === "user_reflection" ? "这段人生的报告.png" : "人生终章.png";
-  const raw = readString(value, fallback)
+function sanitizeFileName(value: unknown): string {
+  const raw = text(value)
     .replace(/[\\/:*?"<>|]+/g, "")
     .replace(/\s+/g, "")
     .trim();
-  const withoutExt = raw.replace(/\.png$/i, "") || fallback.replace(/\.png$/i, "");
+  if (!raw) return "";
+  const withoutExt = raw.replace(/\.png$/i, "");
   return `${withoutExt}.png`;
 }
 
-function normalizeTitleSubject(value: unknown): string {
-  const fallback = "重生之我把人生重新跑了一遍";
-  const title = readString(value, fallback)
-    .replace(/重生之你/g, "重生之我")
-    .replace(/AI推演：你/g, "AI推演：我")
-    .replace(/^你/, "我");
-  if (title.includes("我")) return clampText(title, 30);
-  return clampText(`重生之我${title.replace(/^《|》$/g, "")}`, 30);
-}
-
-function normalizeIndexes(value: unknown, historyLength: number): number[] {
-  const indexes = Array.isArray(value) ? value : [];
-  const unique = indexes
-    .filter((index): index is number => Number.isInteger(index) && index >= 0 && index < historyLength)
-    .filter((index, position, array) => array.indexOf(index) === position)
-    .slice(0, 4);
-  return unique.length > 0 ? unique : [0].filter((index) => index < historyLength);
-}
-
-function readIndexes(record: any, historyLength: number): number[] {
-  return normalizeIndexes(record?.keyMomentIndexes ?? record?.evidenceNodeIndexes, historyLength);
-}
-
-function fallbackTimeline(history: HistoryItem[]): ShareTimelineItem[] {
-  return history.slice(0, 6).map((item, index) => ({
-    ageLabel: formatAgeInMonths(item.ageInMonths ?? item.age * 12),
-    icon: ["🎓", "💼", "🚀", "📱", "⚠️", "🌱"][index] || "✨",
-    title: clampText(item.title || "关键选择", 12),
-    choiceSummary: clampText(item.selectedChoice || "这次选择塑造了今天的你", 24),
-    keyMomentIndexes: [index]
-  }));
-}
-
-function normalizeTimelineItem(item: any, history: HistoryItem[], index: number): ShareTimelineItem {
-  const historyItem = history[index] || history[0];
+function normalizeShare(data: any): ShareEndingCard {
   return {
-    ageLabel: clampText(readString(item?.ageLabel, historyItem ? formatAgeInMonths(historyItem.ageInMonths ?? historyItem.age * 12) : "现在"), 8),
-    icon: clampText(readString(item?.icon, ["🎓", "💼", "🚀", "📱", "⚠️", "🌱"][index] || "✨"), 4),
-    title: clampText(readString(item?.title, historyItem?.title || "关键选择"), 14),
-    choiceSummary: clampText(readString(item?.choiceSummary, historyItem?.selectedChoice || "这次选择塑造了今天的你"), 26),
-    keyMomentIndexes: readIndexes(item, history.length)
+    viralTitle: text(data?.viralTitle),
+    covenantTitle: text(data?.covenantTitle),
+    oneLineSummary: text(data?.oneLineSummary),
+    timeline: Array.isArray(data?.timeline) ? data.timeline.map((item: any) => ({
+      ageLabel: text(item?.ageLabel),
+      icon: text(item?.icon),
+      title: text(item?.title),
+      choiceSummary: text(item?.choiceSummary),
+      keyMomentIndexes: indexes(item?.keyMomentIndexes)
+    })) : [],
+    closingLine: text(data?.closingLine),
+    posterTheme: THEMES.includes(data?.posterTheme) ? data.posterTheme : data?.posterTheme as PosterTheme,
+    downloadFileName: sanitizeFileName(data?.downloadFileName),
+    imageAlt: text(data?.imageAlt)
   };
 }
 
-function normalizeShare(data: any, history: HistoryItem[], closureType: SimulationClosureType): ShareEndingCard {
-  const rawTimeline = Array.isArray(data?.timeline) ? data.timeline : [];
-  const normalizedTimeline = rawTimeline
-    .slice(0, 6)
-    .map((item, index) => normalizeTimelineItem(item, history, index));
-  const timeline = normalizedTimeline.length >= 4
-    ? normalizedTimeline
-    : fallbackTimeline(history).slice(0, Math.max(4, normalizedTimeline.length));
-  const viralTitle = normalizeTitleSubject(data?.viralTitle);
-  const posterTheme = THEMES.includes(data?.posterTheme) ? data.posterTheme : "warm_realistic";
-
-  return {
-    viralTitle,
-    covenantTitle: clampText(readString(data?.covenantTitle, "仍在选择自己的人"), 16),
-    oneLineSummary: clampText(readString(data?.oneLineSummary, "现实改变过你的路径，却没有真正改变你的热爱。"), 44),
-    timeline: timeline.slice(0, 6),
-    closingLine: clampText(readString(data?.closingLine, "人生不是由成功组成，而是由一次次选择组成。"), 40),
-    posterTheme,
-    downloadFileName: closureType === "user_reflection"
-      ? "这段人生的报告.png"
-      : sanitizeFileName(data?.downloadFileName, closureType),
-    imageAlt: closureType === "user_reflection"
-      ? `${viralTitle} 阶段人生报告海报`
-      : readString(data?.imageAlt, `${viralTitle} 人生终章海报`)
-  };
-}
-
-function normalizeSummaryPattern(item: any, historyLength: number, index: number): PatternSummary {
-  return {
-    name: readString(item?.name, `人生模式${index + 1}`),
-    shortDescription: readString(item?.shortDescription, "一个反复出现的选择模式。"),
-    keyMomentIndexes: readIndexes(item, historyLength)
-  };
-}
-
-function normalizeLifePattern(item: any, historyLength: number, index: number): LifePattern {
-  return {
-    name: readString(item?.name, `模式${index + 1}`),
-    title: readString(item?.title, "你的人生一直有一个反复出现的选择方式"),
-    paragraphs: readStringArray(item?.paragraphs, ["回顾你的关键节点，会发现真正塑造你的不是单次决定，而是多次重复出现的选择方式。"]),
-    keyMomentIndexes: readIndexes(item, historyLength),
-    closingLine: readString(item?.closingLine, "这些重复出现的选择，才是真正塑造你人生的底层系统。")
-  };
-}
-
-function normalizePatternEffect(item: any, historyLength: number, index: number): PatternEffect {
-  return {
-    patternName: readString(item?.patternName ?? item?.name, `模式${index + 1}`),
-    compoundReturn: readString(item?.compoundReturn, "它让你的经验和能力开始形成复利。"),
-    hiddenCost: readString(item?.hiddenCost, "它也让反馈变慢，压力更容易被你一个人承担。"),
-    paragraphs: readStringArray(item?.paragraphs, ["每一种模式都有收益，也有成本。真正的人生复盘，是看清它如何同时成就你和消耗你。"]),
-    keyMomentIndexes: readIndexes(item, historyLength),
-    closingLine: readString(item?.closingLine, "复利和代价，其实来自同一个模式。")
-  };
-}
-
-function normalizeFutureTrend(item: any, historyLength: number, index: number): FutureTrend {
-  return {
-    title: readString(item?.title, `趋势${index + 1}`),
-    trend: readString(item?.trend, "未来最可能延续的，不是命运安排，而是你已经形成的选择模式。"),
-    reason: readString(item?.reason, "因为这个模式已经在多个关键节点中反复出现。"),
-    keyMomentIndexes: readIndexes(item, historyLength)
-  };
-}
-
-function normalizeUpgradeItem(item: any, historyLength: number, index: number, keep: boolean): PatternUpgradeItem {
-  return {
-    title: readString(item?.title, keep ? `保留已经有效的模式${index + 1}` : `升级开始限制你的模式${index + 1}`),
-    why: readString(item?.why, keep ? "它已经被你的人生验证有效。" : "它过去帮过你，但未来可能开始限制你。"),
-    paragraphs: readStringArray(item?.paragraphs, [keep ? "继续保留它，但要更主动地使用它。" : "这不是纠正缺点，而是把旧模式升级到下一阶段。"]),
-    keyMomentIndexes: readIndexes(item, historyLength),
-    closingLine: readString(item?.closingLine, keep ? "这不是偶然优势，而是应该继续保留的复利方式。" : "模式升级，才是下一段人生的关键。")
-  };
-}
-
-function normalizeArray<T>(
-  value: unknown,
-  minLength: number,
-  maxLength: number,
-  factory: (item: any, index: number) => T,
-  fallbackItems: any[]
-): T[] {
-  const source = Array.isArray(value) ? value.slice(0, maxLength) : [];
-  const normalized = source.map(factory);
-  const fallback = fallbackItems.map(factory);
-  return [...normalized, ...fallback].slice(0, Math.max(minLength, normalized.length));
-}
-
-function normalizeReport(data: any, historyLength: number): LifePatternReport {
-  const fallbackPatterns = [
-    { name: "反复回到真正重视的事", shortDescription: "你会先照顾现实，但真正重要的东西会不断回来。", keyMomentIndexes: [0] },
-    { name: "靠积累而不是靠风口", shortDescription: "你更相信能力和作品会慢慢变值钱。", keyMomentIndexes: [0] },
-    { name: "习惯自己解决问题", shortDescription: "你成长很快，也更容易独自消耗。", keyMomentIndexes: [0] }
-  ];
-  const executive = data?.executiveSummary || {};
-  const summaryPatterns = normalizeArray(
-    executive.patterns,
-    3,
-    3,
-    (item, index) => normalizeSummaryPattern(item, historyLength, index),
-    fallbackPatterns
-  );
-
+function normalizeReport(data: any): LifePatternReport {
   return {
     executiveSummary: {
-      headline: readString(executive.headline, "AI 回顾了你的人生轨迹，发现真正塑造你的，不是某一次重大决定，而是几个不断重复的选择模式。"),
-      patterns: summaryPatterns,
-      closingLine: readString(executive.closingLine, "这些模式让你获得了今天的优势，也带来了今天的代价。")
+      headline: text(data?.executiveSummary?.headline),
+      patterns: Array.isArray(data?.executiveSummary?.patterns)
+        ? data.executiveSummary.patterns.map((item: any) => ({
+          name: text(item?.name),
+          shortDescription: text(item?.shortDescription),
+          keyMomentIndexes: indexes(item?.keyMomentIndexes)
+        }))
+        : [],
+      closingLine: text(data?.executiveSummary?.closingLine)
     },
-    repeatedPatterns: normalizeArray(
-      data?.repeatedPatterns,
-      1,
-      3,
-      (item, index) => normalizeLifePattern(item, historyLength, index),
-      [{ title: "你的人生一直在重复同一种选择", keyMomentIndexes: [0] }]
-    ),
-    patternEffects: normalizeArray(
-      data?.patternEffects,
-      1,
-      3,
-      (item, index) => normalizePatternEffect(item, historyLength, index),
-      [{ patternName: "长期重复的选择模式", keyMomentIndexes: [0] }]
-    ),
-    futureTrends: normalizeArray(
-      data?.futureTrends,
-      1,
-      3,
-      (item, index) => normalizeFutureTrend(item, historyLength, index),
-      [{ title: "模式会继续塑造未来", keyMomentIndexes: [0] }]
-    ),
-    patternsToKeep: normalizeArray(
-      data?.patternsToKeep,
-      1,
-      3,
-      (item, index) => normalizeUpgradeItem(item, historyLength, index, true),
-      [{ title: "保留长期积累", keyMomentIndexes: [0] }]
-    ),
-    patternsToAdjust: normalizeArray(
-      data?.patternsToAdjust,
-      1,
-      3,
-      (item, index) => normalizeUpgradeItem(item, historyLength, index, false),
-      [{ title: "不要再一个人完成所有事情", keyMomentIndexes: [0] }]
-    ),
+    repeatedPatterns: Array.isArray(data?.repeatedPatterns) ? data.repeatedPatterns.map((item: any) => ({
+      name: text(item?.name),
+      title: text(item?.title),
+      paragraphs: textArray(item?.paragraphs),
+      keyMomentIndexes: indexes(item?.keyMomentIndexes),
+      closingLine: text(item?.closingLine)
+    })) : [],
+    patternEffects: Array.isArray(data?.patternEffects) ? data.patternEffects.map((item: any) => ({
+      patternName: text(item?.patternName),
+      compoundReturn: text(item?.compoundReturn),
+      hiddenCost: text(item?.hiddenCost),
+      paragraphs: textArray(item?.paragraphs),
+      keyMomentIndexes: indexes(item?.keyMomentIndexes),
+      closingLine: text(item?.closingLine)
+    })) : [],
+    futureTrends: Array.isArray(data?.futureTrends) ? data.futureTrends.map((item: any) => ({
+      title: text(item?.title),
+      trend: text(item?.trend),
+      reason: text(item?.reason),
+      keyMomentIndexes: indexes(item?.keyMomentIndexes)
+    })) : [],
+    patternsToKeep: Array.isArray(data?.patternsToKeep) ? data.patternsToKeep.map((item: any) => ({
+      title: text(item?.title),
+      why: text(item?.why),
+      paragraphs: textArray(item?.paragraphs),
+      keyMomentIndexes: indexes(item?.keyMomentIndexes),
+      closingLine: text(item?.closingLine)
+    })) : [],
+    patternsToAdjust: Array.isArray(data?.patternsToAdjust) ? data.patternsToAdjust.map((item: any) => ({
+      title: text(item?.title),
+      why: text(item?.why),
+      paragraphs: textArray(item?.paragraphs),
+      keyMomentIndexes: indexes(item?.keyMomentIndexes),
+      closingLine: text(item?.closingLine)
+    })) : [],
     finalLifeReading: {
-      title: readString(data?.finalLifeReading?.title, "AI看到的人生"),
-      paragraphs: readStringArray(data?.finalLifeReading?.paragraphs, ["如果只能用一句话描述你的人生，AI 看到的是同一种选择被你重复了很多年。"]),
-      finalSentence: readString(data?.finalLifeReading?.finalSentence, "你的命运，从来不是某一次选择决定的，而是同一种选择，被重复了很多年。")
+      title: text(data?.finalLifeReading?.title),
+      paragraphs: textArray(data?.finalLifeReading?.paragraphs),
+      finalSentence: text(data?.finalLifeReading?.finalSentence)
     }
   };
 }
 
-export function normalizeFinalLifeOutcome(data: any, history: HistoryItem[] = [], closureType: SimulationClosureType = "mortality"): FinalLifeOutcome {
+/**
+ * Applies display-only formatting after the raw model payload has passed every
+ * structural and factual validator. It must never invent prose, report items,
+ * or history references.
+ */
+export function normalizeFinalLifeOutcome(
+  data: any,
+  _history: HistoryItem[] = [],
+  closureType: SimulationClosureType = "mortality"
+): FinalLifeOutcome {
   return {
-    share: normalizeShare(data?.share, history, closureType),
-    report: normalizeReport(data?.report, history.length),
+    share: normalizeShare(data?.share),
+    report: normalizeReport(data?.report),
     meta: {
-      generatedAt: readString(data?.meta?.generatedAt, new Date().toISOString()),
+      generatedAt: new Date().toISOString(),
       modelProvider: data?.meta?.modelProvider === "openai" || data?.meta?.modelProvider === "mock" ? data.meta.modelProvider : "deepseek",
       posterVersion: "web-v1",
       reportVersion: "life-pattern-v2",

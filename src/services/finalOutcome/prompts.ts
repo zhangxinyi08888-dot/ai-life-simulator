@@ -1,10 +1,11 @@
 import { formatAnswerTurns } from "../../utils/answerFormatting";
 import { formatAgeInMonths } from "../../utils/timelineAdvance";
 import { FinalOutcomeContext, HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
-import { getAuthoritativeFinalFinancialContext } from "../../utils/finalOutcomeFinancialSanitizer";
+import { getAuthoritativeFinalFinancialContext } from "../../utils/finalOutcomeFinancialContext";
 import {
   deriveFinalFinancialNarrativeAuthority,
-  formatFinalFinancialNarrativeAuthorityForPrompt
+  formatFinalFinancialNarrativeAuthorityForPrompt,
+  formatFinancialWan
 } from "../../utils/finalFinancialNarrativeAuthority";
 
 function focusLabel(value: string): string {
@@ -33,8 +34,8 @@ function formatHistory(history: HistoryItem[]): string {
   return history.map((item, index) => `索引 ${index}：【${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} - ${item.title}】
 情境：${item.description}
 用户选择：${item.selectedChoice}
-累计净财富：${item.financialState ? `${item.financialState.netWorthWan} 万元${item.financialState.isEstimated ? "（估算）" : ""}` : "暂无快照"}
-本阶段财富变化：${item.financialPeriodSummary ? `${item.financialPeriodSummary.netWorthChangeWan >= 0 ? "+" : ""}${item.financialPeriodSummary.netWorthChangeWan} 万元（权威期间汇总）` : "暂无权威期间汇总"}`).join("\n\n");
+累计净财富：${item.financialState ? `${formatFinancialWan(item.financialState.netWorthWan)}元${item.financialState.isEstimated ? "（估算）" : ""}` : "暂无快照"}
+本阶段财富变化：${item.financialPeriodSummary ? `${item.financialPeriodSummary.netWorthChangeWan >= 0 ? "+" : ""}${formatFinancialWan(item.financialPeriodSummary.netWorthChangeWan)}元（权威期间汇总）` : "暂无权威期间汇总"}`).join("\n\n");
 }
 
 function formatAuthoritativeFinance(history: HistoryItem[]): string {
@@ -43,11 +44,11 @@ function formatAuthoritativeFinance(history: HistoryItem[]): string {
   const state = context.state;
   const period = context.periodSummary;
   return [
-    `现金 ${state.cashWan} 万元`,
-    `净资产 ${state.netWorthWan} 万元`,
-    `总债务 ${state.totalDebtWan} 万元`,
-    `年化持续收入 ${state.annualizedRecurringIncomeWan} 万元`,
-    period ? `本阶段收入 ${period.incomeWan} 万元；核心支出 ${period.coreExpenseWan} 万元；净现金流 ${period.netCashFlowWan} 万元；净资产变化 ${period.netWorthChangeWan} 万元` : "本阶段无权威期间汇总",
+    `现金 ${formatFinancialWan(state.cashWan)}元`,
+    `净资产 ${formatFinancialWan(state.netWorthWan)}元`,
+    `总债务 ${formatFinancialWan(state.totalDebtWan)}元`,
+    `年化持续收入 ${formatFinancialWan(state.annualizedRecurringIncomeWan)}元`,
+    period ? `本阶段收入 ${formatFinancialWan(period.incomeWan)}元；核心支出 ${formatFinancialWan(period.coreExpenseWan)}元；净现金流 ${formatFinancialWan(period.netCashFlowWan)}元；净资产变化 ${formatFinancialWan(period.netWorthChangeWan)}元` : "本阶段无权威期间汇总",
     `未解决问题：${state.unresolvedIssueCodes.join("、") || "无"}`,
     context.hasBusinessValueNeedsReview ? "企业权益价值为 needs_review：只能写持有事实和价值待确认，不得写估值、获利或回报数字。" : "企业权益不存在 needs_review 限制。"
   ].join("\n");
@@ -70,6 +71,15 @@ export function buildFinalOutcomePrompt(
 - 可以使用人生终章、完整人生回顾和人生志铭等表达。`;
   const reportStageLabel = isReflection ? "当前阶段" : "终局";
   const downloadFileName = isReflection ? "这段人生的报告.png" : "人生终章.png";
+  const futureTrendRule = isReflection
+    ? "描述模式继续运行后，角色未来十年最可能发生的变化。"
+    : "此字段在死亡终局中表示遗留影响：只能回顾历史已经证明的作品、关系或制度影响，以及权威状态中明确存在的未完成事项；不得推演死后的法律程序、债务承担者、采用范围或影响人数。";
+  const keepRule = isReflection
+    ? "保留什么模式，以及下一阶段为什么仍值得保留"
+    : "回顾哪些模式在生前确实产生过正向作用，只作历史判断，不向死者提建议";
+  const adjustRule = isReflection
+    ? "升级什么模式，以及下一阶段如何升级"
+    : "回顾哪些模式在生前形成限制和代价，只作历史判断，不写未来行动";
   return `你是一个严谨写实的人生模式分析产品文案系统。
 你不是在分析人格，而是在分析人生运行模式。
 不要回答“这个人是什么样的人”，要回答“这个人的人生一直如何运行”。
@@ -90,6 +100,11 @@ ${closureRule}
 - 证据要自然融入正文，正文中可以写“22岁……27岁……31岁……”，但不要露出 AI 推理过程。
 - 未来趋势不是预测命运，而是预测模式继续运行后最可能自然发生的结果。
 - 调整建议必须写成“模式升级”，不是纠正缺点。
+- 不得直接输出幸福、才智、财富、人际、健康的内部属性分数；把属性变化改写成历史中可观察的行为和结果。
+- 不得把影响范围夸写成“无数人”“成千上万”“全国”或“遍布各地”，除非历史中有对应量化证据。
+- 标题如使用“X年”，X 必须与模拟历史首尾年龄跨度相符；不能为了传播效果虚构年数。
+- 每一个标题、名称、段落和总结句都必须由你完整生成。任何字段缺失都会触发整份报告修复，代码不会补写“模式1”或通用人生感悟。
+- keyMomentIndexes 必须从历史中选择真实索引；不要机械复制单个索引，也不要让所有章节引用同一组节点。
 
 【用户真实背景】
 - 性别：${userData.gender}
@@ -110,7 +125,7 @@ ${formatHistory(history)}
 幸福 ${currentAttributes.happiness} | 才智 ${currentAttributes.intelligence} | 财富 ${currentAttributes.wealth} | 人际 ${currentAttributes.relation} | 健康 ${currentAttributes.health}
 
 【${reportStageLabel}累计净财富】
-${history.at(-1)?.financialState ? `${history.at(-1)!.financialState!.netWorthWan} 万元${history.at(-1)!.financialState!.isEstimated ? "（估算）" : ""}` : "暂无结构化财务快照"}
+${history.at(-1)?.financialState ? `${formatFinancialWan(history.at(-1)!.financialState!.netWorthWan)}元${history.at(-1)!.financialState!.isEstimated ? "（估算）" : ""}` : "暂无结构化财务快照"}
 
 【报告唯一财务事实源】
 ${formatAuthoritativeFinance(history)}
@@ -121,65 +136,68 @@ ${formatAuthoritativeFinance(history)}
 ${formatFinalFinancialNarrativeAuthorityForPrompt(deriveFinalFinancialNarrativeAuthority(history))}
 - 上述 debt、netWorth、property 是封闭事实集合。海报标题、称号、摘要、时间线和报告正文都必须服从。
 - 仍有债务时不得写已经还清、结清或摆脱债务；净资产为负时不得写财务自由或经济无忧；没有已确认房产时不得写名下房产、卖房或房产升值。
+- no_confirmed_property 只表示“没有已确认房产事实”，不等于已确认没有房产；不得改写成“没有房产”“没有其他可变现资产”。
+- 债务尚未清偿时可以准确写“仍未还清”，但不能在任何回顾、假设或建议中暗示已经还清。
+- 净资产为负时，不得把负债或负净资产写成换取意义、幸福或丰盈人生的“值得交换”；人生意义和财务代价必须分别陈述，不能互相抵销。
 
 【输出要求】
-请严格返回 JSON，不要 Markdown，不要解释。返回字段：
-{
-  "share": {
-    "viralTitle": "第一人称‘我’的爆款标题，必须有梗、有故事感、有反差",
-    "covenantTitle": "6-14个中文字符的契约称号",
-    "oneLineSummary": "第二人称‘你’的一句话人生总结",
-    "timeline": [
-      { "ageLabel": "18岁", "icon": "🎓", "title": "节点标题", "choiceSummary": "12-22个中文字符", "keyMomentIndexes": [0] }
-    ],
-    "closingLine": "人生不是由成功组成，而是由一次次选择组成。",
-    "posterTheme": "warm_realistic | quiet_dark | clean_magazine 三选一",
-    "downloadFileName": "${downloadFileName}",
-    "imageAlt": "海报替代文本"
-  },
-  "report": {
-    "executiveSummary": {
-      "headline": "30秒读懂整份报告的一句话总览",
-      "patterns": [
-        { "name": "人生模式名称", "shortDescription": "一句话解释这个反复发生的模式", "keyMomentIndexes": [0] }
-      ],
-      "closingLine": "这些模式让你获得了今天的优势，也带来了今天的代价。"
-    },
-    "repeatedPatterns": [
-      {
-        "name": "模式名称",
-        "title": "行为规律型标题，不要人格标签",
-        "paragraphs": ["自然叙事，融入多个年龄和选择，不显示‘依据’二字"],
-        "keyMomentIndexes": [0],
-        "closingLine": "一句有记忆点的总结"
-      }
-    ],
-    "patternEffects": [
-      {
-        "patternName": "对应模式名称",
-        "compoundReturn": "这个模式带来的长期复利",
-        "hiddenCost": "这个模式隐藏的代价",
-        "paragraphs": ["说明它如何同时成就你和消耗你"],
-        "keyMomentIndexes": [0],
-        "closingLine": "一句总结"
-      }
-    ],
-    "futureTrends": [
-      { "title": "趋势标题", "trend": "如果模式继续，未来十年最可能发生什么", "reason": "为什么这是模式延续，而不是命运预测", "keyMomentIndexes": [0] }
-    ],
-    "patternsToKeep": [
-      { "title": "保留什么模式", "why": "为什么它已经被人生验证有效", "paragraphs": ["具体说明"], "keyMomentIndexes": [0], "closingLine": "一句总结" }
-    ],
-    "patternsToAdjust": [
-      { "title": "升级什么模式", "why": "为什么它过去有用，未来可能限制你", "paragraphs": ["具体说明如何升级"], "keyMomentIndexes": [0], "closingLine": "一句总结" }
-    ],
-    "finalLifeReading": {
-      "title": "如果我是十年后的你",
-      "paragraphs": ["不要重复总结前文，只写 AI 看到的人生"],
-      "finalSentence": "一句能收藏的生命描述"
-    }
-  }
-}
+请严格返回符合以下 TypeScript 类型契约的 JSON；类型契约只描述结构，不是可复制文案。不要返回 Markdown 或解释。
+type FinalOutcomeJson = {
+  share: {
+    viralTitle: string;
+    covenantTitle: string;
+    oneLineSummary: string;
+    timeline: Array<{
+      ageLabel: string;
+      icon: string;
+      title: string;
+      choiceSummary: string;
+      keyMomentIndexes: number[];
+    }>;
+    closingLine: string;
+    posterTheme: "warm_realistic" | "quiet_dark" | "clean_magazine";
+    downloadFileName: "${downloadFileName}";
+    imageAlt: string;
+  };
+  report: {
+    executiveSummary: {
+      headline: string;
+      patterns: Array<{ name: string; shortDescription: string; keyMomentIndexes: number[] }>;
+      closingLine: string;
+    };
+    repeatedPatterns: Array<{
+      name: string;
+      title: string;
+      paragraphs: string[];
+      keyMomentIndexes: number[];
+      closingLine: string;
+    }>;
+    patternEffects: Array<{
+      patternName: string;
+      compoundReturn: string;
+      hiddenCost: string;
+      paragraphs: string[];
+      keyMomentIndexes: number[];
+      closingLine: string;
+    }>;
+    futureTrends: Array<{ title: string; trend: string; reason: string; keyMomentIndexes: number[] }>;
+    patternsToKeep: Array<{
+      title: string;
+      why: string;
+      paragraphs: string[];
+      keyMomentIndexes: number[];
+      closingLine: string;
+    }>;
+    patternsToAdjust: Array<{
+      title: string;
+      why: string;
+      paragraphs: string[];
+      keyMomentIndexes: number[];
+      closingLine: string;
+    }>;
+    finalLifeReading: { title: string; paragraphs: string[]; finalSentence: string };
+  };
+};
 
 强制约束：
 - share.viralTitle 必须包含“我”，不得用“你”做标题主语。
@@ -188,5 +206,11 @@ ${formatFinalFinancialNarrativeAuthorityForPrompt(deriveFinalFinancialNarrativeA
 - 所有 keyMomentIndexes 必须引用上方历史索引，不能越界。
 - executiveSummary.patterns 必须刚好 3 条。
 - repeatedPatterns、patternEffects、futureTrends、patternsToKeep、patternsToAdjust 各 1 到 3 条。
+- covenantTitle 必须是 6 到 14 个中文字符；choiceSummary 必须是 12 到 22 个中文字符。
+- 除 posterTheme 和 downloadFileName 外，所有 string 内容都必须根据本次历史独立生成；不得复制本提示词中的规则句，也不得使用通用占位文案。
+- ${futureTrendRule}
+- ${keepRule}。
+- ${adjustRule}。
+- mortality 报告所有字段都不得出现“十年后的你”“下一阶段”“请继续保持”“你应该/需要”等面向死者的未来建议。
 - 报告正文必须围绕人生运行模式，不得像人格测试。`;
 }

@@ -339,13 +339,13 @@ export default function App() {
     const updatedHistory = [...history, finalHistoryItem];
 
     try {
-      const body = await runWithInvalidAiResponseRetry(() => generateFinalOutcome({
+      const body = await generateFinalOutcome({
         userData,
         answers,
         history: updatedHistory,
         currentAttributes: attributes,
         context
-      }));
+      });
       setHistory(updatedHistory);
       setCurrentNode(terminalNode);
       setOutcome(body);
