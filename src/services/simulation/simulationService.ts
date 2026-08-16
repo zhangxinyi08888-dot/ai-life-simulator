@@ -1425,7 +1425,11 @@ export function stillClaimsRejectedDebtDraw(description: string): boolean {
 function claimsCompletedNewDebtDisbursement(description: string): boolean {
   return description.split(/(?<=[。！？])/u).some((sentence) => {
     if (/尚未|还未|未能|没有|并未|不再|无需|尚在|仍在(?:申请|审核|审批|协商)|(?:计划|预计|将|会|待|等待)[^。！？]{0,18}(?:放款|到账|入账|到手|借到)/u.test(sentence)) return false;
-    return /(?:贷款|借款|经营贷|消费贷|房贷|融资|授信)[^。！？]{0,36}(?:已(?:经)?|正式)?(?:放款|到账|入账|到手)|(?:银行|金融机构)[^。！？]{0,24}(?:已(?:经)?|正式)?放款|(?:你|我|主角)[^。！？]{0,24}(?:借到|拿到|获得|收到)[^。！？]{0,20}(?:贷款|借款|融资(?:款)?|经营贷|消费贷|房贷|授信)|(?:你|我|主角)[^。！？]{0,24}借到[^。！？]{0,20}(?:\d|[一二三四五六七八九十百千万])[\d.一二三四五六七八九十百千万]*\s*(?:万|元)/u.test(sentence);
+    // A bare financing receipt belongs to the business domain unless this
+    // same sentence assigns it to the protagonist.  Treating "公司融资款到账"
+    // as a personal debt draw invents a mortgage and blocks an otherwise
+    // valid node.  Explicit protagonist financing remains covered below.
+    return /(?:贷款|借款|经营贷|消费贷|房贷|授信)[^。！？]{0,36}(?:已(?:经)?|正式)?(?:放款|到账|入账|到手)|(?:银行|金融机构)[^。！？]{0,24}(?:已(?:经)?|正式)?放款|(?:你|我|主角)[^。！？]{0,24}(?:借到|拿到|获得|收到)[^。！？]{0,20}(?:贷款|借款|融资(?:款)?|经营贷|消费贷|房贷|授信)|(?:你|我|主角)[^。！？]{0,24}借到[^。！？]{0,20}(?:\d|[一二三四五六七八九十百千万])[\d.一二三四五六七八九十百千万]*\s*(?:万|元)/u.test(sentence);
   });
 }
 
