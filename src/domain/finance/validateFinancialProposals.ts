@@ -72,7 +72,7 @@ const PERSONAL_CASH_INFLOW_EVENT_KINDS = new Set<FinancialEventKind>([
  * current income. Only an explicit completed first day can do that.
  */
 export function isUnacceptedIncomeOpportunityEvidence(evidence: string): boolean {
-  const uncompletedStart = /(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:入职|到岗|上班|任职|担任)|(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:接下|接了|接受(?:了)?)[^。；]{0,32}(?:顾问|咨询)(?:岗位|职位|工作)|入职(?:手续|流程|日期)/u.test(evidence);
+  const uncompletedStart = /(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:入职|到岗|上班|任职|担任|加入)|(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}(?:接下|接了|接受(?:了)?)[^。；]{0,32}(?:顾问|咨询)(?:岗位|职位|工作)|入职(?:手续|流程|日期)/u.test(evidence);
   const completedEmployment = !uncompletedStart
     && (hasCompletedEmployerStartEvidence(evidence)
       || /(?:你|主角|本人)[^。；]{0,48}(?:正式(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已经(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|已(?:入职|换(?:了)?工作|换岗|跳槽|转岗)|(?:正式)?加入[^。；]{0,24}(?:公司|企业|机构|团队)[^。；]{0,28}(?:担任|任职|负责|工作|职位|岗位)|换到[^。；]{0,24}(?:岗位|工作))/u.test(evidence));
@@ -154,6 +154,88 @@ function personalCareerIncomeEvidenceIsExplicit(type: unknown, evidence: string)
     || periodicPersonalReceipt
     || explicitMonthlyTakeHomeSalary
     || hasExplicitProtagonistAnnualIncomeFact(evidence);
+}
+
+const CHINESE_SALARY_RATIO_DIGITS: Record<string, number> = {
+  零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5,
+  六: 6, 七: 7, 八: 8, 九: 9, 十: 10
+};
+
+function chineseSalaryPercentage(value: string): number | undefined {
+  if (value === "十") return 100;
+  if (value.length === 1) {
+    const digit = CHINESE_SALARY_RATIO_DIGITS[value];
+    return digit === undefined ? undefined : digit * 10;
+  }
+  if (value.includes("十")) {
+    const [tensText, unitsText] = value.split("十");
+    const tens = tensText ? CHINESE_SALARY_RATIO_DIGITS[tensText] : 1;
+    const units = unitsText ? CHINESE_SALARY_RATIO_DIGITS[unitsText] : 0;
+    if (tens === undefined || units === undefined) return undefined;
+    return tens * 10 + units;
+  }
+  return undefined;
+}
+
+function relativeSalaryRatio(evidence: string): number | undefined {
+  const sentences = String(evidence || "").split(/(?<=[。！？；])/u).filter(Boolean);
+  for (const sentence of sentences) {
+    const hasPersonalSalaryReceipt = /(?:你(?!们)|我(?!们)|主角|本人)[^。；]{0,64}(?:领取|领到|拿到|到手|发放|调整为|降为|降至)[^。；]{0,48}(?:工资|薪水|薪资|月薪|年薪)|(?:你(?!们)|我(?!们)|主角|本人)[^。；]{0,40}(?:工资|薪水|薪资|月薪|年薪)[^。；]{0,32}(?:调整为|降为|降至|发放|领取|领到|拿到|到手)/u.test(sentence);
+    const referencesPriorSalary = /(?:原来|原先|原工资|原薪水|原薪资|原月薪|原年薪|此前|之前|上一份工作|上份工作)/u.test(sentence);
+    const isProspective = /(?:计划|打算|考虑|准备|希望|可能|如果|将来|未来|尚未|还未|预计|拟)[^。；]{0,40}(?:领取|领到|拿到|工资|薪水|薪资|月薪|年薪)/u.test(sentence);
+    if (!hasPersonalSalaryReceipt || !referencesPriorSalary || isProspective) continue;
+    if (/一半/u.test(sentence)) return 0.5;
+    const numericPercent = sentence.match(/(\d+(?:\.\d+)?)\s*%/u);
+    if (numericPercent) {
+      const percentage = Number(numericPercent[1]);
+      if (Number.isFinite(percentage) && percentage > 0 && percentage <= 200) return percentage / 100;
+    }
+    const chinesePercent = sentence.match(/百分之([零一二两三四五六七八九十]+)/u);
+    if (chinesePercent) {
+      const percentage = chineseSalaryPercentage(chinesePercent[1]);
+      if (percentage !== undefined && percentage > 0 && percentage <= 200) return percentage / 100;
+    }
+    const proportion = sentence.match(/([\d.]+|[一二两三四五六七八九十])\s*成/u);
+    if (proportion) {
+      const numeric = Number(proportion[1]);
+      const tenths = Number.isFinite(numeric) ? numeric : CHINESE_SALARY_RATIO_DIGITS[proportion[1]];
+      if (tenths !== undefined && tenths > 0 && tenths <= 10) return tenths / 10;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * A completed salary transition may state the new wage as an exact fraction
+ * of the one authoritative prior career salary.  This is not a licence to
+ * infer company income: it is salary-only, requires one unambiguous baseline,
+ * and accepts only the amount produced by that baseline and ratio.
+ */
+function proposalMatchesAuthoritativeRelativeSalary(input: {
+  proposal: FinancialEventProposal;
+  source: Record<string, unknown> | undefined;
+  ledger: FinancialLedger;
+  narrativeText: string;
+}): boolean {
+  if (input.source?.type !== "salary" || input.source.accrualPolicy !== "monthly") return false;
+  if (isUnacceptedIncomeOpportunityEvidence(input.proposal.evidence)) return false;
+  if (!hasCompletedEmployerStartEvidence(input.narrativeText)) return false;
+  const ratio = relativeSalaryRatio(input.proposal.evidence);
+  if (ratio === undefined) return false;
+  const priorSalaries = input.ledger.incomeSources.filter((source) => (
+    source.status === "active"
+    && source.type === "salary"
+    && Boolean(source.linkedCareerStateId)
+    && source.accrualPolicy === "monthly"
+    && Number.isFinite(source.monthlyNetAmountWan)
+  ));
+  if (priorSalaries.length !== 1) return false;
+  const nextCareerStateId = input.source.linkedCareerStateId;
+  if (typeof nextCareerStateId !== "string"
+    || nextCareerStateId === priorSalaries[0].linkedCareerStateId) return false;
+  const proposedMonthlyWan = Number(input.source.monthlyNetAmountWan);
+  return Number.isFinite(proposedMonthlyWan)
+    && Math.abs(proposedMonthlyWan - priorSalaries[0].monthlyNetAmountWan * ratio) < 0.000001;
 }
 
 function proposalIssue(input: {
@@ -1591,10 +1673,19 @@ export function validateFinancialProposals(input: {
       const linkedCareerStateId = payload.linkedCareerStateId;
       const isCareerIncome = ["salary", "self_employment_draw"].includes(String(payload.type));
       const requiresCompletedBusinessIncomeReceipt = payload.type === "self_employment_draw" || payload.type === "business_dividend";
-      if (!personalCareerIncomeEvidenceIsExplicit(payload.type, proposal.evidence)
+      const matchesAuthoritativeRelativeSalary = proposalMatchesAuthoritativeRelativeSalary({
+        proposal,
+        source: payload,
+        ledger: input.currentLedger,
+        narrativeText: input.narrativeText
+      });
+      if ((!personalCareerIncomeEvidenceIsExplicit(payload.type, proposal.evidence) && !matchesAuthoritativeRelativeSalary)
         || (requiresCompletedBusinessIncomeReceipt && !hasMatchingPersonalBusinessIncomeAmount({ type: payload.type, source: payload, evidence: proposal.evidence }))) {
         issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额、营业收入或不匹配金额不能证明主角已经按该金额和频率领取个人工资、提款或分红", ageInMonths: proposal.effectiveAtAgeInMonths }));
         continue;
+      }
+      if (matchesAuthoritativeRelativeSalary) {
+        proposal = { ...proposal, payload: markEstimatedFacts(proposal.payload) };
       }
       if (isCareerIncome && typeof linkedCareerStateId !== "string") {
         issues.push(proposalIssue({ proposal, code: "CAREER_INCOME_CONFLICT", summary: "职业收入来源必须引用当前或本轮已接受的 CareerState", ageInMonths: proposal.effectiveAtAgeInMonths }));

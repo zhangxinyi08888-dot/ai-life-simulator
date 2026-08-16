@@ -533,6 +533,7 @@ ${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths, cu
 - 新工作工资不得与账本摘要里的旧职业收入叠加：同一职业内薪资变化优先用 income_source_adjusted；换工作必须同时提交旧职业收入的 income_source_ended 和带 linkedCareerStateId 的新 income_source_started。职业、组织或岗位改变时，即使 employmentStatus 仍为 employed，也要提交新的 employmentTransition。
 - 主角亲自经营所得的个人可支配收入必须使用 type="self_employment_draw" 并关联新 CareerState；不得把公司营业收入或创业者个人收入写成 type="other"。辞职创业时必须原子提交旧工资结束、self_employed 转换和新 self_employment_draw（正文未确认个人收入时可不启动新收入）。
 - 正文必须严格区分月薪和年薪：年薪 22 万不得写成月薪 22 万；Proposal 的 monthlyNetAmountWan 与正文月薪必须相同，annualNetAmountWan 与正文年薪必须相同。
+- 换工作或薪资调整时优先在正文写出主角税后月薪/年薪的精确金额。若只用“原工资的 60%”或“原来六成”，Proposal 金额必须严格由账本中唯一有效的原工资换算；计划、考虑、公司营收、提款或分红不能用此规则入账。
 - 借款、还本、利息、资产购买、资产出售和重估必须使用各自有方向的事件；不得返回债务净变化、资产净变化或最终余额。
 - 主角首次以个人现金创办/出资公司时使用 business_holding_started，同时创建个人持股并等额扣减个人现金；公司融资只能用 business_financing_recorded，payload.personalCashReceivedWan 必须为 0；个人分红和出售持股分别使用 business_distribution_received、business_holding_sold。
 - 公司营业收入、合同额、员工工资、销售提成、服务器和公司房租都属于 financialScope="business_operating"，不得用个人 income_source_*、expense_commitment_* 或 one_off_* 入账。主角实际领取的税后工资、业主提款、已到账分红属于 financialScope="personal"，分别使用 salary、self_employment_draw、business_distribution_received。

@@ -1176,6 +1176,87 @@ test("PB-CAREER-07 a paraphrased resignation sentence can close the old salary",
   });
   assert.equal(result.acceptedEvents.length, 1);
 });
+
+function relativeSalaryTransitionContext() {
+  const context = setup();
+  context.currentLedger.incomeSources.push({
+    id: "legacy_salary", type: "salary", displayName: "旧工作税后工资", monthlyNetAmountWan: 2.5,
+    accrualPolicy: "monthly", activeFromAgeInMonths: 240, status: "active",
+    linkedCareerStateId: "career_current", factStatus: "known", evidence: []
+  });
+  return context;
+}
+
+function relativeSalaryStart(monthlyNetAmountWan: number, evidenceText: string, type = "salary") {
+  return proposal({
+    id: "start_relative_salary",
+    kind: "income_source_started",
+    evidence: evidenceText,
+    confidence: 0.95,
+    financialScope: "personal",
+    payload: {
+      id: "new_relative_salary", type, displayName: "AI 创业公司个人工资",
+      monthlyNetAmountWan, accrualPolicy: "monthly", activeFromAgeInMonths: 312,
+      status: "active", linkedCareerStateId: "career_next", factStatus: "known", evidence: []
+    }
+  });
+}
+
+test("PB-CAREER-08 accepts an exact completed salary fraction of the one authoritative prior wage as estimated", () => {
+  const context = relativeSalaryTransitionContext();
+  const closeEvidence = "你正式辞去大公司的产品经理职位，加入了前同事的AI创业公司担任产品负责人。";
+  const salaryEvidence = "你主动提出在最初几个月只领取相当于原来六成的薪水。";
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [
+      proposal({ id: "end_legacy_salary", kind: "income_source_ended", evidence: closeEvidence, payload: { incomeSourceId: "legacy_salary" } }),
+      relativeSalaryStart(1.5, salaryEvidence)
+    ],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: `${closeEvidence}${salaryEvidence}`,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "relative_salary_transition",
+    allowedCareerStateIds: ["career_next"],
+    liquidityPolicy: "require_explicit"
+  });
+  assert.deepEqual(result.acceptedEvents.map((event) => event.proposalId), ["end_legacy_salary", "start_relative_salary"]);
+  assert.equal((result.acceptedEvents[1].payload as { factStatus: string }).factStatus, "estimated");
+});
+
+test("PB-CAREER-09 rejects mismatched, prospective, ambiguous-baseline and non-salary relative income", () => {
+  const completed = "你已正式加入AI创业公司，只领取相当于原来六成的薪水。";
+  const planned = "你计划加入AI创业公司后只领取原工资的60%。";
+  for (const [label, candidate, mutate] of [
+    ["mismatched", relativeSalaryStart(1.6, completed), undefined],
+    ["prospective", relativeSalaryStart(1.5, planned), undefined],
+    ["non_salary", relativeSalaryStart(1.5, completed, "self_employment_draw"), undefined],
+    ["ambiguous", relativeSalaryStart(1.5, completed), (context: ReturnType<typeof relativeSalaryTransitionContext>) => {
+      context.currentLedger.incomeSources.push({
+        ...structuredClone(context.currentLedger.incomeSources.at(-1)!),
+        id: "second_active_salary",
+        monthlyNetAmountWan: 1
+      });
+    }]
+  ] as const) {
+    const context = relativeSalaryTransitionContext();
+    mutate?.(context);
+    const result = validateFinancialProposals({
+      ...context,
+      proposals: [candidate],
+      acceptedOutcomeId: "accepted_choice",
+      narrativeText: candidate.evidence,
+      periodStartAgeInMonths: 300,
+      periodEndAgeInMonths: 312,
+      simulationTransactionId: `relative_salary_${label}`,
+      allowedCareerStateIds: ["career_next"],
+      liquidityPolicy: "require_explicit"
+    });
+    assert.equal(result.acceptedEvents.length, 0, label);
+    assert.equal(result.issues.some((issue) => issue.code === "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"), true, label);
+  }
+});
+
 test("rejects malformed kind payload before reducer trial without leaking undefined", () => {
   const result = validate([proposal({ id: "malformed_adjustment", kind: "income_source_adjusted", payload: { incomeSourceId: "salary_main" }, evidence: "你正式涨薪到每月3万元。" })], "你正式涨薪到每月3万元。");
   assert.equal(result.acceptedEvents.length, 0);
