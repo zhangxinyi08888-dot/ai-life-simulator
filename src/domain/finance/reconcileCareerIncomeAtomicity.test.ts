@@ -14,6 +14,20 @@ import type { AcceptedFinancialEvent, FinancialEvidence } from "./types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_simulation_outcome", reasonCode: "TEST", confidence: 1 }];
 
+test("a proposed company consulting contract is not completed personal income", () => {
+  const narrative = "一个前同事介绍你参与制造企业的诊断项目，对方只愿支付很低的顾问费。经过几轮书面沟通，对方签下一份只覆盖诊断与方案设计的合同，实施部分另议。";
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(narrative), false);
+  assert.deepEqual(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: narrative,
+    acceptedFinancialEvents: [],
+    ageInMonths: 551
+  }), []);
+});
+
+test("an actually paid consulting fee remains personal-income activity", () => {
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity("对方当场付了5000元咨询费。"), true);
+});
+
 function fixture() {
   const currentCareer = initializeCareerState({ id: "career_job", employmentStatus: "employed", effectiveFromAgeInMonths: 600 });
   const retired = initializeCareerState({ id: "career_retired", employmentStatus: "retired", effectiveFromAgeInMonths: 660 });
@@ -224,7 +238,7 @@ test("PB-CAREER-01 explicit personal income prose requires an Accepted income ev
     acceptedFinancialEvents: [],
     ageInMonths: 660,
     currentLedger: current.ledger
-  }).length, 1);
+  }).length, 0);
 
   assert.equal(collectPersonalIncomeNarrativeContractIssues({
     narrativeText: "这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。",
@@ -238,14 +252,14 @@ test("PB-CAREER-01 explicit personal income prose requires an Accepted income ev
     acceptedFinancialEvents: [],
     ageInMonths: 660,
     currentLedger: current.ledger
-  }).length, 1);
+  }).length, 0);
 
   assert.equal(collectPersonalIncomeNarrativeContractIssues({
     narrativeText: "开课后你根据学员反馈调整节奏。课程结束时十几位学员给出评价。这次尝试虽然没有带来多少收入，却像另一种收入来源。",
     acceptedFinancialEvents: [],
     ageInMonths: 660,
     currentLedger: current.ledger
-  }).length, 1);
+  }).length, 0);
 
   assert.equal(collectPersonalIncomeNarrativeContractIssues({
     narrativeText: "有公司请你做内部分享，你按次收取费用。",

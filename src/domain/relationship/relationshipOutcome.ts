@@ -238,6 +238,7 @@ export function applySelectedRelationshipOutcome(input: RelationshipOutcomeCommi
           ...currentRelationship,
           stage: "separated",
           status: "ended",
+          statusEffectiveFromAgeInMonths: input.effectiveAtAgeInMonths,
           progression: undefined,
           source: "accepted_history",
           confidence: 0.95
@@ -308,6 +309,7 @@ export function applySelectedRelationshipOutcome(input: RelationshipOutcomeCommi
           type: "romantic",
           stage: "exploring",
           status: "active",
+          statusEffectiveFromAgeInMonths: input.effectiveAtAgeInMonths,
           effectiveFromAgeInMonths: input.effectiveAtAgeInMonths,
           progression: createExplorationProgression(input.effectiveAtAgeInMonths),
           source: "accepted_history",
@@ -362,6 +364,9 @@ export function applySelectedRelationshipOutcome(input: RelationshipOutcomeCommi
           ...currentRelationship,
           stage: toStage,
           status: toStatus,
+          statusEffectiveFromAgeInMonths: toStatus === currentRelationship.status
+            ? currentRelationship.statusEffectiveFromAgeInMonths
+            : input.effectiveAtAgeInMonths,
           progression,
           confidence: transition?.confidence || 0.9
         }
@@ -406,6 +411,9 @@ export function applySelectedRelationshipOutcome(input: RelationshipOutcomeCommi
         nextState: {
           ...currentRelationship,
           status,
+          statusEffectiveFromAgeInMonths: status === currentRelationship.status
+            ? currentRelationship.statusEffectiveFromAgeInMonths
+            : input.effectiveAtAgeInMonths,
           progression
         }
       });
@@ -432,7 +440,13 @@ export function applySelectedRelationshipOutcome(input: RelationshipOutcomeCommi
       const next = reduceRelationshipState({
         current: input.current,
         expectedRevision: input.current.relationshipRevision || 0,
-        nextState: { ...currentRelationship, status }
+        nextState: {
+          ...currentRelationship,
+          status,
+          statusEffectiveFromAgeInMonths: status === currentRelationship.status
+            ? currentRelationship.statusEffectiveFromAgeInMonths
+            : input.effectiveAtAgeInMonths
+        }
       });
       return { worldStateSnapshot: withCommittedId(next, transactionId), committed: true };
     } catch {

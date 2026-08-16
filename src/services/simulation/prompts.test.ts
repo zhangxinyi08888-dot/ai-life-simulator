@@ -571,7 +571,10 @@ assert.match(prompt, /temporalHint、decisionIntent、expectedWorldDeltaTypes；
 assert.match(prompt, /每个 choice 必须返回 eventOutcomeId/);
 assert.match(buildNodePromptWithRetryNotice(prompt, ["invalidJson"]), /返回内容不是可解析的完整 JSON/);
 assert.match(buildNodePromptWithRetryNotice(prompt, ["choiceText"]), /每个 choice 自己的非空 text 展示正文/);
-assert.match(prompt, /choice\.id 是内部稳定键/);
+assert.match(buildNodePromptWithRetryNotice(prompt, ["attributesRange"]), /0-100 的绝对值/);
+assert.match(buildNodePromptWithRetryNotice(prompt, ["attributesChange"]), /通常不得超过 ±12/);
+assert.match(prompt, /choice\.id 必须严格按显示顺序使用 A、B、C/);
+assert.doesNotMatch(prompt, /允许使用.*语义 ID/);
 assert.match(prompt, /禁止用“\$\{id\}\. \$\{impactSummary\}”拼接结果充当 text/);
 const choiceTextRepairPrompt = buildChoiceTextRepairPrompt({
   title: "岗位与新机会",

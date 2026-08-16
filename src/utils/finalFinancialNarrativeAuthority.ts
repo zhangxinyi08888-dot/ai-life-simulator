@@ -26,6 +26,10 @@ export type FinalPropertyClaim =
   | { kind: "no_confirmed_property" }
   | { kind: "confirmed_property_holdings"; properties: Array<Pick<AssetAccount, "id" | "displayName" | "marketValueWan" | "factStatus">> };
 
+export type FinalBusinessValueClaim =
+  | { kind: "no_confirmed_business_value" }
+  | { kind: "confirmed_business_carrying_value"; holdingIds: string[] };
+
 export type FinalFinancialNumericClaimKind =
   | "cash"
   | "total_debt"
@@ -53,6 +57,7 @@ export interface FinalFinancialNarrativeAuthority {
    * summary, never reconstruct an independent "living expense" total.
    */
   personalExpenseSummary: PersonalExpenseSummary;
+  businessValue: FinalBusinessValueClaim;
   numericClaims: FinalFinancialNumericClaim[];
   permittedSemanticClaims: string[];
   forbiddenSemanticClaims: string[];
@@ -64,10 +69,17 @@ export interface FinalFinancialNarrativeIssue {
   code:
     | "REPORT_DEBT_COMPLETION_CONFLICT"
     | "REPORT_NEGATIVE_NET_WORTH_CONFLICT"
+    | "REPORT_NEGATIVE_NET_WORTH_ROMANTICIZATION"
     | "REPORT_PROPERTY_CONFLICT"
     | "REPORT_INTERNAL_PLACEHOLDER"
     | "REPORT_ORPHAN_FINANCIAL_AMOUNT"
-    | "REPORT_FINANCIAL_PRECISION";
+    | "REPORT_FINANCIAL_PRECISION"
+    | "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT"
+    | "REPORT_UNSUPPORTED_RETURN_CLAIM"
+    | "REPORT_UNCONFIRMED_BUSINESS_VALUE"
+    | "REPORT_FINANCIAL_AUTHORITY_UNAVAILABLE"
+    | "REPORT_PROPERTY_ABSENCE_OVERCLAIM"
+    | "REPORT_ASSET_ABSENCE_OVERCLAIM";
   text: string;
 }
 
@@ -75,8 +87,42 @@ export interface FinalFinancialNarrativeIssue {
 // saying that debt has "归零/清零" is still a completed-settlement claim,
 // even when it avoids the literal words "还清" or "结清".
 const DEBT_COMPLETION_PATTERN = /(?:还清(?:了|全部|所有)?(?:债务|欠款|贷款)?|结清(?:了|全部|所有)?(?:债务|欠款|贷款)?|清偿完毕|无债一身轻|摆脱(?:了)?全部债务|不再欠债|(?:债务|欠款|贷款|房贷|信用卡)(?:已经|已|终于|最终|彻底)?(?:归零|清零))/u;
+const DEBT_NON_COMPLETION_PATTERNS = [
+  /(?:未能|没有|并未|尚未|仍未|还未|从未|不曾|无法|不能|没能|未曾|未)(?:真正|完全|全部)?(?:还清|结清|清偿|摆脱)(?:了|全部|所有)?(?:债务|欠款|贷款)?/gu,
+  /(?:未|没有|并无|尚无|缺少|无法|不能)[^，。！？；;\n]{0,12}(?:记录|证据|结果)?[^，。！？；;\n]{0,8}(?:显示|表明|证明|确认)[^，。！？；;\n]{0,20}(?:已|已经)?(?:还清|结清|清偿|摆脱)(?:了|全部|所有)?(?:债务|欠款|贷款)?/gu,
+  /离(?:真正|完全|全部)?(?:还清|结清|清偿)[^，。！？；;\n]{0,12}(?:仍有|还有|尚有)/gu,
+  /(?:还清|结清|清偿)[^，。！？；;\n]{0,12}(?:仍未|尚未|没有|未能)(?:发生|完成|实现)?/gu
+];
 const NEGATIVE_NET_WORTH_SUCCESS_PATTERN = /(?:财务自由|财富自由|资产充足|经济无忧|财务无忧|财富安全垫(?:已经)?建立)/u;
-const PROPERTY_POSSESSION_PATTERN = /(?:名下有(?:一套|房产)|名下房产|自己的(?:房[屋产子]|公寓|住房)|(?:出售|卖掉)(?:了)?(?:自己的|名下的)?(?:房屋|房产|住房|公寓)|房产升值|房贷压力)/u;
+const NEGATIVE_NET_WORTH_ROMANTICIZATION_PATTERN = /(?:(?:负债|债务|负净资产)[^。！？]{0,28}(?:换来|换来了|换得)[^。！？]{0,24}(?:值得|丰盈|意义|平静|余裕|河堤)|(?:还|偿还)[^。！？]{0,12}(?:债|债务)[^。！？]{0,18}(?:却|但)[^。！？]{0,24}(?:平静|余裕|意义|作品|传承|种子|曲子|河堤)|(?:值得|丰盈|意义)[^。！？]{0,24}(?:交换|代价)[^。！？]{0,20}(?:负债|债务|负净资产)|留下的不是(?:负债|债务)[^。！？]{0,16}而是|真正的财富不在(?:于)?(?:账户|数字)|债务是[^。！？]{0,16}(?:音符|旋律|值得的代价|意义的代价)|债务[^。！？]{0,20}代价[^。！？]{0,20}(?:但|却)[^。！？]{0,20}(?:作品|传承|意义|希望)|比债务更(?:重要|重)|不再为(?:债务|它)焦虑[^。！？]{0,16}接受(?:债务|它)|(?:愿意|甘愿)背负债务|愿意背负债务[^。！？]{0,16}(?:也要|仍要|也愿)|即使(?:负债|背负债务)[^。！？]{0,20}(?:也可以|仍然可以|未曾后悔)|(?:负债|债务)[\s\S]{0,30}(?:没有遗憾|未曾后悔)|换来[^。！？]{0,20}(?:平静|意义|丰盈)[^。！？]{0,20}(?:债务|负债)|背负着债务[^。！？]{0,16}(?:希望|意义))/u;
+const PROPERTY_POSSESSION_PATTERN = /(?:名下有(?:一套|房产)|名下房产|自己的(?:房[屋产子]|公寓|住房)|(?:出售|卖掉|抵押)(?:了)?(?:自己的|名下的)?(?:房屋|房产|住房|公寓)|房产升值|房贷压力)/u;
+const PROPERTY_ABSENCE_OVERCLAIM_PATTERN = /(?:(?:没有|并无|名下无|未持有|从未拥有)(?!已确认)(?:任何|一套|属于自己的|自己的)?(?:房屋|房产|住房|公寓)|(?:房屋|房产|住房|公寓)[^。！？]{0,8}(?:并不存在|不存在|一套也没有))/u;
+const ASSET_ABSENCE_OVERCLAIM_PATTERN = /(?:没有|并无|不存在)[^。！？]{0,10}(?:其他)?(?:可变现|流动|个人)?资产/u;
+const NEGATED_PROPERTY_ACTION_PATTERN = /(?:(?:没有|并未|未曾|从未|无法|不能|未能|没能)(?:出售|卖掉|抵押)|(?:出售|卖掉|抵押)[^。！？]{0,10}(?:没有|并未|未曾|从未|无法|不能|未能|没能)(?:发生|完成|实现)?)/u;
+const MONEY_PATTERN = /-?\d+(?:\.\d+)?\s*(?:万元|万|元)(?:人民币)?/gu;
+const NUMERIC_RETURN_PATTERN = /\d+(?:\.\d+)?\s*倍(?:的)?(?:投资)?回报|(?:回报率|收益率)(?:达到|为|约为|超过)?\s*\d+(?:\.\d+)?%/u;
+const BUSINESS_VALUE_PATTERN = /(?:公司|企业|创业项目|股权|期权)[^。！？]{0,24}(?:估值|市值|价值|获利|回报)/u;
+
+function moneyToWan(value: string): number | undefined {
+  const parsed = value.match(/(-?\d+(?:\.\d+)?)\s*(万元|万|元)/u);
+  if (!parsed) return undefined;
+  const amount = Number(parsed[1]);
+  return parsed[2] === "元" ? amount / 10_000 : amount;
+}
+
+function matchesNumericAuthority(valueWan: number, authority: FinalFinancialNarrativeAuthority): boolean {
+  return authority.numericClaims.some((claim) => (
+    Math.abs(claim.valueWan - valueWan) <= Math.max(0.01, Math.abs(claim.valueWan) * 0.001)
+  ));
+}
+
+function hasUnsupportedDebtCompletionClaim(text: string): boolean {
+  const withoutNonCompletionClaims = DEBT_NON_COMPLETION_PATTERNS.reduce(
+    (remaining, pattern) => remaining.replace(pattern, " "),
+    text
+  );
+  return DEBT_COMPLETION_PATTERN.test(withoutNonCompletionClaims);
+}
 
 function round(value: number): number {
   return Math.round(value * 10_000) / 10_000;
@@ -191,6 +237,12 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
     ? { kind: "confirmed_property_holdings", properties: properties.map(({ id, displayName, marketValueWan, factStatus }) => ({ id, displayName, marketValueWan, factStatus })) }
     : { kind: "no_confirmed_property" };
   const propertyMarketValueWan = round(properties.reduce((sum, propertyAccount) => sum + propertyAccount.marketValueWan, 0));
+  const confirmedBusinessHoldings = ledger.businessHoldings.filter((holding) => (
+    holding.status === "active" || holding.status === "partially_sold"
+  ) && isReportEligibleFinancialFact(holding));
+  const businessValue: FinalBusinessValueClaim = confirmedBusinessHoldings.length > 0
+    ? { kind: "confirmed_business_carrying_value", holdingIds: confirmedBusinessHoldings.map((holding) => holding.id) }
+    : { kind: "no_confirmed_business_value" };
   const personalAnnualIncomeWan = round(ledger.incomeSources
     .filter((source) => source.status === "active" && source.accrualReviewStatus !== "quarantined" && isReportEligibleFinancialFact(source))
     .reduce((sum, source) => {
@@ -239,12 +291,15 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
     netWorth,
     property,
     personalExpenseSummary,
+    businessValue,
     numericClaims,
-    permittedSemanticClaims: [debt.kind, netWorth.kind, property.kind],
+    permittedSemanticClaims: [debt.kind, netWorth.kind, property.kind, businessValue.kind],
     forbiddenSemanticClaims: [
       ...(debt.kind !== "debt_fully_repaid" ? ["debt_fully_repaid"] : []),
       ...(netWorth.kind === "negative_net_worth" ? ["financial_freedom"] : []),
-      ...(property.kind === "no_confirmed_property" ? ["confirmed_property_ownership_or_sale"] : [])
+      ...(netWorth.kind === "negative_net_worth" ? ["negative_net_worth_as_worthwhile_trade"] : []),
+      ...(property.kind === "no_confirmed_property" ? ["confirmed_property_ownership_or_sale"] : []),
+      ...(businessValue.kind === "no_confirmed_business_value" ? ["confirmed_business_valuation_or_return"] : [])
     ],
     canonicalSummary: `${debtSummary}${netWorthSummary}${propertySummary}\n${formatPersonalExpenseSummaryForPrompt(personalExpenseSummary)}`
   };
@@ -268,11 +323,17 @@ export function collectFinalFinancialNarrativeIssues(input: {
   outcome: FinalLifeOutcome;
   authority?: FinalFinancialNarrativeAuthority;
 }): FinalFinancialNarrativeIssue[] {
-  if (!input.authority) return [];
   const strings: Array<{ path: string; text: string }> = [];
   collectStrings({ share: input.outcome.share, report: input.outcome.report }, "", strings);
   const issues: FinalFinancialNarrativeIssue[] = [];
   for (const item of strings) {
+    if (!input.authority) {
+      if (MONEY_PATTERN.test(item.text) || NUMERIC_RETURN_PATTERN.test(item.text) || DEBT_COMPLETION_PATTERN.test(item.text) || PROPERTY_POSSESSION_PATTERN.test(item.text)) {
+        issues.push({ path: item.path, code: "REPORT_FINANCIAL_AUTHORITY_UNAVAILABLE", text: item.text });
+      }
+      MONEY_PATTERN.lastIndex = 0;
+      continue;
+    }
     if (/金额待账本确认|回报幅度待账本确认|回报率待账本确认|价值待确认|账本确认/u.test(item.text)) {
       issues.push({ path: item.path, code: "REPORT_INTERNAL_PLACEHOLDER", text: item.text });
     }
@@ -282,81 +343,76 @@ export function collectFinalFinancialNarrativeIssues(input: {
     if (/-?\d+\.\d{3,}\s*万(?:元)?/u.test(item.text)) {
       issues.push({ path: item.path, code: "REPORT_FINANCIAL_PRECISION", text: item.text });
     }
+    if (NUMERIC_RETURN_PATTERN.test(item.text)) {
+      issues.push({ path: item.path, code: "REPORT_UNSUPPORTED_RETURN_CLAIM", text: item.text });
+    }
+    if (input.authority.businessValue.kind === "no_confirmed_business_value" && BUSINESS_VALUE_PATTERN.test(item.text)) {
+      issues.push({ path: item.path, code: "REPORT_UNCONFIRMED_BUSINESS_VALUE", text: item.text });
+    }
+    for (const match of item.text.match(MONEY_PATTERN) || []) {
+      const valueWan = moneyToWan(match);
+      if (valueWan !== undefined && !matchesNumericAuthority(valueWan, input.authority)) {
+        issues.push({ path: item.path, code: "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT", text: item.text });
+        break;
+      }
+    }
     if (input.authority.debt.kind !== "debt_fully_repaid"
-      && DEBT_COMPLETION_PATTERN.test(item.text)) {
+      && hasUnsupportedDebtCompletionClaim(item.text)) {
       issues.push({ path: item.path, code: "REPORT_DEBT_COMPLETION_CONFLICT", text: item.text });
     }
     if (input.authority.netWorth.kind === "negative_net_worth" && NEGATIVE_NET_WORTH_SUCCESS_PATTERN.test(item.text)) {
       issues.push({ path: item.path, code: "REPORT_NEGATIVE_NET_WORTH_CONFLICT", text: item.text });
     }
-    if (input.authority.property.kind === "no_confirmed_property" && PROPERTY_POSSESSION_PATTERN.test(item.text)) {
-      issues.push({ path: item.path, code: "REPORT_PROPERTY_CONFLICT", text: item.text });
+    if (input.authority.netWorth.kind === "negative_net_worth" && NEGATIVE_NET_WORTH_ROMANTICIZATION_PATTERN.test(item.text)) {
+      issues.push({ path: item.path, code: "REPORT_NEGATIVE_NET_WORTH_ROMANTICIZATION", text: item.text });
+    }
+    if (input.authority.property.kind === "no_confirmed_property") {
+      if (PROPERTY_ABSENCE_OVERCLAIM_PATTERN.test(item.text)) {
+        issues.push({ path: item.path, code: "REPORT_PROPERTY_ABSENCE_OVERCLAIM", text: item.text });
+      }
+      if (ASSET_ABSENCE_OVERCLAIM_PATTERN.test(item.text)) {
+        issues.push({ path: item.path, code: "REPORT_ASSET_ABSENCE_OVERCLAIM", text: item.text });
+      }
+      if (PROPERTY_POSSESSION_PATTERN.test(item.text) && !NEGATED_PROPERTY_ACTION_PATTERN.test(item.text)) {
+        issues.push({ path: item.path, code: "REPORT_PROPERTY_CONFLICT", text: item.text });
+      }
     }
   }
   return issues;
 }
 
-function replacementFor(issue: FinalFinancialNarrativeIssue, authority: FinalFinancialNarrativeAuthority): string {
-  if (issue.code === "REPORT_INTERNAL_PLACEHOLDER" || issue.code === "REPORT_ORPHAN_FINANCIAL_AMOUNT" || issue.code === "REPORT_FINANCIAL_PRECISION") {
-    return issue.path === "share.viralTitle"
-      ? "我在现实起伏中重新安排了生活"
-      : "财务现实仍在变化，你选择按已经发生的事实继续安排生活。";
-  }
-  if (issue.code === "REPORT_DEBT_COMPLETION_CONFLICT") {
-    if (issue.path === "share.viralTitle") return "我在未完成的偿债路上重新安排了生活";
-    if (issue.path === "share.covenantTitle") return "稳步重建者";
-    return authority.debt.kind === "formal_default_outstanding"
-      ? "债务问题仍未解决，你在压力中继续重整生活。"
-      : "债务仍在偿还过程中，你开始用更可持续的方式安排生活。";
-  }
-  if (issue.code === "REPORT_NEGATIVE_NET_WORTH_CONFLICT") {
-    return "现金流有所恢复，但净资产仍为负，你仍需要继续修复长期财务缺口。";
-  }
-  return "你重新安排了居住与生活节奏，但没有把未确认的房产变化写成既成事实。";
-}
-
-function repairText(text: string, issues: FinalFinancialNarrativeIssue[], authority: FinalFinancialNarrativeAuthority): string {
-  const matching = issues.filter((issue) => issue.text === text);
-  if (matching.length === 0) return text;
-  if (matching.some((issue) => issue.path === "share.viralTitle" || issue.path === "share.covenantTitle")) {
-    return replacementFor(matching[0], authority);
-  }
-  const sentences = text.split(/(?<=[。！？])/u).filter(Boolean);
-  const repaired = sentences.map((sentence) => {
-    const issue = matching.find((candidate) => candidate.code === "REPORT_DEBT_COMPLETION_CONFLICT" && DEBT_COMPLETION_PATTERN.test(sentence))
-      ?? matching.find((candidate) => candidate.code === "REPORT_NEGATIVE_NET_WORTH_CONFLICT" && NEGATIVE_NET_WORTH_SUCCESS_PATTERN.test(sentence))
-      ?? matching.find((candidate) => candidate.code === "REPORT_PROPERTY_CONFLICT" && PROPERTY_POSSESSION_PATTERN.test(sentence));
-    return issue ? replacementFor(issue, authority) : sentence;
-  });
-  return [...new Set(repaired)].join("");
-}
-
-function repairUnknown(value: unknown, issues: FinalFinancialNarrativeIssue[], authority: FinalFinancialNarrativeAuthority): unknown {
-  if (typeof value === "string") return repairText(value, issues, authority);
-  if (Array.isArray(value)) return value.map((item) => repairUnknown(item, issues, authority));
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, repairUnknown(item, issues, authority)]));
-  }
-  return value;
-}
-
-export function applyFinalFinancialNarrativeFallback(input: {
-  outcome: FinalLifeOutcome;
-  authority: FinalFinancialNarrativeAuthority;
-  issues: FinalFinancialNarrativeIssue[];
-}): FinalLifeOutcome {
-  return repairUnknown(input.outcome, input.issues, input.authority) as FinalLifeOutcome;
-}
-
 export function formatFinalFinancialNarrativeAuthorityForPrompt(authority?: FinalFinancialNarrativeAuthority): string {
   if (!authority) return JSON.stringify({ version: "unavailable", rule: "不得生成具体资产、债务、净资产或房产完成结论。" }, null, 2);
-  return JSON.stringify(authority, null, 2);
-}
-
-export function buildFinalFinancialNarrativeRepairPrompt(input: {
-  outcome: FinalLifeOutcome;
-  authority: FinalFinancialNarrativeAuthority;
-  issues: FinalFinancialNarrativeIssue[];
-}): string {
-  return `你只修复终局报告中与权威财务事实冲突的字段。保持 JSON schema、非冲突字段、年龄、人物和关键选择不变。\n\n【权威财务语义】\n${formatFinalFinancialNarrativeAuthorityForPrompt(input.authority)}\n\n【冲突字段】\n${JSON.stringify(input.issues, null, 2)}\n\n【原报告】\n${JSON.stringify(input.outcome, null, 2)}\n\n返回修复后的完整 JSON，不要 Markdown。`;
+  const debt = authority.debt.kind === "debt_outstanding"
+    || authority.debt.kind === "debt_repayment_in_progress"
+    || authority.debt.kind === "formal_default_outstanding"
+    ? { kind: authority.debt.kind, totalDebt: `${formatFinancialWan(authority.debt.totalDebtWan)}元` }
+    : authority.debt;
+  const netWorth = authority.netWorth.kind === "positive_net_worth" || authority.netWorth.kind === "negative_net_worth"
+    ? { kind: authority.netWorth.kind, netWorth: `${formatFinancialWan(authority.netWorth.netWorthWan)}元` }
+    : authority.netWorth;
+  const property = authority.property.kind === "confirmed_property_holdings"
+    ? {
+      kind: authority.property.kind,
+      properties: authority.property.properties.map((item) => ({
+        id: item.id,
+        displayName: item.displayName,
+        marketValue: `${formatFinancialWan(item.marketValueWan)}元`,
+        factStatus: item.factStatus
+      }))
+    }
+    : authority.property;
+  return JSON.stringify({
+    version: authority.version,
+    asOfAgeInMonths: authority.asOfAgeInMonths,
+    sourceLedgerRevision: authority.sourceLedgerRevision,
+    debt,
+    netWorth,
+    property,
+    personalExpenseSummary: authority.personalExpenseSummary,
+    businessValue: authority.businessValue,
+    numericClaims: authority.numericClaims.map(({ kind, displayText, sourceLedgerRevision }) => ({ kind, displayText, sourceLedgerRevision })),
+    permittedSemanticClaims: authority.permittedSemanticClaims,
+    forbiddenSemanticClaims: authority.forbiddenSemanticClaims
+  }, null, 2);
 }

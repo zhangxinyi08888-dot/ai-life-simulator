@@ -128,6 +128,7 @@ test("legacy romantic stages migrate once without losing relationship meaning", 
   };
   const migrated = ensureRelationshipWorldState(legacy, 360);
   assert.equal(migrated.relationships?.[0].stage, "dating");
+  assert.equal(migrated.relationships?.[1].statusEffectiveFromAgeInMonths, undefined);
   assert.equal(migrated.relationships?.[0].status, "strained");
   assert.equal(migrated.relationships?.[1].stage, "separated");
   assert.equal(migrated.relationships?.[1].status, "ended");

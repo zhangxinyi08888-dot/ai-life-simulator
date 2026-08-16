@@ -19,6 +19,7 @@ import {
   getInvalidExplicitChoiceTextIndexes,
   getRawSimulationNodeChoices,
   getSimulationNodeValidationIssues,
+  canonicalizeGeneratedChoiceIds,
   groundedRomanceCharacter,
   normalizeSimulationNodeChoices,
   normalizeSimulationNode,
@@ -43,7 +44,7 @@ import { isValidRomanceDisplayName } from "../../utils/romanceCandidateName";
 import { containsForbiddenArcWrite, stripForbiddenArcWrites, stripUnauthorizedRelationshipChoices, stripUnauthorizedRomanticCharacters, validateStoryConsistency } from "../../utils/storyConsistency";
 import { estimateFinancialStateFromWealth, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
 import { hasCompletedEmployerStartEvidence, resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
-import { sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, sanitizeUnsupportedOpeningAccountClaims, validateDebtNarrativeConsistency } from "../../utils/financialNarrative";
+import { sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, sanitizeUnsupportedOpeningAccountClaims, stripUnsupportedPersonalIncomeClaim, validateDebtNarrativeConsistency } from "../../utils/financialNarrative";
 import { applyDebtNarrativeAuthorityToNode, applyDebtNarrativeFallback, collectDebtNarrativeSurfaceIssues, deriveDebtNarrativeAuthority, repairDebtNarrativeSurfaces } from "../../utils/debtNarrativeAuthority";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
@@ -121,12 +122,15 @@ import type { ExpenseLivingArrangement, ExpenseResponsibilityEstimateContext } f
 import { callDeepSeekJsonFromBrowser, callDeepSeekJsonStreamFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
+import { flattenAiPromptInput, type AiJsonResult, type AiPromptInput, type DeepSeekStreamOptions } from "../../utils/deepseek";
 import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
 import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
 import {
   buildChoiceTextRepairPrompt,
-  buildNextNodePrompt,
+  buildNextNodePromptLayout,
+  buildNextNodePromptRequest,
+  buildNextNodePromptRequestFromLayout,
   buildEndingNodePrompt,
   buildFinancialProposalRepairPrompt,
   buildNodePromptWithRetryNotice,
@@ -149,11 +153,15 @@ import {
 } from "./nodeGenerationBudget";
 import { traceGenerationCall, type GenerationTraceListener } from "./generationTelemetry";
 
-type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
-type AiJsonStreamCaller = (
+type AiJsonCaller = (prompt: string) => Promise<AiJsonResult>;
+type AiJsonStringStreamCaller = (
   prompt: string,
-  options?: { signal?: AbortSignal; onContent?: (content: string) => void }
-) => Promise<{ text: string }>;
+  options?: DeepSeekStreamOptions
+) => Promise<AiJsonResult>;
+type AiJsonStreamCaller = (
+  prompt: AiPromptInput,
+  options?: DeepSeekStreamOptions
+) => Promise<AiJsonResult>;
 
 export type NextGenerationStage = "preparing" | "generating" | "validating" | "repairing" | "finalizing" | "revealing";
 
@@ -220,7 +228,8 @@ function normalizeRepairedEmploymentTransition(input: {
 
 export interface SimulationServiceDeps {
   callAiJson?: AiJsonCaller;
-  callAiJsonStream?: AiJsonStreamCaller;
+  /** Test and local callers retain the historical flattened-string contract. */
+  callAiJsonStream?: AiJsonStringStreamCaller;
   onGenerationStage?: (stage: NextGenerationStage) => void;
   onNarrativeProgress?: (preview: StreamedNodePreview) => void;
   signal?: AbortSignal;
@@ -228,6 +237,10 @@ export interface SimulationServiceDeps {
   onGenerationCallTrace?: GenerationTraceListener;
   /** Release flag. Disabled by default until Candidate Patch proves it avoids full regeneration reliably. */
   enableCandidatePatchRepair?: boolean;
+  /** Build-time escape hatch for Cache Prefix V1; default is enabled. */
+  cacheAwarePromptV1?: boolean;
+  /** Opt-in reference-context candidate; default remains the proven V1 layout. */
+  cacheAwarePromptV2?: boolean;
   /** Internal reason propagation for a recursive full regeneration. */
   fullRegenerationReasonCodes?: string[];
   relationshipDispatchFeatureFlags?: Partial<RelationshipDispatchFeatureFlags>;
@@ -1459,12 +1472,33 @@ function stillClaimsRejectedProposal(proposal: FinancialEventProposal, descripti
   return rejectedProposalClaimsCompletedFact(proposal) && description.includes(proposal.evidence.trim());
 }
 
+export type FinancialNarrativeRepairAction = {
+  claimType:
+    | "unsupported_personal_income"
+    | "unsupported_personal_balance"
+    | "unsupported_business_holding"
+    | "rejected_debt_draw"
+    | "rejected_debt_restructure"
+    | "rejected_asset_sale"
+    | "rejected_family_support"
+    | "unsupported_financial_completion"
+    | "unsupported_financial_consequence";
+  action: "remove_clause" | "remove_sentence" | "render_attempt_outcome";
+  sentenceIndex: number;
+  proposalId?: string;
+  sourceText: string;
+  outputText?: string;
+};
+
 export function buildDeterministicFinancialNarrativeRollback(input: {
   rejectedProposals: FinancialEventProposal[];
   acceptedEvents: AcceptedFinancialEvent[];
   narrativeText?: string;
+  selectedDecision?: string;
   narrativeClaims?: FinancialNarrativeClaim[];
+  onRepairActions?: (actions: FinancialNarrativeRepairAction[]) => void;
 }): string[] {
+  const repairActions: FinancialNarrativeRepairAction[] = [];
   const acceptedEvidence = [...new Set(input.acceptedEvents.flatMap((event) => (
     event.evidence.map((item) => item.excerpt?.trim()).filter((item): item is string => Boolean(item))
   )))];
@@ -1476,14 +1510,79 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
     debt_restructured: "你已经尝试申请调整还款安排，但尚未形成生效协议。",
     asset_sold: "你开始评估资产处置，但这次尚未形成确定成交。",
     family_support_received: "你尝试寻求外部支持，但这次尚未确认资金到账。",
-    one_off_income_received: "关于补发收入的安排仍在核对，暂时没有确定到账。",
-    business_holding_started: "股权补偿仍在确认安排阶段，尚未形成确定的个人持有结果。",
-    business_option_granted: "期权补偿仍在确认安排阶段，尚未形成确定的个人持有结果。",
-    business_option_vested: "期权归属仍在确认阶段，尚未形成确定的个人持有结果。"
+    one_off_income_received: "",
+    business_holding_started: "",
+    business_option_granted: "",
+    business_option_vested: "",
+    income_source_started: "",
+    income_source_adjusted: "",
+    business_distribution_received: ""
   };
   const fallbackFor = (proposal: FinancialEventProposal) => pendingByKind[proposal.kind]
-    ?? "你已经尝试推进这项财务安排，但它暂时还没有形成确定结果。";
+    ?? "";
+  const claimTypeFor = (proposal: FinancialEventProposal): FinancialNarrativeRepairAction["claimType"] => {
+    if (["income_source_started", "income_source_adjusted", "one_off_income_received", "business_distribution_received"].includes(proposal.kind)) return "unsupported_personal_income";
+    if (["business_holding_started", "business_option_granted", "business_option_vested"].includes(proposal.kind)) return "unsupported_business_holding";
+    if (proposal.kind === "debt_drawn") return "rejected_debt_draw";
+    if (proposal.kind === "debt_restructured") return "rejected_debt_restructure";
+    if (proposal.kind === "asset_sold") return "rejected_asset_sale";
+    if (proposal.kind === "family_support_received") return "rejected_family_support";
+    return "unsupported_financial_completion";
+  };
+  const attemptIsGrounded = (proposal: FinancialEventProposal): boolean => {
+    const evidence = `${input.selectedDecision || ""}\n${proposal.evidence || ""}`;
+    if (proposal.kind === "debt_drawn") return /(?:申请|提交|支用|借入)(?:了)?[^。！？]{0,24}(?:借款|贷款|授信|额度)|(?:借款|贷款|授信)[^。！？]{0,24}(?:申请|提交|支用)(?:了)?/u.test(evidence);
+    if (proposal.kind === "debt_restructured") return /(?:申请|协商|沟通|谈判|请求|提交)(?:了)?[^。！？]{0,28}(?:重组|展期|宽限|还款安排|还款计划|月供|还款协商)|(?:重组|展期|宽限|还款安排|还款计划|还款协商)[^。！？]{0,28}(?:申请|协商|沟通|谈判|请求|提交)(?:了)?/u.test(evidence);
+    if (proposal.kind === "asset_sold") return /(?:挂牌|联系中介|寻找买家|议价|评估出售|申请出售|处置资产)/u.test(evidence);
+    if (proposal.kind === "family_support_received") return /(?:开口|求助|请求|商量|协商|寻求)[^。！？]{0,20}(?:父母|家人|伴侣|支持|帮助|资金)/u.test(evidence);
+    return false;
+  };
+  const stripRejectedHoldingClaim = (sentence: string): string => {
+    const terminal = sentence.match(/[。！？]$/u)?.[0] ?? "。";
+    const clauses = sentence.replace(/[。！？]$/u, "").split(/[，；]/u)
+      .map((clause) => clause.trim())
+      .filter((clause) => clause && !/(?:股权|股份|期权|持股|占股|归属)[^，；]{0,24}(?:签署|签订|获得|拿到|确认|持有|协议)|(?:签署|签订|获得|拿到|确认|持有)[^，；]{0,24}(?:股权|股份|期权|持股|占股|归属)/u.test(clause))
+      .map((clause) => clause.replace(/^(?:并|但|而|同时)[，、]?/u, "").trim())
+      .filter(Boolean);
+    return clauses.length > 0 ? `${clauses.join("，")}${terminal}` : "";
+  };
+  const stripRejectedCompletionClaim = (sentence: string, proposal: FinancialEventProposal): string => {
+    const terminal = sentence.match(/[。！？]$/u)?.[0] ?? "。";
+    const rejectedClause = proposal.kind === "debt_drawn"
+      ? /(?:借款|贷款|授信|放款|月供|还贷|资金到账|款项到账|这笔钱到账)/u
+      : proposal.kind === "debt_restructured"
+        ? /(?:债务重组|重组协议|展期|宽限|还款计划|还款安排|月供|拖欠|逾期|现金流转正|正余量)/u
+        : proposal.kind === "family_support_received"
+          ? /(?:支持款|援助款|家人借款|(?:父母|父亲|母亲|爸爸|妈妈)[^，；]{0,16}(?:转来|借给|支持)|资金到账|款项到账|这笔钱到账)/u
+          : proposal.kind === "asset_sold"
+            ? /(?:出售|售出|卖房|卖车|资产处置|成交|回款)/u
+            : proposal.kind === "income_source_ended"
+              ? /(?:工资|薪资|收入)[^，；]{0,16}(?:停止|结束|停发)|(?:停止|结束|停发)[^，；]{0,16}(?:工资|薪资|收入)/u
+              : proposal.kind === "income_source_paused"
+                ? /(?:工资|薪资|收入)[^，；]{0,16}(?:暂停|中断)|(?:暂停|中断)[^，；]{0,16}(?:工资|薪资|收入)/u
+                : proposal.kind === "expense_commitment_ended"
+                  ? /(?:支出|开支|月供|费用)[^，；]{0,16}(?:停止|结束|取消)|(?:停止|结束|取消)[^，；]{0,16}(?:支出|开支|月供|费用)/u
+                  : /$^/u;
+    let removed = false;
+    let dependsOnRejectedReceipt = false;
+    const clauses = sentence.replace(/[。！？]$/u, "").split(/[，；]/u).flatMap((rawClause) => {
+      let clause = rawClause.trim();
+      if (!clause) return [];
+      if (dependsOnRejectedReceipt) return [];
+      if (rejectedClause.test(clause)) {
+        removed = true;
+        dependsOnRejectedReceipt = /(?:这笔|该笔|上述)(?:钱|资金|款项)[^，；]{0,12}(?:到账|到手|入账)(?:后|以后|之后)/u.test(clause);
+        return [];
+      }
+      if (removed) clause = clause.replace(/^(?:但|而|因此|所以|同时)[，、]?/u, "").trim();
+      return clause ? [clause] : [];
+    });
+    return clauses.length > 0 ? `${clauses.join("，")}${terminal}` : "";
+  };
   const sourceParagraphs = String(input.narrativeText || "").split(/\n\s*\n+/u).map((item) => item.trim()).filter(Boolean);
+  const sourceSentences = sourceParagraphs.flatMap((paragraph) => (
+    paragraph.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean)
+  ));
   const rejectedProposalIds = new Set(input.rejectedProposals.map((proposal) => proposal.id));
   const rejectedClaims = (input.narrativeClaims || []).filter((claim) => rejectedProposalIds.has(claim.proposalId));
   const rejectedPersonalIncome = input.rejectedProposals.some((proposal) => [
@@ -1499,11 +1598,15 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
     && /(?:账户|存款|积蓄|现金|余额)[^。！？]{0,20}(?:多出|增加|增长|攒下|积累|新增)[^。！？]{0,12}(?:\d+(?:\.\d+)?|[零一二三四五六七八九十百千万两]+)\s*(?:万|元)/u.test(sentence)
   );
   let changed = false;
+  let sentenceIndexCursor = 0;
   const repairedParagraphs = sourceParagraphs.map((paragraph) => {
     const sentences = paragraph.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
     let rejectedImmediatelyBefore = false;
+    let rejectedImmediatelyBeforeKind: FinancialEventProposal["kind"] | undefined;
     const repaired: string[] = [];
     for (const sentence of sentences) {
+      const sentenceIndex = sentenceIndexCursor;
+      sentenceIndexCursor += 1;
       const linkedClaim = rejectedClaims.find((claim) => sentence.includes(claim.surfaceText));
       const rejected = linkedClaim
         ? input.rejectedProposals.find((proposal) => proposal.id === linkedClaim.proposalId)
@@ -1512,35 +1615,102 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       if (rejected) {
         changed = true;
         rejectedImmediatelyBefore = true;
-        const fallback = fallbackFor(rejected);
-        if (fallback) repaired.push(fallback);
+        rejectedImmediatelyBeforeKind = rejected.kind;
+        const fallback = attemptIsGrounded(rejected) ? fallbackFor(rejected) : "";
+        if (fallback) {
+          repaired.push(fallback);
+          const preservedAction = stripRejectedCompletionClaim(sentence, rejected);
+          if (preservedAction) repaired.push(preservedAction);
+          repairActions.push({ claimType: claimTypeFor(rejected), action: "render_attempt_outcome", sentenceIndex, proposalId: rejected.id, sourceText: sentence, outputText: fallback });
+        } else if (["income_source_started", "income_source_adjusted", "one_off_income_received", "business_distribution_received"].includes(rejected.kind)) {
+          let preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+          for (const otherRejected of input.rejectedProposals) {
+            if (!preservedAction || otherRejected.id === rejected.id || !stillClaimsRejectedProposal(otherRejected, preservedAction)) continue;
+            if (["business_holding_started", "business_option_granted", "business_option_vested"].includes(otherRejected.kind)) {
+              preservedAction = stripRejectedHoldingClaim(preservedAction);
+            }
+          }
+          if (preservedAction) repaired.push(preservedAction);
+          repairActions.push({
+            claimType: claimTypeFor(rejected),
+            action: preservedAction ? "remove_clause" : "remove_sentence",
+            sentenceIndex,
+            proposalId: rejected.id,
+            sourceText: sentence,
+            outputText: preservedAction || undefined
+          });
+        } else {
+          const preservedAction = ["business_holding_started", "business_option_granted", "business_option_vested"].includes(rejected.kind)
+            ? stripRejectedHoldingClaim(sentence)
+            : stripRejectedCompletionClaim(sentence, rejected);
+          if (preservedAction) repaired.push(preservedAction);
+          repairActions.push({
+            claimType: claimTypeFor(rejected),
+            action: preservedAction ? "remove_clause" : "remove_sentence",
+            sentenceIndex,
+            proposalId: rejected.id,
+            sourceText: sentence,
+            outputText: preservedAction || undefined
+          });
+        }
         continue;
       }
       if (claimsUnsupportedPersonalBalanceIncrease(sentence)) {
         changed = true;
-        repaired.push("这部分个人收入尚未形成可由权威账本确认的到账结果。");
+        repairActions.push({ claimType: "unsupported_personal_balance", action: "remove_sentence", sentenceIndex, sourceText: sentence });
         continue;
+      }
+      if (rejectedPersonalIncome
+        && !acceptedEvidence.some((excerpt) => sentence.includes(excerpt) || excerpt.includes(sentence))) {
+        const preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+        if (preservedAction !== sentence) {
+          changed = true;
+          if (preservedAction) repaired.push(preservedAction);
+          repairActions.push({
+            claimType: "unsupported_personal_income",
+            action: preservedAction ? "remove_clause" : "remove_sentence",
+            sentenceIndex,
+            sourceText: sentence,
+            outputText: preservedAction || undefined
+          });
+          continue;
+        }
       }
       if (rejectedPersonalIncome
         && sentenceClaimsNewPersonalIncomeActivity(sentence)
         && !acceptedEvidence.some((excerpt) => sentence.includes(excerpt) || excerpt.includes(sentence))) {
         changed = true;
-        repaired.push("你已经尝试拓展新的收入渠道，但实际个人收入仍需等待后续结果确认。");
+        const preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+        if (preservedAction) repaired.push(preservedAction);
+        repairActions.push({
+          claimType: "unsupported_personal_income",
+          action: preservedAction ? "remove_clause" : "remove_sentence",
+          sentenceIndex,
+          sourceText: sentence,
+          outputText: preservedAction || undefined
+        });
         continue;
       }
       if (rejectedImmediatelyBefore && claimsImmediateReliefFromRejectedFinancialCompletion(sentence)) {
         changed = true;
         rejectedImmediatelyBefore = false;
+        if (rejectedImmediatelyBeforeKind && ["income_source_started", "income_source_adjusted", "one_off_income_received", "business_distribution_received"].includes(rejectedImmediatelyBeforeKind)) {
+          const preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+          if (preservedAction) repaired.push(preservedAction);
+        }
+        rejectedImmediatelyBeforeKind = undefined;
         continue;
       }
       rejectedImmediatelyBefore = false;
+      rejectedImmediatelyBeforeKind = undefined;
       repaired.push(sentence);
     }
     return [...new Set(repaired)].join("");
   }).filter(Boolean);
   const rejectedRestructure = input.rejectedProposals.find((proposal) => proposal.kind === "debt_restructured");
   const restructurePending = Boolean(rejectedRestructure);
-  if (rejectedRestructure && !repairedParagraphs.some((paragraph) => paragraph.includes("尚未形成生效协议"))) {
+  if (rejectedRestructure && attemptIsGrounded(rejectedRestructure)
+    && !repairedParagraphs.some((paragraph) => paragraph.includes("尚未形成生效协议"))) {
     repairedParagraphs.push(fallbackFor(rejectedRestructure));
     changed = true;
   }
@@ -1550,7 +1720,7 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       const sanitized = sentences.filter((sentence) => {
         if (sentence.includes("尚未形成生效协议")) return true;
         if (stillClaimsRejectedDebtRestructure(sentence)) return false;
-        return !/(?:每月|月供)[^。！？]{0,20}(?:多出(?:来)?(?:的)?|释放|降低|降到|降至|少还)\s*\d|(?:每月还款|月供)(?:压力)?[^。！？]{0,16}(?:下降|减轻|缓解|降低)|提前还(?:掉|了)?[^。！？]{0,16}(?:房贷|贷款|债务)(?:本金)?|(?:这份|该份|新的?)(?:补充)?协议|用更长的还款周期[^。！？]{0,16}(?:喘息|缓解)|(?:松(?:了)?(?:一)?口气|喘息空间|宽慰)[^。！？]{0,24}(?:月供|还款|利息|现金流)|(?:利息总额|还款期限)[^。！？]{0,20}(?:增加|延长)[^。！？]{0,20}(?:月供|现金流|喘息|缓解)/u.test(sentence);
+        return !/(?:每月|月供)[^。！？]{0,20}(?:多出(?:来)?(?:的)?|释放|降低|降到|降至|少还)\s*\d|(?:每月还款|月供)(?:压力)?[^。！？]{0,16}(?:下降|减轻|缓解|降低)|提前还(?:掉|了)?[^。！？]{0,16}(?:房贷|贷款|债务)(?:本金)?|(?:这份|该份|新的?)(?:补充)?协议|用更长的还款周期[^。！？]{0,16}(?:喘息|缓解)|(?:执行|按照|依照)[^。！？]{0,18}(?:新|调整后)(?:的)?(?:还款)?计划|(?:拖欠|逾期)[^。！？]{0,18}(?:止住|停止|归零|减少)|现金流[^。！？]{0,16}(?:转正|正余量|好转|改善)|(?:松(?:了)?(?:一)?口气|喘息空间|终于能喘口气|宽慰)[^。！？]{0,24}(?:月供|还款|利息|现金流)?|(?:利息总额|还款期限)[^。！？]{0,20}(?:增加|延长)[^。！？]{0,20}(?:月供|现金流|喘息|缓解)/u.test(sentence);
       });
       repairedParagraphs[index] = sanitized.join("");
     }
@@ -1569,13 +1739,13 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
     }
   }
   if (rejectedPersonalIncome) {
-    const unsupportedRelief = /(?:(?:父母|家人|伴侣|配偶)[^。！？]{0,24}(?:分担|承担|支付)[^。！？]{0,20}(?:房租|生活费|生活开支|家庭开支)|(?:收入|现金流|存款|现金|余额|应急金|房租|生活费|开支)[^。！？]{0,36}(?:缓解|减轻|增加|攒下|分担|承担|支付|小了))/u;
+    const unsupportedRelief = /(?:(?:父母|家人|伴侣|配偶)[^。！？]{0,24}(?:分担|承担|支付)[^。！？]{0,20}(?:房租|生活费|生活开支|家庭开支)|(?:收入|现金流|存款|积蓄|储蓄|现金|余额|应急金|房租|生活费|开支)[^。！？]{0,36}(?:缓解|减轻|增加|攒下|分担|承担|支付|小了))/u;
     for (let index = repairedParagraphs.length - 1; index >= 0; index -= 1) {
       const sentences = repairedParagraphs[index].split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
-      repairedParagraphs[index] = sentences.filter((sentence) => (
-        acceptedEvidence.some((excerpt) => sentence.includes(excerpt) || excerpt.includes(sentence))
-        || !unsupportedRelief.test(sentence)
-      )).join("");
+      repairedParagraphs[index] = sentences.map((sentence) => {
+        if (acceptedEvidence.some((excerpt) => sentence.includes(excerpt) || excerpt.includes(sentence))) return sentence;
+        return unsupportedRelief.test(sentence) ? stripUnsupportedPersonalIncomeClaim(sentence) : sentence;
+      }).filter(Boolean).join("");
     }
   }
   if (!changed) repairedParagraphs.push(...[...new Set(input.rejectedProposals.map(fallbackFor).filter(Boolean))]);
@@ -1591,9 +1761,21 @@ export function buildDeterministicFinancialNarrativeRollback(input: {
       }));
     if (!alreadyVisible) repairedParagraphs.push(excerpt);
   }
+  const finalNarrativeText = repairedParagraphs.join("\n\n");
+  const coveredSourceTexts = new Set(repairActions.map((action) => action.sourceText));
+  sourceSentences.forEach((sentence, sentenceIndex) => {
+    if (coveredSourceTexts.has(sentence) || finalNarrativeText.includes(sentence)) return;
+    repairActions.push({
+      claimType: "unsupported_financial_consequence",
+      action: "remove_sentence",
+      sentenceIndex,
+      sourceText: sentence
+    });
+  });
+  input.onRepairActions?.(repairActions);
   return repairedParagraphs.length > 0
     ? repairedParagraphs
-    : ["你把这次行动保留为仍在推进的尝试，没有把尚未确认的结果提前写进生活。"];
+    : [];
 }
 
 export function settleRejectedFinancialProposalIssues(input: {
@@ -2838,11 +3020,13 @@ async function commitAuthoritativeFinancialProgress(input: {
         context: {
           transactionId: input.transactionId,
           nodeIndex: input.nodeIndex,
+          promptFamily: "financial_proposal_repair",
           issueCodes: blockingIssues.map((issue) => issue.code)
         },
         listener: input.onGenerationCallTrace,
-        operation: async (markFirstToken) => {
+        operation: async (markFirstToken, recordResponseMetadata) => {
           const response = await input.callAiJson(repairPrompt);
+          recordResponseMetadata(response);
           markFirstToken();
           return response;
         }
@@ -3244,6 +3428,7 @@ async function commitAuthoritativeFinancialProgress(input: {
         rejectedProposals: rejectedCompletedProposals,
         acceptedEvents: validated.acceptedEvents,
         narrativeText: input.node.description,
+        selectedDecision: input.selectedDecision,
         narrativeClaims: rejectedNarrativeClaims
       }))];
       repairedDescription = paragraphs.join("\n\n");
@@ -3687,24 +3872,44 @@ function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
 }
 
 function getAiJsonStreamCaller(deps: SimulationServiceDeps, fallbackCaller: AiJsonCaller): AiJsonStreamCaller {
-  if (deps.callAiJsonStream) return deps.callAiJsonStream;
+  if (deps.callAiJsonStream) {
+    return (prompt, options = {}) => deps.callAiJsonStream!(flattenAiPromptInput(prompt), options);
+  }
   if (deps.callAiJson) {
     return async (prompt, options = {}) => {
       if (options.signal?.aborted) throw new DOMException("Generation aborted", "AbortError");
-      const response = await fallbackCaller(prompt);
+      const response = await fallbackCaller(flattenAiPromptInput(prompt));
       options.onContent?.(response.text);
+      if (response.usage) options.onUsage?.(response.usage);
       return response;
     };
   }
 
   const e2eStreamCaller = getBrowserE2eAiJsonStreamCaller();
-  if (e2eStreamCaller) return e2eStreamCaller;
+  if (e2eStreamCaller) {
+    return (prompt, options = {}) => e2eStreamCaller(flattenAiPromptInput(prompt), options);
+  }
 
   return (prompt, options = {}) => callDeepSeekJsonStreamFromBrowser(
     getBrowserAiEnv(),
     prompt,
     options
   );
+}
+
+function buildNextNodeRetryPrompt(
+  prompt: AiPromptInput,
+  previousIssues: string[],
+  eventIntentType?: string
+): AiPromptInput {
+  if (typeof prompt === "string") {
+    return buildNodePromptWithRetryNotice(prompt, previousIssues, eventIntentType);
+  }
+
+  return {
+    ...prompt,
+    userPrompt: buildNodePromptWithRetryNotice(prompt.userPrompt, previousIssues, eventIntentType)
+  };
 }
 
 function parseAiJsonResponse(response: { text?: string }): any {
@@ -3718,11 +3923,14 @@ function parseAiJsonResponse(response: { text?: string }): any {
 async function repairGeneratedChoiceTexts(
   node: Record<string, any>,
   invalidChoiceIndexes: number[],
-  callAiJson: AiJsonCaller
+  callAiJson: AiJsonCaller,
+  onResponse?: (response: AiJsonResult) => void
 ): Promise<Record<string, any>> {
   if (invalidChoiceIndexes.length === 0) return node;
 
-  const data = parseAiJsonResponse(await callAiJson(buildChoiceTextRepairPrompt(node, invalidChoiceIndexes)));
+  const response = await callAiJson(buildChoiceTextRepairPrompt(node, invalidChoiceIndexes));
+  onResponse?.(response);
+  const data = parseAiJsonResponse(response);
   const rawRepairs = Array.isArray(data?.choiceTextRepairs) ? data.choiceTextRepairs : [];
   const expectedIndexes = new Set(invalidChoiceIndexes);
   const rawChoices = getRawSimulationNodeChoices(node);
@@ -4249,7 +4457,7 @@ function buildRelationshipAuthorityDeterministicFallback(input: {
       choices: fallbackChoiceTexts.map((text, index) => {
         const outcome = fallbackOutcomes[index % fallbackOutcomes.length];
         return {
-          id: `relationship_authority_fallback_${String.fromCharCode(65 + index)}`,
+          id: String.fromCharCode(65 + index),
           text,
           impactSummary: ["继续推进", "控制风险", "调整方向"][index],
           eventOutcomeId: outcome,
@@ -4471,10 +4679,10 @@ function buildDeterministicRomanceRescheduleNode(
     "重新安排时间和责任，为未来选择留出空间",
     "把注意力放回最紧迫的现实任务，暂不推进新的关系"
   ];
-  const description = "这次新联系尚未形成可由权威状态确认的人物与关系结果。你没有把它写成已经发生的关系推进，而是继续处理当前工作、健康和生活安排。";
+  const description = "这次见面停留在工作与日常交流上。你照常处理手边的工作、健康和生活安排，没有急着把一次联系推向更远的关系。";
   return {
     ...node,
-    title: "新联系尚未落定",
+    title: "一次尚未展开的联系",
     description,
     descriptionParagraphs: [description],
     choices: fallbackChoices.map((text, index) => ({
@@ -4507,16 +4715,78 @@ function buildDeterministicRomanceRescheduleNode(
   };
 }
 
+export function eventSpecificFallbackDefinitions(event?: LifeEventSeed): Array<{
+  text: string;
+  summary: string;
+  intent: string;
+  delta: WorldDelta["type"];
+}> {
+  if (!event) {
+    return [
+      { text: "按当前方向继续推进，并在三个月内核验已经发生的现实结果", summary: "继续核验", intent: "growth:continue_with_review", delta: "career_state" },
+      { text: "缩小当前投入，优先稳定现金流、健康和日常责任", summary: "收缩稳定", intent: "growth:stabilize_resources", delta: "health_state" },
+      { text: "暂停当前方向，转向另一项可以立即验证的现实机会", summary: "暂停转向", intent: "growth:pivot_to_alternative", delta: "location_change" }
+    ];
+  }
+
+  const subject = `“${event.title}”`;
+  const prefix = `event:${event.id}`;
+  switch (event.category) {
+    case "career":
+      return [
+        { text: `围绕${subject}与相关方确认一项可执行的工作安排，并在本周期核验结果`, summary: "确认工作", intent: `${prefix}:confirm_work_plan`, delta: "career_state" },
+        { text: `暂缓${subject}中的高风险承诺，先把职责、时间和现实边界谈清楚`, summary: "厘清边界", intent: `${prefix}:bound_commitment`, delta: "health_state" },
+        { text: `保留${subject}的关键信息，同时把精力投入一条能尽快验证的职业备选路径`, summary: "验证备选", intent: `${prefix}:test_alternative`, delta: "location_change" }
+      ];
+    case "financial":
+      return [
+        { text: `为${subject}列出可承受的资金边界，再决定是否继续投入`, summary: "核定边界", intent: `${prefix}:set_cash_boundary`, delta: "career_state" },
+        { text: `缩小${subject}的支出或承诺，优先守住必要生活与现有现金流`, summary: "保留现金", intent: `${prefix}:reduce_exposure`, delta: "health_state" },
+        { text: `放弃${subject}中无法核验的部分，改用低成本方案验证下一步`, summary: "低成本试", intent: `${prefix}:test_low_cost`, delta: "location_change" }
+      ];
+    case "relationship":
+      return [
+        { text: `围绕${subject}把彼此的边界和下一步安排说清楚，再决定是否继续投入`, summary: "沟通边界", intent: `${prefix}:clarify_boundary`, delta: "relationship_change" },
+        { text: `保留${subject}中的必要联系，但暂不作出超出现实条件的承诺`, summary: "保留联系", intent: `${prefix}:maintain_boundary`, delta: "health_state" },
+        { text: `退出${subject}中让自己持续消耗的部分，把注意力放回当下责任`, summary: "退出消耗", intent: `${prefix}:step_back`, delta: "career_state" }
+      ];
+    case "health":
+      return [
+        { text: `围绕${subject}落实作息、治疗或减负安排，并在短期内复查效果`, summary: "落实修复", intent: `${prefix}:follow_recovery_plan`, delta: "health_state" },
+        { text: `保留${subject}相关的必要活动，但把强度降到身体能够承受的范围`, summary: "降低强度", intent: `${prefix}:reduce_load`, delta: "career_state" },
+        { text: `暂停${subject}中会继续透支的部分，先重建稳定的生活节奏`, summary: "暂停透支", intent: `${prefix}:pause_overload`, delta: "location_change" }
+      ];
+    case "opportunity":
+      return [
+        { text: `为${subject}安排一次小范围试做，用真实结果判断是否继续投入`, summary: "小范围试", intent: `${prefix}:run_small_trial`, delta: "career_state" },
+        { text: `保留${subject}的机会窗口，但先核对时间、资金和已有责任是否匹配`, summary: "核对条件", intent: `${prefix}:verify_constraints`, delta: "health_state" },
+        { text: `婉拒${subject}中不合适的条件，把资源留给当前更重要的方向`, summary: "保留资源", intent: `${prefix}:decline_terms`, delta: "location_change" }
+      ];
+    case "community":
+      return [
+        { text: `把${subject}落实为一次具体参与，先观察它是否能形成持续支持`, summary: "实际参与", intent: `${prefix}:participate_once`, delta: "relationship_change" },
+        { text: `保留${subject}中的联系，但控制投入频率以免挤占现有责任`, summary: "控制投入", intent: `${prefix}:limit_commitment`, delta: "health_state" },
+        { text: `暂不继续${subject}中无明确回报的安排，重新选择更适合当前阶段的连接`, summary: "调整连接", intent: `${prefix}:redirect_connection`, delta: "career_state" }
+      ];
+    case "growth":
+    default:
+      return [
+        { text: `围绕${subject}继续推进一个可核验的步骤，并在本周期回看实际影响`, summary: "推进核验", intent: `${prefix}:continue_and_review`, delta: "career_state" },
+        { text: `缩小${subject}中的非必要投入，优先稳定健康和日常责任`, summary: "收缩稳定", intent: `${prefix}:stabilize_commitment`, delta: "health_state" },
+        { text: `暂停${subject}当前的做法，转向一条可以立即验证的现实路径`, summary: "转向验证", intent: `${prefix}:pivot_to_test`, delta: "location_change" }
+      ];
+  }
+}
+
 function applyDeterministicDecisionGateFallback(
   node: SimulationNode,
   allowedOutcomeIds: string[] = [],
-  intentScope = String(node.ageInMonths ?? node.age)
+  intentScope = String(node.ageInMonths ?? node.age),
+  event?: LifeEventSeed,
+  reasonCodes: string[] = []
 ): SimulationNode {
-  const definitions = [
-    { text: "按当前方向继续推进，但设置明确的三个月复盘点", summary: "继续并复盘", intent: "growth:continue_with_review", delta: "career_state" as const },
-    { text: "缩小当前投入，优先稳定现金流、健康和日常责任", summary: "收缩并稳定", intent: "growth:stabilize_resources", delta: "health_state" as const },
-    { text: "暂停当前方向，转向另一项可以立即验证的现实机会", summary: "暂停并转向", intent: "growth:pivot_to_alternative", delta: "location_change" as const }
-  ];
+  const definitions = eventSpecificFallbackDefinitions(event);
+  const fallbackReason = `decision_gate_deterministic:${reasonCodes.join("+") || "unspecified"}`;
   return {
     ...node,
     choices: definitions.map((definition, index) => ({
@@ -4530,14 +4800,18 @@ function applyDeterministicDecisionGateFallback(
         lifeIntensity: "normal",
         durationMonths: [3, 6],
         requiresFollowUp: false,
-        reason: "候选修复预算已用尽后的确定性选择降级"
+        reason: `DecisionGate 修复：${reasonCodes.join("、") || "候选选项未形成可验证分岔"}`
       }
     })),
     narrativeMeta: node.narrativeMeta ? {
       ...node.narrativeMeta,
       nodeMateriality: "decision_checkpoint",
       lifeIntensity: "normal"
-    } : node.narrativeMeta
+    } : node.narrativeMeta,
+    eventMeta: node.eventMeta ? {
+      ...node.eventMeta,
+      fallbackReason
+    } : node.eventMeta
   };
 }
 
@@ -4547,11 +4821,20 @@ function buildDeterministicCandidateFallback(input: {
   allowedOutcomeIds?: string[];
   issueCodes: string[];
   intentScope?: string;
+  event?: LifeEventSeed;
+  decisionGateReasonCodes?: string[];
 }): SimulationNode {
-  const safeNode = applyDeterministicDecisionGateFallback(input.node, input.allowedOutcomeIds, input.intentScope);
-  const description = input.selectedDecision.trim()
-    ? "你已经开始执行上一轮的选择。这一步尚未被写成未经权威状态确认的成功结果；接下来的变化仍要由实际事件、人物状态和账本记录确认。你重新安排了时间、精力与现实责任，并为三个月后保留了复盘点。"
-    : "你重新安排了时间、精力与现实责任，但尚未形成可以由权威状态确认的新结果。接下来的变化仍要由实际事件、人物状态和账本记录确认。";
+  const safeNode = applyDeterministicDecisionGateFallback(
+    input.node,
+    input.allowedOutcomeIds,
+    input.intentScope,
+    input.event,
+    input.decisionGateReasonCodes ?? input.issueCodes
+  );
+  const selectedDecision = input.selectedDecision.trim().replace(/[。！？]+$/u, "");
+  const description = selectedDecision
+    ? `你把“${selectedDecision}”写进接下来三个月的安排里。能立刻动手的部分先做，暂时卡住的部分留到下一次复盘。`
+    : "你把眼前的责任重新排了一遍，能立刻动手的部分先做，暂时卡住的部分留到下一次复盘。";
   return {
     ...safeNode,
     title: "选择落地前的现实调整",
@@ -4567,7 +4850,7 @@ function buildDeterministicCandidateFallback(input: {
       storyEpisode: {
         ...safeNode.narrativeMeta.storyEpisode,
         internalTransitions: [],
-        summary: "上一轮选择进入执行准备，尚未形成新的权威事实。"
+        summary: selectedDecision ? `开始落实“${selectedDecision}”，并设置下一次复盘。` : "重新安排当前责任，并设置下一次复盘。"
       }
     } : safeNode.narrativeMeta,
     eventMeta: {
@@ -4596,7 +4879,7 @@ function buildInvalidInitialGenerationFallback(input: {
 }): SimulationNode {
   const baseNode = normalizeSimulationNode({
     title: "选择落地前的现实调整",
-    description: "上一轮选择已经进入执行准备，但尚未形成可以由权威状态确认的新结果。",
+    description: "你把眼前的责任重新排了一遍，能立刻动手的部分先做，暂时卡住的部分留到下一次复盘。",
     attributes: input.currentAttributes,
     choices: [],
     narrativeMeta: {
@@ -4608,7 +4891,7 @@ function buildInvalidInitialGenerationFallback(input: {
       arcSignals: [],
       recoveryEvidence: [],
       storyEpisode: {
-        summary: "上一轮选择进入执行准备，尚未形成新的权威事实。",
+        summary: "重新安排当前责任，并设置下一次复盘。",
         internalTransitions: []
       }
     }
@@ -5023,7 +5306,9 @@ async function generateNextNodeAttempt(
     directionArcs: worldState.directionArcs
   });
   const storyContext = buildStoryContextPack(input.userData, input.answers, input.history);
-  const prompt = buildNextNodePrompt({
+  const cacheAwarePromptV1 = deps.cacheAwarePromptV1 !== false;
+  const cacheAwarePromptV2 = cacheAwarePromptV1 && deps.cacheAwarePromptV2 === true;
+  const promptInput = {
     ...input,
     currentFinancialState,
     currentFinancialLedger,
@@ -5037,7 +5322,16 @@ async function generateNextNodeAttempt(
     foregroundPressureArc: workingPressureArc,
     pressureArcInterleaved: isPressureArcInterleave,
     financialGateRetryReasonCodes: deps.financialGateRetryReasonCodes
-  });
+  };
+  const promptLayout = cacheAwarePromptV1
+    ? buildNextNodePromptLayout(promptInput, { cacheAwarePromptV2 })
+    : undefined;
+  // The trace must describe the request actually sent. V2 can safely fall
+  // back to the V1 layout if a caller supplies a stale Story Context Pack.
+  const promptPrefixVersion = promptLayout?.prefixVersion ?? "next_node_legacy_v0";
+  const prompt = promptLayout
+    ? buildNextNodePromptRequestFromLayout(promptLayout)
+    : buildNextNodePromptRequest(promptInput, { cacheAwarePromptV1, cacheAwarePromptV2 });
 
   let latestRawNode: any = {};
   deps.onGenerationStage?.("generating");
@@ -5056,6 +5350,8 @@ async function generateNextNodeAttempt(
           transactionId,
           nodeIndex,
           candidateRevision,
+          promptFamily: "next_node",
+          promptPrefixVersion,
           issueCodes: previousIssues.length > 0
             ? previousIssues
             : candidateRevision > 0
@@ -5063,20 +5359,25 @@ async function generateNextNodeAttempt(
               : []
         },
         listener: deps.onGenerationCallTrace,
-        operation: (markFirstToken) => callAiJsonStream(
-          buildNodePromptWithRetryNotice(prompt, previousIssues, nodeEvent?.intent.type),
-          {
-            signal: deps.signal,
-            onContent: (content) => {
-              markFirstToken();
-              const preview = extractStreamedNodePreview(content);
-              const signature = JSON.stringify(preview);
-              if (signature === lastPreviewSignature) return;
-              lastPreviewSignature = signature;
-              deps.onNarrativeProgress?.(preview);
+        operation: async (markFirstToken, recordResponseMetadata) => {
+          const result = await callAiJsonStream(
+            buildNextNodeRetryPrompt(prompt, previousIssues, nodeEvent?.intent.type),
+            {
+              signal: deps.signal,
+              onUsage: (usage) => recordResponseMetadata({ usage }),
+              onContent: (content) => {
+                markFirstToken();
+                const preview = extractStreamedNodePreview(content);
+                const signature = JSON.stringify(preview);
+                if (signature === lastPreviewSignature) return;
+                lastPreviewSignature = signature;
+                deps.onNarrativeProgress?.(preview);
+              }
             }
-          }
-        )
+          );
+          recordResponseMetadata(result);
+          return result;
+        }
       });
       // Keep the first raw payload intact until the authority check below. If we
       // strip an attempted Arc write here, the model violation becomes invisible
@@ -5096,6 +5397,7 @@ async function generateNextNodeAttempt(
       eventIntentType: nodeEvent?.intent.type,
       deferRomanceContractValidation: isDeterministicRomanceIntent(nodeEvent?.intent.type),
       fallbackAttributes: input.currentAttributes,
+      fallbackAttributeHistory: input.history.map((item) => item.attributes),
       repairMissingChoiceText: deps.enableCandidatePatchRepair === true
         ? async (rawNode, invalidChoiceIndexes) => {
             if (!canPatch(generationBudget)) return rawNode;
@@ -5106,11 +5408,12 @@ async function generateNextNodeAttempt(
                 transactionId,
                 nodeIndex,
                 candidateRevision: generationBudget.fullGenerationsUsed - 1,
+                promptFamily: "candidate_patch",
                 issueCodes: ["choiceText"]
               },
               listener: deps.onGenerationCallTrace,
-              operation: async (markFirstToken) => {
-                const repaired = await repairGeneratedChoiceTexts(rawNode, invalidChoiceIndexes, callAiJson);
+              operation: async (markFirstToken, recordResponseMetadata) => {
+                const repaired = await repairGeneratedChoiceTexts(rawNode, invalidChoiceIndexes, callAiJson, recordResponseMetadata);
                 markFirstToken();
                 return repaired;
               }
@@ -5147,6 +5450,7 @@ async function generateNextNodeAttempt(
       expectedWorldDeltaTypes: choice.expectedWorldDeltaTypes?.length ? choice.expectedWorldDeltaTypes : fallbackWorldDeltaTypes({ ...node, eventMeta: nodeEventMeta })
     }))
   };
+  node = canonicalizeGeneratedChoiceIds(node);
   node = attachPendingFinancialContext({
     node,
     previousState: currentFinancialState
@@ -5490,11 +5794,13 @@ async function generateNextNodeAttempt(
           nodeIndex,
           candidateRevision: envelope.candidateRevision,
           candidateHash: envelope.baseCandidateHash,
+          promptFamily: "candidate_patch",
           issueCodes: candidateIssues.map((issue) => issue.code)
         },
         listener: deps.onGenerationCallTrace,
-        operation: async (markFirstToken) => {
+        operation: async (markFirstToken, recordResponseMetadata) => {
           const response = await callAiJson(buildNodeCandidatePatchPrompt({ envelope, issues: candidateIssues }));
+          recordResponseMetadata(response);
           markFirstToken();
           let parsedPatch;
           try {
@@ -5519,6 +5825,7 @@ async function generateNextNodeAttempt(
         node: stripUnauthorizedRomanticCharacters(patchedNode as SimulationNode, worldState),
         previousState: currentFinancialState
       });
+      node = canonicalizeGeneratedChoiceIds(node);
       node = stripUnauthorizedRelationshipChoices(node, worldState);
       node = applyDecisionDensityDowngrade(node, candidateDecisionGate);
       node = downgradeDensityLimitedNode(node, candidateDecisionGate.reasonCodes);
@@ -5540,7 +5847,13 @@ async function generateNextNodeAttempt(
     candidateIssues.length > 0
     && candidateIssues.every((issue) => issue.code === CANDIDATE_ISSUE.decisionGate)
   ) {
-    node = applyDeterministicDecisionGateFallback(node, nodeEvent?.intent.allowedOutcomes, `node-${nodeIndex}`);
+    node = applyDeterministicDecisionGateFallback(
+      node,
+      nodeEvent?.intent.allowedOutcomes,
+      `node-${nodeIndex}`,
+      nodeEvent,
+      candidateDecisionGate.reasonCodes
+    );
     latestRawNode = {
       ...node,
       financialEventProposals: rawFinancialEventProposals(latestRawNode)
@@ -5577,7 +5890,9 @@ async function generateNextNodeAttempt(
       selectedDecision: input.selectedDecision,
       allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes,
       issueCodes: candidateIssues.map((issue) => issue.code),
-      intentScope: `node-${nodeIndex}`
+      intentScope: `node-${nodeIndex}`,
+      event: nodeEvent,
+      decisionGateReasonCodes: candidateDecisionGate.reasonCodes
     });
     latestRawNode = node;
     candidateDecisionGate = evaluateDecisionGate({
@@ -5635,10 +5950,11 @@ async function generateNextNodeAttempt(
     });
     const response = await traceGenerationCall({
       kind: "final_outcome_generation",
-      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1 },
+      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "final_outcome" },
       listener: deps.onGenerationCallTrace,
-      operation: async (markFirstToken) => {
+      operation: async (markFirstToken, recordResponseMetadata) => {
         const result = await callAiJson(endingPrompt);
+        recordResponseMetadata(result);
         markFirstToken();
         return result;
       }
@@ -5797,9 +6113,10 @@ async function generateNextNodeAttempt(
       previousAgeInMonths: currentAgeInMonths,
       elapsedMonths: timelineAdvance.elapsedMonths,
       lifeIntensity: timelineAdvance.lifeIntensity,
-      pressureArcId: workingPressureArc?.id
+      pressureArcId: workingPressureArc?.id,
+      fallbackAttributes: input.currentAttributes
     });
-    node = { ...node, isEndingNode: false, eventMeta: nodeEventMeta };
+    node = canonicalizeGeneratedChoiceIds({ ...node, isEndingNode: false, eventMeta: nodeEventMeta });
     node = attachPendingFinancialContext({
       node,
       previousState: currentFinancialState
@@ -5884,7 +6201,8 @@ async function generateNextNodeAttempt(
         previousAgeInMonths: currentAgeInMonths,
         elapsedMonths: timelineAdvance.elapsedMonths,
         lifeIntensity: timelineAdvance.lifeIntensity,
-        pressureArcId: workingPressureArc.id
+        pressureArcId: workingPressureArc.id,
+        fallbackAttributes: input.currentAttributes
       });
       repairedNode = {
         ...repairedNode,
@@ -5897,6 +6215,7 @@ async function generateNextNodeAttempt(
             : fallbackWorldDeltaTypes({ ...repairedNode, eventMeta: nodeEventMeta })
         }))
       };
+      repairedNode = canonicalizeGeneratedChoiceIds(repairedNode) as SimulationNode;
       repairedNode = attachPendingFinancialContext({
         node: repairedNode,
         previousState: currentFinancialState
@@ -5955,10 +6274,11 @@ async function generateNextNodeAttempt(
     nodeEvent?.intent.type,
     async (romancePrompt) => traceGenerationCall({
       kind: "romance_candidate_extraction",
-      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1 },
+      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "romance_candidate" },
       listener: deps.onGenerationCallTrace,
-      operation: async (markFirstToken) => {
+      operation: async (markFirstToken, recordResponseMetadata) => {
         const result = await callAiJson(romancePrompt);
+        recordResponseMetadata(result);
         markFirstToken();
         return result;
       }
@@ -6058,7 +6378,7 @@ async function generateNextNodeAttempt(
     generationBudget
   });
   node = authoritativeFinance.node;
-  node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger);
+  node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger, authoritativeFinance.acceptedFinancialEvents);
   const debtNarrativeAuthority = deriveDebtNarrativeAuthority({
     ledger: node.financialLedger!,
     debtHealthState: node.debtHealthState!,
@@ -6102,7 +6422,7 @@ async function generateNextNodeAttempt(
   // first financial sanitizer pass. Re-ground every user-visible surface once
   // more against the closing ledger so canonical debt totals also obey the
   // public two-decimal display contract.
-  node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger);
+  node = sanitizeSimulationNodeFinancialNarrative(node, node.financialState!, node.financialLedger, authoritativeFinance.acceptedFinancialEvents);
   // Financial grounding can remove or rewrite a paragraph that contained the
   // evidence selected by the earlier deterministic romance proposal pass. The
   // accepted choice and event contract are unchanged, so re-derive against the

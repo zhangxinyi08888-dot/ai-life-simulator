@@ -14,6 +14,15 @@ const okFetch = async (url: string, init?: RequestInit) => {
     ok: true,
     status: 200,
     text: async () => JSON.stringify({
+      id: "browser-non-stream",
+      model: "deepseek-v4-flash",
+      usage: {
+        prompt_tokens: 11,
+        prompt_cache_hit_tokens: 7,
+        prompt_cache_miss_tokens: 4,
+        completion_tokens: 2,
+        total_tokens: 13
+      },
       choices: [{ message: { content: "```json\n{\"ok\":true}\n```" } }]
     })
   } as Response;
@@ -21,7 +30,7 @@ const okFetch = async (url: string, init?: RequestInit) => {
 
 const result = await callDeepSeekJsonFromBrowser(
   { apiKey: "test-key", baseUrl: "https://api.deepseek.com/", model: "deepseek-v4-flash" },
-  "只输出 JSON",
+  { systemPrefix: "BROWSER_CACHE_STABLE_SYSTEM", userPrompt: "BROWSER_CACHE_DYNAMIC_USER" },
   okFetch as typeof fetch
 );
 
@@ -31,6 +40,46 @@ assert.equal(calls[0].headers.Authorization, "Bearer test-key");
 assert.equal(calls[0].body.model, "deepseek-v4-flash");
 assert.deepEqual(calls[0].body.response_format, { type: "json_object" });
 assert.equal(calls[0].body.thinking.type, "disabled");
+assert.match(calls[0].body.messages[0].content, /BROWSER_CACHE_STABLE_SYSTEM$/);
+assert.deepEqual(calls[0].body.messages[1], { role: "user", content: "BROWSER_CACHE_DYNAMIC_USER" });
+assert.deepEqual(result.usage, {
+  promptTokens: 11,
+  cacheHitTokens: 7,
+  cacheMissTokens: 4,
+  completionTokens: 2,
+  totalTokens: 13
+});
+assert.equal(result.providerRequestId, "browser-non-stream");
+
+const streamedUsages: any[] = [];
+const streamResult = await callDeepSeekJsonStreamFromBrowser(
+  { apiKey: "test-key", baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash" },
+  "流式 JSON",
+  { onUsage: (usage) => streamedUsages.push(usage) },
+  async (_url, init) => {
+    calls.push({
+      url: String(_url),
+      body: JSON.parse(String(init?.body)),
+      headers: init?.headers as Record<string, string>
+    });
+    return new Response([
+      'data: {"id":"browser-stream","model":"deepseek-v4-flash","choices":[{"delta":{"content":"{\\\"ok\\\":true}"}}]}\n\n',
+      'data: {"choices":[],"usage":{"prompt_tokens":12,"prompt_cache_hit_tokens":8,"prompt_cache_miss_tokens":4,"completion_tokens":2,"total_tokens":14}}\n\n',
+      "data: [DONE]\n\n"
+    ].join(""), { status: 200 });
+  }
+);
+
+assert.equal(streamResult.text, '{"ok":true}');
+assert.deepEqual(calls.at(-1)?.body.stream_options, { include_usage: true });
+assert.deepEqual(streamResult.usage, {
+  promptTokens: 12,
+  cacheHitTokens: 8,
+  cacheMissTokens: 4,
+  completionTokens: 2,
+  totalTokens: 14
+});
+assert.deepEqual(streamedUsages, [streamResult.usage]);
 
 await assert.rejects(
   () => callDeepSeekJsonFromBrowser(

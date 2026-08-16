@@ -28,6 +28,7 @@ jobs:
       VITE_FINANCIAL_NODE_GATE_MODE: enforced
       VITE_EXPENSE_LIFECYCLE_MODE: enforced
       VITE_ENABLE_CANDIDATE_PATCH_REPAIR: "false"
+      VITE_CACHE_AWARE_PROMPT_V1: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

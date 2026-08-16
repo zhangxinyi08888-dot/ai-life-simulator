@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "createdOn": "2026-08-10",
+  "baseline": {
+    "commit": "7748a6419dadfcb25d1511f4cabd1e7da7f513eb"
+  },
+  "candidate": {
+    "id": "cache-prefix-v2-reference-context-r4",
+    "sourceSha256": "f8e20a7a7882d9f89aac5d3acf3543352fbe3609bfa18e6f00b2e49746e59344"
+  },
+  "pairCount": 12,
+  "specs": [
+    {
+      "key": "career-opportunity",
+      "theme": "创业初期与现实压力",
+      "inputStatePath": "/Users/zz/Documents/new life/test---cache-prefix-v1/artifacts/cache-prefix-paired-blind/2026-08-08-main-vs-v2-r4/source-main/career/seed-1-state.json",
+      "selection": {
+        "id": "A",
+        "text": "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。"
+      },
+      "replicates": 2
+    },
+    {
+      "key": "career-crossline",
+      "theme": "事业推进中的人物相遇",
+      "inputStatePath": "/Users/zz/Documents/new life/test---cache-prefix-v1/artifacts/cache-prefix-paired-blind/2026-08-08-main-vs-v2-r4/source-main/career/seed-3-state.json",
+      "selection": {
+        "id": "choice_focus_quality",
+        "text": "暂不改变现有薪酬和人员结构，继续用每周复盘和客户反馈机制打磨产品，将精力集中在提升续约率和客户满意度上，等公司下一轮融资后再做调整。"
+      },
+      "replicates": 2
+    },
+    {
+      "key": "career-delivery",
+      "theme": "产品交付与技术细节",
+      "inputStatePath": "/Users/zz/Documents/new life/test---cache-prefix-v1/artifacts/cache-prefix-paired-blind/2026-08-08-main-vs-v2-r4/source-main/career/seed-5-state.json",
+      "selection": {
+        "id": "choice_extend_next_stage",
+        "text": "基于现有客户反馈，启动第二个产品模块（比如移动端报表），把产品从单一工具扩展成小型平台，继续深挖制造业客户的需求，争取在年底前将月经常性收入提升到40万元。"
+      },
+      "replicates": 2
+    },
+    {
+      "key": "relationship-commitment",
+      "theme": "异地外派与承诺冲突",
+      "inputStatePath": "/Users/zz/Documents/new life/test---cache-prefix-v1/artifacts/cache-prefix-paired-blind/2026-08-08-main-vs-v2-r4/source-main/relationship/seed-1-state.json",
+      "selection": {
+        "id": "B",
+        "text": "接受一年外派，约定每月见面两次，每天视频，年底重新评估关系，同时开始储蓄和规划未来。"
+      },
+      "replicates": 2
+    },
+    {
+      "key": "relationship-care",
+      "theme": "共同照护与生活安排",
+      "inputStatePath": "/Users/zz/Documents/new life/test---cache-prefix-v1/artifacts/cache-prefix-paired-blind/2026-08-08-main-vs-v2-r4/source-main/relationship/seed-4-state.json",
+      "selection": {
+        "id": "commitment_plan",
+        "text": "与对方形成一份可执行的共同生活和长期安排"
+      },
+      "replicates": 2
+    },
+    {
+      "key": "relationship-cohabitation",
+      "theme": "结束异地后的共同生活",
+      "inputStatePath": "/Users/zz/Documents/new life/test---cache-prefix-v1/artifacts/cache-prefix-paired-blind/2026-08-08-main-vs-v2-r4/source-main/relationship/seed-6-state.json",
+      "selection": {
+        "id": "choice_3",
+        "text": "跟伴侣商量，把线上做饭改成每月一次线下短聚，其他时间用短信和照片保持联系，减少远程消耗。"
+      },
+      "replicates": 2
+    }
+  ]
+}

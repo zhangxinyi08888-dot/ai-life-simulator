@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "frozenAt": "2026-08-10T17:27:28.986Z",
+  "candidate": {
+    "id": "cache-prefix-v2-reference-context-r4",
+    "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+    "model": "deepseek-v4-flash",
+    "environment": {
+      "VITE_CACHE_AWARE_PROMPT_V1": "true",
+      "VITE_CACHE_AWARE_PROMPT_V2": "true"
+    }
+  },
+  "sourceIdentity": {
+    "repositoryCommit": "6b5945dae282ca2d50758e150bd42c9d758ec45b",
+    "sourceSha256": "9ca936000d6abdba6ece3a6ba6d4577b0cde464e98f5810c5880a5427bddb0b3",
+    "dirtyCandidateFiles": [],
+    "files": [
+      {
+        "file": "package.json",
+        "sha256": "83bfea2ac25ecff7a73c80218fbd401ac6c9e7940ffd750e2dca730b5dabc025"
+      },
+      {
+        "file": "scripts/analyze-cache-prefix-acceptance.mjs",
+        "sha256": "d678b1cc7c89ed2ab547958d077d4bac8bba81310cbd09ca83721287cba98331"
+      },
+      {
+        "file": "scripts/evaluate-cache-prefix-blind-review.mjs",
+        "sha256": "2503114f08e10305ed3c0ab6b910162fcbca25b261321657a1c6be436ae552e5"
+      },
+      {
+        "file": "scripts/prepare-cache-prefix-blind-review.mjs",
+        "sha256": "2b0f575a899e72cb136e2694ff3a215eed91c6a84364267147eccb1aba91ca88"
+      },
+      {
+        "file": "scripts/probe-cache-prefix-layout.mjs",
+        "sha256": "f109ef9b0feaf5952d5d791990d18ea03bb5d0bec27c6498d6f79325245be6fe"
+      },
+      {
+        "file": "scripts/real-browser-journey-runner.mjs",
+        "sha256": "0e574b6ab4a8070189448b9c10846287d8a7b11fbe0ca768e20808c13183b0ca"
+      },
+      {
+        "file": "scripts/summarize-cache-prefix-run.mjs",
+        "sha256": "edfd29fdcbec9e1f87118b050f9ffe0267a67d933e8d3b016660068a26a4cdce"
+      },
+      {
+        "file": "src/App.tsx",
+        "sha256": "5fbf28cff2f14ec51237d06fea476bece77ad0d69352909dadb340b4a9bc9a5e"
+      },
+      {
+        "file": "src/domain/finance/reconcileCareerIncomeAtomicity.ts",
+        "sha256": "078b9ec97c91dbe7d412bc69a0504ca302a43e544a61e36d88d9beb03aa1af7f"
+      },
+      {
+        "file": "src/domain/relationship/relationshipOutcome.ts",
+        "sha256": "41a07afc8224583424b9dd3b3d68c3ad199ae4d9ce85877a3406d962426ddab4"
+      },
+      {
+        "file": "src/domain/relationship/relationshipState.ts",
+        "sha256": "991e26cc37b4ec90a6325f1e0fb4a85087f0e66fb970bd9d0ac3fa9f00a2e774"
+      },
+      {
+        "file": "src/services/ai/deepseekBrowserClient.ts",
+        "sha256": "b00fe241c4e59c53ca7e99767e4cc1e6992b2960a0284d714c567e43fb890a2c"
+      },
+      {
+        "file": "src/services/ai/env.ts",
+        "sha256": "95722155cf053b49f5b0bdad2a128fdcf6ef24c2a5d75de32c07857672e0aaa9"
+      },
+      {
+        "file": "src/services/simulation/prompts.ts",
+        "sha256": "6e8a984c6bfe745f3f8f40a384049ecf3f2c2a0ea5fbe76f979dd79781111ab6"
+      },
+      {
+        "file": "src/services/simulation/simulationService.ts",
+        "sha256": "651bd489b2916065c616be8bfad521e17dd8ba9c609584c73548e164f345711e"
+      },
+      {
+        "file": "src/types.ts",
+        "sha256": "f956996ab0ec8bdde8f5adf2582427c429f2a1fac00d3213f36e1f27ead3eb42"
+      },
+      {
+        "file": "src/utils/deepseek.ts",
+        "sha256": "2a42ceff2265a96794e852e65c5146699c5382bb648c8c3e32da1b29dc72a596"
+      },
+      {
+        "file": "src/utils/eventPrompt.ts",
+        "sha256": "61d5e66f96d579fb3055750c411f5153af4891528b3bbdef42f0e51797cb10b5"
+      },
+      {
+        "file": "src/utils/financialNarrative.ts",
+        "sha256": "b0d1cdd8b9bfc23e6c8ddcfcb7fcd1e78b4f8d3f8b89244d6b3e23264a5cce96"
+      },
+      {
+        "file": "src/utils/simulationNodeRetry.ts",
+        "sha256": "45dc0bd3358a46cab4c7b83e3d65dfeddc315ff45b32a34550a8b12dcefeccaf"
+      },
+      {
+        "file": "src/utils/simulationResponse.ts",
+        "sha256": "9989f9e04988423c1a53addfc7f8bde6473ecc41bb489b204958e9abe1018c97"
+      },
+      {
+        "file": "src/utils/storyConsistency.ts",
+        "sha256": "75791e6730901d936d777d696dc83739a97d26de4206ba1595f482f557a036eb"
+      },
+      {
+        "file": "src/utils/storyContext.ts",
+        "sha256": "81257bbaa9765dcda488455a926199a5addc6012ac42811621842e63c4b77cd1"
+      }
+    ]
+  },
+  "requiredLocalVerification": [
+    "pnpm lint",
+    "pnpm test:cache-prefix",
+    "pnpm test",
+    "pnpm build"
+  ],
+  "requiredExternalEvidence": [
+    "synthetic DeepSeek V1/V2 probe with provider usage",
+    "completed V2 real-AI browser routes with this promptPrefixVersion",
+    "anonymous 10-node blind-review packet generated from those routes"
+  ]
+}

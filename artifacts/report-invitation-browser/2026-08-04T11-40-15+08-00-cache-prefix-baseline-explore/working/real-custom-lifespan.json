@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-08-04T11-40-15+08-00-cache-prefix-baseline-explore",
+  "journeyId": "29e00912-14b4-4dbd-b7d8-9745a0aa56e0",
+  "identity": {
+    "runId": "2026-08-04T11-40-15+08-00-cache-prefix-baseline-explore",
+    "journeyId": "29e00912-14b4-4dbd-b7d8-9745a0aa56e0",
+    "caseSlug": "real-custom-lifespan",
+    "scenario": "natural_lifespan",
+    "startedAt": "2026-08-04T03:43:01.289Z"
+  },
+  "dataSource": "real_ai_browser",
+  "caseSlug": "real-custom-lifespan",
+  "scenario": "natural_lifespan",
+  "config": {
+    "slug": "real-custom-lifespan",
+    "scenario": "natural_lifespan",
+    "birthday": "1988-05-11",
+    "birthtime": "19:00",
+    "returnPointName": "写下我的时刻 填写一件只属于你的回溯事件 自定义",
+    "anchorText": "29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。",
+    "branches": [
+      "回到家乡全职参与教育项目，先承诺两年并建立可持续收入",
+      "保留城市工作，以远程顾问方式支持项目并逐步增加投入",
+      "继续咨询职业，把收入的一部分用于资助当地教师和学生"
+    ],
+    "answers": [
+      "我当时税后年收入约32万元，存款25万元，没有房贷，父母身体尚可但希望我离家近一些。",
+      "我很看重工作的社会意义，但也依赖职业成就获得安全感，容易把行动推迟到条件完美。",
+      "我做过教育公益项目，认识当地校长和志愿者，也有咨询和项目管理能力，但不懂长期筹款。"
+    ]
+  },
+  "updatedAt": "2026-08-04T03:44:20.703Z",
+  "complete": false,
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "real-custom-lifespan",
+      "scenario": "natural_lifespan",
+      "runId": "2026-08-04T11-40-15+08-00-cache-prefix-baseline-explore",
+      "journeyId": "29e00912-14b4-4dbd-b7d8-9745a0aa56e0",
+      "at": "2026-08-04T03:43:01.289Z"
+    },
+    {
+      "type": "recoverable_error",
+      "stage": "question_generation",
+      "message": "{\"error\":{\"message\":\"Service is too busy. We advise users to temporarily switch to alternative LLM API service providers.\",\"type\":\"service_unavailable_error\",\"param\":null,\"code\":\"service_unavailable_error\"}}",
+      "at": "2026-08-04T03:44:20.703Z"
+    }
+  ],
+  "latestState": {
+    "capturedAt": "2026-08-04T03:43:03.255Z",
+    "e2eCase": null,
+    "recordTestRun": "2026-08-04-cache-prefix-baseline-natural",
+    "testDataSource": "real_ai_browser",
+    "step": "initial",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "19:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。\n\n【系统生成的回溯锚点】\n回到 25 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "25 岁 · 其他经历",
+      "milestones": [
+        {
+          "id": "other",
+          "title": "其他经历",
+          "content": "29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "",
+      "milestoneRelationship": "",
+      "milestoneOther": "29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。",
+      "regressionNodeKey": "other",
+      "regressionAge": 25,
+      "regressionSituation": "【用户想重写的真实事件】\n29岁时我有机会回到家乡参与乡村教育项目，却因为担心职业履历中断而留在城市咨询公司。\n\n【系统生成的回溯锚点】\n回到 25 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 回到家乡全职参与教育项目，先承诺两年并建立可持续收入\nB. 保留城市工作，以远程顾问方式支持项目并逐步增加投入\nC. 继续咨询职业，把收入的一部分用于资助当地教师和学生",
+      "coreStoryFocus": "innerpeace"
+    },
+    "questions": [],
+    "answers": [],
+    "history": [],
+    "currentNode": null,
+    "currentAttributes": {
+      "happiness": 50,
+      "intelligence": 50,
+      "wealth": 50,
+      "relation": 50,
+      "health": 50
+    },
+    "nodeCount": 1,
+    "simulationSeed": "6f0a3205-70ad-4eaa-8521-16067e6b643d",
+    "outcome": null,
+    "generationEvents": [
+      {
+        "id": "8e84dc44-722b-4a9d-993e-32cdf65a08b9",
+        "type": "visible_pause",
+        "at": "2026-08-04T03:43:03.246Z",
+        "choiceText": "生成背景补全问题",
+        "historyLength": 0,
+        "errorCode": "AI_REQUEST_FAILED",
+        "message": "{\"error\":{\"message\":\"Service is too busy. We advise users to temporarily switch to alternative LLM API service providers.\",\"type\":\"service_unavailable_error\",\"param\":null,\"code\":\"service_unavailable_error\"}}",
+        "debug": "AiClientError: {\"error\":{\"message\":\"Service is too busy. We advise users to temporarily switch to alternative LLM API service providers.\",\"type\":\"service_unavailable_error\",\"param\":null,\"code\":\"service_unavailable_error\"}}"
+      }
+    ],
+    "generationCallTraces": [],
+    "isLoading": false,
+    "isLoadingNext": false,
+    "nextNarrativePreview": null,
+    "nextGenerationError": null,
+    "nextGenerationErrorDebug": null,
+    "errorMsg": "{\"error\":{\"message\":\"Service is too busy. We advise users to temporarily switch to alternative LLM API service providers.\",\"type\":\"service_unavailable_error\",\"param\":null,\"code\":\"service_unavailable_error\"}}",
+    "invitations": []
+  }
+}

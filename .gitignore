@@ -10,3 +10,7 @@ coverage/
 # Historical browser corpora remain tracked for compatibility. New runs must
 # use the external evidence root created by `pnpm release:prepare`.
 /artifacts/report-invitation-browser/*/
+
+# Keep real-provider final-outcome responses local; publish only review summaries.
+artifacts/final-outcome-quality-replay/**/outcome-*.json
+artifacts/final-outcome-quality-replay/**/summary.json

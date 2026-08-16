@@ -11,6 +11,7 @@ interface ImportMetaEnv {
   readonly VITE_RELEASE_SOURCE_COMMIT?: string;
   readonly VITE_RELEASE_RUNTIME_FINGERPRINT?: string;
   readonly VITE_RELEASE_COLLECTOR_FINGERPRINT?: string;
+  readonly VITE_CACHE_AWARE_PROMPT_V1?: string;
 }
 
 interface ImportMeta {

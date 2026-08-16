@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 1,
+  "samples": [
+    {
+      "pairId": "career-crossline-r1",
+      "theme": "事业推进中的人物相遇",
+      "replicate": 1,
+      "main": {
+        "characterCount": 474,
+        "paragraphCount": 9,
+        "sentenceCount": 11,
+        "averageSentenceLength": 40.64,
+        "sentenceLengthStdDev": 11.99,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 1,
+        "sceneTermCount": 2,
+        "summaryScaffoldCount": 4,
+        "paragraphYouOpeningCount": 1
+      },
+      "v2_r4": {
+        "characterCount": 434,
+        "paragraphCount": 6,
+        "sentenceCount": 11,
+        "averageSentenceLength": 37.55,
+        "sentenceLengthStdDev": 12.79,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 3,
+        "sceneTermCount": 0,
+        "summaryScaffoldCount": 5,
+        "paragraphYouOpeningCount": 0
+      }
+    },
+    {
+      "pairId": "career-crossline-r2",
+      "theme": "事业推进中的人物相遇",
+      "replicate": 2,
+      "main": {
+        "characterCount": 306,
+        "paragraphCount": 5,
+        "sentenceCount": 8,
+        "averageSentenceLength": 36.25,
+        "sentenceLengthStdDev": 15.01,
+        "directSpeechCount": 1,
+        "numericTemporalAnchorCount": 2,
+        "sceneTermCount": 1,
+        "summaryScaffoldCount": 2,
+        "paragraphYouOpeningCount": 1
+      },
+      "v2_r4": {
+        "characterCount": 577,
+        "paragraphCount": 11,
+        "sentenceCount": 15,
+        "averageSentenceLength": 36.13,
+        "sentenceLengthStdDev": 11.81,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 0,
+        "sceneTermCount": 6,
+        "summaryScaffoldCount": 1,
+        "paragraphYouOpeningCount": 2
+      }
+    },
+    {
+      "pairId": "career-delivery-r1",
+      "theme": "产品交付与技术细节",
+      "replicate": 1,
+      "main": {
+        "characterCount": 354,
+        "paragraphCount": 6,
+        "sentenceCount": 9,
+        "averageSentenceLength": 37.22,
+        "sentenceLengthStdDev": 13.71,
+        "directSpeechCount": 1,
+        "numericTemporalAnchorCount": 0,
+        "sceneTermCount": 2,
+        "summaryScaffoldCount": 1,
+        "paragraphYouOpeningCount": 0
+      },
+      "v2_r4": {
+        "characterCount": 366,
+        "paragraphCount": 7,
+        "sentenceCount": 10,
+        "averageSentenceLength": 34.4,
+        "sentenceLengthStdDev": 14.02,
+        "directSpeechCount": 1,
+        "numericTemporalAnchorCount": 3,
+        "sceneTermCount": 1,
+        "summaryScaffoldCount": 3,
+        "paragraphYouOpeningCount": 1
+      }
+    },
+    {
+      "pairId": "career-delivery-r2",
+      "theme": "产品交付与技术细节",
+      "replicate": 2,
+      "main": {
+        "characterCount": 371,
+        "paragraphCount": 7,
+        "sentenceCount": 8,
+        "averageSentenceLength": 43.88,
+        "sentenceLengthStdDev": 9.74,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 0,
+        "sceneTermCount": 0,
+        "summaryScaffoldCount": 2,
+        "paragraphYouOpeningCount": 2
+      },
+      "v2_r4": {
+        "characterCount": 457,
+        "paragraphCount": 7,
+        "sentenceCount": 9,
+        "averageSentenceLength": 48.44,
+        "sentenceLengthStdDev": 15.08,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 3,
+        "sceneTermCount": 1,
+        "summaryScaffoldCount": 4,
+        "paragraphYouOpeningCount": 2
+      }
+    },
+    {
+      "pairId": "career-opportunity-r1",
+      "theme": "创业初期与现实压力",
+      "replicate": 1,
+      "main": {
+        "characterCount": 391,
+        "paragraphCount": 7,
+        "sentenceCount": 10,
+        "averageSentenceLength": 36.9,
+        "sentenceLengthStdDev": 6.8,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 1,
+        "sceneTermCount": 0,
+        "summaryScaffoldCount": 1,
+        "paragraphYouOpeningCount": 0
+      },
+      "v2_r4": {
+        "characterCount": 554,
+        "paragraphCount": 9,
+        "sentenceCount": 13,
+        "averageSentenceLength": 40.38,
+        "sentenceLengthStdDev": 12.73,
+        "directSpeechCount": 3,
+        "numericTemporalAnchorCount": 2,
+        "sceneTermCount": 1,
+        "summaryScaffoldCount": 7,
+        "paragraphYouOpeningCount": 2
+      }
+    },
+    {
+      "pairId": "career-opportunity-r2",
+      "theme": "创业初期与现实压力",
+      "replicate": 2,
+      "main": {
+        "characterCount": 576,
+        "paragraphCount": 10,
+        "sentenceCount": 18,
+        "averageSentenceLength": 30,
+        "sentenceLengthStdDev": 6.57,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 4,
+        "sceneTermCount": 3,
+        "summaryScaffoldCount": 5,
+        "paragraphYouOpeningCount": 2
+      },
+      "v2_r4": {
+        "characterCount": 490,
+        "paragraphCount": 8,
+        "sentenceCount": 14,
+        "averageSentenceLength": 33,
+        "sentenceLengthStdDev": 15.17,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 0,
+        "sceneTermCount": 1,
+        "summaryScaffoldCount": 3,
+        "paragraphYouOpeningCount": 1
+      }
+    },
+    {
+      "pairId": "relationship-care-r1",
+      "theme": "共同照护与生活安排",
+      "replicate": 1,
+      "main": {
+        "characterCount": 359,
+        "paragraphCount": 7,
+        "sentenceCount": 10,
+        "averageSentenceLength": 33.7,
+        "sentenceLengthStdDev": 10.17,
+        "directSpeechCount": 1,
+        "numericTemporalAnchorCount": 0,
+        "sceneTermCount": 2,
+        "summaryScaffoldCount": 1,
+        "paragraphYouOpeningCount": 1
+      },
+      "v2_r4": {
+        "characterCount": 551,
+        "paragraphCount": 9,
+        "sentenceCount": 12,
+        "averageSentenceLength": 43.58,
+        "sentenceLengthStdDev": 11.24,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 2,
+        "sceneTermCount": 2,
+        "summaryScaffoldCount": 5,
+        "paragraphYouOpeningCount": 1
+      }
+    },
+    {
+      "pairId": "relationship-care-r2",
+      "theme": "共同照护与生活安排",
+      "replicate": 2,
+      "main": {
+        "characterCount": 576,
+        "paragraphCount": 9,
+        "sentenceCount": 12,
+        "averageSentenceLength": 45.67,
+        "sentenceLengthStdDev": 21.96,
+        "directSpeechCount": 2,
+        "numericTemporalAnchorCount": 0,
+        "sceneTermCount": 1,
+        "summaryScaffoldCount": 5,
+        "paragraphYouOpeningCount": 2
+      },
+      "v2_r4": {
+        "characterCount": 402,
+        "paragraphCount": 6,
+        "sentenceCount": 11,
+        "averageSentenceLength": 34.64,
+        "sentenceLengthStdDev": 11.46,
+        "directSpeechCount": 2,
+        "numericTemporalAnchorCount": 1,
+        "sceneTermCount": 1,
+        "summaryScaffoldCount": 2,
+        "paragraphYouOpeningCount": 0
+      }
+    },
+    {
+      "pairId": "relationship-commitment-r1",
+      "theme": "异地外派与承诺冲突",
+      "replicate": 1,
+      "main": {
+        "characterCount": 394,
+        "paragraphCount": 7,
+        "sentenceCount": 10,
+        "averageSentenceLength": 37.2,
+        "sentenceLengthStdDev": 10.41,
+        "directSpeechCount": 0,
+        "numericTemporalAnchorCount": 2,
+        "sceneTermCount": 1,
+        "summaryScaffoldCount": 1,
+        "paragraphYouOpeningCount": 0
+      },
+      "v2_r4": {
+        "characterCount": 488,
+        "paragraphCount": 9,
+        "sentenceCount": 9,
+        "averageSentenceLength": 51.44,
+        "sentenceLengthStdDev": 11.83,
+        "directSpeechCount": 4,
+        "numericTemporalAnchorCount": 0,
+        "sceneTermCount": 4,
+        "summaryScaffoldCount": 2,
+        "paragraphYouOpeningCount": 2
+      }
+    },
+    {
+      "pairId": "relationship-commitment-r2",
+      "theme": "异地外派与承诺冲突",
+      "replicate": 2,
+      "main": {
+        "characterCount": 554,
+        "paragraphCount": 9,
+        "sentenceCount": 14,
+        "averageSentenceLength": 37.43,
+        "sentenceLengthStdDev": 14.22,
+        "directSpeechCount": 1,
+        "numericTemporalAnchorCount": 4,
+        "sceneTermCount": 2,
+        "summaryScaffoldCount": 4,
+        "paragraphYouOpeningCount": 1
+      },
+      "v2_r4": {
+        "characterCount": 625,
+        "paragraphCount": 12,
+        "sentenceCount": 20,
+        "averageSentenceLength": 29.15,
+        "sentenceLengthStdDev": 10.73,
+        "directSpeechCount": 2,
+        "numericTemporalAnchorCount": 3,
+        "sceneTermCount": 5,
+        "summaryScaffoldCount": 1,
+        "paragraphYouOpeningCount": 0
+      }
+    }
+  ]
+}

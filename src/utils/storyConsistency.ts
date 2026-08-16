@@ -8,6 +8,7 @@ export type StoryConsistencyIssueCode =
   | "character_timeline_conflict"
   | "family_authority_conflict"
   | "relationship_authority_conflict"
+  | "relative_time_authority_conflict"
   | "age_script_funneling"
   | "arc_state_write_violation";
 
@@ -20,6 +21,7 @@ export interface StoryConsistencyIssue {
 const FUNNEL_TERMS = ["退休", "养老", "接受照护", "退出", "回忆过去", "安享晚年"];
 const ROMANTIC_CHARACTER_CLAIM = /romantic(?:_|\s)?(?:partner|interest)|恋人|伴侣|恋爱对象/i;
 const ENDED_ROMANCE_REFERENCE = /分手|前任|走散|分开一段时间|结束(?:了)?(?:这段)?关系|关系(?:已经)?无法回到从前|不再是(?:恋人|伴侣)/;
+const ENDED_RELATIONSHIP_DURATION_CLAIM = /(?:已经|已)?(?:分开|分手|结束(?:了)?(?:这段)?关系)(?:了)?\s*(近|约|大约|差不多)?\s*([\d零〇一二两三四五六七八九十百]+)\s*(年|个月)/gu;
 const ROMANTIC_STATE_CLAIM_TEXT = /(?:私人|单独).{0,8}(?:相处|约会)|试探.{0,16}(?:进一步|发展|态度)|(?:主动)?推进.{0,10}(?:关系|发展)|确认.{0,8}(?:感觉|心意)|卸下心防|更深.{0,8}(?:了解|关系)|关系.{0,10}(?:升温|越来越亲密)|重新学会.{0,8}靠近|(?:和|与).{0,10}(?:慢慢相处|培养感情)|尝试.{0,8}(?:一段)?新(?:的)?关系|感情.{0,10}(?:进展|升温|发展)/;
 const ROMANTIC_EXECUTING_CHOICE_TEXT = /(?:建立|开始|开启|发展).{0,12}(?:亲密关系|恋爱关系|一段感情)|(?:私人|单独).{0,8}(?:相处|约会)|试探.{0,16}(?:进一步|发展|态度)|(?:主动)?推进.{0,10}(?:关系|发展)|确认.{0,8}(?:感觉|心意)|卸下心防|更深.{0,8}(?:了解|关系)|挽回.{0,10}(?:感情|关系|前任)|(?:和|与).{0,8}前任复合|重新开始.{0,8}(?:感情|关系)|前任.{0,12}重新联系.{0,16}(?:可能|机会)|重新联系.{0,12}前任.{0,16}(?:可能|机会)|(?:认真|主动)?追求.{0,12}(?:女生|男生|她|他|对方)|与.{0,10}(?:女生|男生|她|他|对方).{0,16}保持联系.{0,20}(?:观察|发展|再定)|(?:和|与).{0,14}深入交往|(?:和|与).{0,14}(?:看看|看).{0,6}能否发展|(?:尝试|开始).{0,16}(?:更)?深入.{0,4}交往|给彼此一个机会/;
 
@@ -76,6 +78,65 @@ function eventAuthorizesDatingChoice(eventId: string | undefined, romanticStage:
   // the generated prose to claim that the transition has already happened.
   return romanticStage === "exploring"
     && (eventId === "romance_connection_clarification" || eventId === "romance_exploration_resolution");
+}
+
+function parseRelativeDurationNumber(raw: string): number | undefined {
+  if (/^\d+$/u.test(raw)) {
+    const value = Number(raw);
+    return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+  }
+  const digits: Record<string, number> = {
+    零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4,
+    五: 5, 六: 6, 七: 7, 八: 8, 九: 9
+  };
+  const units: Record<string, number> = { 十: 10, 百: 100 };
+  let total = 0;
+  let current = 0;
+  for (const character of raw) {
+    if (character in digits) {
+      current = digits[character];
+      continue;
+    }
+    const unit = units[character];
+    if (!unit) return undefined;
+    total += (current || 1) * unit;
+    current = 0;
+  }
+  const value = total + current;
+  return value > 0 ? value : undefined;
+}
+
+function validateEndedRelationshipRelativeTime(
+  narrative: string,
+  targetAgeInMonths: number,
+  worldState?: WorldStateSnapshot
+): StoryConsistencyIssue[] {
+  const endedRomances = worldState?.relationships?.filter((relationship) => (
+    relationship.type === "romantic"
+    && relationship.status === "ended"
+    && Number.isSafeInteger(relationship.statusEffectiveFromAgeInMonths)
+    && relationship.statusEffectiveFromAgeInMonths >= 0
+    && relationship.statusEffectiveFromAgeInMonths <= targetAgeInMonths
+  )) ?? [];
+  // If more than one ended relationship is authoritative, prose alone cannot
+  // unambiguously identify which one a duration refers to.
+  if (endedRomances.length !== 1) return [];
+  const elapsedMonths = targetAgeInMonths - endedRomances[0].statusEffectiveFromAgeInMonths;
+  const issues: StoryConsistencyIssue[] = [];
+  for (const match of narrative.matchAll(ENDED_RELATIONSHIP_DURATION_CLAIM)) {
+    const amount = parseRelativeDurationNumber(match[2]);
+    if (!amount) continue;
+    const statedMonths = amount * (match[3] === "年" ? 12 : 1);
+    const isApproximate = Boolean(match[1]);
+    const toleranceMonths = isApproximate ? 3 : 1;
+    if (Math.abs(statedMonths - elapsedMonths) <= toleranceMonths) continue;
+    issues.push({
+      code: "relative_time_authority_conflict",
+      severity: "error",
+      message: `正文中的关系相对时长“${match[0]}”与已接受的关系结束时间不一致；当前权威间隔为 ${elapsedMonths} 个月。`
+    });
+  }
+  return issues;
 }
 
 export function stripUnauthorizedRomanticCharacters(
@@ -282,6 +343,11 @@ export function validateStoryConsistency(input: {
       message: `爱情正文超前于当前权威关系阶段（${romanticStage || "none"}；${conflictReasons || "unspecified"}）；只有用户已接受的 outcome 才能推进正式交往、共同生活或婚姻状态；没有权威 child 人物时也不得写成已经生育、育儿或承担托育。`
     });
   }
+  issues.push(...validateEndedRelationshipRelativeTime(
+    input.node.description,
+    input.targetAgeInMonths,
+    input.worldState
+  ));
   return issues;
 }
 

@@ -11,6 +11,8 @@ import {
   sameSourceIdentity,
   sourceIdentityFromCandidate
 } from "./lib/release-candidate.mjs";
+import { summarizeCacheUsage } from "./lib/cache-usage-telemetry.mjs";
+import { execFile } from "node:child_process";
 import {
   adultBelowPolicyExpenseViolation,
   classifyTerminalFinancialIssues,
@@ -220,6 +222,7 @@ const expenseLifecycleDynamicDiagnosticsByCase = new Map(
   expenseLifecycleDynamicAuditDetails.routeDiagnostics.map((item) => [item.caseSlug, item])
 );
 const productionAudit = auditFinancialProductionRecords(records);
+const cacheTelemetry = summarizeCacheUsage(records);
 const posterEvidence = await Promise.all(records.map(async (record) => {
   const posterPath = record.imagePaths?.posterPath;
   const reportPagePath = record.imagePaths?.pagePath;
@@ -732,9 +735,11 @@ const audit = {
   expenseLifecycleDynamicAudit: {
     ...expenseLifecycleDynamicAuditSummary,
     details: expenseLifecycleDynamicAuditDetails
-  }
+  },
+  cacheTelemetry
 };
 await writeFile(path.join(outputRoot, "finance-audit.json"), `${JSON.stringify(audit, null, 2)}\n`);
+await writeFile(path.join(outputRoot, "cache-telemetry.json"), `${JSON.stringify(cacheTelemetry, null, 2)}\n`);
 
 const displayPercent = (value) => value === null || value === undefined ? "未覆盖" : `${value}%`;
 const expenseResponsibilityAuditLabel = `${summary.expenseResponsibilityAnnotationLoadStatus}${summary.expenseResponsibilityAnnotationCorpusId ? ` / ${summary.expenseResponsibilityAnnotationCorpusId}` : ""}`;
@@ -805,6 +810,9 @@ const lifecycleCandidateTelemetryNegativeViolationRows = expenseLifecycleCandida
 const frozenExpenseResponsibilityCorpus = expenseResponsibilityAnnotationSource.corpusKind === "frozen_gold";
 const expenseLifecycleInvariantBlockers = expenseLifecycleReleaseBlockers(summary);
 const completedCasesPassed = records.every((record) => record.passed);
+const cacheByKindRows = cacheTelemetry.byKind.map((item) => (
+  `| ${item.kind} | ${item.promptFamily} | ${item.promptPrefixVersion} | ${item.callCount} | ${item.usageCallCount} | ${item.promptTokens} | ${item.cacheHitTokens} | ${item.cacheMissTokens} | ${item.inputCacheHitRate == null ? "—" : `${round(item.inputCacheHitRate * 100)}%`} |`
+)).join("\n") || "| 无 | — | — | 0 | 0 | 0 | 0 | 0 | — |";
 const blockers = [
   isDerivedDiagnostic && "派生只读诊断不构成当前提交的发布证据",
   invariantFailures > 0 && `账本/派生状态不变量失败：${invariantFailures} 个节点`,
@@ -1161,6 +1169,16 @@ ${routeRealityRows}
 |---|---:|
 ${issueRows}
 
+## Cache Prefix 请求级遥测
+
+- 已接受 next-node：${cacheTelemetry.summary.acceptedNextNodeCount}；带 usage 的 next-node 调用：${cacheTelemetry.summary.usageCallCount}。
+- 输入命中率：${cacheTelemetry.summary.inputCacheHitRate == null ? "—" : `${round(cacheTelemetry.summary.inputCacheHitRate * 100)}%`}；未命中 tokens/成功节点：${cacheTelemetry.summary.cacheMissTokensPerAcceptedNode ?? "—"}；输入 tokens/成功节点：${cacheTelemetry.summary.promptTokensPerAcceptedNode ?? "—"}。
+- 首次生成通过率：${cacheTelemetry.summary.firstGenerationPassRate == null ? "—" : `${round(cacheTelemetry.summary.firstGenerationPassRate * 100)}%`}；完整重试/成功节点：${cacheTelemetry.summary.fullRetryPerAcceptedNode ?? "—"}；首 token p50/p95：${cacheTelemetry.summary.firstTokenP50Ms ?? "—"}/${cacheTelemetry.summary.firstTokenP95Ms ?? "—"} ms。
+
+| 调用类型 | Prompt family | Prefix 版本 | 调用数 | 有 usage | 输入 tokens | 命中 tokens | 未命中 tokens | 输入命中率 |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+${cacheByKindRows}
+
 ## 下一步
 
 ${nextSteps}
@@ -1246,7 +1264,7 @@ const manifest = {
     runCompletedAt: sourceRunManifest?.runCompletedAt ?? null
   },
   derivedDiagnostic: isDerivedDiagnostic,
-  artifacts: ["aggregate.json", "finance-audit.json", "full-test-data.md", "evaluation-report.md", "visual-inspection.json", "cases/", "working/", "images/"],
+  artifacts: ["aggregate.json", "finance-audit.json", "cache-telemetry.json", "full-test-data.md", "evaluation-report.md", "visual-inspection.json", "cases/", "working/", "images/"],
   cases: records.map((record) => ({ caseSlug: record.caseSlug, scenario: record.scenario, path: `cases/${record.caseSlug}.json` }))
 };
 await writeFile(path.join(outputRoot, "run-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);

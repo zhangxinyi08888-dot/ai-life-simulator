@@ -39,6 +39,8 @@ test("formation choice atomically creates one stable person and exploring relati
   assert.equal(first.worldStateSnapshot.people.length, 1);
   assert.equal(first.worldStateSnapshot.people[0].identityKey?.namespace, "accepted_character");
   assert.equal(first.worldStateSnapshot.relationships?.[0].stage, "exploring");
+  assert.equal(first.worldStateSnapshot.relationships?.[0].effectiveFromAgeInMonths, 363);
+  assert.equal(first.worldStateSnapshot.relationships?.[0].statusEffectiveFromAgeInMonths, 363);
   assert.equal(first.worldStateSnapshot.relationships?.[0].progression?.eligibleAtAgeInMonths, 366);
   assert.equal(first.worldStateSnapshot.relationships?.[0].progression?.dueAtAgeInMonths, 375);
   assert.deepEqual(first.worldStateSnapshot.relationships?.[0].participantPersonIds, [first.worldStateSnapshot.people[0].id]);
@@ -97,6 +99,8 @@ test("clarification advances only begin dating and keeps the same identity", () 
   });
   assert.equal(result.worldStateSnapshot.people[0].id, formed.people[0].id);
   assert.equal(result.worldStateSnapshot.relationships?.[0].stage, "dating");
+  assert.equal(result.worldStateSnapshot.relationships?.[0].status, "active");
+  assert.equal(result.worldStateSnapshot.relationships?.[0].statusEffectiveFromAgeInMonths, 363);
   assert.equal(result.worldStateSnapshot.relationships?.[0].progression?.checkpointKind, "commitment_review");
   assert.equal(result.worldStateSnapshot.relationships?.[0].progression?.eligibleAtAgeInMonths, 381);
   assert.equal(result.worldStateSnapshot.relationships?.length, 1);
@@ -182,6 +186,8 @@ test("ending exploration keeps the person but ends the authoritative relationshi
   });
   assert.equal(result.worldStateSnapshot.people.length, 1);
   assert.equal(result.worldStateSnapshot.relationships?.[0].status, "ended");
+  assert.equal(result.worldStateSnapshot.relationships?.[0].effectiveFromAgeInMonths, 360);
+  assert.equal(result.worldStateSnapshot.relationships?.[0].statusEffectiveFromAgeInMonths, 366);
   assert.equal(result.worldStateSnapshot.relationships?.[0].progression, undefined);
 });
 
@@ -231,6 +237,8 @@ test("an accepted opening breakup ends the authoritative partner relationship", 
   assert.equal(result.committed, true);
   assert.equal(result.worldStateSnapshot.relationships[0].stage, "separated");
   assert.equal(result.worldStateSnapshot.relationships[0].status, "ended");
+  assert.equal(result.worldStateSnapshot.relationships[0].effectiveFromAgeInMonths, 312);
+  assert.equal(result.worldStateSnapshot.relationships[0].statusEffectiveFromAgeInMonths, 312);
   assert.equal(result.worldStateSnapshot.relationships[0].progression, undefined);
   assert.equal(result.worldStateSnapshot.people[0].relation, "other");
 });
@@ -337,6 +345,8 @@ test("terminal exploration review can return to acquaintance without deleting th
   assert.equal(result.worldStateSnapshot.people.length, 1);
   assert.equal(result.worldStateSnapshot.relationships?.[0].stage, "acquaintance");
   assert.equal(result.worldStateSnapshot.relationships?.[0].status, "ended");
+  assert.equal(result.worldStateSnapshot.relationships?.[0].effectiveFromAgeInMonths, 360);
+  assert.equal(result.worldStateSnapshot.relationships?.[0].statusEffectiveFromAgeInMonths, 378);
   assert.equal(result.worldStateSnapshot.relationships?.[0].progression, undefined);
 });
 
@@ -424,5 +434,6 @@ test("commitment evidence survives presentation-only paragraph insertion", () =>
 
   assert.equal(committed.committed, true);
   assert.equal(committed.worldStateSnapshot.relationships?.[0].status, "strained");
+  assert.equal(committed.worldStateSnapshot.relationships?.[0].statusEffectiveFromAgeInMonths, 393);
   assert.equal(committed.worldStateSnapshot.relationships?.[0].progression, undefined);
 });

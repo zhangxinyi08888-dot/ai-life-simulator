@@ -1,0 +1,38 @@
+{
+  "reviewedBy": "Codex manual visual inspection",
+  "scope": "Final poster and full report-page screenshot for every completed 2/2/1 real-AI browser route.",
+  "result": "pass",
+  "limitations": "This is a render/readability review only; it is not the separate human blind content-quality review.",
+  "cases": [
+    {
+      "caseSlug": "real-career-first",
+      "poster": "images/real-career-first/poster.jpg",
+      "reportPage": "images/real-career-first/report-page.jpg",
+      "observation": "Both exports are non-empty, distinct, and show readable report content."
+    },
+    {
+      "caseSlug": "real-wealth-first-replacement",
+      "poster": "images/real-wealth-first-replacement/poster.jpg",
+      "reportPage": "images/real-wealth-first-replacement/report-page.jpg",
+      "observation": "Both exports are non-empty, distinct, and show readable report content."
+    },
+    {
+      "caseSlug": "real-education-second",
+      "poster": "images/real-education-second/poster.jpg",
+      "reportPage": "images/real-education-second/report-page.jpg",
+      "observation": "Both exports are non-empty, distinct, and show readable report content."
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "poster": "images/real-venture-second/poster.jpg",
+      "reportPage": "images/real-venture-second/report-page.jpg",
+      "observation": "Both exports are non-empty, distinct, and show readable report content."
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "poster": "images/real-custom-lifespan/poster.jpg",
+      "reportPage": "images/real-custom-lifespan/report-page.jpg",
+      "observation": "Both exports are non-empty, distinct, and show readable mortality report content."
+    }
+  ]
+}

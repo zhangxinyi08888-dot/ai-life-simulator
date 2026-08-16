@@ -1,3 +1,5 @@
+import type { AiUsage } from "../../utils/deepseek";
+
 export type GenerationCallKind =
   | "initial_generation"
   | "candidate_patch"
@@ -10,6 +12,15 @@ export type GenerationCallKind =
   | "final_outcome_generation"
   | "outer_recovery";
 
+export type GenerationPromptFamily =
+  | "next_node"
+  | "candidate_patch"
+  | "financial_proposal_repair"
+  | "financial_narrative_repair"
+  | "romance_candidate"
+  | "final_outcome"
+  | "other";
+
 export interface GenerationCallTrace {
   traceId: string;
   transactionId?: string;
@@ -17,6 +28,10 @@ export interface GenerationCallTrace {
   candidateRevision?: number;
   candidateHash?: string;
   kind: GenerationCallKind;
+  /** Prompt classification only; prompt text and user data are never traced. */
+  promptFamily?: GenerationPromptFamily;
+  /** Telemetry label only; it is intentionally not sent to the model. */
+  promptPrefixVersion?: string;
   issueCodes: string[];
   startedAt: string;
   firstTokenAt?: string;
@@ -24,6 +39,13 @@ export interface GenerationCallTrace {
   durationMs?: number;
   outcome: "started" | "succeeded" | "failed" | "aborted";
   errorCode?: string;
+  promptTokens?: number;
+  cacheHitTokens?: number;
+  cacheMissTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  model?: string;
+  /** Legacy aliases kept for existing collectors. */
   inputTokens?: number;
   outputTokens?: number;
   providerRequestId?: string;
@@ -40,6 +62,12 @@ export interface NodeGenerationSummary {
   patchIssueCodes: string[];
   fullRegenerationReasonCodes: string[];
   visiblePause: boolean;
+  promptTokens: number;
+  cacheHitTokens: number;
+  cacheMissTokens: number;
+  completionTokens: number;
+  usageCallCount: number;
+  cacheHitRate?: number;
 }
 
 export interface GenerationTraceContext {
@@ -48,9 +76,17 @@ export interface GenerationTraceContext {
   candidateRevision?: number;
   candidateHash?: string;
   issueCodes?: string[];
+  promptFamily?: GenerationPromptFamily;
+  promptPrefixVersion?: string;
 }
 
 export type GenerationTraceListener = (trace: GenerationCallTrace) => void;
+
+export interface GenerationResponseMetadata {
+  usage?: AiUsage;
+  providerRequestId?: string;
+  model?: string;
+}
 
 function traceId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -70,11 +106,31 @@ function isAbort(error: unknown): boolean {
     || errorCode(error) === "AI_REQUEST_ABORTED";
 }
 
+function responseTraceFields(metadata: GenerationResponseMetadata | undefined): Pick<GenerationCallTrace,
+  "promptTokens" | "cacheHitTokens" | "cacheMissTokens" | "completionTokens" | "totalTokens" | "inputTokens" | "outputTokens" | "providerRequestId" | "model"
+> {
+  const usage = metadata?.usage;
+  return {
+    promptTokens: usage?.promptTokens,
+    cacheHitTokens: usage?.cacheHitTokens,
+    cacheMissTokens: usage?.cacheMissTokens,
+    completionTokens: usage?.completionTokens,
+    totalTokens: usage?.totalTokens,
+    inputTokens: usage?.promptTokens,
+    outputTokens: usage?.completionTokens,
+    providerRequestId: metadata?.providerRequestId,
+    model: metadata?.model
+  };
+}
+
 export async function traceGenerationCall<T>(input: {
   kind: GenerationCallKind;
   context?: GenerationTraceContext;
   listener?: GenerationTraceListener;
-  operation: (markFirstToken: () => void) => Promise<T>;
+  operation: (
+    markFirstToken: () => void,
+    recordResponseMetadata: (metadata: GenerationResponseMetadata) => void
+  ) => Promise<T>;
 }): Promise<T> {
   const startedMs = Date.now();
   const startedAt = new Date(startedMs).toISOString();
@@ -86,18 +142,28 @@ export async function traceGenerationCall<T>(input: {
     candidateRevision: input.context?.candidateRevision,
     candidateHash: input.context?.candidateHash,
     kind: input.kind,
+    promptFamily: input.context?.promptFamily,
+    promptPrefixVersion: input.context?.promptPrefixVersion,
     issueCodes: [...(input.context?.issueCodes ?? [])],
     startedAt,
     outcome: "started"
   };
   input.listener?.(base);
+  let metadata: GenerationResponseMetadata | undefined;
   try {
     const result = await input.operation(() => {
       if (!firstTokenAt) firstTokenAt = new Date().toISOString();
+    }, (nextMetadata) => {
+      metadata = {
+        usage: nextMetadata.usage ?? metadata?.usage,
+        providerRequestId: nextMetadata.providerRequestId ?? metadata?.providerRequestId,
+        model: nextMetadata.model ?? metadata?.model
+      };
     });
     const completedMs = Date.now();
     input.listener?.({
       ...base,
+      ...responseTraceFields(metadata),
       firstTokenAt,
       completedAt: new Date(completedMs).toISOString(),
       durationMs: completedMs - startedMs,
@@ -108,6 +174,7 @@ export async function traceGenerationCall<T>(input: {
     const completedMs = Date.now();
     input.listener?.({
       ...base,
+      ...responseTraceFields(metadata),
       firstTokenAt,
       completedAt: new Date(completedMs).toISOString(),
       durationMs: completedMs - startedMs,
@@ -133,6 +200,11 @@ export function summarizeGenerationTraces(traces: GenerationCallTrace[]): NodeGe
     "health_evidence_repair",
     "outer_recovery"
   ]);
+  const usageTraces = completed.filter((trace) => trace.promptTokens !== undefined);
+  const promptTokens = usageTraces.reduce((sum, trace) => sum + (trace.promptTokens ?? 0), 0);
+  const cacheHitTokens = usageTraces.reduce((sum, trace) => sum + (trace.cacheHitTokens ?? 0), 0);
+  const cacheMissTokens = usageTraces.reduce((sum, trace) => sum + (trace.cacheMissTokens ?? 0), 0);
+  const completionTokens = usageTraces.reduce((sum, trace) => sum + (trace.completionTokens ?? 0), 0);
   return {
     fullGenerationCount: completed.filter((trace) => fullKinds.has(trace.kind)).length,
     modelPatchCount: completed.filter((trace) => trace.kind === "candidate_patch" || trace.kind === "proposal_repair").length,
@@ -143,6 +215,14 @@ export function summarizeGenerationTraces(traces: GenerationCallTrace[]): NodeGe
     deterministicRepairCodes: [],
     patchIssueCodes: [...new Set(completed.filter((trace) => trace.kind === "candidate_patch").flatMap((trace) => trace.issueCodes))],
     fullRegenerationReasonCodes: [...new Set(completed.filter((trace) => trace.kind === "full_regeneration").flatMap((trace) => trace.issueCodes))],
-    visiblePause: false
+    visiblePause: false,
+    promptTokens,
+    cacheHitTokens,
+    cacheMissTokens,
+    completionTokens,
+    usageCallCount: usageTraces.length,
+    cacheHitRate: cacheHitTokens + cacheMissTokens > 0
+      ? cacheHitTokens / (cacheHitTokens + cacheMissTokens)
+      : undefined
   };
 }

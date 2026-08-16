@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "frozenAt": "2026-08-07T07:06:29.431Z",
+  "candidate": {
+    "id": "cache-prefix-v2-reference-context-r3",
+    "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r3",
+    "model": "deepseek-v4-flash",
+    "environment": {
+      "VITE_CACHE_AWARE_PROMPT_V1": "true",
+      "VITE_CACHE_AWARE_PROMPT_V2": "true"
+    }
+  },
+  "sourceIdentity": {
+    "repositoryCommit": "c0426f54b5091b433ace3bd3953695e3e7e15837",
+    "sourceSha256": "64a6854bf57c98bf929ccb254c599ede29f7148b42f1f8c4702da9ed95548bf2",
+    "dirtyCandidateFiles": [
+      "package.json",
+      "scripts/analyze-cache-prefix-acceptance.mjs",
+      "scripts/evaluate-cache-prefix-blind-review.mjs",
+      "scripts/prepare-cache-prefix-blind-review.mjs",
+      "scripts/probe-cache-prefix-layout.mjs",
+      "scripts/summarize-cache-prefix-run.mjs",
+      "src/App.tsx",
+      "src/domain/relationship/relationshipOutcome.ts",
+      "src/domain/relationship/relationshipState.ts",
+      "src/services/ai/env.ts",
+      "src/services/simulation/prompts.ts",
+      "src/services/simulation/simulationService.ts",
+      "src/types.ts",
+      "src/utils/eventPrompt.ts",
+      "src/utils/financialNarrative.ts",
+      "src/utils/simulationNodeRetry.ts",
+      "src/utils/simulationResponse.ts",
+      "src/utils/storyConsistency.ts",
+      "src/utils/storyContext.ts"
+    ],
+    "files": [
+      {
+        "file": "package.json",
+        "sha256": "af580724b2d624c01e4cd287aa8f1bd1296a37f03256f43fb4a6517d241347d8"
+      },
+      {
+        "file": "scripts/analyze-cache-prefix-acceptance.mjs",
+        "sha256": "d678b1cc7c89ed2ab547958d077d4bac8bba81310cbd09ca83721287cba98331"
+      },
+      {
+        "file": "scripts/evaluate-cache-prefix-blind-review.mjs",
+        "sha256": "2503114f08e10305ed3c0ab6b910162fcbca25b261321657a1c6be436ae552e5"
+      },
+      {
+        "file": "scripts/prepare-cache-prefix-blind-review.mjs",
+        "sha256": "8e6d99f5587c94f9b2561066ed3c9688d4cd25330db9de015abc34a54258ffb8"
+      },
+      {
+        "file": "scripts/probe-cache-prefix-layout.mjs",
+        "sha256": "5c1ba1ba963c7b93d5c8d9935e79cefd468d2b86bcacbae2192919fa2ad79938"
+      },
+      {
+        "file": "scripts/real-browser-journey-runner.mjs",
+        "sha256": "4363f6f202bd8ea9d096f633bf25da0d01f5f2cb93f93d1f4bb921574479c9cc"
+      },
+      {
+        "file": "scripts/summarize-cache-prefix-run.mjs",
+        "sha256": "edfd29fdcbec9e1f87118b050f9ffe0267a67d933e8d3b016660068a26a4cdce"
+      },
+      {
+        "file": "src/App.tsx",
+        "sha256": "5fbf28cff2f14ec51237d06fea476bece77ad0d69352909dadb340b4a9bc9a5e"
+      },
+      {
+        "file": "src/domain/relationship/relationshipOutcome.ts",
+        "sha256": "41a07afc8224583424b9dd3b3d68c3ad199ae4d9ce85877a3406d962426ddab4"
+      },
+      {
+        "file": "src/domain/relationship/relationshipState.ts",
+        "sha256": "991e26cc37b4ec90a6325f1e0fb4a85087f0e66fb970bd9d0ac3fa9f00a2e774"
+      },
+      {
+        "file": "src/services/ai/deepseekBrowserClient.ts",
+        "sha256": "b00fe241c4e59c53ca7e99767e4cc1e6992b2960a0284d714c567e43fb890a2c"
+      },
+      {
+        "file": "src/services/ai/env.ts",
+        "sha256": "95722155cf053b49f5b0bdad2a128fdcf6ef24c2a5d75de32c07857672e0aaa9"
+      },
+      {
+        "file": "src/services/simulation/prompts.ts",
+        "sha256": "d6b9af204487ce790280b3a458b662ae8fa43c6bcacd139ea0284c1f38431dac"
+      },
+      {
+        "file": "src/services/simulation/simulationService.ts",
+        "sha256": "bb49b87067811ca59613de10e42f59968055a60d68c9a4c5f0be7ce087b2fbf7"
+      },
+      {
+        "file": "src/types.ts",
+        "sha256": "f956996ab0ec8bdde8f5adf2582427c429f2a1fac00d3213f36e1f27ead3eb42"
+      },
+      {
+        "file": "src/utils/deepseek.ts",
+        "sha256": "2a42ceff2265a96794e852e65c5146699c5382bb648c8c3e32da1b29dc72a596"
+      },
+      {
+        "file": "src/utils/eventPrompt.ts",
+        "sha256": "61d5e66f96d579fb3055750c411f5153af4891528b3bbdef42f0e51797cb10b5"
+      },
+      {
+        "file": "src/utils/financialNarrative.ts",
+        "sha256": "36ce80acd2770fec7096da907e51e84331e7af260f1d05ba322e6a970568b322"
+      },
+      {
+        "file": "src/utils/simulationNodeRetry.ts",
+        "sha256": "ca5b65472bcdd019142f567420ae9267bd84caa9bafb1b1a93aa236fd45555d6"
+      },
+      {
+        "file": "src/utils/simulationResponse.ts",
+        "sha256": "c957587a3d45b05a2fbb49f9246b00dd86a0f7502ef2db5bc57b9e2f40220b11"
+      },
+      {
+        "file": "src/utils/storyConsistency.ts",
+        "sha256": "75791e6730901d936d777d696dc83739a97d26de4206ba1595f482f557a036eb"
+      },
+      {
+        "file": "src/utils/storyContext.ts",
+        "sha256": "81257bbaa9765dcda488455a926199a5addc6012ac42811621842e63c4b77cd1"
+      }
+    ]
+  },
+  "requiredLocalVerification": [
+    "pnpm lint",
+    "pnpm test:cache-prefix",
+    "pnpm test",
+    "pnpm build"
+  ],
+  "requiredExternalEvidence": [
+    "synthetic DeepSeek V1/V2 probe with provider usage",
+    "completed V2 real-AI browser routes with this promptPrefixVersion",
+    "anonymous 10-node blind-review packet generated from those routes"
+  ]
+}

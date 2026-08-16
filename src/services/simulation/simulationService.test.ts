@@ -1,18 +1,20 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
-import { buildDeterministicFinancialNarrativeRollback, detectNarrativeFinancialCoverageIssues, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, detectNarrativeFinancialCoverageIssues, eventSpecificFallbackDefinitions, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
 import { isFinancialGateGenerationError } from "../../utils/generationRetry";
-import { queryDynamicLifeEvent } from "../../data/lifeEvents";
+import { LIFE_EVENTS_DATABASE, queryDynamicLifeEvent } from "../../data/lifeEvents";
 import { createSelectionEntropy } from "../../config/lineMixPolicy";
 import { buildBranchFingerprint } from "../../utils/timelineAdvance";
 import {
   createExplorationProgression,
   relationshipCheckpointKey
 } from "../../domain/relationship/relationshipLifecycle";
+import type { GenerationCallTrace } from "./generationTelemetry";
+import { NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION } from "./prompts";
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",
@@ -28,6 +30,14 @@ const userData: UserInitialData = {
   coreStoryFocus: "career",
   milestones: [{ id: "career", title: "第一份工作", content: "进了一家传统公司" }]
 };
+
+const careerFallbackEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "career_venture_pressure");
+assert.ok(careerFallbackEvent, "career fallback regression requires a concrete event seed");
+const careerFallbackChoices = eventSpecificFallbackDefinitions(careerFallbackEvent);
+assert.equal(careerFallbackChoices.length, 3);
+assert.ok(careerFallbackChoices.every((choice) => choice.text.includes(careerFallbackEvent.title)));
+assert.ok(careerFallbackChoices.every((choice) => choice.intent.startsWith(`event:${careerFallbackEvent.id}:`)));
+assert.doesNotMatch(careerFallbackChoices.map((choice) => choice.text).join("\n"), /候选修复预算已用尽|按当前方向继续推进/);
 
 assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元，并于下月正式入职。",
@@ -358,6 +368,7 @@ const rejectedRestructureRollback = buildDeterministicFinancialNarrativeRollback
     confidence: 0.9
   }],
   acceptedEvents: [],
+  selectedDecision: "申请调整还款计划",
   narrativeText: "银行已经批准调整还款计划。你松了一口气，虽然月供仍不轻松，但压力减轻了不少。你继续整理未来六个月的收支材料。两个月后，你签了补充协议。"
 });
 assert.match(rejectedRestructureRollback.join("\n"), /尚未形成生效协议/u);
@@ -397,7 +408,7 @@ const rejectedCompensationRollback = buildDeterministicFinancialNarrativeRollbac
 });
 assert.match(rejectedCompensationRollback.join("\n"), /领投方资金到账/u);
 assert.doesNotMatch(rejectedCompensationRollback.join("\n"), /补发了过去14个月|签署了5%的股权协议/u);
-assert.match(rejectedCompensationRollback.join("\n"), /补发收入的安排仍在核对|股权补偿仍在确认/u);
+assert.doesNotMatch(rejectedCompensationRollback.join("\n"), /仍在核对|仍在确认|尚待确认/u);
 assert.equal(rollbackRejectedFinancialCompletionTitle("融资交割与股权确认", [{
   id: "rejected_equity_title",
   kind: "business_holding_started",
@@ -482,7 +493,8 @@ const rejectedRecurringIncomeBenefitRollback = buildDeterministicFinancialNarrat
   narrativeText: "你开始接周末项目。副业带来的收入暂时缓解了经济紧张，也让你攒下一小笔应急金。你继续维护客户关系。"
 });
 assert.doesNotMatch(rejectedRecurringIncomeBenefitRollback.join("\n"), /副业带来的收入|攒下一小笔应急金/u);
-assert.match(rejectedRecurringIncomeBenefitRollback.join("\n"), /实际到账的个人收入尚待确认|财务安排/u);
+assert.doesNotMatch(rejectedRecurringIncomeBenefitRollback.join("\n"), /尚待确认|仍需观察|财务安排/u);
+assert.match(rejectedRecurringIncomeBenefitRollback.join("\n"), /开始接周末项目/u);
 assert.match(rejectedRecurringIncomeBenefitRollback.join("\n"), /继续维护客户关系/u);
 
 const rejectedIncomeCrossParagraphReliefRollback = buildDeterministicFinancialNarrativeRollback({
@@ -728,6 +740,7 @@ const history: HistoryItem[] = [
 let capturedNextPrompt = "";
 const nextGenerationStages: string[] = [];
 const nextNarrativePreviews: Array<{ title?: string; paragraphs: string[] }> = [];
+const nextGenerationTraces: GenerationCallTrace[] = [];
 
 const nextNode = await generateNextNode({
   userData,
@@ -739,19 +752,30 @@ const nextNode = await generateNextNode({
 }, {
   onGenerationStage: (stage) => nextGenerationStages.push(stage),
   onNarrativeProgress: (preview) => nextNarrativePreviews.push(preview),
+  onGenerationCallTrace: (trace) => nextGenerationTraces.push(trace),
+  cacheAwarePromptV2: true,
   callAiJson: async (prompt) => {
     capturedNextPrompt = prompt;
     const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 23 * 12);
     return {
+      providerRequestId: "trace-next-node-1",
+      model: "deepseek-v4-flash",
+      usage: {
+        promptTokens: 1000,
+        cacheHitTokens: 700,
+        cacheMissTokens: 300,
+        completionTokens: 200,
+        totalTokens: 1200
+      },
       text: JSON.stringify({
         age: 23,
         stage: "试错开局",
         title: "新行业的第一年",
         description: "目前存款约90万；她进入小团队做基础内容执行，收入变低，但每天都能接触真实项目。她收到一万元项目奖金。",
         choices: [
-          { id: "A", text: "继续留在小团队磨作品", impactSummary: "低薪成长" },
-          { id: "B", text: "回到稳定岗位补现金流", impactSummary: "现实回撤" },
-          { id: "C", text: "兼职接单扩展人脉", impactSummary: "双线积累" }
+          { id: "stay_content_team", text: "继续留在小团队磨作品", impactSummary: "低薪成长", decisionIntent: "career:stay_content_team" },
+          { id: "return_stable_role", text: "回到稳定岗位补现金流", impactSummary: "现实回撤", decisionIntent: "career:return_stable_role" },
+          { id: "freelance_expand_network", text: "兼职接单扩展人脉", impactSummary: "双线积累", decisionIntent: "career:freelance_expand_network" }
         ],
         attributes,
         financialEventProposals: [{
@@ -775,12 +799,16 @@ const nextNode = await generateNextNode({
   }
 });
 
-assert.match(capturedNextPrompt, /Story Context Pack/);
-assert.match(capturedNextPrompt, /追问补全事实/);
-assert.match(capturedNextPrompt, /最近 5 个历史节点/);
-assert.match(capturedNextPrompt, /至少显性使用 1 条追问答案/);
+assert.match(capturedNextPrompt, /Story Context Pack：稳定用户材料/);
+assert.match(capturedNextPrompt, /Story Context Pack：动态状态/);
+assert.match(capturedNextPrompt, /追问答案非空，本轮剧情必须至少显性使用 1 条追问答案/);
+assert.doesNotMatch(capturedNextPrompt, /最近 5 个历史节点：/);
 assert.match(capturedNextPrompt, /当前财务快照/);
+assert.doesNotMatch(capturedNextPrompt, /next_node_cache_prefix_v1/);
 assert.ok(nextNode.financialState);
+assert.deepEqual(nextNode.choices.map((choice) => choice.id), ["A", "B", "C"]);
+assert.deepEqual(nextNode.choices.map((choice) => choice.text), ["继续留在小团队磨作品", "回到稳定岗位补现金流", "兼职接单扩展人脉"]);
+assert.equal(nextNode.eventMeta?.fallbackReason, undefined);
 assert.equal(nextNode.financialLedgerMode, "authoritative");
 assert.equal(nextNode.financialLedger?.asOfAgeInMonths, nextNode.ageInMonths);
 assert.equal(nextNode.financialSignals, undefined);
@@ -794,6 +822,16 @@ assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, derive
 assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating", "finalizing"]);
 assert.equal(nextNarrativePreviews.at(-1)?.title, "新行业的第一年");
 assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /小团队做基础内容执行/);
+const completedNextTrace = nextGenerationTraces.find((trace) => trace.outcome === "succeeded")!;
+assert.equal(completedNextTrace.kind, "initial_generation");
+assert.equal(completedNextTrace.promptFamily, "next_node");
+assert.equal(completedNextTrace.promptPrefixVersion, NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION);
+assert.equal(completedNextTrace.promptTokens, 1000);
+assert.equal(completedNextTrace.cacheHitTokens, 700);
+assert.equal(completedNextTrace.cacheMissTokens, 300);
+assert.equal(completedNextTrace.completionTokens, 200);
+assert.equal(completedNextTrace.providerRequestId, "trace-next-node-1");
+assert.equal("prompt" in completedNextTrace, false);
 
 // The outer caller can reserve a final recovery after the service has spent
 // its own budget. That retry must retain the rejected Preview's hard reason
@@ -1689,7 +1727,8 @@ const malformedInitialGenerationNode = await generateNextNode({
 });
 
 assert.equal(malformedInitialGenerationCalls, 2);
-assert.match(malformedInitialGenerationNode.description, /尚未被写成未经权威状态确认的成功结果/u);
+assert.match(malformedInitialGenerationNode.description, /继续推进，但不把尚未发生的结果写成事实/u);
+assert.doesNotMatch(malformedInitialGenerationNode.description, /权威状态|账本记录|尚未形成可以/u);
 assert.equal(malformedInitialGenerationNode.choices.length, 3);
 
 const cooledExternalIntent = "career:accept_external_role:startup_data_lead";
@@ -2214,7 +2253,8 @@ const sanitizedIncomeNode = await generateNextNode({
 assert.deepEqual(sanitizedIncomeGateDecisions.map((item) => item.disposition), ["accept"]);
 assert.ok(!sanitizedIncomeGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"));
 assert.doesNotMatch(sanitizedIncomeNode.description, /5000元咨询费/u);
-assert.match(sanitizedIncomeNode.description, /个人收入是否形成仍需继续观察/u);
+assert.equal(sanitizedIncomeNode.description, "你把案例整理成了方法论。");
+assert.doesNotMatch(sanitizedIncomeNode.description, /尚待确认|仍需继续观察/u);
 
 // A founder may register a company and receive customer revenue before any
 // personal draw.  The false draw must be dropped in the same candidate, while
@@ -3927,7 +3967,8 @@ assert.equal(rejectedDebtProposalRepairCalls, 1);
 assert.equal(rejectedDebtNarrativeRepairCalls, 0);
 assert.equal(rejectedDebtNarrativeNode.financialState?.totalDebtWan, 0);
 assert.doesNotMatch(rejectedDebtNarrativeNode.description, /贷款到账|完成20万元经营贷款放款|每月还贷6083元/);
-assert.match(rejectedDebtNarrativeNode.description, /尚未形成已经到账的结果/);
+assert.match(rejectedDebtNarrativeNode.description, /继续寻找稳定客户/);
+assert.doesNotMatch(rejectedDebtNarrativeNode.description, /尚未形成已经到账的结果|尚待确认|仍需观察/);
 assert.equal(rejectedDebtNarrativeNode.financialNarrativeClaims?.length, 0);
 assert.equal(rejectedDebtNarrativeNode.financialProcessingMeta?.rejectedFinancialNarrativeClaimCount, 2);
 
@@ -4210,7 +4251,8 @@ const deterministicBudgetFallbackNode = await generateNextNode({
 
 assert.equal(exhaustedRecursiveGenerationCalls, 2);
 assert.equal(deterministicBudgetFallbackNode.eventMeta?.eventId, "candidate_authority_fallback");
-assert.match(deterministicBudgetFallbackNode.description, /尚未被写成未经权威状态确认的成功结果/u);
+assert.match(deterministicBudgetFallbackNode.description, /继续硬撑但观察身体状态/u);
+assert.doesNotMatch(deterministicBudgetFallbackNode.description, /权威状态|账本记录|尚未形成可以/u);
 assert.doesNotMatch(deterministicBudgetFallbackNode.description, /突然胸闷倒地/u);
 
 let invalidCandidatePatchCalls = 0;
@@ -5076,6 +5118,77 @@ assert.equal(optionAFallbackNode.eventMeta?.romanceRepairAttempted, true);
 assert.equal(optionAFallbackNode.eventMeta?.romanceRepairSucceeded, false);
 assert.equal(optionAFallbackNode.eventMeta?.romanceRescheduled, true);
 assert.equal(optionAFallbackNode.worldStateSnapshot?.relationships.length || 0, 0, "render-time fallback must not commit a relationship");
+assert.doesNotMatch(optionAFallbackNode.description, /权威状态|账本记录|尚未形成可以/u);
+
+let mismatchedRomanceNodeCalls = 0;
+let mismatchedRomanceFallbackCalls = 0;
+const optionAMismatchedFocusFallbackNode = await generateNextNode({
+  userData,
+  answers,
+  history: relationshipOptionAHistory,
+  currentAttributes: attributes,
+  selectedDecision: relationshipOptionADecision,
+  nodeIndex: 1,
+  simulationSeed: romanceFallbackSeed
+}, {
+  ...relationshipCompatibilityFinancialDeps,
+  callAiJson: async (prompt) => {
+    const isRomanceNode = /type: romance_new_connection/.test(prompt);
+    if (isRomanceNode) {
+      mismatchedRomanceNodeCalls += 1;
+      return {
+        text: JSON.stringify({
+          age: 37,
+          stage: "职业机会比较",
+          title: "收集信息后的职业抉择",
+          description: "你分别与两家公司沟通岗位条件，也在行业活动中认识了用户研究员林晚。林晚邀请你周末一起看展，你们交换了微信，偶尔聊产品之外的生活话题。尽管有了这段新联系，眼下真正需要决定的仍是选择哪份工作。",
+          choices: [
+            { id: "A", text: "接受创业公司的合伙人邀请，全职投入产品研发", impactSummary: "全职投入", decisionIntent: "career:join:startup_partner" },
+            { id: "B", text: "接受大公司负责人的职位，保留稳定收入", impactSummary: "稳定晋升", decisionIntent: "career:accept:corporate_lead" },
+            { id: "C", text: "再用三个月收集信息后决定职业方向", impactSummary: "延后决策", decisionIntent: "career:weigh:offers" }
+          ],
+          attributes,
+          narrativeMeta: {
+            activeCharacters: [{
+              candidateOrdinal: 0,
+              displayName: "林晚",
+              relation: "other",
+              presenceMode: "active_scene",
+              currentRole: "用户研究员",
+              encounterType: "new_connection",
+              encounterContext: "mixed",
+              groundingEvidence: "林晚邀请你周末一起看展"
+            }]
+          },
+          isEndingNode: false
+        })
+      };
+    }
+    mismatchedRomanceFallbackCalls += 1;
+    return {
+      text: JSON.stringify({
+        age: 37,
+        stage: "外派安排落地",
+        title: "异地生活的第一轮调整",
+        description: "你抵达华东分部后重新安排通勤、工作交接和固定休息时间，外派生活逐渐形成可执行的节奏。",
+        choices: [
+          { id: "A", text: "按原计划推进重点项目", impactSummary: "推进项目", decisionIntent: "career:continue:regional_project" },
+          { id: "B", text: "缩小项目范围并稳定生活", impactSummary: "稳定节奏", decisionIntent: "career:narrow:regional_project" },
+          { id: "C", text: "交接部分职责并重新评估外派", impactSummary: "重新评估", decisionIntent: "career:delegate:regional_project" }
+        ],
+        attributes,
+        narrativeMeta: { activeCharacters: [] },
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(mismatchedRomanceNodeCalls, 1, "a career-focused romance draft gets one bounded first attempt");
+assert.equal(mismatchedRomanceFallbackCalls, 1, "a mismatched romance draft must redispatch instead of overwriting its visible choices");
+assert.notEqual(optionAMismatchedFocusFallbackNode.eventMeta?.eventId, "romance_new_connection");
+assert.match(optionAMismatchedFocusFallbackNode.eventMeta?.fallbackReason || "", /^romance_contract_failed:/);
+assert.equal(optionAMismatchedFocusFallbackNode.eventMeta?.romanceRescheduled, true);
+assert.doesNotMatch(optionAMismatchedFocusFallbackNode.title, /职业抉择/, "the rescheduled fallback must not retain the contradicted career crossroads title");
 
 const completedFallbackNode: HistoryItem = {
   ...optionAFallbackNode,

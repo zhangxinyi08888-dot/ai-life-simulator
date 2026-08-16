@@ -1,17 +1,20 @@
 import { AiClientError } from "../ai/errors";
 import { callDeepSeekJsonFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
-import { FinalLifeOutcome, FinalOutcomeContext, HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
+import type { FinalLifeOutcome, FinalOutcomeContext, HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../../types";
 import { normalizeFinalLifeOutcome } from "../../utils/finalOutcomeResponse";
 import { buildFinalOutcomePrompt } from "./prompts";
 import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
-import { sanitizeFinalOutcomeFinancialClaims } from "../../utils/finalOutcomeFinancialSanitizer";
 import {
-  applyFinalFinancialNarrativeFallback,
-  buildFinalFinancialNarrativeRepairPrompt,
   collectFinalFinancialNarrativeIssues,
-  deriveFinalFinancialNarrativeAuthority
+  deriveFinalFinancialNarrativeAuthority,
+  type FinalFinancialNarrativeIssue
 } from "../../utils/finalFinancialNarrativeAuthority";
+import {
+  buildFinalOutcomeRepairPrompt,
+  collectFinalOutcomeQualityIssues,
+  type FinalOutcomeQualityIssue
+} from "../../utils/finalOutcomeQuality";
 
 type AiJsonCaller = (prompt: string) => Promise<{ text: string }>;
 
@@ -27,6 +30,14 @@ export interface GenerateFinalOutcomeInput {
   context: FinalOutcomeContext;
 }
 
+interface JsonParseIssue {
+  code: "FINAL_REPORT_JSON_INVALID";
+  path: "$";
+  message: string;
+}
+
+type UnifiedIssue = FinalOutcomeQualityIssue | FinalFinancialNarrativeIssue | JsonParseIssue;
+
 function getAiJsonCaller(deps: FinalOutcomeServiceDeps = {}): AiJsonCaller {
   if (deps.callAiJson) return deps.callAiJson;
   const e2eCaller = getBrowserE2eAiJsonCaller();
@@ -34,12 +45,42 @@ function getAiJsonCaller(deps: FinalOutcomeServiceDeps = {}): AiJsonCaller {
   return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt);
 }
 
-function parseAiJsonResponse(response: { text?: string }): any {
+function tryParseAiJsonResponse(response: { text?: string }): { data?: any; issue?: JsonParseIssue; raw: string } {
+  const raw = response.text || "";
   try {
-    return JSON.parse(response.text || "{}");
-  } catch (error) {
-    throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回内容不是合法 JSON，请重试。", { cause: error });
+    return { data: JSON.parse(raw), raw };
+  } catch {
+    return {
+      raw,
+      issue: {
+        code: "FINAL_REPORT_JSON_INVALID",
+        path: "$",
+        message: "AI 返回内容不是合法 JSON"
+      }
+    };
   }
+}
+
+function collectUnifiedIssues(input: GenerateFinalOutcomeInput, data: any): {
+  quality: FinalOutcomeQualityIssue[];
+  financial: FinalFinancialNarrativeIssue[];
+  all: UnifiedIssue[];
+} {
+  const quality = collectFinalOutcomeQualityIssues({
+    data,
+    history: input.history,
+    closureType: input.context.closureType
+  });
+  const authority = deriveFinalFinancialNarrativeAuthority(input.history);
+  const financial = collectFinalFinancialNarrativeIssues({ outcome: data as FinalLifeOutcome, authority });
+  return { quality, financial, all: [...quality, ...financial] };
+}
+
+function invalidAfterRepair(issues: UnifiedIssue[]): AiClientError {
+  return new AiClientError(
+    "AI_RESPONSE_INVALID",
+    `终局报告定向修复后仍未通过统一校验：${issues.map((issue) => `${issue.path}:${issue.code}`).join("；")}`
+  );
 }
 
 export async function generateFinalOutcome(
@@ -48,50 +89,49 @@ export async function generateFinalOutcome(
 ): Promise<FinalLifeOutcome> {
   const callAiJson = getAiJsonCaller(deps);
   const prompt = buildFinalOutcomePrompt(input.userData, input.answers, input.history, input.currentAttributes, input.context);
-  const data = parseAiJsonResponse(await callAiJson(prompt));
-  let outcome = sanitizeFinalOutcomeFinancialClaims(
-    normalizeFinalLifeOutcome(data, input.history, input.context.closureType),
-    input.history
-  );
-  const authority = deriveFinalFinancialNarrativeAuthority(input.history);
-  let issues = collectFinalFinancialNarrativeIssues({ outcome, authority });
-  const initialViolationCodes = [...new Set(issues.map((issue) => issue.code))];
-  let repairTriggered = false;
-  let fallbackCount = 0;
+  const firstResponse = await callAiJson(prompt);
+  const firstParse = tryParseAiJsonResponse(firstResponse);
+  const firstValidation = firstParse.data
+    ? collectUnifiedIssues(input, firstParse.data)
+    : { quality: [], financial: [], all: [firstParse.issue!] as UnifiedIssue[] };
 
-  if (authority && issues.length > 0) {
-    repairTriggered = true;
-    const repairData = parseAiJsonResponse(await callAiJson(buildFinalFinancialNarrativeRepairPrompt({
-      outcome,
-      authority,
-      issues
-    })));
-    outcome = sanitizeFinalOutcomeFinancialClaims(
-      normalizeFinalLifeOutcome(repairData, input.history, input.context.closureType),
-      input.history
+  let data = firstParse.data;
+  if (firstValidation.all.length > 0) {
+    const repairResponse = await callAiJson(buildFinalOutcomeRepairPrompt({
+      originalPrompt: prompt,
+      data: firstParse.data ?? firstParse.raw,
+      issues: firstValidation.all,
+      history: input.history
+    }));
+    const repairParse = tryParseAiJsonResponse(repairResponse);
+    if (!repairParse.data) throw invalidAfterRepair([repairParse.issue!]);
+    data = repairParse.data;
+    const finalValidation = collectUnifiedIssues(input, data);
+    if (finalValidation.all.length > 0) throw invalidAfterRepair(finalValidation.all);
+  }
+
+  const outcome = normalizeFinalLifeOutcome(data, input.history, input.context.closureType);
+  const normalizedValidation = collectUnifiedIssues(input, outcome);
+  if (normalizedValidation.all.length > 0) {
+    throw new AiClientError(
+      "AI_RESPONSE_INVALID",
+      `终局报告技术格式化后校验失败：${normalizedValidation.all.map((issue) => `${issue.path}:${issue.code}`).join("；")}`
     );
-    issues = collectFinalFinancialNarrativeIssues({ outcome, authority });
   }
 
-  if (authority && issues.length > 0) {
-    fallbackCount = issues.length;
-    outcome = applyFinalFinancialNarrativeFallback({ outcome, authority, issues });
-    const remaining = collectFinalFinancialNarrativeIssues({ outcome, authority });
-    if (remaining.length > 0) {
-      throw new AiClientError(
-        "AI_RESPONSE_INVALID",
-        `终局报告仍与权威财务事实冲突：${remaining.map((issue) => `${issue.path}:${issue.code}`).join("；")}`
-      );
-    }
-  }
-
+  const authority = deriveFinalFinancialNarrativeAuthority(input.history);
   outcome.meta = {
     ...outcome.meta,
     financialNarrativeAuthorityVersion: authority?.version,
-    financialClaimRepairTriggered: repairTriggered,
-    financialClaimFallbackCount: fallbackCount,
-    financialClaimViolationCodes: initialViolationCodes,
-    sourceLedgerRevision: authority?.sourceLedgerRevision
+    financialClaimRepairTriggered: firstValidation.financial.length > 0,
+    financialClaimFallbackCount: 0,
+    financialClaimViolationCodes: [...new Set(firstValidation.financial.map((issue) => issue.code))],
+    sourceLedgerRevision: authority?.sourceLedgerRevision,
+    finalOutcomeQualityRepairTriggered: firstValidation.quality.length > 0 || Boolean(firstParse.issue),
+    finalOutcomeQualityIssueCodes: [...new Set([
+      ...firstValidation.quality.map((issue) => issue.code),
+      ...(firstParse.issue ? [firstParse.issue.code] : [])
+    ])]
   };
   return outcome;
 }

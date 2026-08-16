@@ -1,0 +1,8 @@
+{
+  "occurredAt": "2026-08-10T16:21:03.000Z",
+  "stage": "pre-case collector setup",
+  "status": "resolved",
+  "summary": "The first setup navigation omitted recordTestRun, so the collector could not observe the test-state element. A second setup URL enabled importTestState and exposed an importer overlay. The final collector URL used recordTestRun only.",
+  "impact": "No official case started, no story node or completed case JSON was produced, and no route was replaced or rerun.",
+  "productionCodeChanged": false
+}
