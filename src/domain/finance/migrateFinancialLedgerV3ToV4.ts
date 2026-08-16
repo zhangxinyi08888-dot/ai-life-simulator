@@ -156,7 +156,13 @@ function reviewClock(input: {
     && (input.commitment.nextReviewAtAgeInMonths as number) >= input.commitment.activeFromAgeInMonths
     && input.commitment.accrualReviewStatus) {
     return {
-      lastConfirmedAtAgeInMonths: input.commitment.lastConfirmedAtAgeInMonths,
+      // A persisted review clock may coexist with a legacy `known` marker.
+      // Once canonicalization establishes that the amount is not explicit,
+      // the old timestamp is only a review timestamp and cannot survive as
+      // confirmation authority.
+      lastConfirmedAtAgeInMonths: input.explicit
+        ? input.commitment.lastConfirmedAtAgeInMonths
+        : undefined,
       lastReviewedAtAgeInMonths: input.commitment.lastReviewedAtAgeInMonths,
       nextReviewAtAgeInMonths: input.commitment.nextReviewAtAgeInMonths as number,
       accrualReviewStatus: input.commitment.accrualReviewStatus
@@ -207,6 +213,11 @@ export function canonicalizeExpenseCommitmentV4(input: {
   const issues: FinancialLedgerIssue[] = [];
   let status = legacy.status;
   let factStatus = legacy.factStatus;
+
+  // V3 `known` was not proof of an Accepted exact amount.  Only an explicit
+  // basis backed by authoritative evidence survives as V4 known; every other
+  // legacy amount remains a nonzero last-known estimate pending review.
+  if (factStatus === "known" && !explicit) factStatus = "needs_review";
 
   if (status === "active" && legacy.monthlyAmountWan <= 0) {
     status = "paused";
@@ -288,6 +299,17 @@ export function canonicalizeExpenseCommitmentV4(input: {
 
   if (responsibilityKind === "legacy_aggregate" && status === "active") {
     v4.factStatus = "needs_review";
+    if (v4.amountBasis === "explicit_known" || v4.amountBasis === "explicit_shared_amount") {
+      // V3 aggregate totals do not prove which classified responsibilities
+      // they cover. Preserve the non-zero amount for accrual, but do not keep
+      // exact-confirmation fields after the aggregate is quarantined for
+      // review.
+      v4.amountBasis = "last_known";
+      v4.confirmedMonthlyAmountWan = undefined;
+      v4.lastConfirmedAtAgeInMonths = undefined;
+      v4.grossMonthlyAmountWan = undefined;
+      v4.householdShareRate = undefined;
+    }
     v4.accrualReviewStatus = "review_due";
     v4.nextReviewAtAgeInMonths = input.asOfAgeInMonths;
     issues.push(issue({
@@ -335,6 +357,13 @@ function quarantineUnknownAggregateComponents(input: {
       component.status = "paused";
       component.activeUntilAgeInMonths = undefined;
       component.factStatus = "needs_review";
+      if (component.amountBasis === "explicit_known" || component.amountBasis === "explicit_shared_amount") {
+        component.amountBasis = "last_known";
+        component.confirmedMonthlyAmountWan = undefined;
+        component.lastConfirmedAtAgeInMonths = undefined;
+        component.grossMonthlyAmountWan = undefined;
+        component.householdShareRate = undefined;
+      }
       component.accrualReviewStatus = "review_due";
       component.lastReviewedAtAgeInMonths = input.ageInMonths;
       component.nextReviewAtAgeInMonths = input.ageInMonths;
@@ -386,6 +415,13 @@ export function migrateFinancialLedgerV3ToV4(input: FinancialLedgerV3 | Financia
     if (activeKeys.has(commitment.responsibilityKey)) {
       commitment.status = "paused";
       commitment.factStatus = "needs_review";
+      if (commitment.amountBasis === "explicit_known" || commitment.amountBasis === "explicit_shared_amount") {
+        commitment.amountBasis = "last_known";
+        commitment.confirmedMonthlyAmountWan = undefined;
+        commitment.lastConfirmedAtAgeInMonths = undefined;
+        commitment.grossMonthlyAmountWan = undefined;
+        commitment.householdShareRate = undefined;
+      }
       commitment.accrualReviewStatus = "review_due";
       commitment.nextReviewAtAgeInMonths = input.asOfAgeInMonths;
       migrationIssues.push(issue({

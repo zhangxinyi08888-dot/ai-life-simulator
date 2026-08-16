@@ -447,6 +447,99 @@ test("expense invariant audit catches silent lowering, zero unknowns, stale revi
   assert.equal(result.details.aggregateSplitLosses[0].aggregateCommitmentId, "legacy_total");
 });
 
+test("Spec authority audit catches zero confirmed accrual, unaccepted confirmation, orphan review resolution, and annual derivation drift", () => {
+  const invalid = commitment({
+    id: "invalid_confirmed_rent",
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    type: "housing",
+    monthlyAmountWan: 0,
+    factStatus: "known",
+    amountBasis: "explicit_known",
+    amountSourceIds: ["unaccepted_exact_rent"],
+    nextReviewAtAgeInMonths: 600,
+    evidence: [{ source: "model", reasonCode: "MODEL_ECHO", confidence: 1 }]
+  });
+  const current = dynamicNode([invalid], 480, 492, {
+    unresolvedIssues: [{
+      id: "expense_review_due_invalid_confirmed_rent",
+      code: "EXPENSE_REVIEW_OVERDUE",
+      severity: "blocking",
+      status: "resolved",
+      relatedProposalIds: [],
+      relatedAccountIds: [invalid.id],
+      summary: "待确认",
+      createdAtAgeInMonths: 480,
+      resolvedAtAgeInMonths: 492,
+      resolvedByEventId: "event_not_in_transaction",
+      expenseResolutionKind: "exact_amount",
+      expenseResponsibilityKey: invalid.responsibilityKey
+    }]
+  });
+  current.financialState.annualCoreExpenseWan = 4.2;
+  const result = auditExpenseLifecycleDynamics({ routeRecords: [{ caseSlug: "authority-invalid", history: [current] }] });
+  assert.equal(result.summary.confirmedResponsibilityWithoutNonzeroAccrualCount, 1);
+  assert.equal(result.summary.expenseConfirmationAuthorityViolationCount, 1);
+  assert.equal(result.summary.reviewResolutionWithoutAcceptedOutcomeCount, 1);
+  assert.equal(result.summary.annualCoreExpenseDerivationMismatchCount, 1);
+});
+
+test("binding telemetry audit requires clause coordinates, all applicable spans, and final disposition", () => {
+  const current = node([floorCommitment()], 480, {
+    financialProcessingMeta: {
+      expenseLifecycleTelemetry: {
+        mode: "enforced",
+        narrativeBindingMode: "enforced",
+        narrativeBindingSourceIdentityMissingCount: 0,
+        expenseConfirmationRejectedAfterSanitizeCount: 0,
+        candidates: [{
+          candidateId: "candidate_incomplete",
+          sourceFactBindingId: "binding_incomplete",
+          amountBasis: "explicit_monthly_amount",
+          liability: "protagonist",
+          cadence: "monthly",
+          finalDisposition: "committed",
+          sourceSpans: { responsibility: { start: 0, end: 2, excerpt: "房租" } }
+        }]
+      }
+    }
+  });
+  const result = auditExpenseLifecycleDynamics({ routeRecords: [{ caseSlug: "telemetry-incomplete", history: [current] }] });
+  assert.equal(result.summary.expenseBindingTelemetryIncompleteCount, 1);
+  assert.equal(result.details.bindingTelemetryIncomplete[0].candidateId, "candidate_incomplete");
+});
+
+test("binding telemetry permits a missing completion span when completion is explicitly unresolved", () => {
+  const current = node([floorCommitment()], 480, {
+    financialProcessingMeta: {
+      expenseLifecycleTelemetry: {
+        mode: "enforced",
+        narrativeBindingMode: "enforced",
+        narrativeBindingSourceIdentityMissingCount: 0,
+        expenseConfirmationRejectedAfterSanitizeCount: 0,
+        candidates: [{
+          candidateId: "candidate_completion_review",
+          sourceFactBindingId: "binding_completion_review",
+          amountBasis: "unknown",
+          liability: "unknown",
+          cadence: "recurring_unknown",
+          unresolvedFields: ["completion", "payer", "amount", "cadence"],
+          finalDisposition: "rejected",
+          sourceClause: {
+            clauseId: "expense_clause:0:0:0-2",
+            contextClauseIds: ["expense_clause:0:0:0-2"],
+            sentenceIndex: 0,
+            clauseIndex: 0
+          },
+          sourceSpans: { responsibility: { start: 0, end: 2, excerpt: "房租" } }
+        }]
+      }
+    }
+  });
+  const result = auditExpenseLifecycleDynamics({ routeRecords: [{ caseSlug: "telemetry-review", history: [current] }] });
+  assert.equal(result.summary.expenseBindingTelemetryIncompleteCount, 0);
+});
+
 test("release expense invariant gate blocks every authority violation and rejects unobserved evidence", () => {
   const clean = {
     expenseInvariantAuditStatus: "observed",
@@ -456,6 +549,19 @@ test("release expense invariant gate blocks every authority violation and reject
     expenseAggregateSplitLossCount: 0,
     expenseAmountSourceDoubleCount: 0,
     mortgageExpenseDoubleCountCount: 0,
+    acceptedNodeWithUnresolvedMaterialExpenseBindingCount: 0,
+    expenseBindingSourceIdentityMissingCount: 0,
+    expenseBindingTelemetryIncompleteCount: 0,
+    expenseConfirmationRejectedAfterSanitizeCount: 0,
+    unknownLiabilityPersonalCommitmentCount: 0,
+    knownWithoutExplicitAmountEvidenceCount: 0,
+    policyFloorPromotedToKnownCount: 0,
+    expenseAmountSourceUntraceableCount: 0,
+    confirmedResponsibilityWithoutNonzeroAccrualCount: 0,
+    expenseConfirmationAuthorityViolationCount: 0,
+    reviewResolutionWithoutAcceptedOutcomeCount: 0,
+    reviewDueWithoutAcceptedDispositionCount: 0,
+    annualCoreExpenseDerivationMismatchCount: 0,
     adultBaselineOnlyAfterResponsibilityStatus: "observed",
     adultBaselineOnlyAfterResponsibilityCount: 0
   };
@@ -467,7 +573,20 @@ test("release expense invariant gate blocks every authority violation and reject
     "staleExpenseWithoutReviewCount",
     "expenseAggregateSplitLossCount",
     "expenseAmountSourceDoubleCount",
-    "mortgageExpenseDoubleCountCount"
+    "mortgageExpenseDoubleCountCount",
+    "acceptedNodeWithUnresolvedMaterialExpenseBindingCount",
+    "expenseBindingSourceIdentityMissingCount",
+    "expenseBindingTelemetryIncompleteCount",
+    "expenseConfirmationRejectedAfterSanitizeCount",
+    "unknownLiabilityPersonalCommitmentCount",
+    "knownWithoutExplicitAmountEvidenceCount",
+    "policyFloorPromotedToKnownCount",
+    "expenseAmountSourceUntraceableCount",
+    "confirmedResponsibilityWithoutNonzeroAccrualCount",
+    "expenseConfirmationAuthorityViolationCount",
+    "reviewResolutionWithoutAcceptedOutcomeCount",
+    "reviewDueWithoutAcceptedDispositionCount",
+    "annualCoreExpenseDerivationMismatchCount"
   ]) {
     const blockers = expenseLifecycleReleaseBlockers({ ...clean, [field]: 1 });
     assert.equal(blockers.length, 1, field);

@@ -648,6 +648,21 @@ const summary = {
   ...expenseResponsibilityAuditSummary,
   ...expenseLifecycleCandidateTelemetryAuditSummary,
   ...expenseLifecycleDynamicAuditSummary,
+  // Stable Spec §11 names. Keep the older report fields for compatibility,
+  // but never make a missing denominator look like 100 percent.
+  materialResponsibilityMissedExpectationCount: expenseResponsibilityAuditSummary.expenseResponsibilityAnnotatedCandidateCount === 0
+    ? null
+    : expenseResponsibilityAuditSummary.expenseResponsibilityMissedCount,
+  expenseBindingPrecisionPct: expenseLifecycleCandidateTelemetryAuditSummary.expenseLifecycleCandidateTelemetryPrecisionPct,
+  expenseBindingRecallPct: expenseLifecycleCandidateTelemetryAuditSummary.expenseLifecycleCandidateTelemetryRecallPct,
+  expenseCommitmentPrecisionPct: expenseResponsibilityAuditSummary.expenseResponsibilityPrecisionPct,
+  expenseCommitmentRecallPct: expenseResponsibilityAuditSummary.expenseResponsibilityRecallPct,
+  explicitRecurringAmountAcceptedPct: expenseResponsibilityAuditSummary.explicitRecurringExpenseCoveragePct,
+  lifecycleTransitionMismatchCount: expenseResponsibilityAuditSummary.expenseResponsibilityAnnotatedCandidateCount === 0
+    ? null
+    : expenseResponsibilityAuditSummary.expenseResponsibilityScopeMismatchCount
+      + expenseResponsibilityAuditSummary.expenseSharedAmountMismatchCount,
+  expenseGateRejectedStateMutationCount: financialGateCommittedBlockViolationCount,
   adultZeroExpenseNodes,
   employedAt80PlusNodes,
   employedAt80PlusWithoutEvidenceNodes,
@@ -850,6 +865,20 @@ const blockers = [
     && `冻结支出责任语料样本不足：${summary.expenseResponsibilityCorpusCoverageFailures.join(",") || summary.expenseResponsibilityCorpusCoverageStatus}`,
   frozenExpenseResponsibilityCorpus && summary.expenseResponsibilityMissedCount > 0 && `冻结支出责任语料漏检：${summary.expenseResponsibilityMissedCount} 条`,
   frozenExpenseResponsibilityCorpus && summary.expenseResponsibilityFalsePositiveCount > 0 && `冻结支出责任语料误报：${summary.expenseResponsibilityFalsePositiveCount} 条`,
+  frozenExpenseResponsibilityCorpus && summary.expenseBindingRecallPct !== 100
+    && `冻结支出 binding 召回率：${displayPercent(summary.expenseBindingRecallPct)}`,
+  frozenExpenseResponsibilityCorpus && summary.expenseBindingPrecisionPct !== 100
+    && `冻结支出 binding 精度：${displayPercent(summary.expenseBindingPrecisionPct)}`,
+  frozenExpenseResponsibilityCorpus && summary.expenseCommitmentRecallPct !== 100
+    && `冻结支出 commitment 召回率：${displayPercent(summary.expenseCommitmentRecallPct)}`,
+  frozenExpenseResponsibilityCorpus && summary.expenseCommitmentPrecisionPct !== 100
+    && `冻结支出 commitment 精度：${displayPercent(summary.expenseCommitmentPrecisionPct)}`,
+  frozenExpenseResponsibilityCorpus && summary.materialResponsibilityPresentButFloorOnlyMonths !== 0
+    && `重大支出责任存在期间仍只计 basic floor：${summary.materialResponsibilityPresentButFloorOnlyMonths ?? "未覆盖"} 人月`,
+  frozenExpenseResponsibilityCorpus && summary.personalLiabilityRejectedAsBusinessOrThirdPartyCount !== 0
+    && `个人责任被误拒为企业或第三方：${summary.personalLiabilityRejectedAsBusinessOrThirdPartyCount ?? "未覆盖"} 条`,
+  frozenExpenseResponsibilityCorpus && summary.nonPersonalCommittedAsPersonalCount !== 0
+    && `非个人责任写入个人账本：${summary.nonPersonalCommittedAsPersonalCount ?? "未覆盖"} 条`,
   frozenExpenseResponsibilityCorpus && summary.explicitRecurringExpenseCandidateCount === 0 && "冻结支出责任语料未覆盖任何明确金额责任",
   frozenExpenseResponsibilityCorpus && summary.explicitRecurringExpenseCoveragePct !== 100
     && `冻结支出责任明确金额覆盖率：${displayPercent(summary.explicitRecurringExpenseCoveragePct)}`,
@@ -929,6 +958,7 @@ ${recoverableRows}
 | 独立责任召回 | ${displayPercent(summary.expenseResponsibilityRecallPct)}（${summary.expenseResponsibilityTruePositiveCount}/${summary.expenseResponsibilityAnnotatedCandidateCount}；漏检 ${summary.expenseResponsibilityMissedCount}） | 冻结 gold 语料必须 100%；新鲜五路线仅诊断 |
 | 独立责任精度 | ${displayPercent(summary.expenseResponsibilityPrecisionPct)}（检测 ${summary.expenseResponsibilityDetectedCandidateCount}；误报 ${summary.expenseResponsibilityFalsePositiveCount}） | 冻结 gold 语料必须 100%；0 个检测样本显示未覆盖 |
 | V4 候选 trace | ${summary.expenseLifecycleCandidateTelemetryStatus}（${summary.expenseLifecycleCandidateTelemetryRecordCount} 条） | shadow / enforced 均记录候选与 reconciler 决定，不代表已入账 |
+| Binding telemetry 不完整 | ${summary.expenseBindingTelemetryIncompleteCount ?? "未覆盖"} | clause、适用 span 与最终 disposition 必须齐全，目标 0 |
 | V4 候选对照 recall | ${displayPercent(summary.expenseLifecycleCandidateTelemetryRecallPct)}（匹配 ${summary.expenseLifecycleCandidateTelemetryMatchCount}/${summary.expenseLifecycleCandidateTelemetryAnnotatedCandidateCount}；漏检 ${summary.expenseLifecycleCandidateTelemetryMissedCount}） | 独立标注只在运行后对照，不参与生成 |
 | V4 候选对照 precision | ${displayPercent(summary.expenseLifecycleCandidateTelemetryPrecisionPct)}（计划 ${summary.expenseLifecycleCandidateTelemetryPlannedCandidateCount}；误报 ${summary.expenseLifecycleCandidateTelemetryFalsePositiveCount}） | 仅已标注节点参与误报分母；0 个计划样本显示未覆盖 |
 | 明确金额责任覆盖 | ${displayPercent(summary.explicitRecurringExpenseCoveragePct)}（${summary.explicitRecurringExpenseTruePositiveCount}/${summary.explicitRecurringExpenseCandidateCount}） | 冻结 gold 语料必须 100%，且分母非零 |
@@ -939,6 +969,14 @@ ${recoverableRows}
 | 期间累计现金流样本 | ${summary.routeCumulativeFinancialsStatus}；收入 ${displayWan(summary.cumulativeIncomeWan)}、持续支出 ${displayWan(summary.cumulativeCoreExpenseWan)}、一次性支出 ${displayWan(summary.cumulativeOneOffExpenseWan)}、债务服务 ${displayWan(summary.cumulativeDebtServiceWan)}、净现金流 ${displayWan(summary.cumulativeNetCashFlowWan)} | 来自 committed financialPeriodSummary |
 | 家庭责任前后 3 节点运行率 | ${summary.familyResponsibilityRunRateWindowStatus}（${summary.familyResponsibilityRunRateWindowCount} 个窗口，${summary.familyResponsibilityRunRateIncompleteWindowCount} 个边界/缺样本窗口） | 不足 3 节点或无期间汇总会如实标为 partial/not_covered |
 | 终局到期未复核责任 | ${summary.overdueExpenseReviewAccountCount} | 按责任类型明细见长期诊断 |
+| 重大责任存在但仅 basic floor | ${summary.materialResponsibilityPresentButFloorOnlyMonths ?? "未覆盖"} 人月 | 冻结标注分母必须非空且目标 0 |
+| 已确认责任但无非零计提 | ${summary.confirmedResponsibilityWithoutNonzeroAccrualCount ?? "未覆盖"} | 目标 0 |
+| 确认权威违规 | ${summary.expenseConfirmationAuthorityViolationCount ?? "未覆盖"} | 目标 0 |
+| review 无 Accepted Event 关闭 | ${summary.reviewResolutionWithoutAcceptedOutcomeCount ?? "未覆盖"} | 目标 0 |
+| 到期 review 无 Accepted disposition | ${summary.reviewDueWithoutAcceptedDispositionCount ?? "未覆盖"} | 目标 0 |
+| 年化核心支出派生不一致 | ${summary.annualCoreExpenseDerivationMismatchCount ?? "未覆盖"} | 目标 0 |
+| 个人责任误判为企业/第三方 | ${summary.personalLiabilityRejectedAsBusinessOrThirdPartyCount ?? "未覆盖"} | 冻结标注目标 0 |
+| 非个人责任写入个人账本 | ${summary.nonPersonalCommittedAsPersonalCount ?? "未覆盖"} | 冻结标注目标 0 |
 | 财富/净资产方向冲突 | ${wealthDirectionMismatches} | 目标 0 |
 | 财务叙述节点 | ${financeNarrativeNodes} | 样本基数 |
 | Accepted 覆盖率 | ${summary.acceptedCoverageRatePct}%（${acceptedCoverageNodes}/${financeNarrativeNodes}） | 目标 ≥80% |

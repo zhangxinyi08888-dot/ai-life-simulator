@@ -122,6 +122,28 @@ test("O-01/O-02 deterministically extracts typed opening rent and parent medical
   assert.equal(healthcare?.factStatus, "known");
 });
 
+test("opening binds mixed-payer expense clauses independently", () => {
+  const facts = extractOpeningExpenseFacts("我已经每月支付房租5000元，伴侣承担父母医疗1200元；未来只考虑搬家。");
+  const housing = facts.find((item) => item.type === "housing");
+  const healthcare = facts.find((item) => item.type === "healthcare");
+  assert.equal(housing?.monthlyAmountWan, 0.5);
+  assert.equal(housing?.factStatus, "known");
+  assert.equal(healthcare, undefined);
+});
+
+test("opening converts an explicit protagonist-paid quarterly parent rehabilitation course into monthly healthcare", () => {
+  const facts = extractOpeningExpenseFacts("我已经每月支付个人房租5000元，并开始承担父亲康复课程，每季度3600元。");
+  const housing = facts.find((item) => item.type === "housing");
+  const care = facts.find((item) => item.responsibilityKind === "recurring_healthcare");
+  assert.equal(housing?.monthlyAmountWan, 0.5);
+  assert.equal(care?.responsibilityKey, "recurring_healthcare:opening_parent");
+  assert.equal(care?.type, "healthcare");
+  assert.equal(care?.cadence, "quarterly");
+  assert.equal(care?.monthlyAmountWan, 0.12);
+  assert.equal(care?.factStatus, "known");
+  assert.equal(care?.financialScope, "personal");
+});
+
 test("O-02 records a shared rental as the protagonist share rather than the household total", () => {
   const facts = extractOpeningExpenseFacts("月租5200元，两人各承担一半。");
   const housing = facts.find((item) => item.type === "housing");

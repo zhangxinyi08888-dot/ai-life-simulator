@@ -865,6 +865,44 @@ export function buildFinancialProposalRepairPrompt(input: {
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
 }): string {
+  const expenseFactRepair = input.issues.some((issue) => (
+    Boolean(issue.expenseResolutionKind)
+    || issue.id.startsWith("expense_responsibility_review_")
+    || /EXPENSE_CONFIRMATION_|付款人|承担份额|责任范围/u.test(issue.summary)
+  ));
+  const restrictedLedgerSummary = expenseFactRepair
+    ? input.ledger.expenseCommitments
+      .filter((commitment) => input.issues.some((issue) => (
+        issue.expenseResponsibilityKey === commitment.responsibilityKey
+        || (issue.relatedAccountIds || []).includes(commitment.id)
+      )))
+      .map((commitment) => `- 支出账户 ${commitment.id}: responsibilityKey=${commitment.responsibilityKey}, 名称=${commitment.displayName}, status=${commitment.status}`)
+      .join("\n") || "- 本轮没有可引用的既有支出账户；若正文证明新责任，只能创建一个 canonical 账户。"
+    : formatRestrictedFinancialLedger(input.ledger);
+  const rejectedProposalsForPrompt = expenseFactRepair
+    ? input.rejectedProposals.map((proposal) => {
+        if (proposal.kind !== "expense_commitment_started" && proposal.kind !== "expense_commitment_adjusted") return proposal;
+        const payload = proposal.payload as Record<string, any>;
+        const commitment = proposal.kind === "expense_commitment_started" ? payload : payload.nextCommitment || {};
+        return {
+          id: proposal.id,
+          kind: proposal.kind,
+          effectiveAtAgeInMonths: proposal.effectiveAtAgeInMonths,
+          sourceOutcomeId: proposal.sourceOutcomeId,
+          evidence: proposal.evidence,
+          confidence: proposal.confidence,
+          financialScope: proposal.financialScope,
+          payload: {
+            ...(proposal.kind === "expense_commitment_adjusted" ? { expenseCommitmentId: payload.expenseCommitmentId } : {}),
+            responsibilityKey: commitment.responsibilityKey,
+            responsibilityKind: commitment.responsibilityKind,
+            type: commitment.type,
+            displayName: commitment.displayName,
+            financialScope: commitment.financialScope
+          }
+        };
+      })
+    : input.rejectedProposals;
   const evidenceCandidates = input.rejectedProposals.map((proposal) => ({
     proposalId: proposal.id,
     candidates: financialEvidenceCandidates({ proposal, narrativeText: input.narrativeText })
@@ -881,16 +919,23 @@ ageInMonths=${input.periodStartAgeInMonths} 到 ${input.periodEndAgeInMonths}
 ${input.acceptedOutcomeId}
 
 【当前权威账本受限摘要】
-${formatRestrictedFinancialLedger(input.ledger)}
+${restrictedLedgerSummary}
 
 【被拒 Proposal】
-${JSON.stringify(input.rejectedProposals, null, 2)}
+${JSON.stringify(rejectedProposalsForPrompt, null, 2)}
 
 【被拒或待补齐的职业转换】
 ${JSON.stringify(input.rejectedEmploymentTransition || null, null, 2)}
 
 【逐条拒绝原因】
-${JSON.stringify(input.issues.map((issue) => ({ proposalIds: issue.relatedProposalIds, code: issue.code, summary: issue.summary })), null, 2)}
+${JSON.stringify(input.issues.map((issue) => ({
+  proposalIds: issue.relatedProposalIds,
+  code: issue.code,
+  summary: issue.summary,
+  missingField: issue.expenseResolutionKind,
+  responsibilityKey: issue.expenseResponsibilityKey,
+  accountIds: issue.relatedAccountIds
+})), null, 2)}
 
 【正文候选原句与金额锚（万）】
 ${JSON.stringify(evidenceCandidates, null, 2)}
@@ -903,6 +948,7 @@ ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) =>
 
 要求：
 - 只修正被拒 Proposal；不能新增正文没有发生的事实。为满足原子依赖，可以同时补充同一收入替换所必需的旧来源 income_source_ended、同一资产购买所必需的 debt_drawn，或正文已经明确给出主角个人薪资/业主提款/到账分红但首轮遗漏的对应个人收入 Proposal。
+- 支出责任修复只补拒绝原因点名的 payer、scope、share 或 exact amount，并逐字引用同一事实单元；共同总额必须同时给出主角份额。不得复制旧账本的 policy/last-known 金额，不得因重复叙事、issue 次数或系统提示把估算升级为 known；正文没有当前实际事实时省略 Proposal，让节点接受门拒绝并重生。
 - MISSING_FUNDING_SOURCE 必须通过正文已经支持的明确借款、资产出售、家庭支持到账、收入到账来补足；若正文只表达计划、尝试或协商，可以省略尚未发生的支出。禁止依赖后台自动缺口，禁止把 liquidityTreatment 写入 Proposal。
 - 资产购买、投资或企业出资、债务本金/利息、债务重组费用都必须有明确可用现金或同一原子组内有正文证据的资金来源；不能用新的自动短期周转来让它们通过。
 - 正文或已接受选择明确发生辞职、离职、创业、退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新职业收入（如有）一起返回；辞职创业使用 toStatus="self_employed"，个人经营所得使用 type="self_employment_draw" 且 linkedCareerStateId 指向新 CareerState，不得使用 type="other"。该组要么全部提交，要么全部不提交。

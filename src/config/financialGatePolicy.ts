@@ -34,3 +34,37 @@ export function resolveExpenseLifecycleMode(value: unknown): ExpenseLifecycleMod
 export const DEFAULT_EXPENSE_LIFECYCLE_MODE: ExpenseLifecycleMode = resolveExpenseLifecycleMode(
   (import.meta as ImportMeta & { env?: ImportMetaEnv }).env?.VITE_EXPENSE_LIFECYCLE_MODE
 );
+
+/**
+ * Selects the writer for narrative-originated responsibility candidates.  It
+ * is deliberately separate from `ExpenseLifecycleMode`: the latter controls
+ * whether a reconciled plan becomes authoritative, while this switch controls
+ * whether the clause binder or the legacy sentence detector supplies the
+ * narrative candidates in the first place.
+ */
+export type ExpenseNarrativeBindingMode = "legacy" | "shadow" | "enforced";
+
+export function resolveExpenseNarrativeBindingMode(value: unknown): ExpenseNarrativeBindingMode {
+  return value === "legacy" || value === "shadow" || value === "enforced" ? value : "enforced";
+}
+
+export const DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE: ExpenseNarrativeBindingMode = resolveExpenseNarrativeBindingMode(
+  (import.meta as ImportMeta & { env?: ImportMetaEnv }).env?.VITE_EXPENSE_NARRATIVE_BINDING_MODE
+);
+
+/**
+ * Keep rollout combinations safe even when an operator sets independent
+ * environment variables.  A binder must never become the authoritative
+ * narrative writer while lifecycle reconciliation itself is only shadowed or
+ * disabled.  Normalising down is intentional: it preserves the existing
+ * authoritative path and leaves an auditable configuration rather than
+ * creating two competing writers.
+ */
+export function compatibleExpenseNarrativeBindingMode(input: {
+  expenseLifecycleMode: ExpenseLifecycleMode;
+  expenseNarrativeBindingMode: ExpenseNarrativeBindingMode;
+}): ExpenseNarrativeBindingMode {
+  if (input.expenseLifecycleMode === "off") return "legacy";
+  if (input.expenseLifecycleMode === "shadow" && input.expenseNarrativeBindingMode === "enforced") return "shadow";
+  return input.expenseNarrativeBindingMode;
+}

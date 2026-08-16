@@ -9,6 +9,11 @@ import type {
 } from "./types";
 import { roundWan } from "./ledgerMath";
 import { parentElderCareCoverageRole } from "./elderCareCoverage";
+import {
+  bindNarrativeExpenseFacts,
+  candidateFromNarrativeBinding,
+  type NarrativeExpenseFactBindingResult
+} from "./narrativeExpenseFactBinding";
 
 export type ExpenseResponsibilityAction = "start" | "adjust" | "end" | "review";
 export type ExpenseResponsibilityCompletion = "completed" | "ongoing" | "planned" | "hypothetical";
@@ -23,6 +28,13 @@ export interface ExpenseResponsibilityDerivationResult {
     reasonCode: string;
     disposition: "candidate" | "ignored" | "owner_review";
   }>;
+  /**
+   * Clause-level telemetry is intentionally transient.  It lets shadow mode
+   * compare the new binder against the legacy writer without introducing a
+   * second ledger writer or a persisted fact surface.
+   */
+  narrativeBindingMode: "legacy" | "shadow" | "enforced";
+  narrativeBinding?: NarrativeExpenseFactBindingResult;
 }
 
 export interface ExplicitExpenseResponsibilityFact {
@@ -1493,11 +1505,20 @@ export function deriveExpenseResponsibilityCandidates(input: {
   candidateWorldState?: WorldStateSnapshot;
   existingExpenseCommitments?: ExpenseCommitmentV4[];
   narrativeText?: string;
+  /** Stable candidate identity required by shadow/enforced clause bindings. */
+  sourceNodeId?: string;
+  sourceOutcomeId?: string;
+  /**
+   * `legacy` remains the compatibility default for direct domain callers.
+   * Production injects an explicit rollout mode from financialGatePolicy.
+   */
+  narrativeBindingMode?: "legacy" | "shadow" | "enforced";
   explicitFacts?: ExplicitExpenseResponsibilityFact[];
   ageInMonths: number;
 }): ExpenseResponsibilityDerivationResult {
   const candidates: ExpenseResponsibilityCandidate[] = [];
   const diagnostics: ExpenseResponsibilityDerivationResult["diagnostics"] = [];
+  const narrativeBindingMode = input.narrativeBindingMode || "legacy";
   // A direct accepted occupancy fact owns this node's primary-residence
   // decision.  Put it before cohabitation review so a generic relationship
   // review cannot preempt a concrete accepted move-in/rent fact.
@@ -1561,12 +1582,47 @@ export function deriveExpenseResponsibilityCandidates(input: {
       evidence: [sourceEvidence({ excerpt: fact.evidenceExcerpt, scope, reasonCode: "EXPENSE_EXPLICIT_RESPONSIBILITY" })]
     }, "EXPENSE_EXPLICIT_RESPONSIBILITY");
   }
-  if (input.narrativeText) deriveNarrativeCandidates({
-    narrativeText: input.narrativeText,
-    candidateWorldState: input.candidateWorldState,
-    existingExpenseCommitments: input.existingExpenseCommitments,
-    target: candidates,
-    diagnostics
-  });
-  return { candidates, diagnostics };
+  let narrativeBinding: NarrativeExpenseFactBindingResult | undefined;
+  if (input.narrativeText) {
+    if (narrativeBindingMode !== "legacy") {
+      narrativeBinding = bindNarrativeExpenseFacts({
+        sourceNodeId: input.sourceNodeId,
+        sourceOutcomeId: input.sourceOutcomeId,
+        narrativeText: input.narrativeText,
+        candidateWorldState: input.candidateWorldState,
+        existingExpenseCommitments: input.existingExpenseCommitments
+      });
+    }
+    if (narrativeBindingMode === "enforced" && narrativeBinding) {
+      for (const binding of narrativeBinding.bindings) {
+        const candidate = candidateFromNarrativeBinding(binding);
+        // Structured/Accepted candidates own their responsibility in this
+        // node.  The binding still remains visible in telemetry, but it may
+        // not create a sibling narrative candidate with a competing amount.
+        const structuredWriterExists = candidates.some((existing) => (
+          existing.responsibilityKey === candidate.responsibilityKey
+          && existing.source !== "narrative_supplement"
+          && ["start", "adjust", "end"].includes(existing.action)
+        ));
+        if (structuredWriterExists) {
+          diagnostics.push({
+            candidateId: candidate.id,
+            reasonCode: "NARRATIVE_BINDING_STRUCTURED_WRITER_FIRST",
+            disposition: "ignored"
+          });
+          continue;
+        }
+        addCandidate(candidates, diagnostics, candidate, binding.reasonCodes[0] || "EXPENSE_FACT_BOUND");
+      }
+    } else {
+      deriveNarrativeCandidates({
+        narrativeText: input.narrativeText,
+        candidateWorldState: input.candidateWorldState,
+        existingExpenseCommitments: input.existingExpenseCommitments,
+        target: candidates,
+        diagnostics
+      });
+    }
+  }
+  return { candidates, diagnostics, narrativeBindingMode, narrativeBinding };
 }

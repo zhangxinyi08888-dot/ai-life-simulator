@@ -156,6 +156,27 @@ test("policy/context/legacy estimates remain nonzero reviewable accruals without
   assert.equal(expenseReviewRequiresPromptConfirmation({ ...issue!, occurrenceCount: 2 }, explicitKnown), true);
 });
 
+test("a legacy estimate with a pre-contract confirmation timestamp remains readable but is not copied into a new review mutation", () => {
+  const current = ledger();
+  const legacy = current.expenseCommitments[0]!;
+  current.expenseCommitments = [{
+    ...legacy,
+    id: "legacy_timestamped_estimate",
+    responsibilityKey: "adult_basic_living:protagonist",
+    responsibilityKind: "adult_basic_living",
+    type: "basic_living",
+    factStatus: "needs_review",
+    amountBasis: "legacy_estimate",
+    confirmedMonthlyAmountWan: legacy.monthlyAmountWan,
+    lastConfirmedAtAgeInMonths: 80 * 12,
+    nextReviewAtAgeInMonths: 81 * 12,
+    evidence: [{ source: "legacy_migration", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5, financialScope: "personal" }]
+  }];
+  const plan = buildExpenseLifecycleReviewPlan({ ledger: current, ageInMonths: 81 * 12 });
+  assert.equal(plan.events.length, 0, "scheduled review must not re-write the legacy-invalid confirmation pair");
+  assert.ok(plan.issues.some((issue) => issue.id === "expense_review_due_legacy_timestamped_estimate"));
+});
+
 test("a new responsibility review evidence causes one review transition and is persisted on the commitment", () => {
   const current = ledger();
   const changedEvidence = {

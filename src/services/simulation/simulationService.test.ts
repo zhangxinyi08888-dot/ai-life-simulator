@@ -1557,6 +1557,7 @@ assert.equal(shadowHousingCandidate.reconcilerDisposition, "planned_start");
 assert.equal(shadowHousingCandidate.amountBasis, "explicit_protagonist_share");
 assert.equal(shadowHousingCandidate.sourceMonthlyAmountWan, 0.6);
 assert.equal(shadowHousingCandidate.wouldBlock, false);
+assert.equal(shadowHousingCandidate.finalDisposition, "prospective_shadow");
 assert.ok(shadowHousingCandidate.evidenceReasonCodes.length > 0);
 assert.equal(
   shadowLifecycleNode.financialLedger?.expenseCommitments.some((commitment) => commitment.responsibilityKey === "primary_residence:main"),

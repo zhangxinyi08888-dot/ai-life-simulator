@@ -16,6 +16,7 @@ import type {
   AcceptedFinancialEvent,
   ExpenseAmountBasis,
   ExpenseCommitmentV4,
+  ExpenseIssueResolutionKind,
   ExpenseResponsibilityCandidate,
   FinancialEventProposal,
   FinancialEvidence,
@@ -71,6 +72,8 @@ function issue(input: {
   candidate?: ExpenseResponsibilityCandidate;
   relatedAccountIds?: string[];
   relatedProposalIds?: string[];
+  expenseResolutionKind?: ExpenseIssueResolutionKind;
+  expenseResponsibilityKey?: string;
 }): FinancialLedgerIssue {
   return {
     id: input.id,
@@ -80,7 +83,11 @@ function issue(input: {
     relatedProposalIds: input.relatedProposalIds || [],
     relatedAccountIds: input.relatedAccountIds || [],
     summary: input.summary,
-    createdAtAgeInMonths: input.ageInMonths
+    createdAtAgeInMonths: input.ageInMonths,
+    ...(input.expenseResolutionKind ? { expenseResolutionKind: input.expenseResolutionKind } : {}),
+    ...(input.expenseResponsibilityKey || input.candidate?.responsibilityKey
+      ? { expenseResponsibilityKey: input.expenseResponsibilityKey || input.candidate?.responsibilityKey }
+      : {})
   };
 }
 
@@ -617,13 +624,36 @@ function reconciliationSystemGenerated(candidate: ExpenseResponsibilityCandidate
     : "expense_responsibility_reconciliation";
 }
 
-function reviewIssue(candidate: ExpenseResponsibilityCandidate, ageInMonths: number, summary: string): FinancialLedgerIssue {
+function reviewIssue(input: {
+  candidate: ExpenseResponsibilityCandidate;
+  ageInMonths: number;
+  summary: string;
+  severity?: FinancialLedgerIssue["severity"];
+  resolutionKind?: ExpenseIssueResolutionKind;
+}): FinancialLedgerIssue {
+  const { candidate } = input;
   return issue({
     id: `expense_responsibility_review_${candidate.responsibilityKey.replace(/[^a-zA-Z0-9:_-]/gu, "_")}`,
-    summary,
-    ageInMonths,
-    candidate
+    summary: input.summary,
+    ageInMonths: input.ageInMonths,
+    candidate,
+    severity: input.severity,
+    expenseResolutionKind: input.resolutionKind,
+    expenseResponsibilityKey: candidate.responsibilityKey
   });
+}
+
+/**
+ * The clause binder is the sole materiality writer for narrative facts.  The
+ * reconciler deliberately consumes that explicit flag rather than repeating
+ * sentence-level regexes and drifting into a second, inconsistent severity
+ * decision.  Legacy candidates stay review-only until they are migrated to
+ * a bound source.
+ */
+function isMaterialUnknownNarrativeBinding(candidate: ExpenseResponsibilityCandidate): boolean {
+  return candidate.source === "narrative_supplement"
+    && Boolean(candidate.sourceFactBindingId)
+    && candidate.sourceMateriality === "critical";
 }
 
 /**
@@ -1024,6 +1054,7 @@ export function reconcileExpenseCommitments(input: {
     if (isUnsupportedNarrativeSharedResponsibility(candidate)) {
       const hasMaterialSharedTotal = Number.isFinite(candidate.explicitMonthlyTotalWan)
         && (candidate.explicitMonthlyTotalWan || 0) > 0;
+      const isCriticalBinding = isMaterialUnknownNarrativeBinding(candidate);
       const unsupportedSharedNarrativeIssue = issue({
         id: `expense_shared_narrative_requires_accepted_share_${candidate.id}`,
         code: "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT",
@@ -1031,44 +1062,66 @@ export function reconcileExpenseCommitments(input: {
         // text gives an exact protagonist allocation it must regenerate in
         // enforced mode; accepting it as a mere review would silently retain
         // the old, too-low expense baseline for the whole period.
-        severity: hasMaterialSharedTotal ? "blocking" : "warning",
+        severity: hasMaterialSharedTotal || isCriticalBinding ? "blocking" : "warning",
         summary: `叙事仅表明共同责任 ${candidate.responsibilityKey}，未提供 Accepted 的主角个人承担额；不得以策略估算创建 shared_household active commitment`,
         ageInMonths: input.ageInMonths,
-        candidate
+        candidate,
+        expenseResolutionKind: "shared_allocation",
+        expenseResponsibilityKey: candidate.responsibilityKey
       });
       issues.push(unsupportedSharedNarrativeIssue);
       recordCandidateDecision({
         candidate,
-        disposition: hasMaterialSharedTotal ? "blocked" : "issue",
-        reasonCode: "NARRATIVE_SHARED_AMOUNT_REQUIRES_ACCEPTED_FACT",
+        disposition: hasMaterialSharedTotal || isCriticalBinding ? "blocked" : "issue",
+        reasonCode: candidate.sourceBindingReasonCodes?.find((code) => (
+          code === "EXPENSE_SHARED_PROTAGONIST_SHARE_UNRESOLVED"
+        )) || "NARRATIVE_SHARED_AMOUNT_REQUIRES_ACCEPTED_FACT",
         issue: unsupportedSharedNarrativeIssue
       });
       continue;
     }
     if (lacksAcceptedSharedCareOrHealthcareShare(candidate)) {
+      const isCriticalBinding = isMaterialUnknownNarrativeBinding(candidate);
       const sharedCareOwnershipIssue = issue({
         id: `expense_shared_care_requires_accepted_share_${candidate.id}`,
         code: "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT",
+        severity: isCriticalBinding ? "blocking" : "warning",
         summary: `共同责任 ${candidate.responsibilityKey} 未提供权威、可核算的主角月承担额；仅保留复核/issue，不能以估算方式创建、调整或结束个人持续支出`,
         ageInMonths: input.ageInMonths,
-        candidate
+        candidate,
+        expenseResolutionKind: "shared_allocation",
+        expenseResponsibilityKey: candidate.responsibilityKey
       });
       issues.push(sharedCareOwnershipIssue);
       recordCandidateDecision({
         candidate,
-        disposition: "issue",
-        reasonCode: "SHARED_CARE_REQUIRES_ACCEPTED_PROTAGONIST_SHARE",
+        disposition: isCriticalBinding ? "blocked" : "issue",
+        reasonCode: candidate.sourceBindingReasonCodes?.find((code) => (
+          code === "EXPENSE_SHARED_PROTAGONIST_SHARE_UNRESOLVED"
+        )) || "SHARED_CARE_REQUIRES_ACCEPTED_PROTAGONIST_SHARE",
         issue: sharedCareOwnershipIssue
       });
       continue;
     }
     if (candidate.liability === "unknown") {
-      const unresolvedLiabilityIssue = reviewIssue(candidate, input.ageInMonths, `责任 ${candidate.responsibilityKey} 已出现，但主角是否承担尚未确认；不得从个人现金自动扣款`);
+      const critical = isMaterialUnknownNarrativeBinding(candidate);
+      const unresolvedLiabilityIssue = reviewIssue({
+        candidate,
+        ageInMonths: input.ageInMonths,
+        severity: critical ? "blocking" : "warning",
+        resolutionKind: "payer_scope",
+        summary: critical
+          ? `持续现金流 ${candidate.responsibilityKey} 已有明确金额/频率但付款人或范围未绑定；必须在本轮补齐，不能静默推进时间或收入`
+          : `责任 ${candidate.responsibilityKey} 已出现，但主角是否承担尚未确认；不得从个人现金自动扣款`
+      });
       issues.push(unresolvedLiabilityIssue);
       recordCandidateDecision({
         candidate,
-        disposition: "issue",
-        reasonCode: "LIABILITY_UNKNOWN_REVIEW_REQUIRED",
+        disposition: critical ? "blocked" : "issue",
+        reasonCode: candidate.sourceBindingReasonCodes?.find((code) => (
+          code === "EXPENSE_COMPLETED_RECURRING_PAYER_UNRESOLVED"
+            || code === "EXPENSE_COMPLETED_RECURRING_SCOPE_CONFLICT"
+        )) || "LIABILITY_UNKNOWN_REVIEW_REQUIRED",
         issue: unresolvedLiabilityIssue
       });
       continue;
@@ -1245,7 +1298,12 @@ export function reconcileExpenseCommitments(input: {
           });
         }
       } else if (!existing) {
-        const missingReviewTargetIssue = reviewIssue(candidate, input.ageInMonths, `关系或生活安排发生变化，需要复核 ${candidate.responsibilityKey}；没有金额事实时不创建泛化家庭消费桶`);
+        const missingReviewTargetIssue = reviewIssue({
+          candidate,
+          ageInMonths: input.ageInMonths,
+          resolutionKind: "exact_amount",
+          summary: `关系或生活安排发生变化，需要复核 ${candidate.responsibilityKey}；没有金额事实时不创建泛化家庭消费桶`
+        });
         issues.push(missingReviewTargetIssue);
         recordCandidateDecision({
           candidate,

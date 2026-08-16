@@ -111,6 +111,35 @@ test("O-02 only accrues the protagonist half of a shared rent", () => {
   assert.equal(housing?.financialScope, "shared_household");
 });
 
+test("repeated opening statements corroborate one housing bill instead of doubling it", () => {
+  const result = initializeOpeningFinancialLedger({
+    id: "opening_repeated_rent",
+    linkedCareerStateId: "career_opening",
+    proposedState: openingState(),
+    openingFacts: {
+      evidenceText: "我每月支付房租5000元。房租5000元由我实际支付。",
+      ownsProperty: false,
+      expenseFacts: [
+        {
+          id: "rent_first", type: "housing", responsibilityKey: "primary_residence:main",
+          responsibilityKind: "primary_residence", cadence: "monthly", monthlyAmountWan: 0.5,
+          financialScope: "personal", factStatus: "known", amountBasis: "explicit_known",
+          amountSourceId: "opening_user_rent_first", evidenceText: "我每月支付房租5000元。"
+        },
+        {
+          id: "rent_repeated", type: "housing", responsibilityKey: "primary_residence:main",
+          responsibilityKind: "primary_residence", cadence: "monthly", monthlyAmountWan: 0.5,
+          financialScope: "personal", factStatus: "known", amountBasis: "explicit_known",
+          amountSourceId: "opening_user_rent_repeated", evidenceText: "房租5000元由我实际支付。"
+        }
+      ]
+    }
+  });
+  const housing = result.ledger.expenseCommitments.find((item) => item.responsibilityKey === "primary_residence:main");
+  assert.equal(housing?.monthlyAmountWan, 0.5);
+  assert.equal(housing?.confirmedMonthlyAmountWan, 0.5);
+});
+
 test("O-03 retains exactly one conservative legacy aggregate when its coverage of known components is unknown", () => {
   const openingFacts: OpeningFinancialFacts = {
     evidenceText: "每月总开销1.5万，房租5000元，父母医疗3000元。",

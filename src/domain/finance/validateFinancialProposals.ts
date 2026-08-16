@@ -16,6 +16,13 @@ import { parentElderCareCoverageRole, type ParentElderCareCoverageRole } from ".
 import { hasExplicitPersonalBusinessIncomeReceipt, hasMatchingPersonalBusinessIncomeAmount, isNarratedBeforePeriod, matchFinancialEvidence, type EvidenceMatchReason } from "./evidenceMatching";
 import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 import { hasCompletedEmployerStartEvidence } from "../../utils/employmentState";
+import { bindNarrativeExpenseFacts, type NarrativeExpenseFactBinding } from "./narrativeExpenseFactBinding";
+import {
+  validateExpenseConfirmation,
+  type ExpenseAmountObservation,
+  type ExpenseConfirmationValidationResult
+} from "./expenseConfirmation";
+import { expenseReviewIntervalMonths } from "./expenseEstimationPolicyV2";
 
 const FINANCIAL_EVENT_KINDS = new Set<FinancialEventKind>([
   "income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended",
@@ -387,13 +394,16 @@ function isValidSystemExpenseLifecycleReview(input: {
     && next.type === current.type
     && Number(next.monthlyAmountWan) === current.monthlyAmountWan
     && next.status === current.status
-    && next.factStatus === "needs_review"
+    && next.factStatus === current.factStatus
+    && next.amountBasis === current.amountBasis
+    && next.confirmedMonthlyAmountWan === current.confirmedMonthlyAmountWan
+    && next.lastConfirmedAtAgeInMonths === current.lastConfirmedAtAgeInMonths
     && next.accrualReviewStatus === "review_due"
   );
 }
 
 const V4_EXPENSE_CHANGE_REASONS = new Set([
-  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "dependent_independent",
+  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "estimate_superseded_by_exact_fact", "dependent_independent",
   "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
   "education_completed", "aggregate_atomically_split", "temporary_third_party_coverage",
   "responsibility_resumed", "responsibility_ended"
@@ -407,6 +417,8 @@ function changeReasonHasAcceptedEvidence(reason: string, text: string): boolean 
       return /共同承担|分摊|各自承担|承担比例|对半|份额/u.test(text);
     case "explicit_amount_reduced":
       return /(?:月租|房租|支出|费用|保费|医疗费|生活费).{0,20}(?:降|减少|下调|变为|调整为)|(?:降为|减少至|下调至).{0,20}(?:元|万)/u.test(text);
+    case "estimate_superseded_by_exact_fact":
+      return /(?:实际|当前|现行).{0,32}(?:月租|房租|支出|费用|保费|医疗费|生活费|每月).{0,32}\d+(?:\.\d+)?\s*(?:元|万)/u.test(text);
     case "dependent_independent":
       return /子女.{0,20}(?:独立|工作|不再需要抚养)|独立生活/u.test(text);
     case "care_responsibility_transferred":
@@ -668,7 +680,11 @@ function isValidSystemContextualCareUplift(input: {
     ));
 }
 
-function acceptedEvent(proposal: FinancialEventProposal, evidenceReason: EvidenceMatchReason): AcceptedFinancialEvent {
+function acceptedEvent(
+  proposal: FinancialEventProposal,
+  evidenceReason: EvidenceMatchReason,
+  expenseConfirmation?: ExpenseConfirmationValidationResult
+): AcceptedFinancialEvent {
   const payload = proposal.confidence < 0.8
     ? markEstimatedFacts(proposal.payload)
     : structuredClone(proposal.payload);
@@ -695,7 +711,21 @@ function acceptedEvent(proposal: FinancialEventProposal, evidenceReason: Evidenc
       confidence: proposal.confidence,
       financialScope: proposal.financialScope ?? "personal"
     }],
-    acceptedByReasonCodes: ["SCHEMA", "OUTCOME_AUTHORITY", "SUBJECT", "TEMPORAL", evidenceReason, "ACCOUNTING_INVARIANTS"]
+    acceptedByReasonCodes: ["SCHEMA", "OUTCOME_AUTHORITY", "SUBJECT", "TEMPORAL", evidenceReason, "ACCOUNTING_INVARIANTS"],
+    ...(expenseConfirmation?.disposition === "confirmed_exact"
+      && expenseConfirmation.accountId
+      && expenseConfirmation.resolutionKind
+      ? {
+          expenseConfirmationResolution: {
+            disposition: "confirmed_exact" as const,
+            responsibilityKey: expenseConfirmation.responsibilityKey,
+            accountId: expenseConfirmation.accountId,
+            targetIssueIds: expenseConfirmation.targetIssueIds,
+            resolutionKind: expenseConfirmation.resolutionKind,
+            matchedBindingId: expenseConfirmation.matchedBindingId
+          }
+        }
+      : {})
   } as AcceptedFinancialEvent;
   if (event.kind === "asset_purchased") {
     const account = event.payload.assetAccount;
@@ -717,11 +747,25 @@ function acceptedEvent(proposal: FinancialEventProposal, evidenceReason: Evidenc
   if (event.kind === "income_source_adjusted" && (!Array.isArray(event.payload.nextSource.evidence) || event.payload.nextSource.evidence.length === 0)) {
     event.payload.nextSource.evidence = structuredClone(event.evidence);
   }
-  if (event.kind === "expense_commitment_started" && (!Array.isArray(event.payload.evidence) || event.payload.evidence.length === 0)) {
-    event.payload.evidence = structuredClone(event.evidence);
+  if (event.kind === "expense_commitment_started") {
+    const existingEvidence = Array.isArray(event.payload.evidence) ? event.payload.evidence : [];
+    event.payload.evidence = [...existingEvidence];
+    for (const evidence of event.evidence) {
+      if (!event.payload.evidence.some((item) => item.sourceEventId === evidence.sourceEventId
+        && item.reasonCode === evidence.reasonCode
+        && item.excerpt === evidence.excerpt)) event.payload.evidence.push(structuredClone(evidence));
+    }
   }
-  if (event.kind === "expense_commitment_adjusted" && (!Array.isArray(event.payload.nextCommitment.evidence) || event.payload.nextCommitment.evidence.length === 0)) {
-    event.payload.nextCommitment.evidence = structuredClone(event.evidence);
+  if (event.kind === "expense_commitment_adjusted") {
+    const existingEvidence = Array.isArray(event.payload.nextCommitment.evidence)
+      ? event.payload.nextCommitment.evidence
+      : [];
+    event.payload.nextCommitment.evidence = [...existingEvidence];
+    for (const evidence of event.evidence) {
+      if (!event.payload.nextCommitment.evidence.some((item) => item.sourceEventId === evidence.sourceEventId
+        && item.reasonCode === evidence.reasonCode
+        && item.excerpt === evidence.excerpt)) event.payload.nextCommitment.evidence.push(structuredClone(evidence));
+    }
   }
   if (event.kind === "debt_drawn" || event.kind === "liquidity_shortfall_created") {
     const account = event.payload.debtAccount;
@@ -1027,6 +1071,165 @@ function replaceExpenseAmountSourceOwner(input: {
   }
 }
 
+function proposalExpenseCommitment(proposal: FinancialEventProposal): ExpenseCommitmentV4 | undefined {
+  if (proposal.kind === "expense_commitment_started") {
+    return isExpenseCommitmentV4(proposal.payload as any) ? proposal.payload as ExpenseCommitmentV4 : undefined;
+  }
+  if (proposal.kind !== "expense_commitment_adjusted") return undefined;
+  const next = (proposal.payload as Record<string, unknown>)?.nextCommitment;
+  return isExpenseCommitmentV4(next as any) ? next as ExpenseCommitmentV4 : undefined;
+}
+
+function exactExpenseConfirmationAttempt(input: {
+  proposal: FinancialEventProposal;
+  ledger: FinancialLedger;
+  narrativeText: string;
+  sourceNodeId: string;
+  sourceOutcomeId?: string;
+  periodStartAgeInMonths: number;
+  periodEndAgeInMonths: number;
+}): { proposal: FinancialEventProposal; result: ExpenseConfirmationValidationResult } | undefined {
+  if (!isFinancialLedgerV4(input.ledger) || input.proposal.systemGenerated) return undefined;
+  const commitment = proposalExpenseCommitment(input.proposal);
+  if (!commitment) return undefined;
+  const claimsExact = commitment.factStatus === "known"
+    || commitment.amountBasis === "explicit_known"
+    || commitment.amountBasis === "explicit_shared_amount"
+    || (input.proposal.payload as Record<string, unknown>)?.changeReason === "estimate_superseded_by_exact_fact";
+  if (!claimsExact) return undefined;
+
+  const bindings = bindNarrativeExpenseFacts({
+    sourceNodeId: input.sourceNodeId,
+    sourceOutcomeId: input.sourceOutcomeId,
+    narrativeText: input.narrativeText,
+    existingExpenseCommitments: input.ledger.expenseCommitments
+  });
+  const compatible = bindings.bindings.filter((binding) => (
+    binding.responsibilityKind === commitment.responsibilityKind
+    && binding.proposedType === commitment.type
+    && (binding.liability === "protagonist" || binding.liability === "shared")
+    && binding.protagonistShareWan !== undefined
+  ));
+  const binding = compatible.find((item) => item.responsibilityKey === commitment.responsibilityKey)
+    || (compatible.length === 1 ? compatible[0] : undefined);
+  const fallbackResult: ExpenseConfirmationValidationResult = {
+    disposition: "blocked",
+    observationId: `expense_observation_${input.proposal.id}`,
+    proposalId: input.proposal.id,
+    responsibilityKey: commitment.responsibilityKey,
+    accountId: commitment.id,
+    reasonCodes: ["EXPENSE_CONFIRMATION_BINDING_REQUIRED"],
+    targetIssueIds: []
+  };
+  if (!binding || !binding.amountSourceId || !binding.amountSpan || !input.sourceOutcomeId) {
+    return { proposal: input.proposal, result: fallbackResult };
+  }
+
+  const cadence = binding.cadence === "annual" ? "annual" : "monthly";
+  const cadenceMultiplier = cadence === "annual" ? 12 : 1;
+  const observation: ExpenseAmountObservation = {
+    id: `expense_observation_${input.proposal.id}`,
+    authoritySourceKind: "direct_financial_proposal",
+    authoritySourceId: input.proposal.id,
+    sourceOutcomeId: input.sourceOutcomeId,
+    expenseCommitmentId: input.proposal.kind === "expense_commitment_adjusted"
+      ? String((input.proposal.payload as Record<string, unknown>).expenseCommitmentId || commitment.id)
+      : undefined,
+    responsibilityKey: binding.responsibilityKey,
+    responsibilityKind: binding.responsibilityKind,
+    proposedType: binding.proposedType,
+    statementKind: "exact",
+    cadence,
+    payer: binding.liability as "protagonist" | "shared",
+    financialScope: binding.financialScope,
+    protagonistAmountWan: binding.protagonistShareWan * cadenceMultiplier,
+    grossAmountWan: binding.explicitMonthlyTotalWan === undefined
+      ? undefined
+      : binding.explicitMonthlyTotalWan * cadenceMultiplier,
+    householdShareRate: binding.shareRate,
+    effectiveAtAgeInMonths: input.proposal.effectiveAtAgeInMonths,
+    amountSourceId: binding.amountSourceId,
+    evidenceFingerprint: binding.evidenceFingerprint,
+    bindingId: binding.id,
+    evidenceAnchor: {
+      kind: "final_narrative_span",
+      ...binding.amountSpan,
+      fingerprint: binding.evidenceFingerprint
+    }
+  };
+  const targetIssueIds = input.ledger.unresolvedIssues.filter((issue) => (
+    issue.status !== "resolved"
+    && (issue.expenseResponsibilityKey === binding.responsibilityKey
+      || (issue.relatedAccountIds || []).includes(commitment.id))
+    && (!issue.expenseResolutionKind
+      || issue.expenseResolutionKind === "exact_amount"
+      || issue.expenseResolutionKind === "shared_allocation")
+  )).map((issue) => issue.id);
+  // A new model-authored account ID is transport data, but the responsibility
+  // identity is domain-owned. For a start with one unambiguous bound fact,
+  // canonicalize the key before confirmation; an adjustment must retain the
+  // existing ledger identity and is never rewritten here.
+  const proposalForConfirmation = structuredClone(input.proposal);
+  if (proposalForConfirmation.kind === "expense_commitment_started") {
+    proposalForConfirmation.payload = {
+      ...(proposalForConfirmation.payload as Record<string, unknown>),
+      responsibilityKey: binding.responsibilityKey,
+      responsibilityKind: binding.responsibilityKind,
+      type: binding.proposedType,
+      financialScope: binding.financialScope,
+      participantPersonIds: binding.participantPersonIds
+    };
+  }
+  const result = validateExpenseConfirmation({
+    observation,
+    proposal: proposalForConfirmation,
+    previousLedger: input.ledger,
+    currentAcceptedAuthority: {
+      sourceNodeId: input.sourceNodeId,
+      sourceOutcomeId: input.sourceOutcomeId,
+      acceptedUserFactIds: [],
+      acceptedDirectProposalIds: [input.proposal.id],
+      acceptedWorldDeltaIds: [],
+      periodStartAgeInMonths: input.periodStartAgeInMonths,
+      periodEndAgeInMonths: input.periodEndAgeInMonths
+    },
+    finalNarrativeText: input.narrativeText,
+    periodStartAgeInMonths: input.periodStartAgeInMonths,
+    periodEndAgeInMonths: input.periodEndAgeInMonths,
+    bindings: bindings.bindings,
+    targetIssueIds
+  });
+  if (result.disposition !== "confirmed_exact" || !result.canonicalConfirmation) {
+    return { proposal: input.proposal, result };
+  }
+  const canonical = result.canonicalConfirmation;
+  const nextCommitment: ExpenseCommitmentV4 = {
+    ...structuredClone(commitment),
+    factStatus: canonical.factStatus,
+    amountBasis: canonical.amountBasis,
+    monthlyAmountWan: canonical.monthlyAmountWan,
+    confirmedMonthlyAmountWan: canonical.confirmedMonthlyAmountWan,
+    ...(canonical.grossMonthlyAmountWan === undefined
+      ? { grossMonthlyAmountWan: undefined, householdShareRate: undefined }
+      : {
+          grossMonthlyAmountWan: canonical.grossMonthlyAmountWan,
+          householdShareRate: canonical.householdShareRate
+        }),
+    amountSourceIds: [...new Set([...commitment.amountSourceIds, observation.amountSourceId])],
+    accrualReviewStatus: "normal",
+    lastConfirmedAtAgeInMonths: canonical.confirmedAtAgeInMonths,
+    lastReviewedAtAgeInMonths: canonical.confirmedAtAgeInMonths,
+    nextReviewAtAgeInMonths: canonical.confirmedAtAgeInMonths
+      + expenseReviewIntervalMonths(commitment.responsibilityKind)
+  };
+  const proposal = proposalForConfirmation;
+  proposal.financialScope = binding.financialScope;
+  proposal.payload = proposal.kind === "expense_commitment_started"
+    ? nextCommitment
+    : { ...(proposal.payload as Record<string, unknown>), nextCommitment };
+  return { proposal, result };
+}
+
 export function validateFinancialProposals(input: {
   proposals: FinancialEventProposal[];
   currentLedger: FinancialLedger;
@@ -1038,20 +1241,57 @@ export function validateFinancialProposals(input: {
   simulationTransactionId: string;
   allowedCareerStateIds?: string[];
   liquidityPolicy?: LiquidityPolicy;
-}): { acceptedEvents: AcceptedFinancialEvent[]; issues: FinancialLedgerIssue[] } {
+  enforceExpenseConfirmation?: boolean;
+}): { acceptedEvents: AcceptedFinancialEvent[]; issues: FinancialLedgerIssue[]; expenseConfirmationResults?: ExpenseConfirmationValidationResult[] } {
   const issues: FinancialLedgerIssue[] = [];
   const acceptedEvents: AcceptedFinancialEvent[] = [];
   const acceptedProposals: FinancialEventProposal[] = [];
+  const expenseConfirmationResults: ExpenseConfirmationValidationResult[] = [];
   const ids = new Set<string>();
   const allowedCareerStateIds = new Set([input.currentCareerState.id, ...(input.allowedCareerStateIds || [])]);
   const expenseAmountSourceOwners = activeExpenseAmountSourceOwners(input.currentLedger);
 
-  for (const proposal of input.proposals) {
+  for (const submittedProposal of input.proposals) {
+    let proposal = submittedProposal;
+    let expenseConfirmation: ExpenseConfirmationValidationResult | undefined;
     if (!proposal.id || ids.has(proposal.id) || !FINANCIAL_EVENT_KINDS.has(proposal.kind) || !proposal.payload || typeof proposal.payload !== "object") {
       issues.push(proposalIssue({ proposal, code: "UNBALANCED_TRANSACTION", summary: "财务 Proposal schema 无效或 id 重复", ageInMonths: input.periodEndAgeInMonths }));
       continue;
     }
     ids.add(proposal.id);
+    if (input.enforceExpenseConfirmation) {
+      const attempted = exactExpenseConfirmationAttempt({
+        proposal,
+        ledger: input.currentLedger,
+        narrativeText: input.narrativeText,
+        sourceNodeId: input.simulationTransactionId,
+        sourceOutcomeId: input.acceptedOutcomeId,
+        periodStartAgeInMonths: input.periodStartAgeInMonths,
+        periodEndAgeInMonths: input.periodEndAgeInMonths
+      });
+      if (attempted) {
+        expenseConfirmation = attempted.result;
+        expenseConfirmationResults.push(attempted.result);
+        if (attempted.result.disposition !== "confirmed_exact") {
+          issues.push({
+            ...proposalIssue({
+              proposal,
+              code: "PENDING_FACT",
+              summary: `支出精确事实未通过权威确认：${attempted.result.reasonCodes.join("、")}`,
+              ageInMonths: proposal.effectiveAtAgeInMonths
+            }),
+            severity: "blocking",
+            relatedAccountIds: attempted.result.accountId ? [attempted.result.accountId] : [],
+            expenseResolutionKind: proposal.financialScope === "shared_household"
+              ? "shared_allocation"
+              : "exact_amount",
+            expenseResponsibilityKey: attempted.result.responsibilityKey
+          });
+          continue;
+        }
+        proposal = attempted.proposal;
+      }
+    }
     const schemaErrors = validateFinancialPayloadSchema(proposal.kind, proposal.payload);
     if (schemaErrors.length > 0) {
       const invalidAssetType = proposal.kind === "asset_purchased"
@@ -1409,7 +1649,7 @@ export function validateFinancialProposals(input: {
       }));
       continue;
     }
-    acceptedEvents.push(acceptedEvent(proposal, evidenceMatch.reasonCode));
+    acceptedEvents.push(acceptedEvent(proposal, evidenceMatch.reasonCode, expenseConfirmation));
     acceptedProposals.push(proposal);
     if (expenseMutation) replaceExpenseAmountSourceOwner({
       owners: expenseAmountSourceOwners,
@@ -1507,5 +1747,5 @@ export function validateFinancialProposals(input: {
       }
     }
   }
-  return { acceptedEvents: acceptedAfterTrial, issues };
+  return { acceptedEvents: acceptedAfterTrial, issues, expenseConfirmationResults };
 }

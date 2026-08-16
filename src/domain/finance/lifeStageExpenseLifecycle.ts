@@ -1,5 +1,7 @@
 import type { WorldStateSnapshot } from "../../types";
+import type { ExpenseNarrativeBindingMode } from "../../config/financialGatePolicy";
 import type { ExpenseCommitmentV4, ExpenseResponsibilityCandidate, FinancialLedgerIssue } from "./types";
+import type { NarrativeExpenseFactBindingResult } from "./narrativeExpenseFactBinding";
 import {
   deriveExpenseResponsibilityCandidates,
   type ExplicitExpenseResponsibilityFact
@@ -17,6 +19,8 @@ export interface LifeStageExpenseLifecycleResult {
   reviewReasonCodes: string[];
   triggers: ExpenseResponsibilityCandidate[];
   coveredTriggerCount: number;
+  narrativeBindingMode: ExpenseNarrativeBindingMode;
+  narrativeBinding?: NarrativeExpenseFactBindingResult;
 }
 
 export function detectLifeStageExpenseTriggers(narrativeText: string): ExpenseResponsibilityCandidate[] {
@@ -30,6 +34,9 @@ export function applyLifeStageExpenseLifecycle(input: {
   existingExpenseCommitments?: ExpenseCommitmentV4[];
   explicitFacts?: ExplicitExpenseResponsibilityFact[];
   ageInMonths: number;
+  sourceNodeId?: string;
+  sourceOutcomeId?: string;
+  narrativeBindingMode?: ExpenseNarrativeBindingMode;
 }): LifeStageExpenseLifecycleResult {
   const derived = deriveExpenseResponsibilityCandidates({
     currentWorldState: input.currentWorldState,
@@ -37,27 +44,24 @@ export function applyLifeStageExpenseLifecycle(input: {
     existingExpenseCommitments: input.existingExpenseCommitments,
     narrativeText: input.narrativeText,
     explicitFacts: input.explicitFacts,
-    ageInMonths: input.ageInMonths
+    ageInMonths: input.ageInMonths,
+    sourceNodeId: input.sourceNodeId,
+    sourceOutcomeId: input.sourceOutcomeId,
+    narrativeBindingMode: input.narrativeBindingMode
   });
-  const ownerIssues: FinancialLedgerIssue[] = derived.candidates
-    .filter((candidate) => candidate.liability === "unknown")
-    .map((candidate) => ({
-      id: `expense_responsibility_owner_review_${candidate.responsibilityKey.replace(/[^a-zA-Z0-9:_-]/gu, "_")}`,
-      code: "PENDING_FACT",
-      severity: "warning",
-      status: "open",
-      relatedProposalIds: [],
-      relatedAccountIds: [],
-      summary: `责任 ${candidate.responsibilityKey} 已被识别，但主角承担比例尚未确认`,
-      createdAtAgeInMonths: input.ageInMonths
-    }));
   return {
     candidates: derived.candidates,
     triggers: derived.candidates,
     // A trigger is no longer automatically covered.  Coverage is calculated
     // against independent annotations in the audit, never by this detector.
     coveredTriggerCount: 0,
-    issues: ownerIssues,
-    reviewReasonCodes: ownerIssues.map((item) => item.id)
+    // Reconciliation is now the single writer for responsibility severity and
+    // persistent issues.  Having this façade produce a second unknown-owner
+    // issue used to let lifecycle, binder and reconciler disagree about a
+    // material fact's blocking status.
+    issues: [],
+    reviewReasonCodes: [],
+    narrativeBindingMode: derived.narrativeBindingMode,
+    narrativeBinding: derived.narrativeBinding
   };
 }

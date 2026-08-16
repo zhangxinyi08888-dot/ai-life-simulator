@@ -118,6 +118,8 @@ export type ExpenseCommitmentChangeReason =
   | "residence_ended"
   | "shared_responsibility_changed"
   | "explicit_amount_reduced"
+  /** A new Accepted exact fact replaces a previously policy/context/legacy estimate. */
+  | "estimate_superseded_by_exact_fact"
   | "dependent_independent"
   | "care_responsibility_transferred"
   | "care_recipient_deceased"
@@ -209,8 +211,46 @@ export interface ExpenseResponsibilityCandidate {
    * `needs_review` contextual estimate of the same responsibility.
    */
   policyEstimateAdjustment?: "increase_only";
+  /**
+   * Non-persistent binding metadata. It is carried only from the narrative
+   * clause binder through reconciliation/gate telemetry; it never contributes
+   * to account identity or ledger math.
+   */
+  sourceFactBindingId?: string;
+  sourceSpans?: {
+    responsibility: ExpenseNarrativeTextSpan;
+    completion?: ExpenseNarrativeTextSpan;
+    payer?: ExpenseNarrativeTextSpan;
+    amount?: ExpenseNarrativeTextSpan;
+    cadence?: ExpenseNarrativeTextSpan;
+  };
+  sourceClause?: {
+    clauseId: string;
+    contextClauseIds: string[];
+    sentenceIndex: number;
+    clauseIndex: number;
+  };
+  sourceBindingDisposition?: "bound" | "owner_review" | "ambiguous";
+  sourceMateriality?: "nonmaterial" | "review" | "critical";
+  unresolvedFields?: Array<"completion" | "payer" | "scope" | "amount" | "share" | "cadence">;
+  sourceBindingReasonCodes?: string[];
   evidence: FinancialEvidence[];
 }
+
+/** A UTF-16 half-open span into one candidate narrative. */
+export interface ExpenseNarrativeTextSpan {
+  start: number;
+  end: number;
+  excerpt: string;
+}
+
+/** Which future Accepted fact is allowed to close a durable expense review. */
+export type ExpenseIssueResolutionKind =
+  | "exact_amount"
+  | "payer_scope"
+  | "shared_allocation"
+  | "end_or_pause_authority"
+  | "aggregate_split";
 
 export type DebtType = "mortgage" | "consumer_loan" | "student_loan" | "credit_balance" | "business_personal_guarantee" | "family_or_personal_loan" | "liquidity_shortfall";
 
@@ -364,6 +404,7 @@ export interface FinancialLedgerIssue {
     | "EXPENSE_ESTIMATION_POLICY_MISSING"
     | "EXPENSE_AMOUNT_SOURCE_DOUBLE_COUNT"
     | "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY"
+    | "EXPENSE_CONFIRMATION_ATOMICITY_FAILED"
     | "EXPENSE_SCHEMA_FIELD_MISMATCH";
   severity: "warning" | "blocking";
   status?: "open" | "resolved";
@@ -378,6 +419,13 @@ export interface FinancialLedgerIssue {
   occurrenceCount?: number;
   resolvedAtAgeInMonths?: number;
   resolvedByEventId?: string;
+  /**
+   * New V4 recurring-expense reviews record the missing-fact dimension so an
+   * unrelated event touching the same account cannot close them.  Optional
+   * for backward-compatible reading of historical ledgers.
+   */
+  expenseResolutionKind?: ExpenseIssueResolutionKind;
+  expenseResponsibilityKey?: string;
   pendingFactPolicy?: "bounded_last_known_income";
 }
 
@@ -752,6 +800,19 @@ export type AcceptedFinancialEvent<K extends FinancialEventKind = FinancialEvent
   payload: FinancialEventPayloadMap[K];
   evidence: FinancialEvidence[];
   acceptedByReasonCodes: string[];
+  /**
+   * Code-owned proof that this event resolved one or more recurring-expense
+   * fact dimensions.  Model transport cannot provide this field; the
+   * confirmation validator stamps it after matching final evidence.
+   */
+  expenseConfirmationResolution?: {
+    disposition: "confirmed_exact";
+    responsibilityKey: string;
+    accountId: string;
+    targetIssueIds: string[];
+    resolutionKind: "exact_amount" | "shared_allocation";
+    matchedBindingId?: string;
+  };
   liquidityTreatment?: "require_explicit" | "allow_system_shortfall";
 } : never;
 

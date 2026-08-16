@@ -20,7 +20,7 @@ const EXPENSE_AMOUNT_BASES = new Set([
   "explicit_known", "explicit_shared_amount", "last_known", "contextual_estimate", "policy_floor", "legacy_estimate"
 ]);
 const EXPENSE_CHANGE_REASONS = new Set([
-  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "dependent_independent",
+  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "estimate_superseded_by_exact_fact", "dependent_independent",
   "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
   "education_completed", "aggregate_atomically_split", "temporary_third_party_coverage",
   "responsibility_resumed", "responsibility_ended"
@@ -107,6 +107,13 @@ function expenseCommitment(value: unknown, path: string, errors: FinancialPayloa
     errors.push({ path: `${path}.householdShareRate`, reason: "必须在 0-1 之间" });
   }
   const explicitSharedAmount = item.amountBasis === "explicit_shared_amount";
+  const explicitAmount = item.amountBasis === "explicit_known" || explicitSharedAmount;
+  if (item.factStatus === "known" && !explicitAmount) {
+    errors.push({ path: `${path}.amountBasis`, reason: "已知 V4 支出必须使用 explicit_known 或 explicit_shared_amount" });
+  }
+  if (explicitAmount && item.factStatus !== "known") {
+    errors.push({ path: `${path}.factStatus`, reason: "明确金额 V4 支出必须为 known" });
+  }
   if (explicitSharedAmount) {
     if (item.financialScope !== "shared_household") {
       errors.push({ path: `${path}.financialScope`, reason: "共同金额必须使用 shared_household 责任范围" });
@@ -122,9 +129,11 @@ function expenseCommitment(value: unknown, path: string, errors: FinancialPayloa
       errors.push({ path: `${path}.monthlyAmountWan`, reason: "必须等于总额乘主角承担比例" });
     }
   }
-  if (["explicit_known", "explicit_shared_amount"].includes(String(item.amountBasis))) {
+  if (explicitAmount) {
     requiredNumber(item.confirmedMonthlyAmountWan, `${path}.confirmedMonthlyAmountWan`, errors, false);
     requiredInteger(item.lastConfirmedAtAgeInMonths, `${path}.lastConfirmedAtAgeInMonths`, errors);
+  } else if (item.confirmedMonthlyAmountWan !== undefined || item.lastConfirmedAtAgeInMonths !== undefined) {
+    errors.push({ path: `${path}.confirmedMonthlyAmountWan`, reason: "非明确金额 V4 支出不得携带确认金额或确认时间" });
   }
   if (["contextual_estimate", "policy_floor", "legacy_estimate"].includes(String(item.amountBasis))) {
     requiredString(item.estimationPolicyId, `${path}.estimationPolicyId`, errors);

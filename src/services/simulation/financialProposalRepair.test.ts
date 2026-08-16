@@ -72,6 +72,63 @@ test("repair prompt supplies rejection reasons, period bounds and the unique out
   assert.match(prompt, /原子组/);
 });
 
+test("expense fact repair exposes only identity and missing dimensions, never the old policy amount", () => {
+  const expenseLedger = structuredClone(ledger) as any;
+  expenseLedger.version = 4;
+  expenseLedger.expenseCommitments = [{
+    id: "rent_review",
+    type: "housing",
+    displayName: "当前住房",
+    monthlyAmountWan: 0.35,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "needs_review",
+    evidence: [],
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    amountBasis: "policy_floor",
+    amountSourceIds: ["policy:secret-old-floor"],
+    financialScope: "personal",
+    accrualReviewStatus: "review_due"
+  }];
+  const prompt = buildFinancialProposalRepairPrompt({
+    rejectedProposals: [{
+      id: "rent_confirmation",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 312,
+      payload: {
+        expenseCommitmentId: "rent_review",
+        nextCommitment: { ...expenseLedger.expenseCommitments[0], monthlyAmountWan: 0.5 }
+      },
+      sourceOutcomeId: "choice_1",
+      evidence: "你现在每月支付房租5000元。",
+      confidence: 0.9,
+      financialScope: "personal"
+    }],
+    issues: [{
+      id: "expense_confirmation_missing_payer",
+      code: "PENDING_FACT",
+      severity: "blocking",
+      relatedProposalIds: ["rent_confirmation"],
+      relatedAccountIds: ["rent_review"],
+      expenseResolutionKind: "payer_scope",
+      expenseResponsibilityKey: "primary_residence:main",
+      summary: "付款人仍待确认",
+      createdAtAgeInMonths: 312
+    }],
+    ledger: expenseLedger,
+    acceptedOutcomeId: "choice_1",
+    narrativeText: "你现在每月支付房租5000元。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312
+  });
+  assert.match(prompt, /missingField[\s\S]*payer_scope/u);
+  assert.match(prompt, /responsibilityKey=primary_residence:main/u);
+  assert.match(prompt, /不得复制旧账本/u);
+  assert.doesNotMatch(prompt, /0\.35/u);
+  assert.doesNotMatch(prompt, /policy:secret-old-floor/u);
+});
+
 test("selected choices without eventOutcomeId receive a deterministic fallback authority id", () => {
   const history = [{
     age: 30,

@@ -858,6 +858,19 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
   const aggregateSplitLosses = [];
   const amountSourceDoubleCounts = [];
   const mortgageExpenseDoubleCounts = [];
+  const acceptedNodesWithUnresolvedMaterialExpenseBindings = [];
+  const bindingSourceIdentityMissing = [];
+  const bindingTelemetryIncomplete = [];
+  const postSanitizeConfirmationRejections = [];
+  const unknownLiabilityPersonalCommitments = [];
+  const knownWithoutExplicitAmountEvidence = [];
+  const policyFloorPromotedToKnown = [];
+  const untraceableAmountSources = [];
+  const confirmedResponsibilitiesWithoutNonzeroAccrual = [];
+  const expenseConfirmationAuthorityViolations = [];
+  const reviewResolutionsWithoutAcceptedOutcome = [];
+  const annualCoreExpenseDerivationMismatches = [];
+  let expenseBindingTelemetryObservedNodeCount = 0;
   let annualExpenseObservedNodeCount = 0;
   let annualExpenseMissingNodeCount = 0;
   let activeFactStatusSnapshotCount = 0;
@@ -874,6 +887,55 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
     let routeFloorOnlyAdultMonths = 0;
     let routeMaxFloorOnlyStreakMonths = 0;
     for (const [nodeIndex, node] of history.entries()) {
+      const previousNode = history[nodeIndex - 1];
+      const lifecycleTelemetry = node?.financialProcessingMeta?.expenseLifecycleTelemetry;
+      if (lifecycleTelemetry && lifecycleTelemetry.narrativeBindingMode) {
+        expenseBindingTelemetryObservedNodeCount += 1;
+        if (Number(lifecycleTelemetry.narrativeBindingSourceIdentityMissingCount || 0) > 0) {
+          bindingSourceIdentityMissing.push({
+            caseSlug: record.caseSlug,
+            nodeIndex,
+            count: Number(lifecycleTelemetry.narrativeBindingSourceIdentityMissingCount)
+          });
+        }
+        if (Number(lifecycleTelemetry.expenseConfirmationRejectedAfterSanitizeCount || 0) > 0) {
+          postSanitizeConfirmationRejections.push({
+            caseSlug: record.caseSlug,
+            nodeIndex,
+            count: Number(lifecycleTelemetry.expenseConfirmationRejectedAfterSanitizeCount)
+          });
+        }
+        for (const candidate of lifecycleTelemetry.candidates || []) {
+          if (!candidate.sourceFactBindingId) continue;
+          const incomplete = !candidate.sourceClause?.clauseId
+            || !Number.isInteger(candidate.sourceClause?.sentenceIndex)
+            || !Number.isInteger(candidate.sourceClause?.clauseIndex)
+            || !candidate.sourceSpans?.responsibility
+            || !(candidate.unresolvedFields || []).includes("completion") && !candidate.sourceSpans?.completion
+            || candidate.amountBasis !== "unknown" && !candidate.sourceSpans?.amount
+            || candidate.liability !== "unknown" && !candidate.sourceSpans?.payer
+            || candidate.cadence !== "recurring_unknown" && !candidate.sourceSpans?.cadence
+            || !["committed", "rejected", "prospective_shadow"].includes(candidate.finalDisposition);
+          if (incomplete) bindingTelemetryIncomplete.push({
+            caseSlug: record.caseSlug,
+            nodeIndex,
+            candidateId: candidate.candidateId,
+            sourceFactBindingId: candidate.sourceFactBindingId
+          });
+        }
+        const unresolvedCritical = (lifecycleTelemetry.candidates || []).filter((candidate) => (
+          candidate.sourceMateriality === "critical"
+          && (candidate.wouldBlock || candidate.reconcilerDisposition === "blocked")
+        ));
+        if (lifecycleTelemetry.mode === "enforced" && unresolvedCritical.length > 0) {
+          acceptedNodesWithUnresolvedMaterialExpenseBindings.push({
+            caseSlug: record.caseSlug,
+            nodeIndex,
+            candidateIds: unresolvedCritical.map((candidate) => candidate.candidateId),
+            reasonCodes: [...new Set(unresolvedCritical.flatMap((candidate) => candidate.sourceBindingReasonCodes || []))]
+          });
+        }
+      }
       const annualExpense = finite(node?.financialState?.annualCoreExpenseWan);
       if (annualExpense === undefined) {
         annualExpenseMissingNodeCount += 1;
@@ -886,7 +948,69 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
       }
       if (hasExpenseSnapshot(node)) expenseSnapshotObservedNodeCount += 1;
       const commitments = activeCommitments(node);
+      const derivedAnnualCoreExpenseWan = round(commitments.reduce((sum, commitment) => (
+        sum + activeMonthlyAmount(commitment) * 12
+      ), 0));
+      if (annualExpense !== undefined
+        && Math.abs(annualExpense - derivedAnnualCoreExpenseWan) > EXPENSE_EPSILON_WAN) {
+        annualCoreExpenseDerivationMismatches.push({
+          caseSlug: record.caseSlug,
+          nodeIndex,
+          reportedAnnualCoreExpenseWan: annualExpense,
+          derivedAnnualCoreExpenseWan
+        });
+      }
+      const acceptedEventIds = new Set((nodeLedger(node).recentTransactions || [])
+        .flatMap((transaction) => Array.isArray(transaction.eventIds) ? transaction.eventIds : []));
+      for (const issue of nodeLedger(node).unresolvedIssues || []) {
+        if (issue?.status !== "resolved" || !issue?.expenseResolutionKind) continue;
+        const previouslyResolved = (nodeLedger(previousNode).unresolvedIssues || [])
+          .some((previousIssue) => previousIssue?.id === issue.id && previousIssue?.status === "resolved");
+        if (previouslyResolved) continue;
+        if (!issue.resolvedByEventId || !acceptedEventIds.has(issue.resolvedByEventId)) {
+          reviewResolutionsWithoutAcceptedOutcome.push({
+            caseSlug: record.caseSlug,
+            nodeIndex,
+            issueId: issue.id,
+            resolvedByEventId: issue.resolvedByEventId ?? null
+          });
+        }
+      }
       for (const commitment of commitments) {
+        if (financialScope(commitment) === "personal"
+          && (commitment.evidence || []).some((evidence) => (
+            /OWNER_REVIEW_REQUIRED|PAYER_UNRESOLVED|SCOPE_UNRESOLVED/u.test(String(evidence?.reasonCode || ""))
+          ))) {
+          unknownLiabilityPersonalCommitments.push({ caseSlug: record.caseSlug, nodeIndex, commitmentId: commitment.id });
+        }
+        if (commitment.factStatus === "known"
+          && !["explicit_known", "explicit_shared_amount"].includes(commitment.amountBasis)) {
+          knownWithoutExplicitAmountEvidence.push({ caseSlug: record.caseSlug, nodeIndex, commitmentId: commitment.id, amountBasis: commitment.amountBasis });
+        }
+        if (commitment.factStatus === "known" && commitment.amountBasis === "policy_floor") {
+          policyFloorPromotedToKnown.push({ caseSlug: record.caseSlug, nodeIndex, commitmentId: commitment.id });
+        }
+        if (commitment.factStatus === "known" && activeMonthlyAmount(commitment) <= EXPENSE_EPSILON_WAN) {
+          confirmedResponsibilitiesWithoutNonzeroAccrual.push({
+            caseSlug: record.caseSlug,
+            nodeIndex,
+            commitmentId: commitment.id
+          });
+        }
+        if (commitment.factStatus === "known"
+          && ["explicit_known", "explicit_shared_amount"].includes(commitment.amountBasis)
+          && !(commitment.evidence || []).some((evidence) => ACCEPTED_EXPENSE_EVIDENCE_SOURCES.has(evidence?.source))) {
+          expenseConfirmationAuthorityViolations.push({
+            caseSlug: record.caseSlug,
+            nodeIndex,
+            commitmentId: commitment.id,
+            reason: "known_explicit_without_accepted_evidence"
+          });
+        }
+        if (commitment.responsibilityKind && commitment.responsibilityKind !== "adult_basic_living"
+          && (!Array.isArray(commitment.amountSourceIds) || commitment.amountSourceIds.length === 0)) {
+          untraceableAmountSources.push({ caseSlug: record.caseSlug, nodeIndex, commitmentId: commitment.id });
+        }
         increment(factStatusSnapshotCounts, commitmentFactStatus(commitment));
         activeFactStatusSnapshotCount += 1;
         if (["unknown", "needs_review"].includes(commitmentFactStatus(commitment))
@@ -935,7 +1059,6 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
         amountSourceDoubleCounts.push({ caseSlug: record.caseSlug, nodeIndex, ...duplicate });
       }
 
-      const previousNode = history[nodeIndex - 1];
       if (previousNode && hasExpenseSnapshot(previousNode) && hasExpenseSnapshot(node)) {
         const currentByKey = commitmentByResponsibilityKey(node);
         for (const previous of activeCommitments(previousNode)) {
@@ -1118,6 +1241,31 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
       cumulativeSavingsRatePct: aggregateIncome && aggregateIncome > 0 ? percent(aggregateSavings, aggregateIncome) : null,
       cumulativeSavingsRateStatus: aggregateIncome && aggregateIncome > 0 ? flowStatus : "not_covered",
       expenseInvariantAuditStatus,
+      expenseBindingTelemetryStatus: expenseBindingTelemetryObservedNodeCount > 0 ? "observed" : "not_covered",
+      expenseBindingTelemetryObservedNodeCount,
+      acceptedNodeWithUnresolvedMaterialExpenseBindingCount: expenseBindingTelemetryObservedNodeCount > 0
+        ? acceptedNodesWithUnresolvedMaterialExpenseBindings.length
+        : null,
+      expenseBindingSourceIdentityMissingCount: expenseBindingTelemetryObservedNodeCount > 0
+        ? bindingSourceIdentityMissing.reduce((sum, item) => sum + item.count, 0)
+        : null,
+      expenseBindingTelemetryIncompleteCount: expenseBindingTelemetryObservedNodeCount > 0
+        ? bindingTelemetryIncomplete.length
+        : null,
+      expenseConfirmationRejectedAfterSanitizeCount: expenseBindingTelemetryObservedNodeCount > 0
+        ? postSanitizeConfirmationRejections.reduce((sum, item) => sum + item.count, 0)
+        : null,
+      unknownLiabilityPersonalCommitmentCount: observedInvariantCount(unknownLiabilityPersonalCommitments),
+      knownWithoutExplicitAmountEvidenceCount: observedInvariantCount(knownWithoutExplicitAmountEvidence),
+      policyFloorPromotedToKnownCount: observedInvariantCount(policyFloorPromotedToKnown),
+      expenseAmountSourceUntraceableCount: observedInvariantCount(untraceableAmountSources),
+      confirmedResponsibilityWithoutNonzeroAccrualCount: observedInvariantCount(confirmedResponsibilitiesWithoutNonzeroAccrual),
+      expenseConfirmationAuthorityViolationCount: observedInvariantCount(expenseConfirmationAuthorityViolations),
+      reviewResolutionWithoutAcceptedOutcomeCount: observedInvariantCount(reviewResolutionsWithoutAcceptedOutcome),
+      reviewDueWithoutAcceptedDispositionCount: expenseSnapshotObservedNodeCount === 0
+        ? null
+        : terminalStatuses.reduce((sum, item) => sum + item.overdue.length, 0),
+      annualCoreExpenseDerivationMismatchCount: observedInvariantCount(annualCoreExpenseDerivationMismatches),
       expenseInvariantObservedNodeCount: expenseSnapshotObservedNodeCount,
       expenseBaselineDownwardOverwriteCount: observedInvariantCount(baselineDownwardOverwrites),
       expenseUnknownZeroCount: observedInvariantCount(unknownZeroExpenses),
@@ -1137,7 +1285,19 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
       staleExpensesWithoutReview,
       aggregateSplitLosses,
       amountSourceDoubleCounts,
-      mortgageExpenseDoubleCounts
+      mortgageExpenseDoubleCounts,
+      acceptedNodesWithUnresolvedMaterialExpenseBindings,
+      bindingSourceIdentityMissing,
+      bindingTelemetryIncomplete,
+      postSanitizeConfirmationRejections,
+      unknownLiabilityPersonalCommitments,
+      knownWithoutExplicitAmountEvidence,
+      policyFloorPromotedToKnown,
+      untraceableAmountSources,
+      confirmedResponsibilitiesWithoutNonzeroAccrual,
+      expenseConfirmationAuthorityViolations,
+      reviewResolutionsWithoutAcceptedOutcome,
+      annualCoreExpenseDerivationMismatches
     }
   };
 }
@@ -1148,7 +1308,20 @@ const RELEASE_EXPENSE_INVARIANT_FIELDS = [
   ["staleExpenseWithoutReviewCount", "到期支出未复核且没有 review issue"],
   ["expenseAggregateSplitLossCount", "支出总额拆分后发生无证据下降"],
   ["expenseAmountSourceDoubleCount", "同一支出金额事实被重复计提"],
-  ["mortgageExpenseDoubleCountCount", "房贷同时进入 debt service 与 housing"]
+  ["mortgageExpenseDoubleCountCount", "房贷同时进入 debt service 与 housing"],
+  ["acceptedNodeWithUnresolvedMaterialExpenseBindingCount", "enforced 节点仍带未解决重大支出 binding"],
+  ["expenseBindingSourceIdentityMissingCount", "production binding 缺少稳定 source identity"],
+  ["expenseBindingTelemetryIncompleteCount", "production binding 缺少分句、span 或最终 disposition telemetry"],
+  ["expenseConfirmationRejectedAfterSanitizeCount", "最终正文清洗后支出确认失效"],
+  ["unknownLiabilityPersonalCommitmentCount", "付款责任未知却进入个人 active 支出"],
+  ["knownWithoutExplicitAmountEvidenceCount", "known 支出缺少 explicit amount basis"],
+  ["policyFloorPromotedToKnownCount", "policy floor 被提升为 known"],
+  ["expenseAmountSourceUntraceableCount", "分类持续支出缺少 amountSourceId"],
+  ["confirmedResponsibilityWithoutNonzeroAccrualCount", "已确认持续支出没有非零计提"],
+  ["expenseConfirmationAuthorityViolationCount", "known 精确支出缺少 Accepted 权威证据"],
+  ["reviewResolutionWithoutAcceptedOutcomeCount", "支出复核未由 Accepted Event 关闭"],
+  ["reviewDueWithoutAcceptedDispositionCount", "到期支出复核没有 Accepted disposition"],
+  ["annualCoreExpenseDerivationMismatchCount", "年化核心支出与 active 账户求和不一致"]
 ];
 
 /**
@@ -1286,6 +1459,7 @@ export function auditExpenseResponsibilities({ annotations = [], routeRecords = 
         floorOnlyAfterResponsibility.push({
           caseSlug: record.caseSlug,
           nodeIndex,
+          durationMonths: nodeDurationMonths(node, record.history[nodeIndex - 1]),
           materialResponsibilityKeys: outstandingMaterialResponsibilities.map(([key]) => key),
           materialResponsibilitySources: outstandingMaterialResponsibilities.map(([, value]) => value.source)
         });
@@ -1300,6 +1474,23 @@ export function auditExpenseResponsibilities({ annotations = [], routeRecords = 
   }
   const annotationCount = material.length;
   const detectedCandidateCount = candidates.length;
+  const personalLiabilityRejectedAsBusinessOrThirdParty = material.filter((annotation) => (
+    ["personal", "shared_household"].includes(annotation.expectedScope)
+    && candidates.some((candidate) => (
+      candidate.caseSlug === annotation.caseSlug
+      && candidate.nodeIndex === annotation.nodeIndex
+      && candidate.responsibilityKey === annotation.expectedResponsibilityKey
+      && candidate.action === annotation.expectedAction
+      && ["business_operating", "third_party"].includes(candidate.financialScope)
+    ))
+  ));
+  const nonPersonalCommittedAsPersonal = annotations.filter((annotation) => {
+    if (annotation.expectedAction !== "ignore"
+      || !["business_operating", "third_party"].includes(annotation.expectedScope)) return false;
+    const { current } = annotationNodes(nodes, annotation);
+    const commitment = commitmentFor(current, annotation.expectedResponsibilityKey);
+    return commitment && ["personal", "shared_household"].includes(financialScope(commitment));
+  });
   return {
     expenseResponsibilityAnnotatedCandidateCount: annotationCount,
     expenseResponsibilityTruePositiveCount: truePositiveAnnotations.length,
@@ -1315,8 +1506,17 @@ export function auditExpenseResponsibilities({ annotations = [], routeRecords = 
       ? "not_covered"
       : explicitRecurringTruePositives.length === explicitRecurringAnnotations.length ? "covered" : "incomplete",
     adultBaselineOnlyAfterResponsibilityCount: adultBaselineObservedNodeCount === 0 ? null : floorOnlyAfterResponsibility.length,
+    materialResponsibilityPresentButFloorOnlyMonths: annotationCount === 0
+      ? null
+      : floorOnlyAfterResponsibility.reduce((sum, item) => sum + Number(item.durationMonths || 0), 0),
     adultBaselineOnlyAfterResponsibilityStatus: adultBaselineObservedNodeCount === 0 ? "not_covered" : "observed",
     highAgeHealthOrCareResponsibilityCount: highAgeCareResponsibilities.length,
+    personalLiabilityRejectedAsBusinessOrThirdPartyCount: annotationCount === 0
+      ? null
+      : personalLiabilityRejectedAsBusinessOrThirdParty.length,
+    nonPersonalCommittedAsPersonalCount: annotations.length === 0
+      ? null
+      : nonPersonalCommittedAsPersonal.length,
     expenseResponsibilityRecallPct: percent(truePositiveAnnotations.length, annotationCount),
     expenseResponsibilityPrecisionPct: percent(detectedCandidateCount - falsePositives.length, detectedCandidateCount),
     coverageStatus: annotationCount === 0 ? "not_covered" : missed.length === 0 ? "covered" : "incomplete",
@@ -1328,6 +1528,8 @@ export function auditExpenseResponsibilities({ annotations = [], routeRecords = 
       sharedAmountMismatch,
       floorOnlyAfterResponsibility,
       highAgeCareResponsibilities,
+      personalLiabilityRejectedAsBusinessOrThirdParty,
+      nonPersonalCommittedAsPersonal,
       detectedCandidates: candidates
     }
   };

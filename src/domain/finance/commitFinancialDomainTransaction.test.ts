@@ -700,6 +700,8 @@ test("a needs-review adjustment cannot close an overdue expense issue, while an 
     status: "open",
     relatedProposalIds: [],
     relatedAccountIds: [care.id],
+    expenseResolutionKind: "exact_amount",
+    expenseResponsibilityKey: care.responsibilityKey,
     summary: "父母照护金额仍待确认",
     createdAtAgeInMonths: 361
   });
@@ -743,8 +745,33 @@ test("a needs-review adjustment cannot close an overdue expense issue, while an 
       nextCommitment: { ...care, status: "paused" }
     })]
   });
-  assert.equal(paused.financialLedger.unresolvedIssues.find((issue) => issue.id === "expense_review_due_reviewable_parent_care")?.status, "resolved");
+  assert.equal(paused.financialLedger.unresolvedIssues.find((issue) => issue.id === "expense_review_due_reviewable_parent_care")?.status, "open",
+    "an authorized pause cannot close an issue whose missing dimension is an exact amount");
 
+  const exactConfirmationEvent = accepted("confirmed_parent_care", "expense_commitment_adjusted", 363, {
+    expenseCommitmentId: care.id,
+    nextCommitment: {
+      ...observed,
+      monthlyAmountWan: 0.25,
+      confirmedMonthlyAmountWan: 0.25,
+      amountBasis: "explicit_known",
+      amountSourceIds: ["accepted:parent-care-2500"],
+      factStatus: "known",
+      accrualReviewStatus: "normal",
+      lastConfirmedAtAgeInMonths: 363,
+      lastReviewedAtAgeInMonths: 363,
+      nextReviewAtAgeInMonths: 375,
+      evidence: [{ source: "accepted_simulation_outcome", reasonCode: "PARENT_CARE_AMOUNT_CONFIRMED", confidence: 1, financialScope: "personal" }]
+    }
+  });
+  exactConfirmationEvent.expenseConfirmationResolution = {
+    disposition: "confirmed_exact",
+    responsibilityKey: care.responsibilityKey,
+    accountId: care.id,
+    targetIssueIds: ["expense_review_due_reviewable_parent_care"],
+    resolutionKind: "exact_amount",
+    matchedBindingId: "binding_parent_care_2500"
+  };
   const exact = commitFinancialDomainTransaction({
     transactionId: "exact_review_adjustment",
     periodStartAgeInMonths: 362,
@@ -755,22 +782,7 @@ test("a needs-review adjustment cannot close an overdue expense issue, while an 
     currentFinancialLedger: inexact.financialLedger,
     currentWorldState: inexact.worldState,
     acceptedCareerTransitions: [],
-    acceptedFinancialEvents: [accepted("confirmed_parent_care", "expense_commitment_adjusted", 363, {
-      expenseCommitmentId: care.id,
-      nextCommitment: {
-        ...observed,
-        monthlyAmountWan: 0.25,
-        confirmedMonthlyAmountWan: 0.25,
-        amountBasis: "explicit_known",
-        amountSourceIds: ["accepted:parent-care-2500"],
-        factStatus: "known",
-        accrualReviewStatus: "normal",
-        lastConfirmedAtAgeInMonths: 363,
-        lastReviewedAtAgeInMonths: 363,
-        nextReviewAtAgeInMonths: 375,
-        evidence: [{ source: "accepted_simulation_outcome", reasonCode: "PARENT_CARE_AMOUNT_CONFIRMED", confidence: 1, financialScope: "personal" }]
-      }
-    })]
+    acceptedFinancialEvents: [exactConfirmationEvent]
   });
   assert.equal(exact.financialLedger.unresolvedIssues.find((issue) => issue.id === "expense_review_due_reviewable_parent_care")?.status, "resolved");
 });

@@ -380,6 +380,45 @@ function acceptedEventResolvesExpenseReviewIssue(event: AcceptedFinancialEvent):
     && (next.amountBasis === "explicit_known" || next.amountBasis === "explicit_shared_amount");
 }
 
+function acceptedEventResolvesTypedExpenseIssue(input: {
+  issue: FinancialLedgerIssue;
+  event: AcceptedFinancialEvent;
+  accountIds: string[];
+}): boolean {
+  const { issue, event } = input;
+  if (!issue.expenseResolutionKind || !issue.expenseResponsibilityKey) return false;
+  const resolution = event.expenseConfirmationResolution;
+  if (issue.expenseResolutionKind === "exact_amount" || issue.expenseResolutionKind === "shared_allocation") {
+    return Boolean(
+      resolution
+      && resolution.disposition === "confirmed_exact"
+      && resolution.resolutionKind === issue.expenseResolutionKind
+      && resolution.responsibilityKey === issue.expenseResponsibilityKey
+      && resolution.targetIssueIds.includes(issue.id)
+      && input.accountIds.includes(resolution.accountId)
+      && ((issue.relatedAccountIds || []).length === 0
+        || (issue.relatedAccountIds || []).includes(resolution.accountId))
+    );
+  }
+  if (issue.expenseResolutionKind === "end_or_pause_authority") {
+    if (event.kind === "expense_commitment_ended") {
+      return (issue.relatedAccountIds || []).includes(event.payload.expenseCommitmentId);
+    }
+    return event.kind === "expense_commitment_adjusted"
+      && event.payload.nextCommitment.status === "paused"
+      && Boolean(event.payload.changeReason)
+      && (issue.relatedAccountIds || []).includes(event.payload.expenseCommitmentId);
+  }
+  if (issue.expenseResolutionKind === "aggregate_split") {
+    return event.kind === "expense_commitment_ended"
+      && event.payload.changeReason === "aggregate_atomically_split"
+      && (issue.relatedAccountIds || []).includes(event.payload.expenseCommitmentId);
+  }
+  // payer_scope requires a future code-stamped Accepted payer/scope resolver;
+  // touching or repricing the account is deliberately insufficient.
+  return false;
+}
+
 function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: AcceptedFinancialEvent[], ageInMonths: number): void {
   for (const event of events) {
     const refs = eventReferences(event);
@@ -397,6 +436,12 @@ function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: Accept
           && (evidence.reasonCode === "EXPENSE_REVIEW_DUE" || evidence.reasonCode === "SYSTEM_POLICY_REVIEW")
         ));
       if (isSystemGeneratedExpenseReview) continue;
+      if (issue.expenseResolutionKind && issue.expenseResponsibilityKey
+        && !acceptedEventResolvesTypedExpenseIssue({
+          issue,
+          event,
+          accountIds: refs.accountIds
+        })) continue;
       if (isExpenseReviewIssue(issue) && !acceptedEventResolvesExpenseReviewIssue(event)) continue;
       // A V4 aggregate/component gap is intentionally durable: a scheduled
       // review acknowledges that the aggregate is still uncertain, it does

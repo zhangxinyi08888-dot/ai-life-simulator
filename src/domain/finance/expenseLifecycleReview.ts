@@ -184,15 +184,36 @@ export function buildExpenseLifecycleReviewPlan(input: {
       status: "open",
       relatedProposalIds: shouldTransition ? [id] : [],
       relatedAccountIds: [commitment.id],
+      expenseResolutionKind: commitment.financialScope === "shared_household"
+        ? "shared_allocation"
+        : "exact_amount",
+      expenseResponsibilityKey: commitment.responsibilityKey,
       summary: `持续支出 ${commitment.displayName} 已到复核时点；继续按现有金额计提，等待金额或责任范围确认`,
       createdAtAgeInMonths: input.ageInMonths
     });
     if (!shouldTransition) continue;
 
+    const explicitAmount = commitment.amountBasis === "explicit_known"
+      || commitment.amountBasis === "explicit_shared_amount";
+    const carriesLegacyNonExplicitConfirmation = !explicitAmount
+      && (commitment.confirmedMonthlyAmountWan !== undefined || commitment.lastConfirmedAtAgeInMonths !== undefined)
+      && (commitment.amountBasis === "legacy_estimate"
+        || commitment.evidence.some((item) => item.source === "legacy_migration"));
+    // Old V4 snapshots may have carried a generic confirmation timestamp on
+    // a policy/legacy estimate.  A scheduled review must not copy that
+    // impossible state into a new mutation (which would make the payload
+    // invalid), nor may it silently promote or erase it.  Keep the durable
+    // review issue open for a later authoritative fact/migration instead.
+    if (carriesLegacyNonExplicitConfirmation) continue;
+
     const evidence = reviewEvidence(commitment, input.ageInMonths);
     const nextCommitment: ExpenseCommitmentV4 = {
       ...structuredClone(commitment),
-      factStatus: "needs_review",
+      // Review due is an accrual-review state, not a downgrade of fact
+      // authority. A previously accepted exact amount remains known until a
+      // new Accepted fact changes it; only an already-reviewable estimate
+      // remains needs_review.
+      factStatus: commitment.factStatus,
       accrualReviewStatus: "review_due",
       lastReviewedAtAgeInMonths: input.ageInMonths,
       // Keep the original due point.  The account remains due until an actual

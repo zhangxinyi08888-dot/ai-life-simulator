@@ -266,11 +266,32 @@ function groupedFacts(facts: OpeningExpenseFact[]): Map<string, OpeningExpenseFa
   return groups;
 }
 
+function deduplicateRepeatedOpeningFacts(facts: OpeningExpenseFact[]): OpeningExpenseFact[] {
+  const seen = new Set<string>();
+  return facts.filter((fact) => {
+    // Questionnaire fields often restate the same current bill in different
+    // words. Repetition is corroborating evidence, not a second liability.
+    // Different amounts, scopes, cadence or shares remain distinct components.
+    const semanticKey = [
+      fact.type,
+      fact.responsibilityKey,
+      fact.monthlyAmountWan ?? "unknown",
+      fact.grossMonthlyAmountWan ?? "unknown",
+      fact.protagonistShareRate ?? "unknown",
+      fact.financialScope,
+      fact.cadence
+    ].join(":");
+    if (seen.has(semanticKey)) return false;
+    seen.add(semanticKey);
+    return true;
+  });
+}
+
 function buildOpeningExpenseCommitments(input: {
   state: FinancialState;
   openingFacts: OpeningFinancialFacts;
 }): { commitments: ExpenseCommitment[]; issues: FinancialLedgerIssue[] } {
-  const facts = compatibilityFacts(input.openingFacts)
+  const facts = deduplicateRepeatedOpeningFacts(compatibilityFacts(input.openingFacts))
     .filter((fact) => fact.cadence !== "one_off");
   const basicEstimate = openingEstimate({
     state: input.state,

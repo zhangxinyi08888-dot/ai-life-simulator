@@ -143,7 +143,7 @@ function validateExpenseCommitment(commitment: ExpenseCommitment): void {
 }
 
 const V4_EXPENSE_CHANGE_REASONS = new Set([
-  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "dependent_independent",
+  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "estimate_superseded_by_exact_fact", "dependent_independent",
   "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
   "education_completed", "aggregate_atomically_split", "temporary_third_party_coverage",
   "responsibility_resumed", "responsibility_ended"

@@ -16,7 +16,7 @@ export type OpeningExpenseFactType =
   | "education"
   | "aggregate";
 
-export type OpeningExpenseCadence = "monthly" | "annual" | "one_off" | "recurring_unknown";
+export type OpeningExpenseCadence = "monthly" | "quarterly" | "annual" | "one_off" | "recurring_unknown";
 export type OpeningExpenseCoverage = "fully_covers" | "disjoint" | "unknown";
 
 export interface OpeningExpenseFact {
@@ -112,8 +112,9 @@ function isExplicitThirdPartyExpensePayer(sentence: string): boolean {
   return explicitThirdPartyPromise;
 }
 
-function inferCadence(raw: string, fallback: "monthly" | "annual" = "monthly"): "monthly" | "annual" {
+function inferCadence(raw: string, fallback: "monthly" | "annual" = "monthly"): "monthly" | "quarterly" | "annual" {
   if (/每年|每年度|年度|年缴|年交|\/\s*年|年保费|年学费/u.test(raw)) return "annual";
+  if (/每季度|每季|季度|按季|\/\s*季/u.test(raw)) return "quarterly";
   if (/每月|每个月|月均|月租|月供|\/\s*月/u.test(raw)) return "monthly";
   return fallback;
 }
@@ -129,8 +130,8 @@ function findShareRate(sentence: string): number | undefined {
   return undefined;
 }
 
-function monthlyAmount(value: number, cadence: "monthly" | "annual"): number {
-  return roundWan(cadence === "annual" ? value / 12 : value);
+function monthlyAmount(value: number, cadence: "monthly" | "quarterly" | "annual"): number {
+  return roundWan(cadence === "annual" ? value / 12 : cadence === "quarterly" ? value / 3 : value);
 }
 
 interface ExpenseRule {
@@ -160,7 +161,7 @@ const COMPONENT_RULES: ExpenseRule[] = [
     type: "healthcare",
     responsibilityKey: (sentence) => /父母|爸妈|母亲|父亲/u.test(sentence) ? "recurring_healthcare:opening_parent" : /孩子|子女/u.test(sentence) ? "recurring_healthcare:opening_child" : "recurring_healthcare:protagonist",
     responsibilityKind: "recurring_healthcare",
-    keywords: "父母医疗|母亲医疗|父亲医疗|医疗费|医疗支出|医药费|药费|治疗费|复诊费|长期用药|持续用药|康复费|护理医疗",
+    keywords: "父母医疗|母亲医疗|父亲医疗|医疗费|医疗支出|医药费|药费|治疗费|复诊费|长期用药|持续用药|康复费|康复课程|康复训练|护理医疗",
     displayName: "持续医疗"
   },
   {
@@ -186,9 +187,31 @@ function componentFactFromMatch(input: {
   value: string;
   unit: string;
   index: number;
+  sourceIndex: number;
 }): OpeningExpenseFact | undefined {
   if (input.rule.type === "housing" && /房贷|按揭|月供/u.test(input.sentence)) return undefined;
-  if (isBusinessExpenseContext(input.sentence) || isExplicitThirdPartyExpensePayer(input.sentence)) return undefined;
+  const currentClauseStart = Math.max(
+    input.sentence.lastIndexOf("，", input.sourceIndex - 1),
+    input.sentence.lastIndexOf(",", input.sourceIndex - 1)
+  ) + 1;
+  const nextChineseComma = input.sentence.indexOf("，", input.sourceIndex + input.raw.length);
+  const nextAsciiComma = input.sentence.indexOf(",", input.sourceIndex + input.raw.length);
+  const currentClauseEnd = [nextChineseComma, nextAsciiComma]
+    .filter((value) => value >= 0)
+    .reduce((minimum, value) => Math.min(minimum, value), input.sentence.length);
+  let factContext = input.sentence.slice(currentClauseStart, currentClauseEnd).trim();
+  // “公司租下工坊，每月租金 8000” carries the owner in the immediately
+  // preceding clause. Borrow it only when the amount clause has no actor of
+  // its own, so a personal and a company bill in one sentence stay separate.
+  if (!/(?:我|你|本人|主角|伴侣|配偶|父母|公司|雇主)/u.test(factContext) && currentClauseStart > 0) {
+    const previousEnd = currentClauseStart - 1;
+    const previousStart = Math.max(
+      input.sentence.lastIndexOf("，", previousEnd - 1),
+      input.sentence.lastIndexOf(",", previousEnd - 1)
+    ) + 1;
+    factContext = `${input.sentence.slice(previousStart, previousEnd).trim()}，${factContext}`;
+  }
+  if (isBusinessExpenseContext(factContext) || isExplicitThirdPartyExpensePayer(factContext)) return undefined;
   const amount = amountWan(input.value, input.unit);
   if (amount === undefined) return undefined;
   const cadence = inferCadence(input.raw);
@@ -252,7 +275,7 @@ function explicitComponentFacts(evidenceText: string): OpeningExpenseFact[] {
           if (seenFacts.has(key)) continue;
           seenFacts.add(key);
           const fact = componentFactFromMatch({
-            rule, sentence, raw, value: values[1], unit: values[2], index: sequence++
+            rule, sentence, raw, value: values[1], unit: values[2], index: sequence++, sourceIndex: match.index ?? 0
           });
           if (fact) result.push(fact);
         }
@@ -347,7 +370,7 @@ function missingResponsibilityFacts(evidenceText: string, existing: OpeningExpen
     });
   }
   if (!hasType("healthcare")) {
-    const sentence = evidenceFor(/长期用药|持续用药|长期治疗|定期复诊|医疗费|医疗支出|医药费|治疗费/u);
+    const sentence = evidenceFor(/长期用药|持续用药|长期治疗|定期复诊|医疗费|医疗支出|医药费|治疗费|康复课程|康复训练/u);
     if (sentence) add({
       type: "healthcare", responsibilityKey: /父母|爸妈|母亲|父亲/u.test(sentence) ? "recurring_healthcare:opening_parent" : "recurring_healthcare:protagonist",
       responsibilityKind: "recurring_healthcare", cadence: "recurring_unknown", financialScope: "personal",

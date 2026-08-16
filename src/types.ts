@@ -662,6 +662,12 @@ export interface FinancialProcessingMeta {
 
 export interface ExpenseLifecycleTelemetry {
   mode: "off" | "shadow" | "enforced";
+  narrativeBindingMode: "legacy" | "shadow" | "enforced";
+  narrativeBindingCount: number;
+  narrativeBindingCriticalCount: number;
+  narrativeBindingSourceIdentityMissingCount: number;
+  expenseConfirmationAcceptedCount: number;
+  expenseConfirmationRejectedAfterSanitizeCount: number;
   candidateCount: number;
   /**
    * Per-candidate reconciliation trace. This is a detector/reconciler
@@ -726,6 +732,7 @@ export interface ExpenseLifecycleCandidateTelemetry {
   proposedType: string;
   financialScope: "personal" | "shared_household" | "business_operating" | "third_party";
   action: "start" | "adjust" | "end" | "review";
+  cadence: "monthly" | "quarterly" | "annual" | "one_off" | "recurring_unknown";
   liability: "protagonist" | "shared" | "third_party" | "none" | "unknown";
   source: "user_fact" | "accepted_world_delta" | "accepted_outcome" | "narrative_supplement" | "scheduled_review";
   amountBasis: ExpenseLifecycleCandidateAmountBasis;
@@ -735,6 +742,23 @@ export interface ExpenseLifecycleCandidateTelemetry {
   sourceGrossMonthlyAmountWan?: number;
   shareRate?: number;
   amountSourceId?: string;
+  sourceFactBindingId?: string;
+  sourceSpans?: {
+    responsibility: { start: number; end: number; excerpt: string };
+    completion?: { start: number; end: number; excerpt: string };
+    payer?: { start: number; end: number; excerpt: string };
+    amount?: { start: number; end: number; excerpt: string };
+    cadence?: { start: number; end: number; excerpt: string };
+  };
+  sourceClause?: {
+    clauseId: string;
+    contextClauseIds: string[];
+    sentenceIndex: number;
+    clauseIndex: number;
+  };
+  sourceMateriality?: "nonmaterial" | "review" | "critical";
+  unresolvedFields?: string[];
+  sourceBindingReasonCodes?: string[];
   evidenceReasonCodes: string[];
   reconcilerDisposition: ExpenseLifecycleCandidateReconcilerDisposition;
   reconcilerReasonCodes: string[];
@@ -742,6 +766,8 @@ export interface ExpenseLifecycleCandidateTelemetry {
   relatedIssueIds: string[];
   /** Would this candidate's own reconciler outcome block an enforced node? */
   wouldBlock: boolean;
+  /** Whether this candidate changed authority, was rejected, or was shadow-only. */
+  finalDisposition: "committed" | "rejected" | "prospective_shadow";
 }
 
 export interface ExpenseLifecycleProjectedCommitmentChange {

@@ -1491,3 +1491,220 @@ test("a direct Accepted expense fact is the sole same-node writer for its respon
   assert.equal(endPlan.proposals.some((proposal) => proposal.kind === "expense_commitment_ended"), false);
   assert.equal(endPlan.reviewEvents.some((event) => event.payload.expenseCommitmentId === existing.id), false);
 });
+
+test("U-01 a completed recurring narrative rent with a concrete amount but no payer is a critical expense binding", () => {
+  const result = reconcileExpenseCommitments({
+    ledger: ledger(),
+    candidates: [candidate({
+      id: "phase2_rent_payer_unresolved",
+      responsibilityKey: "primary_residence:main",
+      responsibilityKind: "primary_residence",
+      proposedType: "housing",
+      action: "start",
+      completion: "completed",
+      cadence: "monthly",
+      liability: "unknown",
+      financialScope: "personal",
+      explicitMonthlyTotalWan: 0.5,
+      protagonistShareWan: undefined,
+      shareRate: undefined,
+      amountSourceId: "phase2-rent-5000",
+      participantPersonIds: [],
+      source: "narrative_supplement",
+      sourceFactBindingId: "phase2:rent:payer-unresolved",
+      sourceBindingDisposition: "owner_review",
+      sourceMateriality: "critical",
+      unresolvedFields: ["payer"],
+      sourceBindingReasonCodes: ["EXPENSE_COMPLETED_RECURRING_PAYER_UNRESOLVED"],
+      sourceSpans: {
+        responsibility: { start: 4, end: 6, excerpt: "房租" },
+        completion: { start: 0, end: 4, excerpt: "每月支付" },
+        amount: { start: 6, end: 11, excerpt: "5000元" },
+        cadence: { start: 0, end: 2, excerpt: "每月" }
+      },
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "PHASE2_RENT_PAYER_UNRESOLVED",
+        confidence: 1,
+        financialScope: "personal",
+        excerpt: "每月支付房租5000元。"
+      }]
+    })],
+    ageInMonths: 372,
+    sourceOutcomeId: "phase2_rent_payer_unresolved",
+    mode: "enforced"
+  });
+
+  assert.equal(result.proposals.length, 0, "unresolved payer must not mint a personal rent commitment");
+  assert.equal(result.wouldBlock, true, "a material recurring outflow cannot continue as a warning");
+  const issue = result.issues.find((item) => (
+    item.code === "PENDING_FACT" && item.severity === "blocking"
+  ));
+  assert.ok(issue, "critical binding needs an auditable issue");
+  assert.equal(issue.severity, "blocking");
+  const decision = result.candidateDecisions.find((item) => item.candidateId === "phase2_rent_payer_unresolved");
+  assert.equal(decision?.disposition, "blocked");
+  assert.equal(decision?.wouldBlock, true);
+  assert.ok(decision?.reasonCodes.includes("EXPENSE_COMPLETED_RECURRING_PAYER_UNRESOLVED"));
+});
+
+test("U-04 a shared recurring total without a protagonist share is a critical expense binding", () => {
+  const result = reconcileExpenseCommitments({
+    ledger: ledger(),
+    candidates: [candidate({
+      id: "phase2_shared_rent_share_unresolved",
+      responsibilityKey: "primary_residence:main",
+      responsibilityKind: "primary_residence",
+      proposedType: "housing",
+      action: "start",
+      completion: "completed",
+      cadence: "monthly",
+      liability: "shared",
+      financialScope: "shared_household",
+      explicitMonthlyTotalWan: 0.52,
+      protagonistShareWan: undefined,
+      shareRate: undefined,
+      amountSourceId: "phase2-shared-rent-5200",
+      participantPersonIds: ["partner"],
+      source: "narrative_supplement",
+      sourceFactBindingId: "phase2:shared-rent:share-unresolved",
+      sourceBindingDisposition: "owner_review",
+      sourceMateriality: "critical",
+      unresolvedFields: ["share"],
+      sourceBindingReasonCodes: ["EXPENSE_SHARED_PROTAGONIST_SHARE_UNRESOLVED"],
+      sourceSpans: {
+        responsibility: { start: 8, end: 10, excerpt: "房租" },
+        completion: { start: 0, end: 6, excerpt: "你们共同支付" },
+        payer: { start: 0, end: 6, excerpt: "你们共同支付" },
+        amount: { start: 10, end: 15, excerpt: "5200元" },
+        cadence: { start: 6, end: 8, excerpt: "每月" }
+      },
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "PHASE2_SHARED_RENT_SHARE_UNRESOLVED",
+        confidence: 1,
+        financialScope: "shared_household",
+        excerpt: "你们共同支付每月房租5200元，但尚未商定各自份额。"
+      }]
+    })],
+    ageInMonths: 372,
+    sourceOutcomeId: "phase2_shared_rent_share_unresolved",
+    mode: "enforced"
+  });
+
+  assert.equal(result.proposals.length, 0, "the household total must never become the protagonist's amount");
+  assert.equal(result.wouldBlock, true);
+  const issue = result.issues.find((item) => item.id.includes("share_unresolved"));
+  assert.ok(issue);
+  assert.equal(issue.severity, "blocking");
+  const decision = result.candidateDecisions.find((item) => item.candidateId === "phase2_shared_rent_share_unresolved");
+  assert.equal(decision?.disposition, "blocked");
+  assert.equal(decision?.wouldBlock, true);
+  assert.ok(decision?.reasonCodes.includes("EXPENSE_SHARED_PROTAGONIST_SHARE_UNRESOLVED"));
+});
+
+test("U-02 a parent-care need without a payment or amount remains warning review and cannot debit the protagonist", () => {
+  const current = ledger();
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [candidate({
+      id: "phase2_parent_care_need_only",
+      responsibilityKey: "elder_care:father",
+      responsibilityKind: "elder_care",
+      proposedType: "dependent_support",
+      action: "review",
+      completion: "completed",
+      cadence: "recurring_unknown",
+      liability: "unknown",
+      financialScope: "personal",
+      explicitMonthlyTotalWan: undefined,
+      protagonistShareWan: undefined,
+      shareRate: undefined,
+      amountSourceId: undefined,
+      participantPersonIds: ["father"],
+      source: "narrative_supplement",
+      sourceFactBindingId: "phase2:father-care:need-only",
+      sourceBindingDisposition: "owner_review",
+      sourceMateriality: "review",
+      unresolvedFields: ["payer", "amount"],
+      sourceBindingReasonCodes: ["EXPENSE_FACT_BINDING_AMBIGUOUS"],
+      sourceSpans: {
+        responsibility: { start: 0, end: 2, excerpt: "父亲" },
+        completion: { start: 9, end: 13, excerpt: "需要定期" }
+      },
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "PHASE2_PARENT_CARE_NEED_ONLY",
+        confidence: 1,
+        financialScope: "personal",
+        excerpt: "父亲最近身体不好，需要定期复查。"
+      }]
+    })],
+    ageInMonths: 372,
+    sourceOutcomeId: "phase2_parent_care_need_only",
+    mode: "enforced"
+  });
+
+  assert.equal(result.wouldBlock, false, "care need alone is not a personal recurring cash-flow fact");
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.candidateDecisions.find((item) => item.candidateId === "phase2_parent_care_need_only")?.disposition, "issue");
+  assert.equal(result.issues.some((item) => item.severity === "warning"), true);
+  assert.equal(current.expenseCommitments.some((commitment) => commitment.responsibilityKey === "elder_care:father"), false);
+});
+
+test("U-05 business and third-party recurring amounts never create a protagonist expense commitment", () => {
+  for (const boundary of [
+    candidate({
+      id: "phase2_business_workshop_rent",
+      financialScope: "business_operating",
+      liability: "third_party",
+      explicitMonthlyTotalWan: 0.3,
+      protagonistShareWan: undefined,
+      shareRate: undefined,
+      amountSourceId: "phase2-workshop-rent-3000",
+      source: "narrative_supplement",
+      sourceMateriality: "nonmaterial",
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "PHASE2_BUSINESS_WORKSHOP_RENT",
+        confidence: 1,
+        financialScope: "business_operating",
+        excerpt: "公司为木工坊每月支付租金3000元。"
+      }]
+    }),
+    candidate({
+      id: "phase2_third_party_parent_medical",
+      responsibilityKey: "recurring_healthcare:father",
+      responsibilityKind: "recurring_healthcare",
+      proposedType: "healthcare",
+      financialScope: "third_party",
+      liability: "third_party",
+      explicitMonthlyTotalWan: 0.12,
+      protagonistShareWan: undefined,
+      shareRate: undefined,
+      amountSourceId: "phase2-father-medical-1200",
+      source: "narrative_supplement",
+      sourceMateriality: "nonmaterial",
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "PHASE2_THIRD_PARTY_PARENT_MEDICAL",
+        confidence: 1,
+        financialScope: "third_party",
+        excerpt: "姐姐每月承担父亲医疗1200元。"
+      }]
+    })
+  ]) {
+    const current = ledger();
+    const result = reconcileExpenseCommitments({
+      ledger: current,
+      candidates: [boundary],
+      ageInMonths: 372,
+      sourceOutcomeId: boundary.id,
+      mode: "enforced"
+    });
+    assert.equal(result.wouldBlock, false, `${boundary.id} is a non-accruing boundary, not a missing personal fact`);
+    assert.equal(result.proposals.length, 0, `${boundary.id} must not create a personal commitment proposal`);
+    assert.deepEqual(result.ignoredCandidateIds, [boundary.id]);
+    assert.equal(current.expenseCommitments.some((commitment) => commitment.responsibilityKey === boundary.responsibilityKey && commitment.financialScope === "personal"), false);
+  }
+});

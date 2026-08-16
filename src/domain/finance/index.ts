@@ -27,5 +27,7 @@ export * from "./expenseEstimationPolicyV2";
 export * from "./expenseResponsibility";
 export * from "./reconcileExpenseCommitments";
 export * from "./expenseLifecycleReview";
+export * from "./narrativeExpenseFactBinding";
+export * from "./expenseConfirmation";
 export * from "./personalExpenseSummary";
 export * from "./migrateFinancialLedgerV3ToV4";

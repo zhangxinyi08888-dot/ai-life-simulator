@@ -169,6 +169,18 @@ function assertV4ExpenseCommitment(commitment: ExpenseCommitmentV4): void {
     }
   }
   const explicit = commitment.amountBasis === "explicit_known" || commitment.amountBasis === "explicit_shared_amount";
+  if (commitment.factStatus === "known" && !explicit) {
+    throw new FinancialLedgerInvariantError(
+      "INVALID_LEDGER",
+      `V4 已知支出 ${commitment.id} 必须使用 explicit_known 或 explicit_shared_amount`
+    );
+  }
+  if (explicit && commitment.factStatus !== "known") {
+    throw new FinancialLedgerInvariantError(
+      "INVALID_LEDGER",
+      `V4 明确金额支出 ${commitment.id} 必须为 known，不能伪装为 ${commitment.factStatus}`
+    );
+  }
   if (explicit) {
     if (commitment.confirmedMonthlyAmountWan === undefined) {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 明确金额支出 ${commitment.id} 缺少 confirmedMonthlyAmountWan`);
@@ -185,6 +197,22 @@ function assertV4ExpenseCommitment(commitment: ExpenseCommitmentV4): void {
     }
     if (commitment.amountBasis === "explicit_shared_amount" && commitment.financialScope !== "shared_household") {
       throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 共同金额支出 ${commitment.id} 必须标记为 shared_household`);
+    }
+  } else if (commitment.confirmedMonthlyAmountWan !== undefined || commitment.lastConfirmedAtAgeInMonths !== undefined) {
+    // V4 migrations predate the dual-direction amount contract and some
+    // persisted snapshots used `lastConfirmedAt...` as a generic review
+    // timestamp on a legacy/policy estimate.  They must remain readable so a
+    // later node can be gated safely.  New mutations cannot create this shape:
+    // `financialProposalSchema` rejects it before the reducer, and canonical
+    // confirmation replaces it with an explicit basis.  Do not silently
+    // reinterpret the old field as an exact amount.
+    const legacyReadCompatibility = commitment.amountBasis === "legacy_estimate"
+      || commitment.evidence.some((item) => item.source === "legacy_migration");
+    if (!legacyReadCompatibility) {
+      throw new FinancialLedgerInvariantError(
+        "INVALID_LEDGER",
+        `V4 非明确金额支出 ${commitment.id} 不得保留确认金额或确认时间`
+      );
     }
   }
   if (commitment.amountBasis === "explicit_shared_amount"

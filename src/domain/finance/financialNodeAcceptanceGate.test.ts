@@ -137,6 +137,56 @@ test("shadow and enforced make the same blocking decision but only enforced reje
   assert.equal(enforced.disposition, "regenerate");
 });
 
+test("Phase 2 material payer-unknown expense binding wouldBlock in shadow and regenerates only in enforced", () => {
+  const input = transactionInput("employed");
+  const before = structuredClone(input);
+  const preview = previewFinancialDomainTransaction(input);
+  const groups = buildRequiredFinancialFactGroups({
+    issues: [{
+      id: "expense_completed_recurring_payer_unresolved_phase2",
+      code: "PENDING_FACT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: [],
+      summary: "正文已明确每月房租5000元，但未说明主角、伴侣或第三方谁承担。",
+      createdAtAgeInMonths: 372
+    }],
+    rejectedCompletedProposals: [],
+    ageInMonths: 372
+  });
+
+  assert.deepEqual(groups.map((group) => [group.kind, group.materiality, group.reasonCode]), [[
+    "expense_lifecycle", "critical", "UNSATISFIED_EXPENSE_LIFECYCLE"
+  ]]);
+
+  const shadow = evaluateFinancialNodeAcceptance({
+    mode: "shadow",
+    preview,
+    requiredFactGroups: groups,
+    expectedAgeInMonths: 372,
+    transactionId: "phase2_payer_unknown_shadow"
+  });
+  const enforced = evaluateFinancialNodeAcceptance({
+    mode: "enforced",
+    preview,
+    requiredFactGroups: groups,
+    expectedAgeInMonths: 372,
+    transactionId: "phase2_payer_unknown_enforced"
+  });
+
+  assert.equal(shadow.wouldBlock, true);
+  assert.equal(shadow.disposition, "regenerate");
+  assert.equal(shadow.allowDomainCommit, true, "shadow records the same defect without stopping the current node");
+  assert.deepEqual(shadow.blockingReasonCodes, ["UNSATISFIED_EXPENSE_LIFECYCLE"]);
+
+  assert.equal(enforced.wouldBlock, true);
+  assert.equal(enforced.disposition, "regenerate");
+  assert.equal(enforced.allowDomainCommit, false);
+  assert.deepEqual(enforced.blockingReasonCodes, shadow.blockingReasonCodes);
+  assert.deepEqual(enforced.relatedIssueIds, ["expense_completed_recurring_payer_unresolved_phase2"]);
+  assert.deepEqual(input, before, "gate evaluation must not mutate authoritative inputs in either mode");
+});
+
 test("an overdue elder-care review remains accept_with_review when career income is valid", () => {
   const input = transactionInput("employed");
   const preview = previewFinancialDomainTransaction(input);

@@ -117,6 +117,13 @@ test("real-browser analyzer reports responsibility 0/0 as not_covered, never 100
     assert.equal(audit.summary.precisionStatus, "not_covered");
     assert.equal(audit.summary.expenseResponsibilityRecallPct, null);
     assert.equal(audit.summary.expenseResponsibilityPrecisionPct, null);
+    assert.equal(audit.summary.materialResponsibilityMissedExpectationCount, null);
+    assert.equal(audit.summary.expenseBindingRecallPct, null);
+    assert.equal(audit.summary.expenseBindingPrecisionPct, null);
+    assert.equal(audit.summary.expenseCommitmentRecallPct, null);
+    assert.equal(audit.summary.expenseCommitmentPrecisionPct, null);
+    assert.equal(audit.summary.materialResponsibilityPresentButFloorOnlyMonths, null);
+    assert.equal(audit.summary.explicitRecurringAmountAcceptedPct, null);
     assert.equal("adultResponsibilityExpenseCoverageRatePct" in audit.summary, false);
     assert.equal(audit.summary.annualCoreExpenseDistributionStatus, "observed");
     assert.equal(audit.summary.annualCoreExpenseModeWan, 6);
@@ -129,6 +136,7 @@ test("real-browser analyzer reports responsibility 0/0 as not_covered, never 100
     assert.doesNotMatch(report, /成年责任支出覆盖率/u);
     assert.match(report, /长期支出与财富诊断/u);
     assert.match(report, /按路线累计现金流/u);
+    assert.match(report, /重大责任存在但仅 basic floor\s*\| 未覆盖 人月/u);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

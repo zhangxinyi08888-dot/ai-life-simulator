@@ -1,0 +1,1291 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "financial-expense-clause-binding-gold-v1",
+  "corpusKind": "frozen_clause_binding_gold",
+  "revision": 4,
+  "frozenAt": "2026-08-08",
+  "status": "frozen_spec_seed_requires_independent_blind_adjudication",
+  "baseline": {
+    "commit": "ce35e55a00cab60755753d1cd3ea2a1dbf84ae9c",
+    "ledgerVersion": "v4",
+    "policyVersion": "expense-estimation-policy-v2",
+    "purpose": "Phase 0 deterministic clause-binding contract. This corpus is a normative seed for implementation and must receive an independent blind adjudication record before it is used as a release-quality recall denominator."
+  },
+  "annotationProtocol": {
+    "rawNarrativeFrozenBeforeImplementation": false,
+    "authoringMode": "spec_seed_from_reviewed_failure_shapes",
+    "detectorOutputConsultedDuringAnnotation": true,
+    "proposalLedgerAuditConsultedDuringAnnotation": false,
+    "independentBlindAdjudicationRequiredBeforeRelease": true,
+    "spanCoordinateSystem": "UTF-16 JavaScript string offsets resolved from text plus occurrence",
+    "amountUnit": "wan_per_month",
+    "rule": "A binding is one responsibility plus completion, payer/liability, scope, cadence, amount/share, and source spans. A planned observation may be retained for diagnostic purposes but cannot create an active proposal."
+  },
+  "requiredSpecCases": [
+    "C-01",
+    "C-02",
+    "C-03",
+    "C-04",
+    "C-05",
+    "C-06",
+    "C-07",
+    "C-08",
+    "C-09",
+    "C-10",
+    "C-11",
+    "C-12",
+    "C-13"
+  ],
+  "examples": [
+    {
+      "id": "C-01",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["completed_and_planned", "housing", "whole_sentence_plan_contamination"],
+      "narrative": "你已经每月支付房租5000元，未来再考虑搬家。",
+      "expectedBindings": [
+        {
+          "id": "C-01-housing",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.5,
+          "protagonistMonthlyAmountWan": 0.5,
+          "spans": {
+            "responsibility": { "text": "房租", "occurrence": 0 },
+            "completion": { "text": "已经每月支付", "occurrence": 0 },
+            "payer": { "text": "你", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ],
+      "plannedObservations": [
+        { "kind": "move", "completion": "planned", "spans": { "completion": { "text": "未来再考虑搬家", "occurrence": 0 } } }
+      ]
+    },
+    {
+      "id": "C-02",
+      "kind": "planned_only",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["planned", "housing", "negative_active_proposal"],
+      "narrative": "你计划下月开始支付房租5000元。",
+      "expectedBindings": [],
+      "plannedObservations": [
+        {
+          "kind": "recurring_expense",
+          "responsibilityKey": "primary_residence:main",
+          "completion": "planned",
+          "spans": {
+            "responsibility": { "text": "房租", "occurrence": 0 },
+            "completion": { "text": "计划下月开始支付", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "下月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "C-03",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["mixed_payer_scope", "amount_binding", "housing", "healthcare"],
+      "narrative": "你每月支付房租5000元，伴侣每月承担父母医疗1200元。",
+      "expectedBindings": [
+        {
+          "id": "C-03-housing",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.5,
+          "protagonistMonthlyAmountWan": 0.5,
+          "spans": {
+            "responsibility": { "text": "房租", "occurrence": 0 },
+            "completion": { "text": "你每月支付", "occurrence": 0 },
+            "payer": { "text": "你每月支付", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "C-03-parent-health-third-party",
+          "material": false,
+          "expectedCandidateDisposition": "non_accruing_third_party",
+          "responsibilityKey": "recurring_healthcare:parents",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "review",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "third_party",
+          "financialScope": "third_party",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.12,
+          "spans": {
+            "responsibility": { "text": "父母医疗", "occurrence": 0 },
+            "completion": { "text": "伴侣每月承担", "occurrence": 0 },
+            "payer": { "text": "伴侣每月承担", "occurrence": 0 },
+            "amount": { "text": "1200元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 1 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "C-04",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["mixed_payer_scope", "amount_binding", "shared_housing", "healthcare"],
+      "narrative": "你们每月共同支付房租5000元，你每月单独承担父母医疗1200元。",
+      "expectedBindings": [
+        {
+          "id": "C-04-shared-housing",
+          "material": true,
+          "expectedCandidateDisposition": "material_unknown_gate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "shared",
+          "financialScope": "shared_household",
+          "amountDisposition": "exact_total_share_unknown",
+          "grossMonthlyAmountWan": 0.5,
+          "spans": {
+            "responsibility": { "text": "房租", "occurrence": 0 },
+            "completion": { "text": "你们每月共同支付", "occurrence": 0 },
+            "payer": { "text": "你们每月共同支付", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 },
+            "share": { "text": "共同", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "C-04-parent-health-personal",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "recurring_healthcare:parents",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.12,
+          "protagonistMonthlyAmountWan": 0.12,
+          "spans": {
+            "responsibility": { "text": "父母医疗", "occurrence": 0 },
+            "completion": { "text": "你每月单独承担", "occurrence": 0 },
+            "payer": { "text": "你每月单独承担", "occurrence": 0 },
+            "amount": { "text": "1200元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 1 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "C-05",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["amount_binding", "income_amount_negative", "multi_amount", "housing", "healthcare"],
+      "narrative": "你每月到手工资1.8万，你支付房租5000元，并为自己每月购买慢病药物1200元。",
+      "expectedBindings": [
+        {
+          "id": "C-05-housing",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.5,
+          "protagonistMonthlyAmountWan": 0.5,
+          "spans": {
+            "responsibility": { "text": "房租", "occurrence": 0 },
+            "completion": { "text": "你支付", "occurrence": 0 },
+            "payer": { "text": "你支付", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "房租", "occurrence": 0 }
+          },
+          "forbiddenAmountSpans": [{ "text": "1.8万", "occurrence": 0 }]
+        },
+        {
+          "id": "C-05-personal-health",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "recurring_healthcare:protagonist",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.12,
+          "protagonistMonthlyAmountWan": 0.12,
+          "spans": {
+            "responsibility": { "text": "慢病药物", "occurrence": 0 },
+            "completion": { "text": "为自己每月购买", "occurrence": 0 },
+            "payer": { "text": "为自己每月购买", "occurrence": 0 },
+            "amount": { "text": "1200元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 1 }
+          },
+          "forbiddenAmountSpans": [{ "text": "1.8万", "occurrence": 0 }]
+        }
+      ]
+    },
+    {
+      "id": "C-06",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["amount_binding", "long_distance_amount", "housing"],
+      "narrative": "你已经承担这套长期租住房屋的固定成本，考虑到父亲复查时的交通、日常买菜和工作通勤等安排仍会持续很多年，这笔住房固定成本每月由你支付5000元。",
+      "expectedBindings": [
+        {
+          "id": "C-06-housing-long-distance",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.5,
+          "protagonistMonthlyAmountWan": 0.5,
+          "spans": {
+            "responsibility": { "text": "这笔住房固定成本", "occurrence": 0 },
+            "completion": { "text": "由你支付", "occurrence": 0 },
+            "payer": { "text": "由你支付", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "C-07",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["amount_binding", "multi_amount_ambiguity", "housing", "healthcare"],
+      "narrative": "你已经开始承担房租和父亲的长期用药费，每月总共5000元。",
+      "expectedBindings": [
+        {
+          "id": "C-07-housing-ambiguous",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate_review_amount",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "ambiguous",
+          "spans": {
+            "responsibility": { "text": "房租", "occurrence": 0 },
+            "completion": { "text": "已经开始承担", "occurrence": 0 },
+            "payer": { "text": "你已经开始承担", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "C-07-parent-health-ambiguous",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate_review_amount",
+          "responsibilityKey": "recurring_healthcare:parents",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "ambiguous",
+          "spans": {
+            "responsibility": { "text": "父亲的长期用药费", "occurrence": 0 },
+            "completion": { "text": "已经开始承担", "occurrence": 0 },
+            "payer": { "text": "你已经开始承担", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "C-08",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["elder_care", "completed_after_plan_language", "amount_binding"],
+      "narrative": "你与父亲商量后决定请一位钟点工每周来三天帮忙做午饭和打扫，费用由你承担，每月1200元；次周已经上门。",
+      "expectedBindings": [
+        {
+          "id": "C-08-elder-care",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "elder_care:parents",
+          "responsibilityKind": "elder_care",
+          "proposedType": "dependent_support",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.12,
+          "protagonistMonthlyAmountWan": 0.12,
+          "spans": {
+            "responsibility": { "text": "钟点工", "occurrence": 0 },
+            "completion": { "text": "次周已经上门", "occurrence": 0 },
+            "payer": { "text": "费用由你承担", "occurrence": 0 },
+            "amount": { "text": "1200元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "C-09",
+      "kind": "planned_only",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["planned", "elder_care", "negative_active_proposal"],
+      "narrative": "你考虑请一位护工照看父亲，每月预计4000元。",
+      "expectedBindings": [],
+      "plannedObservations": [
+        {
+          "kind": "recurring_expense",
+          "responsibilityKey": "elder_care:parents",
+          "completion": "planned",
+          "spans": {
+            "responsibility": { "text": "护工", "occurrence": 0 },
+            "completion": { "text": "考虑请", "occurrence": 0 },
+            "amount": { "text": "4000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "C-10",
+      "kind": "mixed",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["mixed_payer_scope", "business_negative", "housing", "amount_binding"],
+      "narrative": "公司为木工坊每月支付租金3000元，你则继续每月支付个人房租5000元。",
+      "expectedBindings": [
+        {
+          "id": "C-10-personal-housing",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "ongoing",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.5,
+          "protagonistMonthlyAmountWan": 0.5,
+          "spans": {
+            "responsibility": { "text": "个人房租", "occurrence": 0 },
+            "completion": { "text": "继续每月支付", "occurrence": 0 },
+            "payer": { "text": "你则继续每月支付", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 1 }
+          }
+        }
+      ],
+      "negativeAssertions": [
+        {
+          "reason": "business_operating",
+          "spans": {
+            "business": { "text": "公司为木工坊每月支付租金3000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "primary_residence:main"
+        }
+      ]
+    },
+    {
+      "id": "C-11",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["rental_income_negative", "business_third_party_rental_negative"],
+      "narrative": "你把闲置公寓出租，每月租金3000元转入你的账户。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "rental_income",
+          "spans": {
+            "income": { "text": "把闲置公寓出租", "occurrence": 0 },
+            "amount": { "text": "3000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "primary_residence:main"
+        }
+      ]
+    },
+    {
+      "id": "C-12",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["mixed_payer_scope", "multi_amount", "healthcare", "third_party_negative"],
+      "narrative": "你每月支付自己的慢病用药600元，父亲的降压药800元由姐姐承担。",
+      "expectedBindings": [
+        {
+          "id": "C-12-personal-health",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "recurring_healthcare:protagonist",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.06,
+          "protagonistMonthlyAmountWan": 0.06,
+          "spans": {
+            "responsibility": { "text": "自己的慢病用药", "occurrence": 0 },
+            "completion": { "text": "你每月支付", "occurrence": 0 },
+            "payer": { "text": "你每月支付", "occurrence": 0 },
+            "amount": { "text": "600元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "C-12-parent-health-third-party",
+          "material": false,
+          "expectedCandidateDisposition": "non_accruing_third_party",
+          "responsibilityKey": "recurring_healthcare:parents",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "review",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "third_party",
+          "financialScope": "third_party",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.08,
+          "spans": {
+            "responsibility": { "text": "父亲的降压药", "occurrence": 0 },
+            "completion": { "text": "由姐姐承担", "occurrence": 0 },
+            "payer": { "text": "由姐姐承担", "occurrence": 0 },
+            "amount": { "text": "800元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "C-13",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["ongoing", "housing", "elder_care", "amount_binding"],
+      "narrative": "你已经连续两年每月支付自己的房租4800元和父亲照护费2000元。",
+      "expectedBindings": [
+        {
+          "id": "C-13-housing-ongoing",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "ongoing",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.48,
+          "protagonistMonthlyAmountWan": 0.48,
+          "spans": {
+            "responsibility": { "text": "自己的房租", "occurrence": 0 },
+            "completion": { "text": "已经连续两年每月支付", "occurrence": 0 },
+            "payer": { "text": "你已经连续两年每月支付", "occurrence": 0 },
+            "amount": { "text": "4800元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "C-13-elder-care-ongoing",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "elder_care:parents",
+          "responsibilityKind": "elder_care",
+          "proposedType": "dependent_support",
+          "action": "start",
+          "completion": "ongoing",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.2,
+          "protagonistMonthlyAmountWan": 0.2,
+          "spans": {
+            "responsibility": { "text": "父亲照护费", "occurrence": 0 },
+            "completion": { "text": "已经连续两年每月支付", "occurrence": 0 },
+            "payer": { "text": "你已经连续两年每月支付", "occurrence": 0 },
+            "amount": { "text": "2000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-14",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["child_support", "shared_household", "amount_binding"],
+      "narrative": "孩子出生后，你们共同承担每月托育费6000元，各自承担一半。",
+      "expectedBindings": [
+        {
+          "id": "P-14-child-support",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "child_support:unidentified",
+          "responsibilityKind": "child_support",
+          "proposedType": "dependent_support",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "shared",
+          "financialScope": "shared_household",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.6,
+          "protagonistMonthlyAmountWan": 0.3,
+          "shareRate": 0.5,
+          "spans": {
+            "responsibility": { "text": "托育费", "occurrence": 0 },
+            "completion": { "text": "共同承担", "occurrence": 0 },
+            "payer": { "text": "各自承担一半", "occurrence": 0 },
+            "amount": { "text": "6000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 },
+            "share": { "text": "各自承担一半", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-15",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["insurance", "mixed_payer_scope", "multi_amount"],
+      "narrative": "你每月缴纳医疗险400元，伴侣自行承担她的重疾险900元。",
+      "expectedBindings": [
+        {
+          "id": "P-15-personal-insurance",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "personal_insurance:protagonist",
+          "responsibilityKind": "personal_insurance",
+          "proposedType": "insurance",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.04,
+          "protagonistMonthlyAmountWan": 0.04,
+          "spans": {
+            "responsibility": { "text": "医疗险", "occurrence": 0 },
+            "completion": { "text": "你每月缴纳", "occurrence": 0 },
+            "payer": { "text": "你每月缴纳", "occurrence": 0 },
+            "amount": { "text": "400元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "P-15-partner-insurance",
+          "material": false,
+          "expectedCandidateDisposition": "non_accruing_third_party",
+          "responsibilityKey": "personal_insurance:protagonist",
+          "responsibilityKind": "personal_insurance",
+          "proposedType": "insurance",
+          "action": "review",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "third_party",
+          "financialScope": "third_party",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.09,
+          "spans": {
+            "responsibility": { "text": "重疾险", "occurrence": 0 },
+            "completion": { "text": "伴侣自行承担", "occurrence": 0 },
+            "payer": { "text": "伴侣自行承担", "occurrence": 0 },
+            "amount": { "text": "900元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-16",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["mixed_payer_scope", "shared_housing", "healthcare", "multi_amount"],
+      "narrative": "你们共同租住公寓，月租5200元，各自承担一半；你单独承担母亲每月复查药费800元。",
+      "expectedBindings": [
+        {
+          "id": "P-16-shared-housing",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "shared",
+          "financialScope": "shared_household",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.52,
+          "protagonistMonthlyAmountWan": 0.26,
+          "shareRate": 0.5,
+          "spans": {
+            "responsibility": { "text": "月租", "occurrence": 0 },
+            "completion": { "text": "共同租住", "occurrence": 0 },
+            "payer": { "text": "各自承担一半", "occurrence": 0 },
+            "amount": { "text": "5200元", "occurrence": 0 },
+            "cadence": { "text": "月租", "occurrence": 0 },
+            "share": { "text": "各自承担一半", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "P-16-parent-health",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "recurring_healthcare:parents",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.08,
+          "protagonistMonthlyAmountWan": 0.08,
+          "spans": {
+            "responsibility": { "text": "母亲每月复查药费", "occurrence": 0 },
+            "completion": { "text": "你单独承担", "occurrence": 0 },
+            "payer": { "text": "你单独承担", "occurrence": 0 },
+            "amount": { "text": "800元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-17",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["completed_and_planned", "healthcare", "insurance", "amount_binding"],
+      "narrative": "你已开始每月支付父亲康复训练2000元，但准备下季度把自己的保险升级到1200元。",
+      "expectedBindings": [
+        {
+          "id": "P-17-parent-health-current",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "recurring_healthcare:parents",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.2,
+          "protagonistMonthlyAmountWan": 0.2,
+          "spans": {
+            "responsibility": { "text": "父亲康复训练", "occurrence": 0 },
+            "completion": { "text": "已开始每月支付", "occurrence": 0 },
+            "payer": { "text": "你已开始每月支付", "occurrence": 0 },
+            "amount": { "text": "2000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ],
+      "plannedObservations": [
+        {
+          "kind": "recurring_expense_adjustment",
+          "responsibilityKey": "personal_insurance:protagonist",
+          "completion": "planned",
+          "spans": {
+            "responsibility": { "text": "自己的保险", "occurrence": 0 },
+            "completion": { "text": "准备下季度", "occurrence": 0 },
+            "amount": { "text": "1200元", "occurrence": 0 },
+            "cadence": { "text": "下季度", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-18",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["completed_and_planned", "child_support", "amount_binding"],
+      "narrative": "你已经每月支付孩子托班费3500元，同时计划明年改读每月6000元的国际课程。",
+      "expectedBindings": [
+        {
+          "id": "P-18-child-current",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "child_support:unidentified",
+          "responsibilityKind": "child_support",
+          "proposedType": "dependent_support",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.35,
+          "protagonistMonthlyAmountWan": 0.35,
+          "spans": {
+            "responsibility": { "text": "孩子托班费", "occurrence": 0 },
+            "completion": { "text": "已经每月支付", "occurrence": 0 },
+            "payer": { "text": "你已经每月支付", "occurrence": 0 },
+            "amount": { "text": "3500元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ],
+      "plannedObservations": [
+        {
+          "kind": "recurring_expense_adjustment",
+          "responsibilityKey": "child_support:unidentified",
+          "completion": "planned",
+          "spans": {
+            "responsibility": { "text": "国际课程", "occurrence": 0 },
+            "completion": { "text": "计划明年改读", "occurrence": 0 },
+            "amount": { "text": "6000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 1 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-19",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["completed_and_planned", "housing", "amount_binding"],
+      "narrative": "你正在支付现在公寓房租4800元，未来准备搬到月租7500元的新房。",
+      "expectedBindings": [
+        {
+          "id": "P-19-housing-current",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "ongoing",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.48,
+          "protagonistMonthlyAmountWan": 0.48,
+          "spans": {
+            "responsibility": { "text": "现在公寓房租", "occurrence": 0 },
+            "completion": { "text": "正在支付", "occurrence": 0 },
+            "payer": { "text": "你正在支付", "occurrence": 0 },
+            "amount": { "text": "4800元", "occurrence": 0 },
+            "cadence": { "text": "房租", "occurrence": 0 }
+          }
+        }
+      ],
+      "plannedObservations": [
+        {
+          "kind": "recurring_expense_adjustment",
+          "responsibilityKey": "primary_residence:main",
+          "completion": "planned",
+          "spans": {
+            "responsibility": { "text": "新房", "occurrence": 0 },
+            "completion": { "text": "未来准备搬到", "occurrence": 0 },
+            "amount": { "text": "7500元", "occurrence": 0 },
+            "cadence": { "text": "月租", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-20",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["completed_and_planned", "healthcare", "amount_binding"],
+      "narrative": "你已为自己每月购买慢病药800元，考虑未来改用每月1500元的新疗法。",
+      "expectedBindings": [
+        {
+          "id": "P-20-personal-health-current",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "recurring_healthcare:protagonist",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.08,
+          "protagonistMonthlyAmountWan": 0.08,
+          "spans": {
+            "responsibility": { "text": "慢病药", "occurrence": 0 },
+            "completion": { "text": "已为自己每月购买", "occurrence": 0 },
+            "payer": { "text": "你已为自己每月购买", "occurrence": 0 },
+            "amount": { "text": "800元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ],
+      "plannedObservations": [
+        {
+          "kind": "recurring_expense_adjustment",
+          "responsibilityKey": "recurring_healthcare:protagonist",
+          "completion": "planned",
+          "spans": {
+            "responsibility": { "text": "新疗法", "occurrence": 0 },
+            "completion": { "text": "考虑未来改用", "occurrence": 0 },
+            "amount": { "text": "1500元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 1 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-21",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["amount_binding", "payer_unknown_material", "multi_amount", "gate_candidate"],
+      "narrative": "每月房租5000元和父母医疗1200元已经发生，但没有写明由谁支付。",
+      "expectedBindings": [
+        {
+          "id": "P-21-housing-owner-unknown",
+          "material": true,
+          "expectedCandidateDisposition": "material_unknown_gate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "review",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "unknown",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.5,
+          "spans": {
+            "responsibility": { "text": "房租", "occurrence": 0 },
+            "completion": { "text": "已经发生", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "P-21-parent-health-owner-unknown",
+          "material": true,
+          "expectedCandidateDisposition": "material_unknown_gate",
+          "responsibilityKey": "recurring_healthcare:parents",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "review",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "unknown",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.12,
+          "spans": {
+            "responsibility": { "text": "父母医疗", "occurrence": 0 },
+            "completion": { "text": "已经发生", "occurrence": 0 },
+            "amount": { "text": "1200元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-22",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["multi_amount", "housing", "two_responsibilities", "amount_binding"],
+      "narrative": "你同时承担两处住所：自住公寓房租5000元，父母暂住处租金3000元；两笔均由你支付。",
+      "expectedBindings": [
+        {
+          "id": "P-22-main-residence",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.5,
+          "protagonistMonthlyAmountWan": 0.5,
+          "spans": {
+            "responsibility": { "text": "自住公寓房租", "occurrence": 0 },
+            "completion": { "text": "同时承担", "occurrence": 0 },
+            "payer": { "text": "你同时承担", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 },
+            "cadence": { "text": "房租", "occurrence": 0 }
+          }
+        },
+        {
+          "id": "P-22-parent-residence",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "primary_residence:parent_temp",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.3,
+          "protagonistMonthlyAmountWan": 0.3,
+          "spans": {
+            "responsibility": { "text": "父母暂住处租金", "occurrence": 0 },
+            "completion": { "text": "同时承担", "occurrence": 0 },
+            "payer": { "text": "你同时承担", "occurrence": 0 },
+            "amount": { "text": "3000元", "occurrence": 0 },
+            "cadence": { "text": "租金", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-23",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["insurance", "annual_amount_normalization", "amount_binding"],
+      "narrative": "你已续缴年度医疗保险费2400元，按年缴纳。",
+      "expectedBindings": [
+        {
+          "id": "P-23-annual-insurance",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "personal_insurance:protagonist",
+          "responsibilityKind": "personal_insurance",
+          "proposedType": "insurance",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "annual",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.02,
+          "protagonistMonthlyAmountWan": 0.02,
+          "spans": {
+            "responsibility": { "text": "医疗保险费", "occurrence": 0 },
+            "completion": { "text": "已续缴", "occurrence": 0 },
+            "payer": { "text": "你已续缴", "occurrence": 0 },
+            "amount": { "text": "2400元", "occurrence": 0 },
+            "cadence": { "text": "按年缴纳", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-24",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["healthcare", "quarterly_amount_normalization", "amount_binding"],
+      "narrative": "你为母亲持续支付康复课程，每季度3600元。",
+      "expectedBindings": [
+        {
+          "id": "P-24-quarterly-parent-healthcare",
+          "material": true,
+          "expectedCandidateDisposition": "active_candidate",
+          "responsibilityKey": "recurring_healthcare:parents",
+          "responsibilityKind": "recurring_healthcare",
+          "proposedType": "healthcare",
+          "action": "start",
+          "completion": "ongoing",
+          "cadence": "quarterly",
+          "liability": "protagonist",
+          "financialScope": "personal",
+          "amountDisposition": "exact",
+          "grossMonthlyAmountWan": 0.12,
+          "protagonistMonthlyAmountWan": 0.12,
+          "spans": {
+            "responsibility": { "text": "母亲持续支付康复课程", "occurrence": 0 },
+            "completion": { "text": "持续支付", "occurrence": 0 },
+            "payer": { "text": "你为母亲持续支付", "occurrence": 0 },
+            "amount": { "text": "3600元", "occurrence": 0 },
+            "cadence": { "text": "每季度", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "P-25",
+      "kind": "positive",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["shared_housing", "share_unknown_material", "gate_candidate"],
+      "narrative": "你们共同支付每月房租5200元，但尚未商定各自份额。",
+      "expectedBindings": [
+        {
+          "id": "P-25-shared-housing-share-unknown",
+          "material": true,
+          "expectedCandidateDisposition": "material_unknown_gate",
+          "responsibilityKey": "primary_residence:main",
+          "responsibilityKind": "primary_residence",
+          "proposedType": "housing",
+          "action": "start",
+          "completion": "completed",
+          "cadence": "monthly",
+          "liability": "shared",
+          "financialScope": "shared_household",
+          "amountDisposition": "exact_total_share_unknown",
+          "grossMonthlyAmountWan": 0.52,
+          "spans": {
+            "responsibility": { "text": "房租", "occurrence": 0 },
+            "completion": { "text": "共同支付", "occurrence": 0 },
+            "payer": { "text": "你们共同支付", "occurrence": 0 },
+            "amount": { "text": "5200元", "occurrence": 0 },
+            "cadence": { "text": "每月", "occurrence": 0 },
+            "share": { "text": "尚未商定各自份额", "occurrence": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N-01",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["business_negative", "business_third_party_rental_negative"],
+      "narrative": "创业公司续租办公室，月租8000元由公司账户支付。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "business_operating",
+          "spans": {
+            "business": { "text": "创业公司续租办公室", "occurrence": 0 },
+            "payer": { "text": "由公司账户支付", "occurrence": 0 },
+            "amount": { "text": "8000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "primary_residence:main"
+        }
+      ]
+    },
+    {
+      "id": "N-02",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["business_negative", "business_third_party_rental_negative"],
+      "narrative": "客户为摄影工作室每月支付场地费3000元，这笔款进入公司账户。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "business_operating",
+          "spans": {
+            "business": { "text": "摄影工作室", "occurrence": 0 },
+            "payer": { "text": "客户为", "occurrence": 0 },
+            "amount": { "text": "3000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "primary_residence:main"
+        }
+      ]
+    },
+    {
+      "id": "N-03",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["rental_income_negative", "business_third_party_rental_negative"],
+      "narrative": "你将旧房出租，每月租金4500元汇入你的银行卡。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "rental_income",
+          "spans": {
+            "income": { "text": "将旧房出租", "occurrence": 0 },
+            "amount": { "text": "4500元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "primary_residence:main"
+        }
+      ]
+    },
+    {
+      "id": "N-04",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["rental_income_negative", "third_party_negative", "business_third_party_rental_negative"],
+      "narrative": "伴侣将她名下的房子出租，每月收租4000元。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "third_party_rental_income",
+          "spans": {
+            "income": { "text": "伴侣将她名下的房子出租", "occurrence": 0 },
+            "amount": { "text": "4000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "primary_residence:main"
+        }
+      ]
+    },
+    {
+      "id": "N-05",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["third_party_negative", "business_third_party_rental_negative"],
+      "narrative": "父母每月支付你的研究生学费6000元，你不承担这笔费用。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "third_party_payer",
+          "spans": {
+            "payer": { "text": "父母每月支付", "occurrence": 0 },
+            "amount": { "text": "6000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "continuing_education:protagonist"
+        }
+      ]
+    },
+    {
+      "id": "N-06",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["third_party_negative", "business_third_party_rental_negative"],
+      "narrative": "母亲每月替你支付房租5000元，你没有承担这笔支出。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "third_party_payer",
+          "spans": {
+            "payer": { "text": "母亲每月替你支付", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "primary_residence:main"
+        }
+      ]
+    },
+    {
+      "id": "N-07",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["business_negative", "business_third_party_rental_negative"],
+      "narrative": "公司报销你为团队租用仓库的月费5000元，不计入个人生活账本。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "business_operating",
+          "spans": {
+            "business": { "text": "团队租用仓库", "occurrence": 0 },
+            "payer": { "text": "公司报销", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "primary_residence:main"
+        }
+      ]
+    },
+    {
+      "id": "N-08",
+      "kind": "negative",
+      "caseSlug": "clause-binding-v1",
+      "tags": ["third_party_negative", "business_third_party_rental_negative"],
+      "narrative": "叔叔每月支付父亲护工费用5000元，你只偶尔探望。",
+      "expectedBindings": [],
+      "negativeAssertions": [
+        {
+          "reason": "third_party_payer",
+          "spans": {
+            "payer": { "text": "叔叔每月支付", "occurrence": 0 },
+            "amount": { "text": "5000元", "occurrence": 0 }
+          },
+          "forbidPersonalOrSharedResponsibilityKey": "elder_care:parents"
+        }
+      ]
+    }
+  ],
+  "lifecycleE2ESamples": [
+    {
+      "id": "L-01-start",
+      "action": "start",
+      "narrative": "本轮已签约并开始由你每月支付房租5000元。",
+      "requiredAuthority": "accepted_exact_fact",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "expectedNextPeriodMonthlyWan": 0.5
+    },
+    {
+      "id": "L-02-adjust",
+      "action": "adjust",
+      "narrative": "本轮已与房东续约，房租从5000元调整为6000元，由你每月支付。",
+      "requiredAuthority": "accepted_exact_fact_with_change_reason",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "expectedNextPeriodMonthlyWan": 0.6
+    },
+    {
+      "id": "L-03-review",
+      "action": "review",
+      "narrative": "父亲需要长期复查，你本轮继续承担相关照护安排，但金额待确认。",
+      "requiredAuthority": "accepted_responsibility_context",
+      "expectedResponsibilityKey": "elder_care:parents",
+      "expectedNextPeriodMonthlyWan": "contextual_estimate"
+    },
+    {
+      "id": "L-04-pause",
+      "action": "pause",
+      "narrative": "本轮你已退租并取得有权暂停该住房支出的确认。",
+      "requiredAuthority": "accepted_authorized_pause",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "expectedNextPeriodMonthlyWan": 0
+    },
+    {
+      "id": "L-05-resume",
+      "action": "resume",
+      "narrative": "本轮你重新签约租住个人公寓，恢复每月支付房租5000元。",
+      "requiredAuthority": "accepted_exact_fact",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "expectedNextPeriodMonthlyWan": 0.5
+    },
+    {
+      "id": "L-06-end",
+      "action": "end",
+      "narrative": "本轮你已退租并结束该个人住房租金，得到有权结束的确认。",
+      "requiredAuthority": "accepted_authorized_end",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "expectedNextPeriodMonthlyWan": 0
+    }
+  ]
+}

@@ -4,8 +4,11 @@ import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
 import { DEFAULT_REPORT_INVITATION_POLICY } from "../../config/reportInvitationPolicy";
 import {
   DEFAULT_EXPENSE_LIFECYCLE_MODE,
+  DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE,
   DEFAULT_FINANCIAL_NODE_GATE_MODE,
   FINANCIAL_GATE_MAX_REGENERATIONS,
+  compatibleExpenseNarrativeBindingMode,
+  type ExpenseNarrativeBindingMode,
   type ExpenseLifecycleMode,
   type FinancialNodeGateMode
 } from "../../config/financialGatePolicy";
@@ -94,6 +97,8 @@ import {
   buildMortalityFinancialClosure,
   reconcileCareerIncomeAtomicity,
   validateFinancialProposals,
+  validateExpenseConfirmationAtomicity,
+  verifyAcceptedExpenseConfirmationAgainstFinalNarrative,
   isFinancialEventKind,
   isUnacceptedIncomeOpportunityEvidence,
   explicitProtagonistAnnualIncomeWan,
@@ -229,6 +234,8 @@ export interface SimulationServiceDeps {
   financialNodeGateMode?: FinancialNodeGateMode;
   /** V4 responsibility reconciliation rollout; independent from legacy gate mode. */
   expenseLifecycleMode?: ExpenseLifecycleMode;
+  /** Selects the narrative candidate writer; separate from lifecycle commit mode. */
+  expenseNarrativeBindingMode?: ExpenseNarrativeBindingMode;
   onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
   /** Internal bounded-regeneration counter; callers should not set it. */
   financialGateRegenerationCount?: number;
@@ -2361,6 +2368,8 @@ function buildExpenseLifecycleCandidateTelemetry(input: {
   candidates: ExpenseResponsibilityCandidate[];
   decisions: ExpenseCommitmentReconciliationCandidateDecision[];
   validationIssues?: FinancialLedgerIssue[];
+  mode: ExpenseLifecycleMode;
+  acceptedProposalIds: Set<string>;
 }): ExpenseLifecycleCandidateTelemetry[] {
   const decisionByCandidateId = new Map(input.decisions.map((decision) => [decision.candidateId, decision]));
   const validationIssuesByProposalId = new Map<string, FinancialLedgerIssue[]>();
@@ -2406,6 +2415,7 @@ function buildExpenseLifecycleCandidateTelemetry(input: {
       proposedType: candidate.proposedType,
       financialScope: candidate.financialScope,
       action: candidate.action,
+      cadence: candidate.cadence,
       liability: candidate.liability,
       source: candidate.source,
       amountBasis,
@@ -2413,6 +2423,12 @@ function buildExpenseLifecycleCandidateTelemetry(input: {
       sourceGrossMonthlyAmountWan,
       shareRate: candidate.shareRate,
       amountSourceId: candidate.amountSourceId,
+      sourceFactBindingId: candidate.sourceFactBindingId,
+      sourceSpans: candidate.sourceSpans,
+      sourceClause: candidate.sourceClause,
+      sourceMateriality: candidate.sourceMateriality,
+      unresolvedFields: candidate.unresolvedFields,
+      sourceBindingReasonCodes: candidate.sourceBindingReasonCodes,
       evidenceReasonCodes: [...new Set(candidate.evidence.map((evidence) => evidence.reasonCode).filter(Boolean))],
       reconcilerDisposition: blockingValidationIssue ? "blocked" : decision.disposition,
       reconcilerReasonCodes: [...new Set([
@@ -2424,7 +2440,12 @@ function buildExpenseLifecycleCandidateTelemetry(input: {
         ...decision.relatedIssueIds,
         ...validationIssues.map((issue) => issue.id)
       ])],
-      wouldBlock: decision.wouldBlock || Boolean(blockingValidationIssue)
+      wouldBlock: decision.wouldBlock || Boolean(blockingValidationIssue),
+      finalDisposition: input.mode === "shadow"
+        ? "prospective_shadow"
+        : decision.relatedProposalIds.some((proposalId) => input.acceptedProposalIds.has(proposalId))
+          ? "committed"
+          : "rejected"
     };
   });
 }
@@ -2464,6 +2485,7 @@ async function commitAuthoritativeFinancialProgress(input: {
   callAiJson: AiJsonCaller;
   financialNodeGateMode: FinancialNodeGateMode;
   expenseLifecycleMode: ExpenseLifecycleMode;
+  expenseNarrativeBindingMode: ExpenseNarrativeBindingMode;
   onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
   financialGateRegenerationCount: number;
   nodeIndex?: number;
@@ -2745,7 +2767,8 @@ async function commitAuthoritativeFinancialProgress(input: {
         // Model proposals always trial with explicit funding. Deterministic
         // recurring obligations retain the production shortfall policy at the
         // final domain commit below.
-        liquidityPolicy: "require_explicit" as const
+        liquidityPolicy: "require_explicit" as const,
+        enforceExpenseConfirmation: true
       };
   let validated = validateFinancialProposals({
         proposals: normalizedFinancial.proposals,
@@ -3088,14 +3111,25 @@ async function commitAuthoritativeFinancialProgress(input: {
     currentWorldState: expenseCandidateWorldState
   });
   const expenseLifecycle = input.expenseLifecycleMode === "off"
-    ? { candidates: [], triggers: [], issues: [], reviewReasonCodes: [], coveredTriggerCount: 0 }
+    ? {
+        candidates: [],
+        triggers: [],
+        issues: [],
+        reviewReasonCodes: [],
+        coveredTriggerCount: 0,
+        narrativeBindingMode: "legacy" as const,
+        narrativeBinding: undefined
+      }
     : applyLifeStageExpenseLifecycle({
         narrativeText: input.node.description,
         currentWorldState: input.expenseLifecycleBaselineWorldState || input.currentWorldState,
         candidateWorldState: expenseCandidateWorldState,
         existingExpenseCommitments: initialLedger.version === 4 ? initialLedger.expenseCommitments : undefined,
         explicitFacts: acceptedExpenseResponsibilityFacts,
-        ageInMonths: input.periodEndAgeInMonths
+        ageInMonths: input.periodEndAgeInMonths,
+        sourceNodeId: input.transactionId,
+        sourceOutcomeId: input.acceptedOutcomeId,
+        narrativeBindingMode: input.expenseNarrativeBindingMode
       });
   const expenseReconciliation = input.expenseLifecycleMode === "off"
     ? undefined
@@ -3348,6 +3382,62 @@ async function commitAuthoritativeFinancialProgress(input: {
       periodStartAgeInMonths: input.periodStartAgeInMonths
     });
   }
+  const finalExpenseConfirmationVerifications = input.acceptedOutcomeId
+    ? validated.acceptedEvents
+      .filter((event) => Boolean(event.expenseConfirmationResolution))
+      .map((event) => verifyAcceptedExpenseConfirmationAgainstFinalNarrative({
+        event,
+        finalNarrativeText: previewDescription,
+        sourceNodeId: input.transactionId,
+        sourceOutcomeId: input.acceptedOutcomeId!
+      }))
+    : [];
+  const invalidFinalExpenseConfirmationIssues: FinancialLedgerIssue[] = finalExpenseConfirmationVerifications
+    .filter((verification) => !verification.valid)
+    .map((verification) => {
+      const event = validated.acceptedEvents.find((candidate) => candidate.id === verification.eventId)!;
+      const resolution = event.expenseConfirmationResolution!;
+      return {
+        id: `expense_confirmation_post_sanitize_${event.id}`,
+        code: "PENDING_FACT" as const,
+        severity: "blocking" as const,
+        status: "open" as const,
+        relatedProposalIds: event.proposalId ? [event.proposalId] : [],
+        relatedAccountIds: [resolution.accountId],
+        expenseResolutionKind: resolution.resolutionKind,
+        expenseResponsibilityKey: resolution.responsibilityKey,
+        summary: `最终可见正文无法重新绑定已验证的支出确认：${verification.reasonCodes.join("、")}`,
+        createdAtAgeInMonths: input.periodEndAgeInMonths
+      };
+    });
+  if (invalidFinalExpenseConfirmationIssues.length > 0) {
+    postSanitizationIssues = [
+      ...postSanitizationIssues,
+      ...invalidFinalExpenseConfirmationIssues
+    ];
+  }
+  const expenseConfirmationAtomicityIssues: FinancialLedgerIssue[] = validateExpenseConfirmationAtomicity({
+    events: validated.acceptedEvents,
+    previewIssues: previewCommitted.financialLedger.unresolvedIssues
+  }).map((violation) => {
+    const event = validated.acceptedEvents.find((candidate) => candidate.id === violation.eventId)!;
+    const resolution = event.expenseConfirmationResolution!;
+    return {
+      id: `expense_confirmation_atomicity_${violation.eventId}_${violation.targetIssueId}`,
+      code: "EXPENSE_CONFIRMATION_ATOMICITY_FAILED" as const,
+      severity: "blocking" as const,
+      status: "open" as const,
+      relatedProposalIds: event.proposalId ? [event.proposalId] : [],
+      relatedAccountIds: [resolution.accountId],
+      expenseResolutionKind: resolution.resolutionKind,
+      expenseResponsibilityKey: resolution.responsibilityKey,
+      summary: `支出确认未由同一 Accepted Event 原子关闭目标复核 ${violation.targetIssueId}：${violation.reasonCodes.join("、")}`,
+      createdAtAgeInMonths: input.periodEndAgeInMonths
+    };
+  });
+  if (expenseConfirmationAtomicityIssues.length > 0) {
+    postSanitizationIssues = [...postSanitizationIssues, ...expenseConfirmationAtomicityIssues];
+  }
   // Most completed financial facts must remain blocking even if their prose
   // can be softened; the gate is what prevents a fictitious property, debt or
   // asset transaction from becoming a silent narrative-only success.  The
@@ -3356,11 +3446,15 @@ async function commitAuthoritativeFinancialProgress(input: {
   // one final, user-visible status into the gate while retaining the original
   // finalized status for every other material fact.
   const postSanitizationIssueById = new Map(postSanitizationIssues.map((issue) => [issue.id, issue]));
-  const gateFinancialIssues = finalizedFinancialIssues.map((issue) => (
+  const gateFinancialIssues = [
+    ...finalizedFinancialIssues.map((issue) => (
     issue.id.startsWith("personal_income_claim_without_event_")
       ? postSanitizationIssueById.get(issue.id) || issue
       : issue
-  ));
+    )),
+    ...invalidFinalExpenseConfirmationIssues,
+    ...expenseConfirmationAtomicityIssues
+  ];
   const requiredFactGroups = buildRequiredFinancialFactGroups({
     issues: gateFinancialIssues,
     rejectedCompletedProposals,
@@ -3375,7 +3469,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     ...expenseReviewProposals
   ].map((proposal) => proposal.id));
   const hasEnforcedExpenseCritical = input.expenseLifecycleMode === "enforced"
-    && finalizedFinancialIssues.some((issue) => (
+    && [...finalizedFinancialIssues, ...invalidFinalExpenseConfirmationIssues, ...expenseConfirmationAtomicityIssues].some((issue) => (
       issue.severity === "blocking"
       && (
         issue.code.startsWith("EXPENSE_")
@@ -3443,19 +3537,23 @@ async function commitAuthoritativeFinancialProgress(input: {
   const expenseLifecycleCandidateTelemetry = buildExpenseLifecycleCandidateTelemetry({
     candidates: expenseLifecycle.candidates,
     decisions: expenseReconciliation?.candidateDecisions || [],
-    validationIssues: expenseLifecycleValidation?.issues
+    validationIssues: expenseLifecycleValidation?.issues,
+    mode: input.expenseLifecycleMode,
+    acceptedProposalIds: new Set(expenseLifecyclePlanAcceptedEvents.flatMap((event) => (
+      event.proposalId ? [event.proposalId] : []
+    )))
   });
   const previousConservativeWealthBasis = deriveConservativeWealthBasis({
     ledger: initialLedger,
     financialState: previousDerivedFinancialState
   });
   const conservativeWealthBasis = deriveConservativeWealthBasis({ ledger: committed.financialLedger, financialState });
-  const description = sanitizeFinancialNarrative(
-    previewDescription,
-    financialState,
-    committed.financialLedger,
-    validated.acceptedEvents
-  );
+  // `previewDescription` has already been sanitized against the exact
+  // transaction preview and all code-stamped confirmations were rebound to
+  // that final text before Gate. The authoritative commit is the same pure
+  // write-set, so running another text writer here would invalidate the
+  // verified spans after the acceptance decision.
+  const description = previewDescription;
   return {
     node: {
       ...committedNarrativeNode,
@@ -3508,6 +3606,18 @@ async function commitAuthoritativeFinancialProgress(input: {
         expenseLifecycleResponsibilityCodes: [...new Set(expenseLifecycle.candidates.flatMap((candidate) => candidate.evidence.map((evidence) => evidence.reasonCode)))],
         expenseLifecycleTelemetry: {
           mode: input.expenseLifecycleMode,
+          narrativeBindingMode: expenseLifecycle.narrativeBindingMode,
+          narrativeBindingCount: expenseLifecycle.narrativeBinding?.bindings.length || 0,
+          narrativeBindingCriticalCount: expenseLifecycle.narrativeBinding?.bindings.filter((binding) => (
+            binding.sourceMateriality === "critical"
+          )).length || 0,
+          narrativeBindingSourceIdentityMissingCount: expenseLifecycle.narrativeBinding?.bindings.filter((binding) => (
+            binding.sourceIdentityStatus === "missing"
+          )).length || 0,
+          expenseConfirmationAcceptedCount: validated.acceptedEvents.filter((event) => (
+            event.expenseConfirmationResolution?.disposition === "confirmed_exact"
+          )).length,
+          expenseConfirmationRejectedAfterSanitizeCount: invalidFinalExpenseConfirmationIssues.length,
           candidateCount: expenseLifecycle.candidates.length,
           candidates: expenseLifecycleCandidateTelemetry,
           acceptedStartCount: expenseLifecyclePlanAcceptedEvents.filter((event) => event.kind === "expense_commitment_started").length,
@@ -5584,6 +5694,10 @@ async function generateNextNodeAttempt(
       callAiJson,
       financialNodeGateMode: deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE,
       expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+      expenseNarrativeBindingMode: compatibleExpenseNarrativeBindingMode({
+        expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+        expenseNarrativeBindingMode: deps.expenseNarrativeBindingMode ?? DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE
+      }),
       onFinancialGateDecision: deps.onFinancialGateDecision,
       financialGateRegenerationCount: deps.financialGateRegenerationCount ?? 0,
       nodeIndex,
@@ -5933,6 +6047,10 @@ async function generateNextNodeAttempt(
     callAiJson,
     financialNodeGateMode: deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE,
     expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+    expenseNarrativeBindingMode: compatibleExpenseNarrativeBindingMode({
+      expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+      expenseNarrativeBindingMode: deps.expenseNarrativeBindingMode ?? DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE
+    }),
     onFinancialGateDecision: deps.onFinancialGateDecision,
     financialGateRegenerationCount: deps.financialGateRegenerationCount ?? 0,
     nodeIndex,
@@ -6138,6 +6256,10 @@ export async function generateNextNode(
 ): Promise<SimulationNode> {
   const gateMode = deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE;
   const expenseMode = deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE;
+  const narrativeBindingMode = compatibleExpenseNarrativeBindingMode({
+    expenseLifecycleMode: expenseMode,
+    expenseNarrativeBindingMode: deps.expenseNarrativeBindingMode ?? DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE
+  });
   const initialRegenerationCount = deps.financialGateRegenerationCount ?? 0;
   let lastGateError: FinancialNodeGateError | undefined;
   for (
@@ -6150,6 +6272,7 @@ export async function generateNextNode(
         ...deps,
         financialNodeGateMode: gateMode,
         expenseLifecycleMode: expenseMode,
+        expenseNarrativeBindingMode: narrativeBindingMode,
         financialGateRegenerationCount: regenerationCount,
         // Review telemetry remains in the rejection diagnostic, but asking the
         // model to repair it alongside a hard gate failure encourages invented
