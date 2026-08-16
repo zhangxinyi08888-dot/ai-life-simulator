@@ -35,6 +35,10 @@ export interface PersonalExpenseSummaryV4 {
   activeCommitments: PersonalExpenseCommitmentSummary[];
   pausedCommitments: PersonalExpenseCommitmentSummary[];
   annualizedActiveExpenseWan: number;
+  /** Accrued residual estimate that has not yet been assigned to an accepted category. */
+  unclassifiedAnnualizedExpenseWan: number;
+  /** Accepted typed commitments whose category and amount may be stated as facts. */
+  confirmedTypedAnnualizedExpenseWan: number;
   /** The subset whose amount is admissible in a final report. */
   reportEligibleAnnualizedExpenseWan: number;
 }
@@ -105,6 +109,12 @@ export function derivePersonalExpenseSummary(ledger?: FinancialLedger): Personal
     activeCommitments,
     pausedCommitments,
     annualizedActiveExpenseWan: roundWan(activeCommitments.reduce((sum, commitment) => sum + commitment.monthlyAmountWan * 12, 0)),
+    unclassifiedAnnualizedExpenseWan: roundWan(activeCommitments
+      .filter((commitment) => commitment.responsibilityKind === "unclassified_core_consumption")
+      .reduce((sum, commitment) => sum + commitment.monthlyAmountWan * 12, 0)),
+    confirmedTypedAnnualizedExpenseWan: roundWan(activeCommitments
+      .filter((commitment) => commitment.responsibilityKind !== "unclassified_core_consumption" && commitment.narrativeEligible)
+      .reduce((sum, commitment) => sum + commitment.monthlyAmountWan * 12, 0)),
     reportEligibleAnnualizedExpenseWan: roundWan(activeCommitments
       .filter((commitment) => commitment.narrativeEligible)
       .reduce((sum, commitment) => sum + commitment.monthlyAmountWan * 12, 0))
@@ -129,11 +139,12 @@ export function formatPersonalExpenseSummaryForPrompt(summary: PersonalExpenseSu
   const paused = summary.pausedCommitments.map((commitment) => `- paused ${formatCommitment(commitment)}`);
   return [
     `- sourceLedgerRevision=${summary.sourceLedgerRevision}, asOfAgeInMonths=${summary.asOfAgeInMonths}`,
-    `- annualizedActiveExpenseWan=${summary.annualizedActiveExpenseWan}, reportEligibleAnnualizedExpenseWan=${summary.reportEligibleAnnualizedExpenseWan}`,
+    `- annualizedActiveExpenseWan=${summary.annualizedActiveExpenseWan}, unclassifiedAnnualizedExpenseWan=${summary.unclassifiedAnnualizedExpenseWan}, confirmedTypedAnnualizedExpenseWan=${summary.confirmedTypedAnnualizedExpenseWan}, reportEligibleAnnualizedExpenseWan=${summary.reportEligibleAnnualizedExpenseWan}`,
     ...active,
     ...paused,
     ...(active.length === 0 && paused.length === 0 ? ["- 当前没有已接受的个人或共同家庭持续支出责任。"] : []),
     "- business_operating 与 third_party 流量不属于个人持续支出，禁止据此生成个人住房、家庭或医疗责任。",
+    "- unclassified_core_consumption 是实际计提的低权威总额余额，只能表述为未分类估算；禁止把它拆写或冒充为住房、医疗、保险、赡养、育儿等已确认事实。",
     "- factStatus=needs_review 或 narrativeEligible=false 的金额可用于账本现金流，但不得在终局报告或海报中冒充已确认事实。"
   ].join("\n");
 }

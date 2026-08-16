@@ -13,6 +13,7 @@ import type {
 
 const REVIEW_INTERVAL_MONTHS: Record<ExpenseResponsibilityKind, number> = {
   adult_basic_living: 60,
+  unclassified_core_consumption: 12,
   primary_residence: 36,
   child_support: 12,
   elder_care: 12,

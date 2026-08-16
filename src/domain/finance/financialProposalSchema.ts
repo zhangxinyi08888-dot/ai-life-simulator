@@ -13,7 +13,7 @@ const FINANCIAL_FACT_SOURCES = new Set(["user", "accepted_history", "accepted_si
 const FINANCIAL_SCOPES = new Set(["personal", "shared_household", "business_operating", "third_party"]);
 const COMMITTED_EXPENSE_SCOPES = new Set(["personal", "shared_household"]);
 const EXPENSE_RESPONSIBILITY_KINDS = new Set([
-  "adult_basic_living", "primary_residence", "child_support", "elder_care", "recurring_healthcare",
+  "adult_basic_living", "unclassified_core_consumption", "primary_residence", "child_support", "elder_care", "recurring_healthcare",
   "personal_insurance", "continuing_education", "legacy_aggregate"
 ]);
 const EXPENSE_AMOUNT_BASES = new Set([
@@ -23,6 +23,7 @@ const EXPENSE_CHANGE_REASONS = new Set([
   "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "estimate_superseded_by_exact_fact", "dependent_independent",
   "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
   "education_completed", "aggregate_atomically_split", "temporary_third_party_coverage",
+  "aggregate_residual_reallocated",
   "responsibility_resumed", "responsibility_ended"
 ]);
 const ASSET_TYPES = new Set(["investment", "property", "annuity", "insurance_cash_value", "other_personal_asset"]);

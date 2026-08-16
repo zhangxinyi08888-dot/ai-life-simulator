@@ -1443,6 +1443,19 @@ export function validateFinancialProposals(input: {
       || isSystemWorldDeltaReconciliation;
     const isSystemContextualCareUplift = proposal.systemGenerated === "expense_contextual_care_uplift";
     const isAnySystemReconciliation = isSystemReconciliation || isSystemContextualCareUplift;
+    const proposedExpenseResponsibilityKind = proposal.kind === "expense_commitment_adjusted"
+      ? String((payload.nextCommitment as Record<string, unknown> | undefined)?.responsibilityKind || "")
+      : String(payload.responsibilityKind || "");
+    if ((proposal.kind === "expense_commitment_started" || proposal.kind === "expense_commitment_adjusted")
+      && proposedExpenseResponsibilityKind === "unclassified_core_consumption") {
+      issues.push(proposalIssue({
+        proposal,
+        code: "EXPENSE_SCHEMA_FIELD_MISMATCH",
+        summary: "未分类核心支出只能由确定性 Preview/Commit 余额策略生成；模型和正文 Proposal 不得直接创建或修改该账户",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
     if (proposal.systemGenerated !== undefined && !isSystemReview && !isAnySystemReconciliation) {
       issues.push(proposalIssue({
         proposal,

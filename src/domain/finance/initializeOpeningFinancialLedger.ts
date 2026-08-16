@@ -3,6 +3,7 @@ import type { FinancialNodeGateMode } from "../../config/financialGatePolicy";
 import type { CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
 import { estimateExpenseResponsibility, expenseReviewIntervalMonths, type ExpenseEstimate } from "./expenseEstimationPolicyV2";
+import { estimateUnclassifiedCoreConsumption } from "./expenseAggregateFallbackPolicyV1";
 import { buildRequiredFinancialFactGroups, evaluateFinancialNodeAcceptance, type FinancialNodeAcceptanceDecision, type RequiredFinancialFactGroup } from "./financialNodeAcceptanceGate";
 import { validateFinancialPayloadSchema } from "./financialProposalSchema";
 import { initializeFinancialLedger } from "./initializeLedger";
@@ -16,6 +17,8 @@ import type {
   CashAccount,
   DebtAccount,
   ExpenseCommitment,
+  ExpenseAmountBasis,
+  ExpenseResponsibilityKind,
   FinancialEvidence,
   FinancialLedger,
   FinancialLedgerIssue,
@@ -56,8 +59,8 @@ export interface PreparedOpeningFinancialAuthority {
  */
 type OpeningExpenseCommitment = ExpenseCommitment & {
   responsibilityKey: string;
-  responsibilityKind: OpeningExpenseFact["responsibilityKind"];
-  amountBasis: OpeningExpenseFact["amountBasis"] | "policy_floor";
+  responsibilityKind: ExpenseResponsibilityKind;
+  amountBasis: ExpenseAmountBasis;
   amountSourceIds: string[];
   estimationPolicyId?: string;
   financialScope: "personal" | "shared_household";
@@ -411,7 +414,48 @@ function buildOpeningExpenseCommitments(input: {
   }
 
   const basic = basicCommitment(minimumBasic, basicFact.some((fact) => fact.factStatus !== "known"), basicFacts.length ? undefined : "policy_floor");
-  return { commitments: [...componentCommitments, ...(basic ? [basic] : [])], issues: componentIssues };
+  const onlyPolicyBasic = basic
+    && basicFacts.length === 0
+    && componentCommitments.length === 0
+    && input.state.employmentStatus !== "student";
+  const aggregateEstimate = onlyPolicyBasic ? estimateUnclassifiedCoreConsumption({
+    ageInMonths: input.state.asOfAgeInMonths,
+    employmentStatus: input.state.employmentStatus,
+    livingArrangement: "unknown",
+    cityCostBand: "unknown",
+    annualRecurringPersonalIncomeWan: input.state.annualAfterTaxIncomeWan
+  }) : undefined;
+  const residualWan = roundWan(Math.max(0, (aggregateEstimate?.targetMonthlyCoreExpenseWan || 0) - (basic?.monthlyAmountWan || 0)));
+  const unclassified: OpeningExpenseCommitment | undefined = aggregateEstimate && residualWan > 0 ? {
+    id: `opening_unclassified_core_consumption_${input.state.asOfAgeInMonths}`,
+    type: "other",
+    displayName: "未分类核心生活支出估算（待确认）",
+    monthlyAmountWan: residualWan,
+    activeFromAgeInMonths: input.state.asOfAgeInMonths,
+    status: "active",
+    factStatus: "needs_review",
+    accrualReviewStatus: "conservative",
+    evidence: [{
+      source: "system_policy",
+      reasonCode: "EXPENSE_UNCLASSIFIED_CORE_CONSUMPTION",
+      excerpt: "Opening 缺少可安全拆分的持续支出分项；仅建立未分类余额，不推断住房、医疗或家庭责任",
+      confidence: 1,
+      financialScope: "personal"
+    }],
+    responsibilityKey: "unclassified_core_consumption:protagonist",
+    responsibilityKind: "unclassified_core_consumption",
+    amountBasis: "contextual_estimate",
+    amountSourceIds: [`${aggregateEstimate.policyId}@${aggregateEstimate.policyVersion}`],
+    estimationPolicyId: aggregateEstimate.policyId,
+    financialScope: "personal",
+    plausibleMonthlyAmountRangeWan: aggregateEstimate.plausibleRangeWan,
+    lastReviewedAtAgeInMonths: input.state.asOfAgeInMonths,
+    nextReviewAtAgeInMonths: input.state.asOfAgeInMonths + 12
+  } : undefined;
+  return {
+    commitments: [...componentCommitments, ...(basic ? [basic] : []), ...(unclassified ? [unclassified] : [])],
+    issues: componentIssues
+  };
 }
 
 /**

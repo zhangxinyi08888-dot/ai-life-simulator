@@ -92,6 +92,7 @@ export type ExpenseCommitmentType = "basic_living" | "housing" | "dependent_supp
 
 export type ExpenseResponsibilityKind =
   | "adult_basic_living"
+  | "unclassified_core_consumption"
   | "primary_residence"
   | "child_support"
   | "elder_care"
@@ -127,6 +128,7 @@ export type ExpenseCommitmentChangeReason =
   | "insurance_cancelled"
   | "education_completed"
   | "aggregate_atomically_split"
+  | "aggregate_residual_reallocated"
   | "temporary_third_party_coverage"
   | "responsibility_resumed"
   | "responsibility_ended";

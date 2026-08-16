@@ -1689,6 +1689,38 @@ test("requires adjustment instead of stacking a second authoritative basic-livin
   assert.match(result.issues[0].summary, /expense_commitment_adjusted/);
 });
 
+test("a model proposal cannot create the system-owned unclassified residual", () => {
+  const context = v4Context();
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "model_unclassified",
+      kind: "expense_commitment_started",
+      evidence: "你的其他生活支出估计为每月5500元。",
+      payload: v4Expense({
+        id: "model_unclassified",
+        type: "other",
+        displayName: "未分类核心生活支出估算",
+        monthlyAmountWan: 0.55,
+        responsibilityKey: "unclassified_core_consumption:protagonist",
+        responsibilityKind: "unclassified_core_consumption",
+        factStatus: "needs_review",
+        amountBasis: "contextual_estimate",
+        confirmedMonthlyAmountWan: undefined
+      })
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "你的其他生活支出估计为每月5500元。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "model_unclassified_rejected",
+    liquidityPolicy: "require_explicit"
+  });
+
+  assert.equal(result.acceptedEvents.length, 0);
+  assert.equal(result.issues.some((item) => item.code === "EXPENSE_SCHEMA_FIELD_MISMATCH"), true);
+});
+
 test("allows separate dependent-support commitments for different responsibilities", () => {
   const context = setup();
   context.currentLedger.expenseCommitments.push({

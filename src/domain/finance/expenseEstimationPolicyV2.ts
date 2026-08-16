@@ -266,6 +266,7 @@ export function expenseReviewIntervalMonths(kind: ExpenseResponsibilityKind): nu
     case "recurring_healthcare":
     case "continuing_education":
     case "legacy_aggregate": return 12;
+    case "unclassified_core_consumption": return 12;
   }
 }
 

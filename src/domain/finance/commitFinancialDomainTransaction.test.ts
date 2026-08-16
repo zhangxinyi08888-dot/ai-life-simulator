@@ -7,6 +7,7 @@ import { deriveDebtHealthState } from "./debtHealth";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { FinancialLedgerInvariantError, PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
 import { migrateFinancialLedgerV3ToV4 } from "./migrateFinancialLedgerV3ToV4";
+import { previewFinancialDomainTransaction } from "./previewFinancialDomainTransaction";
 import { buildExpenseLifecycleReviewPlan } from "./expenseLifecycleReview";
 import type {
   AcceptedFinancialEvent,
@@ -203,6 +204,109 @@ test("the automatic basic-living floor is canonical when the transaction already
   assert.equal(basicLiving?.responsibilityKind, "adult_basic_living");
   assert.equal(basicLiving?.amountBasis, "policy_floor");
   assert.equal(basicLiving?.financialScope, "personal");
+});
+
+test("an explicit aggregate context adds an accruing residual while Preview leaves the authoritative ledger unchanged", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "personal_salary_24",
+    type: "salary",
+    displayName: "个人工资",
+    monthlyNetAmountWan: 2,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "known",
+    evidence
+  });
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  const input = {
+    transactionId: "preview_unclassified_residual",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    basicLivingEstimateContext: { livingArrangement: "unknown" as const, cityCostBand: "medium" as const },
+    aggregateExpenseEstimateContext: {
+      employmentStatus: "employed" as const,
+      livingArrangement: "unknown" as const,
+      cityCostBand: "medium" as const,
+      householdSize: 1
+    }
+  };
+  const preview = previewFinancialDomainTransaction(input);
+  assert.equal(v4.expenseCommitments.length, 0, "Preview must not mutate the authoritative ledger used by a potentially rejected node");
+  assert.equal(current.worldState.committedTransactionIds?.length || 0, 0);
+  const previewBasic = preview.financialLedger.expenseCommitments.find((item) => item.responsibilityKind === "adult_basic_living");
+  const previewResidual = preview.financialLedger.expenseCommitments.find((item) => item.responsibilityKind === "unclassified_core_consumption");
+  assert.equal(previewBasic?.monthlyAmountWan, 0.35);
+  assert.equal(previewResidual?.monthlyAmountWan, 0.55);
+  assert.equal(preview.derivedFinancialState.state.annualizedCoreExpenseWan, 10.8);
+
+  const committed = commitFinancialDomainTransaction(input);
+  assert.equal(committed.financialLedger.expenseCommitments.filter((item) => item.responsibilityKind === "unclassified_core_consumption").length, 1);
+  assert.equal(committed.derivedFinancialState.state.annualizedCoreExpenseWan, 10.8);
+});
+
+test("the unclassified residual carries forward without narrative and never duplicates", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "personal_salary_carry",
+    type: "salary",
+    displayName: "个人工资",
+    monthlyNetAmountWan: 2,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "known",
+    evidence
+  });
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  const context = {
+    employmentStatus: "employed" as const,
+    livingArrangement: "unknown" as const,
+    cityCostBand: "medium" as const,
+    householdSize: 1
+  };
+  const first = commitFinancialDomainTransaction({
+    transactionId: "unclassified_carry_1",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    aggregateExpenseEstimateContext: context,
+    basicLivingEstimateContext: context
+  });
+  const second = commitFinancialDomainTransaction({
+    transactionId: "unclassified_carry_2",
+    periodStartAgeInMonths: 361,
+    periodEndAgeInMonths: 362,
+    expectedCareerRevision: first.career.careerRevision,
+    expectedLedgerRevision: first.financialLedger.revision,
+    currentCareer: first.career,
+    currentFinancialLedger: first.financialLedger,
+    currentWorldState: first.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    aggregateExpenseEstimateContext: context,
+    basicLivingEstimateContext: context
+  });
+  const residuals = second.financialLedger.expenseCommitments.filter((item) => item.status === "active" && item.responsibilityKind === "unclassified_core_consumption");
+  assert.equal(residuals.length, 1);
+  assert.equal(residuals[0].monthlyAmountWan, 0.55);
+  assert.equal(second.derivedFinancialState.state.annualizedCoreExpenseWan, 10.8);
 });
 
 test("the adult basic-living floor does not rewrite a V4 legacy aggregate", () => {

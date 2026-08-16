@@ -3514,6 +3514,7 @@ async function commitAuthoritativeFinancialProgress(input: {
       livingArrangement: expenseEstimateContext.livingArrangement,
       cityCostBand: expenseEstimateContext.cityCostBand
     },
+    aggregateExpenseEstimateContext: expenseEstimateContext,
     liquidityPolicy: "auto_shortfall_debt"
   } as const;
   // Narrative grounding depends on the closing ledger, while narrative contract

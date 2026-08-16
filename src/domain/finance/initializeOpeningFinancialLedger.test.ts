@@ -203,16 +203,41 @@ test("O-03 applies max(P, T, F) to one unknown-coverage aggregate without double
   assert.equal(result.ledger.expenseCommitments.some((item) => item.responsibilityKey === "recurring_healthcare:opening_parent"), false);
 });
 
-test("O-04 ignores a model aggregate state and uses only accepted opening facts", () => {
+test("O-04 ignores a model aggregate state but adds a separately auditable contextual residual", () => {
   const result = initializeOpeningFinancialLedger({
     id: "opening_model_aggregate", linkedCareerStateId: "career", proposedState: openingState({ annualCoreExpenseWan: 18 }),
     openingFacts: { evidenceText: "无持续支出金额事实", ownsProperty: false }
   });
   const active = result.ledger.expenseCommitments.filter((item) => item.status === "active");
+  assert.equal(active.length, 2);
+  const basic = active.find((item) => item.responsibilityKey === "adult_basic_living:protagonist");
+  const residual = active.find((item) => item.responsibilityKey === "unclassified_core_consumption:protagonist");
+  assert.equal(basic?.monthlyAmountWan, 0.35);
+  assert.equal(residual?.monthlyAmountWan, 0.75);
+  assert.equal(residual?.factStatus, "needs_review");
+  assert.equal(residual?.amountBasis, "contextual_estimate");
+  assert.equal(active.reduce((sum, item) => sum + item.monthlyAmountWan, 0), 1.1);
+  assert.notEqual(active.reduce((sum, item) => sum + item.monthlyAmountWan, 0), 1.5, "model annualCoreExpense total is still not opening authority");
+});
+
+test("O-05 a student opening keeps the matched student living policy without an unsupported aggregate or debt", () => {
+  const result = initializeOpeningFinancialLedger({
+    id: "opening_student_context", linkedCareerStateId: "career_student",
+    proposedState: openingState({
+      asOfAgeInMonths: 20 * 12,
+      employmentStatus: "student",
+      annualAfterTaxIncomeWan: 0,
+      annualCoreExpenseWan: 2.4,
+      annualDisposableIncomeWan: -2.4
+    }),
+    openingFacts: { evidenceText: "仍在校学习，家庭愿意承担国内学习期间的基础生活。", ownsProperty: false }
+  });
+  const active = result.ledger.expenseCommitments.filter((item) => item.status === "active");
   assert.equal(active.length, 1);
   assert.equal(active[0].responsibilityKey, "adult_basic_living:protagonist");
-  assert.equal(active[0].monthlyAmountWan, 0.35);
-  assert.notEqual(active[0].monthlyAmountWan, 1.5);
+  assert.equal(active[0].monthlyAmountWan, 0.2);
+  assert.equal(result.ledger.expenseCommitments.some((item) => item.responsibilityKind === "unclassified_core_consumption"), false);
+  assert.equal(result.ledger.debtAccounts.length, 0);
 });
 
 test("opening schema blocker is evaluated before materialization and leaves candidate inputs unchanged", () => {

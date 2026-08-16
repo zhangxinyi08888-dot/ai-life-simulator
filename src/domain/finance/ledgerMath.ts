@@ -92,6 +92,7 @@ function assertV4ExpenseCommitment(commitment: ExpenseCommitmentV4): void {
   }
   if (![
     "adult_basic_living",
+    "unclassified_core_consumption",
     "primary_residence",
     "child_support",
     "elder_care",
@@ -362,6 +363,8 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
     const activeResponsibilityKeys = new Set<string>();
     let nonEndedElderCareAggregate: ExpenseCommitmentV4 | undefined;
     let nonEndedElderCareIndividual: ExpenseCommitmentV4 | undefined;
+    let activeLegacyAggregate: ExpenseCommitmentV4 | undefined;
+    let activeUnclassifiedAggregate: ExpenseCommitmentV4 | undefined;
     for (const commitment of ledger.expenseCommitments) {
       assertV4ExpenseCommitment(commitment);
       const parentCareCoverageRole = commitment.status !== "ended"
@@ -373,10 +376,18 @@ export function assertFinancialLedgerInvariants(ledger: FinancialLedger): void {
         nonEndedElderCareIndividual = commitment;
       }
       if (commitment.status !== "active") continue;
+      if (commitment.responsibilityKind === "legacy_aggregate") activeLegacyAggregate = commitment;
+      if (commitment.responsibilityKind === "unclassified_core_consumption") activeUnclassifiedAggregate = commitment;
       if (activeResponsibilityKeys.has(commitment.responsibilityKey)) {
         throw new FinancialLedgerInvariantError("INVALID_LEDGER", `V4 active 支出责任不得重复: ${commitment.responsibilityKey}`);
       }
       activeResponsibilityKeys.add(commitment.responsibilityKey);
+    }
+    if (activeLegacyAggregate && activeUnclassifiedAggregate) {
+      throw new FinancialLedgerInvariantError(
+        "INVALID_LEDGER",
+        `V4 旧版聚合支出 ${activeLegacyAggregate.id} 不得与未分类核心支出 ${activeUnclassifiedAggregate.id} 并行计提`
+      );
     }
     if (nonEndedElderCareAggregate && nonEndedElderCareIndividual) {
       throw new FinancialLedgerInvariantError(

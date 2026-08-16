@@ -3,9 +3,11 @@ import { currentCareerState, reduceCareerStates } from "../career/careerState";
 import type { AcceptedCareerTransition, CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
 import { estimatedBasicLivingCommitment, type FinancialEstimationContext } from "./financialEstimationPolicy";
+import type { ExpenseResponsibilityEstimateContext } from "./expenseEstimationPolicyV2";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
 import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4";
 import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
+import { reconcileUnclassifiedCoreExpense } from "./reconcileUnclassifiedCoreExpense";
 import { isFinancialLedgerV4 } from "./types";
 import type {
   AcceptedFinancialEvent,
@@ -664,6 +666,7 @@ export interface FinancialDomainTransactionInput {
   financialIssues?: FinancialLedgerIssue[];
   liquidityPolicy?: LiquidityPolicy;
   basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
+  aggregateExpenseEstimateContext?: Omit<ExpenseResponsibilityEstimateContext, "responsibilityKind" | "ageInMonths">;
 }
 
 export interface CommittedFinancialDomainTransaction {
@@ -739,13 +742,27 @@ export function commitFinancialDomainTransaction(
     employmentStatus: nextCurrentCareerState.employmentStatus,
     basicLivingEstimateContext: input.basicLivingEstimateContext
   });
+  const unclassifiedExpenseEvents = isFinancialLedgerV4(settlementLedger) && input.aggregateExpenseEstimateContext
+    ? reconcileUnclassifiedCoreExpense({
+      ledger: settlementLedger,
+      transactionId: input.transactionId,
+      periodStartAgeInMonths: input.periodStartAgeInMonths,
+      periodEndAgeInMonths: input.periodEndAgeInMonths,
+      acceptedFinancialEvents: input.acceptedFinancialEvents,
+      estimateContext: input.aggregateExpenseEstimateContext
+    })
+    : [];
+  const transactionFinancialEvents = [
+    ...input.acceptedFinancialEvents,
+    ...unclassifiedExpenseEvents
+  ];
   const financialResult = reduceFinancialLedger({
     ledger: settlementLedger,
     transactionId: input.transactionId,
     expectedLedgerRevision: input.expectedLedgerRevision,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
-    events: input.acceptedFinancialEvents,
+    events: transactionFinancialEvents,
     liquidityPolicy: input.liquidityPolicy
   });
   if (financialResult.alreadyCommitted || !("periodSummary" in financialResult)) {
@@ -772,7 +789,7 @@ export function commitFinancialDomainTransaction(
   // the history honest without allowing the rejected sibling to quarantine an
   // income source that was authoritatively confirmed.
   applyPendingFactPolicy(committedLedger, observedIssues, input.periodEndAgeInMonths);
-  resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
+  resolveIssuesFromAcceptedEvents(committedLedger, transactionFinancialEvents, input.periodEndAgeInMonths);
   resolveCareerTransitionIssues(committedLedger, input.acceptedCareerTransitions, input.periodEndAgeInMonths);
   resolveRecoveredDebtDelinquencyIssues(committedLedger, input.periodEndAgeInMonths, input.transactionId);
   const nextWorldState: WorldStateSnapshot = {

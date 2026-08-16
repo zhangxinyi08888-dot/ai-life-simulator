@@ -679,11 +679,11 @@ assert.equal(mortgageStarted.startNode.financialState?.totalDebtWan, 210);
 assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.id, "opening_mortgage");
 assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
 assert.equal(mortgageStarted.startNode.financialLedger?.assetAccounts.some((account) => account.type === "property"), true);
-// The model's opening annualCoreExpenseWan=18 has no authority.  This user
-// supplied opening only establishes mortgage service, so the derived figure
-// uses the accepted adult basic floor (4.2/year) plus mortgage interest.
-assert.equal(mortgageStarted.startNode.financialState?.annualCoreExpenseWan, 4.2);
-assert.equal(mortgageStarted.startNode.financialState?.annualDisposableIncomeWan, 28.7);
+// The model's opening annualCoreExpenseWan=18 still has no authority. The
+// accepted salary selects the bounded aggregate prior, recorded as a separate
+// needs-review residual rather than inventing housing or healthcare facts.
+assert.equal(mortgageStarted.startNode.financialState?.annualCoreExpenseWan, 16.2);
+assert.equal(mortgageStarted.startNode.financialState?.annualDisposableIncomeWan, 16.7);
 
 const openingNarrativeAuthorityStarted = await startSimulation({
   ...userData,

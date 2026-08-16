@@ -39,6 +39,14 @@ function v4Ledger() {
           confirmedMonthlyAmountWan: 0.4
         }),
         expense({
+          id: "unclassified", type: "other", displayName: "未分类核心生活支出估算", monthlyAmountWan: 0.2,
+          responsibilityKey: "unclassified_core_consumption:protagonist", responsibilityKind: "unclassified_core_consumption",
+          amountBasis: "contextual_estimate", amountSourceIds: ["expense-aggregate-fallback-policy-v1@1"],
+          factStatus: "needs_review", evidence: [{
+            ...personalEvidence[0], source: "system_policy", reasonCode: "EXPENSE_UNCLASSIFIED_CORE_CONSUMPTION"
+          }]
+        }),
+        expense({
           id: "shared_home", type: "housing", displayName: "共同租房", monthlyAmountWan: 0.3,
           responsibilityKey: "primary_residence:shared_home", responsibilityKind: "primary_residence",
           financialScope: "shared_household", amountBasis: "explicit_shared_amount", amountSourceIds: ["lease:shared"],
@@ -71,11 +79,14 @@ test("V4 personal expense summary is responsibility-level, deterministic and exc
 
   assert.deepEqual(
     summary.activeCommitments.map((item) => item.responsibilityKey),
-    ["adult_basic_living:protagonist", "primary_residence:shared_home"]
+    ["adult_basic_living:protagonist", "primary_residence:shared_home", "unclassified_core_consumption:protagonist"]
   );
   assert.deepEqual(summary.pausedCommitments.map((item) => item.responsibilityKey), ["recurring_healthcare:ongoing_treatment"]);
-  assert.equal(summary.annualizedActiveExpenseWan, 8.4);
+  assert.equal(summary.annualizedActiveExpenseWan, 10.8);
+  assert.equal(summary.unclassifiedAnnualizedExpenseWan, 2.4);
+  assert.equal(summary.confirmedTypedAnnualizedExpenseWan, 8.4);
   assert.equal(summary.reportEligibleAnnualizedExpenseWan, 8.4);
+  assert.equal(summary.activeCommitments.find((item) => item.responsibilityKind === "unclassified_core_consumption")?.narrativeEligible, false);
   assert.deepEqual(summary.activeCommitments[1], {
     commitmentId: "shared_home",
     responsibilityKey: "primary_residence:shared_home",
@@ -98,6 +109,8 @@ test("V4 personal expense summary is responsibility-level, deterministic and exc
   assert.match(formatted, /basis=explicit_shared_amount/);
   assert.match(formatted, /factStatus=known/);
   assert.match(formatted, /review=normal/);
+  assert.match(formatted, /unclassifiedAnnualizedExpenseWan=2.4/);
+  assert.match(formatted, /只能表述为未分类估算/u);
   assert.doesNotMatch(formatted, /workshop|parent_bill|木工坊|父母自行/u);
 });
 

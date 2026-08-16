@@ -369,6 +369,7 @@ test("lifecycle diagnostics keep empty distributions, flows and family windows h
   assert.equal(result.summary.annualCoreExpenseDistributionStatus, "not_covered");
   assert.equal(result.summary.annualCoreExpenseConcentrationPct, null);
   assert.equal(result.summary.systemFloorOnlyAdultStatus, "not_covered");
+  assert.equal(result.summary.unclassifiedExpenseStatus, "not_covered");
   assert.equal(result.summary.routeCumulativeFinancialsStatus, "not_covered");
   assert.equal(result.summary.cumulativeIncomeWan, null);
   assert.equal(result.summary.familyResponsibilityRunRateWindowStatus, "not_covered");
@@ -380,6 +381,33 @@ test("lifecycle diagnostics keep empty distributions, flows and family windows h
   assert.equal(result.summary.expenseAggregateSplitLossCount, null);
   assert.equal(result.summary.expenseAmountSourceDoubleCount, null);
   assert.equal(result.summary.mortgageExpenseDoubleCountCount, null);
+});
+
+test("lifecycle diagnostics distinguish accrued unclassified residual from accepted typed expense", () => {
+  const unclassified = (monthlyAmountWan) => commitment({
+    id: "system_unclassified_core_consumption",
+    responsibilityKey: "unclassified_core_consumption:protagonist",
+    responsibilityKind: "unclassified_core_consumption",
+    type: "other",
+    displayName: "未分类核心生活支出估算",
+    monthlyAmountWan,
+    factStatus: "needs_review",
+    amountBasis: "contextual_estimate",
+    evidence: [{ source: "system_policy", reasonCode: "EXPENSE_UNCLASSIFIED_CORE_CONSUMPTION", confidence: 1 }]
+  });
+  const history = [
+    dynamicNode([floorCommitment(), unclassified(0.55)], 360, 372),
+    dynamicNode([floorCommitment(), unclassified(0.25), residenceCommitment({ monthlyAmountWan: 0.3 })], 372, 384)
+  ];
+
+  const { summary } = auditExpenseLifecycleDynamics({ routeRecords: [{ caseSlug: "residual", history }] });
+
+  assert.equal(summary.systemFloorOnlyAdultMonths, 0);
+  assert.equal(summary.unclassifiedExpenseStatus, "observed");
+  assert.equal(summary.unclassifiedExpenseSnapshotCount, 2);
+  assert.equal(summary.unclassifiedExpenseMonths, 24);
+  assert.equal(summary.unclassifiedExpenseSharePct > 0, true);
+  assert.equal(summary.knownTypedExpenseSharePct > 0, true);
 });
 
 test("expense invariant audit catches silent lowering, zero unknowns, stale review, split loss, source duplication and mortgage double count", () => {

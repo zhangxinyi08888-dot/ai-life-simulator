@@ -476,7 +476,7 @@ function hasExpenseSnapshot(node) {
 }
 
 function isMaterialExpenseResponsibility(commitment) {
-  return responsibilityKind(commitment) !== "adult_basic_living";
+  return !["adult_basic_living", "unclassified_core_consumption"].includes(responsibilityKind(commitment));
 }
 
 function activeMonthlyAmount(commitment) {
@@ -506,6 +506,10 @@ function amountSourceIds(commitment) {
  * predicate.
  */
 function hasAcceptedDownwardExpenseAuthority(commitment) {
+  if (responsibilityKind(commitment) === "unclassified_core_consumption"
+    && (commitment.evidence || []).some((evidence) => evidence?.reasonCode === "EXPENSE_UNCLASSIFIED_RESIDUAL_REALLOCATION")) {
+    return true;
+  }
   if (!commitment || !["explicit_known", "explicit_shared_amount"].includes(commitment.amountBasis)) return false;
   return (commitment.evidence || []).some((evidence) => (
     ACCEPTED_EXPENSE_EVIDENCE_SOURCES.has(evidence?.source)
@@ -877,6 +881,11 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
   let expenseSnapshotObservedNodeCount = 0;
   let systemFloorOnlyAdultMonths = 0;
   let maxSystemFloorOnlyStreakMonths = 0;
+  let unclassifiedExpenseSnapshotCount = 0;
+  let unclassifiedExpenseMonths = 0;
+  let unclassifiedExpenseWanMonths = 0;
+  let activeExpenseWanMonths = 0;
+  let knownTypedExpenseWanMonths = 0;
 
   for (const record of routeRecords) {
     const history = record.history || [];
@@ -886,6 +895,7 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
     let currentFloorStreakMonths = 0;
     let routeFloorOnlyAdultMonths = 0;
     let routeMaxFloorOnlyStreakMonths = 0;
+    let routeUnclassifiedExpenseMonths = 0;
     for (const [nodeIndex, node] of history.entries()) {
       const previousNode = history[nodeIndex - 1];
       const lifecycleTelemetry = node?.financialProcessingMeta?.expenseLifecycleTelemetry;
@@ -1105,6 +1115,22 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
         }
       }
       const durationMonths = nodeDurationMonths(node, history[nodeIndex - 1]);
+      const unclassifiedCommitment = commitments.find((commitment) => (
+        commitment?.status === "active" && responsibilityKind(commitment) === "unclassified_core_consumption"
+      ));
+      const activeMonthlyExpenseWan = round(commitments.reduce((sum, commitment) => sum + activeMonthlyAmount(commitment), 0));
+      const unclassifiedMonthlyExpenseWan = activeMonthlyAmount(unclassifiedCommitment);
+      const knownTypedMonthlyExpenseWan = round(commitments
+        .filter((commitment) => isMaterialExpenseResponsibility(commitment) && commitmentFactStatus(commitment) === "known")
+        .reduce((sum, commitment) => sum + activeMonthlyAmount(commitment), 0));
+      activeExpenseWanMonths = round(activeExpenseWanMonths + activeMonthlyExpenseWan * durationMonths);
+      knownTypedExpenseWanMonths = round(knownTypedExpenseWanMonths + knownTypedMonthlyExpenseWan * durationMonths);
+      if (unclassifiedCommitment) {
+        unclassifiedExpenseSnapshotCount += 1;
+        unclassifiedExpenseMonths += durationMonths;
+        routeUnclassifiedExpenseMonths += durationMonths;
+        unclassifiedExpenseWanMonths = round(unclassifiedExpenseWanMonths + unclassifiedMonthlyExpenseWan * durationMonths);
+      }
       const onlyFloor = systemFloorOnly(node) && (ageInMonths(node) || 0) >= 18 * 12;
       if (onlyFloor) {
         currentFloorStreakMonths += durationMonths;
@@ -1139,6 +1165,7 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
       flow,
       systemFloorOnlyAdultMonths: routeFloorOnlyAdultMonths,
       maxSystemFloorOnlyStreakMonths: routeMaxFloorOnlyStreakMonths,
+      unclassifiedExpenseMonths: routeUnclassifiedExpenseMonths,
       lifecycleEventCount: routeEvents.length,
       lifecycleEvents: routeEvents,
       familyResponsibilityRunRateWindows: familyWindows,
@@ -1211,6 +1238,11 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
       systemFloorOnlyAdultMonths,
       maxSystemFloorOnlyStreakMonths,
       systemFloorOnlyAdultStatus: floorRows.length === 0 ? "not_covered" : "observed",
+      unclassifiedExpenseSnapshotCount,
+      unclassifiedExpenseMonths,
+      unclassifiedExpenseSharePct: percent(unclassifiedExpenseWanMonths, activeExpenseWanMonths),
+      knownTypedExpenseSharePct: percent(knownTypedExpenseWanMonths, activeExpenseWanMonths),
+      unclassifiedExpenseStatus: expenseSnapshotObservedNodeCount === 0 ? "not_covered" : "observed",
       activeExpenseFactStatusSnapshotCount: activeFactStatusSnapshotCount,
       activeExpenseFactStatusSnapshotCounts: factStatusSnapshotCounts,
       activeExpenseFactStatusSnapshotRatePct: factStatusSnapshotRatePct,
