@@ -83,6 +83,13 @@ test("a young student's accepted living arrangement calibrates routine living wi
     livingArrangement: "with_family",
     cityCostBand: "medium"
   });
+  const providedResidence = estimateExpenseResponsibility({
+    responsibilityKind: "adult_basic_living",
+    ageInMonths: 22 * 12,
+    employmentStatus: "student",
+    livingArrangement: "provided",
+    cityCostBand: "medium"
+  });
   const rentingInHighCostCity = estimateExpenseResponsibility({
     responsibilityKind: "adult_basic_living",
     ageInMonths: 22 * 12,
@@ -90,8 +97,9 @@ test("a young student's accepted living arrangement calibrates routine living wi
     livingArrangement: "renting",
     cityCostBand: "high"
   });
-  assert.ok(withFamily && rentingInHighCostCity);
+  assert.ok(withFamily && providedResidence && rentingInHighCostCity);
   assert.equal(withFamily.accrualMonthlyAmountWan, 0.15);
+  assert.equal(providedResidence.accrualMonthlyAmountWan, 0.15);
   assert.equal(rentingInHighCostCity.accrualMonthlyAmountWan, 0.24);
 });
 

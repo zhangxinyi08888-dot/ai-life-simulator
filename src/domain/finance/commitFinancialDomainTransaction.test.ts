@@ -374,6 +374,9 @@ test("a silent node carries the active V4 basic-living amount instead of recreat
   assert.equal(activeLiving.length, 1);
   assert.equal(activeLiving[0].monthlyAmountWan, 0.8);
   assert.equal(result.financialPeriodSummary?.coreExpenseWan, 0.8);
+  assert.equal(result.derivedFinancialState.state.annualizedCoreExpenseWan, 9.6);
+  assert.equal(result.financialLedger.cashAccounts[0].balanceWan, 1.2);
+  assert.equal(result.financialLedger.debtAccounts.length, 0);
 });
 
 test("a missing student baseline uses accepted background context and matching family support without inventing debt", () => {
