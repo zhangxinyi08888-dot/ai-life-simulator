@@ -1183,6 +1183,31 @@ test("rejects malformed kind payload before reducer trial without leaking undefi
   assert.doesNotMatch(result.issues[0].summary, /undefined/i);
 });
 
+test("rejects malformed expense commitments before exact-confirmation validation without throwing", () => {
+  const malformed = [
+    proposal({
+      id: "malformed_expense_start",
+      kind: "expense_commitment_started",
+      payload: undefined as any,
+      evidence: "你开始承担一笔每月5000元的住房支出。"
+    }),
+    proposal({
+      id: "malformed_expense_adjustment",
+      kind: "expense_commitment_adjusted",
+      payload: { expenseCommitmentId: "housing_main" },
+      evidence: "你的住房支出调整为每月5000元。"
+    })
+  ];
+
+  for (const candidate of malformed) {
+    const result = validate([candidate], candidate.evidence);
+    assert.equal(result.acceptedEvents.length, 0);
+    assert.equal(result.issues.length, 1);
+    assert.equal(typeof result.issues[0].code, "string");
+    assert.doesNotMatch(result.issues[0].summary, /undefined/i);
+  }
+});
+
 test("reports typed account mismatch with legal income-source candidates", () => {
   const context = setup();
   context.currentLedger.incomeSources.push({ id: "salary_main", type: "salary", displayName: "工资", monthlyNetAmountWan: 2, accrualPolicy: "monthly", activeFromAgeInMonths: 300, status: "active", linkedCareerStateId: "career_current", factStatus: "known", evidence });

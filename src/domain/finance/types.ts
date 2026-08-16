@@ -487,15 +487,17 @@ export function isFinancialLedgerV4(ledger: FinancialLedgerInput | FinancialLedg
   return ledger.version === 4;
 }
 
-export function isExpenseCommitmentV4(commitment: ExpenseCommitment): commitment is ExpenseCommitmentV4 {
+export function isExpenseCommitmentV4(commitment: unknown): commitment is ExpenseCommitmentV4 {
+  if (!commitment || typeof commitment !== "object") return false;
+  const candidate = commitment as Partial<ExpenseCommitmentV4>;
   return Boolean(
-    commitment.responsibilityKey
-    && commitment.responsibilityKind
-    && commitment.amountBasis
-    && commitment.amountSourceIds
-    && commitment.financialScope
-    && commitment.accrualReviewStatus
-    && Number.isInteger(commitment.nextReviewAtAgeInMonths)
+    candidate.responsibilityKey
+    && candidate.responsibilityKind
+    && candidate.amountBasis
+    && Array.isArray(candidate.amountSourceIds)
+    && candidate.financialScope
+    && candidate.accrualReviewStatus
+    && Number.isInteger(candidate.nextReviewAtAgeInMonths)
   );
 }
 
