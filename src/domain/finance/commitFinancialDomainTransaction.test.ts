@@ -419,6 +419,69 @@ test("a missing student baseline uses accepted background context and matching f
   assert.equal(result.financialLedger.cashAccounts[0].balanceWan, 2);
 });
 
+test("a short two-node student route preserves the contextual financial effect on a silent node", () => {
+  const current = setup();
+  const studentState = initializeCareerState({ id: "career_student_effect", employmentStatus: "student", effectiveFromAgeInMonths: 216 });
+  const studentCareer: CareerStateCollection = {
+    careerStates: [studentState],
+    currentCareerStateId: studentState.id,
+    careerRevision: 0
+  };
+  const studentWorldState: WorldStateSnapshot = {
+    ...current.worldState,
+    careerStates: [studentState],
+    currentCareerStateId: studentState.id,
+    currentEmploymentStatus: "student"
+  };
+  const studentLedger = structuredClone(current.ledger);
+  studentLedger.asOfAgeInMonths = 264;
+  const first = commitFinancialDomainTransaction({
+    transactionId: "student_effect_node_1",
+    periodStartAgeInMonths: 264,
+    periodEndAgeInMonths: 265,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: studentLedger.revision,
+    currentCareer: studentCareer,
+    currentFinancialLedger: studentLedger,
+    currentWorldState: studentWorldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    basicLivingEstimateContext: { livingArrangement: "renting", cityCostBand: "high" },
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  const second = commitFinancialDomainTransaction({
+    transactionId: "student_effect_node_2_silent",
+    periodStartAgeInMonths: 265,
+    periodEndAgeInMonths: 268,
+    expectedCareerRevision: first.career.careerRevision,
+    expectedLedgerRevision: first.financialLedger.revision,
+    currentCareer: first.career,
+    currentFinancialLedger: first.financialLedger,
+    currentWorldState: first.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    basicLivingEstimateContext: { livingArrangement: "renting", cityCostBand: "high" },
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  const activeLiving = second.financialLedger.expenseCommitments.filter((item) => (
+    item.status === "active" && item.type === "basic_living"
+  ));
+  const activeSupport = second.financialLedger.incomeSources.filter((item) => (
+    item.status === "active" && item.type === "family_support"
+  ));
+  assert.equal(activeLiving.length, 1);
+  assert.equal(activeSupport.length, 1);
+  assert.equal(activeLiving[0].monthlyAmountWan, 0.24);
+  assert.equal(activeSupport[0].monthlyNetAmountWan, 0.24);
+  assert.equal(second.financialPeriodSummary?.coreExpenseWan, 0.72);
+  assert.equal(second.financialPeriodSummary?.incomeWan, 0.72);
+  assert.equal(second.derivedFinancialState.state.annualizedCoreExpenseWan, 2.88);
+  assert.equal(second.derivedFinancialState.state.annualizedRecurringIncomeWan, 0);
+  assert.equal(second.derivedFinancialState.state.annualizedDisposableCashFlowWan, 0);
+  assert.equal(second.financialLedger.cashAccounts[0].balanceWan, 2);
+  assert.equal(second.financialLedger.debtAccounts.length, 0);
+});
+
 test("an estimated basic-living adjustment cannot lower a higher legacy estimate", () => {
   const current = setup();
   current.ledger.expenseCommitments.push({
