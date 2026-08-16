@@ -88,7 +88,15 @@ test("O-01 initializes distinct nonzero review commitments for an unpriced rent 
   assert.ok((housing?.monthlyAmountWan || 0) > 0);
   assert.equal(healthcare?.factStatus, "needs_review");
   assert.ok((healthcare?.monthlyAmountWan || 0) > 0);
-  assert.notEqual(result.ledger.expenseCommitments.filter((item) => item.status === "active").length, 1);
+  const unclassified = result.ledger.expenseCommitments.find((item) => (
+    item.responsibilityKey === "unclassified_core_consumption:protagonist"
+  ));
+  assert.equal(unclassified?.factStatus, "needs_review");
+  assert.equal(unclassified?.amountBasis, "contextual_estimate");
+  assert.equal(unclassified?.monthlyAmountWan, 0.28);
+  assert.equal(result.ledger.expenseCommitments
+    .filter((item) => item.status === "active")
+    .reduce((sum, item) => sum + item.monthlyAmountWan, 0), 1.1);
 });
 
 test("O-02 only accrues the protagonist half of a shared rent", () => {

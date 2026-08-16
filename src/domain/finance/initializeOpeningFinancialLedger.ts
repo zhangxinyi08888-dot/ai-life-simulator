@@ -414,18 +414,22 @@ function buildOpeningExpenseCommitments(input: {
   }
 
   const basic = basicCommitment(minimumBasic, basicFact.some((fact) => fact.factStatus !== "known"), basicFacts.length ? undefined : "policy_floor");
-  const onlyPolicyBasic = basic
+  const hasPolicyBasicGap = basic
     && basicFacts.length === 0
-    && componentCommitments.length === 0
     && input.state.employmentStatus !== "student";
-  const aggregateEstimate = onlyPolicyBasic ? estimateUnclassifiedCoreConsumption({
+  const aggregateEstimate = hasPolicyBasicGap ? estimateUnclassifiedCoreConsumption({
     ageInMonths: input.state.asOfAgeInMonths,
     employmentStatus: input.state.employmentStatus,
     livingArrangement: "unknown",
     cityCostBand: "unknown",
     annualRecurringPersonalIncomeWan: input.state.annualAfterTaxIncomeWan
   }) : undefined;
-  const residualWan = roundWan(Math.max(0, (aggregateEstimate?.targetMonthlyCoreExpenseWan || 0) - (basic?.monthlyAmountWan || 0)));
+  const residualWan = roundWan(Math.max(
+    0,
+    (aggregateEstimate?.targetMonthlyCoreExpenseWan || 0)
+      - (basic?.monthlyAmountWan || 0)
+      - componentTotal
+  ));
   const unclassified: OpeningExpenseCommitment | undefined = aggregateEstimate && residualWan > 0 ? {
     id: `opening_unclassified_core_consumption_${input.state.asOfAgeInMonths}`,
     type: "other",

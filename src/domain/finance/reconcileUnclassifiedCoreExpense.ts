@@ -28,10 +28,16 @@ function isLegacyAggregate(commitment: ExpenseCommitmentV4): boolean {
   return commitment.status === "active" && commitment.responsibilityKind === "legacy_aggregate";
 }
 
-function isFloorOnlyEligible(commitments: ExpenseCommitmentV4[]): boolean {
+function isAggregateFallbackEligible(commitments: ExpenseCommitmentV4[]): boolean {
   const active = commitments.filter((item) => item.status === "active");
-  if (active.length === 0) return true;
-  return active.every((item) => (
+  const activeBasicLiving = active.filter((item) => item.responsibilityKind === "adult_basic_living");
+  // The fallback is allowed only when an adult-basic policy floor proves that
+  // the total recurring-consumption picture is incomplete. Accepted typed
+  // components (rent, healthcare, care, and so on) are compatible with that
+  // state and must reduce the residual rather than suppress it altogether.
+  // Conversely, an exact/last-known basic-living amount is real evidence and
+  // must never be padded merely to match a statistical prior.
+  return activeBasicLiving.length === 1 && activeBasicLiving.every((item) => (
     item.responsibilityKind === "adult_basic_living"
     && item.factStatus !== "known"
     && (item.amountBasis === "policy_floor" || item.amountBasis === "contextual_estimate")
@@ -127,7 +133,7 @@ export function reconcileUnclassifiedCoreExpense(
 ): AcceptedFinancialEvent[] {
   if (input.ledger.expenseCommitments.some(isLegacyAggregate)) return [];
   const existing = input.ledger.expenseCommitments.find((item) => item.status === "active" && isUnclassified(item));
-  if (!existing && !isFloorOnlyEligible(input.ledger.expenseCommitments)) return [];
+  if (!existing && !isAggregateFallbackEligible(input.ledger.expenseCommitments)) return [];
   const projectedIncomeSources = structuredClone(input.ledger.incomeSources);
   for (const event of input.acceptedFinancialEvents
     .filter((candidate) => candidate.effectiveAtAgeInMonths === input.periodStartAgeInMonths)

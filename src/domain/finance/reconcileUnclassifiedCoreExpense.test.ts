@@ -140,6 +140,43 @@ test("a floor-only employed adult receives an accruing unclassified residual ins
   assert.equal(deriveFinancialState({ ledger: committed.ledger, employmentStatus: "employed" }).state.annualizedCoreExpenseWan, 10.8);
 });
 
+test("an existing accepted typed component reduces rather than suppresses the initial residual", () => {
+  const ledger = floorLedger();
+  const housing = housingStart(0.3, ledger.asOfAgeInMonths);
+  if (housing.kind !== "expense_commitment_started") throw new Error("expected housing start");
+  ledger.expenseCommitments.push(housing.payload as ExpenseCommitmentV4);
+
+  const events = reconcile({ ledger, transactionId: "create_residual_with_existing_housing" });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].kind, "expense_commitment_started");
+  if (events[0].kind !== "expense_commitment_started") throw new Error("expected residual start");
+  assert.equal(events[0].payload.monthlyAmountWan, 0.25);
+
+  const committed = reduceFinancialLedger({
+    ledger,
+    transactionId: "create_residual_with_existing_housing",
+    expectedLedgerRevision: ledger.revision,
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 372,
+    events
+  });
+  assert.equal(committed.alreadyCommitted, false);
+  assert.equal(deriveFinancialState({ ledger: committed.ledger, employmentStatus: "employed" }).state.annualizedCoreExpenseWan, 10.8);
+});
+
+test("an exact basic-living fact is not padded to a contextual spending prior", () => {
+  const ledger = floorLedger();
+  ledger.expenseCommitments[0] = {
+    ...ledger.expenseCommitments[0],
+    factStatus: "known",
+    amountBasis: "explicit_known",
+    confirmedMonthlyAmountWan: 0.35,
+    amountSourceIds: ["accepted_exact_basic_living"]
+  };
+
+  assert.deepEqual(reconcile({ ledger, transactionId: "exact_basic_suppresses_fallback" }), []);
+});
+
 test("a salary accepted at the opening boundary affects the same transaction estimate", () => {
   const ledger = floorLedger();
   ledger.incomeSources = [];
@@ -148,6 +185,43 @@ test("a salary accepted at the opening boundary affects the same transaction est
   assert.equal(events[0].kind, "expense_commitment_started");
   if (events[0].kind !== "expense_commitment_started") throw new Error("expected start");
   assert.equal(events[0].payload.monthlyAmountWan, 0.55);
+});
+
+test("an accepted income decrease does not automatically lower the carried residual", () => {
+  const opening = floorLedger();
+  const opened = reduceFinancialLedger({
+    ledger: opening,
+    transactionId: "income_drop_residual_open",
+    expectedLedgerRevision: opening.revision,
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 372,
+    events: reconcile({ ledger: opening, transactionId: "income_drop_residual_open" })
+  });
+  assert.equal(opened.alreadyCommitted, false);
+  const ledger = opened.ledger as FinancialLedgerV4;
+  const lowerSalary: AcceptedFinancialEvent = {
+    id: "accepted_lower_salary",
+    kind: "income_source_adjusted",
+    effectiveAtAgeInMonths: 372,
+    payload: {
+      incomeSourceId: "salary",
+      nextSource: {
+        ...ledger.incomeSources.find((source) => source.id === "salary")!,
+        monthlyNetAmountWan: 0.4
+      }
+    },
+    evidence: acceptedEvidence,
+    acceptedByReasonCodes: ["TEST_ACCEPTED"]
+  } as AcceptedFinancialEvent;
+
+  assert.deepEqual(reconcile({
+    ledger,
+    transactionId: "income_drop_keeps_residual",
+    events: [lowerSalary],
+    end: 384
+  }), []);
+  const residual = ledger.expenseCommitments.find((item) => item.responsibilityKind === "unclassified_core_consumption");
+  assert.equal(residual?.monthlyAmountWan, 0.55);
 });
 
 test("a later accepted typed expense atomically consumes the unclassified residual without double counting", () => {
