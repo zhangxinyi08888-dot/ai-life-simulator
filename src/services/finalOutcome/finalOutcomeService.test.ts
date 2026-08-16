@@ -242,12 +242,14 @@ test("financial and structural issues share one repair and never trigger a third
       calls += 1;
       if (calls === 1) {
         const invalid = completePayload();
-        invalid.share.viralTitle = "重生之我已经还清100万元债务";
+        invalid.share.viralTitle = "重生之我已经还清46万元债务";
         invalid.share.timeline = invalid.share.timeline.slice(0, 2);
         return { text: JSON.stringify(invalid) };
       }
       assert.match(prompt, /REPORT_DEBT_COMPLETION_CONFLICT/u);
       assert.match(prompt, /FINAL_REPORT_ARRAY_LENGTH_INVALID/u);
+      assert.match(prompt, /删除不在‘报告唯一财务事实源’中的金额、比例、倍数或收益率/u);
+      assert.match(prompt, /不得把被删除的数字移到其他字段/u);
       const fixed = completePayload();
       fixed.share.viralTitle = "重生之我在未偿债务中重新安排生活";
       return { text: JSON.stringify(fixed) };

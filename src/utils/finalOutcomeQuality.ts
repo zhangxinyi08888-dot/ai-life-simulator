@@ -379,5 +379,13 @@ export function buildFinalOutcomeRepairPrompt(input: {
   const anchors = input.history.map((item, index) => (
     `索引 ${index}｜${formatAgeInMonths(item.ageInMonths ?? item.age * 12)}｜${item.title}｜选择：${item.selectedChoice}`
   )).join("\n");
-  return `${input.originalPrompt}\n\n【本次输出没有通过终局报告统一校验】\n以下问题已经一次性汇总，包含 JSON 结构、历史引用、财务事实和终局语义。只允许本次定向修复；代码不会补写正文，也不会再触发第三次生成。保留已经合格且不冲突的具体内容，不得用“模式1”“趋势1”或通用人生总结补齐。\n\n【全部问题】\n${JSON.stringify(input.issues, null, 2)}\n\n【历史锚点速查】\n${anchors}\n\n【需要修复的原始输出】\n${typeof input.data === "string" ? input.data : JSON.stringify(input.data, null, 2)}\n\n重新返回完整 JSON，不要 Markdown。`;
+  const financialAmountRepair = input.issues.some((issue) => [
+    "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT",
+    "REPORT_UNSUPPORTED_RETURN_CLAIM",
+    "REPORT_FINANCIAL_PRECISION",
+    "REPORT_ORPHAN_FINANCIAL_AMOUNT"
+  ].includes(issue.code))
+    ? "\n【财务数字定向修复】\n对上述问题列出的每一个 path：删除不在‘报告唯一财务事实源’中的金额、比例、倍数或收益率；保留原本的人生模式含义，改写成不含财务数字的定性叙述。不得把被删除的数字移到其他字段，不得创造替代数字，也不得写‘待确认’等内部占位符。"
+    : "";
+  return `${input.originalPrompt}\n\n【本次输出没有通过终局报告统一校验】\n以下问题已经一次性汇总，包含 JSON 结构、历史引用、财务事实和终局语义。只允许本次定向修复；代码不会补写正文，也不会再触发第三次生成。保留已经合格且不冲突的具体内容，不得用“模式1”“趋势1”或通用人生总结补齐。${financialAmountRepair}\n\n【全部问题】\n${JSON.stringify(input.issues, null, 2)}\n\n【历史锚点速查】\n${anchors}\n\n【需要修复的原始输出】\n${typeof input.data === "string" ? input.data : JSON.stringify(input.data, null, 2)}\n\n重新返回完整 JSON，不要 Markdown。`;
 }
