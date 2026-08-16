@@ -336,6 +336,89 @@ test("a higher legacy basic-living estimate is not silently lowered to the polic
   assert.equal(result.financialPeriodSummary?.coreExpenseWan, 1.5);
 });
 
+test("a silent node carries the active V4 basic-living amount instead of recreating the default floor", () => {
+  const current = setup();
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  v4.expenseCommitments.push({
+    id: "reviewable_basic_living",
+    type: "basic_living",
+    displayName: "上一节点持续生活支出",
+    monthlyAmountWan: 0.8,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "needs_review",
+    responsibilityKey: "adult_basic_living:protagonist",
+    responsibilityKind: "adult_basic_living",
+    financialScope: "personal",
+    amountBasis: "last_known",
+    amountSourceIds: ["previous_node_living"],
+    accrualReviewStatus: "review_due",
+    nextReviewAtAgeInMonths: 360,
+    evidence: [{ source: "accepted_history", reasonCode: "PREVIOUS_NODE_LIVING", confidence: 0.7 }]
+  });
+  const result = commitFinancialDomainTransaction({
+    transactionId: "carry_active_basic_living",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 361,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: v4.revision,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: []
+  });
+  const activeLiving = result.financialLedger.expenseCommitments.filter((item) => (
+    item.status === "active" && item.responsibilityKind === "adult_basic_living"
+  ));
+  assert.equal(activeLiving.length, 1);
+  assert.equal(activeLiving[0].monthlyAmountWan, 0.8);
+  assert.equal(result.financialPeriodSummary?.coreExpenseWan, 0.8);
+});
+
+test("a missing student baseline uses accepted background context and matching family support without inventing debt", () => {
+  const current = setup();
+  const studentState = initializeCareerState({ id: "career_student", employmentStatus: "student", effectiveFromAgeInMonths: 216 });
+  const studentCareer: CareerStateCollection = {
+    careerStates: [studentState],
+    currentCareerStateId: studentState.id,
+    careerRevision: 0
+  };
+  const studentWorldState: WorldStateSnapshot = {
+    ...current.worldState,
+    careerStates: [studentState],
+    currentCareerStateId: studentState.id,
+    currentEmploymentStatus: "student"
+  };
+  const studentLedger = structuredClone(current.ledger);
+  studentLedger.asOfAgeInMonths = 264;
+  const result = commitFinancialDomainTransaction({
+    transactionId: "student_contextual_basic_living",
+    periodStartAgeInMonths: 264,
+    periodEndAgeInMonths: 265,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: studentLedger.revision,
+    currentCareer: studentCareer,
+    currentFinancialLedger: studentLedger,
+    currentWorldState: studentWorldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    basicLivingEstimateContext: {
+      livingArrangement: "renting",
+      cityCostBand: "high"
+    },
+    liquidityPolicy: "auto_shortfall_debt"
+  });
+  const living = result.financialLedger.expenseCommitments.find((item) => item.status === "active" && item.type === "basic_living");
+  const support = result.financialLedger.incomeSources.find((item) => item.status === "active" && item.type === "family_support");
+  assert.equal(living?.monthlyAmountWan, 0.24);
+  assert.equal(support?.monthlyNetAmountWan, 0.24);
+  assert.equal(result.financialPeriodSummary?.coreExpenseWan, 0.24);
+  assert.equal(result.financialPeriodSummary?.incomeWan, 0.24);
+  assert.equal(result.financialLedger.debtAccounts.length, 0);
+  assert.equal(result.financialLedger.cashAccounts[0].balanceWan, 2);
+});
+
 test("an estimated basic-living adjustment cannot lower a higher legacy estimate", () => {
   const current = setup();
   current.ledger.expenseCommitments.push({

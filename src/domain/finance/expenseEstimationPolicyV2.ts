@@ -92,7 +92,17 @@ export const EXPENSE_ESTIMATION_POLICY_V2 = {
       responsibilityKind: "adult_basic_living",
       applicableCityCostBands: ["low", "medium", "high"],
       applicableAgeBands: ["young_adult"],
-      applicableLivingArrangements: ["with_family", "renting", "owner_occupied", "provided", "unknown"],
+      applicableLivingArrangements: ["with_family", "provided"],
+      applicableEmploymentStatuses: ["student"],
+      baseMonthlyAmountWan: 0.15,
+      plausibleRangeWan: [0.12, 0.25],
+      sourceNote: "在校青年与家庭同住或由学校提供住所时的个人基础生活支出；住房责任另行建账"
+    },
+    {
+      responsibilityKind: "adult_basic_living",
+      applicableCityCostBands: ["low", "medium", "high"],
+      applicableAgeBands: ["young_adult"],
+      applicableLivingArrangements: ["renting", "owner_occupied", "unknown"],
       applicableEmploymentStatuses: ["student"],
       baseMonthlyAmountWan: 0.2,
       plausibleRangeWan: [0.12, 0.35],

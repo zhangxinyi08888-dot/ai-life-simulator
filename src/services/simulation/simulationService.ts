@@ -2429,7 +2429,7 @@ function cityCostBandFromAcceptedLocation(locationSummary: string | undefined): 
  * expense by itself; it only calibrates an already-authoritative unknown
  * responsibility that the lifecycle reconciler has chosen to review/start.
  */
-function expenseEstimateContextFromAuthority(input: {
+export function expenseEstimateContextFromAuthority(input: {
   candidateWorldState: WorldStateSnapshot;
   ledger: FinancialLedger;
   node: SimulationNode;
@@ -2442,15 +2442,14 @@ function expenseEstimateContextFromAuthority(input: {
     && relationship.status === "active"
     && relationship.livingTogether === true
   ));
-  // Do not infer free housing merely from family/relationship state. A
-  // confirmed property is owner-occupied; all other arrangements stay
-  // unknown until an accepted occupancy/payer fact says otherwise.
-  const acceptedPersonalResidence = input.candidateWorldState.residence
-    && ["personal", "shared_household"].includes(input.candidateWorldState.residence.financialScope)
-    && ["protagonist", "shared"].includes(input.candidateWorldState.residence.liability)
+  // Do not infer free housing merely from family/relationship state. An
+  // accepted third-party/provided residence may calibrate basic living without
+  // becoming a personal housing charge; business premises remain excluded.
+  const acceptedResidenceContext = input.candidateWorldState.residence
+    && input.candidateWorldState.residence.financialScope !== "business_operating"
     ? input.candidateWorldState.residence
     : undefined;
-  const livingArrangement: ExpenseLivingArrangement = acceptedPersonalResidence?.livingArrangement
+  const livingArrangement: ExpenseLivingArrangement = acceptedResidenceContext?.livingArrangement
     || (ownerOccupied ? "owner_occupied" : hasConfirmedCohabitation ? "unknown" : "unknown");
   const cohabitingPartnerIds = new Set((input.candidateWorldState.relationships || [])
     .filter((relationship) => relationship.type === "romantic" && relationship.status === "active" && relationship.livingTogether)
@@ -3315,6 +3314,11 @@ async function commitAuthoritativeFinancialProgress(input: {
         sourceOutcomeId: input.acceptedOutcomeId,
         narrativeBindingMode: input.expenseNarrativeBindingMode
       });
+  const expenseEstimateContext = expenseEstimateContextFromAuthority({
+    candidateWorldState: expenseCandidateWorldState,
+    ledger: initialLedger,
+    node: input.node
+  });
   const expenseReconciliation = input.expenseLifecycleMode === "off"
     ? undefined
     : reconcileExpenseCommitments({
@@ -3328,11 +3332,7 @@ async function commitAuthoritativeFinancialProgress(input: {
         ageInMonths: input.periodEndAgeInMonths,
         sourceOutcomeId: input.acceptedOutcomeId,
         mode: input.expenseLifecycleMode,
-        estimateContext: expenseEstimateContextFromAuthority({
-          candidateWorldState: expenseCandidateWorldState,
-          ledger: initialLedger,
-          node: input.node
-        })
+        estimateContext: expenseEstimateContext
       });
   // Review plans are deterministic policy proposals, but still pass through
   // the ordinary V4 payload schema, reference checks and reducer preview.
@@ -3510,6 +3510,10 @@ async function commitAuthoritativeFinancialProgress(input: {
       issue.id !== "proposal_issue_missing_adult_expense"
       && !issue.id.startsWith("proposal_issue_stale_late_career_")
     )),
+    basicLivingEstimateContext: {
+      livingArrangement: expenseEstimateContext.livingArrangement,
+      cityCostBand: expenseEstimateContext.cityCostBand
+    },
     liquidityPolicy: "auto_shortfall_debt"
   } as const;
   // Narrative grounding depends on the closing ledger, while narrative contract

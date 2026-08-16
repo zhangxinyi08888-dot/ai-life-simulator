@@ -2,7 +2,7 @@ import type { EmploymentStatus, WorldStateSnapshot } from "../../types";
 import { currentCareerState, reduceCareerStates } from "../career/careerState";
 import type { AcceptedCareerTransition, CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
-import { estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
+import { estimatedBasicLivingCommitment, type FinancialEstimationContext } from "./financialEstimationPolicy";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
 import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4";
 import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
@@ -123,12 +123,46 @@ function addAutomaticBasicLivingCommitment(input: {
   return [];
 }
 
+function ensureDefaultStudentFamilySupport(input: {
+  ledger: FinancialLedger;
+  monthlyAmountWan: number;
+  activeFromAgeInMonths: number;
+}): void {
+  const active = input.ledger.incomeSources.find((source) => (
+    source.status === "active" && isDefaultStudentFamilySupport(source)
+  ));
+  if (active) {
+    active.monthlyNetAmountWan = input.monthlyAmountWan;
+    return;
+  }
+  const baseId = "student_basic_family_support";
+  const id = input.ledger.incomeSources.some((source) => source.id === baseId)
+    ? `${baseId}_${input.activeFromAgeInMonths}`
+    : baseId;
+  input.ledger.incomeSources.push({
+    id,
+    type: "family_support",
+    displayName: "学生基础生活费家庭支持",
+    monthlyNetAmountWan: input.monthlyAmountWan,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: input.activeFromAgeInMonths,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [{
+      source: "system_policy",
+      reasonCode: "STUDENT_BASIC_LIVING_FAMILY_COVERED",
+      confidence: 0.6
+    }]
+  });
+}
+
 function applyPreAccrualFactCompletenessPolicy(input: {
   ledger: FinancialLedger;
   events: AcceptedFinancialEvent[];
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
   employmentStatus: EmploymentStatus;
+  basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
   const isEstimatedOrNeedsReview = (factStatus: unknown) => (
@@ -215,7 +249,8 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     if (!remainsEstimated) continue;
     const policyFloor = estimatedBasicLivingCommitment({
       ageInMonths: event.effectiveAtAgeInMonths,
-      employmentStatus: input.employmentStatus
+      employmentStatus: input.employmentStatus,
+      ...input.basicLivingEstimateContext
     });
     const protectedMinimum = Math.max(existing.monthlyAmountWan, policyFloor?.monthlyAmountWan || 0);
     if (next.monthlyAmountWan >= protectedMinimum) continue;
@@ -245,7 +280,8 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       : input.periodStartAgeInMonths;
     const nextEstimate = estimatedBasicLivingCommitment({
       ageInMonths: policyBoundary,
-      employmentStatus: input.employmentStatus
+      employmentStatus: input.employmentStatus,
+      ...input.basicLivingEstimateContext
     });
     // The policy value is a floor for adult basic living, not a replacement
     // estimate for the whole account.  It may only raise a lower baseline;
@@ -276,13 +312,27 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     }
   }
   if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveBasicLiving && !startsBasicLivingEvent) {
-    const estimatedLiving = estimatedBasicLivingCommitment({ ageInMonths: input.periodStartAgeInMonths });
+    const estimatedLiving = estimatedBasicLivingCommitment({
+      ageInMonths: input.periodStartAgeInMonths,
+      employmentStatus: input.employmentStatus,
+      ...input.basicLivingEstimateContext
+    });
     if (estimatedLiving) {
       issues.push(...addAutomaticBasicLivingCommitment({
         ledger: input.ledger,
         commitment: estimatedLiving,
         asOfAgeInMonths: input.periodStartAgeInMonths
       }));
+    }
+  }
+  if (input.employmentStatus === "student") {
+    const policyManagedLiving = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
+    if (policyManagedLiving) {
+      ensureDefaultStudentFamilySupport({
+        ledger: input.ledger,
+        monthlyAmountWan: policyManagedLiving.monthlyAmountWan,
+        activeFromAgeInMonths: input.periodStartAgeInMonths
+      });
     }
   }
 
@@ -613,6 +663,7 @@ export interface FinancialDomainTransactionInput {
   acceptedFinancialEvents: AcceptedFinancialEvent[];
   financialIssues?: FinancialLedgerIssue[];
   liquidityPolicy?: LiquidityPolicy;
+  basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
 }
 
 export interface CommittedFinancialDomainTransaction {
@@ -685,7 +736,8 @@ export function commitFinancialDomainTransaction(
     events: input.acceptedFinancialEvents,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
-    employmentStatus: nextCurrentCareerState.employmentStatus
+    employmentStatus: nextCurrentCareerState.employmentStatus,
+    basicLivingEstimateContext: input.basicLivingEstimateContext
   });
   const financialResult = reduceFinancialLedger({
     ledger: settlementLedger,

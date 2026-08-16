@@ -75,6 +75,26 @@ test("a young student uses a distinct V2 basic-living policy row rather than an 
   assert.equal(employed.accrualMonthlyAmountWan, 0.35);
 });
 
+test("a young student's accepted living arrangement calibrates routine living without inventing housing or debt", () => {
+  const withFamily = estimateExpenseResponsibility({
+    responsibilityKind: "adult_basic_living",
+    ageInMonths: 22 * 12,
+    employmentStatus: "student",
+    livingArrangement: "with_family",
+    cityCostBand: "medium"
+  });
+  const rentingInHighCostCity = estimateExpenseResponsibility({
+    responsibilityKind: "adult_basic_living",
+    ageInMonths: 22 * 12,
+    employmentStatus: "student",
+    livingArrangement: "renting",
+    cityCostBand: "high"
+  });
+  assert.ok(withFamily && rentingInHighCostCity);
+  assert.equal(withFamily.accrualMonthlyAmountWan, 0.15);
+  assert.equal(rentingInHighCostCity.accrualMonthlyAmountWan, 0.24);
+});
+
 test("an accepted ongoing healthcare responsibility receives a higher older-adult calibration without age inventing an account", () => {
   const youngTreatment = estimateExpenseResponsibility({
     responsibilityKind: "recurring_healthcare",

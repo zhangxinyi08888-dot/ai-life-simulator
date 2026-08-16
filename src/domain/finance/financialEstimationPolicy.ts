@@ -6,7 +6,8 @@ import type { ExpenseCommitment } from "./types";
 export interface FinancialEstimationContext {
   ageInMonths: number;
   employmentStatus?: EmploymentStatus;
-  livingArrangement?: "with_family" | "renting" | "owner_occupied" | "unknown";
+  livingArrangement?: "with_family" | "renting" | "owner_occupied" | "provided" | "unknown";
+  cityCostBand?: "low" | "medium" | "high" | "unknown";
 }
 
 export interface EstimatedMoney {
@@ -61,7 +62,7 @@ export function estimatedBasicLivingCommitment(input: FinancialEstimationContext
     ageInMonths: input.ageInMonths,
     employmentStatus: input.employmentStatus,
     livingArrangement: input.livingArrangement || "unknown",
-    cityCostBand: "unknown"
+    cityCostBand: input.cityCostBand || "unknown"
   });
   if (!estimate) return undefined;
   return {

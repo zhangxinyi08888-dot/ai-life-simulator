@@ -7,7 +7,7 @@ import { reconcileExpenseCommitments } from "../../domain/finance/reconcileExpen
 import { deriveExpenseResponsibilityCandidates } from "../../domain/finance/expenseResponsibility";
 import type { AcceptedCareerTransition, CareerState } from "../../domain/career/types";
 import type { FinancialLedgerV3 } from "../../domain/finance/types";
-import { previewExpenseCandidateWorldState } from "./simulationService";
+import { expenseEstimateContextFromAuthority, previewExpenseCandidateWorldState } from "./simulationService";
 
 function career(id: string, employmentStatus: CareerState["employmentStatus"]): CareerState {
   return {
@@ -271,4 +271,35 @@ test("accepted commercial and third-party occupancy deltas never create a person
       && (proposal.payload as { responsibilityKey?: string }).responsibilityKey === "primary_residence:main"
     )), false, `${residence.financialScope} occupancy must not enter the personal ledger`);
   }
+});
+
+test("accepted provided housing calibrates a student's basic-living context without becoming personal housing", () => {
+  const student = career("career_student", "student");
+  const candidateWorldState = world({
+    careerStates: [student],
+    currentCareerStateId: student.id,
+    currentEmploymentStatus: "student",
+    locationSummary: "上海高校校区",
+    residence: {
+      livingArrangement: "provided",
+      financialScope: "third_party",
+      liability: "third_party",
+      effectiveFromAgeInMonths: 264,
+      source: "accepted_history",
+      evidence: "学校提供宿舍，住宿费由家庭承担。"
+    }
+  });
+  const ledger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "student_provided_housing_context",
+    asOfAgeInMonths: 264,
+    openingPosition: {}
+  }) as FinancialLedgerV3);
+  const context = expenseEstimateContextFromAuthority({
+    candidateWorldState,
+    ledger,
+    node: { ...node(), ageInMonths: 264 }
+  });
+  assert.equal(context.employmentStatus, "student");
+  assert.equal(context.livingArrangement, "provided");
+  assert.equal(context.cityCostBand, "high");
 });
