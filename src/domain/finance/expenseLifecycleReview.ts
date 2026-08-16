@@ -173,6 +173,11 @@ export function buildExpenseLifecycleReviewPlan(input: {
     });
 
     const id = `${proposalNamespace}_${commitment.id}_${input.ageInMonths}`;
+    // The unclassified residual is recalculated only by the deterministic
+    // Preview/Commit balance policy. Keep its durable review issue visible,
+    // but never create a generic lifecycle adjustment as a second writer.
+    const canCreateReviewTransition = shouldTransition
+      && commitment.responsibilityKind !== "unclassified_core_consumption";
     // A review issue is durable.  Later nodes keep observing the same pending
     // fact (and therefore increment its occurrence count at the commit
     // boundary), but never keep appending a new review adjustment/evidence
@@ -182,7 +187,7 @@ export function buildExpenseLifecycleReviewPlan(input: {
       code: "PENDING_FACT",
       severity: "warning",
       status: "open",
-      relatedProposalIds: shouldTransition ? [id] : [],
+      relatedProposalIds: canCreateReviewTransition ? [id] : [],
       relatedAccountIds: [commitment.id],
       expenseResolutionKind: commitment.financialScope === "shared_household"
         ? "shared_allocation"
@@ -191,7 +196,7 @@ export function buildExpenseLifecycleReviewPlan(input: {
       summary: `持续支出 ${commitment.displayName} 已到复核时点；继续按现有金额计提，等待金额或责任范围确认`,
       createdAtAgeInMonths: input.ageInMonths
     });
-    if (!shouldTransition) continue;
+    if (!canCreateReviewTransition) continue;
 
     const explicitAmount = commitment.amountBasis === "explicit_known"
       || commitment.amountBasis === "explicit_shared_amount";

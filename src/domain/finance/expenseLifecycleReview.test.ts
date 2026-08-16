@@ -156,6 +156,40 @@ test("policy/context/legacy estimates remain nonzero reviewable accruals without
   assert.equal(expenseReviewRequiresPromptConfirmation({ ...issue!, occurrenceCount: 2 }, explicitKnown), true);
 });
 
+test("the system-owned unclassified residual keeps a review issue without creating a competing adjustment writer", () => {
+  const current = ledger();
+  const residual: ExpenseCommitmentV4 = {
+    ...current.expenseCommitments[0]!,
+    id: "opening_unclassified_core_consumption_312",
+    type: "basic_living",
+    displayName: "未分类核心生活支出估算（待确认）",
+    responsibilityKey: "unclassified_core_consumption:protagonist",
+    responsibilityKind: "unclassified_core_consumption",
+    monthlyAmountWan: 0.75,
+    confirmedMonthlyAmountWan: undefined,
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["opening_unclassified_core_consumption_312"],
+    financialScope: "personal",
+    factStatus: "needs_review",
+    accrualReviewStatus: "normal",
+    activeFromAgeInMonths: 312,
+    lastConfirmedAtAgeInMonths: undefined,
+    lastReviewedAtAgeInMonths: 312,
+    nextReviewAtAgeInMonths: 324,
+    evidence: [{ source: "system_policy", reasonCode: "OPENING_UNCLASSIFIED_CORE_EXPENSE", confidence: 1, financialScope: "personal" }]
+  };
+  current.expenseCommitments = [residual];
+
+  const plan = buildExpenseLifecycleReviewPlan({ ledger: current, ageInMonths: 328 });
+
+  assert.equal(plan.events.length, 0, "only the deterministic residual reconciler may adjust this account");
+  assert.deepEqual(plan.reviewedCommitmentIds, []);
+  const issue = plan.issues.find((item) => item.id === `expense_review_due_${residual.id}`);
+  assert.ok(issue, "the low-authority residual remains visibly due for classification review");
+  assert.deepEqual(issue?.relatedProposalIds, []);
+  assert.equal(expenseReviewRequiresPromptConfirmation({ ...issue!, occurrenceCount: 3 }, residual), false);
+});
+
 test("a legacy estimate with a pre-contract confirmation timestamp remains readable but is not copied into a new review mutation", () => {
   const current = ledger();
   const legacy = current.expenseCommitments[0]!;
