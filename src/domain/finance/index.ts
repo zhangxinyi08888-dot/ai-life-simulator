@@ -10,6 +10,7 @@ export * from "./migrateLegacyFinancialState";
 export * from "./migrateFinancialLedgerV2ToV3";
 export * from "./mortalityFinancialClosure";
 export * from "./lateLifeEmploymentClosure";
+export * from "./lateLifeCareerIncomePolicy";
 export * from "./completeCareerIncomeReplacement";
 export * from "./ledgerMath";
 export * from "./reconcileLiquidity";

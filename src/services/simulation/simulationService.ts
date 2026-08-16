@@ -94,6 +94,7 @@ import {
   sentenceClaimsNewPersonalIncomeActivity,
   hasExplicitUnpaidPersonalIncomeStatement,
   buildLateLifeEmploymentClosure,
+  requiresHardLateLifeCareerIncomeResolution,
   completeCareerIncomeReplacementProposals,
   buildMortalityFinancialClosure,
   reconcileCareerIncomeAtomicity,
@@ -2995,7 +2996,8 @@ async function commitAuthoritativeFinancialProgress(input: {
   if (input.periodEndAgeInMonths >= 55 * 12) {
     for (const source of initialLedger.incomeSources) {
       const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
-      if (source.status !== "active" || !source.linkedCareerStateId || acceptedIncomeIds.has(source.id)
+      if (!requiresHardLateLifeCareerIncomeResolution({ source, currentCareerStateId: currentCareer.id })
+        || acceptedIncomeIds.has(source.id)
         || input.periodStartAgeInMonths - lastConfirmedAt < 36) continue;
       completenessIssues.push({
         id: `proposal_issue_stale_late_career_${source.id}`,

@@ -8,6 +8,7 @@ import { FinancialLedgerInvariantError } from "./ledgerMath";
 import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4";
 import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
 import { reconcileUnclassifiedCoreExpense } from "./reconcileUnclassifiedCoreExpense";
+import { requiresHardLateLifeCareerIncomeResolution } from "./lateLifeCareerIncomePolicy";
 import { isFinancialLedgerV4 } from "./types";
 import type {
   AcceptedFinancialEvent,
@@ -164,6 +165,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
   employmentStatus: EmploymentStatus;
+  currentCareerStateId: string;
   basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
@@ -381,7 +383,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   if (input.periodEndAgeInMonths >= 55 * 12) {
     const confirmedIncomeIds = new Set(input.events.flatMap((event) => eventReferences(event).incomeSourceIds));
     for (const source of input.ledger.incomeSources) {
-      if (source.status !== "active" || !source.linkedCareerStateId || source.accrualPolicy === "event_only") continue;
+      if (!requiresHardLateLifeCareerIncomeResolution({ source, currentCareerStateId: input.currentCareerStateId })) continue;
       if (confirmedIncomeIds.has(source.id)) continue;
       const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
       if (input.periodStartAgeInMonths - lastConfirmedAt < 36) continue;
@@ -740,6 +742,7 @@ export function commitFinancialDomainTransaction(
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
     employmentStatus: nextCurrentCareerState.employmentStatus,
+    currentCareerStateId: nextCurrentCareerState.id,
     basicLivingEstimateContext: input.basicLivingEstimateContext
   });
   const unclassifiedExpenseEvents = isFinancialLedgerV4(settlementLedger) && input.aggregateExpenseEstimateContext

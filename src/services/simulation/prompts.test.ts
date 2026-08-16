@@ -708,6 +708,7 @@ assert.match(partTimeEstimatedOutcomeLegacyIncomePrompt, /若主角仍在当前�
 assert.match(partTimeEstimatedOutcomeLegacyIncomePrompt, /继续兼职本身不得虚构 employmentTransition/);
 assert.match(partTimeEstimatedOutcomeLegacyIncomePrompt, /toStatus=employed 或 self_employed/);
 assert.doesNotMatch(knownOutcomeLegacyIncomePrompt, /旧版职业收入仍是 estimated\/needs_review/);
+assert.doesNotMatch(knownOutcomeLegacyIncomePrompt, /以下晚年职业收入超过36个月未确认/);
 assert.doesNotMatch(knownOutcomeLegacyIncomeGateRetryPrompt, /【当前职业收入必须在本次重生中确认】/);
 assert.match(v4ExpensePrompt, /V4 个人持续支出分类摘要（唯一责任事实源）/u);
 assert.match(v4ExpensePrompt, /responsibilityKey=primary_residence:main/u);

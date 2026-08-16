@@ -1226,6 +1226,7 @@ function formatFinancialCompletenessRules(
     const staleCareerSources = ledger.incomeSources.filter((source) => (
       source.status === "active"
       && Boolean(source.linkedCareerStateId)
+      && source.factStatus !== "known"
       && !specificallyResolvedLegacySourceIds.has(source.id)
       && targetAgeInMonths - (source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths) >= 36
     ));

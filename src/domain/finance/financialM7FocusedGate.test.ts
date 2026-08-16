@@ -131,15 +131,15 @@ test("M7 focused: an accepted expense fact replaces the system estimate", () => 
   assert.equal(second.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
 });
 
-test("M7 focused: stale late-career salary is paused before settlement", () => {
-  const age = 80 * 12;
+test("M7 focused: exact salary attached to an unchanged late-career state keeps accruing", () => {
+  const age = 55 * 12;
   const initial = ledger(age, { income: [salary(55 * 12, age - 48)], expenses: [living(age)], cash: 30 });
   const committed = commit({ ledger: initial, worldState: world(), start: age, end: age + 12, transactionId: "late_career" });
-  assert.equal(committed.financialPeriodSummary?.incomeWan, 0);
-  assert.equal(committed.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
-  assert.ok(committed.financialLedger.unresolvedIssues.some((issue) => (
-    issue.id === "pending_fact_stale_late_career_salary" && issue.severity === "warning"
-  )));
+  assert.equal(committed.financialPeriodSummary?.incomeWan, 24);
+  assert.equal(committed.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
+  assert.equal(committed.financialLedger.unresolvedIssues.some((issue) => (
+    issue.id === "pending_fact_stale_late_career_salary"
+  )), false);
 });
 
 test("M7 focused: deterministic basic living persists without repeated issues", () => {
