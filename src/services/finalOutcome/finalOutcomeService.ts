@@ -8,6 +8,7 @@ import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
 import {
   collectFinalFinancialNarrativeIssues,
   deriveFinalFinancialNarrativeAuthority,
+  replaceUnsupportedFinancialAmountsWithQualitativeText,
   type FinalFinancialNarrativeIssue
 } from "../../utils/finalFinancialNarrativeAuthority";
 import {
@@ -83,6 +84,30 @@ function invalidAfterRepair(issues: UnifiedIssue[]): AiClientError {
   );
 }
 
+function applyShareFinancialAmountFallback(input: {
+  data: any;
+  issues: UnifiedIssue[];
+  history: HistoryItem[];
+}): number {
+  const supportedPaths = new Set(["share.viralTitle", "share.imageAlt"]);
+  if (input.issues.length === 0 || input.issues.some((issue) => (
+    issue.code !== "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT" || !supportedPaths.has(issue.path)
+  ))) return 0;
+  const authority = deriveFinalFinancialNarrativeAuthority(input.history);
+  if (!authority || !input.data?.share) return 0;
+  let replacementCount = 0;
+  for (const field of ["viralTitle", "imageAlt"] as const) {
+    if (typeof input.data.share[field] !== "string") continue;
+    const replaced = replaceUnsupportedFinancialAmountsWithQualitativeText({
+      text: input.data.share[field],
+      authority
+    });
+    input.data.share[field] = replaced.text;
+    replacementCount += replaced.replacementCount;
+  }
+  return replacementCount;
+}
+
 export async function generateFinalOutcome(
   input: GenerateFinalOutcomeInput,
   deps: FinalOutcomeServiceDeps = {}
@@ -94,8 +119,10 @@ export async function generateFinalOutcome(
   const firstValidation = firstParse.data
     ? collectUnifiedIssues(input, firstParse.data)
     : { quality: [], financial: [], all: [firstParse.issue!] as UnifiedIssue[] };
+  const observedFinancialIssues = [...firstValidation.financial];
 
   let data = firstParse.data;
+  let financialClaimFallbackCount = 0;
   if (firstValidation.all.length > 0) {
     const repairResponse = await callAiJson(buildFinalOutcomeRepairPrompt({
       originalPrompt: prompt,
@@ -106,7 +133,16 @@ export async function generateFinalOutcome(
     const repairParse = tryParseAiJsonResponse(repairResponse);
     if (!repairParse.data) throw invalidAfterRepair([repairParse.issue!]);
     data = repairParse.data;
-    const finalValidation = collectUnifiedIssues(input, data);
+    let finalValidation = collectUnifiedIssues(input, data);
+    observedFinancialIssues.push(...finalValidation.financial);
+    if (finalValidation.all.length > 0) {
+      financialClaimFallbackCount = applyShareFinancialAmountFallback({
+        data,
+        issues: finalValidation.all,
+        history: input.history
+      });
+      if (financialClaimFallbackCount > 0) finalValidation = collectUnifiedIssues(input, data);
+    }
     if (finalValidation.all.length > 0) throw invalidAfterRepair(finalValidation.all);
   }
 
@@ -123,9 +159,9 @@ export async function generateFinalOutcome(
   outcome.meta = {
     ...outcome.meta,
     financialNarrativeAuthorityVersion: authority?.version,
-    financialClaimRepairTriggered: firstValidation.financial.length > 0,
-    financialClaimFallbackCount: 0,
-    financialClaimViolationCodes: [...new Set(firstValidation.financial.map((issue) => issue.code))],
+    financialClaimRepairTriggered: observedFinancialIssues.length > 0,
+    financialClaimFallbackCount,
+    financialClaimViolationCodes: [...new Set(observedFinancialIssues.map((issue) => issue.code))],
     sourceLedgerRevision: authority?.sourceLedgerRevision,
     finalOutcomeQualityRepairTriggered: firstValidation.quality.length > 0 || Boolean(firstParse.issue),
     finalOutcomeQualityIssueCodes: [...new Set([

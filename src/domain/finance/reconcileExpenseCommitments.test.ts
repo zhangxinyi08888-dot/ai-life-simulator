@@ -65,7 +65,7 @@ function confirmedSharedResidenceReview(): ExpenseResponsibilityCandidate {
   });
 }
 
-function parentMedicalCandidate(): ExpenseResponsibilityCandidate {
+function parentMedicalCandidate(overrides: Partial<ExpenseResponsibilityCandidate> = {}): ExpenseResponsibilityCandidate {
   return candidate({
     id: "parent_medical",
     responsibilityKey: "recurring_healthcare:parent",
@@ -88,9 +88,61 @@ function parentMedicalCandidate(): ExpenseResponsibilityCandidate {
       confidence: 1,
       financialScope: "personal",
       excerpt: "你开始每月承担父母医疗费3000元。"
-    }]
+    }],
+    ...overrides
   });
 }
+
+test("a bound generic parent-health narrative reuses the one opening aggregate account", () => {
+  const current = ledger();
+  current.expenseCommitments.push({
+    id: "opening_parent_healthcare",
+    responsibilityKey: "recurring_healthcare:opening_parent",
+    responsibilityKind: "recurring_healthcare",
+    type: "healthcare",
+    displayName: "父母医疗支出（待确认）",
+    monthlyAmountWan: 0.12,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "needs_review",
+    accrualReviewStatus: "conservative",
+    lastReviewedAtAgeInMonths: 300,
+    nextReviewAtAgeInMonths: 312,
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["opening_parent_healthcare"],
+    financialScope: "personal",
+    evidence: [{ source: "user", reasonCode: "OPENING_EXPENSE_HEALTHCARE", confidence: 1 }]
+  });
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [parentMedicalCandidate({
+      id: "bound_generic_parent_healthcare",
+      responsibilityKey: "recurring_healthcare:person_parent_unspecified",
+      explicitMonthlyTotalWan: undefined,
+      protagonistShareWan: undefined,
+      amountSourceId: undefined,
+      participantPersonIds: ["person_parent_unspecified"],
+      source: "narrative_supplement",
+      sourceFactBindingId: "expense_binding_parent_healthcare",
+      sourceBindingReasonCodes: ["EXPENSE_AMOUNT_UNRESOLVED"],
+      sourceMateriality: "review",
+      evidence: [{
+        source: "accepted_simulation_outcome",
+        reasonCode: "EXPENSE_AMOUNT_UNRESOLVED",
+        confidence: 1,
+        financialScope: "personal",
+        excerpt: "你保持了每月给父母转医疗费的习惯"
+      }]
+    })],
+    ageInMonths: 372,
+    sourceOutcomeId: "parent_healthcare_reuse",
+    mode: "enforced"
+  });
+  assert.equal(result.proposals.some((proposal) => proposal.kind === "expense_commitment_started"), false);
+  const adjusted = result.proposals.find((proposal) => proposal.kind === "expense_commitment_adjusted");
+  assert.equal((adjusted?.payload as ExpenseCommitmentMutationPayload | undefined)?.expenseCommitmentId, "opening_parent_healthcare");
+  assert.equal((adjusted?.payload as ExpenseCommitmentMutationPayload | undefined)?.nextCommitment.responsibilityKey, "recurring_healthcare:opening_parent");
+});
 
 function elderCareCandidate(overrides: Partial<ExpenseResponsibilityCandidate> = {}): ExpenseResponsibilityCandidate {
   return candidate({

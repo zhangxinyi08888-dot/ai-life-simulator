@@ -97,6 +97,40 @@ function activeByKey(ledger: FinancialLedgerV4, key: string): ExpenseCommitmentV
   ));
 }
 
+function canonicalizeNarrativeParentHealthcareCandidate(input: {
+  ledger: FinancialLedgerV4;
+  candidate: ExpenseResponsibilityCandidate;
+}): ExpenseResponsibilityCandidate {
+  const { candidate } = input;
+  if (candidate.source !== "narrative_supplement"
+    || candidate.responsibilityKind !== "recurring_healthcare"
+    || !candidate.responsibilityKey.startsWith("recurring_healthcare:")
+    || activeByKey(input.ledger, candidate.responsibilityKey)) return candidate;
+  const beneficiary = candidate.responsibilityKey.replace(/^recurring_healthcare:/u, "");
+  // Reconcile only the generic parent aliases that the opening and clause
+  // binding paths themselves emit. A different named/person id may represent
+  // a genuinely separate obligation and needs an Accepted atomic split rather
+  // than an eager alias guess at the ledger boundary.
+  if (!["opening_parent", "parents", "parent", "person_parent_unspecified"].includes(beneficiary)) return candidate;
+  const aggregateTargets = input.ledger.expenseCommitments.filter((commitment) => (
+    commitment.status !== "ended"
+    && commitment.responsibilityKind === "recurring_healthcare"
+    && ["recurring_healthcare:opening_parent", "recurring_healthcare:parents"].includes(commitment.responsibilityKey)
+  ));
+  if (aggregateTargets.length !== 1) return candidate;
+  const target = aggregateTargets[0];
+  return {
+    ...candidate,
+    responsibilityKey: target.responsibilityKey,
+    participantPersonIds: target.participantPersonIds?.length
+      ? target.participantPersonIds
+      : candidate.participantPersonIds,
+    sourceBindingReasonCodes: [
+      ...new Set([...(candidate.sourceBindingReasonCodes || []), "EXPENSE_PARENT_HEALTHCARE_EXISTING_AGGREGATE_REUSED"])
+    ]
+  };
+}
+
 /**
  * A model-originated expense proposal has already passed the Accepted-event
  * boundary before this deterministic lifecycle pass runs.  It is therefore
@@ -1011,7 +1045,11 @@ export function reconcileExpenseCommitments(input: {
     keys.add(responsibilityKey);
     reviewKeysByCandidateId.set(candidate.id, keys);
   };
-  for (const candidate of candidates) {
+  for (const sourceCandidate of candidates) {
+    const candidate = canonicalizeNarrativeParentHealthcareCandidate({
+      ledger: input.ledger,
+      candidate: sourceCandidate
+    });
     if (malformedEvidenceCandidateIds.has(candidate.id)) {
       const malformedEvidenceIssue = issue({
         id: `expense_candidate_missing_evidence_${candidate.id}`,
@@ -1033,7 +1071,8 @@ export function reconcileExpenseCommitments(input: {
     // Do this before any lifecycle issue/review work. A direct Accepted fact
     // is not a second candidate to reconcile; letting a deterministic plan
     // touch it would either duplicate accrual or overwrite the direct amount.
-    if (acceptedExpenseKeys.has(candidate.responsibilityKey)) {
+    if (acceptedExpenseKeys.has(sourceCandidate.responsibilityKey)
+      || acceptedExpenseKeys.has(candidate.responsibilityKey)) {
       ignoredCandidateIds.push(candidate.id);
       recordCandidateDecision({
         candidate,

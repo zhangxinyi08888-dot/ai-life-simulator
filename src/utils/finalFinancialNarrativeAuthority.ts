@@ -116,6 +116,27 @@ function matchesNumericAuthority(valueWan: number, authority: FinalFinancialNarr
   ));
 }
 
+/**
+ * The model gets one semantic repair attempt. If that repair leaves an
+ * unsupported amount only in poster copy, keep the model-authored sentence
+ * but remove the ungrounded precision instead of turning the whole report
+ * into a visible pause. Supported ledger values are preserved verbatim.
+ */
+export function replaceUnsupportedFinancialAmountsWithQualitativeText(input: {
+  text: string;
+  authority: FinalFinancialNarrativeAuthority;
+}): { text: string; replacementCount: number } {
+  let replacementCount = 0;
+  const text = input.text.replace(MONEY_PATTERN, (match) => {
+    const valueWan = moneyToWan(match);
+    if (valueWan === undefined || matchesNumericAuthority(valueWan, input.authority)) return match;
+    replacementCount += 1;
+    return "一笔资金";
+  });
+  MONEY_PATTERN.lastIndex = 0;
+  return { text, replacementCount };
+}
+
 function hasUnsupportedDebtCompletionClaim(text: string): boolean {
   const withoutNonCompletionClaims = DEBT_NON_COMPLETION_PATTERNS.reduce(
     (remaining, pattern) => remaining.replace(pattern, " "),

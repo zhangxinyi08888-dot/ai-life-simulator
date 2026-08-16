@@ -260,3 +260,72 @@ test("financial and structural issues share one repair and never trigger a third
   assert.equal(repaired.meta.finalOutcomeQualityRepairTriggered, true);
   assert.equal(repaired.meta.financialClaimFallbackCount, 0);
 });
+
+test("unsupported amounts left only in poster copy use a deterministic qualitative fallback", async () => {
+  let calls = 0;
+  const financialHistory = historyWithOutstandingDebt();
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history: financialHistory,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.viralTitle = "重生之我用46万元重新安排生活";
+      payload.share.imageAlt = "我用46万元重新开始的阶段人生报告";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.share.viralTitle, "重生之我用一笔资金重新安排生活");
+  assert.equal(repaired.share.imageAlt, "我用一笔资金重新开始的阶段人生报告");
+  assert.equal(repaired.meta.financialClaimFallbackCount, 2);
+  assert.equal(repaired.meta.financialClaimRepairTriggered, true);
+});
+
+test("deterministic poster fallback never hides an unsupported amount in the report body", async () => {
+  let calls = 0;
+  const financialHistory = historyWithOutstandingDebt();
+  await assert.rejects(generateFinalOutcome({
+    userData,
+    answers,
+    history: financialHistory,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.viralTitle = "重生之我用46万元重新安排生活";
+      payload.report.finalLifeReading.paragraphs = ["你最终留下了46万元现金。"];
+      return { text: JSON.stringify(payload) };
+    }
+  }), /report.finalLifeReading.paragraphs\[0\]:REPORT_UNSUPPORTED_FINANCIAL_AMOUNT/u);
+  assert.equal(calls, 2);
+});
+
+test("poster fallback records a financial violation introduced by a structural repair", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history: historyWithOutstandingDebt(),
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      if (calls === 1) return { text: JSON.stringify({ share: {}, report: {} }) };
+      const payload = completePayload();
+      payload.share.viralTitle = "重生之我用46万元重新安排生活";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.meta.financialClaimRepairTriggered, true);
+  assert.deepEqual(repaired.meta.financialClaimViolationCodes, ["REPORT_UNSUPPORTED_FINANCIAL_AMOUNT"]);
+  assert.equal(repaired.meta.financialClaimFallbackCount, 1);
+});
