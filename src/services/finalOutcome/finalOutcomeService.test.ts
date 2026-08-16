@@ -329,3 +329,26 @@ test("poster fallback records a financial violation introduced by a structural r
   assert.deepEqual(repaired.meta.financialClaimViolationCodes, ["REPORT_UNSUPPORTED_FINANCIAL_AMOUNT"]);
   assert.equal(repaired.meta.financialClaimFallbackCount, 1);
 });
+
+test("unsupported title duration left after one repair is downgraded without hiding other quality failures", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.viralTitle = "重生之我用8年把最坏预算变成人生算法";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.share.viralTitle, "重生之我用多年把最坏预算变成人生算法");
+  assert.equal(repaired.meta.finalOutcomeQualityFallbackCount, 1);
+  assert.equal(repaired.meta.finalOutcomeQualityRepairTriggered, true);
+  assert.deepEqual(repaired.meta.finalOutcomeQualityIssueCodes, ["FINAL_REPORT_UNSUPPORTED_DURATION"]);
+});

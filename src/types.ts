@@ -896,6 +896,7 @@ export interface FinalLifeOutcome {
     financialClaimViolationCodes?: string[];
     sourceLedgerRevision?: number;
     finalOutcomeQualityRepairTriggered?: boolean;
+    finalOutcomeQualityFallbackCount?: number;
     finalOutcomeQualityIssueCodes?: string[];
   };
 }
