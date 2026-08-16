@@ -1080,12 +1080,23 @@ export function normalizeFinancialProposals(input: {
         audit.push({ proposalId: id, reasonCode: "INCOME_SOURCE_SHAPE_COMPLETED", normalizedValue: payload.incomeSourceId });
       }
     }
-    if (payload && kind === "expense_commitment_adjusted"
-      && !payload.nextCommitment && payload.next && typeof payload.next === "object") {
-      payload.nextCommitment = payload.next;
-      delete payload.next;
-      expenseNextAliasNormalized = true;
-      audit.push({ proposalId: id, reasonCode: "EXPENSE_NEXT_ALIAS_NORMALIZED", normalizedValue: "nextCommitment" });
+    if (payload && kind === "expense_commitment_adjusted" && !payload.nextCommitment) {
+      const aliasKey = payload.next && typeof payload.next === "object"
+        ? "next"
+        : payload.nextState && typeof payload.nextState === "object"
+          ? "nextState"
+          : undefined;
+      if (aliasKey) {
+        payload.nextCommitment = payload[aliasKey];
+        delete payload[aliasKey];
+        expenseNextAliasNormalized = true;
+        audit.push({
+          proposalId: id,
+          reasonCode: "EXPENSE_NEXT_ALIAS_NORMALIZED",
+          originalValue: aliasKey,
+          normalizedValue: "nextCommitment"
+        });
+      }
     }
     if (payload && kind === "expense_commitment_adjusted" && payload.expenseCommitmentId && payload.nextCommitment && typeof payload.nextCommitment === "object") {
       const existingCommitment = input.currentLedger?.expenseCommitments.find((item) => item.id === payload.expenseCommitmentId);

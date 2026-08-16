@@ -410,6 +410,53 @@ test("lifecycle diagnostics distinguish accrued unclassified residual from accep
   assert.equal(summary.knownTypedExpenseSharePct > 0, true);
 });
 
+test("release review gate keeps policy-owned estimates diagnostic but blocks overdue authoritative amounts", () => {
+  const policyOwned = commitment({
+    id: "policy_owned_residual",
+    responsibilityKey: "unclassified_core_consumption:protagonist",
+    responsibilityKind: "unclassified_core_consumption",
+    type: "other",
+    monthlyAmountWan: 0.55,
+    factStatus: "needs_review",
+    amountBasis: "contextual_estimate",
+    nextReviewAtAgeInMonths: 360
+  });
+  const authoritative = residenceCommitment({
+    id: "accepted_rent_due",
+    nextReviewAtAgeInMonths: 360,
+    amountBasis: "explicit_known",
+    factStatus: "known"
+  });
+  const { summary, details } = auditExpenseLifecycleDynamics({
+    routeRecords: [{ caseSlug: "review-authority", history: [node([policyOwned, authoritative], 372, {
+      unresolvedIssues: [{
+        id: "expense_review_due_policy_owned_residual",
+        code: "PENDING_FACT",
+        severity: "warning",
+        status: "open",
+        relatedProposalIds: [],
+        relatedAccountIds: [policyOwned.id],
+        summary: "政策估算等待新事实",
+        createdAtAgeInMonths: 372
+      }, {
+        id: "expense_review_due_accepted_rent_due",
+        code: "PENDING_FACT",
+        severity: "warning",
+        status: "open",
+        relatedProposalIds: [],
+        relatedAccountIds: [authoritative.id],
+        summary: "明确房租等待复核",
+        createdAtAgeInMonths: 372
+      }]
+    })] }]
+  });
+
+  assert.equal(summary.policyOwnedExpenseReviewOutstandingCount, 1);
+  assert.equal(summary.reviewDueWithoutAcceptedDispositionCount, 1);
+  assert.equal(details.terminalExpenseStates[0].overdue.find((item) => item.commitmentId === policyOwned.id)?.acceptedDispositionRequired, false);
+  assert.equal(details.terminalExpenseStates[0].overdue.find((item) => item.commitmentId === authoritative.id)?.acceptedDispositionRequired, true);
+});
+
 test("expense invariant audit catches silent lowering, zero unknowns, stale review, split loss, source duplication and mortgage double count", () => {
   const knownEvidence = [{ source: "user", reasonCode: "EXPLICIT_OPENING_FINANCIAL_FACT", confidence: 1 }];
   const records = [

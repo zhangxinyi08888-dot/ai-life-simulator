@@ -2,6 +2,7 @@ import type { EmploymentStatus, WorldStateSnapshot } from "../../types";
 import { currentCareerState, reduceCareerStates } from "../career/careerState";
 import type { AcceptedCareerTransition, CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
+import { buildExpenseLifecycleReviewPlan } from "./expenseLifecycleReview";
 import { estimatedBasicLivingCommitment, type FinancialEstimationContext } from "./financialEstimationPolicy";
 import type { ExpenseResponsibilityEstimateContext } from "./expenseEstimationPolicyV2";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
@@ -785,7 +786,24 @@ export function commitFinancialDomainTransaction(
       source.status = "ended";
     }
   }
-  const newIssues = [...completenessIssues, ...(input.financialIssues || [])];
+  const providedIssues = [...completenessIssues, ...(input.financialIssues || [])];
+  const providedIssueIds = new Set(providedIssues.map((issue) => issue.id));
+  // A long simulation period can create a new responsibility at its start and
+  // cross that responsibility's first review deadline before the node is
+  // committed.  The pre-period lifecycle plan cannot see that new account.
+  // Record the boundary issue now so the committed node never contains a
+  // silently stale responsibility; the next transaction remains the sole
+  // writer of any review transition or authoritative amount change.
+  const periodBoundaryReviewIssues = isFinancialLedgerV4(committedLedger)
+    ? buildExpenseLifecycleReviewPlan({
+      ledger: committedLedger,
+      ageInMonths: input.periodEndAgeInMonths,
+      proposalNamespace: `system_expense_period_boundary_${input.transactionId}`
+    }).issues
+      .filter((issue) => !providedIssueIds.has(issue.id))
+      .map((issue) => ({ ...issue, relatedProposalIds: [] }))
+    : [];
+  const newIssues = [...providedIssues, ...periodBoundaryReviewIssues];
   const observedIssues = newIssues.map((issue) => addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths));
   // Preserve the rejected sibling as an auditable pending fact first, then let
   // the accepted event resolve both records in the same transaction. This keeps

@@ -432,6 +432,18 @@ function commitmentFactStatus(commitment) {
   return FACT_STATUSES.includes(commitment?.factStatus) ? commitment.factStatus : "unknown";
 }
 
+/**
+ * Policy/context/legacy amounts are conservative cash-flow safeguards.  They
+ * remain reviewable, but the narrator cannot manufacture an Accepted fact to
+ * close them merely because their calendar review is due.  The release gate
+ * must therefore distinguish these system-owned estimates from explicit or
+ * last-known amounts that genuinely require an authoritative disposition.
+ */
+function isPolicyOwnedExpenseEstimate(commitment) {
+  return commitmentFactStatus(commitment) !== "known"
+    && ["policy_floor", "contextual_estimate", "legacy_estimate"].includes(commitment?.amountBasis);
+}
+
 function activeOrPausedCommitments(node) {
   return (nodeLedger(node).expenseCommitments || []).filter((commitment) => (
     commitment?.status === "active" || commitment?.status === "paused"
@@ -781,6 +793,8 @@ function terminalExpenseState(history) {
         responsibilityKind: responsibilityKind(commitment),
         status: commitment.status,
         factStatus,
+        amountBasis: commitment.amountBasis ?? null,
+        acceptedDispositionRequired: !isPolicyOwnedExpenseEstimate(commitment),
         dueAtAgeInMonths,
         ageInMonths: terminalAgeInMonths
       });
@@ -1296,7 +1310,14 @@ export function auditExpenseLifecycleDynamics({ routeRecords = [] } = {}) {
       reviewResolutionWithoutAcceptedOutcomeCount: observedInvariantCount(reviewResolutionsWithoutAcceptedOutcome),
       reviewDueWithoutAcceptedDispositionCount: expenseSnapshotObservedNodeCount === 0
         ? null
-        : terminalStatuses.reduce((sum, item) => sum + item.overdue.length, 0),
+        : terminalStatuses.reduce((sum, item) => (
+          sum + item.overdue.filter((overdue) => overdue.acceptedDispositionRequired).length
+        ), 0),
+      policyOwnedExpenseReviewOutstandingCount: expenseSnapshotObservedNodeCount === 0
+        ? null
+        : terminalStatuses.reduce((sum, item) => (
+          sum + item.overdue.filter((overdue) => !overdue.acceptedDispositionRequired).length
+        ), 0),
       annualCoreExpenseDerivationMismatchCount: observedInvariantCount(annualCoreExpenseDerivationMismatches),
       expenseInvariantObservedNodeCount: expenseSnapshotObservedNodeCount,
       expenseBaselineDownwardOverwriteCount: observedInvariantCount(baselineDownwardOverwrites),
@@ -1352,7 +1373,7 @@ const RELEASE_EXPENSE_INVARIANT_FIELDS = [
   ["confirmedResponsibilityWithoutNonzeroAccrualCount", "已确认持续支出没有非零计提"],
   ["expenseConfirmationAuthorityViolationCount", "known 精确支出缺少 Accepted 权威证据"],
   ["reviewResolutionWithoutAcceptedOutcomeCount", "支出复核未由 Accepted Event 关闭"],
-  ["reviewDueWithoutAcceptedDispositionCount", "到期支出复核没有 Accepted disposition"],
+  ["reviewDueWithoutAcceptedDispositionCount", "需权威处置的到期支出复核没有 Accepted disposition"],
   ["annualCoreExpenseDerivationMismatchCount", "年化核心支出与 active 账户求和不一致"]
 ];
 

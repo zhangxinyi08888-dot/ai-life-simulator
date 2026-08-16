@@ -978,12 +978,13 @@ ${recoverableRows}
 | 活跃支出事实状态快照 | ${summary.activeExpenseFactStatusSnapshotStatus}（known ${summary.activeExpenseFactStatusSnapshotCounts.known} / estimated ${summary.activeExpenseFactStatusSnapshotCounts.estimated} / unknown ${summary.activeExpenseFactStatusSnapshotCounts.unknown} / needs_review ${summary.activeExpenseFactStatusSnapshotCounts.needs_review}） | 分母为 0 不得显示 100% |
 | 期间累计现金流样本 | ${summary.routeCumulativeFinancialsStatus}；收入 ${displayWan(summary.cumulativeIncomeWan)}、持续支出 ${displayWan(summary.cumulativeCoreExpenseWan)}、一次性支出 ${displayWan(summary.cumulativeOneOffExpenseWan)}、债务服务 ${displayWan(summary.cumulativeDebtServiceWan)}、净现金流 ${displayWan(summary.cumulativeNetCashFlowWan)} | 来自 committed financialPeriodSummary |
 | 家庭责任前后 3 节点运行率 | ${summary.familyResponsibilityRunRateWindowStatus}（${summary.familyResponsibilityRunRateWindowCount} 个窗口，${summary.familyResponsibilityRunRateIncompleteWindowCount} 个边界/缺样本窗口） | 不足 3 节点或无期间汇总会如实标为 partial/not_covered |
-| 终局到期未复核责任 | ${summary.overdueExpenseReviewAccountCount} | 按责任类型明细见长期诊断 |
+| 终局到期复核责任 | ${summary.overdueExpenseReviewAccountCount} | 包含仍等待新事实的系统估算，按责任类型明细见长期诊断 |
+| 系统估算到期且继续开放 | ${summary.policyOwnedExpenseReviewOutstandingCount ?? "未覆盖"} | 诊断项；不得由 AI 自证，也不构成 Accepted disposition 阻断 |
 | 重大责任存在但仅 basic floor | ${summary.materialResponsibilityPresentButFloorOnlyMonths ?? "未覆盖"} 人月 | 冻结标注分母必须非空且目标 0 |
 | 已确认责任但无非零计提 | ${summary.confirmedResponsibilityWithoutNonzeroAccrualCount ?? "未覆盖"} | 目标 0 |
 | 确认权威违规 | ${summary.expenseConfirmationAuthorityViolationCount ?? "未覆盖"} | 目标 0 |
 | review 无 Accepted Event 关闭 | ${summary.reviewResolutionWithoutAcceptedOutcomeCount ?? "未覆盖"} | 目标 0 |
-| 到期 review 无 Accepted disposition | ${summary.reviewDueWithoutAcceptedDispositionCount ?? "未覆盖"} | 目标 0 |
+| 需权威处置的到期 review 无 Accepted disposition | ${summary.reviewDueWithoutAcceptedDispositionCount ?? "未覆盖"} | explicit / last-known 责任目标 0 |
 | 年化核心支出派生不一致 | ${summary.annualCoreExpenseDerivationMismatchCount ?? "未覆盖"} | 目标 0 |
 | 个人责任误判为企业/第三方 | ${summary.personalLiabilityRejectedAsBusinessOrThirdPartyCount ?? "未覆盖"} | 冻结标注目标 0 |
 | 非个人责任写入个人账本 | ${summary.nonPersonalCommittedAsPersonalCount ?? "未覆盖"} | 冻结标注目标 0 |

@@ -254,6 +254,56 @@ test("an explicit aggregate context adds an accruing residual while Preview leav
   assert.equal(committed.derivedFinancialState.state.annualizedCoreExpenseWan, 10.8);
 });
 
+test("a residual created during a long period records its due review issue in the same committed node", () => {
+  const current = setup();
+  current.ledger.incomeSources.push({
+    id: "personal_salary_long_period",
+    type: "salary",
+    displayName: "个人工资",
+    monthlyNetAmountWan: 2,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: 300,
+    status: "active",
+    linkedCareerStateId: "career_employed",
+    factStatus: "known",
+    evidence
+  });
+  const v4 = migrateFinancialLedgerV3ToV4(current.ledger);
+  const context = {
+    employmentStatus: "employed" as const,
+    livingArrangement: "unknown" as const,
+    cityCostBand: "medium" as const,
+    householdSize: 1
+  };
+
+  const result = commitFinancialDomainTransaction({
+    transactionId: "long_period_residual_review",
+    periodStartAgeInMonths: 360,
+    periodEndAgeInMonths: 384,
+    expectedCareerRevision: 0,
+    expectedLedgerRevision: 0,
+    currentCareer: current.career,
+    currentFinancialLedger: v4,
+    currentWorldState: current.worldState,
+    acceptedCareerTransitions: [],
+    acceptedFinancialEvents: [],
+    aggregateExpenseEstimateContext: context,
+    basicLivingEstimateContext: context
+  });
+
+  const residual = result.financialLedger.expenseCommitments.find((item) => (
+    item.responsibilityKind === "unclassified_core_consumption"
+  ));
+  assert.ok(residual);
+  assert.equal(residual?.nextReviewAtAgeInMonths, 372);
+  const issue = result.financialLedger.unresolvedIssues.find((item) => (
+    item.id === `expense_review_due_${residual?.id}`
+  ));
+  assert.equal(issue?.status, "open");
+  assert.deepEqual(issue?.relatedProposalIds, []);
+  assert.deepEqual(issue?.relatedAccountIds, [residual?.id]);
+});
+
 test("the unclassified residual carries forward without narrative and never duplicates", () => {
   const current = setup();
   current.ledger.incomeSources.push({

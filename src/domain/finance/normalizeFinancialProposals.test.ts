@@ -1131,6 +1131,33 @@ test("preserves policy evidence when an expense adjustment omits it", () => {
   assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_EVIDENCE_PRESERVED"), true);
 });
 
+test("normalizes the narrow nextState alias for an existing expense adjustment", () => {
+  const currentLedger = initializeFinancialLedger({ id: "expense_next_state_alias", asOfAgeInMonths: 288, openingPosition: {
+    expenseCommitments: [{
+      id: "rent_main", type: "housing", displayName: "住房支出",
+      monthlyAmountWan: 0.5, activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review",
+      evidence: [{ source: "accepted_history", reasonCode: "OPENING_RENT", confidence: 0.8 }]
+    }]
+  } });
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], currentLedger, proposals: [{
+    id: "adjust_rent_alias", kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: 300,
+    payload: {
+      expenseCommitmentId: "rent_main",
+      nextState: { monthlyAmountWan: 0.6 }
+    },
+    evidence: "你已经开始每月支付6000元房租。", confidence: 0.95
+  }] });
+
+  assert.equal(result.proposals.length, 1);
+  const payload = result.proposals[0].payload as any;
+  assert.equal(payload.nextState, undefined);
+  assert.equal(payload.nextCommitment.id, "rent_main");
+  assert.equal(payload.nextCommitment.monthlyAmountWan, 0.6);
+  assert.equal(result.audit.some((item) => (
+    item.reasonCode === "EXPENSE_NEXT_ALIAS_NORMALIZED" && item.originalValue === "nextState"
+  )), true);
+});
+
 test("preserves expense account semantics when rent-only evidence targets a basic-living adjustment", () => {
   const currentLedger = initializeFinancialLedger({ id: "expense_type_identity", asOfAgeInMonths: 288, openingPosition: {
     expenseCommitments: [{
