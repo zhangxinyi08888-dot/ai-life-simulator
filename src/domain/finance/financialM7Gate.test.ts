@@ -18,7 +18,9 @@ test("M7 gate: production nodes use the authoritative domain transaction as the 
 });
 
 test("M7 gate: model contract proposes directional events instead of aggregate balances", () => {
-  const nextNodeContract = promptSource.slice(promptSource.indexOf("export function buildNextNodePrompt"));
+  // Cache Prefix V1 keeps these non-negotiable model rules in the invariant
+  // leading block, while the public builder is intentionally just a selector.
+  const nextNodeContract = promptSource.slice(promptSource.indexOf("export const NEXT_NODE_INVARIANT_PREFIX_V1"));
   assert.match(nextNodeContract, /financialEventProposals 必须放在返回 JSON 顶层/);
   assert.match(nextNodeContract, /business_financing_recorded/);
   assert.match(nextNodeContract, /employmentStatus 不属于财务 Proposal/);

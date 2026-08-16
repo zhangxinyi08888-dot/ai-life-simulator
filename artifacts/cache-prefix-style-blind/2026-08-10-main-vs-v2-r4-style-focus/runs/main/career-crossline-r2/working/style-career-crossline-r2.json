@@ -1,0 +1,2227 @@
+{
+  "schemaVersion": 2,
+  "runId": "career-crossline-r2",
+  "journeyId": "06a343ba-ff56-4df3-875f-5f5dc6d45f83",
+  "identity": {
+    "runId": "career-crossline-r2",
+    "journeyId": "06a343ba-ff56-4df3-875f-5f5dc6d45f83",
+    "caseSlug": "style-career-crossline-r2",
+    "scenario": "style_paired_blind",
+    "startedAt": "2026-08-10T03:00:42.745Z"
+  },
+  "dataSource": "real_ai_browser",
+  "caseSlug": "style-career-crossline-r2",
+  "scenario": "style_paired_blind",
+  "config": {
+    "slug": "style-career-crossline-r2",
+    "scenario": "style_paired_blind",
+    "birthday": "1992-03-18",
+    "birthtime": "09:00",
+    "returnPointName": "重选职业方向 回到那次工作转折，走向另一条职业道路 约 24 岁",
+    "anchorText": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。",
+    "branches": [
+      "接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品",
+      "保留现有工作，利用晚上和周末参与创业项目",
+      "拒绝创业机会，留在大公司争取管理岗位"
+    ],
+    "answers": [
+      "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。",
+      "面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。",
+      "我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。"
+    ],
+    "targetSelectedNodeCount": 1
+  },
+  "updatedAt": "2026-08-10T03:01:10.775Z",
+  "complete": false,
+  "interactionLog": [
+    {
+      "type": "case_started",
+      "caseSlug": "style-career-crossline-r2",
+      "scenario": "style_paired_blind",
+      "runId": "career-crossline-r2",
+      "journeyId": "06a343ba-ff56-4df3-875f-5f5dc6d45f83",
+      "at": "2026-08-10T03:00:42.745Z"
+    },
+    {
+      "type": "choice_completed",
+      "sourceNodeTitle": "产品复盘与客户反馈机制的两周年",
+      "sourceAgeInMonths": 321,
+      "displayedChoices": [
+        {
+          "id": "choice_hire_assistant",
+          "text": "用公司现有现金流招聘一位初级产品助理，分担客户访谈和数据整理工作，让自己能更多思考产品方向和战略。",
+          "impactSummary": "提升团队效率，缓解个人压力",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "提升团队效率，缓解个人压力"
+          },
+          "decisionIntent": "career:hire:product_assistant",
+          "eventOutcomeId": "maintain_financial_order",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "choice_raise_income",
+          "text": "与创始人老周协商，将你的月薪调整到行业正常水平，并争取增加期权比例，以匹配你这两年对产品的贡献。",
+          "impactSummary": "提高个人收入，巩固长期承诺",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              12,
+              36
+            ],
+            "requiresFollowUp": false,
+            "reason": "提高个人收入，巩固长期承诺"
+          },
+          "decisionIntent": "career:negotiate:salary_and_equity",
+          "eventOutcomeId": "support_one_long_term_commitment",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        },
+        {
+          "id": "choice_focus_quality",
+          "text": "暂不改变现有薪酬和人员结构，继续用每周复盘和客户反馈机制打磨产品，将精力集中在提升续约率和客户满意度上，等公司下一轮融资后再做调整。",
+          "impactSummary": "稳健运营，巩固现有现金流",
+          "temporalHint": {
+            "lifeIntensity": "high_tension",
+            "durationMonths": [
+              6,
+              12
+            ],
+            "requiresFollowUp": true,
+            "reason": "稳健运营，巩固现有现金流"
+          },
+          "decisionIntent": "career:focus:product_quality",
+          "eventOutcomeId": "allocate_for_quality_of_life",
+          "expectedWorldDeltaTypes": [
+            "career_state"
+          ]
+        }
+      ],
+      "selectedChoiceId": "choice_focus_quality",
+      "selectedChoice": "暂不改变现有薪酬和人员结构，继续用每周复盘和客户反馈机制打磨产品，将精力集中在提升续约率和客户满意度上，等公司下一轮融资后再做调整。",
+      "resultingNodeTitle": "稳扎稳打的第八个月",
+      "resultingAgeInMonths": 329,
+      "resultingAttributes": {
+        "happiness": 68,
+        "intelligence": 78,
+        "wealth": 67,
+        "relation": 68,
+        "health": 60
+      },
+      "resultingFinancialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 329,
+        "cashWan": 106.15,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 106.15,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 25.8,
+        "annualCoreExpenseWan": 4.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "at": "2026-08-10T03:01:10.775Z",
+      "runId": "career-crossline-r2",
+      "journeyId": "06a343ba-ff56-4df3-875f-5f5dc6d45f83"
+    }
+  ],
+  "latestState": {
+    "capturedAt": "2026-08-10T03:01:10.748Z",
+    "e2eCase": null,
+    "recordTestRun": "style-main-career-crossline-r2",
+    "testDataSource": "real_ai_browser",
+    "step": "simulating",
+    "userName": "旅人",
+    "userData": {
+      "birthday": "1998-05-15",
+      "birthtime": "09:00",
+      "gender": "未知",
+      "currentSituation": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "isReturnToPast": true,
+      "targetAgeNode": "24 岁 · 工作与转折",
+      "milestones": [
+        {
+          "id": "career",
+          "title": "工作与转折",
+          "content": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。"
+        }
+      ],
+      "milestoneGaokao": "",
+      "milestoneCareer": "26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。",
+      "milestoneRelationship": "",
+      "milestoneOther": "",
+      "regressionNodeKey": "career",
+      "regressionAge": 24,
+      "regressionSituation": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。",
+      "regressionChoices": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+      "coreStoryFocus": "career"
+    },
+    "questions": [
+      {
+        "question": "回到24岁，你当时在大公司的具体岗位和收入情况是怎样的？",
+        "suggestions": [
+          "我当时是产品经理，月薪1.5万左右，年终奖丰厚，公积金也高，所以很舍不得。",
+          "我负责一个成熟业务模块，工作稳定但重复，年薪大概20万，在大城市不算高但稳定。",
+          "我是技术岗，写代码两年了，晋升需要排队，但跳槽有风险，所以一直没动。",
+          "记不清了，大概是市场岗，收入中等，但领导很看重我，承诺明年升职。"
+        ]
+      },
+      {
+        "question": "24岁时，你第一次听说或接触那家AI创业公司是什么情形？",
+        "suggestions": [
+          "是前同事拉我去的，他已经是联合创始人，说缺一个产品负责人，我犹豫了很久。",
+          "在行业论坛上认识的创始人，聊过几次，觉得方向很靠谱，但给不起高薪。",
+          "朋友推荐我去面试，通过后才知道他们连A轮都没融，只有天使轮的钱。",
+          "不确定，可能是网上看到的招聘信息，当时觉得AI是风口，但没想过离开大公司。"
+        ]
+      },
+      {
+        "question": "24岁，你当时最担心的是什么？",
+        "suggestions": [
+          "最担心收入下降，我每个月要还房贷，家里还等着我补贴，不能冒风险。",
+          "担心创业公司撑不过两年，到时候简历花了，再回大公司就难了。",
+          "担心自己能力不够，带不了产品，辜负创始人的信任，也怕丢脸。",
+          "担心家人反对，他们一直觉得大公司稳定，创业就是瞎折腾。"
+        ]
+      },
+      {
+        "question": "24岁，你当时的性格和应对压力的方式是什么？",
+        "suggestions": [
+          "我平时挺稳的，但遇到大事就容易失眠，会反复权衡利弊，不太敢冒险。",
+          "我比较冲动，但这次因为牵扯钱的事，就变得特别谨慎，连续问了好几个朋友。",
+          "我习惯自己扛，不怎么跟别人说，晚上会想很多，但白天还是正常工作。",
+          "我其实很想拼一把，但父母身体不好，我不得不考虑稳定，最后选择保守。"
+        ]
+      },
+      {
+        "question": "24岁，你当时有什么具体的兴趣、技能或资源？",
+        "suggestions": [
+          "我自学过机器学习，也会写一点代码，但不算精通，产品设计是我的强项。",
+          "我特别关注AI行业，有行业人脉，但自己没做过创业，也不懂融资。",
+          "我手里有点积蓄，够活一年，但不够创业，而且没有其他收入来源。",
+          "我认识几个投资人，但关系一般，不确定能不能拉来资源。"
+        ]
+      },
+      {
+        "question": "24岁，你当时在情感或家庭方面有什么牵绊？",
+        "suggestions": [
+          "我谈着异地恋，女朋友支持我创业，但家里人催我买房结婚，压力很大。",
+          "我单身，家里是普通工薪阶层，父母希望我稳定，我也觉得自己没资本输。",
+          "我刚结婚，老婆刚怀孕，急需用钱，所以更不敢动。",
+          "我家庭条件还行，父母说可以支持我两年，但我自己不好意思啃老。"
+        ]
+      }
+    ],
+    "answers": [
+      {
+        "id": 1,
+        "question": "回到24岁，你当时在大公司的具体岗位和收入情况是怎样的？",
+        "answer": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。"
+      },
+      {
+        "id": 2,
+        "question": "24岁时，你第一次听说或接触那家AI创业公司是什么情形？",
+        "answer": "面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。"
+      },
+      {
+        "id": 3,
+        "question": "24岁，你当时最担心的是什么？",
+        "answer": "我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。"
+      },
+      {
+        "id": 4,
+        "question": "24岁，你当时的性格和应对压力的方式是什么？",
+        "answer": "我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。"
+      },
+      {
+        "id": 5,
+        "question": "24岁，你当时有什么具体的兴趣、技能或资源？",
+        "answer": "我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。"
+      },
+      {
+        "id": 6,
+        "question": "24岁，你当时在情感或家庭方面有什么牵绊？",
+        "answer": "我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。"
+      }
+    ],
+    "history": [
+      {
+        "age": 24,
+        "ageInMonths": 288,
+        "lifeStage": "emerging_adulthood",
+        "title": "大公司与创业公司的抉择",
+        "stage": "分岔路口",
+        "description": "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。房租每月6000元，加上给父母的医疗费用，每月固定支出约1.5万，压力不小。你手头有18万元存款，但不敢乱动。\n\n朋友推荐你加入一家早期AI创业公司，做产品负责人。你调研后发现公司方向有前景，但薪酬会降三成，且期权可能打水漂。你既想抓住机会做出真正属于自己的产品，又担心现金流断裂。你习惯先搜集信息、推演最坏情况，再找朋友讨论。",
+        "selectedChoice": "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。",
+        "selectedChoiceId": "A",
+        "selectedDecisionIntent": "career:join:early_ai_startup",
+        "attributes": {
+          "happiness": 60,
+          "intelligence": 70,
+          "wealth": 55,
+          "relation": 65,
+          "health": 70
+        },
+        "financialLedger": {
+          "id": "financial_opening_288",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 18,
+              "status": "active",
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "user",
+                  "excerpt": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。\n面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。\n我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。",
+                  "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                  "confidence": 1
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [
+            {
+              "id": "legacy_recurring_income",
+              "type": "other",
+              "displayName": "旧版持续收入聚合",
+              "annualNetAmountWan": 30,
+              "accrualPolicy": "annual",
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "linkedCareerStateId": "career_opening_288",
+              "factStatus": "estimated",
+              "lastConfirmedAtAgeInMonths": 288,
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 1.5,
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [],
+          "committedTransactionIds": [],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_288",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 288
+            }
+          ],
+          "revision": 0,
+          "version": 3,
+          "openingAcceptedEventIds": [
+            "accepted_opening_cash_primary_cash",
+            "accepted_opening_income_source_legacy_recurring_income",
+            "accepted_opening_expense_commitment_legacy_core_expense"
+          ]
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 288,
+          "cashWan": 18,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 18,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 12,
+          "annualCoreExpenseWan": 18,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "debtHealthState": {
+          "asOfAgeInMonths": 288,
+          "level": "none",
+          "totalDebtWan": 0,
+          "scheduledDebtServiceNext12MonthsWan": 0,
+          "availableCashForDebtNext12MonthsWan": 30,
+          "cashBufferMonths": 12,
+          "liquidityShortfallDebtWan": 0,
+          "consecutiveMissedPaymentMonths": 0,
+          "missedPaymentMonthsLast12": 0,
+          "activeDefaultedDebtCount": 0,
+          "source": "authoritative_ledger",
+          "sourceLedgerRevision": 0,
+          "trend": "unknown",
+          "reasonCodes": [
+            "NO_ACTIVE_DEBT"
+          ]
+        },
+        "choices": [
+          {
+            "id": "A",
+            "text": "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。",
+            "impactSummary": "投身创业",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "投身创业"
+            },
+            "decisionIntent": "career:join:early_ai_startup",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "B",
+            "text": "保留现有工作，利用晚上和周末参与创业项目，边上班边积累经验。",
+            "impactSummary": "双线并行",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "双线并行"
+            },
+            "decisionIntent": "career:side_project:ai_startup",
+            "expectedWorldDeltaTypes": []
+          },
+          {
+            "id": "C",
+            "text": "拒绝创业机会，留在大公司争取管理岗位，稳步晋升。",
+            "impactSummary": "稳中求进",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "稳中求进"
+            },
+            "decisionIntent": "career:stay:large_company_management",
+            "expectedWorldDeltaTypes": []
+          }
+        ],
+        "isEndingNode": false,
+        "narrativeMeta": {
+          "elapsedMonths": 0,
+          "elapsedYears": 0,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_fc981a14",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 288,
+            "internalTransitions": [],
+            "decisionCheckpointId": "checkpoint_f356b5fe",
+            "summary": "24岁，你在一家稳定的大公司做着产品经理，月薪到手约2万，每年能攒下12万左右。房租每月6000元，加上给父母的医疗费用，每月固定支出约1.5万，压力不小。你手"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "worldDeltas": [],
+          "relationshipProposals": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "person_parent_unspecified",
+              "identityKey": {
+                "namespace": "user_role",
+                "key": "parent:unspecified"
+              },
+              "displayName": "父母",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                42,
+                69
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 288,
+              "lifeStatus": "active",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元",
+              "source": "user_fact",
+              "confidence": 0.9
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_288",
+              "employmentStatus": "employed",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 288,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_288",
+          "currentEmploymentStatus": "employed",
+          "careerRevision": 0,
+          "relationships": [],
+          "familyRelationships": [
+            {
+              "id": "family_person_parent_unspecified",
+              "participantPersonId": "person_parent_unspecified",
+              "role": "parent_unspecified",
+              "activation": "active",
+              "contact": "unknown",
+              "emotionalSupport": "unknown",
+              "practicalSupport": "unknown",
+              "autonomyRespect": "unknown",
+              "conflictIntensity": "unknown",
+              "topicStances": [],
+              "revision": 1
+            }
+          ],
+          "routePreferences": [],
+          "relationshipRevision": 0,
+          "familyRelationshipRevision": 1,
+          "relationshipProgressionVersion": 1
+        }
+      },
+      {
+        "age": 24,
+        "ageInMonths": 299,
+        "lifeStage": "emerging_adulthood",
+        "title": "晨雾中的选择",
+        "stage": "emerging_adulthood",
+        "description": "24岁深秋，你向大公司提交了离职申请。没有想象中的壮烈，只是HR例行询问缘由，你说了句‘想试试别的路’。\n\n手头18万积蓄，是底气也是枷锁——房租6000元、父母医疗费每月近1万，每月固定支出1.5万像一条勒紧的绳。\n\n你算过最坏情况：如果项目两年后倒闭，积蓄能撑18个月，够你重新找份工作。\n\n入职第一天，你发现公司只有7个人，办公室在创业园区一间旧会议室。创始人老周是技术出身，产品和市场全要你从零搭建。\n\n你花了一个月访谈20多位潜在客户，发现企业软件在中小企业市场的真实痛点不是功能，而是落地成本。你调整了产品定位，砍掉三分之二的功能框架。\n\n现金流比预想更紧。这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。父母医疗费靠积蓄垫付，你开始习惯每天晚上盘点余额，提醒自己‘再撑一个月’。\n\n第三个月，第一个敏捷开发版本上线。第五个月，一家制造业客户签约试用。你每天和工程师挤在会议室，对着用户反馈迭代。\n\n第九个月，第二家客户签下年度合同，月经常性收入达到6万。你终于觉得，自己不再是画PPT的‘产品经理’，而是在做‘产品’了。",
+        "selectedChoice": "建立每周产品复盘和用户反馈跟踪机制，把客户访谈固定为产品迭代的输入，减少临时救火。",
+        "selectedChoiceId": "choice_sustainable_rhythm_workflow",
+        "selectedEventOutcomeId": "improve_one_work_habit",
+        "selectedDecisionIntent": "career:improve:workflow",
+        "attributes": {
+          "happiness": 62,
+          "intelligence": 72,
+          "wealth": 63,
+          "relation": 63,
+          "health": 68
+        },
+        "financialLedger": {
+          "id": "financial_opening_288",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 299,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 41.65,
+              "status": "active",
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "user",
+                  "excerpt": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。\n面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。\n我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。",
+                  "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                  "confidence": 1
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [
+            {
+              "id": "legacy_recurring_income",
+              "type": "other",
+              "displayName": "旧版持续收入聚合",
+              "annualNetAmountWan": 30,
+              "accrualPolicy": "annual",
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "linkedCareerStateId": "career_opening_288",
+              "factStatus": "estimated",
+              "lastConfirmedAtAgeInMonths": 288,
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ]
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 1.5,
+              "activeFromAgeInMonths": 288,
+              "status": "ended",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ],
+              "activeUntilAgeInMonths": 288
+            },
+            {
+              "id": "estimated_basic_living_v1_288",
+              "type": "basic_living",
+              "displayName": "基础生活支出（系统保守估计）",
+              "monthlyAmountWan": 0.35,
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "system_policy",
+                  "reasonCode": "ADULT_BASIC_LIVING_ESTIMATED_V1",
+                  "confidence": 0.6
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [
+            {
+              "id": "financial_9ef23792",
+              "simulationTransactionId": "9ef23792",
+              "eventIds": [],
+              "periodStartAgeInMonths": 288,
+              "periodEndAgeInMonths": 299,
+              "cashDeltaWan": 23.65,
+              "assetDeltaWan": 0,
+              "debtDeltaWan": 0,
+              "incomeWan": 27.5,
+              "expenseWan": 3.85,
+              "valuationChangeWan": 0,
+              "priorFactCorrectionWan": 0,
+              "nonCashGainLossWan": 0,
+              "netWorthDeltaWan": 23.65,
+              "debtServiceRecords": [],
+              "automaticLiquidityShortfallIncreaseWan": 0,
+              "automaticLiquidityShortfallRecoveryWan": 0,
+              "debtPrincipalDrawnWan": 0,
+              "debtBalanceDiscoveredWan": 0,
+              "debtPrincipalPaidWan": 0,
+              "debtPrincipalForgivenWan": 0,
+              "debtInterestAccruedWan": 0,
+              "debtInterestPaidWan": 0,
+              "debtInterestLiabilityPaidWan": 0,
+              "debtInterestForgivenWan": 0,
+              "debtCapitalizedInterestWan": 0,
+              "evidence": []
+            }
+          ],
+          "committedTransactionIds": [
+            "9ef23792"
+          ],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_288",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 288
+            },
+            {
+              "id": "proposal_issue_income_start_startup_salary_299",
+              "code": "UNBALANCED_TRANSACTION",
+              "severity": "blocking",
+              "status": "resolved",
+              "relatedProposalIds": [
+                "income_start_startup_salary"
+              ],
+              "relatedAccountIds": [],
+              "relatedIncomeSourceIds": [],
+              "relatedDebtAccountIds": [],
+              "relatedBusinessHoldingIds": [],
+              "summary": "财务 Proposal 缺少可靠正文证据或 confidence",
+              "createdAtAgeInMonths": 299,
+              "resolvedAtAgeInMonths": 299,
+              "resolvedByEventId": "system:rejected_proposal_not_committed",
+              "occurrenceCount": 1,
+              "lastObservedAtAgeInMonths": 299
+            },
+            {
+              "id": "career_repair_atomicity_9ef23792",
+              "code": "CAREER_INCOME_CONFLICT",
+              "severity": "blocking",
+              "status": "resolved",
+              "relatedProposalIds": [
+                "income_start_startup_salary"
+              ],
+              "relatedIncomeSourceIds": [
+                "legacy_recurring_income"
+              ],
+              "summary": "职业转换修复未通过，关联的旧工资结束与新职业收入均未提交",
+              "createdAtAgeInMonths": 299,
+              "resolvedAtAgeInMonths": 299,
+              "resolvedByEventId": "system:rejected_proposal_not_committed",
+              "occurrenceCount": 1,
+              "lastObservedAtAgeInMonths": 299
+            }
+          ],
+          "revision": 1,
+          "version": 3,
+          "openingAcceptedEventIds": [
+            "accepted_opening_cash_primary_cash",
+            "accepted_opening_income_source_legacy_recurring_income",
+            "accepted_opening_expense_commitment_legacy_core_expense"
+          ]
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 299,
+          "cashWan": 41.65,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 41.65,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 25.8,
+          "annualCoreExpenseWan": 4.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "debtHealthState": {
+          "asOfAgeInMonths": 299,
+          "level": "none",
+          "totalDebtWan": 0,
+          "scheduledDebtServiceNext12MonthsWan": 0,
+          "availableCashForDebtNext12MonthsWan": 67.45,
+          "cashBufferMonths": 119,
+          "liquidityShortfallDebtWan": 0,
+          "consecutiveMissedPaymentMonths": 0,
+          "missedPaymentMonthsLast12": 0,
+          "activeDefaultedDebtCount": 0,
+          "source": "authoritative_ledger",
+          "sourceLedgerRevision": 1,
+          "trend": "stable",
+          "reasonCodes": [
+            "NO_ACTIVE_DEBT"
+          ]
+        },
+        "financialPeriodSummary": {
+          "periodStartAgeInMonths": 288,
+          "periodEndAgeInMonths": 299,
+          "incomeWan": 27.5,
+          "coreExpenseWan": 3.85,
+          "otherExpenseWan": 0,
+          "debtPrincipalPaidWan": 0,
+          "debtInterestPaidWan": 0,
+          "debtInterestUnpaidWan": 0,
+          "automaticLiquidityShortfallRecoveryWan": 0,
+          "assetPurchaseWan": 0,
+          "assetSaleProceedsWan": 0,
+          "valuationChangeWan": 0,
+          "priorFactCorrectionWan": 0,
+          "netCashFlowWan": 23.65,
+          "netWorthChangeWan": 23.65,
+          "transactionIds": [
+            "financial_9ef23792"
+          ]
+        },
+        "financialProcessingMeta": {
+          "proposalCount": 1,
+          "acceptedEventCount": 0,
+          "acceptedCareerTransitionCount": 0,
+          "blockingIssueCount": 0,
+          "repairTriggered": true,
+          "repairLatencyMs": 2382,
+          "totalProcessingLatencyMs": 2404,
+          "debtNarrativeAuthorityVersion": "debt_narrative_v1",
+          "narrativeFallback": false,
+          "narrativeFallbackReasonCodes": [],
+          "rejectedDebtClaimKinds": [],
+          "rejectedFinancialProposalKinds": [],
+          "financialNarrativeAuthorityVersion": "financial_narrative_claims_v1",
+          "financialNarrativeClaimCount": 1,
+          "rejectedFinancialNarrativeClaimCount": 1,
+          "rawInvalidFinancialNarrativeClaimCount": 0,
+          "invalidFinancialNarrativeClaimCount": 0
+        },
+        "choices": [
+          {
+            "id": "choice_sustainable_rhythm_mvp",
+            "text": "聚焦核心功能，把MVP打磨到极简，以最快速度拿到两家付费客户验证价值，暂不扩张团队。",
+            "impactSummary": "打磨MVP",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "打磨MVP"
+            },
+            "decisionIntent": "career:focus:mvp",
+            "eventOutcomeId": "maintain_sustainable_rhythm",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "choice_sustainable_rhythm_workflow",
+            "text": "建立每周产品复盘和用户反馈跟踪机制，把客户访谈固定为产品迭代的输入，减少临时救火。",
+            "impactSummary": "建立反馈机制",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "建立反馈机制"
+            },
+            "decisionIntent": "career:improve:workflow",
+            "eventOutcomeId": "improve_one_work_habit",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "choice_sustainable_rhythm_balance",
+            "text": "在推进产品的同时，每周留出半天时间梳理个人财务状况，确保存款至少能支撑12个月，必要时主动接外包保住现金流。",
+            "impactSummary": "时间平衡",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "时间平衡"
+            },
+            "decisionIntent": "career:balance:side_income",
+            "eventOutcomeId": "reserve_time_for_non_work_direction",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "career_sustainable_work_rhythm",
+          "eventCategory": "career",
+          "eventTags": [
+            "career",
+            "sustainable_rhythm",
+            "boundary",
+            "stability"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "stability_meaning",
+          "eventSemanticFamily": "career_sustainable_rhythm",
+          "phasePolicyId": "generic_pressure_v1",
+          "routeLine": "career",
+          "selectionKind": "main",
+          "linePolicyId": "career_75_25_v1",
+          "crossLineCandidateAvailable": true
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 11,
+          "elapsedYears": 0.9166666666666666,
+          "lifeIntensity": "high_tension",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_3baf2f83",
+            "startAgeInMonths": 288,
+            "endAgeInMonths": 299,
+            "internalTransitions": [
+              {
+                "atAgeInMonths": 289,
+                "materiality": "transition",
+                "summary": "完成离职交接，加入创业公司，开始客户访谈。",
+                "worldDeltas": []
+              },
+              {
+                "atAgeInMonths": 292,
+                "materiality": "meaningful_update",
+                "summary": "完成产品定位调整，砍掉部分功能框架。",
+                "worldDeltas": []
+              },
+              {
+                "atAgeInMonths": 295,
+                "materiality": "transition",
+                "summary": "第一个敏捷开发版本上线，开始内测。",
+                "worldDeltas": []
+              },
+              {
+                "atAgeInMonths": 298,
+                "materiality": "meaningful_update",
+                "summary": "与第二家客户签约，月经常性收入达到6万元。",
+                "worldDeltas": []
+              }
+            ],
+            "decisionCheckpointId": "checkpoint_185f767d",
+            "summary": "24岁深秋，你向大公司提交了离职申请。没有想象中的壮烈，只是HR例行询问缘由，你说了句‘想试试别的路’。手头18万积蓄，是底气也是枷锁——房租6000元、父母医"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": "作为产品负责人，主导早期AI创业公司的产品调研、MVP开发和客户验证。",
+          "worldDeltas": [],
+          "relationshipProposals": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "person_parent_unspecified",
+              "identityKey": {
+                "namespace": "user_role",
+                "key": "parent:unspecified"
+              },
+              "displayName": "父母",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                42.916666666666664,
+                69.91666666666667
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 299,
+              "lifeStatus": "active",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元",
+              "source": "user_fact",
+              "confidence": 0.9
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "9ef23792"
+          ],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_288",
+              "employmentStatus": "employed",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 288,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_288",
+          "currentEmploymentStatus": "employed",
+          "careerRevision": 0,
+          "relationships": [],
+          "familyRelationships": [
+            {
+              "id": "family_person_parent_unspecified",
+              "participantPersonId": "person_parent_unspecified",
+              "role": "parent_unspecified",
+              "activation": "active",
+              "contact": "unknown",
+              "emotionalSupport": "unknown",
+              "practicalSupport": "unknown",
+              "autonomyRespect": "unknown",
+              "conflictIntensity": "unknown",
+              "topicStances": [],
+              "revision": 1
+            }
+          ],
+          "routePreferences": [],
+          "relationshipRevision": 0,
+          "familyRelationshipRevision": 1,
+          "relationshipProgressionVersion": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      },
+      {
+        "age": 26,
+        "ageInMonths": 321,
+        "lifeStage": "early_adulthood",
+        "title": "产品复盘与客户反馈机制的两周年",
+        "stage": "early_adulthood",
+        "description": "24岁深秋，你正式加入那家只有7个人的AI创业公司，薪资比原岗位低三成，房租与父母医疗费的压力让你每个月都得精打细算。\n\n入职后你花了一个月访谈20多位潜在客户，发现中小企业真正的痛点不是功能，而是落地成本，于是你调整产品定位，砍掉三分之二的功能框架。\n\n现金流持续紧张，你靠积蓄撑过前八个月，期间每晚都会核对余额，提醒自己再撑一个月。\n\n第五个月，第一家制造业客户签约试用；第九个月，第二家客户签下年度合同，月经常性收入达到6万。\n\n你开始建立每周产品复盘和客户反馈跟踪机制，把客户访谈固定为产品迭代的输入，减少临时救火。\n\n这个机制让团队不再靠救火式开发，而是基于真实反馈稳步迭代，产品口碑慢慢积累，续约率提升，到26岁9个月时，公司已有12家付费客户，月经常性收入达到22万。\n\n由于现金流好转，你给自己补发了此前拖欠的部分工资，年税后收入提升到30万元左右。你依然保持每周复盘的习惯，团队也习惯了用数据说话。\n\n父母医疗费不再靠积蓄垫付，你每月能固定拿出5000元支持家里。只是长期高强度工作让你的睡眠不太规律，偶尔会头痛，你开始考虑是否该招一个产品助理来分担压力。",
+        "selectedChoice": "暂不改变现有薪酬和人员结构，继续用每周复盘和客户反馈机制打磨产品，将精力集中在提升续约率和客户满意度上，等公司下一轮融资后再做调整。",
+        "selectedChoiceId": "choice_focus_quality",
+        "selectedEventOutcomeId": "allocate_for_quality_of_life",
+        "selectedDecisionIntent": "career:focus:product_quality",
+        "attributes": {
+          "happiness": 65,
+          "intelligence": 75,
+          "wealth": 66,
+          "relation": 65,
+          "health": 62
+        },
+        "financialLedger": {
+          "id": "financial_opening_288",
+          "owner": "protagonist",
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 321,
+          "cashAccounts": [
+            {
+              "id": "primary_cash",
+              "type": "bank_deposit",
+              "balanceWan": 88.95,
+              "status": "active",
+              "factStatus": "known",
+              "evidence": [
+                {
+                  "source": "user",
+                  "excerpt": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。\n面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。\n我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。",
+                  "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                  "confidence": 1
+                }
+              ]
+            }
+          ],
+          "assetAccounts": [],
+          "debtAccounts": [],
+          "incomeSources": [
+            {
+              "id": "legacy_recurring_income",
+              "type": "salary",
+              "displayName": "旧版持续收入聚合",
+              "annualNetAmountWan": 30,
+              "accrualPolicy": "monthly",
+              "activeFromAgeInMonths": 321,
+              "status": "active",
+              "linkedCareerStateId": "career_opening_288",
+              "factStatus": "estimated",
+              "lastConfirmedAtAgeInMonths": 321,
+              "evidence": [
+                {
+                  "source": "accepted_simulation_outcome",
+                  "sourceEventId": "improve_one_work_habit",
+                  "excerpt": "你给自己补发了此前拖欠的部分工资，年税后收入提升到30万元左右。",
+                  "reasonCode": "EVIDENCE_EXACT_MATCHED",
+                  "confidence": 0.9,
+                  "financialScope": "personal"
+                }
+              ],
+              "monthlyNetAmountWan": 2.5,
+              "accrualReviewStatus": "normal"
+            }
+          ],
+          "expenseCommitments": [
+            {
+              "id": "legacy_core_expense",
+              "type": "basic_living",
+              "displayName": "旧版核心支出聚合",
+              "monthlyAmountWan": 1.5,
+              "activeFromAgeInMonths": 288,
+              "status": "ended",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "legacy_migration",
+                  "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                  "confidence": 0.5
+                }
+              ],
+              "activeUntilAgeInMonths": 288
+            },
+            {
+              "id": "estimated_basic_living_v1_288",
+              "type": "basic_living",
+              "displayName": "基础生活支出（系统保守估计）",
+              "monthlyAmountWan": 0.35,
+              "activeFromAgeInMonths": 288,
+              "status": "active",
+              "factStatus": "estimated",
+              "evidence": [
+                {
+                  "source": "system_policy",
+                  "reasonCode": "ADULT_BASIC_LIVING_ESTIMATED_V1",
+                  "confidence": 0.6
+                }
+              ]
+            }
+          ],
+          "businessHoldings": [],
+          "recentTransactions": [
+            {
+              "id": "financial_9ef23792",
+              "simulationTransactionId": "9ef23792",
+              "eventIds": [],
+              "periodStartAgeInMonths": 288,
+              "periodEndAgeInMonths": 299,
+              "cashDeltaWan": 23.65,
+              "assetDeltaWan": 0,
+              "debtDeltaWan": 0,
+              "incomeWan": 27.5,
+              "expenseWan": 3.85,
+              "valuationChangeWan": 0,
+              "priorFactCorrectionWan": 0,
+              "nonCashGainLossWan": 0,
+              "netWorthDeltaWan": 23.65,
+              "debtServiceRecords": [],
+              "automaticLiquidityShortfallIncreaseWan": 0,
+              "automaticLiquidityShortfallRecoveryWan": 0,
+              "debtPrincipalDrawnWan": 0,
+              "debtBalanceDiscoveredWan": 0,
+              "debtPrincipalPaidWan": 0,
+              "debtPrincipalForgivenWan": 0,
+              "debtInterestAccruedWan": 0,
+              "debtInterestPaidWan": 0,
+              "debtInterestLiabilityPaidWan": 0,
+              "debtInterestForgivenWan": 0,
+              "debtCapitalizedInterestWan": 0,
+              "evidence": []
+            },
+            {
+              "id": "financial_19836604",
+              "simulationTransactionId": "19836604",
+              "eventIds": [
+                "accepted_income_adjusted_current_node"
+              ],
+              "periodStartAgeInMonths": 299,
+              "periodEndAgeInMonths": 321,
+              "cashDeltaWan": 47.3,
+              "assetDeltaWan": 0,
+              "debtDeltaWan": 0,
+              "incomeWan": 55,
+              "expenseWan": 7.7,
+              "valuationChangeWan": 0,
+              "priorFactCorrectionWan": 0,
+              "nonCashGainLossWan": 0,
+              "netWorthDeltaWan": 47.3,
+              "debtServiceRecords": [],
+              "automaticLiquidityShortfallIncreaseWan": 0,
+              "automaticLiquidityShortfallRecoveryWan": 0,
+              "debtPrincipalDrawnWan": 0,
+              "debtBalanceDiscoveredWan": 0,
+              "debtPrincipalPaidWan": 0,
+              "debtPrincipalForgivenWan": 0,
+              "debtInterestAccruedWan": 0,
+              "debtInterestPaidWan": 0,
+              "debtInterestLiabilityPaidWan": 0,
+              "debtInterestForgivenWan": 0,
+              "debtCapitalizedInterestWan": 0,
+              "evidence": [
+                {
+                  "source": "accepted_simulation_outcome",
+                  "sourceEventId": "improve_one_work_habit",
+                  "excerpt": "你给自己补发了此前拖欠的部分工资，年税后收入提升到30万元左右。",
+                  "reasonCode": "EVIDENCE_EXACT_MATCHED",
+                  "confidence": 0.9,
+                  "financialScope": "personal"
+                }
+              ]
+            }
+          ],
+          "committedTransactionIds": [
+            "9ef23792",
+            "19836604"
+          ],
+          "unresolvedIssues": [
+            {
+              "id": "legacy_uncertainty_288",
+              "code": "LEGACY_UNCERTAINTY",
+              "severity": "warning",
+              "relatedProposalIds": [],
+              "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+              "createdAtAgeInMonths": 288
+            },
+            {
+              "id": "proposal_issue_income_start_startup_salary_299",
+              "code": "UNBALANCED_TRANSACTION",
+              "severity": "blocking",
+              "status": "resolved",
+              "relatedProposalIds": [
+                "income_start_startup_salary"
+              ],
+              "relatedAccountIds": [],
+              "relatedIncomeSourceIds": [],
+              "relatedDebtAccountIds": [],
+              "relatedBusinessHoldingIds": [],
+              "summary": "财务 Proposal 缺少可靠正文证据或 confidence",
+              "createdAtAgeInMonths": 299,
+              "resolvedAtAgeInMonths": 299,
+              "resolvedByEventId": "system:rejected_proposal_not_committed",
+              "occurrenceCount": 1,
+              "lastObservedAtAgeInMonths": 299
+            },
+            {
+              "id": "career_repair_atomicity_9ef23792",
+              "code": "CAREER_INCOME_CONFLICT",
+              "severity": "blocking",
+              "status": "resolved",
+              "relatedProposalIds": [
+                "income_start_startup_salary"
+              ],
+              "relatedIncomeSourceIds": [
+                "legacy_recurring_income"
+              ],
+              "summary": "职业转换修复未通过，关联的旧工资结束与新职业收入均未提交",
+              "createdAtAgeInMonths": 299,
+              "resolvedAtAgeInMonths": 299,
+              "resolvedByEventId": "system:rejected_proposal_not_committed",
+              "occurrenceCount": 1,
+              "lastObservedAtAgeInMonths": 299
+            }
+          ],
+          "revision": 2,
+          "version": 3,
+          "openingAcceptedEventIds": [
+            "accepted_opening_cash_primary_cash",
+            "accepted_opening_income_source_legacy_recurring_income",
+            "accepted_opening_expense_commitment_legacy_core_expense"
+          ]
+        },
+        "financialLedgerMode": "authoritative",
+        "financialState": {
+          "currencyUnit": "CNY_WAN_REAL",
+          "asOfAgeInMonths": 321,
+          "cashWan": 88.95,
+          "investmentAssetsWan": 0,
+          "propertyMarketValueWan": 0,
+          "businessAndOtherAssetsWan": 0,
+          "totalDebtWan": 0,
+          "netWorthWan": 88.95,
+          "annualAfterTaxIncomeWan": 30,
+          "annualDisposableIncomeWan": 25.8,
+          "annualCoreExpenseWan": 4.2,
+          "employmentStatus": "employed",
+          "incomeStability": "stable",
+          "isEstimated": true
+        },
+        "debtHealthState": {
+          "asOfAgeInMonths": 321,
+          "level": "none",
+          "totalDebtWan": 0,
+          "scheduledDebtServiceNext12MonthsWan": 0,
+          "availableCashForDebtNext12MonthsWan": 114.75,
+          "cashBufferMonths": 254.1429,
+          "liquidityShortfallDebtWan": 0,
+          "consecutiveMissedPaymentMonths": 0,
+          "missedPaymentMonthsLast12": 0,
+          "activeDefaultedDebtCount": 0,
+          "source": "authoritative_ledger",
+          "sourceLedgerRevision": 2,
+          "trend": "stable",
+          "reasonCodes": [
+            "NO_ACTIVE_DEBT"
+          ]
+        },
+        "financialPeriodSummary": {
+          "periodStartAgeInMonths": 299,
+          "periodEndAgeInMonths": 321,
+          "incomeWan": 55,
+          "coreExpenseWan": 7.7,
+          "otherExpenseWan": 0,
+          "debtPrincipalPaidWan": 0,
+          "debtInterestPaidWan": 0,
+          "debtInterestUnpaidWan": 0,
+          "automaticLiquidityShortfallRecoveryWan": 0,
+          "assetPurchaseWan": 0,
+          "assetSaleProceedsWan": 0,
+          "valuationChangeWan": 0,
+          "priorFactCorrectionWan": 0,
+          "netCashFlowWan": 47.3,
+          "netWorthChangeWan": 47.3,
+          "transactionIds": [
+            "financial_19836604"
+          ]
+        },
+        "financialProcessingMeta": {
+          "proposalCount": 1,
+          "acceptedEventCount": 1,
+          "acceptedCareerTransitionCount": 0,
+          "blockingIssueCount": 0,
+          "repairTriggered": false,
+          "repairLatencyMs": 0,
+          "totalProcessingLatencyMs": 10,
+          "debtNarrativeAuthorityVersion": "debt_narrative_v1",
+          "narrativeFallback": false,
+          "narrativeFallbackReasonCodes": [],
+          "rejectedDebtClaimKinds": [],
+          "rejectedFinancialProposalKinds": [],
+          "financialNarrativeAuthorityVersion": "financial_narrative_claims_v1",
+          "financialNarrativeClaimCount": 1,
+          "rejectedFinancialNarrativeClaimCount": 0,
+          "rawInvalidFinancialNarrativeClaimCount": 0,
+          "invalidFinancialNarrativeClaimCount": 0
+        },
+        "choices": [
+          {
+            "id": "choice_hire_assistant",
+            "text": "用公司现有现金流招聘一位初级产品助理，分担客户访谈和数据整理工作，让自己能更多思考产品方向和战略。",
+            "impactSummary": "提升团队效率，缓解个人压力",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "提升团队效率，缓解个人压力"
+            },
+            "decisionIntent": "career:hire:product_assistant",
+            "eventOutcomeId": "maintain_financial_order",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "choice_raise_income",
+            "text": "与创始人老周协商，将你的月薪调整到行业正常水平，并争取增加期权比例，以匹配你这两年对产品的贡献。",
+            "impactSummary": "提高个人收入，巩固长期承诺",
+            "temporalHint": {
+              "lifeIntensity": "normal",
+              "durationMonths": [
+                12,
+                36
+              ],
+              "requiresFollowUp": false,
+              "reason": "提高个人收入，巩固长期承诺"
+            },
+            "decisionIntent": "career:negotiate:salary_and_equity",
+            "eventOutcomeId": "support_one_long_term_commitment",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          },
+          {
+            "id": "choice_focus_quality",
+            "text": "暂不改变现有薪酬和人员结构，继续用每周复盘和客户反馈机制打磨产品，将精力集中在提升续约率和客户满意度上，等公司下一轮融资后再做调整。",
+            "impactSummary": "稳健运营，巩固现有现金流",
+            "temporalHint": {
+              "lifeIntensity": "high_tension",
+              "durationMonths": [
+                6,
+                12
+              ],
+              "requiresFollowUp": true,
+              "reason": "稳健运营，巩固现有现金流"
+            },
+            "decisionIntent": "career:focus:product_quality",
+            "eventOutcomeId": "allocate_for_quality_of_life",
+            "expectedWorldDeltaTypes": [
+              "career_state"
+            ]
+          }
+        ],
+        "isEndingNode": false,
+        "eventMeta": {
+          "eventId": "financial_long_term_order",
+          "eventCategory": "financial",
+          "eventTags": [
+            "financial",
+            "order",
+            "stability",
+            "meaning"
+          ],
+          "eventIntensity": "minor",
+          "eventMode": "stability_meaning",
+          "eventSemanticFamily": "financial_long_term_order",
+          "phasePolicyId": "generic_pressure_v1",
+          "routeLine": "financial",
+          "selectionKind": "main",
+          "linePolicyId": "career_75_25_v1",
+          "crossLineCandidateAvailable": true
+        },
+        "narrativeMeta": {
+          "elapsedMonths": 22,
+          "elapsedYears": 1.8333333333333333,
+          "lifeIntensity": "normal",
+          "nodeMateriality": "decision_checkpoint",
+          "storyEpisode": {
+            "id": "episode_73cd5e4f",
+            "startAgeInMonths": 299,
+            "endAgeInMonths": 321,
+            "internalTransitions": [
+              {
+                "atAgeInMonths": 299,
+                "materiality": "transition",
+                "summary": "建立每周产品复盘机制，客户访谈固定为产品迭代输入，减少临时救火。",
+                "worldDeltas": []
+              },
+              {
+                "atAgeInMonths": 300,
+                "materiality": "meaningful_update",
+                "summary": "产品迭代稳定，第二家客户签约年度合同，月经常性收入达到6万。",
+                "worldDeltas": []
+              },
+              {
+                "atAgeInMonths": 310,
+                "materiality": "transition",
+                "summary": "客户反馈机制持续运行，续约率提升，付费客户增至12家，月经常性收入达到22万。",
+                "worldDeltas": []
+              }
+            ],
+            "decisionCheckpointId": "checkpoint_234ea7c7",
+            "summary": "24岁深秋，你正式加入那家只有7个人的AI创业公司，薪资比原岗位低三成，房租与父母医疗费的压力让你每个月都得精打细算。入职后你花了一个月访谈20多位潜在客户，发"
+          },
+          "recoveryState": "neutral",
+          "recoveryEvidence": [],
+          "arcSignals": [],
+          "activeCharacters": [],
+          "primaryActivity": "产品负责人在创业公司推进产品迭代与客户反馈机制",
+          "worldDeltas": [
+            {
+              "deltaType": "career",
+              "deltaKey": "product_mrr",
+              "deltaValue": "月经常性收入达到22万",
+              "evidence": "到26岁9个月时，公司已有12家付费客户，月经常性收入达到22万。"
+            },
+            {
+              "deltaType": "financial",
+              "deltaKey": "cashflow_improved",
+              "deltaValue": "现金流好转，补发部分工资",
+              "evidence": "现金流好转，你给自己补发了此前拖欠的部分工资，年税后收入提升到30万元左右。"
+            },
+            {
+              "deltaType": "health",
+              "deltaKey": "sleep_irregular",
+              "deltaValue": "睡眠不规律，偶有头痛",
+              "evidence": "长期高强度工作让你的睡眠不太规律，偶尔会头痛。"
+            }
+          ],
+          "relationshipProposals": []
+        },
+        "worldStateSnapshot": {
+          "people": [
+            {
+              "id": "person_parent_unspecified",
+              "identityKey": {
+                "namespace": "user_role",
+                "key": "parent:unspecified"
+              },
+              "displayName": "父母",
+              "relation": "parent",
+              "estimatedAgeRange": [
+                44.75,
+                71.75
+              ],
+              "protagonistAgeInMonthsAtLastUpdate": 321,
+              "lifeStatus": "active",
+              "occupationStatus": "unknown",
+              "healthStatus": "unknown",
+              "relationshipSummary": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元",
+              "source": "user_fact",
+              "confidence": 0.9
+            }
+          ],
+          "directionArcs": [
+            {
+              "id": "direction_efb88fbf",
+              "directionType": "career",
+              "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+              "status": "active",
+              "startedAtAgeInMonths": 288,
+              "userReinforcementCount": 1,
+              "establishedAssets": []
+            }
+          ],
+          "pressureArcs": [],
+          "committedTransactionIds": [
+            "9ef23792",
+            "19836604"
+          ],
+          "version": 2,
+          "careerStates": [
+            {
+              "id": "career_opening_288",
+              "employmentStatus": "employed",
+              "activeProjectIds": [],
+              "effectiveFromAgeInMonths": 288,
+              "source": "accepted_history",
+              "confidence": 0.6
+            }
+          ],
+          "currentCareerStateId": "career_opening_288",
+          "currentEmploymentStatus": "employed",
+          "careerRevision": 0,
+          "relationships": [],
+          "familyRelationships": [
+            {
+              "id": "family_person_parent_unspecified",
+              "participantPersonId": "person_parent_unspecified",
+              "role": "parent_unspecified",
+              "activation": "active",
+              "contact": "unknown",
+              "emotionalSupport": "unknown",
+              "practicalSupport": "unknown",
+              "autonomyRespect": "unknown",
+              "conflictIntensity": "unknown",
+              "topicStances": [],
+              "revision": 1
+            }
+          ],
+          "routePreferences": [],
+          "relationshipRevision": 0,
+          "familyRelationshipRevision": 1,
+          "relationshipProgressionVersion": 1
+        },
+        "committedArcMeta": {
+          "transitionAction": "stay"
+        }
+      }
+    ],
+    "currentNode": {
+      "title": "稳扎稳打的第八个月",
+      "descriptionParagraphs": [
+        "你继续坚持每周产品复盘，把客户反馈作为迭代的核心输入。这期间，你注意到一位新客户公司的运营总监林悦，她在试用你们产品时提出了几个尖锐但中肯的问题，你们在产品讨论中逐渐熟悉。",
+        "一次产品演示后，林悦主动邀请你喝咖啡，聊起了行业趋势和各自的工作压力。你们发现彼此都对“用技术解决实际问题”有热情，也聊了一些生活趣事。",
+        "这次交流让你感到久违的轻松。",
+        "与此同时，公司现金流依然紧张，你继续维持现状，每月税后收入2.5万元，但存款依然能够支撑。你开始考虑是否要调整产品策略，但暂时没有明确的行动。",
+        "父母的医疗开销依然存在，你每月固定支持5000元，他们身体尚可，但你的睡眠问题偶尔还会出现，你提醒自己要更加注意健康。"
+      ],
+      "age": 27,
+      "ageInMonths": 329,
+      "stage": "career",
+      "choices": [
+        {
+          "id": "A",
+          "text": "继续和林悦私下见面，在不打乱当前生活安排的前提下进一步了解彼此",
+          "impactSummary": "继续了解",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              3,
+              6
+            ],
+            "requiresFollowUp": false,
+            "reason": "候选修复预算已用尽后的确定性选择降级"
+          },
+          "decisionIntent": "romance:explore:new_connection",
+          "eventOutcomeId": "continue_getting_to_know",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "B",
+          "text": "与林悦保持普通认识和必要联系，不把这次接触发展为浪漫关系",
+          "impactSummary": "普通认识",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              3,
+              6
+            ],
+            "requiresFollowUp": false,
+            "reason": "候选修复预算已用尽后的确定性选择降级"
+          },
+          "decisionIntent": "romance:boundary:keep_acquaintance",
+          "eventOutcomeId": "keep_as_acquaintance",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        },
+        {
+          "id": "C",
+          "text": "明确婉拒与林悦发展浪漫关系，把注意力留给当前生活",
+          "impactSummary": "拒绝发展",
+          "temporalHint": {
+            "lifeIntensity": "normal",
+            "durationMonths": [
+              3,
+              6
+            ],
+            "requiresFollowUp": false,
+            "reason": "候选修复预算已用尽后的确定性选择降级"
+          },
+          "decisionIntent": "romance:decline:new_connection",
+          "eventOutcomeId": "decline_romantic_direction",
+          "expectedWorldDeltaTypes": [
+            "relationship_change"
+          ]
+        }
+      ],
+      "attributes": {
+        "happiness": 68,
+        "intelligence": 78,
+        "wealth": 67,
+        "relation": 68,
+        "health": 60
+      },
+      "financialEventProposals": [],
+      "financialNarrativeClaims": [],
+      "isEndingNode": false,
+      "narrativeMeta": {
+        "elapsedMonths": 8,
+        "elapsedYears": 0.6666666666666666,
+        "lifeIntensity": "normal",
+        "nodeMateriality": "decision_checkpoint",
+        "storyEpisode": {
+          "id": "episode_d27c5546",
+          "startAgeInMonths": 321,
+          "endAgeInMonths": 329,
+          "internalTransitions": [
+            {
+              "atAgeInMonths": 321,
+              "materiality": "transition",
+              "summary": "维持产品复盘机制，客户续约率稳定，现金流保持紧张但可控。",
+              "worldDeltas": []
+            },
+            {
+              "atAgeInMonths": 325,
+              "materiality": "meaningful_update",
+              "summary": "与林悦因产品合作认识，并在一次咖啡交流中建立了初步的私人联系。",
+              "worldDeltas": []
+            }
+          ],
+          "decisionCheckpointId": "checkpoint_c854b82b",
+          "summary": "你继续坚持每周产品复盘，把客户反馈作为迭代的核心输入。这期间，你注意到一位新客户公司的运营总监林悦，她在试用你们产品时提出了几个尖锐但中肯的问题，你们在产品讨论"
+        },
+        "recoveryState": "neutral",
+        "recoveryEvidence": [],
+        "arcSignals": [
+          {
+            "signal": "career_stability",
+            "evidence": "你继续坚持每周产品复盘，把客户反馈作为迭代的核心输入。"
+          },
+          {
+            "signal": "new_connection",
+            "evidence": "林悦主动邀请你喝咖啡，聊起了行业趋势和各自的工作压力。"
+          }
+        ],
+        "activeCharacters": [
+          {
+            "candidateOrdinal": 0,
+            "displayName": "林悦",
+            "relation": "new_connection",
+            "presenceMode": "active_scene",
+            "currentRole": "客户公司运营总监",
+            "encounterType": "new_connection",
+            "encounterContext": "mixed",
+            "groundingEvidence": "林悦主动邀请你喝咖啡，聊起了行业趋势和各自的工作压力。"
+          }
+        ],
+        "primaryActivity": "career",
+        "worldDeltas": [],
+        "relationshipProposals": [
+          {
+            "id": "relationship_proposal_d45303b6",
+            "type": "person_introduction",
+            "sourceOutcomeId": "continue_getting_to_know",
+            "evidence": "你继续坚持每周产品复盘，把客户反馈作为迭代的核心输入。这期间，你注意到一位新客户公司的运营总监林悦，她在试用你们产品时提出了几个尖锐但中肯的问题，你们在产品讨论中逐渐熟悉。",
+            "displayName": "林悦",
+            "candidateOrdinal": 0
+          },
+          {
+            "id": "relationship_proposal_e173c6eb",
+            "type": "romantic_transition",
+            "sourceOutcomeId": "continue_getting_to_know",
+            "evidence": "你继续坚持每周产品复盘，把客户反馈作为迭代的核心输入。这期间，你注意到一位新客户公司的运营总监林悦，她在试用你们产品时提出了几个尖锐但中肯的问题，你们在产品讨论中逐渐熟悉。",
+            "toStage": "exploring",
+            "toStatus": "active"
+          }
+        ]
+      },
+      "lifeStage": "early_adulthood",
+      "description": "你继续坚持每周产品复盘，把客户反馈作为迭代的核心输入。这期间，你注意到一位新客户公司的运营总监林悦，她在试用你们产品时提出了几个尖锐但中肯的问题，你们在产品讨论中逐渐熟悉。\n\n一次产品演示后，林悦主动邀请你喝咖啡，聊起了行业趋势和各自的工作压力。你们发现彼此都对“用技术解决实际问题”有热情，也聊了一些生活趣事。\n\n这次交流让你感到久违的轻松。\n\n与此同时，公司现金流依然紧张，你继续维持现状，每月税后收入2.5万元，但存款依然能够支撑。你开始考虑是否要调整产品策略，但暂时没有明确的行动。\n\n父母的医疗开销依然存在，你每月固定支持5000元，他们身体尚可，但你的睡眠问题偶尔还会出现，你提醒自己要更加注意健康。",
+      "eventMeta": {
+        "eventId": "romance_new_connection",
+        "eventCategory": "relationship",
+        "eventTags": [
+          "relationship",
+          "romance",
+          "new_connection",
+          "boundaries"
+        ],
+        "eventIntensity": "minor",
+        "eventMode": "crossroads_opportunity",
+        "eventSemanticFamily": "romance_formation",
+        "phasePolicyId": "generic_pressure_v1",
+        "routeLine": "romance",
+        "selectionKind": "cross",
+        "linePolicyId": "career_75_25_v1",
+        "fallbackReason": "career_education_first_romance_opportunity_v1",
+        "lineFallbackReason": "career_education_first_romance_opportunity_v1",
+        "crossLineCandidateAvailable": true,
+        "romanceRepairAttempted": false,
+        "romanceRepairSucceeded": false,
+        "romanceRescheduled": false
+      },
+      "financialState": {
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 329,
+        "cashWan": 106.15,
+        "investmentAssetsWan": 0,
+        "propertyMarketValueWan": 0,
+        "businessAndOtherAssetsWan": 0,
+        "totalDebtWan": 0,
+        "netWorthWan": 106.15,
+        "annualAfterTaxIncomeWan": 30,
+        "annualDisposableIncomeWan": 25.8,
+        "annualCoreExpenseWan": 4.2,
+        "employmentStatus": "employed",
+        "incomeStability": "stable",
+        "isEstimated": true
+      },
+      "financialLedger": {
+        "id": "financial_opening_288",
+        "owner": "protagonist",
+        "currencyUnit": "CNY_WAN_REAL",
+        "asOfAgeInMonths": 329,
+        "cashAccounts": [
+          {
+            "id": "primary_cash",
+            "type": "bank_deposit",
+            "balanceWan": 106.15,
+            "status": "active",
+            "factStatus": "known",
+            "evidence": [
+              {
+                "source": "user",
+                "excerpt": "【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n【用户想重写的真实事件】\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n\n【系统生成的回溯锚点】\n回到 24 岁，在事件发生前重新做出选择。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n26岁时，我在稳定的大公司岗位和一家早期人工智能创业公司之间犹豫，最终因为担心收入下降而留在原岗位。\n当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。\n面对不确定性时我会先搜集信息、做最坏情况预算，再找两三个信任的人讨论。\n我有五年产品经验，做过企业软件，也认识几位工程师，但没有创业和融资经验。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。\n我暂时记不清具体细节，请基于我已提供的信息保持克制，不要替我编造。",
+                "reasonCode": "EXPLICIT_OPENING_FINANCIAL_FACT",
+                "confidence": 1
+              }
+            ]
+          }
+        ],
+        "assetAccounts": [],
+        "debtAccounts": [],
+        "incomeSources": [
+          {
+            "id": "legacy_recurring_income",
+            "type": "salary",
+            "displayName": "旧版持续收入聚合",
+            "annualNetAmountWan": 30,
+            "accrualPolicy": "monthly",
+            "activeFromAgeInMonths": 321,
+            "status": "active",
+            "linkedCareerStateId": "career_opening_288",
+            "factStatus": "estimated",
+            "lastConfirmedAtAgeInMonths": 321,
+            "evidence": [
+              {
+                "source": "accepted_simulation_outcome",
+                "sourceEventId": "improve_one_work_habit",
+                "excerpt": "你给自己补发了此前拖欠的部分工资，年税后收入提升到30万元左右。",
+                "reasonCode": "EVIDENCE_EXACT_MATCHED",
+                "confidence": 0.9,
+                "financialScope": "personal"
+              }
+            ],
+            "monthlyNetAmountWan": 2.5,
+            "accrualReviewStatus": "normal"
+          }
+        ],
+        "expenseCommitments": [
+          {
+            "id": "legacy_core_expense",
+            "type": "basic_living",
+            "displayName": "旧版核心支出聚合",
+            "monthlyAmountWan": 1.5,
+            "activeFromAgeInMonths": 288,
+            "status": "ended",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "legacy_migration",
+                "reasonCode": "LEGACY_FINANCIAL_STATE_MIGRATION",
+                "confidence": 0.5
+              }
+            ],
+            "activeUntilAgeInMonths": 288
+          },
+          {
+            "id": "estimated_basic_living_v1_288",
+            "type": "basic_living",
+            "displayName": "基础生活支出（系统保守估计）",
+            "monthlyAmountWan": 0.35,
+            "activeFromAgeInMonths": 288,
+            "status": "active",
+            "factStatus": "estimated",
+            "evidence": [
+              {
+                "source": "system_policy",
+                "reasonCode": "ADULT_BASIC_LIVING_ESTIMATED_V1",
+                "confidence": 0.6
+              }
+            ]
+          }
+        ],
+        "businessHoldings": [],
+        "recentTransactions": [
+          {
+            "id": "financial_9ef23792",
+            "simulationTransactionId": "9ef23792",
+            "eventIds": [],
+            "periodStartAgeInMonths": 288,
+            "periodEndAgeInMonths": 299,
+            "cashDeltaWan": 23.65,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": 0,
+            "incomeWan": 27.5,
+            "expenseWan": 3.85,
+            "valuationChangeWan": 0,
+            "priorFactCorrectionWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": 23.65,
+            "debtServiceRecords": [],
+            "automaticLiquidityShortfallIncreaseWan": 0,
+            "automaticLiquidityShortfallRecoveryWan": 0,
+            "debtPrincipalDrawnWan": 0,
+            "debtBalanceDiscoveredWan": 0,
+            "debtPrincipalPaidWan": 0,
+            "debtPrincipalForgivenWan": 0,
+            "debtInterestAccruedWan": 0,
+            "debtInterestPaidWan": 0,
+            "debtInterestLiabilityPaidWan": 0,
+            "debtInterestForgivenWan": 0,
+            "debtCapitalizedInterestWan": 0,
+            "evidence": []
+          },
+          {
+            "id": "financial_19836604",
+            "simulationTransactionId": "19836604",
+            "eventIds": [
+              "accepted_income_adjusted_current_node"
+            ],
+            "periodStartAgeInMonths": 299,
+            "periodEndAgeInMonths": 321,
+            "cashDeltaWan": 47.3,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": 0,
+            "incomeWan": 55,
+            "expenseWan": 7.7,
+            "valuationChangeWan": 0,
+            "priorFactCorrectionWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": 47.3,
+            "debtServiceRecords": [],
+            "automaticLiquidityShortfallIncreaseWan": 0,
+            "automaticLiquidityShortfallRecoveryWan": 0,
+            "debtPrincipalDrawnWan": 0,
+            "debtBalanceDiscoveredWan": 0,
+            "debtPrincipalPaidWan": 0,
+            "debtPrincipalForgivenWan": 0,
+            "debtInterestAccruedWan": 0,
+            "debtInterestPaidWan": 0,
+            "debtInterestLiabilityPaidWan": 0,
+            "debtInterestForgivenWan": 0,
+            "debtCapitalizedInterestWan": 0,
+            "evidence": [
+              {
+                "source": "accepted_simulation_outcome",
+                "sourceEventId": "improve_one_work_habit",
+                "excerpt": "你给自己补发了此前拖欠的部分工资，年税后收入提升到30万元左右。",
+                "reasonCode": "EVIDENCE_EXACT_MATCHED",
+                "confidence": 0.9,
+                "financialScope": "personal"
+              }
+            ]
+          },
+          {
+            "id": "financial_85abc5b3",
+            "simulationTransactionId": "85abc5b3",
+            "eventIds": [],
+            "periodStartAgeInMonths": 321,
+            "periodEndAgeInMonths": 329,
+            "cashDeltaWan": 17.2,
+            "assetDeltaWan": 0,
+            "debtDeltaWan": 0,
+            "incomeWan": 20,
+            "expenseWan": 2.8,
+            "valuationChangeWan": 0,
+            "priorFactCorrectionWan": 0,
+            "nonCashGainLossWan": 0,
+            "netWorthDeltaWan": 17.2,
+            "debtServiceRecords": [],
+            "automaticLiquidityShortfallIncreaseWan": 0,
+            "automaticLiquidityShortfallRecoveryWan": 0,
+            "debtPrincipalDrawnWan": 0,
+            "debtBalanceDiscoveredWan": 0,
+            "debtPrincipalPaidWan": 0,
+            "debtPrincipalForgivenWan": 0,
+            "debtInterestAccruedWan": 0,
+            "debtInterestPaidWan": 0,
+            "debtInterestLiabilityPaidWan": 0,
+            "debtInterestForgivenWan": 0,
+            "debtCapitalizedInterestWan": 0,
+            "evidence": []
+          }
+        ],
+        "committedTransactionIds": [
+          "9ef23792",
+          "19836604",
+          "85abc5b3"
+        ],
+        "unresolvedIssues": [
+          {
+            "id": "legacy_uncertainty_288",
+            "code": "LEGACY_UNCERTAINTY",
+            "severity": "warning",
+            "relatedProposalIds": [],
+            "summary": "V1 聚合财务快照缺少账户、来源和债务条款明细",
+            "createdAtAgeInMonths": 288
+          },
+          {
+            "id": "proposal_issue_income_start_startup_salary_299",
+            "code": "UNBALANCED_TRANSACTION",
+            "severity": "blocking",
+            "status": "resolved",
+            "relatedProposalIds": [
+              "income_start_startup_salary"
+            ],
+            "relatedAccountIds": [],
+            "relatedIncomeSourceIds": [],
+            "relatedDebtAccountIds": [],
+            "relatedBusinessHoldingIds": [],
+            "summary": "财务 Proposal 缺少可靠正文证据或 confidence",
+            "createdAtAgeInMonths": 299,
+            "resolvedAtAgeInMonths": 299,
+            "resolvedByEventId": "system:rejected_proposal_not_committed",
+            "occurrenceCount": 1,
+            "lastObservedAtAgeInMonths": 299
+          },
+          {
+            "id": "career_repair_atomicity_9ef23792",
+            "code": "CAREER_INCOME_CONFLICT",
+            "severity": "blocking",
+            "status": "resolved",
+            "relatedProposalIds": [
+              "income_start_startup_salary"
+            ],
+            "relatedIncomeSourceIds": [
+              "legacy_recurring_income"
+            ],
+            "summary": "职业转换修复未通过，关联的旧工资结束与新职业收入均未提交",
+            "createdAtAgeInMonths": 299,
+            "resolvedAtAgeInMonths": 299,
+            "resolvedByEventId": "system:rejected_proposal_not_committed",
+            "occurrenceCount": 1,
+            "lastObservedAtAgeInMonths": 299
+          }
+        ],
+        "revision": 3,
+        "version": 3,
+        "openingAcceptedEventIds": [
+          "accepted_opening_cash_primary_cash",
+          "accepted_opening_income_source_legacy_recurring_income",
+          "accepted_opening_expense_commitment_legacy_core_expense"
+        ]
+      },
+      "financialLedgerMode": "authoritative",
+      "debtHealthState": {
+        "asOfAgeInMonths": 329,
+        "level": "none",
+        "totalDebtWan": 0,
+        "scheduledDebtServiceNext12MonthsWan": 0,
+        "availableCashForDebtNext12MonthsWan": 131.95,
+        "cashBufferMonths": 303.2857,
+        "liquidityShortfallDebtWan": 0,
+        "consecutiveMissedPaymentMonths": 0,
+        "missedPaymentMonthsLast12": 0,
+        "activeDefaultedDebtCount": 0,
+        "source": "authoritative_ledger",
+        "sourceLedgerRevision": 3,
+        "trend": "stable",
+        "reasonCodes": [
+          "NO_ACTIVE_DEBT"
+        ]
+      },
+      "financialPeriodSummary": {
+        "periodStartAgeInMonths": 321,
+        "periodEndAgeInMonths": 329,
+        "incomeWan": 20,
+        "coreExpenseWan": 2.8,
+        "otherExpenseWan": 0,
+        "debtPrincipalPaidWan": 0,
+        "debtInterestPaidWan": 0,
+        "debtInterestUnpaidWan": 0,
+        "automaticLiquidityShortfallRecoveryWan": 0,
+        "assetPurchaseWan": 0,
+        "assetSaleProceedsWan": 0,
+        "valuationChangeWan": 0,
+        "priorFactCorrectionWan": 0,
+        "netCashFlowWan": 17.2,
+        "netWorthChangeWan": 17.2,
+        "transactionIds": [
+          "financial_85abc5b3"
+        ]
+      },
+      "financialProcessingMeta": {
+        "proposalCount": 0,
+        "acceptedEventCount": 0,
+        "acceptedCareerTransitionCount": 0,
+        "blockingIssueCount": 0,
+        "repairTriggered": false,
+        "repairLatencyMs": 0,
+        "totalProcessingLatencyMs": 5,
+        "debtNarrativeAuthorityVersion": "debt_narrative_v1",
+        "narrativeFallback": false,
+        "narrativeFallbackReasonCodes": [],
+        "rejectedDebtClaimKinds": [],
+        "rejectedFinancialProposalKinds": [],
+        "financialNarrativeAuthorityVersion": "financial_narrative_claims_v1",
+        "financialNarrativeClaimCount": 0,
+        "rejectedFinancialNarrativeClaimCount": 0,
+        "rawInvalidFinancialNarrativeClaimCount": 0,
+        "invalidFinancialNarrativeClaimCount": 0
+      },
+      "committedArcMeta": {
+        "transitionAction": "stay"
+      },
+      "worldStateSnapshot": {
+        "people": [
+          {
+            "id": "person_parent_unspecified",
+            "identityKey": {
+              "namespace": "user_role",
+              "key": "parent:unspecified"
+            },
+            "displayName": "父母",
+            "relation": "parent",
+            "estimatedAgeRange": [
+              45.416666666666664,
+              72.41666666666667
+            ],
+            "protagonistAgeInMonthsAtLastUpdate": 329,
+            "lifeStatus": "active",
+            "occupationStatus": "unknown",
+            "healthStatus": "unknown",
+            "relationshipSummary": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元",
+            "source": "user_fact",
+            "confidence": 0.9
+          }
+        ],
+        "directionArcs": [
+          {
+            "id": "direction_efb88fbf",
+            "directionType": "career",
+            "summary": "A. 接受创业公司的产品负责人邀请，用两年验证自己能否做出真正的产品\nB. 保留现有工作，利用晚上和周末参与创业项目\nC. 拒绝创业机会，留在大公司争取管理岗位",
+            "status": "active",
+            "startedAtAgeInMonths": 288,
+            "userReinforcementCount": 1,
+            "establishedAssets": []
+          }
+        ],
+        "pressureArcs": [],
+        "committedTransactionIds": [
+          "9ef23792",
+          "19836604",
+          "85abc5b3"
+        ],
+        "version": 2,
+        "careerStates": [
+          {
+            "id": "career_opening_288",
+            "employmentStatus": "employed",
+            "activeProjectIds": [],
+            "effectiveFromAgeInMonths": 288,
+            "source": "accepted_history",
+            "confidence": 0.6
+          }
+        ],
+        "currentCareerStateId": "career_opening_288",
+        "currentEmploymentStatus": "employed",
+        "careerRevision": 0,
+        "relationships": [],
+        "familyRelationships": [
+          {
+            "id": "family_person_parent_unspecified",
+            "participantPersonId": "person_parent_unspecified",
+            "role": "parent_unspecified",
+            "activation": "active",
+            "contact": "unknown",
+            "emotionalSupport": "unknown",
+            "practicalSupport": "unknown",
+            "autonomyRespect": "unknown",
+            "conflictIntensity": "unknown",
+            "topicStances": [],
+            "revision": 1
+          }
+        ],
+        "routePreferences": [],
+        "relationshipRevision": 0,
+        "familyRelationshipRevision": 1,
+        "relationshipProgressionVersion": 1
+      }
+    },
+    "currentAttributes": {
+      "happiness": 68,
+      "intelligence": 78,
+      "wealth": 67,
+      "relation": 68,
+      "health": 60
+    },
+    "nodeCount": 4,
+    "simulationSeed": "0db15866-00d0-476d-83a9-79041f0dcc05",
+    "outcome": null,
+    "generationEvents": [],
+    "generationCallTraces": [
+      {
+        "traceId": "95bc7b3c-a010-459c-a2d3-fe261568b2e0",
+        "transactionId": "9ef23792",
+        "nodeIndex": 1,
+        "candidateRevision": 0,
+        "kind": "initial_generation",
+        "issueCodes": [],
+        "startedAt": "2026-08-08T14:29:34.410Z",
+        "outcome": "started"
+      },
+      {
+        "traceId": "95bc7b3c-a010-459c-a2d3-fe261568b2e0",
+        "transactionId": "9ef23792",
+        "nodeIndex": 1,
+        "candidateRevision": 0,
+        "kind": "initial_generation",
+        "issueCodes": [],
+        "startedAt": "2026-08-08T14:29:34.410Z",
+        "outcome": "succeeded",
+        "firstTokenAt": "2026-08-08T14:29:35.420Z",
+        "completedAt": "2026-08-08T14:29:47.098Z",
+        "durationMs": 12688
+      },
+      {
+        "traceId": "4f5aacc0-10f6-4b2a-9ebf-38db55b0fbaf",
+        "transactionId": "9ef23792",
+        "nodeIndex": 1,
+        "kind": "proposal_repair",
+        "issueCodes": [
+          "UNBALANCED_TRANSACTION"
+        ],
+        "startedAt": "2026-08-08T14:29:47.117Z",
+        "outcome": "started"
+      },
+      {
+        "traceId": "4f5aacc0-10f6-4b2a-9ebf-38db55b0fbaf",
+        "transactionId": "9ef23792",
+        "nodeIndex": 1,
+        "kind": "proposal_repair",
+        "issueCodes": [
+          "UNBALANCED_TRANSACTION"
+        ],
+        "startedAt": "2026-08-08T14:29:47.117Z",
+        "outcome": "succeeded",
+        "firstTokenAt": "2026-08-08T14:29:49.498Z",
+        "completedAt": "2026-08-08T14:29:49.498Z",
+        "durationMs": 2381
+      },
+      {
+        "traceId": "af4cd44c-3a68-4cc1-a3e5-731057c4235d",
+        "transactionId": "19836604",
+        "nodeIndex": 2,
+        "candidateRevision": 0,
+        "kind": "initial_generation",
+        "issueCodes": [],
+        "startedAt": "2026-08-08T14:31:46.303Z",
+        "outcome": "started"
+      },
+      {
+        "traceId": "af4cd44c-3a68-4cc1-a3e5-731057c4235d",
+        "transactionId": "19836604",
+        "nodeIndex": 2,
+        "candidateRevision": 0,
+        "kind": "initial_generation",
+        "issueCodes": [],
+        "startedAt": "2026-08-08T14:31:46.303Z",
+        "outcome": "succeeded",
+        "firstTokenAt": "2026-08-08T14:31:47.325Z",
+        "completedAt": "2026-08-08T14:31:59.340Z",
+        "durationMs": 13037
+      },
+      {
+        "traceId": "60ecc72b-91af-418a-9c29-9e2e36eb257c",
+        "transactionId": "85abc5b3",
+        "nodeIndex": 3,
+        "candidateRevision": 0,
+        "kind": "initial_generation",
+        "issueCodes": [],
+        "startedAt": "2026-08-10T03:01:01.522Z",
+        "outcome": "started"
+      },
+      {
+        "traceId": "60ecc72b-91af-418a-9c29-9e2e36eb257c",
+        "transactionId": "85abc5b3",
+        "nodeIndex": 3,
+        "candidateRevision": 0,
+        "kind": "initial_generation",
+        "issueCodes": [],
+        "startedAt": "2026-08-10T03:01:01.522Z",
+        "outcome": "succeeded",
+        "firstTokenAt": "2026-08-10T03:01:03.767Z",
+        "completedAt": "2026-08-10T03:01:10.735Z",
+        "durationMs": 9213
+      }
+    ],
+    "isLoading": false,
+    "isLoadingNext": false,
+    "nextNarrativePreview": {
+      "title": "稳扎稳打的第八个月",
+      "paragraphs": [
+        "你继续坚持每周产品复盘，把客户反馈作为迭代的核心输入。这期间，你注意到一位新客户公司的运营总监林悦，她在试用你们产品时提出了几个尖锐但中肯的问题，你们在产品讨论中逐渐熟悉。",
+        "一次产品演示后，林悦主动邀请你喝咖啡，聊起了行业趋势和各自的工作压力。你们发现彼此都对“用技术解决实际问题”有热情，也聊了一些生活趣事。",
+        "这次交流让你感到久违的轻松。",
+        "与此同时，公司现金流依然紧张，你继续维持现状，每月税后收入2.5万元，但存款依然能够支撑。你开始考虑是否要调整产品策略，但暂时没有明确的行动。",
+        "父母的医疗开销依然存在，你每月固定支持5000元，他们身体尚可，但你的睡眠问题偶尔还会出现，你提醒自己要更加注意健康。"
+      ],
+      "descriptionComplete": true
+    },
+    "nextGenerationError": null,
+    "nextGenerationErrorDebug": null,
+    "errorMsg": null,
+    "invitations": []
+  }
+}

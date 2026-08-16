@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-08-07T15-13-22+08-00-cache-prefix-v2-r3-five-ending-routes",
+  "runStartedAt": "2026-08-07T07:13:54.000Z",
+  "repositoryPath": "/Users/zz/Documents/new life/test---cache-prefix-v1",
+  "candidateId": "cache-prefix-v2-reference-context-r3",
+  "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r3",
+  "model": "deepseek-v4-flash",
+  "environment": {
+    "VITE_CACHE_AWARE_PROMPT_V1": "true",
+    "VITE_CACHE_AWARE_PROMPT_V2": "true"
+  },
+  "repositoryCommit": "c0426f54b5091b433ace3bd3953695e3e7e15837",
+  "repositoryDirty": true,
+  "scope": "short_real_browser_sample",
+  "scopeChange": "用户于运行中取消 2/2/1 全量路线；保留已完成的两条新鲜 V2 真实浏览器路线，仅用于 10 节点人工盲评，不作为五路线发布级证据。",
+  "completedCases": [
+    "real-career-first",
+    "real-relationship-first"
+  ],
+  "notRunCases": [
+    "real-education-second",
+    "real-venture-second",
+    "real-custom-lifespan"
+  ],
+  "runCompletedAt": "2026-08-07T07:34:16.000Z",
+  "status": "short_sample_complete"
+}

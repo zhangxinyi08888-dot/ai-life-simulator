@@ -6,6 +6,7 @@ import {
   buildFinalPosterCropArgs,
   FINAL_IMAGE_VIEWPORT,
   initializeJourneyTrace,
+  validateShortSampleState,
   waitForUniqueLocator,
   validateJourneyInvitationIsolation
 } from "./real-browser-journey-runner.mjs";
@@ -123,4 +124,27 @@ test("PB-RUN-07 invitation controls may render shortly after the pending state",
   });
   assert.equal(result, locator);
   assert.equal(waits, 2);
+});
+
+test("PB-RUN-08 short samples validate evidence without impersonating a completed route", () => {
+  const node = (index) => ({
+    description: `第 ${index} 个真实节点包含具体现实细节。`,
+    choices: [{ id: "A", text: "继续推进" }, { id: "B", text: "暂缓验证" }, { id: "C", text: "先恢复节奏" }],
+    selectedChoice: "继续推进",
+    attributes: { happiness: 50, intelligence: 51, wealth: 52, relation: 53, health: 54 },
+    financialState: { netWorthWan: 8.5 }
+  });
+  const state = {
+    testDataSource: "real_ai_browser",
+    step: "simulating",
+    currentNode: { isEndingNode: false },
+    history: Array.from({ length: 5 }, (_, index) => node(index + 1))
+  };
+  const validation = validateShortSampleState({ finalState: state, targetSelectedNodeCount: 5 });
+  assert.equal(Object.values(validation).every(Boolean), true);
+  assert.equal(validateShortSampleState({ finalState: state, targetSelectedNodeCount: 4 }).selectedNodeCountMatchesTarget, false);
+  assert.equal(validateShortSampleState({
+    finalState: { ...state, currentNode: { reportInvitation: { status: "pending" } } },
+    targetSelectedNodeCount: 5
+  }).noPendingReportInvitation, false);
 });

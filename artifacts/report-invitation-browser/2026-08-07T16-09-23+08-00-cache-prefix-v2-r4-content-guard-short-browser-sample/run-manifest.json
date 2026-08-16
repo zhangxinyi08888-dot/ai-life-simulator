@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-08-07T16-09-23+08-00-cache-prefix-v2-r4-content-guard-short-browser-sample",
+  "runStartedAt": "2026-08-07T08:09:23.000Z",
+  "repositoryPath": "/Users/zz/Documents/new life/test---cache-prefix-v1",
+  "repositoryCommit": "c0426f54b5091b433ace3bd3953695e3e7e15837",
+  "repositoryDirty": true,
+  "candidateId": "cache-prefix-v2-reference-context-r4",
+  "candidateSourceSha256": "d66e2fd40a67a4408084d43830dc94770a367472ac8665eb2ce4ee0255c4cc9c",
+  "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+  "model": "deepseek-v4-flash",
+  "environment": {
+    "VITE_CACHE_AWARE_PROMPT_V1": "true",
+    "VITE_CACHE_AWARE_PROMPT_V2": "true"
+  },
+  "scope": "short_real_browser_sample",
+  "scopeChange": "按用户要求替代耗时的 2/2/1：在正文/选择一致性守卫修复后，两条独立真实 AI 浏览器路线各选 5 个节点，生成匿名 10 节点人工盲评包；不产生完整路线或发布级通过结论。",
+  "supersedesDiagnosticSample": "2026-08-07T15-50-23+08-00-cache-prefix-v2-r4-short-browser-sample",
+  "cases": [
+    {
+      "slug": "short-career-r4-guard",
+      "seedCase": "real-career-first",
+      "selectedNodeTarget": 5
+    },
+    {
+      "slug": "short-relationship-r4-guard",
+      "seedCase": "real-relationship-first",
+      "selectedNodeTarget": 5
+    }
+  ],
+  "completedCases": [
+    "short-career-r4-guard",
+    "short-relationship-r4-guard"
+  ],
+  "runCompletedAt": "2026-08-07T08:16:49.000Z",
+  "status": "short_sample_complete"
+}

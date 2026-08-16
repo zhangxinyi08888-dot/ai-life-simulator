@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "dataSource": "real_ai_api",
+  "startedAt": "2026-08-07T07:47:37.388Z",
+  "completedAt": "2026-08-07T07:48:47.087Z",
+  "model": "deepseek-v4-flash",
+  "layouts": [
+    {
+      "layout": "v1",
+      "samples": [
+        {
+          "callNumber": 1,
+          "promptPrefixVersion": "next_node_cache_prefix_v1_full_context_system_r1",
+          "usage": {
+            "promptTokens": 9267,
+            "cacheHitTokens": 0,
+            "cacheMissTokens": 9267,
+            "completionTokens": 1512,
+            "totalTokens": 10779
+          },
+          "durationMs": 11115
+        },
+        {
+          "callNumber": 2,
+          "promptPrefixVersion": "next_node_cache_prefix_v1_full_context_system_r1",
+          "usage": {
+            "promptTokens": 9262,
+            "cacheHitTokens": 384,
+            "cacheMissTokens": 8878,
+            "completionTokens": 1678,
+            "totalTokens": 10940
+          },
+          "durationMs": 14312
+        },
+        {
+          "callNumber": 3,
+          "promptPrefixVersion": "next_node_cache_prefix_v1_full_context_system_r1",
+          "usage": {
+            "promptTokens": 9267,
+            "cacheHitTokens": 5504,
+            "cacheMissTokens": 3763,
+            "completionTokens": 1464,
+            "totalTokens": 10731
+          },
+          "durationMs": 10939
+        }
+      ],
+      "summary": {
+        "callCount": 3,
+        "usageCallCount": 3,
+        "promptTokens": 27796,
+        "cacheHitTokens": 5888,
+        "cacheMissTokens": 21908,
+        "completionTokens": 4654,
+        "inputCacheHitRate": 0.21182904014966183,
+        "postFirstInputCacheHitRate": 0.317772140968212
+      }
+    },
+    {
+      "layout": "v2",
+      "samples": [
+        {
+          "callNumber": 1,
+          "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+          "usage": {
+            "promptTokens": 8440,
+            "cacheHitTokens": 384,
+            "cacheMissTokens": 8056,
+            "completionTokens": 1545,
+            "totalTokens": 9985
+          },
+          "durationMs": 13103
+        },
+        {
+          "callNumber": 2,
+          "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+          "usage": {
+            "promptTokens": 8438,
+            "cacheHitTokens": 5376,
+            "cacheMissTokens": 3062,
+            "completionTokens": 1463,
+            "totalTokens": 9901
+          },
+          "durationMs": 11177
+        },
+        {
+          "callNumber": 3,
+          "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+          "usage": {
+            "promptTokens": 8440,
+            "cacheHitTokens": 5888,
+            "cacheMissTokens": 2552,
+            "completionTokens": 1200,
+            "totalTokens": 9640
+          },
+          "durationMs": 9047
+        }
+      ],
+      "summary": {
+        "callCount": 3,
+        "usageCallCount": 3,
+        "promptTokens": 25318,
+        "cacheHitTokens": 11648,
+        "cacheMissTokens": 13670,
+        "completionTokens": 4208,
+        "inputCacheHitRate": 0.46006793585591277,
+        "postFirstInputCacheHitRate": 0.6673776513804953
+      }
+    }
+  ]
+}

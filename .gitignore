@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Keep real-provider final-outcome responses local; publish only review summaries.
+artifacts/final-outcome-quality-replay/**/outcome-*.json
+artifacts/final-outcome-quality-replay/**/summary.json

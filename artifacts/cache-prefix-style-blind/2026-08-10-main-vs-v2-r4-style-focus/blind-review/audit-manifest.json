@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "sampleCount": 10,
+  "packetSha256": "5b7e3f6f7261012ea7c5ccba44aaad019b409785930c044fe7a9e620b3d9021d",
+  "aLabelCounts": {
+    "main": 5,
+    "v2_r4": 5
+  },
+  "samples": [
+    {
+      "blindId": "S01",
+      "pairId": "career-crossline-r1",
+      "theme": "事业推进中的人物相遇",
+      "replicate": 1,
+      "callOrder": [
+        "main",
+        "v2_r4"
+      ],
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      },
+      "inputStateSha256": "fbb2eeeed78f41f760f66c55b61ffa1b93dca09eebf7a2949a5f4fdec192e439",
+      "mainOutputSha256": "35e84d5affbfefed9a34877bece1af8368d1c73b4b028c12cdfec78e2dcb110e",
+      "candidateOutputSha256": "3e96a31994e5a0525edcc8140c16ffcdabb3d33528c438096131db27ff12b9dd"
+    },
+    {
+      "blindId": "S02",
+      "pairId": "career-crossline-r2",
+      "theme": "事业推进中的人物相遇",
+      "replicate": 2,
+      "callOrder": [
+        "v2_r4",
+        "main"
+      ],
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      },
+      "inputStateSha256": "fbb2eeeed78f41f760f66c55b61ffa1b93dca09eebf7a2949a5f4fdec192e439",
+      "mainOutputSha256": "d347fa52fdcd7ec892a6dbcd31d251833689ada01557020b6a89e976154ff74d",
+      "candidateOutputSha256": "a6f64bd8196c619b77958105a511776b3417c6017d91b66b06dfd3030aa60212"
+    },
+    {
+      "blindId": "S03",
+      "pairId": "career-delivery-r1",
+      "theme": "产品交付与技术细节",
+      "replicate": 1,
+      "callOrder": [
+        "main",
+        "v2_r4"
+      ],
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      },
+      "inputStateSha256": "4188661427fe8524f3f11e3d1d90b9708a26300de796b4e0e2df5f43f119bc5d",
+      "mainOutputSha256": "b62c5aa6e0bcf883b6a1b63f0c485176d42356f524e8e90b705a57498de8c81a",
+      "candidateOutputSha256": "f63eedb183b4ee9b233a91fbffb473c7117a59578208c0f4f5f78a60f1077e08"
+    },
+    {
+      "blindId": "S04",
+      "pairId": "career-delivery-r2",
+      "theme": "产品交付与技术细节",
+      "replicate": 2,
+      "callOrder": [
+        "v2_r4",
+        "main"
+      ],
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      },
+      "inputStateSha256": "4188661427fe8524f3f11e3d1d90b9708a26300de796b4e0e2df5f43f119bc5d",
+      "mainOutputSha256": "f94785ac50bee6c4bafe8f4fd8f52a1e330a5c2fb249f16d06c8af42e38f486b",
+      "candidateOutputSha256": "c88006fbc888131ca23fddd9c44762c819b015a1343d3c3b17be239e815af99a"
+    },
+    {
+      "blindId": "S05",
+      "pairId": "career-opportunity-r1",
+      "theme": "创业初期与现实压力",
+      "replicate": 1,
+      "callOrder": [
+        "main",
+        "v2_r4"
+      ],
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      },
+      "inputStateSha256": "a734ee75fb62df3f69bfbfb83157927f7f5a16800e139ccb3aa0d9af684f7ad2",
+      "mainOutputSha256": "8abad06af7a74c43e95eb3391c3d7f2d181195a2e0da2263dd8bad918c80300e",
+      "candidateOutputSha256": "ce636c46d60b8ebf0e4115e6c0ded8b52cd4db1af4c14df89dbe58e81a2fc84c"
+    },
+    {
+      "blindId": "S06",
+      "pairId": "career-opportunity-r2",
+      "theme": "创业初期与现实压力",
+      "replicate": 2,
+      "callOrder": [
+        "v2_r4",
+        "main"
+      ],
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      },
+      "inputStateSha256": "a734ee75fb62df3f69bfbfb83157927f7f5a16800e139ccb3aa0d9af684f7ad2",
+      "mainOutputSha256": "e35a66b96ddfc85f4ea7508144f19b4aebf834b02600ea5099e7e4e4bcc1ffc1",
+      "candidateOutputSha256": "339051b683f9662ba854ca41b7a1a61c441a63dfc25fe37bcbb2e9df13004ec3"
+    },
+    {
+      "blindId": "S07",
+      "pairId": "relationship-care-r1",
+      "theme": "共同照护与生活安排",
+      "replicate": 1,
+      "callOrder": [
+        "main",
+        "v2_r4"
+      ],
+      "reviewerLabels": {
+        "A": "main",
+        "B": "v2_r4"
+      },
+      "inputStateSha256": "6dc4098c250414455253dbe92d4c158eca9bced07cfeca7ddcb25d6b78bcfc5b",
+      "mainOutputSha256": "c4a08986c0e7a80e2f13fdda875e49b6080bb265981287230842f9fc5db67edb",
+      "candidateOutputSha256": "7ef9bc2debe51b2c96184b5e93afc697c4feabd5b1ef2c9a592d26dbdc1a6656"
+    },
+    {
+      "blindId": "S08",
+      "pairId": "relationship-care-r2",
+      "theme": "共同照护与生活安排",
+      "replicate": 2,
+      "callOrder": [
+        "v2_r4",
+        "main"
+      ],
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      },
+      "inputStateSha256": "6dc4098c250414455253dbe92d4c158eca9bced07cfeca7ddcb25d6b78bcfc5b",
+      "mainOutputSha256": "e594a143c15f1ff25f139890ff39e4ee5b418b80a53579597119f6e011479809",
+      "candidateOutputSha256": "e4abdc3fca9ac36e79de2b2e7bfefb63d84ec6315522b6541e23591a69244fea"
+    },
+    {
+      "blindId": "S09",
+      "pairId": "relationship-commitment-r1",
+      "theme": "异地外派与承诺冲突",
+      "replicate": 1,
+      "callOrder": [
+        "main",
+        "v2_r4"
+      ],
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      },
+      "inputStateSha256": "5d239734050392e37fa4cd4dcc611d844fd361282a73c5b427f5b120a5dce2d7",
+      "mainOutputSha256": "b7639be149e9cc17220e493e62029a686486132b7f27bbb823e0f0281eaaf6ba",
+      "candidateOutputSha256": "9cbc8debb407baea0a60b9c1d4ed7f8f30c82bab9574ab6e77160cb64a205a3e"
+    },
+    {
+      "blindId": "S10",
+      "pairId": "relationship-commitment-r2",
+      "theme": "异地外派与承诺冲突",
+      "replicate": 2,
+      "callOrder": [
+        "v2_r4",
+        "main"
+      ],
+      "reviewerLabels": {
+        "A": "v2_r4",
+        "B": "main"
+      },
+      "inputStateSha256": "5d239734050392e37fa4cd4dcc611d844fd361282a73c5b427f5b120a5dce2d7",
+      "mainOutputSha256": "05fdbd2db8d8a594454b3e0654047a4422e320539d30c0eac0b3b2024137f2dd",
+      "candidateOutputSha256": "8cfb2aa7bc2d8bd5128554aaef98cf83d0803c73cb77fd42eae724f5d13b131e"
+    }
+  ]
+}

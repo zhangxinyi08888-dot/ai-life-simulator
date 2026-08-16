@@ -14,6 +14,13 @@ const BALANCE_TOTAL = new RegExp(
   `${BALANCE_TERM}[^。！？；]{0,64}?${MONEY_AMOUNT}`,
   "g"
 );
+// The model also frequently writes the amount before the balance noun, for
+// example “你手里还有约20万元存款”. Keep this separate from BALANCE_TOTAL so
+// transaction wording can inspect the preceding context before replacement.
+const BALANCE_TOTAL_AMOUNT_FIRST = new RegExp(
+  `(?:(?:你|主角|本人)(?:手里|手头)?(?:还)?有\\s*)?(?:约|近|大约)?\\s*${MONEY_AMOUNT}\\s*(?:的)?${BALANCE_TERM}`,
+  "g"
+);
 const TRANSACTION_CONTEXT = /支付|付了|拿出|取出|投入|用于|花费|支援|借出|偿还|入账|收到|获得|首付|贷款|房贷|医疗费|学费|房租|项目收入|稿费|月薪|工资|还差|缺口/;
 const DECLINING_BALANCE = /从|由|降至|降到|减少|消耗|见底/;
 const CANONICAL_FINANCIAL_FALLBACK_SENTENCES = new Set([
@@ -28,6 +35,57 @@ const CANONICAL_FINANCIAL_FALLBACK_SENTENCES = new Set([
   "你开始评估资产处置，但这次尚未形成确定成交。",
   "你尝试寻求外部支持，但这次尚未确认资金到账。"
 ]);
+const PERSONAL_INCOME_FALLBACK_SENTENCES = new Set([
+  "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。",
+  "这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。",
+  "你已经尝试拓展新的收入渠道，但实际个人收入仍需等待后续结果确认。",
+  "创业初期，个人可支配收入仍未形成稳定来源。",
+  "公司经营已有进展，但个人可支配收入仍未形成稳定来源。",
+  "这部分个人收入尚未形成可由权威账本确认的到账结果。"
+]);
+
+export function stripUnsupportedPersonalIncomeClaim(sentence: string): string {
+  if (PERSONAL_INCOME_FALLBACK_SENTENCES.has(sentence.trim())) return "";
+  const terminal = sentence.match(/[。！？]$/u)?.[0] ?? "";
+  const clauses = sentence.replace(/[。！？]$/u, "").split(/([，；])/u);
+  const kept: string[] = [];
+  let removedBefore = false;
+  for (let index = 0; index < clauses.length; index += 2) {
+    let clause = clauses[index]?.trim() ?? "";
+    if (!clause) {
+      removedBefore = true;
+      continue;
+    }
+    clause = clause
+      .replace(/咨询收入/gu, "咨询业务")
+      .replace(/(?:每家|每月|每次|按次)?(?:月费|收费|报酬|酬劳|咨询费|顾问费|课酬)(?:约|为)?\s*\d+(?:\.\d+)?\s*(?:万|千|百)?元(?:税后)?/gu, "")
+      .replace(/(?:收入|进账|现金流)(?:不到|约|为|增加|达到|稳定在)?\s*(?:\d+(?:\.\d+)?|[零一二三四五六七八九十百千万两]+)\s*(?:万|千|百)?元(?:税后)?/gu, "")
+      .replace(/[，、\s]+$/u, "")
+      .trim();
+    if (!clause) {
+      removedBefore = true;
+      continue;
+    }
+    const unsupported = (removedBefore && /(?:生活|经济|财务|现金流)?压力[^，；]{0,10}(?:小了|减轻|缓解|下降)/u.test(clause))
+      || /(?:个人)?(?:月薪|年薪|年收入|月收入|工资|薪资|个人收入|个人进账|个人净收入|可支配收入|业主提款|分红)|(?:你|本人|主角)(?:的)?(?:收入|进账|现金流)[^，；]{0,24}(?:减少|增加|形成|稳定|到账|少了|多了)|(?:你|本人|主角)[^，；]{0,20}(?:收到|拿到|获得|收了|支取|领取)[^，；]{0,20}(?:元|收入|费用|款项|报酬|酬劳|工资|薪资)|(?:收了|收到|拿到|获得)[^，；]{0,12}[零一二三四五六七八九十百千万两]+元|(?:你|本人|主角)[^，；]{0,20}(?:多了|新增|形成|建立)[^，；]{0,12}收入来源|对方[^，；]{0,20}(?:付了|支付|结算)[^，；]{0,16}(?:咨询费|顾问费|课酬)|(?:父母|家人|伴侣|配偶)[^，；]{0,20}(?:分担|承担|支付)[^，；]{0,16}(?:房租|生活费|生活开支|家庭开支)|(?:账户|存款|积蓄|储蓄|现金|余额|应急金)[^，；]{0,20}(?:多出|增加|增长|攒下|积累|新增)|(?:攒下|积累|新增)[^，；]{0,16}(?:存款|积蓄|储蓄|现金|余额|应急金)|(?:这笔|该笔)[^，；]{0,18}(?:收入|进账|现金流)|(?:收入|进账|现金流)[^，；]{0,16}(?:稳定|增加|新增|形成|基本盘|带来)|(?:带来|形成|获得)[^，；]{0,12}(?:额外的?)?(?:个人)?(?:收入|进账|现金流)|(?:每月|每年)[^，；]{0,12}(?:增加|获得|收到)[^，；]{0,12}(?:元|收入)/u.test(clause);
+    if (unsupported) {
+      removedBefore = true;
+      continue;
+    }
+    if (removedBefore) clause = clause.replace(/^(?:但|而|因此|所以|同时)[，、]?/u, "").trim();
+    // Removing an unsupported income assertion can also remove the sentence
+    // subject. Dependent finance clauses such as “比原来少了…” or “加上房租…”
+    // must not survive as standalone fragments; keep looking for the next
+    // independent scene/action clause instead.
+    if (removedBefore
+      && /^(?:比原来|较原来|加上|再加上|算上|扣除|除去|其中|这笔|该笔|由此|这让|让你|使你)[^，；]*$/u.test(clause)) {
+      continue;
+    }
+    if (clause) kept.push(clause);
+    removedBefore = false;
+  }
+  return kept.length > 0 ? `${kept.join("，")}${terminal || "。"}` : "";
+}
 
 export function getFinancialStatusText(state: FinancialState): string {
   const monthlyExpense = state.annualCoreExpenseWan / 12;
@@ -44,6 +102,17 @@ function replaceBalanceTotal(match: string, state: FinancialState): string {
   return getFinancialStatusText(state);
 }
 
+function replaceAmountFirstBalanceTotal(
+  match: string,
+  state: FinancialState,
+  offset: number,
+  source: string
+): string {
+  const precedingContext = source.slice(Math.max(0, offset - 18), offset);
+  if (TRANSACTION_CONTEXT.test(`${precedingContext}${match}`)) return match;
+  return replaceBalanceTotal(match, state);
+}
+
 function formatWan(value: number): string {
   return (Math.round((Number(value) + Number.EPSILON) * 100) / 100).toString();
 }
@@ -57,10 +126,18 @@ function sanitizeLongWanPrecision(text: string): string {
   });
 }
 
+function repairFinancialNarrativeJoins(text: string): string {
+  return text
+    .replace(/账本上(?:依然|仍然)?见底的整体仍处于负债状态的欠款/gu, "账本上仍未缓解的欠款")
+    .replace(/(?:依然|仍然)?见底的整体仍处于负债状态(?:的)?/gu, "持续紧张的现金流下")
+    .replace(/(?:整体仍处于负债状态的){2,}/gu, "整体仍处于负债状态的");
+}
+
 function dedupeCanonicalFinancialFallbackSentences(text: string): string {
   const seen = new Set<string>();
   return text.split(/(?<=[。！？])/u).filter((sentence) => {
     const normalized = sentence.trim();
+    if (PERSONAL_INCOME_FALLBACK_SENTENCES.has(normalized)) return false;
     if (!CANONICAL_FINANCIAL_FALLBACK_SENTENCES.has(normalized)) return true;
     if (seen.has(normalized)) return false;
     seen.add(normalized);
@@ -68,18 +145,27 @@ function dedupeCanonicalFinancialFallbackSentences(text: string): string {
   }).join("");
 }
 
-function sanitizeRecurringIncomeClaims(description: string, ledger?: FinancialLedger): string {
+function sanitizeRecurringIncomeClaims(
+  description: string,
+  ledger?: FinancialLedger,
+  acceptedEvents?: AcceptedFinancialEvent[]
+): string {
   if (!ledger) return description;
+  const acceptedIncomeSourceIds = new Set((acceptedEvents || []).flatMap((event) => {
+    if (event.kind === "income_source_started") return [event.payload.id];
+    if (event.kind === "income_source_adjusted") return [event.payload.nextSource.id];
+    return [];
+  }));
   const careerIncome = ledger.incomeSources.filter((source) => (
     source.status === "active"
     && Boolean(source.linkedCareerStateId)
     && source.accrualPolicy !== "event_only"
     && source.accrualReviewStatus !== "quarantined"
-    && isNarrativeEligibleFinancialFact(source)
+    && (isNarrativeEligibleFinancialFact(source) || acceptedIncomeSourceIds.has(source.id))
   ));
   if (careerIncome.length === 0) return description.split(/(?<=[。！？])/u).map((sentence) => (
-    /(?:你|主角|本人|你的).{0,28}(?:月薪|年薪|工资|薪资)|(?:当前|税后)?(?:月薪|年薪)(?:约|为|达到|调整为|调整至|提升至|降至|降到|升至)?\s*\d/u.test(sentence)
-      ? "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。"
+    /(?:你|主角|本人|你的).{0,28}(?:月薪|年薪|年收入|月收入|工资|薪资)|(?:当前|税后)?(?:月薪|年薪|年收入|月收入)(?:约|为|达到|调整为|调整至|提升至|降至|降到|升至|稳定在)?\s*\d/u.test(sentence)
+      ? stripUnsupportedPersonalIncomeClaim(sentence)
       : sentence
   )).join("");
   if (careerIncome.length !== 1) return description;
@@ -138,19 +224,19 @@ function sanitizeUnconfirmedPersonalDrawClaims(
   if (hasActivePersonalIncome || acceptedPersonalIncome) return withoutAssumedFamily;
   return withoutAssumedFamily.split(/(?<=[。！？])/u).map((sentence) => {
     if (/(?:你|主角|本人).{0,16}(?:给自己开|给自己发|领取|拿到|获得|收到).{0,20}(?:月薪|工资|薪资)|(?:你|主角|本人).{0,16}(?:月薪|工资|薪资).{0,12}(?:达到|为|有)\s*\d/u.test(sentence)) {
-      return "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
+      return stripUnsupportedPersonalIncomeClaim(sentence);
     }
     if (/(?:你|主角|本人)每月(?:税后)?\s*\d+(?:\.\d+)?\s*万/u.test(sentence)) {
-      return "创业初期，个人可支配收入仍未形成稳定来源。";
+      return stripUnsupportedPersonalIncomeClaim(sentence);
     }
     if (/(?:你|主角|本人|个人).{0,20}(?:从公司支取|从公司领取|领取公司|提取公司).{0,16}(?:生活费|工资|薪资|收入|提款|分红)/u.test(sentence)) {
-      return "创业初期，个人可支配收入仍未形成稳定来源。";
+      return stripUnsupportedPersonalIncomeClaim(sentence);
     }
     if (acceptedEvents && /(?:个人净收入|个人可支配收入|个人进账)(?:仅|约为|约|达到|为)?\s*\d+(?:\.\d+)?\s*万元?/u.test(sentence)) {
-      return "公司经营已有进展，但个人可支配收入仍未形成稳定来源。";
+      return stripUnsupportedPersonalIncomeClaim(sentence);
     }
     if (narrativeClaimsExplicitPersonalIncome(sentence)) {
-      return "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
+      return stripUnsupportedPersonalIncomeClaim(sentence);
     }
     return sentence;
   }).join("");
@@ -236,10 +322,10 @@ export function sanitizeFinancialNarrative(
     .replace(/持续支出正在消耗现金缓冲的(?:个人)?(?:税后)?(?:工资|薪资|收入)/gu, "已经到账的个人税后收入")
     .replace(new RegExp(`(?:你|主角|本人)(?:不得已|只好)?动用了?\s*${MONEY_AMOUNT}\s*(?:的)?(?:存款|积蓄|备用金)[^。！？]{0,12}(?:还贷|偿还房贷)`, "gu"), "你继续动用现金缓冲偿还房贷");
   const grounded = sanitizeDebtServicingClaims(
-    sanitizePersonalDebtClaims(sanitizeUnsupportedMortgageClaims(sanitizeUnsupportedIncomeComposition(sanitizeUnconfirmedPersonalDrawClaims(sanitizeRecurringIncomeClaims(prepared, ledger), ledger, acceptedEvents), ledger), ledger), state),
+    sanitizePersonalDebtClaims(sanitizeUnsupportedMortgageClaims(sanitizeUnsupportedIncomeComposition(sanitizeUnconfirmedPersonalDrawClaims(sanitizeRecurringIncomeClaims(prepared, ledger, acceptedEvents), ledger, acceptedEvents), ledger), ledger), state),
     ledger
   );
-  return dedupeCanonicalFinancialFallbackSentences(sanitizeLongWanPrecision(grounded
+  return repairFinancialNarrativeJoins(dedupeCanonicalFinancialFallbackSentences(sanitizeLongWanPrecision(grounded
     .replace(/你个人的持续支出正在消耗(?:现金缓冲)?整体仍处于负债状态/gu, "持续支出仍在消耗个人现金缓冲")
     .replace(/(?:依靠|靠着)整体仍处于负债状态(?:的)?备用金/gu, "依靠有限的现金缓冲")
     .split(/(?<=[。！？])/u).map((sentence) => {
@@ -252,8 +338,11 @@ export function sanitizeFinancialNarrative(
     }
     return sentence
       .replace(BALANCE_RANGE, (match) => replaceBalanceTotal(match, state))
-      .replace(BALANCE_TOTAL, (match) => replaceBalanceTotal(match, state));
-    }).join("")));
+      .replace(BALANCE_TOTAL, (match) => replaceBalanceTotal(match, state))
+      .replace(BALANCE_TOTAL_AMOUNT_FIRST, (match, offset, source) => (
+        replaceAmountFirstBalanceTotal(match, state, offset, source)
+      ));
+    }).join(""))));
 }
 
 export function sanitizeUnsupportedOpeningAccountClaims(description: string, ledger: FinancialLedger): string {
@@ -285,20 +374,24 @@ export function sanitizeUnsupportedFinancialCoverageClaims(
   if (!unsupportedProperty && !unsupportedMortgage && !unsupportedHolding && !unsupportedCompensation) return description;
   return dedupeCanonicalFinancialFallbackSentences(description.split(/(?<=[。！？])/u).map((sentence) => {
     if (unsupportedProperty && /(?:名下|自有|自己的).{0,16}(?:房|住房|公寓)|(?:买了|买下|购入|购买|卖掉|出售).{0,16}(?:房|住房|公寓)|(?:婚房|住房|房子|公寓)?首付|房产升值/u.test(sentence)) {
-      return "你们继续根据实际现金流评估居住安排与生活成本。";
+      return "";
     }
     if (unsupportedMortgage && /房贷|按揭|月供/u.test(sentence)) {
-      return "你们继续根据实际现金流调整家庭支出与储蓄安排。";
+      return "";
     }
     if (unsupportedHolding && /股权|期权|持股|股份|联合创始人|合伙人/u.test(sentence)) {
-      return "相关权益仍在讨论与条件确认阶段，尚未真正落到你个人名下。";
+      return "";
+    }
+    if (unsupportedCompensation) {
+      const preservedAction = stripUnsupportedPersonalIncomeClaim(sentence);
+      if (preservedAction !== sentence) return preservedAction;
     }
     if (unsupportedCompensation && (sentenceClaimsNewPersonalIncomeActivity(sentence)
       || /收费[^。！？]{0,16}(?:调整|改为|从|标准|项目制)|稳定收入|收入基本盘|主业收入/u.test(sentence))) {
-      return "这些尝试开始获得现实反馈，但个人收入是否形成仍需继续观察。";
+      return stripUnsupportedPersonalIncomeClaim(sentence);
     }
     if (unsupportedCompensation && /月薪|年薪|工资|薪资|个人收入|个人进账|个人净收入/u.test(sentence)) {
-      return "这段时间的工作安排仍在继续，但实际到账的个人收入尚待确认。";
+      return stripUnsupportedPersonalIncomeClaim(sentence);
     }
     return sentence;
   }).join(""));
@@ -319,13 +412,17 @@ export function sanitizeOpeningFinancialTitle(title: string, ledger: FinancialLe
 export function sanitizeSimulationNodeFinancialNarrative(
   node: SimulationNode,
   state: FinancialState,
-  ledger?: FinancialLedger
+  ledger?: FinancialLedger,
+  acceptedEvents?: AcceptedFinancialEvent[]
 ): SimulationNode {
-  const sanitize = (text: string) => sanitizeFinancialNarrative(text, state, ledger);
-  const paragraphs = (node.descriptionParagraphs?.length
+  const sanitize = (text: string) => sanitizeFinancialNarrative(text, state, ledger, acceptedEvents);
+  const sourceParagraphs = (node.descriptionParagraphs?.length
     ? node.descriptionParagraphs
     : node.description.split(/\n\s*\n+/u)
-  ).map(sanitize);
+  );
+  // Sanitize the story as one surface so repeated rollback copy cannot survive
+  // merely because it appeared in separate paragraphs.
+  const paragraphs = sanitize(sourceParagraphs.join("\n\n")).split(/\n\s*\n+/u).filter(Boolean);
   return {
     ...node,
     description: paragraphs.join("\n\n"),

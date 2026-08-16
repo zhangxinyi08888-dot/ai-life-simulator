@@ -1,7 +1,10 @@
 import { LifeAttributes, LifeIntensity, SimulationNode } from "../types";
 import {
+  ATTRIBUTE_MAX,
+  ATTRIBUTE_MIN,
   getInvalidExplicitChoiceTextIndexes,
   getSimulationNodeValidationIssues,
+  MAX_NARRATIVE_ATTRIBUTE_DELTA,
   normalizeSimulationNode,
   repairDeterministicRomanceChoices
 } from "./simulationResponse";
@@ -20,6 +23,7 @@ interface GenerateCompleteNodeOptions {
   eventIntentType?: string;
   deferRomanceContractValidation?: boolean;
   fallbackAttributes?: LifeAttributes;
+  fallbackAttributeHistory?: LifeAttributes[];
   requireExplicitChoiceText?: boolean;
   repairMissingChoiceText?: (
     node: Record<string, any>,
@@ -52,6 +56,38 @@ function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+export function resolveSafeFallbackAttributes(
+  current?: LifeAttributes,
+  history: LifeAttributes[] = []
+): LifeAttributes | undefined {
+  if (!current) return undefined;
+  const priorHistory = history.filter((candidate) => (
+    !(["happiness", "intelligence", "wealth", "relation", "health"] as const)
+      .every((key) => candidate?.[key] === current[key])
+  ));
+  const nearestValid = (key: keyof LifeAttributes): number | undefined => {
+    for (let index = priorHistory.length - 1; index >= 0; index -= 1) {
+      const value = priorHistory[index]?.[key];
+      if (finiteNumber(value) && value >= ATTRIBUTE_MIN && value <= ATTRIBUTE_MAX) return value;
+    }
+    return undefined;
+  };
+  const resolve = (key: keyof LifeAttributes, enforceDelta: boolean): number => {
+    const value = current[key];
+    const prior = nearestValid(key);
+    if (!finiteNumber(value) || value < ATTRIBUTE_MIN || value > ATTRIBUTE_MAX) return prior ?? 50;
+    if (enforceDelta && prior !== undefined && Math.abs(value - prior) > MAX_NARRATIVE_ATTRIBUTE_DELTA) return prior;
+    return value;
+  };
+  return {
+    happiness: resolve("happiness", true),
+    intelligence: resolve("intelligence", true),
+    wealth: resolve("wealth", false),
+    relation: resolve("relation", true),
+    health: resolve("health", false)
+  };
+}
+
 function repairMissingAttributes(
   node: Record<string, any>,
   fallbackAttributes?: LifeAttributes
@@ -62,15 +98,31 @@ function repairMissingAttributes(
     : {};
   const intelligence = attributes.intelligence ?? attributes.wisdom ?? attributes.talent;
   const relation = attributes.relation ?? attributes.social ?? attributes.relationships;
+  const repair = (
+    value: unknown,
+    previous: number,
+    preservePrevious = false,
+    enforceDelta = true
+  ): number => {
+    if (preservePrevious) return previous;
+    if (!finiteNumber(value)) return previous;
+    if (value < ATTRIBUTE_MIN || value > ATTRIBUTE_MAX) return previous;
+    if (enforceDelta && Math.abs(value - previous) > MAX_NARRATIVE_ATTRIBUTE_DELTA) return previous;
+    return value;
+  };
   return {
     ...node,
     attributes: {
       ...attributes,
-      happiness: finiteNumber(attributes.happiness) ? attributes.happiness : fallbackAttributes.happiness,
-      intelligence: finiteNumber(intelligence) ? intelligence : fallbackAttributes.intelligence,
-      wealth: finiteNumber(attributes.wealth) ? attributes.wealth : fallbackAttributes.wealth,
-      relation: finiteNumber(relation) ? relation : fallbackAttributes.relation,
-      health: finiteNumber(attributes.health) ? attributes.health : fallbackAttributes.health
+      happiness: repair(attributes.happiness, fallbackAttributes.happiness),
+      intelligence: repair(intelligence, fallbackAttributes.intelligence),
+      // Wealth is later calculated from the accepted ledger transaction, not
+      // from the model's narrative estimate.
+      wealth: repair(attributes.wealth, fallbackAttributes.wealth, true),
+      relation: repair(relation, fallbackAttributes.relation),
+      // Health is bounded by reconcileHealth after the candidate pipeline;
+      // retain its proposal here so a major health event can use that policy.
+      health: repair(attributes.health, fallbackAttributes.health, false, false)
     }
   };
 }
@@ -107,11 +159,16 @@ export async function generateCompleteSimulationNode(
   let issues: string[] = [];
   let lastNode: Record<string, any> = {};
   let lastRetryableError: unknown;
+  const safeFallbackAttributes = resolveSafeFallbackAttributes(
+    options.fallbackAttributes,
+    options.fallbackAttributeHistory
+  );
 
   const validate = (candidate: Record<string, any>): string[] => {
     let candidateIssues = getSimulationNodeValidationIssues(candidate, {
       allowedOutcomeIds: options.allowedOutcomeIds,
       eventIntentType: options.eventIntentType,
+      previousAttributes: safeFallbackAttributes,
       requireExplicitChoiceText: options.requireExplicitChoiceText ?? true
     });
     if (options.deferRomanceContractValidation) {
@@ -124,7 +181,7 @@ export async function generateCompleteSimulationNode(
     try {
       lastNode = repairGenericOutcomeCoverage(
         repairDeterministicRomanceChoices(
-          repairMissingAttributes(await generateRawNode(attempt, issues), options.fallbackAttributes),
+          repairMissingAttributes(await generateRawNode(attempt, issues), safeFallbackAttributes),
           options.eventIntentType,
           options.allowedOutcomeIds
         ),
@@ -163,7 +220,7 @@ export async function generateCompleteSimulationNode(
       }
     }
     if (issues.length === 0) {
-      return normalizeSimulationNode(lastNode, options);
+      return normalizeSimulationNode(lastNode, { ...options, fallbackAttributes: safeFallbackAttributes });
     }
   }
 

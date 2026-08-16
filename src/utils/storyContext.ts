@@ -581,9 +581,71 @@ function formatChoicePreferenceSection(signals: ChoicePreferenceSignal[]): strin
   }).join("\n")}`;
 }
 
+const STORY_CONTEXT_DIRECTION_BOUNDARY = `【方向线索使用边界】
+- long_term_main_arc：可作为长期人生主线、终章和报告核心。
+- stage_main_arc：可作为当前阶段主线，例如职业、项目、学习方向。
+- side_thread：可延续为副线，但不得主导职业、创业、人生使命或重大转型。
+- background_detail：只能作为生活细节，不能出现在重大选择选项主语中。
+- mentioned：本轮不要主动展开，终章/报告最多作为曾经提过。
+- 模型正文偶然提及不计入强化；只有用户点击、自定义输入、用户选择导致的历史结果和现实成果才允许升级方向状态。
+- 只有明确提供但未被选择的方向才计入 passed；没有提供的方向保持中性。
+- state=cooldown 或 dormant 的 decisionIntent 不得再次进入 A/B/C；用户真实事实和 background thread 不能绕过此限制。`;
+
+/**
+ * Immutable material from a Story Context Pack. The next-node cache layout
+ * puts this segment before all changing node state. It retains the exact
+ * original user and answer facts rather than recreating them from another
+ * input source.
+ */
+export function formatCacheAwareStoryContextStablePrefix(pack: StoryContextPack): string {
+  return `【Story Context Pack：稳定用户材料】
+${STORY_CONTEXT_DIRECTION_BOUNDARY}
+
+${formatSection("用户真实事实", pack.userFacts)}
+
+${formatSection("追问补全事实", pack.answerFacts)}`;
+}
+
+function formatCacheAwareActiveThreadSection(threads: BackgroundThread[]): string {
+  if (threads.length === 0) return "当前可延续副线：\n- 暂无";
+  return `当前可延续副线（完整事实已在上方稳定材料或最近历史中）：\n${threads.map((thread) => {
+    const lastTouched = typeof thread.lastTouchedNode === "number" ? `，lastTouchedNode=${thread.lastTouchedNode + 1}` : "";
+    if (thread.source === "event") {
+      return `- ${thread.type}（source=${thread.source}，salience=${thread.salience.toFixed(2)}${lastTouched}）：${thread.summary}`;
+    }
+    const sourceLabel = thread.source === "history" ? "最近历史正文" : thread.source === "answer" ? "追问补全事实" : "用户真实事实";
+    return `- ${thread.type}（source=${thread.source}，salience=${thread.salience.toFixed(2)}${lastTouched}）：完整事实见${sourceLabel}`;
+  }).join("\n")}`;
+}
+
+/**
+ * Dynamic Story Context for the cache-aware next-node path. The raw user,
+ * answer and recent-history sections are intentionally not repeated here;
+ * derived state facts can still cite their source material with weights and
+ * direction state. Full source text remains intact in the stable system
+ * segment and the authoritative history section, making the layout
+ * reference-based rather than lossy.
+ */
+export function formatCacheAwareStoryContextDynamic(pack: StoryContextPack): string {
+  return `【Story Context Pack：动态状态】
+- 用户真实事实与追问补全事实已完整保留在上方稳定材料；最近 5 个历史节点已完整保留在上方“平行宇宙既往旅程”。
+
+${formatStoryFactSection("长期事实", pack.longTermFacts)}
+
+${formatStoryFactSection("阶段事实", pack.stageFacts)}
+
+${formatStoryFactSection("兴趣倾向", pack.interestSignals)}
+
+${formatStoryFactSection("临时情绪", pack.temporaryEmotions)}
+
+${formatChoicePreferenceSection(pack.choicePreferenceSignals)}
+
+${formatCacheAwareActiveThreadSection(pack.activeThreads)}`;
+}
+
 export function formatStoryContextPack(pack: StoryContextPack): string {
   const recentHistory = pack.recentHistory.map((item) => `${formatAgeInMonths(item.ageInMonths ?? item.age * 12)} ${item.title}：${item.description} / 选择：${item.selectedChoice}`);
   const activeThreads = pack.activeThreads.map((thread) => `${thread.type}（${thread.source}，${thread.salience.toFixed(2)}）：${thread.summary}`);
 
-  return `\n\n【Story Context Pack】\n【方向线索使用边界】\n- long_term_main_arc：可作为长期人生主线、终章和报告核心。\n- stage_main_arc：可作为当前阶段主线，例如职业、项目、学习方向。\n- side_thread：可延续为副线，但不得主导职业、创业、人生使命或重大转型。\n- background_detail：只能作为生活细节，不能出现在重大选择选项主语中。\n- mentioned：本轮不要主动展开，终章/报告最多作为曾经提过。\n- 模型正文偶然提及不计入强化；只有用户点击、自定义输入、用户选择导致的历史结果和现实成果才允许升级方向状态。\n- 只有明确提供但未被选择的方向才计入 passed；没有提供的方向保持中性。\n- state=cooldown 或 dormant 的 decisionIntent 不得再次进入 A/B/C；用户真实事实和 background thread 不能绕过此限制。\n\n${formatSection("用户真实事实", pack.userFacts)}\n\n${formatSection("追问补全事实", pack.answerFacts)}\n\n${formatStoryFactSection("长期事实", pack.longTermFacts)}\n\n${formatStoryFactSection("阶段事实", pack.stageFacts)}\n\n${formatStoryFactSection("兴趣倾向", pack.interestSignals)}\n\n${formatStoryFactSection("临时情绪", pack.temporaryEmotions)}\n\n${formatChoicePreferenceSection(pack.choicePreferenceSignals)}\n\n${formatSection("最近 5 个历史节点", recentHistory)}\n\n${formatSection("当前可延续副线", activeThreads)}`;
+  return `\n\n【Story Context Pack】\n${STORY_CONTEXT_DIRECTION_BOUNDARY}\n\n${formatSection("用户真实事实", pack.userFacts)}\n\n${formatSection("追问补全事实", pack.answerFacts)}\n\n${formatStoryFactSection("长期事实", pack.longTermFacts)}\n\n${formatStoryFactSection("阶段事实", pack.stageFacts)}\n\n${formatStoryFactSection("兴趣倾向", pack.interestSignals)}\n\n${formatStoryFactSection("临时情绪", pack.temporaryEmotions)}\n\n${formatChoicePreferenceSection(pack.choicePreferenceSignals)}\n\n${formatSection("最近 5 个历史节点", recentHistory)}\n\n${formatSection("当前可延续副线", activeThreads)}`;
 }

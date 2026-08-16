@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "pairId": "career-opportunity-r2",
+  "key": "career-opportunity",
+  "theme": "创业初期与现实压力",
+  "replicate": 2,
+  "inputStatePath": "/Users/zz/Documents/new life/test---cache-prefix-v1/artifacts/cache-prefix-paired-blind/2026-08-08-main-vs-v2-r4/source-main/career/seed-1-state.json",
+  "selection": {
+    "id": "A",
+    "text": "接受创业公司的产品负责人邀请，用两年时间验证自己能否做出真正的产品。"
+  },
+  "callOrder": [
+    "v2_r4",
+    "main"
+  ],
+  "error": {
+    "name": "Error",
+    "message": "Expected one test state import textbox, got 0",
+    "stack": "Error: Expected one test state import textbox, got 0\n    at waitForUniqueLocator (/Users/zz/Documents/new life/test---cache-prefix-v1/scripts/real-browser-journey-runner.mjs:17:9)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async Object.importCheckpoint (/Users/zz/Documents/new life/test---cache-prefix-v1/scripts/real-browser-journey-runner.mjs:385:19)\n    at async execute (/Users/zz/Documents/new life/.node_repl_cell_5.mjs:44:20)\n    at async globalThis.runStylePair (/Users/zz/Documents/new life/.node_repl_cell_5.mjs:57:25)\n    at async /Users/zz/Documents/new life/.node_repl_cell_10.mjs:15:21"
+  },
+  "capturedAt": "2026-08-10T02:57:45.355Z"
+}

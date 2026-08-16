@@ -4,6 +4,7 @@ import {
   auditFinancialProductionRecords,
   extractFinancialNarrativeAuditMeta
 } from "./lib/financial-production-audit.mjs";
+import { summarizeCacheUsage } from "./lib/cache-usage-telemetry.mjs";
 import { execFile } from "node:child_process";
 import {
   adultBelowPolicyExpenseViolation,
@@ -27,6 +28,7 @@ const casesDir = path.join(root, "cases");
 const files = (await readdir(casesDir)).filter((name) => name.endsWith(".json")).sort();
 const records = await Promise.all(files.map(async (name) => JSON.parse(await readFile(path.join(casesDir, name), "utf8"))));
 const productionAudit = auditFinancialProductionRecords(records);
+const cacheTelemetry = summarizeCacheUsage(records);
 const posterEvidence = await Promise.all(records.map(async (record) => {
   const posterPath = record.imagePaths?.posterPath;
   const reportPagePath = record.imagePaths?.pagePath;
@@ -383,8 +385,9 @@ const summary = {
   issueCodeCounts,
   ...productionAudit.summary
 };
-const audit = { generatedAt: new Date().toISOString(), root, summary, cases, issues, productionAudit };
+const audit = { generatedAt: new Date().toISOString(), root, summary, cases, issues, productionAudit, cacheTelemetry };
 await writeFile(path.join(root, "finance-audit.json"), `${JSON.stringify(audit, null, 2)}\n`);
+await writeFile(path.join(root, "cache-telemetry.json"), `${JSON.stringify(cacheTelemetry, null, 2)}\n`);
 
 const routeRows = cases.map((item) => {
   const last = item.finalFinancialState;
@@ -408,6 +411,9 @@ const recoverableRows = cases.flatMap((item) => item.recoverableEvents.map((even
   `| ${item.caseSlug} | ${event.type} | ${event.historyLength ?? 0} | ${String(event.message || "页面可恢复错误").replace(/\|/g, "\\|")} |`
 ))).join("\n") || "| 无 | — | — | 无 |";
 const issueRows = Object.entries(issueCodeCounts).map(([code, count]) => `| ${code} | ${count} |`).join("\n") || "| 无 | 0 |";
+const cacheByKindRows = cacheTelemetry.byKind.map((item) => (
+  `| ${item.kind} | ${item.promptFamily} | ${item.promptPrefixVersion} | ${item.callCount} | ${item.usageCallCount} | ${item.promptTokens} | ${item.cacheHitTokens} | ${item.cacheMissTokens} | ${item.inputCacheHitRate == null ? "—" : `${round(item.inputCacheHitRate * 100)}%`} |`
+)).join("\n") || "| 无 | — | — | 0 | 0 | 0 | 0 | 0 | — |";
 const blockers = [
   invariantFailures > 0 && `账本/派生状态不变量失败：${invariantFailures} 个节点`,
   openingFactMismatchCases > 0 && `人物明确提供房产/房贷但开局账本资产和负债均为 0：${openingFactMismatchCases} 组`,
@@ -560,6 +566,16 @@ ${routeRealityRows}
 |---|---:|
 ${issueRows}
 
+## Cache Prefix 请求级遥测
+
+- 已接受 next-node：${cacheTelemetry.summary.acceptedNextNodeCount}；带 usage 的 next-node 调用：${cacheTelemetry.summary.usageCallCount}。
+- 输入命中率：${cacheTelemetry.summary.inputCacheHitRate == null ? "—" : `${round(cacheTelemetry.summary.inputCacheHitRate * 100)}%`}；未命中 tokens/成功节点：${cacheTelemetry.summary.cacheMissTokensPerAcceptedNode ?? "—"}；输入 tokens/成功节点：${cacheTelemetry.summary.promptTokensPerAcceptedNode ?? "—"}。
+- 首次生成通过率：${cacheTelemetry.summary.firstGenerationPassRate == null ? "—" : `${round(cacheTelemetry.summary.firstGenerationPassRate * 100)}%`}；完整重试/成功节点：${cacheTelemetry.summary.fullRetryPerAcceptedNode ?? "—"}；首 token p50/p95：${cacheTelemetry.summary.firstTokenP50Ms ?? "—"}/${cacheTelemetry.summary.firstTokenP95Ms ?? "—"} ms。
+
+| 调用类型 | Prompt family | Prefix 版本 | 调用数 | 有 usage | 输入 tokens | 命中 tokens | 未命中 tokens | 输入命中率 |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+${cacheByKindRows}
+
 ## 下一步
 
 ${releaseCandidate
@@ -627,7 +643,7 @@ const manifest = {
     "node scripts/analyze-financial-real-browser-run.mjs <root>",
     "node $HOME/.codex/skills/run-real-browser-ending-routes/scripts/verify-five-route-run.mjs --root <root> --started-after <runStartedAt> --full-data <root>/full-test-data.md --report <root>/evaluation-report.md"
   ],
-  artifacts: ["aggregate.json", "finance-audit.json", "full-test-data.md", "evaluation-report.md", "visual-inspection.json", "cases/", "working/", "images/"],
+  artifacts: ["aggregate.json", "finance-audit.json", "cache-telemetry.json", "full-test-data.md", "evaluation-report.md", "visual-inspection.json", "cases/", "working/", "images/"],
   cases: records.map((record) => ({ caseSlug: record.caseSlug, scenario: record.scenario, path: `cases/${record.caseSlug}.json` }))
 };
 await writeFile(path.join(root, "run-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, QuestionTurn, SimulationChoice, UserInitialData } from "../types";
-import { buildStoryContextPack, formatStoryContextPack } from "./storyContext";
+import {
+  buildStoryContextPack,
+  formatCacheAwareStoryContextDynamic,
+  formatCacheAwareStoryContextStablePrefix,
+  formatStoryContextPack
+} from "./storyContext";
 
 const attributes: LifeAttributes = {
   happiness: 50,
@@ -82,6 +87,18 @@ assert.match(formatted, /追问补全事实/);
 assert.match(formatted, /我爸妈希望我稳定/);
 assert.match(formatted, /最近 5 个历史节点/);
 assert.match(formatted, /当前可延续副线/);
+
+const cacheStable = formatCacheAwareStoryContextStablePrefix(pack);
+const cacheDynamic = formatCacheAwareStoryContextDynamic(pack);
+assert.match(cacheStable, /Story Context Pack：稳定用户材料/);
+assert.match(cacheStable, /我爸妈希望我稳定/);
+assert.match(cacheStable, /大学时有一段异地恋/);
+assert.match(cacheDynamic, /Story Context Pack：动态状态/);
+assert.match(cacheDynamic, /完整事实已在上方稳定材料或最近历史中/);
+assert.match(cacheDynamic, /当前可延续副线（完整事实已在上方稳定材料或最近历史中）/);
+assert.doesNotMatch(cacheDynamic, /最近 5 个历史节点：/);
+assert.doesNotMatch(cacheDynamic, /我爸妈希望我稳定，不支持我冒险辞职/);
+assert.match(cacheDynamic, /情感与关系经历：大学时有一段异地恋/);
 
 const interestUserData: Partial<UserInitialData> = {
   regressionAge: 18,

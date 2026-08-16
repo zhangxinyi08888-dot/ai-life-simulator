@@ -303,6 +303,7 @@ export function ensureRelationshipWorldState(snapshot: WorldStateSnapshot, ageIn
           ? "married"
           : /同居|共同生活/.test(partner.relationshipSummary || "") ? "cohabiting" : "dating",
         status: "active",
+        statusEffectiveFromAgeInMonths: ageInMonths,
         effectiveFromAgeInMonths: ageInMonths,
         progression: createCommitmentProgression(ageInMonths, { migrationCreated: true }),
         source: partner.source === "user_fact" ? "user" : "answer",

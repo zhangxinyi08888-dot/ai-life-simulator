@@ -1,0 +1,74 @@
+{
+  "verdict": "fail",
+  "checks": [
+    {
+      "name": "audit manifest contains exactly 10 blind nodes",
+      "status": "pass",
+      "detail": "sampleCount=10"
+    },
+    {
+      "name": "review packet matches audit manifest",
+      "status": "pass",
+      "detail": "packetSha256=8e8d745355349f22084e3ca85d4c00e81c353185ee2bf847edb5eab5dbcf97a2"
+    },
+    {
+      "name": "review record names the reviewed packet",
+      "status": "pass",
+      "detail": "reviewPacketSha256=8e8d745355349f22084e3ca85d4c00e81c353185ee2bf847edb5eab5dbcf97a2"
+    },
+    {
+      "name": "reviewer and date are recorded",
+      "status": "pass",
+      "detail": "reviewer=recorded, date=recorded"
+    },
+    {
+      "name": "all 10 expected nodes are reviewed exactly once",
+      "status": "pass",
+      "detail": "missing=none; unexpected=none; duplicates=none"
+    },
+    {
+      "name": "every node has four valid 1-5 ratings (no average threshold)",
+      "status": "pass",
+      "detail": "missing=none"
+    },
+    {
+      "name": "every node has one final disposition",
+      "status": "pass",
+      "detail": "missing=none"
+    },
+    {
+      "name": "non-pass dispositions include evidence",
+      "status": "pass",
+      "detail": "missing=none"
+    },
+    {
+      "name": "each review item includes a treatment or retest basis",
+      "status": "pass",
+      "detail": "missing=none"
+    },
+    {
+      "name": "no unresolved critical issue remains",
+      "status": "fail",
+      "detail": "critical=N03,N05"
+    },
+    {
+      "name": "human signoff checklist is complete",
+      "status": "fail",
+      "detail": "missing=10 个节点均已逐项填写。;没有未处置的重大问题;若有需复核项，已写明是否接受、修复后复测，或作为已知风险保留。"
+    },
+    {
+      "name": "human final conclusion is pass",
+      "status": "fail",
+      "detail": "final=missing"
+    }
+  ],
+  "review": {
+    "reviewer": "人工审阅",
+    "reviewedOn": "2026-08-08",
+    "decisionCounts": {
+      "pass": 4,
+      "needsReview": 4,
+      "critical": 2
+    }
+  }
+}

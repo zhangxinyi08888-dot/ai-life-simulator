@@ -204,9 +204,20 @@ test("generation telemetry classifies calls and summarizes latency without unkno
   const traces: GenerationCallTrace[] = [];
   await traceGenerationCall({
     kind: "initial_generation",
-    context: { transactionId: "tx-7", nodeIndex: 7 },
+    context: { transactionId: "tx-7", nodeIndex: 7, promptFamily: "next_node", promptPrefixVersion: "next_node_cache_prefix_v1" },
     listener: (trace) => traces.push(trace),
-    operation: async (markFirstToken) => {
+    operation: async (markFirstToken, recordResponseMetadata) => {
+      recordResponseMetadata({
+        providerRequestId: "trace-usage-1",
+        model: "deepseek-v4-flash",
+        usage: {
+          promptTokens: 100,
+          cacheHitTokens: 72,
+          cacheMissTokens: 28,
+          completionTokens: 12,
+          totalTokens: 112
+        }
+      });
       markFirstToken();
       return "ok";
     }
@@ -223,6 +234,16 @@ test("generation telemetry classifies calls and summarizes latency without unkno
   assert.equal(summary.modelPatchCount, 1);
   assert.equal(summary.totalModelCallCount, 2);
   assert.deepEqual(summary.patchIssueCodes, ["DECISION_GATE_FAILED"]);
+  assert.equal(summary.promptTokens, 100);
+  assert.equal(summary.cacheHitTokens, 72);
+  assert.equal(summary.cacheMissTokens, 28);
+  assert.equal(summary.completionTokens, 12);
+  assert.equal(summary.usageCallCount, 1);
+  assert.equal(summary.cacheHitRate, 0.72);
+  const completed = traces.find((trace) => trace.outcome === "succeeded" && trace.kind === "initial_generation")!;
+  assert.equal(completed.promptFamily, "next_node");
+  assert.equal(completed.promptPrefixVersion, "next_node_cache_prefix_v1");
+  assert.equal(completed.providerRequestId, "trace-usage-1");
 });
 
 function hashText(value: string): string {

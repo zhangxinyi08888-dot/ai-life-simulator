@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 2,
+  "sampleCount": 10,
+  "packetSha256": "6e4ca0464140ba69f34bfb988fd0c0f3ef6b04c789b2e88c2080209052ecf587",
+  "samples": [
+    {
+      "blindId": "N01",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 12,
+      "nodeSha256": "09185a19d0d888dc9a390e0093a30891cbb2f5cbfd56ad1cf5b9df96bedee5bf"
+    },
+    {
+      "blindId": "N02",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 12,
+      "nodeSha256": "1f1d84efa4d5c08554a9a169d4be2fca7e94b909000c5541bfb2d5435d23a7fc"
+    },
+    {
+      "blindId": "N03",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 15,
+      "nodeSha256": "875e81402568ed86a4fc7ea1006185ee9f32f33c466ee62e8d4397561152ce1a"
+    },
+    {
+      "blindId": "N04",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 9,
+      "nodeSha256": "46cd977f1b6ccb9f58b624dd0bec61d7cc3cc61f56bf56c2067aca1a758c1456"
+    },
+    {
+      "blindId": "N05",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 9,
+      "nodeSha256": "31052d97c83e9853c0b3cf149c3c45020895f96d8c973d6d2e46f5ebb89b5865"
+    },
+    {
+      "blindId": "N06",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 6,
+      "nodeSha256": "fb644fb2e6c2c887effe17129a6d3356bfbb03954fd0e1e548f9d60ca7fc8078"
+    },
+    {
+      "blindId": "N07",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 6,
+      "nodeSha256": "0b4b9b0792de039e4b7d3dffd6888f7d9672acbfdf263fbedab57a7de42da7a2"
+    },
+    {
+      "blindId": "N08",
+      "sourceCaseSlug": "real-career-first",
+      "sourceNodeNumber": 3,
+      "nodeSha256": "d4c7c1de77c7df1bf9093d9dcb680a665dfc3c1fdf8d82071e5f890b6ffe9f56"
+    },
+    {
+      "blindId": "N09",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 3,
+      "nodeSha256": "659f8d5bc94bfc9694553f274d6c92a154a2d04021e35690da2f9e63c0d88abb"
+    },
+    {
+      "blindId": "N10",
+      "sourceCaseSlug": "real-relationship-first",
+      "sourceNodeNumber": 15,
+      "nodeSha256": "c356f4d6a515e4bc505dc98b1a40d516c18e730adc46927e9df97a7061e7b9fe"
+    }
+  ]
+}

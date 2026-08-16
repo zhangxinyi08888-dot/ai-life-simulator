@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import {
+  canonicalizeGeneratedChoiceIds,
   getInvalidExplicitChoiceTextIndexes,
   getSimulationNodeValidationIssues,
-  normalizeSimulationNode
+  normalizeSimulationNode,
+  repairDeterministicRomanceChoices
 } from "./simulationResponse";
 
 const node = normalizeSimulationNode({
@@ -45,6 +47,21 @@ assert.equal(node.choices[1].id, "B");
 assert.equal(node.choices[1].text, "听从家里安排");
 assert.equal(node.choices[2].id, "C");
 assert.equal(node.choices[2].impactSummary, "继续探索");
+
+const generatedSemanticChoiceIds = canonicalizeGeneratedChoiceIds({
+  choices: [
+    { id: "stay_current_role", text: "保留现有岗位并完成试点", impactSummary: "稳住现金流", decisionIntent: "career:stay" },
+    { id: "try_small_scope", text: "用周末验证新的客户需求", impactSummary: "低成本试验", decisionIntent: "career:trial" },
+    { id: "decline_offer", text: "谢绝当前邀请并保留后续联系", impactSummary: "保留选择权", decisionIntent: "career:decline" }
+  ]
+});
+assert.deepEqual(generatedSemanticChoiceIds.choices.map((choice) => choice.id), ["A", "B", "C"]);
+assert.deepEqual(generatedSemanticChoiceIds.choices.map((choice) => choice.text), [
+  "保留现有岗位并完成试点",
+  "用周末验证新的客户需求",
+  "谢绝当前邀请并保留后续联系"
+]);
+assert.deepEqual(generatedSemanticChoiceIds.choices.map((choice) => choice.decisionIntent), ["career:stay", "career:trial", "career:decline"]);
 
 const duplicateChoiceAndTransitionNode = normalizeSimulationNode({
   age: 30,
@@ -146,6 +163,36 @@ assert.deepEqual(getSimulationNodeValidationIssues({
   attributes: { happiness: 43, intelligence: 62, wealth: 58, relation: 46, health: 38 },
   isEndingNode: false
 }), []);
+
+assert.deepEqual(getSimulationNodeValidationIssues({
+  age: 42,
+  stage: "绝对值校验",
+  title: "不能把变化量写成总值",
+  description: "节点必须返回五维属性的绝对结束值。",
+  choices: [
+    { id: "A", text: "继续当前安排", impactSummary: "继续推进" },
+    { id: "B", text: "调整执行节奏", impactSummary: "调整节奏" },
+    { id: "C", text: "暂缓额外投入", impactSummary: "暂缓投入" }
+  ],
+  attributes: { happiness: -2, intelligence: 101, wealth: 50, relation: 0, health: 60 },
+  isEndingNode: false
+}), ["attributesRange"]);
+
+assert.deepEqual(getSimulationNodeValidationIssues({
+  age: 42,
+  stage: "变化边界",
+  title: "变化不能无故跳变",
+  description: "本轮只出现了可以写实解释的小幅变化。",
+  choices: [
+    { id: "A", text: "继续当前安排", impactSummary: "继续推进" },
+    { id: "B", text: "调整执行节奏", impactSummary: "调整节奏" },
+    { id: "C", text: "暂缓额外投入", impactSummary: "暂缓投入" }
+  ],
+  attributes: { happiness: 68, intelligence: 62, wealth: 50, relation: 57, health: 60 },
+  isEndingNode: false
+}, {
+  previousAttributes: { happiness: 50, intelligence: 60, wealth: 45, relation: 55, health: 58 }
+}), ["attributesChange"]);
 
 const semanticIdChoicesWithoutRealText = {
   age: 42,
@@ -253,6 +300,47 @@ assert.deepEqual(getSimulationNodeValidationIssues({
     { id: "C", text: "明确婉拒与林悦发展浪漫关系", impactSummary: "拒绝发展", eventOutcomeId: "decline_romantic_direction" }
   ]
 }, { allowedOutcomeIds: romanceOutcomes, eventIntentType: "romance_new_connection" }), []);
+
+const careerCrossroadsWithRomanceMention = {
+  ...eventContractNode,
+  title: "信息收集后的职业抉择",
+  description: "你与创业公司和大公司分别沟通职业机会，也在行业活动中认识了林晚。林晚邀请你周末一起看展，你们交换了微信，偶尔聊产品之外的生活话题。现在你仍需要先决定职业方向。",
+  narrativeMeta: {
+    activeCharacters: [{
+      candidateOrdinal: 0,
+      displayName: "林晚",
+      relation: "other",
+      presenceMode: "active_scene",
+      currentRole: "用户研究员",
+      encounterType: "new_connection",
+      encounterContext: "mixed",
+      groundingEvidence: "林晚邀请你周末一起看展"
+    }]
+  },
+  choices: [
+    { id: "A", text: "接受创业公司的合伙人邀请，全职投入产品研发", impactSummary: "全职投入" },
+    { id: "B", text: "接受大公司内部产品线负责人的职位，保留稳定收入", impactSummary: "稳定晋升" },
+    { id: "C", text: "再用三个月收集信息后决定职业方向", impactSummary: "延后决策" }
+  ]
+};
+const preservedCareerCrossroads = repairDeterministicRomanceChoices(
+  careerCrossroadsWithRomanceMention,
+  "romance_new_connection",
+  romanceOutcomes
+);
+assert.deepEqual(
+  preservedCareerCrossroads.choices.map((choice) => choice.text),
+  careerCrossroadsWithRomanceMention.choices.map((choice) => choice.text),
+  "romance repair must not overwrite a visible career decision with relationship choices"
+);
+assert.deepEqual(
+  getSimulationNodeValidationIssues(preservedCareerCrossroads, {
+    allowedOutcomeIds: romanceOutcomes,
+    eventIntentType: "romance_new_connection"
+  }),
+  ["eventOutcomeId", "eventOutcomeCoverage"],
+  "the service must redispatch or reschedule the mismatched event instead of silently rewriting it"
+);
 
 assert.deepEqual(getSimulationNodeValidationIssues({
   ...eventContractNode,

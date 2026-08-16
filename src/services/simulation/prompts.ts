@@ -1,14 +1,21 @@
 import { formatAnswerTurns } from "../../utils/answerFormatting";
 import { LifeEventSeed } from "../../data/lifeEvents";
-import { buildEventIntentPrompt, buildNullEventPrompt } from "../../utils/eventPrompt";
-import { StoryContextPack } from "../../utils/storyContext";
-import { EmploymentTransitionProposal, FinancialState, HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
+import {
+  buildCacheAwareEventIntentTail,
+  buildCacheAwareNullEventTail,
+  buildEventIntentPrompt,
+  buildNullEventPrompt,
+  NEXT_NODE_EVENT_POLICY_CATALOG_V1
+} from "../../utils/eventPrompt";
+import { formatCacheAwareStoryContextStablePrefix, type StoryContextPack } from "../../utils/storyContext";
+import { EmploymentTransitionProposal, FinancialState, HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, RelationshipState, SimulationNode, UserInitialData, WorldStateSnapshot } from "../../types";
 import { AgeContext, formatAgeContextForPrompt } from "../../utils/ageContext";
 import { formatPersonStateForPrompt } from "../../utils/personTimeline";
 import { formatAgeInMonths, TimelineAdvance } from "../../utils/timelineAdvance";
 import { formatFinancialStateForPrompt } from "../../utils/financialState";
 import type { AcceptedFinancialEvent, DebtHealthState, FinancialEventProposal, FinancialLedger, FinancialLedgerIssue } from "../../domain/finance";
 import { formatDebtNarrativeAuthorityForPrompt } from "../../utils/debtNarrativeAuthority";
+import type { AiPromptInput } from "../../utils/deepseek";
 import { financialEvidenceCandidates } from "../../domain/finance/evidenceMatching";
 
 const FINANCIAL_NARRATIVE_RULE = `- 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
@@ -43,6 +50,31 @@ function formatHistoryForSimulation(history: HistoryItem[]): string {
 情节：${item.description}
 选择：${item.selectedChoice}
 累计净财富：${item.financialState ? `${item.financialState.netWorthWan} 万元` : "暂无快照"}`).join("\n\n");
+}
+
+/**
+ * Relationship origin and relationship-status timing are distinct facts.  In
+ * particular, an ended relationship's origin cannot be used as its breakup
+ * date: legacy histories may know the former while lacking the latter.
+ */
+function formatRelationshipTimingForPrompt(
+  relationship: RelationshipState,
+  targetAgeInMonths: number
+): string {
+  const origin = Number.isSafeInteger(relationship.effectiveFromAgeInMonths)
+    && relationship.effectiveFromAgeInMonths >= 0
+    ? `，relationshipOriginAgeInMonths=${relationship.effectiveFromAgeInMonths}`
+    : "";
+  const statusEffective = relationship.statusEffectiveFromAgeInMonths;
+  if (
+    !Number.isSafeInteger(statusEffective)
+    || statusEffective < 0
+    || statusEffective > targetAgeInMonths
+  ) return origin;
+  const endedElapsed = relationship.status === "ended"
+    ? `，statusToTargetElapsedMonths=${targetAgeInMonths - statusEffective}`
+    : "";
+  return `${origin}，statusEffectiveFromAgeInMonths=${statusEffective}${endedElapsed}`;
 }
 
 function formatHistoryForInsight(history: HistoryItem[]): string {
@@ -83,6 +115,8 @@ export function buildNodePromptWithRetryNotice(prompt: string, previousIssues: s
     invalidJson: "返回内容不是可解析的完整 JSON",
     description: "descriptionParagraphs 剧情正文段落",
     attributes: "attributes 五维数值",
+    attributesRange: "attributes 必须是 0-100 的绝对值，不能是负数、超过 100 或增减量",
+    attributesChange: "attributes 相对上轮变化超过允许边界；财富由账本计算，其他属性通常不得超过 ±12",
     choices: "choices 选项",
     choiceText: "每个 choice 自己的非空 text 展示正文",
     eventOutcomeId: "choice.eventOutcomeId 缺失或不在本事件 allowedOutcomes 中",
@@ -252,7 +286,7 @@ interface NextNodePromptInput {
   pressureArcInterleaved?: boolean;
 }
 
-export function buildNextNodePrompt(input: NextNodePromptInput): string {
+function buildNextNodePromptLegacy(input: NextNodePromptInput): string {
   const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, currentDebtHealthState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc, pressureArcInterleaved } = input;
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
@@ -273,7 +307,8 @@ export function buildNextNodePrompt(input: NextNodePromptInput): string {
         const progression = relationship.progression
           ? `，checkpoint=${relationship.progression.checkpointKind}，policy=${relationship.progression.policyId}，reviewCount=${relationship.progression.reviewCount}，eligibleAt=${relationship.progression.eligibleAtAgeInMonths}，dueAt=${relationship.progression.dueAtAgeInMonths}，maxAt=${relationship.progression.maxAtAgeInMonths}`
           : "";
-        return `- relationshipId=${relationship.id}，type=${relationship.type}，stage=${relationship.stage || "unknown"}，status=${relationship.status}${progression}，人物=${identities}`;
+        const timing = formatRelationshipTimingForPrompt(relationship, targetAgeInMonths);
+        return `- relationshipId=${relationship.id}，type=${relationship.type}，stage=${relationship.stage || "unknown"}，status=${relationship.status}${timing}${progression}，人物=${identities}`;
       }).join("\n")
     : "- 暂无权威关系状态";
   const familyRelationshipPrompt = worldState?.familyRelationships?.length
@@ -508,6 +543,376 @@ financialEventProposals 示例（仅在正文确实发生对应事实时使用�
 ${formatAttributeChangeRules()}
 
 请严格返回 JSON。`;
+}
+
+export const NEXT_NODE_INVARIANT_PREFIX_VERSION = "next_node_cache_prefix_v1_full_context_system_r1";
+// r4 corrects the contradictory choice-id contract: the decision boundary
+// consumes positional A/B/C ids, so the prompt must not invite semantic ids.
+// Keep prior artifacts distinct so cache and quality evidence cannot
+// accidentally mix prompt revisions.
+export const NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION = "next_node_cache_prefix_v2_reference_context_r4";
+
+const NEXT_NODE_FINANCIAL_PROPOSAL_EXAMPLES_V1 = `【固定 Proposal JSON 示例】
+financialEventProposals 示例（仅在正文确实发生对应事实时使用；否则返回 []）：
+[
+  {
+    "id": "income_start_current_node",
+    "kind": "income_source_started",
+    "effectiveAtAgeInMonths": TARGET_AGE_IN_MONTHS,
+    "payload": {
+      "id": "income_current_node",
+      "type": "salary",
+      "displayName": "当前工作税后工资",
+      "monthlyNetAmountWan": 2.5,
+      "accrualPolicy": "monthly",
+      "activeFromAgeInMonths": TARGET_AGE_IN_MONTHS,
+      "status": "active",
+      "factStatus": "estimated",
+      "evidence": []
+    },
+    "sourceOutcomeId": ACCEPTED_OUTCOME_ID_OR_NULL,
+    "financialScope": "personal",
+    "evidence": "你正式入职，税后月薪为2.5万元。",
+    "confidence": 0.9
+  }
+]
+
+与上例同时返回的 financialNarrativeClaims 示例：
+[
+  {
+    "id": "claim_income_start_current_node",
+    "proposalId": "income_start_current_node",
+    "kind": "income_source_started",
+    "surfaceText": "你正式入职，税后月薪为2.5万元。"
+  }
+]`;
+
+/**
+ * This prefix is deliberately a parameter-free constant. Keep user material,
+ * request state and conditionally applicable instructions out of this block so
+ * the provider can reuse its exact leading token sequence across next-node
+ * calls. The version is telemetry-only and never included in the request.
+ */
+export const NEXT_NODE_INVARIANT_PREFIX_V1 = `你是一个才华横溢、精通大众心理学、社会规律与命运因果抉择的顶级推演大师。
+请写实模拟用户重新选择一次后，各条生命轨迹在现代中国社会下的真实进展。剧情要咬合用户回到这个节点的真实意图、困苦和核心主线。
+
+【固定写实与输出契约】
+- 本轮只生成普通 decision checkpoint，isEndingNode 必须为 false；终章由代码的有界长寿规则另行决定。
+- 如果不是结局，请通过 descriptionParagraphs 返回 2-4 个完整自然段，总计 150-250 字现实冲突，避免金手指和无理倒霉；每个数组项只能包含一个完整段落。
+- 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
+- 允许描述本阶段实际发生的交易金额，例如月薪、房租、医疗费、首付、贷款、投资额和项目收入。
+- 年龄约束执行条件，不约束人生愿望。45岁读书、55岁创业、70岁写书、80岁旅行、90岁研究均可成立。
+- 每个非终章节点至少一个选项继续推进用户当前方向；禁止三个选项共同导向退休、照护、退出或回忆。
+- 只有真正改变未来的选择才能成为节点；复查、等待、恢复等无新分歧过程放入 storyEpisode.internalTransitions。
+- storyEpisode.internalTransitions 必须是对象数组，每项严格返回 {"atAgeInMonths":整数,"materiality":"transition"或"meaningful_update","summary":"已发生的阶段变化","worldDeltas":[]}；禁止返回字符串、from/to 简写或其他字段形状。
+- 给出正好三个 A/B/C 选项，每个带 4 字 impactSummary、temporalHint、decisionIntent、expectedWorldDeltaTypes；有事件种子时还必须带 eventOutcomeId。
+
+【choice.text 展示正文规则】
+- 每个 choice 必须单独返回非空 text，内容是用户可以直接执行的完整中文选择；id、decisionIntent 和 impactSummary 都是内部或辅助字段，不能代替 text。
+- choice.id 必须严格按显示顺序使用 A、B、C；不要使用数字、option_1 或语义 ID。不要把 id 加到 text 前面，禁止用“\${id}. \${impactSummary}”拼接结果充当 text。
+- text 不能只重复 impactSummary，不能只返回内部 ID。
+
+【decisionIntent 稳定性规则】
+- decisionIntent 是代码识别行动方向的稳定指纹，必须表达“领域:动作:对象”，例如 location:relocate_to:wuhan_guanggu。
+- 不能只写 consider_offer、change_job、stay 或 option_a 等模糊动作；必须包含足以区分不同城市、岗位、关系对象或资产的具体对象。
+- 展示文案可以变化，但与最近历史语义相同的行动必须复用已有 decisionIntent；不得通过改写文案或更换近义词绕过 cooldown/dormant。
+- 语义实质不同的行动必须使用不同 decisionIntent。
+
+【人物、关系与 PressureArc 权威边界】
+- unknown 表示尚无已接受事实，不得解释为反对、保守、冷漠或控制；具体议题只能沿用已列出的 topicStances。
+- description 只能沿用当前权威关系状态。没有已经提交的 parent_topic_stance 时，不得写“从反对转为观望/支持”“不再反对”“态度软化”或相反方向的立场变化；关系变化必须先经过用户选择和权威状态提交。
+- 上述 selectedDecision 是本轮唯一获授权执行的分支。正文必须写它造成的现实后果，禁止执行、拼接或暗中延续同一节点里用户没有选择的其他选项。
+- 没有 relationship outcome id 时，可以描述普通社交、相亲尝试或未深入的接触，但不得让某个具体人物进入追求、深入交往、感情升温、正式交往、共同生活或婚姻；这些变化只能由对应爱情事件及用户接受的 outcome 提交。
+- narrativeMeta 必须返回 recoveryState、recoveryEvidence、arcSignals、worldDeltas、relationshipProposals、activeCharacters、primaryActivity、storyEpisode。
+- 爱情人物素材只放入 activeCharacters；新爱情候选必须使用 candidateOrdinal=0。爱情状态 Proposal 由代码根据事件和用户实际选择确定性派生，模型不得返回 person_introduction、romantic_transition、candidateKey、人物 id 或关系 id。
+- 权威 relationship stage 是唯一关系事实。普通事业、家庭、健康或生活节点不得把专业联系人写成爱情对象，也不得让选项现在或未来必然执行正式交往、同居、领证、结婚或婚礼；只能讨论、评估或考虑是否推进。只有当前爱情 lifecycle 事件列出的 allowedOutcomes 才能改变 stage。
+- 如果权威 stage 是 acquaintance/exploring，不得写成现任伴侣或正式交往；如果 stage 是 dating，不得写成共同生活、婚后、妻子或丈夫。不得因为时间流逝或此前计划自动视为已经同居或结婚。
+- relationshipProposals 仅用于需要语义判断的家庭候选事实；没有明确的家庭关系变化时返回空数组。
+- 只有当某个选项明确让父亲、母亲或父母进入后续生活时，才可为该选项返回 family_activation；sourceOutcomeId 必须等于该选项 eventOutcomeId，evidence 必须逐字摘自正文或该选项。正文单独提到父母、未被选择的选项、模型补写的家庭背景都不能激活父母线。
+- parent_topic_stance 只能记录正文已经发生的具体回应，并绑定对应 outcome；担忧但尊重决定必须写 concerned_but_respectful，不能写 opposed。一次担忧不能推出“一贯保守”，一次争吵不能推出“控制型家庭”，经济上无法帮助不能推出情感不支持。
+- arcSignals 只能提出“发生了什么”及 evidence，禁止返回 nextPhaseId、nextPressureArcStatus、foregroundPressureArcId 或修改 checkpointCount。
+
+【职业与财务权威边界】
+- 只有主角在本阶段已经明确入职、离职、创业、停工休养或退休时，career_state worldDelta 才能增加 employmentTransition；必须返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、正文原句 evidence 和 confidence。sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时不得返回 employmentTransition。
+- 已接受选择明确写有“辞职”“离职”“开始创业”或“全职创业”时，本轮必须提交 employmentTransition；辞职创业的 toStatus 使用 self_employed，不能只在正文写成已完成。
+- 其他人物上学、退休、工作，或主角参加课程、考虑辞职、计划创业，都不能产生 employmentTransition。没有明确转换时保持当前就业状态。
+- financialEventProposals 必须放在返回 JSON 顶层；没有已经发生的财务变化时返回空数组，不得重复返回全部现有余额。
+- financialNarrativeClaims 必须放在返回 JSON 顶层。每个 financialEventProposal 至少返回一项 Claim：{ "id": "唯一 id", "proposalId": "对应 Proposal.id", "kind": "与 Proposal.kind 完全一致", "surfaceText": "逐字复制 descriptionParagraphs 中宣告该财务事实已经发生的完整句子" }。同一 Proposal 若在多句中宣告到账、生效或由此带来的现金流结果，必须逐句绑定；计划、申请中或未成功的句子不得作为完成事实 Claim。没有 Proposal 时返回空数组。
+- Claim 是财务叙事事实的封闭契约：不得在未绑定 Claim 的正文或选项里另写个人收入到账、借款到账、还债完成、重组生效、资产成交、家庭资金到账、股权/期权取得等已完成事实。
+- 每项 Proposal 必须包含 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence、financialScope。financialScope 只能是 personal 或 business_operating；sourceOutcomeId 必须等于上方已接受 outcome id；没有该 id 时返回空数组。
+- evidence 必须摘自 description 中已经发生的事实句；系统会做标点、空白和金额锚定匹配。confidence 在 0.8-1 时按明确事实提交，0.6-0.8 时按 estimated 提交；低于 0.6、候选选项、计划和意向不能提交。
+- 持续收入或支出分别使用 income_source_started/adjusted/paused/ended 与 expense_commitment_started/adjusted/ended；一次性收支使用 one_off_income_received/one_off_expense_paid。
+- 这是主人公个人账本：公司营收、SaaS 年费、客户回款，以及公益中心/基金会/协会收到的资助、拨款、赞助和项目款，一律不得写入个人 incomeSources；团队或机构的员工工资、会计薪酬、仓库/场地租金、服务器和运营成本一律不得写入个人 expenseCommitments。主人公实际领取的税后工资、自雇提款、个人顾问费或已经分配到账的分红才可作为个人收入。
+- description 若明确写出主人公已经生效的月薪或年薪，必须提交与该金额匹配的职业收入 started/adjusted；即使同一段还写了机构资助、公司营收或团队成本，也不能用这些组织金额代替主人公薪酬。
+- 伴侣、父母、子女、同事和其他人物的工资、顾问费、分红或经营收入不属于主人公个人账本；不得为其创建 incomeSources，也不得把其绑定到主人公 CareerState。只有正文明确写出该人物把钱转给主人公时，才可使用 family_support_received 记录实际到账金额。
+- basic_living 或 housing 基线已经存在时必须引用账本 ID 使用 expense_commitment_adjusted；不得再 started 一个“基本生活与房贷”等混合义务造成重复计提。照护、医疗和保险可以按不同责任分别建账。房贷本金与利息由 debt repayment policy 结算，不能再次混入 basic_living。
+- 新工作工资不得与账本摘要里的旧职业收入叠加：同一职业内薪资变化优先用 income_source_adjusted；换工作必须同时提交旧职业收入的 income_source_ended 和带 linkedCareerStateId 的新 income_source_started。职业、组织或岗位改变时，即使 employmentStatus 仍为 employed，也要提交新的 employmentTransition。
+- 主角亲自经营所得的个人可支配收入必须使用 type="self_employment_draw" 并关联新 CareerState；不得把公司营业收入或创业者个人收入写成 type="other"。辞职创业时必须原子提交旧工资结束、self_employed 转换和新 self_employment_draw（正文未确认个人收入时可不启动新收入）。
+- 正文必须严格区分月薪和年薪：年薪 22 万不得写成月薪 22 万；Proposal 的 monthlyNetAmountWan 与正文月薪必须相同，annualNetAmountWan 与正文年薪必须相同。
+- 借款、还本、利息、资产购买、资产出售和重估必须使用各自有方向的事件；不得返回债务净变化、资产净变化或最终余额。
+- 主角首次以个人现金创办/出资公司时使用 business_holding_started，同时创建个人持股并等额扣减个人现金；公司融资只能用 business_financing_recorded，payload.personalCashReceivedWan 必须为 0；个人分红和出售持股分别使用 business_distribution_received、business_holding_sold。
+- 公司营业收入、合同额、员工工资、销售提成、服务器和公司房租都属于 financialScope="business_operating"，不得用个人 income_source_*、expense_commitment_* 或 one_off_* 入账。主角实际领取的税后工资、业主提款、已到账分红属于 financialScope="personal"，分别使用 salary、self_employment_draw、business_distribution_received。
+- 新获得或首次确认创始人/合伙人股权时先用 business_holding_started 创建 equity holding；公司融资只能用 business_financing_recorded，payload.personalCashReceivedWan 必须为 0；个人分红和出售持股分别使用 business_distribution_received、business_holding_sold。融资额、公司估值和期权名义金额都不得直接当作个人财富。
+- “接受干股”“成为联合创始人/合伙人”“新的股权结构中你占X%”都属于主人公个人权益事实，必须提交 business_holding_started；即使估值未知，也要创建 personalCarryingValueWan=0、factStatus=needs_review 的 equity holding，不能只提交主人公对公司的补贴或工资变化。
+- 期权必须走生命周期事件：授予 business_option_granted、归属 business_option_vested、可靠估值 business_option_revalued、行权 business_option_exercised、到期/取消 business_option_expired/cancelled。未归属期权只记录权利、personalCarryingValueWan=0；已归属期权只有同时具备公允单价、行权价和折扣时才计入财富。
+- employmentStatus 不属于财务 Proposal，只能通过 career_state.employmentTransition 提交。
+- 所有金额单位都是万元，例如 500 元=0.05 万元；不要返回 incomeMonths、netWorthWan、netWorthChangeWan、financialChange 或自行计算 wealth。
+- 学生阶段的估算基础生活费已有家庭基本支持对冲；不得仅因正常上学生活费提交个人负债。只有正文明确出现助学贷款、分期、信用卡或个人借款时才提交 debt_drawn。
+- 不要返回 netWorthWan、netWorthChangeWan 或自行计算 wealth；这些值由代码根据财务变化统一计算。
+- 收入、支出和资产变化必须与 descriptionParagraphs 正文一致；借款、还本金和购买资产不得重复当作净财富损益。
+- 严格按 title、descriptionParagraphs、其余字段的顺序输出，便于逐段呈现；不要重复返回 description 字符串。
+- 返回 title、descriptionParagraphs、age、ageInMonths、stage、choices、attributes、financialEventProposals、financialNarrativeClaims、isEndingNode、narrativeMeta。
+
+【高频事件补充示例】
+- 薪资调整：{ "kind": "income_source_adjusted", "payload": { "incomeSourceId": "必须从账本摘要选择", "nextSource": { "id": "与 incomeSourceId 完全相同", "type": "salary", "monthlyNetAmountWan": 4.8, "accrualPolicy": "monthly", "activeFromAgeInMonths": "与本轮动态时间一致", "status": "active", "factStatus": "estimated", "evidence": [] } } }
+- 新借款必须使用完整的现金平衡结构，不能把贷款账户字段直接平铺在 payload：
+  { "kind": "debt_drawn", "payload": { "debtAccount": { "id": "debt_current_node", "type": "family_or_personal_loan", "displayName": "个人借款", "principalWan": 20, "openedAtAgeInMonths": "与本轮动态时间一致", "status": "active", "repaymentPolicy": { "mode": "known_schedule", "annualInterestRate": 0.06, "monthlyPaymentWan": 0.6083, "remainingTermMonths": 36 }, "factStatus": "estimated", "origin": "explicit", "accruedUnpaidInterestWan": 0, "servicingStatus": "current", "consecutiveMissedPaymentMonths": 0, "totalMissedPaymentMonths": 0, "recentMissedPaymentAgeInMonths": [], "evidence": [] }, "destinationCashAccountId": "必须从账本摘要选择现金账户 id", "principalDrawnWan": 20 } }
+- debtAccount.principalWan 必须严格等于 principalDrawnWan；借款到账只增加现金和债务，不直接增加净资产。
+- 只要返回 debt_drawn，description 必须包含一整句可逐字引用的完成事实，例如“银行已将20万元贷款全额放入你的现金账户。”；Proposal.evidence 必须逐字复制该句。仅写“申请贷款后”、月供或未来计划不足以证明已经放款。
+- 主角首次用个人现金创办公司或取得创始人持股时提交：{ "id": "start_business_current_node", "kind": "business_holding_started", "payload": { "sourceCashAccountId": "必须从账本摘要选择现金账户 id", "businessHolding": { "id": "holding_current_node", "business": { "id": "business_current_node", "displayName": "正文中的公司名", "status": "operating", "factStatus": "known", "evidence": [] }, "ownershipRate": 1, "attributableValueWan": 10, "liquidityDiscountRate": 0, "personalCarryingValueWan": 10, "status": "active", "factStatus": "known", "evidence": [] }, "personalCashInvestedWan": 10 }, "financialScope": "personal" }。personalCarryingValueWan 必须等于 personalCashInvestedWan；公司后续房租、员工工资和营业收入不进入个人账本。
+- 房贷借入：debt_drawn 创建 mortgage 债务并把本金转入现金账户；买房另用 asset_purchased，并通过 linkedDebtDrawEventId 引用该借款 Proposal id。还本金只用 debt_principal_repaid，不能写债务净变化。
+- 迟到事实：若正文只是本轮首次说明主人公此前已经拥有房产或尚有房贷，而不是本轮发生购买/借款，分别使用 asset_balance_discovered 和 debt_balance_discovered。payload 只包含完整 assetAccount 或 debtAccount；它们修正期初事实，不得增减本期现金，也不得伪装成本期收益。
+- 持股估值：只有融资额而没有可靠估值时先提交 business_financing_recorded，personalCashReceivedWan=0；已有持股标 needs_review。只有正文同时给出估值或可验证持股价值时才提交 business_holding_revalued。
+- 期权授予：business_option_granted.payload.optionHolding 必须使用 instrumentType="stock_option"，包含 optionTerms.grantedUnits/vestedUnits/exercisedUnits/strikePriceWanPerUnit；已知固定归属表时写入 optionTerms.vestingPolicy={totalMonths,cliffMonths?,frequencyMonths?}，已知到期年龄时写入 optionTerms.expiresAtAgeInMonths。授予时 personalCarryingValueWan 必须为 0。固定归属表由账本按期间确定性结算；没有固定表时，实际归属用 business_option_vested。有可靠公允单价后用 business_option_revalued，newCarryingValueWan 只能等于“剩余已归属数量 × max(公允单价-行权价,0) × (1-流动性折扣) × (1-实现风险折扣)”。
+- 归属期或“分四年归属”不是期权到期日。正文没有明确“到期/有效期/失效年龄”时严禁填写 expiresAtAgeInMonths，也不能把 vestingPolicy.totalMonths 换算成到期年龄。
+- 期权行权：business_option_exercised 必须引用账本中的期权 holding 和现金账户，exerciseCostWan=行权数量×行权单价，并创建同一公司的 resultingEquityHolding；不得只增加股权而不扣行权现金。
+
+【债务叙事事实边界】
+- 受限摘要没有提供连续拖欠月数时，description 不得自行写“连续 N 个月逾期/拖欠”；只能写“近期”或“持续”。
+- 只有 debt account status=defaulted 或权威事实明确记录正式违约时，才能写已经启动催收升级、诉讼、强制处置、公开失信等后果。default_risk 只能描述风险、通知或协商压力，不能把风险写成已经发生的正式处置。
+
+【属性变化规则】
+- attributes 必须由上一步选择和本轮现实后果共同决定，不要只因为选项名称或事件类别机械扣分。
+- 属性变化幅度要写实克制，通常每项单轮变化控制在 -12 到 +12。
+- 健康由睡眠、持续负荷、运动、医疗、生活环境和恢复条件共同决定；不得仅因为人物处于事业线、收入增加或继续工作就自动降低健康，也不得仅因为停止工作就自动增加健康。
+- recoveryState=protected 表示有明确恢复条件，例如睡眠改善、调整工时、委派任务、规律运动、治疗或稳定支持；继续工作也可以是 protected。
+- recoveryState=neutral 表示没有持续透支或明显恢复的充分证据，健康通常保持稳定或小幅波动。
+- recoveryState=depleted 必须有持续熬夜、症状加重、长期超负荷或无视医疗建议等明确证据；不得仅凭职业或事件类别判断。
+
+${NEXT_NODE_EVENT_POLICY_CATALOG_V1}
+
+${NEXT_NODE_FINANCIAL_PROPOSAL_EXAMPLES_V1}`;
+
+export interface NextNodePromptLayout {
+  prefixVersion: typeof NEXT_NODE_INVARIANT_PREFIX_VERSION | typeof NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION;
+  invariantPrefix: string;
+  sessionContext: string;
+  turnContext: string;
+  tailChecklist: string;
+  text: string;
+}
+
+export interface NextNodePromptOptions {
+  cacheAwarePromptV1?: boolean;
+  /** Candidate V2: preserve facts while eliminating duplicate dynamic copies. */
+  cacheAwarePromptV2?: boolean;
+}
+
+/**
+ * V2 references the authoritative recent-history section instead of repeating
+ * Story Context's copy. Do not make that substitution unless both sources
+ * describe the same five nodes; callers outside SimulationService may supply
+ * a stale context pack.
+ */
+function canUseReferenceStoryContext(storyContext: StoryContextPack | undefined, history: HistoryItem[]): boolean {
+  if (!storyContext) return false;
+  const expected = history.slice(-5);
+  const supplied = storyContext.recentHistory;
+  return supplied.length === expected.length && supplied.every((item, index) => {
+    const counterpart = expected[index];
+    return item.age === counterpart.age
+      && item.ageInMonths === counterpart.ageInMonths
+      && item.title === counterpart.title
+      && item.description === counterpart.description
+      && item.selectedChoice === counterpart.selectedChoice;
+  });
+}
+
+function buildNextNodePromptV1(
+  input: NextNodePromptInput,
+  options: { referenceContext?: boolean } = {}
+): NextNodePromptLayout {
+  const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, currentDebtHealthState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc, pressureArcInterleaved } = input;
+  const referenceContext = options.referenceContext === true && canUseReferenceStoryContext(storyContext, history);
+  const lastNode = history[history.length - 1];
+  const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
+  const selectedOutcomeId = input.selectedOutcomeId;
+  const eventSeedPrompt = eventSeed
+    ? buildCacheAwareEventIntentTail(eventSeed, storyContext, { referenceContext })
+    : buildCacheAwareNullEventTail(storyContext, { referenceContext });
+  const targetAgeInMonths = timelineAdvance?.targetAgeInMonths ?? (lastAge + 1) * 12;
+  const elapsedMonths = timelineAdvance?.elapsedMonths ?? 12;
+  const ageContextPrompt = ageContext ? formatAgeContextForPrompt(ageContext) : `【当前年龄与世界状态】\n- 目标时间：${Math.floor(targetAgeInMonths / 12)}岁`;
+  const peoplePrompt = worldState?.people.length
+    ? worldState.people.map(formatPersonStateForPrompt).map((item) => `- ${item}`).join("\n")
+    : "- 暂无结构化人物状态";
+  const relationshipPrompt = worldState?.relationships?.length
+    ? worldState.relationships.map((relationship) => {
+        const people = relationship.participantPersonIds.map((personId) => worldState.people.find((person) => person.id === personId));
+        const identities = people.map((person) => `${person?.displayName || person?.relation || "人物"}(personId=${person?.id || "unknown"}, candidateKey=${person?.identityKey?.namespace === "accepted_character" ? person.identityKey.key : "n/a"})`).join("、");
+        const progression = relationship.progression
+          ? `，checkpoint=${relationship.progression.checkpointKind}，policy=${relationship.progression.policyId}，reviewCount=${relationship.progression.reviewCount}，eligibleAt=${relationship.progression.eligibleAtAgeInMonths}，dueAt=${relationship.progression.dueAtAgeInMonths}，maxAt=${relationship.progression.maxAtAgeInMonths}`
+          : "";
+        const timing = formatRelationshipTimingForPrompt(relationship, targetAgeInMonths);
+        return `- relationshipId=${relationship.id}，type=${relationship.type}，stage=${relationship.stage || "unknown"}，status=${relationship.status}${timing}${progression}，人物=${identities}`;
+      }).join("\n")
+    : "- 暂无权威关系状态";
+  const familyRelationshipPrompt = worldState?.familyRelationships?.length
+    ? worldState.familyRelationships.map((relationship) => {
+        const person = relationship.participantPersonId
+          ? worldState.people.find((candidate) => candidate.id === relationship.participantPersonId)
+          : undefined;
+        const stances = relationship.topicStances.length
+          ? relationship.topicStances.map((stance) => (
+              `${stance.topic}=${stance.stance}${stance.reasons.length ? `（${stance.reasons.join("；")}）` : ""}`
+            )).join("；")
+          : "暂无已接受的具体议题立场";
+        return `- familyRelationshipId=${relationship.id}，role=${relationship.role}，人物=${person?.displayName || "未具名父母"}，activation=${relationship.activation}，contact=${relationship.contact}，emotionalSupport=${relationship.emotionalSupport}，practicalSupport=${relationship.practicalSupport}，autonomyRespect=${relationship.autonomyRespect}，conflictIntensity=${relationship.conflictIntensity}，topicStances=${stances}`;
+      }).join("\n")
+    : "- 暂无权威家庭关系状态；不得根据一般家庭想象补写父母立场或压力";
+  const pressurePrompt = foregroundPressureArc && pressureArcInterleaved
+    ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点是为避免关系 checkpoint 饥饿或越过硬截止而插入 PressureArc 的关系 checkpoint：压力主线只作为背景保留，不得推进、解决或切换 phase；arcSignals 必须返回空数组。`
+    : foregroundPressureArc
+    ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点事件只提供场景，不得替换这条压力主线；模型不得修改 PressureArc 的 id、eventId、phase 或 status，只能返回 arcSignals。`
+    : "当前没有前台 PressureArc；事件只能提出事实结果，不能自行创建或修改 Arc 状态。";
+  const pressureResolutionRule = !pressureArcInterleaved && foregroundPressureArc?.phaseId === "operation"
+    ? `\n【当前阶段收束要求】\n- 本节点必须写清当前阶段压力最终形成了什么结果。\n- arcSignals 必须返回 pressure_resolved。\n- evidence 必须是正文中直接描述该结果的原句。\n- pressureArcId 必须为 ${foregroundPressureArc.id}。\n- 这里只表示阶段压力解决，不表示 DirectionArc 或长期人生方向完成。`
+    : "";
+  const healthPhaseRule = !pressureArcInterleaved && foregroundPressureArc?.phasePolicyId === "health_crisis_v1"
+    ? foregroundPressureArc.phaseId === "trigger"
+      ? `\n【健康危机触发阶段】\n- 本节点写清身体或心理状态为什么迫使原生活节奏发生中断。\n- 不把继续人生方向等同于维持原有负荷。\n- 选择必须包含调整执行方式的中间路径。\n- 这是本次健康 Arc 唯一允许使用“停摆、住院、被迫暂停”等急性危机表达的节点。`
+      : foregroundPressureArc.phaseId === "recovery"
+        ? `\n【健康恢复与观察阶段】\n- 延续同一次健康压力，但不得再次制造新的停摆、住院或突发恶化来重复 trigger。\n- 重点写治疗、睡眠、工时、任务委派、运动、照护支持或生活结构调整是否真正建立。\n- protected 只表示恢复条件成立，不表示已经治愈。\n- 允许继续原有人生方向，但必须说明执行方式如何改变。\n- 若恢复条件已经建立，可返回 pressure_addressed 或 stability_reached；evidence 必须是正文原句。`
+        : foregroundPressureArc.phaseId === "operation"
+          ? `\n【健康压力阶段结果】\n- 本节点必须写清这次健康压力最终形成了什么阶段结果。\n- 结果可以是恢复、长期管理、带病调整、接受边界或治疗效果有限。\n- 不得把阶段结果写成完全治愈，也不得把 PressureArc resolve 写成人生完成。\n- arcSignals 必须返回 pressure_resolved。\n- pressureArcId 必须与当前前台 PressureArc 一致。\n- evidence 必须是正文中直接描述结果的完整原句。\n- 本节点不得引入另一项需要长期跟进的重大危机。`
+          : ""
+    : "";
+
+  const stableStoryContext = referenceContext && storyContext
+    ? `\n\n${formatCacheAwareStoryContextStablePrefix(storyContext)}`
+    : "";
+  const sessionContext = `【用户改写起点与真实背景图谱】
+- 性别：${userData.gender}
+- 本次重置宿命起点：${userData.regressionAge || 20} 岁
+- 当时面临的现实困顿：“${userData.regressionSituation || "暂无描述"}”
+- 渴望尝试的平行方向/分支选择：“${userData.regressionChoices || "暂无描述"}”
+- 核心关注主线：${focusLabel(userData.coreStoryFocus)}
+
+【3道剧本背景补全问题得到的真实材料】
+${formatAnswerTurns(answers, { question: "背景补全问题", answer: "用户补充的当时真实信息" }) || "暂无描述"}${stableStoryContext}`;
+
+  const turnContext = `【平行宇宙既往旅程】
+${formatHistoryForSimulation(history) || "无更早经历"}
+
+【当前精神五维能量值】
+- 幸福：${currentAttributes.happiness} | 才智：${currentAttributes.intelligence} | 财富：${currentAttributes.wealth} | 人际：${currentAttributes.relation} | 健康：${currentAttributes.health}
+
+【当前财务快照，单位：万元，按当前购买力】
+- ${formatFinancialStateForPrompt(currentFinancialState)}
+
+【当前权威账本受限摘要】
+${formatRestrictedFinancialLedger(currentFinancialLedger)}
+
+【当前债务健康受限摘要】
+${formatRestrictedDebtHealth(currentDebtHealthState, currentFinancialLedger)}
+
+【债务叙事权威契约】
+${formatDebtNarrativeAuthorityForPrompt(currentFinancialLedger, currentDebtHealthState)}
+- canonicalFacts 是代码拥有的事实句，不得改写其数字、时间顺序或完成状态。
+- 机构行为只能从 permittedInstitutionActions 中选择；未列出的同义表达也不允许。
+- 以上边界同时适用于 descriptionParagraphs、choices、storyEpisode、arcSignals evidence 与 financialEventProposals evidence。
+${currentDebtHealthState?.level === "default_risk" && !currentFinancialLedger?.debtAccounts.some((account) => account.status === "defaulted")
+  ? "- 当前是 default_risk 但没有正式 default：银行侧只能使用‘普通还款提醒’、‘要求补充材料’、‘邀请或受理协商’、‘内部贷后沟通’这四类表述；不得出现催收电话、催收部门、法务、起诉、上报征信、征信受损、强制处置或宽限期已失效。"
+  : ""}
+${(currentDebtHealthState?.consecutiveMissedPaymentMonths ?? 0) > 0
+  ? `- 期初权威账本已经连续未足额偿付 ${currentDebtHealthState!.consecutiveMissedPaymentMonths} 个月；本轮只能写“拖欠仍在持续”或使用权威数字，绝不能写成第一次、首次或刚开始逾期。`
+  : ""}
+
+${ageContextPrompt}
+
+【当前人物状态】
+${peoplePrompt}
+
+【当前权威关系状态】
+${relationshipPrompt}
+
+【当前权威家庭关系状态】
+${familyRelationshipPrompt}
+
+【PressureArc 单写者边界】
+${pressurePrompt}
+${pressureResolutionRule}
+${healthPhaseRule}
+
+【上一步做出的命运裁决】
+用户在刚才的十字路口选择了：【${selectedDecision}】
+${selectedOutcomeId ? `该选择对应的已接受 outcome id：【${selectedOutcomeId}】` : "该选择没有结构化 outcome id；不得凭空提交就业状态转换。"}
+${eventSeedPrompt}
+
+【本次推演动态约束】
+- 目标时间由代码确定为 ageInMonths=${targetAgeInMonths}，本轮经过 ${elapsedMonths} 个月；不要自行跳年。
+- 本轮 LifeIntensity=${timelineAdvance?.lifeIntensity || "normal"}，由 PressureArc 当前 phase 或新事件首阶段决定。
+${targetAgeInMonths >= 55 * 12 ? "- 主角已满 55 岁：如果 description 明确写出已经退休、离职或停止工作，必须同时提交 employmentTransition，以及结束或暂停账本摘要中 linkedCareerStateId 对应当前职业的工资收入；租金、版税、年金等非职业收入不得结束。" : ""}
+${targetAgeInMonths >= 80 * 12 ? "- 主角已满 80 岁：本节点不得继续沿用 employed。若仍持续独立创作、顾问或经营，应提交到 self_employed 的 employmentTransition 并迁移职业收入；否则必须提交 retired 或 not_working，并结束 linkedCareerStateId 对应工资。非职业收入继续保留。" : ""}
+${formatMissingCareerIncomeRule(currentFinancialLedger, currentFinancialState?.employmentStatus)}
+${formatFinancialCompletenessRules(currentFinancialLedger, targetAgeInMonths)}
+${referenceContext ? `
+【V2 内容完整性边界】
+- attributes 是本节点结束时的五维绝对总值，不是本轮变化量；幸福、才智、财富、人际、健康均须为 0-100 的有限数值。除财富由账本统一计算外，其余属性相对上轮通常不得超过 ±12。
+- 对 status=ended 的权威爱情关系，正文若写“分开/分手 N 年（个月）”，必须与该关系的 statusEffectiveFromAgeInMonths 和 statusToTargetElapsedMonths 相符；relationshipOriginAgeInMonths 只是关系开始时间，不能当作分手时间。没有可核对的状态生效时间时不要编造精确相对时长。` : ""}
+
+【固定 Proposal JSON 示例的本轮参数】
+- TARGET_AGE_IN_MONTHS=${targetAgeInMonths}
+- ACCEPTED_OUTCOME_ID_OR_NULL=${selectedOutcomeId ? `"${selectedOutcomeId}"` : "null"}
+- 固定示例中的占位符只能替换为以上本轮参数；正文没有发生对应事实时仍返回 []。
+
+`;
+
+  const tailChecklist = `【输出前检查】
+- 本轮选择、历史与所有权威状态必须一致；只提交已发生且有证据的事实。
+- 返回合法 JSON，不要解释，不要 Markdown。`;
+  return {
+    prefixVersion: referenceContext
+      ? NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION
+      : NEXT_NODE_INVARIANT_PREFIX_VERSION,
+    invariantPrefix: NEXT_NODE_INVARIANT_PREFIX_V1,
+    sessionContext,
+    turnContext,
+    tailChecklist,
+    text: [NEXT_NODE_INVARIANT_PREFIX_V1, sessionContext, turnContext, tailChecklist].join("\n\n")
+  };
+}
+
+export function buildNextNodePromptLayout(input: NextNodePromptInput, options: NextNodePromptOptions = {}): NextNodePromptLayout {
+  return buildNextNodePromptV1(input, { referenceContext: options.cacheAwarePromptV2 === true });
+}
+
+export function buildNextNodePrompt(input: NextNodePromptInput, options: NextNodePromptOptions = {}): string {
+  return options.cacheAwarePromptV1 === false
+    ? buildNextNodePromptLegacy(input)
+    : buildNextNodePromptV1(input, { referenceContext: options.cacheAwarePromptV2 === true }).text;
+}
+
+export function buildNextNodePromptRequestFromLayout(layout: NextNodePromptLayout): AiPromptInput {
+  return {
+    systemPrefix: [layout.invariantPrefix, layout.sessionContext].join("\n\n"),
+    userPrompt: [layout.turnContext, layout.tailChecklist].join("\n\n")
+  };
+}
+
+/**
+ * V1 preserves its historical flattened prompt exactly. Opt-in V2 transports
+ * stable user facts into the system segment and leaves authoritative history
+ * and current state intact in the user segment, replacing only redundant
+ * dynamic copies with explicit references.
+ */
+export function buildNextNodePromptRequest(
+  input: NextNodePromptInput,
+  options: NextNodePromptOptions = {}
+): AiPromptInput {
+  if (options.cacheAwarePromptV1 === false) return buildNextNodePromptLegacy(input);
+  const layout = buildNextNodePromptV1(input, { referenceContext: options.cacheAwarePromptV2 === true });
+  return buildNextNodePromptRequestFromLayout(layout);
 }
 
 export function formatRestrictedFinancialLedger(ledger?: FinancialLedger): string {

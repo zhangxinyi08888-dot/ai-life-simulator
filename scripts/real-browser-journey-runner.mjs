@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { promisify } from "node:util";
+import { summarizeCacheUsage } from "./lib/cache-usage-telemetry.mjs";
 
 export const FINAL_IMAGE_VIEWPORT = Object.freeze({ width: 1280, height: 900 });
 
@@ -143,6 +144,30 @@ export function validateJourneyInvitationIsolation({ identity, trace, finalState
     }
   }
   return issues;
+}
+
+const GENERIC_TEMPLATE_BODY_PATTERN = /第\s*\d+\s*个阶段带来了新的现实反馈/;
+
+/**
+ * Validate an intentionally bounded real-browser sample without claiming that
+ * it reached a report or a physiological ending. The resulting record can be
+ * admitted to blind review only through the explicit short-sample option.
+ */
+export function validateShortSampleState({ finalState, targetSelectedNodeCount }) {
+  const history = finalState?.history || [];
+  const validTarget = Number.isInteger(targetSelectedNodeCount) && targetSelectedNodeCount > 0;
+  return {
+    realAiBrowserSource: finalState?.testDataSource === "real_ai_browser" && !finalState?.e2eCase,
+    selectedNodeCountMatchesTarget: validTarget && history.length === targetSelectedNodeCount,
+    allStoryBodiesPresent: history.every((item) => typeof item.description === "string" && item.description.trim().length > 0),
+    noDeterministicTemplateBodies: history.every((item) => !GENERIC_TEMPLATE_BODY_PATTERN.test(item.description || "")),
+    allDisplayedChoicesPreserved: history.every((item) => Array.isArray(item.choices) && item.choices.length > 0),
+    allUserChoicesPreserved: history.every((item) => typeof item.selectedChoice === "string" && item.selectedChoice.length > 0),
+    allAttributesPreserved: history.every((item) => item.attributes && ["happiness", "intelligence", "wealth", "relation", "health"].every((key) => Number.isFinite(item.attributes[key]))),
+    allFinancialStatesPreserved: history.every((item) => item.financialState && Number.isFinite(item.financialState.netWorthWan)),
+    noPendingReportInvitation: finalState?.currentNode?.reportInvitation?.status !== "pending",
+    remainsNonTerminalSimulation: finalState?.step === "simulating" && !finalState?.currentNode?.isEndingNode
+  };
 }
 
 function chooseId(state, strategy, offset = 0) {
@@ -418,7 +443,11 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       await branch.fill(config.branches[index]);
     }
     await clickRole("button", "确认，从这里开始");
-    const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length === 3, "real AI background questions", 120000);
+    // The visible SoulQuestioning flow always collects three answers, while
+    // current main may retain extra generated suggestions in test state.
+    // Wait for the UI's three required questions instead of requiring the
+    // recorded array to be exactly three items.
+    const questioning = await waitForState((state) => state.step === "questioning" && state.questions?.length >= 3, "real AI background questions", 120000);
     appendTrace({ type: "questions_generated", questions: questioning.questions, at: now() });
     await persist(questioning);
     await tab.playwright.waitForTimeout(300);
@@ -686,12 +715,11 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     const expectedInvitations = [firstInvitation, secondInvitation, ...extraInvitations].filter(Boolean);
     const invitationIsolationIssues = validateJourneyInvitationIsolation({ identity, trace, finalState, expectedInvitations });
     const expectedClosure = config.scenario === "natural_lifespan" ? "mortality" : "user_reflection";
-    const genericTemplatePattern = /第\s*\d+\s*个阶段带来了新的现实反馈/;
     const validation = {
       realAiBrowserSource: finalState.testDataSource === "real_ai_browser" && !finalState.e2eCase,
       completeWebHistory: history.length > 0,
       allStoryBodiesPresent: history.every((item) => typeof item.description === "string" && item.description.trim().length > 0),
-      noDeterministicTemplateBodies: history.every((item) => !genericTemplatePattern.test(item.description || "")),
+      noDeterministicTemplateBodies: history.every((item) => !GENERIC_TEMPLATE_BODY_PATTERN.test(item.description || "")),
       allDisplayedChoicesPreserved: history.every((item) => Array.isArray(item.choices) && item.choices.length > 0),
       allUserChoicesPreserved: history.every((item) => typeof item.selectedChoice === "string" && item.selectedChoice.length > 0),
       allAttributesPreserved: history.every((item) => item.attributes && ["happiness", "intelligence", "wealth", "relation", "health"].every((key) => Number.isFinite(item.attributes[key]))),
@@ -723,6 +751,9 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       passed: Object.values(validation).every(Boolean),
       finalState
     };
+    // Keep a request-classified, prompt-free summary beside the raw state so
+    // the browser evidence remains inspectable even before aggregate analysis.
+    record.cacheTelemetry = summarizeCacheUsage([record]);
     await writeFile(casePath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
     return {
       path: casePath,
@@ -735,6 +766,51 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
         secondAt: secondInvitation?.completedChoiceCount,
         closureType: finalState.outcome?.meta?.closureType,
         passed: record.passed,
+        validation
+      }
+    };
+  }
+
+  async function completeShortSample(finalState, { targetSelectedNodeCount }) {
+    const history = finalState?.history || [];
+    const validation = validateShortSampleState({ finalState, targetSelectedNodeCount });
+    const validationPassed = Object.values(validation).every(Boolean);
+    const record = {
+      schemaVersion: 2,
+      runId: path.basename(recordRoot),
+      journeyId: identity.journeyId,
+      identity,
+      dataSource: "real_ai_browser",
+      caseSlug: config.slug,
+      scenario: config.scenario,
+      config,
+      startedAt: trace[0]?.at,
+      completedAt: now(),
+      complete: false,
+      shortSample: {
+        complete: true,
+        targetSelectedNodeCount,
+        acceptedHistoryCount: history.length,
+        validationPassed
+      },
+      interactionLog: trace,
+      validation,
+      // `passed` belongs only to a complete ending-route run. Short samples
+      // have their own explicit validation and must never be upgraded to a
+      // release-level route pass.
+      passed: false,
+      finalState
+    };
+    record.cacheTelemetry = summarizeCacheUsage([record]);
+    await writeFile(casePath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
+    return {
+      path: casePath,
+      summary: {
+        slug: config.slug,
+        scenario: config.scenario,
+        historyLength: history.length,
+        targetSelectedNodeCount,
+        validationPassed,
         validation
       }
     };
@@ -760,6 +836,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
     openMortalityReport,
     captureFinalImages,
     captureCheckpointImage,
-    complete
+    complete,
+    completeShortSample
   };
 }

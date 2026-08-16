@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "dataSource": "real_ai_api",
+  "startedAt": "2026-08-10T16:12:26.218Z",
+  "completedAt": "2026-08-10T16:13:02.890Z",
+  "model": "deepseek-v4-flash",
+  "layouts": [
+    {
+      "layout": "v2",
+      "samples": [
+        {
+          "callNumber": 1,
+          "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+          "usage": {
+            "promptTokens": 8440,
+            "cacheHitTokens": 8320,
+            "cacheMissTokens": 120,
+            "completionTokens": 1527,
+            "totalTokens": 9967
+          },
+          "durationMs": 11202
+        },
+        {
+          "callNumber": 2,
+          "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+          "usage": {
+            "promptTokens": 8438,
+            "cacheHitTokens": 8320,
+            "cacheMissTokens": 118,
+            "completionTokens": 1713,
+            "totalTokens": 10151
+          },
+          "durationMs": 13132
+        },
+        {
+          "callNumber": 3,
+          "promptPrefixVersion": "next_node_cache_prefix_v2_reference_context_r4",
+          "usage": {
+            "promptTokens": 8440,
+            "cacheHitTokens": 8320,
+            "cacheMissTokens": 120,
+            "completionTokens": 1624,
+            "totalTokens": 10064
+          },
+          "durationMs": 12332
+        }
+      ],
+      "summary": {
+        "callCount": 3,
+        "usageCallCount": 3,
+        "promptTokens": 25318,
+        "cacheHitTokens": 24960,
+        "cacheMissTokens": 358,
+        "completionTokens": 4864,
+        "inputCacheHitRate": 0.9858598625483845,
+        "postFirstInputCacheHitRate": 0.9858988031757318
+      }
+    }
+  ]
+}
