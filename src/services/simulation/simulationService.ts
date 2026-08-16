@@ -1019,6 +1019,24 @@ export function selectedDecisionExplicitlyRetires(decision: string): boolean {
   return /(?:办理退休(?:手续)?|正式退休|已经退休|已退休|(?:选择|决定)(?:了)?(?:正式|提前)?退休|提前退休|退休(?:了)?)(?=[，。；！？\s]|$)/u.test(decision.trim());
 }
 
+/**
+ * A selected choice can authorize a career transition, but preparatory work
+ * toward a possible move cannot.  In particular, updating a resume, speaking
+ * with recruiters, or "准备换工作" must preserve the current CareerState and
+ * income until the choice or resulting narrative records a completed move.
+ */
+export function selectedDecisionRequiresCareerTransition(decision: string): boolean {
+  const normalized = decision.trim();
+  if (!normalized) return false;
+  if (selectedDecisionExplicitlyRetires(normalized)) return true;
+  const transition = /转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业/iu;
+  if (!transition.test(normalized)) return false;
+  const preparatory = /(?:考虑|计划|准备|打算|可能|如果|若|接触[^。；]{0,12}(?:机会|猎头|公司)|寻找[^。；]{0,12}(?:机会|岗位|工作)|物色[^。；]{0,12}(?:机会|岗位|工作)|投递[^。；]{0,12}(?:简历|岗位)|更新[^。；]{0,8}简历)[^。；]{0,40}(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized);
+  const explicitlyCompleted = /(?:正式|已经|已(?:经)?|最终决定|当场|立即|直接|办理)(?:了)?[^。；]{0,12}(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized)
+    || /^(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized);
+  return !preparatory || explicitlyCompleted;
+}
+
 export function synthesizeSelectedCareerTransition(input: {
   selectedDecision?: string;
   narrativeText: string;
@@ -2812,9 +2830,8 @@ async function commitAuthoritativeFinancialProgress(input: {
   const selectedDecisionIsPendingEmployerOffer = isAcceptedEmployerRoleInvitation(selectedDecision)
     && !hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence)
     && !selectedEmployerRoleStarted;
-  const selectedDecisionRequiresCareerTransition = !selectedDecisionIsPendingEmployerOffer && (
-    selectedDecisionExplicitlyRetires(selectedDecision)
-    || /转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|开始.{0,8}创业|全职.{0,8}创业/iu.test(selectedDecision)
+  const selectedDecisionDemandsCareerTransition = !selectedDecisionIsPendingEmployerOffer && (
+    selectedDecisionRequiresCareerTransition(selectedDecision)
     || hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence)
     || selectedEmployerRoleStarted
   );
@@ -2827,7 +2844,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     ageInMonths: input.periodEndAgeInMonths
   });
   if (initialPendingOfferStartResolutionIssue) careerValidationIssues.push(initialPendingOfferStartResolutionIssue);
-  const careerTransitionRequired = selectedDecisionRequiresCareerTransition || narrativeRequiresCareerTransition({
+  const careerTransitionRequired = selectedDecisionDemandsCareerTransition || narrativeRequiresCareerTransition({
     narrativeText: input.node.description,
     currentStatus: currentCareer.employmentStatus
   });

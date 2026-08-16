@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
-import { buildDeterministicFinancialNarrativeRollback, detectNarrativeFinancialCoverageIssues, eventSpecificFallbackDefinitions, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, detectNarrativeFinancialCoverageIssues, eventSpecificFallbackDefinitions, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, selectedDecisionRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
@@ -54,6 +54,18 @@ assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你选择保持当前工作节奏，暂不考虑新的机会。",
   currentStatus: "employed"
 }), false);
+assert.equal(selectedDecisionRequiresCareerTransition(
+  "不签字也不接折中方案，提出内部仲裁，同时开始接触外部机会、更新简历，准备换工作"
+), false, "preparing a possible job change must preserve the current CareerState and salary");
+assert.equal(selectedDecisionRequiresCareerTransition(
+  "联系猎头并投递简历，考虑离职后再决定是否换工作"
+), false, "job-search activity is not a completed career transition");
+assert.equal(selectedDecisionRequiresCareerTransition(
+  "辞职创业，用半年验证三个付费客户"
+), true, "a directly selected resignation and venture start remains authoritative");
+assert.equal(selectedDecisionRequiresCareerTransition(
+  "考虑了一段时间后，最终决定正式离职"
+), true, "explicit completion must override earlier deliberation in the same choice");
 assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你辞别成都来到深圳。新公司做跨境电商SaaS，你负责前端开发。",
   currentStatus: "student"
