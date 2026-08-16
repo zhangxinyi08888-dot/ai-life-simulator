@@ -743,6 +743,137 @@ test("normalizes compact expense next payloads and drops unchanged recurring com
   assert.equal(result.audit.some((item) => item.reasonCode === "NO_OP_PROPOSAL_DROPPED"), true);
 });
 
+test("drops a lifecycle repair that only restates an existing estimate with legacy aliases", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "expense_legacy_alias_noop",
+    asOfAgeInMonths: 412
+  }));
+  currentLedger.expenseCommitments.push({
+    id: "housing_review",
+    type: "housing",
+    displayName: "婚房月供（组合贷）",
+    monthlyAmountWan: 0.55,
+    activeFromAgeInMonths: 335,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [],
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["migration:v3:housing_review"],
+    financialScope: "personal",
+    accrualReviewStatus: "review_due",
+    lastReviewedAtAgeInMonths: 385,
+    nextReviewAtAgeInMonths: 371
+  });
+
+  const result = normalizeRepairedFinancialProposals({
+    acceptedOutcomeIds: ["current_outcome"],
+    currentLedger,
+    narrativeText: "家庭账本里仍列着房贷月供、照护费用和基本生活支出。",
+    rejectedProposals: [{
+      id: "confirm_housing",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 426,
+      sourceOutcomeId: "current_outcome",
+      payload: {
+        expenseCommitmentId: "housing_review",
+        nextCommitment: structuredClone(currentLedger.expenseCommitments.at(-1)!)
+      },
+      evidence: "家庭账本里仍列着房贷月供、照护费用和基本生活支出。",
+      confidence: 0.85,
+      financialScope: "personal"
+    }],
+    proposals: [{
+      id: "confirm_housing",
+      sourceOutcomeId: "stale_outcome",
+      payload: {
+        expenseCommitmentId: "housing_review",
+        nextCommitment: {
+          type: "mortgage_payment",
+          monthlyAmountWan: 0.55,
+          factStatus: "confirmed"
+        }
+      }
+    }]
+  });
+
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_FACT_STATUS_NORMALIZED" && item.normalizedValue === "estimated"), true);
+  assert.equal(result.audit.some((item) => item.reasonCode === "REPAIR_SOURCE_OUTCOME_REBASED" && item.normalizedValue === "current_outcome"), true);
+  assert.equal(result.audit.some((item) => item.reasonCode === "NO_OP_PROPOSAL_DROPPED"), true);
+
+  const initialCandidate = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["current_outcome"],
+    currentLedger,
+    proposals: [{
+      id: "confirm_housing_initial",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 426,
+      sourceOutcomeId: "current_outcome",
+      payload: {
+        expenseCommitmentId: "housing_review",
+        nextCommitment: {
+          ...structuredClone(currentLedger.expenseCommitments.at(-1)!),
+          type: "mortgage_payment"
+        }
+      },
+      evidence: "家庭账本里仍列着房贷月供、照护费用和基本生活支出。",
+      confidence: 0.85,
+      financialScope: "personal"
+    }]
+  });
+  assert.equal(initialCandidate.proposals.length, 0);
+  assert.equal(initialCandidate.audit.some((item) => item.reasonCode === "NO_OP_PROPOSAL_DROPPED"), true);
+});
+
+test("does not let a confirmed alias upgrade an expense estimate even when the amount is repeated", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "expense_exact_confirmation",
+    asOfAgeInMonths: 412
+  }));
+  currentLedger.expenseCommitments.push({
+    id: "elder_care_review",
+    type: "dependent_support",
+    displayName: "父母照护与医疗辅助",
+    monthlyAmountWan: 0.2,
+    activeFromAgeInMonths: 335,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [],
+    responsibilityKey: "elder_care:parents",
+    responsibilityKind: "elder_care",
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["migration:v3:elder_care_review"],
+    financialScope: "personal",
+    accrualReviewStatus: "review_due",
+    lastReviewedAtAgeInMonths: 385,
+    nextReviewAtAgeInMonths: 371
+  });
+  const sentence = "你确认从个人账户每月支付2000元用于父母照护。";
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["current_outcome"],
+    currentLedger,
+    proposals: [{
+      id: "confirm_elder_care",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 426,
+      sourceOutcomeId: "current_outcome",
+      payload: {
+        expenseCommitmentId: "elder_care_review",
+        nextCommitment: { monthlyAmountWan: 0.2, factStatus: "confirmed" }
+      },
+      evidence: sentence,
+      confidence: 0.95,
+      financialScope: "personal"
+    }]
+  });
+
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_FACT_STATUS_NORMALIZED" && item.normalizedValue === "estimated"), true);
+  assert.equal(result.audit.some((item) => item.reasonCode === "NO_OP_PROPOSAL_DROPPED"), true);
+});
+
 test("preserves an explicit same-amount confirmation for a migration-only income source", () => {
   const legacyEvidence: FinancialEvidence[] = [{
     source: "legacy_migration",
@@ -1123,8 +1254,8 @@ test("preserves policy evidence when an expense adjustment omits it", () => {
   } });
   const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], currentLedger, proposals: [{
     id: "adjust_living", kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: 300,
-    payload: { expenseCommitmentId: "living_policy", nextCommitment: { monthlyAmountWan: 0.15, evidence: [] } },
-    evidence: "生活支出仍按估计处理。", confidence: 0.9
+    payload: { expenseCommitmentId: "living_policy", nextCommitment: { monthlyAmountWan: 0.2, evidence: [] } },
+    evidence: "生活支出调整为每月2000元，仍按估计处理。", confidence: 0.9
   }] });
   const next = (result.proposals[0].payload as any).nextCommitment;
   assert.equal(next.evidence[0].source, "system_policy");

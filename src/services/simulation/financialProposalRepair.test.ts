@@ -70,6 +70,9 @@ test("repair prompt supplies rejection reasons, period bounds and the unique out
   assert.match(prompt, /confidence 必须在 0.6-1 之间/);
   assert.match(prompt, /employmentTransition/);
   assert.match(prompt, /原子组/);
+  assert.match(prompt, /payload\.type 只能是 basic_living、housing、dependent_support、education、healthcare、insurance、other/u);
+  assert.match(prompt, /绝不能返回 confirmed/u);
+  assert.match(prompt, /不要为 review_due 账户返回无变化的 adjusted Proposal/u);
 });
 
 test("expense fact repair exposes only identity and missing dimensions, never the old policy amount", () => {

@@ -11,6 +11,7 @@ export interface FinancialProposalNormalizationAudit {
     | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED" | "LEGACY_INCOME_RECONFIRMATION_PRESERVED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED" | "EXPENSE_TYPE_PRESERVED"
     | "EXPENSE_INCOME_FIELD_DROPPED" | "EXPENSE_NEXT_ALIAS_NORMALIZED" | "OPENING_PARENT_HEALTHCARE_RECONFIRMED"
+    | "EXPENSE_FACT_STATUS_NORMALIZED" | "REPAIR_SOURCE_OUTCOME_REBASED"
     | "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"
     | "V4_EXPENSE_CANONICALIZED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
@@ -407,6 +408,16 @@ export function normalizeRepairedFinancialProposals(input: {
       return;
     }
     const merged = mergeMissing(fallback, repair) as Record<string, unknown>;
+    const acceptedOutcomeId = input.acceptedOutcomeIds?.length === 1 ? input.acceptedOutcomeIds[0] : undefined;
+    if (acceptedOutcomeId && merged.sourceOutcomeId !== acceptedOutcomeId) {
+      audit.push({
+        proposalId: String(merged.id || repairId || `${String(rawRepairKind || "proposal")}_${index + 1}`),
+        reasonCode: "REPAIR_SOURCE_OUTCOME_REBASED",
+        originalValue: typeof merged.sourceOutcomeId === "string" ? merged.sourceOutcomeId : undefined,
+        normalizedValue: acceptedOutcomeId
+      });
+      merged.sourceOutcomeId = acceptedOutcomeId;
+    }
     const key = String(merged.id || repairId || `${rawRepairKind || "proposal"}_${index + 1}`);
     if (fallback) audit.push({ proposalId: key, reasonCode: "REPAIR_FIELDS_INHERITED", originalValue: fallback.id, normalizedValue: key });
     if (mergedByKey.has(key)) {
@@ -1108,8 +1119,43 @@ export function normalizeFinancialProposals(input: {
           audit.push({ proposalId: id, reasonCode: "EXPENSE_EVIDENCE_PRESERVED", normalizedValue: payload.expenseCommitmentId });
         }
         const rawRequestedType = String(payload.nextCommitment.type || "");
+        const rawRequestedFactStatus = String(payload.nextCommitment.factStatus || "");
+        if (FACT_STATUS_ALIASES[rawRequestedFactStatus]) {
+          // A model saying "confirmed" is not itself confirmation authority.
+          // Preserve the account's existing reviewable status so a restatement
+          // becomes a no-op instead of a fictitious authority upgrade. A real
+          // exact confirmation must use the canonical `known` contract and is
+          // then checked by the expense-confirmation validator.
+          payload.nextCommitment.factStatus = FACT_STATUS_ALIASES[rawRequestedFactStatus] === "known"
+            ? existingCommitment.factStatus
+            : FACT_STATUS_ALIASES[rawRequestedFactStatus];
+          audit.push({
+            proposalId: id,
+            reasonCode: "EXPENSE_FACT_STATUS_NORMALIZED",
+            originalValue: rawRequestedFactStatus,
+            normalizedValue: String(payload.nextCommitment.factStatus)
+          });
+        }
         const isMortgageRepayment = ["mortgage_payment", "mortgage", "debt_payment"].includes(rawRequestedType)
           || /(?:月供|房贷|按揭)/u.test(evidenceText);
+        const requestedTypeForNoOp = isMortgageRepayment
+          ? existingCommitment.type
+          : ({
+              rent: "housing",
+              caregiver: "dependent_support",
+              caregiving: "dependent_support",
+              medical: "healthcare",
+              recurring_healthcare: "healthcare",
+              tuition: "education",
+              living: "basic_living"
+            } as Record<string, string>)[payload.nextCommitment.type] || payload.nextCommitment.type;
+        payload.nextCommitment.type = requestedTypeForNoOp;
+        const isAuthorityNoOp = !payload.changeReason
+          && sameExpenseCommitmentAuthority(existingCommitment, payload.nextCommitment as ExpenseCommitment);
+        if (isAuthorityNoOp) {
+          audit.push({ proposalId: id, reasonCode: "NO_OP_PROPOSAL_DROPPED", originalValue: kind });
+          return [];
+        }
         if (isMortgageRepayment) {
           payload.nextCommitment.type = "mortgage_payment";
           audit.push({
@@ -1119,16 +1165,7 @@ export function normalizeFinancialProposals(input: {
             normalizedValue: "mortgage_payment"
           });
         } else {
-          const typeAliases: Record<string, string> = {
-            rent: "housing",
-            caregiver: "dependent_support",
-            caregiving: "dependent_support",
-            medical: "healthcare",
-            recurring_healthcare: "healthcare",
-            tuition: "education",
-            living: "basic_living"
-          };
-          const requestedType = typeAliases[payload.nextCommitment.type] || payload.nextCommitment.type;
+          const requestedType = payload.nextCommitment.type;
           if (requestedType !== existingCommitment.type) {
             payload.nextCommitment.type = existingCommitment.type;
             audit.push({
