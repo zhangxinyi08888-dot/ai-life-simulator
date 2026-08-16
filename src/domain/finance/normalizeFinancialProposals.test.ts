@@ -688,6 +688,61 @@ test("drops a no-op income adjustment instead of quarantining the authoritative 
   assert.equal(result.audit.some((item) => item.reasonCode === "NO_OP_PROPOSAL_DROPPED"), true);
 });
 
+test("normalizes compact expense next payloads and drops unchanged recurring commitments", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "expense_noop",
+    asOfAgeInMonths: 359
+  }));
+  currentLedger.expenseCommitments.push({
+    id: "parent_support",
+    type: "dependent_support",
+    displayName: "每月给父母的赡养费",
+    monthlyAmountWan: 0.2,
+    activeFromAgeInMonths: 314,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [],
+    responsibilityKey: "elder_care:parents",
+    responsibilityKind: "elder_care",
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["parent_support:estimate"],
+    financialScope: "personal",
+    accrualReviewStatus: "review_due",
+    lastReviewedAtAgeInMonths: 336,
+    nextReviewAtAgeInMonths: 348
+  });
+
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["strengthen_shared_routine"],
+    currentLedger,
+    proposals: [{
+      id: "repeat_parent_support",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 362,
+      sourceOutcomeId: "strengthen_shared_routine",
+      payload: {
+        expenseCommitmentId: "parent_support",
+        next: {
+          id: "parent_support",
+          type: "expense_commitment",
+          category: "family_support",
+          displayName: "每月给父母的赡养费",
+          monthlyAmountWan: 0.2,
+          status: "active",
+          factStatus: "estimated",
+          evidence: []
+        }
+      },
+      evidence: "你继续维持原来的家庭安排。",
+      confidence: 0.85
+    }]
+  });
+
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_NEXT_ALIAS_NORMALIZED"), true);
+  assert.equal(result.audit.some((item) => item.reasonCode === "NO_OP_PROPOSAL_DROPPED"), true);
+});
+
 test("preserves an explicit same-amount confirmation for a migration-only income source", () => {
   const legacyEvidence: FinancialEvidence[] = [{
     source: "legacy_migration",

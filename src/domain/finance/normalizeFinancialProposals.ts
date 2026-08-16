@@ -10,7 +10,7 @@ export interface FinancialProposalNormalizationAudit {
     | "DEBT_DRAW_PAYLOAD_NORMALIZED" | "DEBT_TYPE_NORMALIZED" | "ASSET_PURCHASE_PAYLOAD_NORMALIZED"
     | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED" | "LEGACY_INCOME_RECONFIRMATION_PRESERVED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED" | "EXPENSE_TYPE_PRESERVED"
-    | "EXPENSE_INCOME_FIELD_DROPPED" | "OPENING_PARENT_HEALTHCARE_RECONFIRMED"
+    | "EXPENSE_INCOME_FIELD_DROPPED" | "EXPENSE_NEXT_ALIAS_NORMALIZED" | "OPENING_PARENT_HEALTHCARE_RECONFIRMED"
     | "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"
     | "V4_EXPENSE_CANONICALIZED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
@@ -301,6 +301,20 @@ function mergeMissing(base: unknown, repair: unknown): unknown {
   return result;
 }
 
+function sameExpenseCommitmentAuthority(left: ExpenseCommitment, right: ExpenseCommitment): boolean {
+  const authorityFields = [
+    "id", "type", "monthlyAmountWan", "activeFromAgeInMonths", "activeUntilAgeInMonths",
+    "status", "factStatus", "responsibilityKey", "responsibilityKind", "amountBasis",
+    "amountSourceIds", "financialScope", "participantPersonIds", "grossMonthlyAmountWan",
+    "protagonistShareWan", "confirmedMonthlyAmountWan", "lastConfirmedAtAgeInMonths",
+    "accrualReviewStatus", "lastReviewedAtAgeInMonths", "nextReviewAtAgeInMonths",
+    "plausibleMonthlyAmountRangeWan", "estimationPolicyId"
+  ] as const;
+  const leftRecord = left as unknown as Record<string, unknown>;
+  const rightRecord = right as unknown as Record<string, unknown>;
+  return authorityFields.every((field) => JSON.stringify(leftRecord[field]) === JSON.stringify(rightRecord[field]));
+}
+
 function strictPersonalBusinessIncomeType(proposal: Pick<FinancialEventProposal, "kind" | "payload">): "self_employment_draw" | "business_dividend" | undefined {
   if (proposal.kind !== "income_source_started" && proposal.kind !== "income_source_adjusted") return undefined;
   const payload = proposal.payload as Record<string, unknown>;
@@ -566,6 +580,7 @@ export function normalizeFinancialProposals(input: {
     let payload: any = source.payload && typeof source.payload === "object"
       ? structuredClone(source.payload) as Record<string, any>
       : source.payload;
+    let expenseNextAliasNormalized = false;
     const effectiveAtAgeInMonths = Number(source.effectiveAtAgeInMonths);
     const evidenceText = typeof source.evidence === "string" ? source.evidence : "";
     if (kind === "debt_drawn" && isExistingMortgagePaymentRestatement({
@@ -1065,6 +1080,13 @@ export function normalizeFinancialProposals(input: {
         audit.push({ proposalId: id, reasonCode: "INCOME_SOURCE_SHAPE_COMPLETED", normalizedValue: payload.incomeSourceId });
       }
     }
+    if (payload && kind === "expense_commitment_adjusted"
+      && !payload.nextCommitment && payload.next && typeof payload.next === "object") {
+      payload.nextCommitment = payload.next;
+      delete payload.next;
+      expenseNextAliasNormalized = true;
+      audit.push({ proposalId: id, reasonCode: "EXPENSE_NEXT_ALIAS_NORMALIZED", normalizedValue: "nextCommitment" });
+    }
     if (payload && kind === "expense_commitment_adjusted" && payload.expenseCommitmentId && payload.nextCommitment && typeof payload.nextCommitment === "object") {
       const existingCommitment = input.currentLedger?.expenseCommitments.find((item) => item.id === payload.expenseCommitmentId);
       if (existingCommitment) {
@@ -1115,6 +1137,11 @@ export function normalizeFinancialProposals(input: {
           audit.push({ proposalId: id, reasonCode: "EXPENSE_INCOME_FIELD_DROPPED", originalValue: "accrualPolicy", normalizedValue: "expense_commitment" });
         }
         audit.push({ proposalId: id, reasonCode: "EXPENSE_COMMITMENT_SHAPE_COMPLETED", normalizedValue: payload.expenseCommitmentId });
+        if (expenseNextAliasNormalized && !payload.changeReason
+          && sameExpenseCommitmentAuthority(existingCommitment, payload.nextCommitment as ExpenseCommitment)) {
+          audit.push({ proposalId: id, reasonCode: "NO_OP_PROPOSAL_DROPPED", originalValue: kind });
+          return [];
+        }
       }
     }
     const preferredCareerStateId = input.nextCareerStateIds?.length === 1
