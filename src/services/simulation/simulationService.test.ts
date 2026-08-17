@@ -73,6 +73,9 @@ assert.equal(selectedDecisionRequiresCareerTransition(
   "联系猎头并投递简历，考虑离职后再决定是否换工作"
 ), false, "job-search activity is not a completed career transition");
 assert.equal(selectedDecisionRequiresCareerTransition(
+  "每周固定留两个晚上整理案例，先不急着换工作，看看这个方向能积累出什么"
+), false, "an explicit decision to defer a job change must preserve the current CareerState and salary");
+assert.equal(selectedDecisionRequiresCareerTransition(
   "辞职创业，用半年验证三个付费客户"
 ), true, "a directly selected resignation and venture start remains authoritative");
 assert.equal(selectedDecisionRequiresCareerTransition(

@@ -1033,9 +1033,10 @@ export function selectedDecisionRequiresCareerTransition(decision: string): bool
   const transition = /转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业/iu;
   if (!transition.test(normalized)) return false;
   const preparatory = /(?:考虑|计划|准备|打算|可能|如果|若|接触[^。；]{0,12}(?:机会|猎头|公司)|寻找[^。；]{0,12}(?:机会|岗位|工作)|物色[^。；]{0,12}(?:机会|岗位|工作)|投递[^。；]{0,12}(?:简历|岗位)|更新[^。；]{0,8}简历)[^。；]{0,40}(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized);
+  const explicitlyDefers = /(?:先不|暂不|暂时不|不急着|不打算|没有[^。；]{0,8}打算|不考虑)[^。；]{0,20}(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized);
   const explicitlyCompleted = /(?:正式|已经|已(?:经)?|最终决定|当场|立即|直接|办理)(?:了)?[^。；]{0,12}(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized)
     || /^(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized);
-  return !preparatory || explicitlyCompleted;
+  return explicitlyCompleted || (!preparatory && !explicitlyDefers);
 }
 
 export function synthesizeSelectedCareerTransition(input: {
