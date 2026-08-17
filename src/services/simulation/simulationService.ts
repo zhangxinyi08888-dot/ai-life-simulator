@@ -2104,21 +2104,46 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
 }): FinancialEventProposal[] {
   const decision = input.selectedDecision?.trim();
   if (!decision || !input.acceptedOutcomeId || input.suppressEmployerSalarySynthesis) return input.proposals;
+  const narrativeText = input.narrativeText || "";
+  const narrativeSentences = narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
+  const completedStartSentence = input.migrateToCurrentCareerState
+    ? narrativeSentences.find((sentence) => hasCompletedEmployerStartEvidence(sentence))
+    : undefined;
+  const bindAcceptedSalaryTermsToCompletedStart = (salarySentence: string): string | undefined => {
+    if (!isUnacceptedIncomeOpportunityEvidence(salarySentence)) return salarySentence;
+    if (!completedStartSentence) return undefined;
+    const salaryStart = narrativeText.indexOf(salarySentence);
+    const completedStart = narrativeText.indexOf(completedStartSentence);
+    // The accepted start must close the preceding offer. Do not let an earlier
+    // start sentence retroactively authorize a different future offer later in
+    // the node.
+    if (salaryStart < 0 || completedStart < salaryStart) return undefined;
+    const excerptStart = salaryStart;
+    const excerptEnd = completedStart + completedStartSentence.length;
+    // An Accepted CareerTransition already proves that these terms and the
+    // completed start belong to this node. Preserve the exact contiguous prose
+    // so the validator can verify both facts without treating a bare offer as
+    // current income or manufacturing a replacement amount.
+    return narrativeText.slice(excerptStart, excerptEnd).trim();
+  };
   const narrativeEvidence = input.allowNarrativeEvidence
-    ? input.narrativeText?.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
-        (
-          /(?:你|主角|本人|你的个人账户).{0,48}(?:(?:税后)?(?:月薪|年薪|年收入|工资|薪资|副业月收入|个人月收入)|年税后收入).{0,16}\d+(?:\.\d+)?\s*(?:万(?:元)?|元)|(?:(?:税后)?(?:月薪|年薪|年收入|副业月收入|个人月收入)|年税后收入)(?:约|为|有|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(sentence)
+    ? narrativeSentences.map((sentence) => ({
+        sentence,
+        boundEvidence: bindAcceptedSalaryTermsToCompletedStart(sentence)
+      })).find(({ sentence, boundEvidence }) => {
+        if (!boundEvidence) return false;
+        return (
+          /(?:你|主角|本人|你的个人账户).{0,48}(?:(?:税后)?(?:月薪|年薪|年收入|工资|薪资|副业月收入|个人月收入)|年税后收入).{0,16}\d+(?:\.\d+)?\s*(?:万(?:元)?|元)|(?:(?:税后)?(?:月薪|年薪|年收入|副业月收入|个人月收入)|年税后收入)(?:约|为|有|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元)|(?:税后)?月薪[^。！？；]{0,12}[一二两三四五六七八九十百千万]+元/u.test(sentence)
           || (/税后到手(?:约|为|有)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(sentence)
             && /(?:按月|每月|月度)结算/u.test(sentence))
         )
         && !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:员工|助理|工程师|销售|运营|护工)[^。；]{0,35}(?:月薪|年薪)/u.test(sentence)
         && !/(?:如果|若|预计|计划|考虑|希望|目标|可以给你)[^。；]{0,50}(?:月薪|年薪)/iu.test(sentence)
-        && !isUnacceptedIncomeOpportunityEvidence(sentence)
         // A bare annual-income phrase is ambiguous. It can be a company or a
         // partner's income, so allow it only when this exact sentence assigns
         // it explicitly to the protagonist.
-        && (!/年收入/u.test(sentence) || hasExplicitProtagonistAnnualIncomeFact(sentence))
-      ))
+        && (!/年收入/u.test(sentence) || hasExplicitProtagonistAnnualIncomeFact(sentence));
+      })?.boundEvidence
     : undefined;
   const evidenceText = /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|我(?:每月|开始|从本月起).{0,24}(?:工资|薪资|月薪)/u.test(decision)
     ? decision
@@ -2137,6 +2162,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   // same sentence and capture a later rent/medical outlay instead, silently
   // turning a 1.5 万 salary into a 0.35 万 salary.
   const monthlySalaryMatch = evidenceText?.match(/(?:税后)?(?:月薪|副业月收入|个人月收入)(?:\s*(?:从|由)\s*(?:原来(?:的)?|之前(?:的)?)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元))?\s*(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u);
+  const monthlySalaryChineseMatch = evidenceText?.match(/(?:税后)?(?:月薪|副业月收入|个人月收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*([一二两三四五六七八九十百千万]+)元/u);
   const monthlyTakeHomeMatch = evidenceText && /(?:按月|每月|月度)结算/u.test(evidenceText)
     ? evidenceText.match(/税后到手(?:\s*(?:约|为|有))?\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u)
     : undefined;
@@ -2151,11 +2177,47 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     ? explicitProtagonistAnnualIncomeWan(evidenceText)
     : undefined;
   const annualMatch = evidenceText?.match(/(?:(?:税后)?(?:年薪|年收入)|年税后收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?(?:约)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
-  if (!explicitlyPersonal || (!monthlyMatch && !annualMatch && explicitAnnualIncomeWan === undefined)) return input.proposals;
+  if (!explicitlyPersonal || (!monthlyMatch && !monthlySalaryChineseMatch && !annualMatch && explicitAnnualIncomeWan === undefined)) return input.proposals;
 
+  const chineseAmountYuan = (value: string): number | undefined => {
+    const digits: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+    const units: Record<string, number> = { 十: 10, 百: 100, 千: 1000, 万: 10000 };
+    let total = 0;
+    let section = 0;
+    let number = 0;
+    for (const character of value) {
+      if (digits[character] !== undefined) {
+        number = digits[character];
+        continue;
+      }
+      const unit = units[character];
+      if (!unit) return undefined;
+      if (unit === 10000) {
+        section += number;
+        total += (section || 1) * unit;
+        section = 0;
+      } else {
+        section += (number || 1) * unit;
+      }
+      number = 0;
+    }
+    const trailingDigitScale = number > 0 && digits[value.at(-1) || ""] !== undefined
+      ? value.includes("万") && !/[十百千]/u.test(value.slice(value.lastIndexOf("万") + 1))
+        ? 1000
+        : value.includes("千") && !/[十百]/u.test(value.slice(value.lastIndexOf("千") + 1))
+          ? 100
+          : value.includes("百") && !/十/u.test(value.slice(value.lastIndexOf("百") + 1))
+            ? 10
+            : 1
+      : 1;
+    const amount = total + section + number * trailingDigitScale;
+    return amount > 0 ? amount : undefined;
+  };
   const monthlyNetAmountWan = monthlyMatch
     ? Number(monthlyMatch[1]) * (monthlyMatch[2] === "元" ? 0.0001 : 1)
-    : undefined;
+    : monthlySalaryChineseMatch
+      ? (chineseAmountYuan(monthlySalaryChineseMatch[1]) || 0) * 0.0001
+      : undefined;
   const annualNetAmountWan = explicitAnnualIncomeWan ?? (annualMatch ? Number(annualMatch[1]) : undefined);
   if (!(Number(monthlyNetAmountWan ?? annualNetAmountWan) > 0)) return input.proposals;
   const careerIncomeTypes = new Set(["salary", "contract", "self_employment_draw"]);
@@ -2211,7 +2273,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     type: incomeType,
     monthlyNetAmountWan,
     annualNetAmountWan,
-    accrualPolicy: monthlyMatch ? "monthly" as const : "annual" as const,
+    accrualPolicy: monthlyMatch || monthlySalaryChineseMatch ? "monthly" as const : "annual" as const,
     status: "active" as const,
     linkedCareerStateId: sourceCareerStateId,
     factStatus: "known" as const,
@@ -2227,7 +2289,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
       : (input.currentEmploymentStatus === "self_employed" ? "用户确认的创业个人工资" : "用户确认的个人工资"),
     monthlyNetAmountWan,
     annualNetAmountWan,
-    accrualPolicy: monthlyMatch ? "monthly" as const : "annual" as const,
+    accrualPolicy: monthlyMatch || monthlySalaryChineseMatch ? "monthly" as const : "annual" as const,
     activeFromAgeInMonths: input.periodStartAgeInMonths,
     status: "active" as const,
     linkedCareerStateId: sourceCareerStateId,
@@ -5522,11 +5584,12 @@ async function generateNextNodeAttempt(
     };
   }
 
-  // Relationship authority has a narrow, explicit repair contract. Reserve only
-  // the remaining full generation for its context-rich rewrite; if that rewrite
-  // still conflicts, consume at most the one Candidate Patch budget before the
-  // deterministic relationship fallback. This keeps the combined path within
-  // main's two-full-generation plus one-patch latency budget.
+  // Relationship authority has a narrow, explicit repair contract. In the
+  // production Candidate-Patch mode, repair only the relation-owned surfaces
+  // first and fall back deterministically if that bounded patch is malformed.
+  // A full-node rewrite is reserved for deployments where Candidate Patch is
+  // disabled; otherwise a local authority conflict needlessly doubles the
+  // complete-generation count and can exhaust the user-visible retry budget.
   let relationshipConsistencyIssues = validateStoryConsistency({
     node,
     targetAgeInMonths: timelineAdvance.targetAgeInMonths,
@@ -5567,7 +5630,41 @@ async function generateNextNodeAttempt(
         worldState
       });
     };
-    if (canRegenerate(generationBudget)) {
+    const targetedRelationshipPatchAvailable = deps.enableCandidatePatchRepair === true
+      && canPatch(generationBudget);
+    if (!targetedRelationshipPatchAvailable) {
+      const repairedSurface = repairRelationshipAuthorityFinalSurface({
+        node,
+        nodeEvent,
+        nodeEventMeta,
+        elapsedMonths: timelineAdvance.elapsedMonths,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        people,
+        worldState
+      });
+      const repairedIssues = validateStoryConsistency({
+        node: repairedSurface.node,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        people,
+        worldState
+      });
+      if (!hasOnlyRelationshipAuthorityConflicts(repairedIssues)) {
+        node = repairedSurface.node;
+        nodeEventMeta = repairedSurface.eventMeta;
+        latestRawNode = {
+          ...latestRawNode,
+          ...node,
+          financialEventProposals: rawFinancialEventProposals(latestRawNode)
+        };
+        relationshipConsistencyIssues = repairedIssues;
+        relationshipAuthorityFallbackApplied = true;
+      }
+    }
+    if (
+      hasOnlyRelationshipAuthorityConflicts(relationshipConsistencyIssues)
+      && canRegenerate(generationBudget)
+      && !targetedRelationshipPatchAvailable
+    ) {
       const candidateRevision = consumeFullGeneration(generationBudget);
       const response = await traceGenerationCall({
         kind: "full_regeneration",
@@ -5779,6 +5876,31 @@ async function generateNextNodeAttempt(
   };
 
   let candidateIssues = collectPreSettlementIssues();
+  if (
+    candidateIssues.length > 0
+    && candidateIssues.every((issue) => issue.code === CANDIDATE_ISSUE.debtNarrative)
+  ) {
+    const currentDebtAuthority = deriveDebtNarrativeAuthority({
+      ledger: currentFinancialLedger,
+      debtHealthState: lastNode?.debtHealthState,
+      periodStartAgeInMonths: currentAgeInMonths,
+      acceptedCompletedEventKinds: []
+    });
+    const debtSurfaceIssues = collectDebtNarrativeSurfaceIssues({ node, authority: currentDebtAuthority });
+    if (debtSurfaceIssues.length > 0) {
+      node = repairDebtNarrativeSurfaces({
+        node,
+        authority: currentDebtAuthority,
+        issues: debtSurfaceIssues
+      });
+      latestRawNode = {
+        ...latestRawNode,
+        ...node,
+        financialEventProposals: rawFinancialEventProposals(latestRawNode)
+      };
+      candidateIssues = collectPreSettlementIssues();
+    }
+  }
   if (candidateIssues.length > 0 && deps.enableCandidatePatchRepair === true && canPatch(generationBudget)) {
     deps.onGenerationStage?.("repairing");
     consumeModelPatch(generationBudget);

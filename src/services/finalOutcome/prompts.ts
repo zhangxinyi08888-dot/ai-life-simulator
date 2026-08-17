@@ -211,6 +211,7 @@ type FinalOutcomeJson = {
 - executiveSummary.patterns 必须刚好 3 条。
 - repeatedPatterns、patternEffects、futureTrends、patternsToKeep、patternsToAdjust 各 1 到 3 条。
 - covenantTitle 必须是 6 到 14 个中文字符；choiceSummary 必须是 12 到 22 个中文字符。
+- 分享海报是固定 9:16：viralTitle 最多 24 显示单位，oneLineSummary 最多 44，closingLine 最多 40；timeline 每项 title 最多 16、choiceSummary 最多 22。中文和全角字符按 1 单位、普通 ASCII 按 0.5 单位计算。
 - 除 posterTheme 和 downloadFileName 外，所有 string 内容都必须根据本次历史独立生成；不得复制本提示词中的规则句，也不得使用通用占位文案。
 - ${futureTrendRule}
 - ${keepRule}。

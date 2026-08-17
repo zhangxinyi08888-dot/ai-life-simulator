@@ -4158,6 +4158,93 @@ function candidatePatchResponse(prompt: string, input: {
     } : {})
   });
 }
+
+const localizedRelationshipRepairTraces: string[] = [];
+let localizedRelationshipRepairCalls = 0;
+const localizedRelationshipHistory = structuredClone(history);
+const localizedRelationshipWorld = localizedRelationshipHistory.at(-1)?.worldStateSnapshot || {
+  people: [],
+  directionArcs: [],
+  pressureArcs: [],
+  relationships: [],
+  committedTransactionIds: [],
+  version: 2
+};
+localizedRelationshipHistory[localizedRelationshipHistory.length - 1]!.worldStateSnapshot = {
+  ...localizedRelationshipWorld,
+  people: [{
+    id: "localized_relationship_partner",
+    displayName: "林晚",
+    relation: "partner",
+    lifeStatus: "active",
+    source: "accepted_history",
+    confidence: 1
+  }],
+  relationships: [{
+    id: "localized_relationship",
+    participantPersonIds: ["localized_relationship_partner"],
+    type: "romantic",
+    stage: "dating",
+    status: "active",
+    livingTogether: false,
+    effectiveFromAgeInMonths: localizedRelationshipHistory.at(-1)!.ageInMonths!,
+    source: "accepted_history",
+    confidence: 1
+  }],
+  relationshipRevision: (localizedRelationshipWorld.relationshipRevision || 0) + 1
+};
+const localizedRelationshipRepairNode = await generateNextNode({
+  userData,
+  answers,
+  history: localizedRelationshipHistory,
+  currentAttributes: attributes,
+  selectedDecision: "继续推进当前工作安排",
+  nodeIndex: localizedRelationshipHistory.length,
+  simulationSeed: "relationship-authority-prefers-local-patch"
+}, {
+  financialNodeGateMode: "shadow",
+  expenseLifecycleMode: "off",
+  enableCandidatePatchRepair: true,
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  onGenerationCallTrace: (trace) => {
+    if (trace.outcome === "started") localizedRelationshipRepairTraces.push(trace.kind);
+  },
+  callAiJson: async (prompt) => {
+    localizedRelationshipRepairCalls += 1;
+    if (prompt.includes("node_candidate_patch_v1")) {
+      return {
+        text: candidatePatchResponse(prompt, {
+          replacementParagraph: "你继续推进当前工作安排，并把接下来三个月的生活节奏重新排好。"
+        })
+      };
+    }
+    return {
+      text: JSON.stringify({
+        age: 23,
+        stage: "现实安排",
+        title: "继续推进",
+        description: "你继续推进当前工作安排。婚后生活开始，你的妻子林晚开始重新安排工作和家庭时间。",
+        choices: [
+          { id: "A", text: "缩小范围完成当前项目", impactSummary: "完成项目", decisionIntent: "career:narrow:current_project", expectedWorldDeltaTypes: ["career_state"] },
+          { id: "B", text: "把部分工作交给伙伴", impactSummary: "分担工作", decisionIntent: "career:delegate:current_project", expectedWorldDeltaTypes: ["relationship_change"] },
+          { id: "C", text: "暂停项目重新评估方向", impactSummary: "重新评估", decisionIntent: "career:pause:current_project", expectedWorldDeltaTypes: ["health_state"] }
+        ],
+        attributes,
+        narrativeMeta: { activeCharacters: [] },
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(localizedRelationshipRepairCalls, 2);
+assert.deepEqual(localizedRelationshipRepairTraces, ["initial_generation", "candidate_patch"]);
+assert.doesNotMatch(localizedRelationshipRepairNode.description, /婚后生活|妻子/u);
+assert.equal(localizedRelationshipRepairNode.eventMeta?.eventId === "candidate_authority_fallback", false);
+
 const repairedRecoveryNode = await generateNextNode({
   userData,
   answers,

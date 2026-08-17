@@ -110,6 +110,86 @@ test("PB-CAREER-06a a future employer offer salary cannot synthesize or adjust c
   assert.deepEqual(result, []);
 });
 
+test("PB-CAREER-06c accepted salary terms bind to a later completed first day in the same node", () => {
+  const ledger = initializeFinancialLedger({ id: "accepted-offer-then-started", asOfAgeInMonths: 303 });
+  const narrative = `你如约来到那家从事无障碍咨询与适老化改造的公司，和创始人聊了两轮。对方看重你既能写前端、又能理解无障碍规范的能力，提出给你一个全职岗位，税后月薪六千元，缴纳社保，试用期三个月。你想着这一年的自由接单虽然让你积累了案例，但现金流一直紧绷，这份工作至少能让生活先稳下来，也答应了。
+
+入职后的第一周，你发现公司规模不大，加上创始人一共六个人，办公室在一栋旧写字楼里，氛围务实。`;
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [{
+      id: "malformed_offer_salary",
+      kind: "income_source_started",
+      effectiveAtAgeInMonths: 304,
+      sourceOutcomeId: "stabilize_immediate_cashflow",
+      confidence: 0.9,
+      financialScope: "personal",
+      evidence: "对方看重你既能写前端、又能理解无障碍规范的能力，提出给你一个全职岗位，税后月薪六千元，缴纳社保，试用期三个月。",
+      payload: {
+        id: "income_stable_frontend",
+        type: "salary",
+        displayName: "无障碍公司前端税后工资",
+        monthlyNetAmountWan: 0.6,
+        accrualPolicy: "monthly",
+        activeFromAgeInMonths: 304,
+        status: "active",
+        factStatus: "estimated",
+        evidence: [],
+        linkedCareerStateId: "career_new"
+      }
+    } as any],
+    selectedDecision: "接受邀请，去公司谈一份固定的前端工作。",
+    narrativeText: narrative,
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "stabilize_immediate_cashflow",
+    periodStartAgeInMonths: 303,
+    currentCareerStateId: "career_new",
+    currentEmploymentStatus: "employed",
+    migrateToCurrentCareerState: true,
+    ledger
+  });
+  assert.equal(result.length, 1);
+  assert.equal(result[0]?.kind, "income_source_started");
+  assert.equal((result[0]?.payload as any).monthlyNetAmountWan, 0.6);
+  assert.equal((result[0]?.payload as any).linkedCareerStateId, "career_new");
+  assert.match(result[0]?.evidence || "", /税后月薪六千元/u);
+  assert.match(result[0]?.evidence || "", /入职后的第一周/u);
+  assert.equal(narrative.includes(result[0]?.evidence || ""), true);
+});
+
+test("PB-CAREER-06d salary terms in an offer remain non-authoritative without an accepted completed start", () => {
+  const ledger = initializeFinancialLedger({ id: "offer-without-start", asOfAgeInMonths: 303 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "先去公司看看，如果合适再谈固定工作。",
+    narrativeText: "对方提出给你一个全职岗位，税后月薪六千元，试用期三个月。你准备下个月再决定是否入职。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "inspect_offer",
+    periodStartAgeInMonths: 303,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "self_employed",
+    migrateToCurrentCareerState: false,
+    ledger
+  });
+  assert.deepEqual(result, []);
+});
+
+test("PB-CAREER-06e an earlier completed start cannot authorize a later future offer", () => {
+  const ledger = initializeFinancialLedger({ id: "started-before-future-offer", asOfAgeInMonths: 303 });
+  const result = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续当前岗位，同时了解下一份工作的可能性。",
+    narrativeText: "入职后的第一周，你完成了当前岗位的交接。另一家公司随后提出给你一个全职岗位，税后月薪六千元，但你准备下个月再决定是否入职。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "continue_current_job",
+    periodStartAgeInMonths: 303,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    migrateToCurrentCareerState: true,
+    ledger
+  });
+  assert.deepEqual(result, []);
+});
+
 test("PB-CAREER-11 exact annual salary in accepted narrative starts same-node income without a career transition", () => {
   const ledger = initializeFinancialLedger({ id: "annual_salary_confirmation", asOfAgeInMonths: 420 });
   const result = synthesizeSelectedPersonalIncomeProposal({

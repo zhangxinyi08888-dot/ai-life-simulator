@@ -106,19 +106,19 @@ function ShareEndingPoster({
         <Sparkles className="h-3.5 w-3.5 text-[#c5b57f]" />
       </div>
 
-      <div className="mt-4 space-y-3">
-        <h1 className="font-serif text-[28px] font-semibold leading-tight text-[#f1ece3]">
+      <div className="mt-4 shrink-0 space-y-3">
+        <h1 className="line-clamp-2 font-serif text-[28px] font-semibold leading-tight text-[#f1ece3]">
           {outcome.share.viralTitle}
         </h1>
         <div className="inline-flex rounded-full border border-[#4b4538] px-3 py-1 text-[12px] font-semibold text-[#c2b58f]">
           {outcome.share.covenantTitle}
         </div>
-        <p className="text-[15px] font-medium leading-relaxed text-[#aaa39a]">
+        <p className="line-clamp-2 text-[15px] font-medium leading-relaxed text-[#aaa39a]">
           {outcome.share.oneLineSummary}
         </p>
       </div>
 
-      <div className="mt-4 border-t border-[#2d2a25] pt-3">
+      <div className="mt-4 min-h-0 overflow-hidden border-t border-[#2d2a25] pt-3">
         <p className="text-[11px] font-semibold text-[#aaa39a]">AI认为，这几次选择塑造了今天的你。</p>
         <div className="mt-3 space-y-2.5">
           {outcome.share.timeline.map((item, index) => (
@@ -134,7 +134,7 @@ function ShareEndingPoster({
         </div>
       </div>
 
-      <div className="mt-auto border-t border-[#2d2a25] pt-3 font-serif text-[14px] font-semibold leading-relaxed text-[#e8e1d7]">
+      <div className="mt-auto line-clamp-2 shrink-0 border-t border-[#2d2a25] pt-3 font-serif text-[14px] font-semibold leading-relaxed text-[#e8e1d7]">
         {outcome.share.closingLine}
       </div>
     </div>

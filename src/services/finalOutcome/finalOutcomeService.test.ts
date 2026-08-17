@@ -228,6 +228,38 @@ test("invalid JSON receives exactly one repair attempt", async () => {
   assert.equal(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_JSON_INVALID"), true);
 });
 
+test("Venture-length poster copy receives one targeted budget repair", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async (prompt) => {
+      calls += 1;
+      const payload = completePayload();
+      if (calls === 1) {
+        payload.share.viralTitle = "重生之我把一家濒临资金断裂的公司重新带回稳定经营与长期增长";
+        payload.share.oneLineSummary = "从债务协商到经营恢复，我在每一次现金流压力里重新安排个人收入、公司边界和家庭责任。";
+        payload.share.closingLine = "真正留下来的不是一次漂亮的翻身，而是我终于学会让经营、债务和生活都在可持续的边界里继续运转。";
+        return { text: JSON.stringify(payload) };
+      }
+      assert.match(prompt, /FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED/u);
+      assert.match(prompt, /分享海报内容预算定向修复/u);
+      payload.share.viralTitle = "重生之我让公司重新站稳";
+      payload.share.oneLineSummary = "我在债务压力中重建经营与生活边界。";
+      payload.share.closingLine = "站稳以后，我终于知道什么值得继续。";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.share.viralTitle, "重生之我让公司重新站稳");
+  assert.equal(repaired.meta.finalOutcomeQualityRepairTriggered, true);
+  assert.equal(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED"), true);
+});
+
 test("financial and structural issues share one repair and never trigger a third call", async () => {
   let calls = 0;
   const financialHistory = historyWithOutstandingDebt();

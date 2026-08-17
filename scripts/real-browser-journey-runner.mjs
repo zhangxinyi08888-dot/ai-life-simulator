@@ -963,13 +963,23 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
 
   async function completeShortSample(finalState, { targetSelectedNodeCount }) {
     const history = finalState?.history || [];
-    const validation = validateShortSampleState({ finalState, targetSelectedNodeCount });
+    const validation = {
+      ...validateShortSampleState({ finalState, targetSelectedNodeCount }),
+      ...(sourceIdentity ? {
+        runtimeIdentityMatchesCandidate: runtimeIdentityMatchesCandidate({
+          runtimeIdentity: finalState?.releaseRuntimeIdentity,
+          sourceIdentity
+        }),
+        sourceIdentityPinned: true
+      } : {})
+    };
     const validationPassed = Object.values(validation).every(Boolean);
     const record = {
       schemaVersion: 2,
       runId: path.basename(recordRoot),
       journeyId: identity.journeyId,
       identity,
+      ...(sourceIdentity ? { sourceIdentity } : {}),
       dataSource: "real_ai_browser",
       caseSlug: config.slug,
       scenario: config.scenario,

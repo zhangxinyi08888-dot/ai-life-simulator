@@ -90,6 +90,12 @@ test("treats completed post-entry narration as an actual employer start", () => 
     "实习期结束后，你已经完成转正手续，继续负责官网维护。"
   ), true, "a completed internship conversion is a completed employer start");
   assert.equal(hasCompletedEmployerStartEvidence(
+    "入职第一天你发现团队只有两个前端，并开始负责商家后台的界面优化。"
+  ), true, "a narrated first working day is a completed employer start");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "入职第一天将安排培训，具体到岗日期仍在确认。"
+  ), false, "a future first-day plan is not a completed employer start");
+  assert.equal(hasCompletedEmployerStartEvidence(
     "你计划下月正式签订劳动合同，确认薪资后再办理入职。"
   ), false, "future contract signing and onboarding remain pending");
   assert.equal(hasCompletedEmployerStartEvidence(

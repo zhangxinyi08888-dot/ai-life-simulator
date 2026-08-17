@@ -114,9 +114,8 @@ function candidate(description: string) {
   };
 }
 
-test("regenerates an ungrounded post-commitment marriage and child narrative before state commit", async () => {
+test("locally removes an ungrounded post-commitment marriage and child narrative before state commit", async () => {
   let calls = 0;
-  let repairPrompt = "";
   const node = await generateNextNodeWithEventOutcomes({
     userData,
     answers: [],
@@ -130,18 +129,13 @@ test("regenerates an ungrounded post-commitment marriage and child narrative bef
     expenseLifecycleMode: "shadow",
     callAiJson: async (prompt) => {
       calls += 1;
-      if (prompt.includes("【年龄与状态一致性修复】")) {
-        repairPrompt = prompt;
-        return { text: JSON.stringify(candidate("共同计划仍在筹备阶段。你和林遥继续各自居住，并把工作安排、探望父母和预算边界逐项写入下一次复核清单。")) };
-      }
       return { text: JSON.stringify(candidate("我们领了证，孩子出生。她开始接孩子，孩子的托育费用也进入家庭预算。")) };
     }
   });
 
-  assert.equal(calls, 2, "the invalid candidate must be regenerated, not committed as a completed family transition");
-  assert.match(repairPrompt, /孩子出生、接送、托育和共同育儿/);
-  assert.match(repairPrompt, /共同计划、长期安排或时间流逝不是同居、婚姻或生育的授权/);
+  assert.equal(calls, 1, "release-default mode must remove a relation-only conflict without a second full generation");
   assert.doesNotMatch(node.description, /领了证|孩子出生|接孩子|托育/);
+  assert.equal(node.eventMeta?.fallbackReason, "relationship_authority_deterministic_fallback");
   assert.equal(node.worldStateSnapshot?.relationships?.[0]?.stage, "dating");
   assert.equal(node.worldStateSnapshot?.people.some((person) => person.relation === "child"), false);
 });
