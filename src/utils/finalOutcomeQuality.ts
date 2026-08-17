@@ -15,7 +15,8 @@ export type FinalOutcomeQualityIssueCode =
   | "FINAL_REPORT_TITLE_SUBJECT_INVALID"
   | "FINAL_REPORT_ENUM_INVALID"
   | "FINAL_REPORT_POST_MORTEM_ADVICE"
-  | "FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT";
+  | "FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT"
+  | "FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED";
 
 export interface FinalOutcomeQualityIssue {
   code: FinalOutcomeQualityIssueCode;
@@ -35,6 +36,40 @@ const GENERIC_COPY_PATTERNS = [
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+export const SHARE_POSTER_COPY_BUDGET = {
+  viralTitle: 24,
+  oneLineSummary: 44,
+  closingLine: 40,
+  timelineTitle: 16,
+  timelineChoiceSummary: 22
+} as const;
+
+/**
+ * The poster is rendered at a fixed 9:16 width. Count CJK/full-width glyphs as
+ * one unit and ordinary ASCII as half a unit so validation follows rendered
+ * line pressure without pretending to be a browser layout engine.
+ */
+export function sharePosterDisplayUnits(value: unknown): number {
+  if (typeof value !== "string") return 0;
+  return [...value.trim()].reduce((total, character) => (
+    total + (/^[\u0000-\u00ff]$/u.test(character) ? 0.5 : 1)
+  ), 0);
+}
+
+function inspectPosterCopyBudget(
+  issues: FinalOutcomeQualityIssue[],
+  value: unknown,
+  path: string,
+  maximumUnits: number
+): void {
+  if (!isNonEmptyString(value) || sharePosterDisplayUnits(value) <= maximumUnits) return;
+  issues.push({
+    code: "FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED",
+    path,
+    message: `${path} 超出分享海报内容预算 ${maximumUnits} 个显示单位；必须压缩原意，不能依赖截图裁切`
+  });
 }
 
 function addMissingStringIssue(
@@ -169,6 +204,9 @@ export function collectFinalOutcomeQualityIssues(input: {
   addMissingStringIssue(issues, share?.closingLine, "share.closingLine");
   addMissingStringIssue(issues, share?.downloadFileName, "share.downloadFileName");
   addMissingStringIssue(issues, share?.imageAlt, "share.imageAlt");
+  inspectPosterCopyBudget(issues, share?.viralTitle, "share.viralTitle", SHARE_POSTER_COPY_BUDGET.viralTitle);
+  inspectPosterCopyBudget(issues, share?.oneLineSummary, "share.oneLineSummary", SHARE_POSTER_COPY_BUDGET.oneLineSummary);
+  inspectPosterCopyBudget(issues, share?.closingLine, "share.closingLine", SHARE_POSTER_COPY_BUDGET.closingLine);
   if (isNonEmptyString(share?.viralTitle) && (!share.viralTitle.includes("我") || /^你/u.test(share.viralTitle))) {
     issues.push({
       code: "FINAL_REPORT_TITLE_SUBJECT_INVALID",
@@ -184,6 +222,10 @@ export function collectFinalOutcomeQualityIssues(input: {
     });
   }
   const timeline = addArrayLengthIssue(issues, share?.timeline, "share.timeline", 4, 6);
+  timeline.forEach((item, index) => {
+    inspectPosterCopyBudget(issues, item?.title, `share.timeline[${index}].title`, SHARE_POSTER_COPY_BUDGET.timelineTitle);
+    inspectPosterCopyBudget(issues, item?.choiceSummary, `share.timeline[${index}].choiceSummary`, SHARE_POSTER_COPY_BUDGET.timelineChoiceSummary);
+  });
   inspectEvidenceItems({
     issues,
     items: timeline,
@@ -379,5 +421,36 @@ export function buildFinalOutcomeRepairPrompt(input: {
   const anchors = input.history.map((item, index) => (
     `索引 ${index}｜${formatAgeInMonths(item.ageInMonths ?? item.age * 12)}｜${item.title}｜选择：${item.selectedChoice}`
   )).join("\n");
-  return `${input.originalPrompt}\n\n【本次输出没有通过终局报告统一校验】\n以下问题已经一次性汇总，包含 JSON 结构、历史引用、财务事实和终局语义。只允许本次定向修复；代码不会补写正文，也不会再触发第三次生成。保留已经合格且不冲突的具体内容，不得用“模式1”“趋势1”或通用人生总结补齐。\n\n【全部问题】\n${JSON.stringify(input.issues, null, 2)}\n\n【历史锚点速查】\n${anchors}\n\n【需要修复的原始输出】\n${typeof input.data === "string" ? input.data : JSON.stringify(input.data, null, 2)}\n\n重新返回完整 JSON，不要 Markdown。`;
+  const financialAmountRepair = input.issues.some((issue) => [
+    "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT",
+    "REPORT_UNSUPPORTED_RETURN_CLAIM",
+    "REPORT_FINANCIAL_PRECISION",
+    "REPORT_ORPHAN_FINANCIAL_AMOUNT"
+  ].includes(issue.code))
+    ? "\n【财务数字定向修复】\n对上述问题列出的每一个 path：删除不在‘报告唯一财务事实源’中的金额、比例、倍数或收益率；保留原本的人生模式含义，改写成不含财务数字的定性叙述。不得把被删除的数字移到其他字段，不得创造替代数字，也不得写‘待确认’等内部占位符。"
+    : "";
+  const strictClaimRepair = input.issues.some((issue) => [
+    "REPORT_DEBT_COMPLETION_CONFLICT",
+    "REPORT_PROPERTY_ABSENCE_OVERCLAIM",
+    "REPORT_NEGATIVE_NET_WORTH_ROMANTICIZATION",
+    "FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT",
+    "FINAL_REPORT_UNGROUNDED_SCALE_CLAIM"
+  ].includes(issue.code))
+    ? `\n【冲突断言定向修复】
+- 对每个被点名 path 只删除或改写冲突句，不得把同一断言搬到其他字段。
+- 若权威账本仍有债务，全文不得出现“还清、清零、偿清、债务结束、终于无债”等完成语义；只能写仍有负担、仍在偿付或财务压力仍存在。
+- 不得把负净资产、现金见底或未偿债务浪漫化成“财富自由、财务圆满、已经翻身、没有留下负担”。
+- no_confirmed_property 只表示房产未知，不能写成没有房产、从未置业或名下无房。
+- mortality 报告不得编造遗产清算、继承人、家人/机构接手债务、法律程序，也不得写死后继续还款或继续行动。
+- “无数、成千上万、全国、多所学校、多个县域、一代代、广泛采用、参考案例”等规模结论，只有历史锚点逐字支持时才能保留；否则改成不扩大范围的具体局部影响。
+- 修复完成后对完整 JSON 做一次自检：上述禁句在任何 share/report 字段都不得残留。`
+    : "";
+  const posterCopyRepair = input.issues.some((issue) => issue.code === "FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED")
+    ? `\n【分享海报内容预算定向修复】
+- 只压缩被点名的 share 字段，保留原有事实、第一人称标题和人生模式含义，不得删改报告正文或创造新经历。
+- viralTitle 最多 ${SHARE_POSTER_COPY_BUDGET.viralTitle} 显示单位，oneLineSummary 最多 ${SHARE_POSTER_COPY_BUDGET.oneLineSummary}，closingLine 最多 ${SHARE_POSTER_COPY_BUDGET.closingLine}。
+- timeline 每项 title 最多 ${SHARE_POSTER_COPY_BUDGET.timelineTitle} 显示单位，choiceSummary 最多 ${SHARE_POSTER_COPY_BUDGET.timelineChoiceSummary}；timeline 仍须保持 4-6 项。
+- 中文和全角字符按 1 单位、普通 ASCII 按 0.5 单位计算。不得依赖省略号、CSS 裁切或删除关键财务限定来过关。`
+    : "";
+  return `${input.originalPrompt}\n\n【本次输出没有通过终局报告统一校验】\n以下问题已经一次性汇总，包含 JSON 结构、历史引用、财务事实和终局语义。只允许本次定向修复；代码不会补写正文，也不会再触发第三次生成。保留已经合格且不冲突的具体内容，不得用“模式1”“趋势1”或通用人生总结补齐。${financialAmountRepair}${strictClaimRepair}${posterCopyRepair}\n\n【全部问题】\n${JSON.stringify(input.issues, null, 2)}\n\n【历史锚点速查】\n${anchors}\n\n【需要修复的原始输出】\n${typeof input.data === "string" ? input.data : JSON.stringify(input.data, null, 2)}\n\n重新返回完整 JSON，不要 Markdown。`;
 }

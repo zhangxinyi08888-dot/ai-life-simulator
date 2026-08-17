@@ -147,7 +147,7 @@ function formatEventSpecificRules(event: LifeEventSeed): string {
   if (event.intent.type === "relationship_material_commitment_test") {
     return `
 - 必须沿用【当前权威关系状态】中的同一人物，不得创建新人或改写身份
-- 这是正式交往后的长期安排复核，不表示必须结婚，也不得自动推进为同居或已婚
+- 这是正式交往后的长期安排复核，不表示必须结婚，也不得自动推进为同居、已婚或已有子女
 - 三个选项必须分别表达形成共同计划、有明确条件的有限延后、重新评估长期适配
 - narrativeMeta.activeCharacters 必须通过 personId 指向【当前权威关系状态】中的同一人物
 - 爱情状态迁移由代码根据用户最终选择的 eventOutcomeId 确定性派生，不要返回 romantic_transition proposal`;
@@ -156,6 +156,7 @@ function formatEventSpecificRules(event: LifeEventSeed): string {
     return `
 - 必须沿用【当前权威关系状态】中的同一人物，不得创建新人或改写身份
 - 有限延后已经用完，不得再次提供延后或继续观望
+- 形成共同计划或稳定伴侣关系不表示已经同居、结婚或已有子女
 - 三个选项必须分别表达形成共同计划、稳定维持伴侣关系但不以婚姻为默认、重新评估长期适配
 - narrativeMeta.activeCharacters 必须通过 personId 指向【当前权威关系状态】中的同一人物
 - 爱情状态迁移由代码根据用户最终选择的 eventOutcomeId 确定性派生，不要返回 romantic_transition proposal`;

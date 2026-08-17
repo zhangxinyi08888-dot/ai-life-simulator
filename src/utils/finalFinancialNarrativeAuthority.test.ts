@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { initializeFinancialLedger } from "../domain/finance/initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "../domain/finance/ledgerMath";
-import type { DebtAccount, FinancialEvidence } from "../domain/finance/types";
+import { migrateFinancialLedgerV3ToV4 } from "../domain/finance/migrateFinancialLedgerV3ToV4";
+import type { DebtAccount, FinancialEvidence, FinancialLedgerV3 } from "../domain/finance/types";
 import type { FinalLifeOutcome, HistoryItem } from "../types";
+import { buildFinalOutcomePrompt } from "../services/finalOutcome/prompts";
 import { collectFinalFinancialNarrativeIssues, deriveFinalFinancialNarrativeAuthority, formatFinalFinancialNarrativeAuthorityForPrompt } from "./finalFinancialNarrativeAuthority";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "TEST", confidence: 1 }];
@@ -19,7 +21,38 @@ function debt(status: DebtAccount["status"] = "active", principalWan = 100): Deb
   };
 }
 
-function historyWith(input: { debt?: DebtAccount; cashWan?: number; property?: boolean }): HistoryItem[] {
+function debtSettlementTransaction(input: { forgiven?: boolean; debtAccountId?: string } = {}) {
+  const debtAccountId = input.debtAccountId ?? "debt_1";
+  return {
+    id: input.forgiven ? "tx_debt_forgiven" : "tx_debt_repaid",
+    simulationTransactionId: input.forgiven ? "sim_debt_forgiven" : "sim_debt_repaid",
+    eventIds: [input.forgiven ? "accepted_debt_forgiven" : "accepted_debt_principal_repaid"],
+    periodStartAgeInMonths: 468,
+    periodEndAgeInMonths: 480,
+    cashDeltaWan: input.forgiven ? 0 : -100,
+    assetDeltaWan: 0,
+    debtDeltaWan: -100,
+    incomeWan: 0,
+    expenseWan: 0,
+    valuationChangeWan: 0,
+    nonCashGainLossWan: 0,
+    netWorthDeltaWan: input.forgiven ? 100 : 0,
+    debtPrincipalDrawnWan: 0,
+    debtPrincipalPaidWan: input.forgiven ? 0 : 100,
+    debtPrincipalForgivenWan: input.forgiven ? 100 : 0,
+    debtInterestAccruedWan: 0,
+    debtInterestPaidWan: 0,
+    debtInterestLiabilityPaidWan: 0,
+    debtInterestForgivenWan: 0,
+    debtCapitalizedInterestWan: 0,
+    automaticLiquidityShortfallIncreaseWan: 0,
+    automaticLiquidityShortfallRecoveryWan: 0,
+    debtSettlementAccountIds: [debtAccountId],
+    evidence
+  };
+}
+
+function historyWith(input: { debt?: DebtAccount; cashWan?: number; property?: boolean; debtSettlement?: "repaid" | "forgiven" }): HistoryItem[] {
   const ledger = initializeFinancialLedger({
     id: "ledger", asOfAgeInMonths: 480,
     openingPosition: {
@@ -28,12 +61,37 @@ function historyWith(input: { debt?: DebtAccount; cashWan?: number; property?: b
       assetAccounts: input.property ? [{ id: "home", type: "property", displayName: "已确认住宅", marketValueWan: 200, liquidity: "illiquid", status: "active", factStatus: "known", openedAtAgeInMonths: 360, evidence }] : []
     }
   });
-  return [{
+  if (input.debtSettlement) {
+    ledger.recentTransactions = [debtSettlementTransaction({ forgiven: input.debtSettlement === "forgiven" })];
+  }
+  const terminal: HistoryItem = {
     age: 40, ageInMonths: 480, stage: "终局", title: "回望", description: "生活继续向前。", selectedChoice: "继续生活",
     attributes: { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 }, choices: [], isEndingNode: true,
     financialLedger: ledger,
     worldStateSnapshot: { people: [], directionArcs: [], pressureArcs: [], careerStates: [], currentEmploymentStatus: "not_working", careerRevision: 0, committedTransactionIds: [], version: 2 }
-  }];
+  };
+  if (!input.debtSettlement || !input.debt) return [terminal];
+  const predecessorDebt: DebtAccount = {
+    ...input.debt,
+    principalWan: input.debt.principalWan > 0 ? input.debt.principalWan : 100,
+    status: "active",
+    closedAtAgeInMonths: undefined
+  };
+  const predecessorLedger = initializeFinancialLedger({
+    id: "ledger_before_settlement", asOfAgeInMonths: 468,
+    openingPosition: {
+      cashAccounts: [{ id: PRIMARY_CASH_ACCOUNT_ID, type: "bank_deposit", balanceWan: input.cashWan ?? 10, status: "active", factStatus: "known", evidence }],
+      debtAccounts: [predecessorDebt]
+    }
+  });
+  return [{
+    ...terminal,
+    age: 39,
+    ageInMonths: 468,
+    title: "偿债前",
+    isEndingNode: false,
+    financialLedger: predecessorLedger
+  }, terminal];
 }
 
 function outcome(text: string): FinalLifeOutcome {
@@ -66,10 +124,57 @@ test("PB-REPORT-03 absent confirmed property forbids ownership and sale claims",
   assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我卖掉自己的公寓后重新出发"), authority })[0]?.code, "REPORT_PROPERTY_CONFLICT");
 });
 
-test("PB-REPORT-04 reliable repaid account permits debt-completion semantics", () => {
-  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10 }));
+test("PB-REPORT-04 accepted ledger repayment permits debt-completion semantics", () => {
+  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10, debtSettlement: "repaid" }));
   assert.equal(authority?.debt.kind, "debt_fully_repaid");
   assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我终于还清了债务"), authority }).length, 0);
+});
+
+test("PB-REPORT-04B a raw repaid account cannot authorize terminal payoff copy", () => {
+  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10 }));
+  assert.equal(authority?.debt.kind, "no_active_debt");
+  const value = outcome("我终于还清了债务");
+  value.report.executiveSummary.headline = "你终于结清了全部债务。";
+  const issues = collectFinalFinancialNarrativeIssues({ outcome: value, authority });
+  assert.deepEqual(
+    issues.map((item) => item.code),
+    ["REPORT_DEBT_COMPLETION_CONFLICT", "REPORT_DEBT_COMPLETION_CONFLICT"]
+  );
+});
+
+test("PB-REPORT-04B2 raw repaid status cannot authorize debt-clear title wording", () => {
+  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10 }));
+  const value = outcome("我终于让债务归零，重新开始生活");
+  const issues = collectFinalFinancialNarrativeIssues({ outcome: value, authority });
+  assert.deepEqual(issues.map((item) => item.code), ["REPORT_DEBT_COMPLETION_CONFLICT"]);
+});
+
+test("PB-REPORT-04C accepted ledger remission permits debt-completion semantics", () => {
+  const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("repaid"), cashWan: 10, debtSettlement: "forgiven" }));
+  assert.equal(authority?.debt.kind, "debt_fully_repaid");
+  assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我终于还清了债务"), authority }).length, 0);
+});
+
+test("PB-REPORT-04D every terminal repaid account needs its own recorded settlement", () => {
+  const history = historyWith({ debt: debt("repaid"), cashWan: 10, debtSettlement: "repaid" });
+  history.at(-1)!.financialLedger!.debtAccounts.push({ ...debt("repaid"), id: "debt_unproved" });
+  const authority = deriveFinalFinancialNarrativeAuthority(history);
+  assert.equal(authority?.debt.kind, "no_active_debt");
+  assert.equal(collectFinalFinancialNarrativeIssues({ outcome: outcome("我终于还清了全部债务"), authority })[0]?.code, "REPORT_DEBT_COMPLETION_CONFLICT");
+});
+
+test("PB-REPORT-04E a payment for debt A cannot authorize payoff copy for raw-repaid debt B", () => {
+  const history = historyWith({ debt: debt("repaid"), cashWan: 10, debtSettlement: "repaid" });
+  history[0]!.financialLedger!.debtAccounts.push({ ...debt("active"), id: "debt_b", displayName: "第二笔个人借款" });
+  history.at(-1)!.financialLedger!.debtAccounts.push({ ...debt("repaid"), id: "debt_b", displayName: "第二笔个人借款" });
+
+  const authority = deriveFinalFinancialNarrativeAuthority(history);
+  assert.equal(authority?.debt.kind, "no_active_debt");
+  const value = outcome("我终于还清了全部债务");
+  assert.equal(
+    collectFinalFinancialNarrativeIssues({ outcome: value, authority })[0]?.code,
+    "REPORT_DEBT_COMPLETION_CONFLICT"
+  );
 });
 
 test("PB-REPORT-05 validation reports conflicts without rewriting model prose", () => {
@@ -161,7 +266,59 @@ test("PB-REPORT-12 terminal debt includes every active liability shown in the fi
   assert.equal(authority.numericClaims.find((claim) => claim.kind === "net_worth")?.valueWan, -23.6);
 });
 
-test("PB-REPORT-13 negative net worth cannot be romanticized as a worthwhile exchange", () => {
+test("PB-REPORT-13 final report and poster prompt consume the same V4 classified personal expense authority", () => {
+  const history = historyWith({ cashWan: 10 });
+  const opening = history[0].financialLedger! as FinancialLedgerV3;
+  opening.expenseCommitments = [{
+    id: "shared_home",
+    type: "housing",
+    displayName: "共同租住公寓",
+    monthlyAmountWan: 0.3,
+    grossMonthlyAmountWan: 0.6,
+    householdShareRate: 0.5,
+    confirmedMonthlyAmountWan: 0.3,
+    amountBasis: "explicit_shared_amount",
+    amountSourceIds: ["lease:shared_home"],
+    financialScope: "shared_household",
+    activeFromAgeInMonths: 470,
+    status: "active",
+    factStatus: "known",
+    evidence: [{ ...evidence[0], financialScope: "shared_household" }]
+  }];
+  history[0].financialLedger = migrateFinancialLedgerV3ToV4(opening);
+
+  const authority = deriveFinalFinancialNarrativeAuthority(history)!;
+  assert.equal(authority.personalExpenseSummary.availability, "available");
+  if (authority.personalExpenseSummary.availability !== "available") throw new Error("expected V4 expense authority");
+  assert.deepEqual(authority.personalExpenseSummary.activeCommitments.map((item) => ({
+    responsibilityKey: item.responsibilityKey,
+    kind: item.responsibilityKind,
+    scope: item.financialScope,
+    monthly: item.monthlyAmountWan,
+    basis: item.amountBasis,
+    factStatus: item.factStatus,
+    review: item.reviewStatus
+  })), [{
+    responsibilityKey: "primary_residence:main",
+    kind: "primary_residence",
+    scope: "shared_household",
+    monthly: 0.3,
+    basis: "explicit_shared_amount",
+    factStatus: "known",
+    review: "normal"
+  }]);
+  assert.equal(authority.numericClaims.find((claim) => claim.kind === "personal_annual_expense")?.valueWan, 3.6);
+
+  const prompt = buildFinalOutcomePrompt({
+    birthday: "1990-01-01", birthtime: "08:00", gender: "女", currentSituation: "测试", isReturnToPast: true,
+    targetAgeNode: "毕业", regressionNodeKey: "career", regressionAge: 22, regressionSituation: "测试", regressionChoices: "测试", coreStoryFocus: "career"
+  }, [], history, { happiness: 50, intelligence: 50, wealth: 50, relation: 50, health: 50 }, { closureType: "mortality" });
+  assert.match(prompt, /V4 个人持续支出分类摘要（报告与海报唯一支出事实源）/u);
+  assert.match(prompt, /responsibilityKey=primary_residence:main/u);
+  assert.match(prompt, /"personalExpenseSummary"/u, "the report/poster semantic authority must carry the same V4 object");
+});
+
+test("PB-REPORT-14 negative net worth cannot be romanticized as a worthwhile exchange", () => {
   const history = historyWith({ debt: debt("active", 100), cashWan: 10 });
   const authority = deriveFinalFinancialNarrativeAuthority(history)!;
   const value = outcome("我仍在安排生活");
@@ -170,7 +327,7 @@ test("PB-REPORT-13 negative net worth cannot be romanticized as a worthwhile exc
   assert.equal(issues.some((issue) => issue.code === "REPORT_NEGATIVE_NET_WORTH_ROMANTICIZATION"), true);
 });
 
-test("PB-REPORT-14 unsupported report amounts are detected before generic sanitization", () => {
+test("PB-REPORT-15 unsupported report amounts are detected before generic sanitization", () => {
   const history = historyWith({ debt: debt("active", 100), cashWan: 10 });
   const authority = deriveFinalFinancialNarrativeAuthority(history)!;
   const value = outcome("我留下46万元现金继续生活");
@@ -181,7 +338,7 @@ test("PB-REPORT-14 unsupported report amounts are detected before generic saniti
   );
 });
 
-test("PB-REPORT-15 debt cannot be minimized with poetic or anti-financial framing", () => {
+test("PB-REPORT-16 debt cannot be minimized with poetic or anti-financial framing", () => {
   const history = historyWith({ debt: debt("active", 100), cashWan: 10 });
   const authority = deriveFinalFinancialNarrativeAuthority(history)!;
   for (const text of [
@@ -204,7 +361,7 @@ test("PB-REPORT-15 debt cannot be minimized with poetic or anti-financial framin
   }
 });
 
-test("PB-REPORT-16 absent property authority forbids a mortgage claim", () => {
+test("PB-REPORT-17 absent property authority forbids a mortgage claim", () => {
   const history = historyWith({ debt: debt("active", 100), cashWan: 10 });
   const authority = deriveFinalFinancialNarrativeAuthority(history)!;
   const value = outcome("我仍在安排生活");
@@ -222,7 +379,7 @@ test("PB-REPORT-16 absent property authority forbids a mortgage claim", () => {
   );
 });
 
-test("PB-REPORT-17 mortality financial conflicts are rejected without deterministic fallback prose", () => {
+test("PB-REPORT-18 mortality financial conflicts are rejected without deterministic fallback prose", () => {
   const history = historyWith({ debt: debt("active", 100), cashWan: 10 });
   const authority = deriveFinalFinancialNarrativeAuthority(history)!;
   const value = outcome("我仍在安排生活");
@@ -237,7 +394,7 @@ test("PB-REPORT-17 mortality financial conflicts are rejected without determinis
   assert.match(value.report.futureTrends[0].trend, /继续按计划偿还/u);
 });
 
-test("PB-REPORT-18 debt cannot be offset by legacy or lack of regret", () => {
+test("PB-REPORT-19 debt cannot be offset by legacy or lack of regret", () => {
   const history = historyWith({ debt: debt("active", 100), cashWan: 10 });
   const authority = deriveFinalFinancialNarrativeAuthority(history)!;
   for (const text of [
@@ -255,7 +412,7 @@ test("PB-REPORT-18 debt cannot be offset by legacy or lack of regret", () => {
   }
 });
 
-test("PB-REPORT-19 r6 poetic debt offsets are rejected as fixed regressions", () => {
+test("PB-REPORT-20 r6 poetic debt offsets are rejected as fixed regressions", () => {
   const history = historyWith({ debt: debt("active", 100), cashWan: 10 });
   const authority = deriveFinalFinancialNarrativeAuthority(history)!;
   for (const text of [
@@ -275,7 +432,7 @@ test("PB-REPORT-19 r6 poetic debt offsets are rejected as fixed regressions", ()
   }
 });
 
-test("PB-REPORT-20 outstanding debt accepts explicit non-completion wording", () => {
+test("PB-REPORT-21 outstanding debt accepts explicit non-completion wording", () => {
   const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("active", 100), cashWan: 10 }))!;
   for (const text of [
     "直到去世，债务仍未还清。",
@@ -308,7 +465,7 @@ test("PB-REPORT-20 outstanding debt accepts explicit non-completion wording", ()
   }
 });
 
-test("PB-REPORT-21 missing property evidence is unknown, not confirmed absence", () => {
+test("PB-REPORT-22 missing property evidence is unknown, not confirmed absence", () => {
   const authority = deriveFinalFinancialNarrativeAuthority(historyWith({ debt: debt("active", 100), cashWan: 10 }))!;
   assert.equal(
     collectFinalFinancialNarrativeIssues({ outcome: outcome("没有已确认房产事实。"), authority })

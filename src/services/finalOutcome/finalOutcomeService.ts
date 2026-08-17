@@ -8,6 +8,7 @@ import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
 import {
   collectFinalFinancialNarrativeIssues,
   deriveFinalFinancialNarrativeAuthority,
+  replaceUnsupportedFinancialAmountsWithQualitativeText,
   type FinalFinancialNarrativeIssue
 } from "../../utils/finalFinancialNarrativeAuthority";
 import {
@@ -83,6 +84,46 @@ function invalidAfterRepair(issues: UnifiedIssue[]): AiClientError {
   );
 }
 
+function applyShareTerminalFallback(input: {
+  data: any;
+  issues: UnifiedIssue[];
+  history: HistoryItem[];
+}): { financialCount: number; qualityCount: number } {
+  const supportedFinancialPaths = new Set(["share.viralTitle", "share.imageAlt"]);
+  const supportedIssue = (issue: UnifiedIssue) => (
+    issue.code === "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT" && supportedFinancialPaths.has(issue.path)
+  ) || (
+    issue.code === "FINAL_REPORT_UNSUPPORTED_DURATION" && issue.path === "share.viralTitle"
+  );
+  if (input.issues.length === 0 || input.issues.some((issue) => !supportedIssue(issue))) {
+    return { financialCount: 0, qualityCount: 0 };
+  }
+  const authority = deriveFinalFinancialNarrativeAuthority(input.history);
+  if (!input.data?.share) return { financialCount: 0, qualityCount: 0 };
+  let financialCount = 0;
+  if (authority) {
+    for (const field of ["viralTitle", "imageAlt"] as const) {
+      if (typeof input.data.share[field] !== "string") continue;
+      const replaced = replaceUnsupportedFinancialAmountsWithQualitativeText({
+        text: input.data.share[field],
+        authority
+      });
+      input.data.share[field] = replaced.text;
+      financialCount += replaced.replacementCount;
+    }
+  }
+  let qualityCount = 0;
+  if (input.issues.some((issue) => issue.code === "FINAL_REPORT_UNSUPPORTED_DURATION")
+    && typeof input.data.share.viralTitle === "string") {
+    const replacedTitle = input.data.share.viralTitle.replace(/\d+(?:\.\d+)?\s*年/u, () => {
+      qualityCount += 1;
+      return "多年";
+    });
+    input.data.share.viralTitle = replacedTitle;
+  }
+  return { financialCount, qualityCount };
+}
+
 export async function generateFinalOutcome(
   input: GenerateFinalOutcomeInput,
   deps: FinalOutcomeServiceDeps = {}
@@ -94,8 +135,12 @@ export async function generateFinalOutcome(
   const firstValidation = firstParse.data
     ? collectUnifiedIssues(input, firstParse.data)
     : { quality: [], financial: [], all: [firstParse.issue!] as UnifiedIssue[] };
+  const observedFinancialIssues = [...firstValidation.financial];
+  const observedQualityIssues = [...firstValidation.quality];
 
   let data = firstParse.data;
+  let financialClaimFallbackCount = 0;
+  let finalOutcomeQualityFallbackCount = 0;
   if (firstValidation.all.length > 0) {
     const repairResponse = await callAiJson(buildFinalOutcomeRepairPrompt({
       originalPrompt: prompt,
@@ -106,7 +151,21 @@ export async function generateFinalOutcome(
     const repairParse = tryParseAiJsonResponse(repairResponse);
     if (!repairParse.data) throw invalidAfterRepair([repairParse.issue!]);
     data = repairParse.data;
-    const finalValidation = collectUnifiedIssues(input, data);
+    let finalValidation = collectUnifiedIssues(input, data);
+    observedFinancialIssues.push(...finalValidation.financial);
+    observedQualityIssues.push(...finalValidation.quality);
+    if (finalValidation.all.length > 0) {
+      const fallback = applyShareTerminalFallback({
+        data,
+        issues: finalValidation.all,
+        history: input.history
+      });
+      financialClaimFallbackCount = fallback.financialCount;
+      finalOutcomeQualityFallbackCount = fallback.qualityCount;
+      if (financialClaimFallbackCount > 0 || finalOutcomeQualityFallbackCount > 0) {
+        finalValidation = collectUnifiedIssues(input, data);
+      }
+    }
     if (finalValidation.all.length > 0) throw invalidAfterRepair(finalValidation.all);
   }
 
@@ -123,13 +182,14 @@ export async function generateFinalOutcome(
   outcome.meta = {
     ...outcome.meta,
     financialNarrativeAuthorityVersion: authority?.version,
-    financialClaimRepairTriggered: firstValidation.financial.length > 0,
-    financialClaimFallbackCount: 0,
-    financialClaimViolationCodes: [...new Set(firstValidation.financial.map((issue) => issue.code))],
+    financialClaimRepairTriggered: observedFinancialIssues.length > 0,
+    financialClaimFallbackCount,
+    financialClaimViolationCodes: [...new Set(observedFinancialIssues.map((issue) => issue.code))],
     sourceLedgerRevision: authority?.sourceLedgerRevision,
-    finalOutcomeQualityRepairTriggered: firstValidation.quality.length > 0 || Boolean(firstParse.issue),
+    finalOutcomeQualityRepairTriggered: observedQualityIssues.length > 0 || Boolean(firstParse.issue),
+    finalOutcomeQualityFallbackCount,
     finalOutcomeQualityIssueCodes: [...new Set([
-      ...firstValidation.quality.map((issue) => issue.code),
+      ...observedQualityIssues.map((issue) => issue.code),
       ...(firstParse.issue ? [firstParse.issue.code] : [])
     ])]
   };

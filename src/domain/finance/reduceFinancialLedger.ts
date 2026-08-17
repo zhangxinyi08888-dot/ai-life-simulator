@@ -26,10 +26,43 @@ import type {
   FinancialTransaction,
   IncomeSource
 } from "./types";
+import { isExpenseCommitmentV4, isFinancialLedgerV4 } from "./types";
 import { assertSufficientLiquidity } from "./reconcileLiquidity";
 
 const RECENT_TRANSACTION_LIMIT = 20;
 const EVENT_DRIVEN_DEBT_REVIEW_MONTHS = 24;
+
+/**
+ * These event kinds either credit the protagonist's cash immediately or
+ * create a recurring source that this personal ledger will accrue into cash.
+ * `financialScope` is evidence metadata, not a routing instruction: once one
+ * of these events reaches this reducer, its money is personal.  Reject an
+ * explicitly non-personal fact instead of letting a business/third-party
+ * receipt silently enter the protagonist ledger.
+ */
+const PERSONAL_CASH_INFLOW_EVENT_KINDS = new Set<FinancialEventKind>([
+  "income_source_started",
+  "income_source_adjusted",
+  "one_off_income_received",
+  "family_support_received",
+  "business_distribution_received"
+]);
+
+/**
+ * A transaction-level debt total is intentionally not enough to establish
+ * which liability was settled. Preserve the accepted event's target account
+ * so terminal/report authority can never borrow another account's payment.
+ */
+function debtSettlementAccountId(event: AcceptedFinancialEvent): string | undefined {
+  switch (event.kind) {
+    case "debt_principal_repaid":
+    case "debt_interest_paid":
+    case "debt_forgiven":
+      return event.payload.debtAccountId;
+    default:
+      return undefined;
+  }
+}
 
 export type ReduceFinancialLedgerResult =
   | {
@@ -83,6 +116,19 @@ function changeCash(ledger: FinancialLedger, accountId: string, deltaWan: number
   account.balanceWan = roundWan(account.balanceWan + deltaWan);
 }
 
+function assertPersonalCashInflowEvidenceScope(event: AcceptedFinancialEvent): void {
+  if (!PERSONAL_CASH_INFLOW_EVENT_KINDS.has(event.kind)) return;
+  const nonPersonalEvidence = event.evidence.find((item) => (
+    item.financialScope !== undefined && item.financialScope !== "personal"
+  ));
+  if (nonPersonalEvidence) {
+    throw new FinancialLedgerInvariantError(
+      "INVALID_LEDGER",
+      `个人现金流入 ${event.kind} 不得使用 ${nonPersonalEvidence.financialScope} 范围证据`
+    );
+  }
+}
+
 function validateIncomeSource(source: IncomeSource): void {
   if (source.accrualPolicy === "monthly" && (!Number.isFinite(source.monthlyNetAmountWan) || (source.monthlyNetAmountWan || 0) < 0)) {
     throw new FinancialLedgerInvariantError("INVALID_LEDGER", `月度收入来源 ${source.id} 缺少有效月净额`);
@@ -94,6 +140,105 @@ function validateIncomeSource(source: IncomeSource): void {
 
 function validateExpenseCommitment(commitment: ExpenseCommitment): void {
   nonNegativeMoney(commitment.monthlyAmountWan, `支出义务 ${commitment.id}.monthlyAmountWan`);
+}
+
+const V4_EXPENSE_CHANGE_REASONS = new Set([
+  "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "estimate_superseded_by_exact_fact", "dependent_independent",
+  "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
+  "education_completed", "aggregate_atomically_split", "temporary_third_party_coverage",
+  "aggregate_residual_reallocated",
+  "responsibility_resumed", "responsibility_ended"
+]);
+
+function assertV4ExpenseTransitionAuthority(input: {
+  ledger: FinancialLedger;
+  current: ExpenseCommitment;
+  next?: ExpenseCommitment;
+  payload: { expenseCommitmentId: string; previousCommitmentId?: string; changeReason?: string };
+  event: AcceptedFinancialEvent;
+  operation: "adjust" | "end";
+}): void {
+  if (!isFinancialLedgerV4(input.ledger)) return;
+  if (!isExpenseCommitmentV4(input.current)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出变更必须引用 canonical responsibility");
+  }
+  const needsAuthority = input.operation === "end"
+    || input.next?.status !== input.current.status
+    || (input.next !== undefined && input.next.monthlyAmountWan < input.current.monthlyAmountWan - 0.0001);
+  if (!needsAuthority) return;
+  if (input.payload.previousCommitmentId !== input.current.id
+    || !input.payload.changeReason
+    || !V4_EXPENSE_CHANGE_REASONS.has(input.payload.changeReason)
+    || input.event.evidence.length === 0
+    || input.event.acceptedByReasonCodes.length === 0) {
+    throw new FinancialLedgerInvariantError(
+      "INVALID_LEDGER",
+      "V4 支出下调、暂停、恢复或结束必须保存 previousCommitmentId、Accepted 证据和变化原因"
+    );
+  }
+  if (input.operation === "end") {
+    if (input.current.status === "ended") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", "已结束的 V4 支出责任不得再次结束");
+    }
+    return;
+  }
+  const next = input.next!;
+  if (input.current.status === "active" && next.status === "paused"
+    && input.payload.changeReason !== "temporary_third_party_coverage") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出暂停只能由暂时他方代付或临时停止付款的 Accepted fact 授权");
+  }
+  if (input.current.status === "paused" && next.status === "active"
+    && input.payload.changeReason !== "responsibility_resumed") {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出恢复必须由责任恢复支付的 Accepted fact 授权");
+  }
+}
+
+/**
+ * V4 intentionally uses one stable responsibility identity through an
+ * active/pause/resume lifecycle.  Ending and recreating an account would
+ * defeat idempotency and make a paused commitment indistinguishable from a
+ * genuinely ended responsibility.
+ */
+function validateV4ExpenseMutation(input: {
+  ledger: FinancialLedger;
+  current?: ExpenseCommitment;
+  next: ExpenseCommitment;
+  operation: "start" | "adjust" | "end";
+}): void {
+  if (!isFinancialLedgerV4(input.ledger)) return;
+  if (!isExpenseCommitmentV4(input.next)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出事件必须使用完整 canonical ExpenseCommitment payload");
+  }
+  if (input.operation === "start") {
+    if (input.next.status !== "active") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 新支出责任必须以 active 状态开始；暂停和结束只能针对既有责任");
+    }
+    const existingResponsibility = input.ledger.expenseCommitments.find((commitment) => (
+      commitment.status !== "ended"
+      && commitment.responsibilityKey === input.next.responsibilityKey
+    ));
+    if (existingResponsibility) {
+      throw new FinancialLedgerInvariantError(
+        "INVALID_LEDGER",
+        `V4 支出责任 ${input.next.responsibilityKey} 已由 ${existingResponsibility.id} 以 ${existingResponsibility.status} 状态存在；必须调整或恢复原账户，不能重复 started`
+      );
+    }
+    return;
+  }
+  if (!input.current || !isExpenseCommitmentV4(input.current)) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出变更必须引用已有 canonical responsibility");
+  }
+  if (input.current.responsibilityKey !== input.next.responsibilityKey) {
+    throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出调整不得改变 responsibilityKey");
+  }
+  if (input.operation === "adjust") {
+    if (input.current.status === "ended") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", "已结束的 V4 支出责任不得通过调整恢复；必须建立新的责任事实");
+    }
+    if (input.next.status === "ended") {
+      throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出结束必须使用 expense_commitment_ended，而非调整事件");
+    }
+  }
 }
 
 function requiredOptionHolding(ledger: FinancialLedger, id: string): BusinessHolding {
@@ -337,7 +482,15 @@ function applyEvent(
       const commitment = event.payload as ExpenseCommitment;
       assertNewId(ledger.expenseCommitments, commitment.id, "支出义务");
       validateExpenseCommitment(commitment);
-      ledger.expenseCommitments.push(structuredClone(commitment));
+      validateV4ExpenseMutation({ ledger, next: commitment, operation: "start" });
+      if (isFinancialLedgerV4(ledger)) {
+        if (!isExpenseCommitmentV4(commitment)) {
+          throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出事件必须使用完整 canonical ExpenseCommitment payload");
+        }
+        ledger.expenseCommitments.push(structuredClone(commitment));
+      } else {
+        ledger.expenseCommitments.push(structuredClone(commitment));
+      }
       return;
     }
     case "expense_commitment_adjusted": {
@@ -345,11 +498,37 @@ function applyEvent(
       const index = ledger.expenseCommitments.findIndex((commitment) => commitment.id === expenseCommitmentId);
       if (index < 0 || nextCommitment.id !== expenseCommitmentId) throw new FinancialLedgerInvariantError("INVALID_LEDGER", `支出义务调整必须引用同一账户: ${expenseCommitmentId}`);
       validateExpenseCommitment(nextCommitment);
-      ledger.expenseCommitments[index] = structuredClone(nextCommitment);
+      validateV4ExpenseMutation({ ledger, current: ledger.expenseCommitments[index], next: nextCommitment, operation: "adjust" });
+      assertV4ExpenseTransitionAuthority({
+        ledger,
+        current: ledger.expenseCommitments[index],
+        next: nextCommitment,
+        payload: event.payload,
+        event,
+        operation: "adjust"
+      });
+      if (isFinancialLedgerV4(ledger)) {
+        if (!isExpenseCommitmentV4(nextCommitment)) {
+          throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出事件必须使用完整 canonical ExpenseCommitment payload");
+        }
+        ledger.expenseCommitments[index] = structuredClone(nextCommitment);
+      } else {
+        ledger.expenseCommitments[index] = structuredClone(nextCommitment);
+      }
       return;
     }
     case "expense_commitment_ended": {
       const commitment = requiredById(ledger.expenseCommitments, event.payload.expenseCommitmentId, "支出义务");
+      if (isFinancialLedgerV4(ledger) && !isExpenseCommitmentV4(commitment)) {
+        throw new FinancialLedgerInvariantError("INVALID_LEDGER", "V4 支出结束必须引用 canonical responsibility");
+      }
+      assertV4ExpenseTransitionAuthority({
+        ledger,
+        current: commitment,
+        payload: event.payload,
+        event,
+        operation: "end"
+      });
       commitment.status = "ended";
       commitment.activeUntilAgeInMonths = event.effectiveAtAgeInMonths;
       return;
@@ -780,6 +959,7 @@ export function reduceFinancialLedger(input: {
   }
 
   const events = validateAcceptedFinancialEvents(input);
+  for (const event of events) assertPersonalCashInflowEvidenceScope(event);
   const allEventIds = new Set(events.map((event) => event.id));
   const next = cloneLedger(input.ledger);
   let automaticShortfallAccount = consolidateAutomaticShortfallAccounts(next);
@@ -811,6 +991,7 @@ export function reduceFinancialLedger(input: {
   let cursor = input.periodStartAgeInMonths;
   const automaticLiquidityEventIds: string[] = [];
   const automaticLiquidityRecoveryEventIds: string[] = [];
+  const automaticLiquidityRecoveryDebtAccountIds: string[] = [];
   let automaticLiquidityShortfallIncreaseWan = 0;
 
   const closeLiquidityShortfall = (ageInMonths: number, allowed: boolean) => {
@@ -912,6 +1093,7 @@ export function reduceFinancialLedger(input: {
     automaticLiquidityRecoveryEventIds.push(
       `auto_shortfall_recovery_${input.transactionId}_${ageInMonths}_${automaticLiquidityRecoveryEventIds.length}`
     );
+    automaticLiquidityRecoveryDebtAccountIds.push(recoveredDebtId);
     return recoveredWan;
   };
 
@@ -997,6 +1179,13 @@ export function reduceFinancialLedger(input: {
   const debtBalanceDiscoveredWan = roundWan(events
     .filter((event) => event.kind === "debt_balance_discovered")
     .reduce((sum, event) => sum + event.payload.debtAccount.principalWan, 0));
+  const debtSettlementAccountIds = [...new Set([
+    ...totals.debtServiceRecords
+      .filter((record) => record.principalPaidWan > 0 || record.interestPaidWan > 0)
+      .map((record) => record.debtAccountId),
+    ...events.map(debtSettlementAccountId).filter((id): id is string => Boolean(id)),
+    ...automaticLiquidityRecoveryDebtAccountIds
+  ])];
   const transaction: FinancialTransaction = {
     id: `financial_${input.transactionId}`,
     simulationTransactionId: input.transactionId,
@@ -1024,7 +1213,18 @@ export function reduceFinancialLedger(input: {
     debtInterestLiabilityPaidWan: totals.debtInterestLiabilityPaidWan,
     debtInterestForgivenWan: totals.debtInterestForgivenWan,
     debtCapitalizedInterestWan: totals.debtCapitalizedInterestWan,
-    evidence
+    debtSettlementAccountIds,
+    evidence,
+    // Transaction-level evidence deliberately remains for compact ledger
+    // history. Preserve the per-Accepted-event boundary as well: a single
+    // period can contain both an organisation's restricted fund and the
+    // protagonist's salary, and release audit must never infer that one from
+    // the other merely because their transaction totals are aggregated.
+    acceptedEventAudit: events.map((event) => ({
+      eventId: event.id,
+      kind: event.kind,
+      evidence: event.evidence.map((item) => ({ ...item }))
+    }))
   } as FinancialTransaction;
   next.recentTransactions = [...next.recentTransactions, transaction].slice(-RECENT_TRANSACTION_LIMIT);
   assertFinancialLedgerInvariants(next);

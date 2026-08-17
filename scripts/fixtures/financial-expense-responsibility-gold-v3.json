@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "financial-expense-responsibility-gold-v3-extension",
+  "corpusKind": "frozen_gold_extension",
+  "nodeIndexBase": 0,
+  "reviewer": "human_adjudicated",
+  "purpose": "Versioned deterministic regression extension adjudicated from the fresh 2026-08-02 v8 five-route responsibility annotations. It freezes opening housing and parent-medical facts, high-age parent-care start/review facts, and personal-ledger boundary negatives. It is not generated from the detector. It is release-gated only through the explicit v1+v2+v3 aggregate in expenseGoldCorpusE2E.test.ts; it is intentionally not a standalone minimum corpus.",
+  "sourceRun": "artifacts/report-invitation-browser/2026-08-02T15-38-38+08-00-financial-expense-lifecycle-release-five-routes-v8",
+  "annotations": [
+    {
+      "caseSlug": "real-career-first",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。",
+      "expectedAction": "start",
+      "expectedType": "housing",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": true,
+      "reviewer": "human_adjudicated"
+    },
+    {
+      "caseSlug": "real-career-first",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "当时我有房租和父母医疗支出，每月必须保留稳定现金流，但已经存下约18万元。",
+      "expectedAction": "start",
+      "expectedType": "healthcare",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "recurring_healthcare:opening_parent",
+      "material": true,
+      "reviewer": "human_adjudicated"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "nodeIndex": 12,
+      "evidenceExcerpt": "你们看中了一套总价280万的电梯房，首付需要84万。你拿出大部分积蓄，加上伴侣和双方父母的支持，终于凑齐。",
+      "expectedAction": "review",
+      "expectedType": "housing",
+      "expectedScope": "shared_household",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": true,
+      "reviewer": "human_adjudicated"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "nodeIndex": 13,
+      "evidenceExcerpt": "你主动承担起协调角色，每周固定陪母亲复查血压，父亲的体检报告也成了你手机里的常驻文件。",
+      "expectedAction": "start",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:person_parent_unspecified",
+      "material": true,
+      "reviewer": "human_adjudicated"
+    },
+    {
+      "caseSlug": "real-relationship-first",
+      "nodeIndex": 14,
+      "evidenceExcerpt": "母亲血压稳定，但父亲偶尔腰疼，你陪他做了两次理疗，这让你更理解照护的细节。",
+      "expectedAction": "review",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:person_parent_unspecified",
+      "material": true,
+      "reviewer": "human_adjudicated"
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "nodeIndex": 22,
+      "evidenceExcerpt": "父亲的膝盖开始不太好，母亲也偶尔头晕，你每周回老家两次，帮忙买菜、陪他们去医院复查。",
+      "expectedAction": "start",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:person_parent_unspecified",
+      "material": true,
+      "reviewer": "human_adjudicated"
+    },
+    {
+      "caseSlug": "real-custom-lifespan",
+      "nodeIndex": 30,
+      "evidenceExcerpt": "你与父亲商量后，决定请一位钟点工每周来三天帮忙做午饭和打扫，你则保持每周两次回老家陪伴和复查。",
+      "expectedAction": "review",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:person_parent_unspecified",
+      "material": true,
+      "reviewer": "human_adjudicated",
+      "adjudication": "The v8 diagnostic annotation is intentionally retained as review: the clock-worker decision does not state that the protagonist pays or what amount they pay. A committed adjustment in the observed route is not proof that the prose alone can assert a personal amount."
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "nodeIndex": 1,
+      "evidenceExcerpt": "前三个月，你们在城中村租下一间每月2000元的办公室。",
+      "expectedAction": "ignore",
+      "expectedScope": "business_operating",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": false,
+      "reviewer": "human_adjudicated"
+    },
+    {
+      "caseSlug": "real-education-second",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "家里愿意承担国内学费，但希望我毕业后尽快稳定就业。",
+      "expectedAction": "ignore",
+      "expectedScope": "third_party",
+      "expectedResponsibilityKey": "continuing_education:opening",
+      "material": false,
+      "reviewer": "human_adjudicated"
+    },
+    {
+      "caseSlug": "real-venture-second",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "我年薪税后约38万元，房贷余额210万元，每月还款1.3万元，家庭备用金约35万元。",
+      "expectedAction": "ignore",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": false,
+      "reviewer": "human_adjudicated"
+    }
+  ]
+}

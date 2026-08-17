@@ -2,38 +2,75 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   auditFinancialProductionRecords,
+  collectRestrictedProjectFundingInPersonalCash,
+  collectRestrictedProjectFundingAttributionGaps,
   containsPersonalHoldingClaim,
   collectFinalReportFinancialConflicts,
   extractFinancialNarrativeAuditMeta,
   extractPersonalMonthlyIncomeWan
 } from "./lib/financial-production-audit.mjs";
 
-function ledger({ debt = 0, assets = [], evidence = [{ source: "system_policy", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }] } = {}) {
+function ledger({
+  debt = 0,
+  debtStatus = "active",
+  assets = [],
+  evidence = [{ source: "system_policy", reasonCode: "LEGACY_FINANCIAL_STATE_MIGRATION", confidence: 0.5 }],
+  recentTransactions = []
+} = {}) {
   return {
     debtAccounts: debt > 0 ? [{
       id: "legacy_debt",
       type: "mortgage",
-      principalWan: debt,
+      principalWan: debtStatus === "repaid" ? 0 : debt,
       accruedUnpaidInterestWan: 0,
-      status: "active",
+      status: debtStatus,
       evidence
     }] : [],
     assetAccounts: assets,
-    recentTransactions: []
+    recentTransactions
   };
 }
 
-function node({ title, ageInMonths, debt = 0, cash = 0, netWorth = cash - debt, description = "普通生活继续。", fallback = false, assets = [] }) {
+function node({ title, ageInMonths, debt = 0, debtStatus = "active", cash = 0, netWorth = cash - debt, description = "普通生活继续。", fallback = false, assets = [], evidence, recentTransactions = [] }) {
   return {
     title,
     ageInMonths,
     description,
-    financialLedger: ledger({ debt, assets }),
+    financialLedger: ledger({ debt, debtStatus, assets, evidence, recentTransactions }),
     financialState: { cashWan: cash, totalDebtWan: debt, netWorthWan: netWorth, propertyMarketValueWan: 0 },
     financialProcessingMeta: fallback ? {
       narrativeFallback: true,
       narrativeFallbackReasonCodes: ["FINANCIAL_COMPLETION_ROLLBACK"]
     } : { narrativeFallback: false }
+  };
+}
+
+function restrictedProjectFundingTransaction({
+  id = "restricted_project_fund_tx",
+  evidenceExcerpt = "你申请到一笔10万元的项目基金，用于为5所村小提供硬件和教师津贴",
+  incomeWan = 10,
+  cashDeltaWan = 10,
+  financialScope = "personal",
+  eventKind = "one_off_income_received"
+} = {}) {
+  const evidence = {
+    source: "accepted_simulation_outcome",
+    sourceEventId: "accepted_grant_received",
+    excerpt: evidenceExcerpt,
+    financialScope
+  };
+  return {
+    id,
+    simulationTransactionId: id.replace(/^financial_/u, ""),
+    eventIds: ["accepted_grant_received"],
+    incomeWan,
+    cashDeltaWan,
+    evidence: [evidence],
+    acceptedEventAudit: [{
+      eventId: "accepted_grant_received",
+      kind: eventKind,
+      evidence: [evidence]
+    }]
   };
 }
 
@@ -215,15 +252,208 @@ test("PB-AUDIT-12 a hypothetical future payoff is not reported as an unsupported
 });
 
 test("PB-AUDIT-13 a zero-debt state may describe a historically grounded payoff", () => {
+  const acceptedRepayment = {
+    id: "accepted_repayment_tx", debtPrincipalPaidWan: 8.54, debtPrincipalForgivenWan: 0,
+    debtInterestLiabilityPaidWan: 0, debtInterestForgivenWan: 0, automaticLiquidityShortfallRecoveryWan: 0,
+    debtSettlementAccountIds: ["legacy_debt"]
+  };
   const audit = auditFinancialProductionRecords([{
     caseSlug: "historical-payoff",
     finalState: { history: [
       node({ title: "曾有债务", ageInMonths: 500, debt: 8.54, cash: 2 }),
-      node({ title: "完成偿付", ageInMonths: 512, debt: 0, cash: 3, description: "债务归零后，你开始建立新的现金缓冲。" }),
-      node({ title: "稳定生活", ageInMonths: 524, debt: 0, cash: 5, description: "债务归零后，你继续按月储蓄。" })
+      node({
+        title: "完成偿付", ageInMonths: 512, debt: 8.54, debtStatus: "repaid", cash: 3,
+        evidence: [{ source: "accepted_history", reasonCode: "DEBT_REPAYMENT", confidence: 1 }],
+        recentTransactions: [acceptedRepayment],
+        description: "债务归零后，你开始建立新的现金缓冲。"
+      }),
+      node({
+        title: "稳定生活", ageInMonths: 524, debt: 8.54, debtStatus: "repaid", cash: 5,
+        evidence: [{ source: "accepted_history", reasonCode: "DEBT_REPAYMENT", confidence: 1 }],
+        recentTransactions: [acceptedRepayment],
+        description: "债务归零后，你继续按月储蓄。"
+      })
     ] }
   }]);
   assert.equal(audit.summary.unsupportedRepaymentCompletionNodeCount, 0);
+});
+
+test("PB-AUDIT-14 an opening backstory payoff is not treated as a current ledger completion", () => {
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "opening-backstory-payoff",
+    finalState: {
+      history: [node({
+        title: "开局", ageInMonths: 288, debt: 0, cash: 18,
+        description: "你刚攒下十八万，还清了信用卡分期，手头略有积蓄。"
+      })]
+    }
+  }]);
+  assert.equal(audit.summary.unsupportedRepaymentCompletionNodeCount, 0);
+});
+
+test("PB-AUDIT-15 zero terminal debt without a ledger settlement cannot support report payoff copy", () => {
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "unsupported-terminal-payoff",
+    finalState: {
+      history: [
+        node({ title: "曾有债务", ageInMonths: 500, debt: 8.54, cash: 2 }),
+        node({
+          title: "账面归零", ageInMonths: 512, debt: 8.54, debtStatus: "repaid", cash: 3,
+          evidence: [{ source: "accepted_history", reasonCode: "UNVERIFIED_STATUS", confidence: 1 }]
+        })
+      ],
+      outcome: { share: { viralTitle: "我终于还清了全部债务" }, report: {} }
+    }
+  }]);
+  assert.equal(audit.summary.finalReportFinancialConflictCount, 1);
+});
+
+test("PB-AUDIT-16 a settlement for one account cannot authorize a payoff claim for an unproved second account", () => {
+  const acceptedRepayment = {
+    id: "accepted_repayment_tx", debtPrincipalPaidWan: 8.54, debtPrincipalForgivenWan: 0,
+    debtInterestLiabilityPaidWan: 0, debtInterestForgivenWan: 0, automaticLiquidityShortfallRecoveryWan: 0,
+    debtSettlementAccountIds: ["legacy_debt"]
+  };
+  const settled = node({
+    title: "一笔偿付完成", ageInMonths: 512, debt: 8.54, debtStatus: "repaid", cash: 3,
+    evidence: [{ source: "accepted_history", reasonCode: "DEBT_REPAYMENT", confidence: 1 }],
+    recentTransactions: [acceptedRepayment]
+  });
+  settled.financialLedger.debtAccounts.push({
+    id: "unproved_debt", type: "consumer_loan", principalWan: 0, accruedUnpaidInterestWan: 0, status: "repaid",
+    evidence: [{ source: "accepted_history", reasonCode: "UNVERIFIED_STATUS", confidence: 1 }]
+  });
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "partially-proved-terminal-payoff",
+    finalState: {
+      history: [node({ title: "曾有债务", ageInMonths: 500, debt: 8.54, cash: 2 }), settled],
+      outcome: { share: { viralTitle: "我终于还清了全部债务" }, report: {} }
+    }
+  }]);
+  assert.equal(audit.summary.finalReportFinancialConflictCount, 1);
+});
+
+test("PB-AUDIT-17 restricted project funding in personal cash is transaction-deduplicated and excludes a freely disposable personal award", () => {
+  const restricted = restrictedProjectFundingTransaction();
+  const repeatedSnapshots = [
+    node({ title: "基金到账", ageInMonths: 416, cash: 30, recentTransactions: [restricted] }),
+    node({ title: "后续生活", ageInMonths: 428, cash: 32, recentTransactions: [restricted] })
+  ];
+  const restrictedAudit = auditFinancialProductionRecords([{
+    caseSlug: "restricted-funding",
+    finalState: { history: repeatedSnapshots }
+  }]);
+  assert.equal(collectRestrictedProjectFundingInPersonalCash([{
+    caseSlug: "restricted-funding",
+    finalState: { history: repeatedSnapshots }
+  }]).length, 1);
+  assert.equal(restrictedAudit.summary.restrictedProjectFundingInPersonalCashCount, 1);
+  assert.equal(restrictedAudit.restrictedProjectFundingInPersonalCash[0].transactionId, "restricted_project_fund_tx");
+
+  const businessScopedGrant = restrictedProjectFundingTransaction({
+    id: "business_scoped_but_personal_cash_tx",
+    financialScope: "business_operating"
+  });
+  const businessScopedAudit = auditFinancialProductionRecords([{
+    caseSlug: "business-scoped-grant-still-personal-cash",
+    finalState: { history: [node({ title: "错误记入个人现金", ageInMonths: 417, cash: 40, recentTransactions: [businessScopedGrant] })] }
+  }]);
+  assert.equal(
+    businessScopedAudit.summary.restrictedProjectFundingInPersonalCashCount,
+    1,
+    "a business evidence tag cannot exempt an event kind that credited the personal ledger"
+  );
+
+  const restrictedDistribution = restrictedProjectFundingTransaction({
+    id: "restricted_project_distribution_tx",
+    eventKind: "business_distribution_received"
+  });
+  const distributionAudit = auditFinancialProductionRecords([{
+    caseSlug: "restricted-distribution",
+    finalState: { history: [node({ title: "错误分配项目款", ageInMonths: 418, cash: 50, recentTransactions: [restrictedDistribution] })] }
+  }]);
+  assert.equal(distributionAudit.summary.restrictedProjectFundingInPersonalCashCount, 1);
+
+  const freelyDisposableAward = restrictedProjectFundingTransaction({
+    id: "freely_disposable_award_tx",
+    evidenceExcerpt: "你从乡村教育项目资助中获得10万元个人自由支配奖金，不限定用于学校、教师或硬件。"
+  });
+  const awardAudit = auditFinancialProductionRecords([{
+    caseSlug: "freely-disposable-award",
+    finalState: { history: [node({ title: "个人奖励", ageInMonths: 416, cash: 30, recentTransactions: [freelyDisposableAward] })] }
+  }]);
+  assert.equal(awardAudit.summary.restrictedProjectFundingInPersonalCashCount, 0);
+});
+
+test("PB-AUDIT-18 event-level audit keeps a non-cash organisation grant separate from same-period personal salary", () => {
+  const restrictedOrganisationEvidence = {
+    source: "accepted_simulation_outcome",
+    sourceEventId: "organisation_grant",
+    excerpt: "公益基金10万元专款用于为村小提供硬件和教师津贴。",
+    financialScope: "business_operating"
+  };
+  const personalSalaryEvidence = {
+    source: "accepted_simulation_outcome",
+    sourceEventId: "personal_salary",
+    excerpt: "你继续在原公司工作，年税后收入稳定在32万元。",
+    financialScope: "personal"
+  };
+  const mixedTransaction = {
+    id: "mixed_grant_and_salary",
+    simulationTransactionId: "mixed_grant_and_salary",
+    eventIds: ["organisation_grant", "personal_salary"],
+    incomeWan: 2,
+    cashDeltaWan: 2,
+    evidence: [restrictedOrganisationEvidence, personalSalaryEvidence],
+    acceptedEventAudit: [
+      { eventId: "organisation_grant", kind: "business_financing_recorded", evidence: [restrictedOrganisationEvidence] },
+      { eventId: "personal_salary", kind: "income_source_adjusted", evidence: [personalSalaryEvidence] }
+    ]
+  };
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "mixed-grant-and-salary",
+    finalState: { history: [node({ title: "混合期间", ageInMonths: 416, cash: 30, recentTransactions: [mixedTransaction] })] }
+  }]);
+  assert.equal(audit.summary.restrictedProjectFundingInPersonalCashCount, 0);
+  assert.equal(audit.summary.restrictedProjectFundingAttributionGapCount, 0);
+
+  const legacyMixedTransaction = { ...mixedTransaction };
+  delete legacyMixedTransaction.acceptedEventAudit;
+  const legacyAudit = auditFinancialProductionRecords([{
+    caseSlug: "legacy-mixed-grant-and-salary",
+    finalState: { history: [node({ title: "旧快照混合期间", ageInMonths: 416, cash: 30, recentTransactions: [legacyMixedTransaction] })] }
+  }]);
+  assert.equal(legacyAudit.summary.restrictedProjectFundingInPersonalCashCount, 0, "unattributed legacy aggregate must not assert a personal-cash violation");
+  assert.equal(collectRestrictedProjectFundingAttributionGaps([{
+    caseSlug: "legacy-mixed-grant-and-salary",
+    finalState: { history: [node({ title: "旧快照混合期间", ageInMonths: 416, cash: 30, recentTransactions: [legacyMixedTransaction] })] }
+  }]).length, 1);
+  assert.equal(legacyAudit.summary.restrictedProjectFundingAttributionGapCount, 1, "missing event attribution is a distinct release-proof failure");
+});
+
+test("PB-AUDIT-19 a personal commercial project payment is not a restricted public fund", () => {
+  const personalProjectPayment = restrictedProjectFundingTransaction({
+    id: "personal_consulting_project_payment",
+    evidenceExcerpt: "你收到10万元个人咨询项目款，作为本次软件开发服务的个人报酬，专门用于后续项目执行。"
+  });
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "personal-commercial-project-payment",
+    finalState: { history: [node({ title: "咨询项目回款", ageInMonths: 416, cash: 30, recentTransactions: [personalProjectPayment] })] }
+  }]);
+  assert.equal(audit.summary.restrictedProjectFundingInPersonalCashCount, 0);
+  assert.equal(audit.summary.restrictedProjectFundingAttributionGapCount, 0);
+});
+
+test("PB-AUDIT-20 a public project execution earmark remains a restricted personal-cash violation", () => {
+  const publicProjectFund = restrictedProjectFundingTransaction({
+    id: "public_project_execution_fund",
+    evidenceExcerpt: "你收到10万元公益项目款，仅限用于项目执行。"
+  });
+  const audit = auditFinancialProductionRecords([{
+    caseSlug: "public-project-execution-fund",
+    finalState: { history: [node({ title: "公益项目执行", ageInMonths: 416, cash: 30, recentTransactions: [publicProjectFund] })] }
+  }]);
+  assert.equal(audit.summary.restrictedProjectFundingInPersonalCashCount, 1);
 });
 
 test("PB-AUDIT-14 generation telemetry exposes visible pauses, unknown calls, and retry budget violations", () => {

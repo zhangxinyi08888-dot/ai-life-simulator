@@ -118,6 +118,21 @@ const semanticDuplicates = evaluateDecisionGate({
 assert.equal(semanticDuplicates.isDecisionCheckpoint, false);
 assert.ok(semanticDuplicates.reasonCodes.includes("insufficient-semantic-diversity"));
 
+const deterministicEventFallback = evaluateDecisionGate({
+  candidateNode: {
+    ...base,
+    choices: [
+      { id: "A", text: "继续推进一个可核验步骤", impactSummary: "推进核验", decisionIntent: "event:growth-17:continue_and_review:node-17", expectedWorldDeltaTypes: ["career_state"] },
+      { id: "B", text: "缩小投入并稳定日常责任", impactSummary: "收缩稳定", decisionIntent: "event:growth-17:stabilize_commitment:node-17", expectedWorldDeltaTypes: ["health_state"] },
+      { id: "C", text: "暂停当前做法并转向现实路径", impactSummary: "转向验证", decisionIntent: "event:growth-17:pivot_to_test:node-17", expectedWorldDeltaTypes: ["location_change"] }
+    ]
+  },
+  recentHistory: [],
+  targetAgeInMonths: 420
+});
+assert.equal(deterministicEventFallback.isDecisionCheckpoint, true);
+assert.equal(deterministicEventFallback.reasonCodes.includes("insufficient-semantic-diversity"), false);
+
 test("a density-only repair can downgrade intensity without changing the event or choices", () => {
   const candidate = {
     ...base,

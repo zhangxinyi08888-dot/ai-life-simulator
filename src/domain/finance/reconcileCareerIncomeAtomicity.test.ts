@@ -4,7 +4,12 @@ import { initializeCareerState } from "../career/careerState";
 import type { AcceptedCareerTransition } from "../career/types";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "./ledgerMath";
-import { collectPersonalIncomeNarrativeContractIssues, narrativeClaimsNewPersonalIncomeActivity, reconcileCareerIncomeAtomicity } from "./reconcileCareerIncomeAtomicity";
+import {
+  collectPersonalIncomeNarrativeContractIssues,
+  narrativeClaimsExplicitPersonalIncome,
+  narrativeClaimsNewPersonalIncomeActivity,
+  reconcileCareerIncomeAtomicity
+} from "./reconcileCareerIncomeAtomicity";
 import type { AcceptedFinancialEvent, FinancialEvidence } from "./types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_simulation_outcome", reasonCode: "TEST", confidence: 1 }];
@@ -345,6 +350,87 @@ test("PB-CAREER-01 explicit personal income prose requires an Accepted income ev
   }).length, 1);
 });
 
+test("PB-CAREER-01a company and product traction are not personal compensation", () => {
+  const companyOrProductOnly = [
+    "公司的产品已有至少三个付费客户，销售团队正在复盘转化路径。",
+    "产品完成第一轮迭代，签约了两家付费试用客户，但公司尚未实现盈利。",
+    "客户对平台给出积极反馈，并明确表达了续约意向。"
+  ];
+
+  for (const narrativeText of companyOrProductOnly) {
+    assert.equal(narrativeClaimsNewPersonalIncomeActivity(narrativeText), false, narrativeText);
+    assert.equal(collectPersonalIncomeNarrativeContractIssues({
+      narrativeText,
+      acceptedFinancialEvents: [],
+      ageInMonths: 660
+    }).length, 0, narrativeText);
+  }
+
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(
+    "你开始每周抽两个晚上接咨询，每次收费800元。"
+  ), true);
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(
+    "一位老客户办了工作坊，对方当场付了5000元咨询费。"
+  ), true);
+  // A client purchasing the protagonist's training/consulting is still a
+  // commercial completion claim. It must not be mistaken for product traction
+  // merely because the same sentence also mentions a company.
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(
+    "客户主动提出采购内部培训，并介绍了一家初创公司做团队咨询。"
+  ), true);
+});
+
+test("PB-CAREER-01b explicit personal compensation overrides organization traction", () => {
+  const mixedOrganizationAndNewPersonalCompensation = [
+    "公司的产品已有至少三个付费客户，你每月收到1.2万元税后工资。",
+    "平台签约了两家付费试用客户，你收到5000元顾问费作为个人服务报酬。"
+  ];
+
+  for (const narrativeText of mixedOrganizationAndNewPersonalCompensation) {
+    assert.equal(narrativeClaimsNewPersonalIncomeActivity(narrativeText), true, narrativeText);
+    assert.equal(collectPersonalIncomeNarrativeContractIssues({
+      narrativeText,
+      acceptedFinancialEvents: [],
+      ageInMonths: 660
+    }).length, 1, narrativeText);
+  }
+
+  const mixedOrganizationAndCurrentPersonalIncome = "团队已经获得续约意向，你的个人收入稳定在2万元/月。";
+  assert.equal(narrativeClaimsExplicitPersonalIncome(mixedOrganizationAndCurrentPersonalIncome), true);
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: mixedOrganizationAndCurrentPersonalIncome,
+    acceptedFinancialEvents: [],
+    ageInMonths: 660
+  }).length, 1);
+});
+
+test("PB-CAREER-01c conditional and forecast income language is not completed personal income", () => {
+  const hypotheticalOrForecastOnly = [
+    "你重新算了算，如果保留大公司的工作，同时严格控制业余项目的投入，现金流可以维持稳定，但项目进展会慢下来；如果减少大公司的工时，则要接受更低的收入。",
+    "若签约成功，咨询收入预计每月增加5000元。",
+    "如果接受新岗位，你的个人收入稳定在2万元/月。",
+    "收入预期变化会让贷款审批更复杂。"
+  ];
+
+  for (const narrativeText of hypotheticalOrForecastOnly) {
+    assert.equal(narrativeClaimsNewPersonalIncomeActivity(narrativeText), false, narrativeText);
+    assert.equal(narrativeClaimsExplicitPersonalIncome(narrativeText), false, narrativeText);
+    assert.equal(collectPersonalIncomeNarrativeContractIssues({
+      narrativeText,
+      acceptedFinancialEvents: [],
+      ageInMonths: 660
+    }).length, 0, narrativeText);
+  }
+
+  const actualReceipt = "客户已经结算，你收到5000元顾问费作为个人服务报酬。";
+  assert.equal(narrativeClaimsNewPersonalIncomeActivity(actualReceipt), true);
+  assert.equal(collectPersonalIncomeNarrativeContractIssues({
+    narrativeText: actualReceipt,
+    acceptedFinancialEvents: [],
+    ageInMonths: 660
+  }).length, 1);
+});
+
 test("PB-CAREER-02 resignation, old wage closure, and new owner draw commit atomically", () => {
   const current = fixture();
   const nextCareerState = initializeCareerState({ id: "career_studio", employmentStatus: "self_employed", occupation: "工作室负责人", effectiveFromAgeInMonths: 660 });
@@ -441,4 +527,119 @@ test("PB-CAREER-15 income cannot rebind to a CareerState that was not committed"
   assert.equal(result.issues[0].code, "CAREER_INCOME_CONFLICT");
   assert.deepEqual(result.issues[0].relatedProposalIds, ["adjust_salary_to_orphan_career_proposal"]);
   assert.match(result.issues[0].summary, /career_consulting/);
+});
+
+test("an orphan income closure cannot erase the last wage of an employed CareerState", () => {
+  const current = fixture();
+  const endSalary: AcceptedFinancialEvent<"income_source_ended"> = {
+    id: "orphan_end_salary",
+    proposalId: "orphan_end_salary_proposal",
+    kind: "income_source_ended",
+    effectiveAtAgeInMonths: 660,
+    payload: { incomeSourceId: "salary" },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const result = reconcileCareerIncomeAtomicity({
+    currentCareerStateId: current.currentCareer.id,
+    currentLedger: current.ledger,
+    careerTransitions: [],
+    financialEvents: [endSalary],
+    ageInMonths: 660
+  });
+  assert.equal(result.acceptedCareerTransitions.length, 0);
+  assert.deepEqual(result.acceptedFinancialEvents, []);
+});
+
+test("a same-career salary replacement can close the old wage without a CareerTransition", () => {
+  const current = fixture();
+  const endSalary: AcceptedFinancialEvent<"income_source_ended"> = {
+    id: "replace_end_salary",
+    proposalId: "replace_end_salary_proposal",
+    kind: "income_source_ended",
+    effectiveAtAgeInMonths: 660,
+    payload: { incomeSourceId: "salary" },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const startReplacement: AcceptedFinancialEvent<"income_source_started"> = {
+    id: "replace_start_salary",
+    proposalId: "replace_start_salary_proposal",
+    kind: "income_source_started",
+    effectiveAtAgeInMonths: 660,
+    payload: {
+      id: "replacement_salary",
+      type: "salary",
+      displayName: "调整后的工资",
+      monthlyNetAmountWan: 3.5,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 660,
+      status: "active",
+      linkedCareerStateId: current.currentCareer.id,
+      factStatus: "known",
+      evidence
+    },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const result = reconcileCareerIncomeAtomicity({
+    currentCareerStateId: current.currentCareer.id,
+    currentLedger: current.ledger,
+    careerTransitions: [],
+    financialEvents: [endSalary, startReplacement],
+    ageInMonths: 660
+  });
+  assert.deepEqual(result.acceptedFinancialEvents.map((event) => event.id), [
+    "replace_end_salary",
+    "replace_start_salary"
+  ]);
+});
+
+test("an employed transition is rejected when its new salary is ended again in the same candidate", () => {
+  const current = fixture();
+  const nextCareerState = initializeCareerState({
+    id: "career_promoted",
+    employmentStatus: "employed",
+    occupation: "区域负责人",
+    effectiveFromAgeInMonths: 660
+  });
+  const transition: AcceptedCareerTransition = {
+    ...current.transition,
+    id: "accepted_promotion",
+    proposalId: "promotion",
+    nextCareerState
+  };
+  const endOld: AcceptedFinancialEvent<"income_source_ended"> = {
+    id: "end_old_salary", proposalId: "end_old_salary_proposal", kind: "income_source_ended",
+    effectiveAtAgeInMonths: 660, payload: { incomeSourceId: "salary" }, evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const startNew: AcceptedFinancialEvent<"income_source_started"> = {
+    id: "start_new_salary", proposalId: "start_new_salary_proposal", kind: "income_source_started",
+    effectiveAtAgeInMonths: 660,
+    payload: {
+      id: "new_salary", type: "salary", displayName: "新工资", monthlyNetAmountWan: 5,
+      accrualPolicy: "monthly", activeFromAgeInMonths: 660, status: "active",
+      linkedCareerStateId: nextCareerState.id, factStatus: "known", evidence
+    },
+    evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+  const endNew: AcceptedFinancialEvent<"income_source_ended"> = {
+    id: "end_new_salary", proposalId: "end_new_salary_proposal", kind: "income_source_ended",
+    effectiveAtAgeInMonths: 660, payload: { incomeSourceId: "new_salary" }, evidence,
+    acceptedByReasonCodes: ["TEST"]
+  };
+
+  const result = reconcileCareerIncomeAtomicity({
+    currentCareerStateId: current.currentCareer.id,
+    currentLedger: current.ledger,
+    careerTransitions: [transition],
+    financialEvents: [endOld, startNew, endNew],
+    ageInMonths: 660
+  });
+
+  assert.equal(result.acceptedCareerTransitions.length, 0);
+  assert.deepEqual(result.acceptedFinancialEvents, []);
+  assert.match(result.issues[0].summary, /实际 0 个/);
 });

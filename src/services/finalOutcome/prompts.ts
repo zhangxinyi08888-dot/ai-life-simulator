@@ -7,6 +7,7 @@ import {
   formatFinalFinancialNarrativeAuthorityForPrompt,
   formatFinancialWan
 } from "../../utils/finalFinancialNarrativeAuthority";
+import { formatPersonalExpenseSummaryForPrompt } from "../../domain/finance/personalExpenseSummary";
 
 function focusLabel(value: string): string {
   if (value === "career") return "事业发展与职场长征";
@@ -43,12 +44,15 @@ function formatAuthoritativeFinance(history: HistoryItem[]): string {
   if (!context.state) return "暂无权威财务账本；报告不得引用任何具体金额或回报率。";
   const state = context.state;
   const period = context.periodSummary;
+  const expenseSummary = context.narrativeAuthority?.personalExpenseSummary;
   return [
     `现金 ${formatFinancialWan(state.cashWan)}元`,
     `净资产 ${formatFinancialWan(state.netWorthWan)}元`,
     `总债务 ${formatFinancialWan(state.totalDebtWan)}元`,
     `年化持续收入 ${formatFinancialWan(state.annualizedRecurringIncomeWan)}元`,
     period ? `本阶段收入 ${formatFinancialWan(period.incomeWan)}元；核心支出 ${formatFinancialWan(period.coreExpenseWan)}元；净现金流 ${formatFinancialWan(period.netCashFlowWan)}元；净资产变化 ${formatFinancialWan(period.netWorthChangeWan)}元` : "本阶段无权威期间汇总",
+    "V4 个人持续支出分类摘要（报告与海报唯一支出事实源）：",
+    expenseSummary ? formatPersonalExpenseSummaryForPrompt(expenseSummary) : "- V4 支出分类摘要不可用；不得生成具体持续支出金额或责任结论。",
     `未解决问题：${state.unresolvedIssueCodes.join("、") || "无"}`,
     context.hasBusinessValueNeedsReview ? "企业权益价值为 needs_review：只能写持有事实和价值待确认，不得写估值、获利或回报数字。" : "企业权益不存在 needs_review 限制。"
   ].join("\n");
@@ -135,7 +139,7 @@ ${formatAuthoritativeFinance(history)}
 【报告财务语义硬约束】
 ${formatFinalFinancialNarrativeAuthorityForPrompt(deriveFinalFinancialNarrativeAuthority(history))}
 - 上述 debt、netWorth、property 是封闭事实集合。海报标题、称号、摘要、时间线和报告正文都必须服从。
-- 仍有债务时不得写已经还清、结清或摆脱债务；净资产为负时不得写财务自由或经济无忧；没有已确认房产时不得写名下房产、卖房或房产升值。
+- 只有 debt.kind=debt_fully_repaid 时，才可写已经还清、结清或摆脱债务；debt.kind=no_active_debt 只能陈述当前账本没有仍在账上的个人债务，不能把它写成已发生的清偿。净资产为负时不得写财务自由或经济无忧；没有已确认房产时不得写名下房产、卖房或房产升值。
 - no_confirmed_property 只表示“没有已确认房产事实”，不等于已确认没有房产；不得改写成“没有房产”“没有其他可变现资产”。
 - 债务尚未清偿时可以准确写“仍未还清”，但不能在任何回顾、假设或建议中暗示已经还清。
 - 净资产为负时，不得把负债或负净资产写成换取意义、幸福或丰盈人生的“值得交换”；人生意义和财务代价必须分别陈述，不能互相抵销。
@@ -207,6 +211,7 @@ type FinalOutcomeJson = {
 - executiveSummary.patterns 必须刚好 3 条。
 - repeatedPatterns、patternEffects、futureTrends、patternsToKeep、patternsToAdjust 各 1 到 3 条。
 - covenantTitle 必须是 6 到 14 个中文字符；choiceSummary 必须是 12 到 22 个中文字符。
+- 分享海报是固定 9:16：viralTitle 最多 24 显示单位，oneLineSummary 最多 44，closingLine 最多 40；timeline 每项 title 最多 16、choiceSummary 最多 22。中文和全角字符按 1 单位、普通 ASCII 按 0.5 单位计算。
 - 除 posterTheme 和 downloadFileName 外，所有 string 内容都必须根据本次历史独立生成；不得复制本提示词中的规则句，也不得使用通用占位文案。
 - ${futureTrendRule}
 - ${keepRule}。

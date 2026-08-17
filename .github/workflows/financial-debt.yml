@@ -81,6 +81,9 @@ jobs:
       - name: Existing financial M7 regression
         run: pnpm test:financial-m7
 
+      - name: Financial node acceptance and wealth trust
+        run: pnpm test:financial-wealth-trust
+
       - name: Full repository regression
         run: pnpm test
 

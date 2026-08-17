@@ -228,6 +228,38 @@ test("invalid JSON receives exactly one repair attempt", async () => {
   assert.equal(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_JSON_INVALID"), true);
 });
 
+test("Venture-length poster copy receives one targeted budget repair", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async (prompt) => {
+      calls += 1;
+      const payload = completePayload();
+      if (calls === 1) {
+        payload.share.viralTitle = "重生之我把一家濒临资金断裂的公司重新带回稳定经营与长期增长";
+        payload.share.oneLineSummary = "从债务协商到经营恢复，我在每一次现金流压力里重新安排个人收入、公司边界和家庭责任。";
+        payload.share.closingLine = "真正留下来的不是一次漂亮的翻身，而是我终于学会让经营、债务和生活都在可持续的边界里继续运转。";
+        return { text: JSON.stringify(payload) };
+      }
+      assert.match(prompt, /FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED/u);
+      assert.match(prompt, /分享海报内容预算定向修复/u);
+      payload.share.viralTitle = "重生之我让公司重新站稳";
+      payload.share.oneLineSummary = "我在债务压力中重建经营与生活边界。";
+      payload.share.closingLine = "站稳以后，我终于知道什么值得继续。";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.share.viralTitle, "重生之我让公司重新站稳");
+  assert.equal(repaired.meta.finalOutcomeQualityRepairTriggered, true);
+  assert.equal(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED"), true);
+});
+
 test("financial and structural issues share one repair and never trigger a third call", async () => {
   let calls = 0;
   const financialHistory = historyWithOutstandingDebt();
@@ -242,12 +274,14 @@ test("financial and structural issues share one repair and never trigger a third
       calls += 1;
       if (calls === 1) {
         const invalid = completePayload();
-        invalid.share.viralTitle = "重生之我已经还清100万元债务";
+        invalid.share.viralTitle = "重生之我已经还清46万元债务";
         invalid.share.timeline = invalid.share.timeline.slice(0, 2);
         return { text: JSON.stringify(invalid) };
       }
       assert.match(prompt, /REPORT_DEBT_COMPLETION_CONFLICT/u);
       assert.match(prompt, /FINAL_REPORT_ARRAY_LENGTH_INVALID/u);
+      assert.match(prompt, /删除不在‘报告唯一财务事实源’中的金额、比例、倍数或收益率/u);
+      assert.match(prompt, /不得把被删除的数字移到其他字段/u);
       const fixed = completePayload();
       fixed.share.viralTitle = "重生之我在未偿债务中重新安排生活";
       return { text: JSON.stringify(fixed) };
@@ -257,4 +291,96 @@ test("financial and structural issues share one repair and never trigger a third
   assert.equal(repaired.meta.financialClaimRepairTriggered, true);
   assert.equal(repaired.meta.finalOutcomeQualityRepairTriggered, true);
   assert.equal(repaired.meta.financialClaimFallbackCount, 0);
+});
+
+test("unsupported amounts left only in poster copy use a deterministic qualitative fallback", async () => {
+  let calls = 0;
+  const financialHistory = historyWithOutstandingDebt();
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history: financialHistory,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.viralTitle = "重生之我用46万元重新安排生活";
+      payload.share.imageAlt = "我用46万元重新开始的阶段人生报告";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.share.viralTitle, "重生之我用一笔资金重新安排生活");
+  assert.equal(repaired.share.imageAlt, "我用一笔资金重新开始的阶段人生报告");
+  assert.equal(repaired.meta.financialClaimFallbackCount, 2);
+  assert.equal(repaired.meta.financialClaimRepairTriggered, true);
+});
+
+test("deterministic poster fallback never hides an unsupported amount in the report body", async () => {
+  let calls = 0;
+  const financialHistory = historyWithOutstandingDebt();
+  await assert.rejects(generateFinalOutcome({
+    userData,
+    answers,
+    history: financialHistory,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.viralTitle = "重生之我用46万元重新安排生活";
+      payload.report.finalLifeReading.paragraphs = ["你最终留下了46万元现金。"];
+      return { text: JSON.stringify(payload) };
+    }
+  }), /report.finalLifeReading.paragraphs\[0\]:REPORT_UNSUPPORTED_FINANCIAL_AMOUNT/u);
+  assert.equal(calls, 2);
+});
+
+test("poster fallback records a financial violation introduced by a structural repair", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history: historyWithOutstandingDebt(),
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      if (calls === 1) return { text: JSON.stringify({ share: {}, report: {} }) };
+      const payload = completePayload();
+      payload.share.viralTitle = "重生之我用46万元重新安排生活";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.meta.financialClaimRepairTriggered, true);
+  assert.deepEqual(repaired.meta.financialClaimViolationCodes, ["REPORT_UNSUPPORTED_FINANCIAL_AMOUNT"]);
+  assert.equal(repaired.meta.financialClaimFallbackCount, 1);
+});
+
+test("unsupported title duration left after one repair is downgraded without hiding other quality failures", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.viralTitle = "重生之我用8年把最坏预算变成人生算法";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.share.viralTitle, "重生之我用多年把最坏预算变成人生算法");
+  assert.equal(repaired.meta.finalOutcomeQualityFallbackCount, 1);
+  assert.equal(repaired.meta.finalOutcomeQualityRepairTriggered, true);
+  assert.deepEqual(repaired.meta.finalOutcomeQualityIssueCodes, ["FINAL_REPORT_UNSUPPORTED_DURATION"]);
 });

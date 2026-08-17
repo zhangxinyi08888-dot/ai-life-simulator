@@ -139,15 +139,23 @@ export function migrateLegacyFinancialState(input: {
     lastConfirmedAtAgeInMonths: state.asOfAgeInMonths,
     evidence
   }] : [];
-  const explicitOrLegacyExpenseCommitments = state.annualCoreExpenseWan > 0 ? [{
-    id: "legacy_core_expense",
+  // `annualCoreExpenseWan` was historically model-owned at the opening.  It
+  // is compatibility transport only when deterministic opening facts are
+  // available: never turn a model's copied 18/12 example into a lasting
+  // `legacy_core_expense`.  Existing persisted legacy snapshots still retain
+  // their aggregate so historical migration remains backward compatible.
+  const openingMonthlyBasicLivingExpenseWan = input.openingFacts?.monthlyBasicLivingExpenseWan;
+  const migratedMonthlyExpenseWan = openingMonthlyBasicLivingExpenseWan
+    ?? (input.openingFacts ? undefined : roundWan(state.annualCoreExpenseWan / 12));
+  const explicitOrLegacyExpenseCommitments = migratedMonthlyExpenseWan !== undefined && migratedMonthlyExpenseWan > 0 ? [{
+    id: openingMonthlyBasicLivingExpenseWan !== undefined ? "opening_basic_living" : "legacy_core_expense",
     type: "basic_living" as const,
-    displayName: "旧版核心支出聚合",
-    monthlyAmountWan: roundWan(state.annualCoreExpenseWan / 12),
+    displayName: openingMonthlyBasicLivingExpenseWan !== undefined ? "用户明确的基本生活支出" : "旧版核心支出聚合",
+    monthlyAmountWan: migratedMonthlyExpenseWan,
     activeFromAgeInMonths: state.asOfAgeInMonths,
     status: "active" as const,
-    factStatus: input.openingFacts?.monthlyBasicLivingExpenseWan !== undefined ? "known" as const : "estimated" as const,
-    evidence: input.openingFacts?.monthlyBasicLivingExpenseWan !== undefined ? userEvidence : evidence
+    factStatus: openingMonthlyBasicLivingExpenseWan !== undefined ? "known" as const : "estimated" as const,
+    evidence: openingMonthlyBasicLivingExpenseWan !== undefined ? userEvidence : evidence
   }] : [];
   const estimatedLiving = estimatedBasicLivingCommitment({
     ageInMonths: state.asOfAgeInMonths,
@@ -157,7 +165,7 @@ export function migrateLegacyFinancialState(input: {
   const expenseCommitments = explicitOrLegacyExpenseCommitments.length > 0
     ? explicitOrLegacyExpenseCommitments
     : estimatedLiving ? [estimatedLiving] : [];
-  if (state.employmentStatus === "student" && state.annualCoreExpenseWan > 0) {
+  if (state.employmentStatus === "student" && expenseCommitments.length > 0) {
     incomeSources.push({
       id: "student_basic_family_support",
       type: "family_support",

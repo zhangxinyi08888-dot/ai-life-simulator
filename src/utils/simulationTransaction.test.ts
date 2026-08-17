@@ -48,3 +48,31 @@ assert.equal(careerCommitted.worldStateSnapshot.currentEmploymentStatus, "self_e
 assert.equal(careerCommitted.worldStateSnapshot.version, 2);
 assert.equal(careerCommitted.worldStateSnapshot.careerStates?.length, 1);
 assert.equal(careerCommitted.worldStateSnapshot.currentCareerStateId, "career_career-tx_0");
+
+const residenceCommitted = commitSimulationTransaction({
+  ...input,
+  transactionId: "residence-tx",
+  node: { ...node, age: 35, ageInMonths: 426 },
+  currentWorldStateSnapshot: emptyWorldState(),
+  acceptedOutcome: {
+    worldDeltas: [{
+      type: "location_change",
+      summary: "已迁入新的居住地。",
+      residence: {
+        livingArrangement: "renting",
+        financialScope: "personal",
+        liability: "protagonist",
+        evidence: "已签订租约并搬入新住所。"
+      }
+    }],
+    arcSignals: []
+  }
+});
+assert.deepEqual(residenceCommitted.worldStateSnapshot.residence, {
+  livingArrangement: "renting",
+  financialScope: "personal",
+  liability: "protagonist",
+  evidence: "已签订租约并搬入新住所。",
+  effectiveFromAgeInMonths: 426,
+  source: "accepted_history"
+});

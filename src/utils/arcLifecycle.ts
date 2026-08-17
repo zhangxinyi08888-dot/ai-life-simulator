@@ -6,6 +6,7 @@ import { DEFAULT_TEMPORAL_PROFILES } from "./timelineAdvance";
 import { stableHash } from "./stableRandom";
 import { sanitizeEmploymentTransitions } from "./employmentState";
 import { normalizeWorldDeltas } from "./normalizeWorldDeltas";
+import { sanitizeExpenseResponsibilityDeltas } from "./expenseResponsibilityOutcome";
 
 export type ArcExitCondition =
   | { type: "choice_outcome"; outcome: string }
@@ -229,8 +230,13 @@ export function validateNodeOutcomeProposal(input: {
     worldDeltas: input.worldDeltas,
     acceptedOutcomeIds: input.expectedSourceOutcomeId ? [input.expectedSourceOutcomeId] : []
   });
-  const worldDeltas = sanitizeEmploymentTransitions({
+  const employmentSanitizedDeltas = sanitizeEmploymentTransitions({
     worldDeltas: normalizedWorldDeltas.worldDeltas,
+    narrativeText: input.narrativeText,
+    expectedSourceOutcomeId: input.expectedSourceOutcomeId
+  });
+  const worldDeltas = sanitizeExpenseResponsibilityDeltas({
+    worldDeltas: employmentSanitizedDeltas,
     narrativeText: input.narrativeText,
     expectedSourceOutcomeId: input.expectedSourceOutcomeId
   });

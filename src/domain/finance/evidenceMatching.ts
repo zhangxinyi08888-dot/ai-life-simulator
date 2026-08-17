@@ -1,9 +1,9 @@
 import type { FinancialEventKind, FinancialEventProposal } from "./types";
 
-export type EvidenceMatchReason = "EVIDENCE_EXACT_MATCHED" | "EVIDENCE_NORMALIZED_MATCHED" | "EVIDENCE_FUZZY_MATCHED";
+export type EvidenceMatchReason = "EVIDENCE_EXACT_MATCHED" | "EVIDENCE_NORMALIZED_MATCHED" | "EVIDENCE_FUZZY_MATCHED" | "SYSTEM_POLICY_REVIEW" | "ACCEPTED_WORLD_DELTA";
 
 const NON_PROTAGONIST_ENTITY_PATTERN = /^(?:公司|企业|项目|团队|同事|伴侣|配偶|父母|孩子|子女)/;
-const PROTAGONIST_PATTERN = /你|你的|你们|主角|本人|自己/u;
+const PROTAGONIST_PATTERN = /你(?!们)|你的|主角|本人|自己/u;
 const ENTITY_ONLY_EVENT_KINDS = new Set<FinancialEventKind>([
   "business_financing_recorded",
   "business_holding_started",
@@ -11,6 +11,37 @@ const ENTITY_ONLY_EVENT_KINDS = new Set<FinancialEventKind>([
   "business_distribution_received",
   "business_holding_sold"
 ]);
+const PERSONAL_EXPENSE_EVENT_KINDS = new Set<FinancialEventKind>([
+  "expense_commitment_started",
+  "expense_commitment_adjusted",
+  "expense_commitment_ended",
+  "one_off_expense_paid",
+  "family_support_paid"
+]);
+
+/**
+ * A care arrangement is sufficient to create a *needs_review* elder-care
+ * commitment even where the story has not priced it yet.  It is deliberately
+ * narrower than the ordinary personal-payer rule: it applies only to a
+ * system-estimated dependent-care start, never to a known amount, income, or
+ * an asset event.  This preserves the entity boundary for "父母需要照料" while
+ * allowing "你请人帮忙照看父母" to establish the protagonist's responsibility.
+ */
+function isUnpricedPersonalElderCareStart(proposal: FinancialEventProposal): boolean {
+  if (proposal.kind !== "expense_commitment_started") return false;
+  const payload = proposal.payload as Record<string, unknown>;
+  return payload.responsibilityKind === "elder_care"
+    && payload.type === "dependent_support"
+    && payload.factStatus === "needs_review";
+}
+
+function hasExplicitPersonalCareArrangement(input: {
+  proposal: FinancialEventProposal;
+  evidence: string;
+}): boolean {
+  if (!isUnpricedPersonalElderCareStart(input.proposal)) return false;
+  return /(?:^|[。；，、\s])(?:你(?!们)|我(?!们)|本人|主角)[^。！？；]{0,32}(?:请(?:了)?(?:人|护工|保姆|钟点工|家政)|安排(?:了)?(?:照护|护工|陪护|照看)|雇(?:了)?(?:人|护工|保姆|钟点工|家政))[^。！？；]{0,24}(?:照看|照护|护理|陪护|照料|帮忙)/u.test(input.evidence);
+}
 
 const EVENT_PATTERNS: Partial<Record<FinancialEventKind, RegExp>> = {
   income_source_started: /工资|薪资|月薪|年薪|收入|顾问|咨询|稿费|版税|租金|养老金|年金|分红|提款/,
@@ -59,6 +90,41 @@ function narrativeSentences(value: string): string[] {
   return String(value || "").split(/(?<=[。！？!?；;\n])/u).map((item) => item.trim()).filter(Boolean);
 }
 
+function explicitNarrativeAgeInMonths(sentence: string): number | undefined {
+  const match = String(sentence || "").match(/(\d{1,3})岁\s*(\d{1,2})?个?月/u);
+  return match ? Number(match[1]) * 12 + Number(match[2] || 0) : undefined;
+}
+
+/**
+ * A long generated node can narrate an incident that predates its transaction
+ * window.  When it explicitly opens at the authoritative period start, a
+ * relative-past sentence before the next age marker is not evidence for a
+ * current-period cash event.  Keep this intentionally strict: without both
+ * the opening marker and an unambiguous past term, ordinary one-off expenses
+ * remain eligible for the normal within-period validator.
+ */
+export function isNarratedBeforePeriod(input: {
+  narrativeText: string;
+  evidence: string;
+  periodStartAgeInMonths: number;
+}): boolean {
+  const sentences = narrativeSentences(input.narrativeText);
+  const ages = sentences.map(explicitNarrativeAgeInMonths);
+  const firstExplicitAgeIndex = ages.findIndex((ageInMonths) => ageInMonths !== undefined);
+  if (firstExplicitAgeIndex < 0 || ages[firstExplicitAgeIndex] !== input.periodStartAgeInMonths) return false;
+  const nextExplicitAgeIndex = ages.findIndex((ageInMonths, index) => (
+    index > firstExplicitAgeIndex && ageInMonths !== undefined
+  ));
+  const evidence = String(input.evidence || "").trim();
+  if (!evidence) return false;
+  const evidenceSentenceIndex = sentences.findIndex((sentence) => (
+    sentence.includes(evidence) || evidence.includes(sentence)
+  ));
+  if (evidenceSentenceIndex < firstExplicitAgeIndex
+    || (nextExplicitAgeIndex >= 0 && evidenceSentenceIndex >= nextExplicitAgeIndex)) return false;
+  return /(?:上个月|上月|上一季度|去年|前年)/u.test(sentences[evidenceSentenceIndex] || evidence);
+}
+
 function financialAmounts(value: unknown, key = ""): number[] {
   if (typeof value === "number") {
     return /(?:wan|amount|value|principal|income|expense|payment|fee|valuation|cash)/i.test(key)
@@ -101,6 +167,159 @@ function textContainsAmount(text: string, amount: number): boolean {
   });
 }
 
+/**
+ * Unlike the fuzzy evidence-ranking helper above, personal business income is
+ * a cash-flow authority boundary: `1.5` must never match `11.5`, and `0.5`
+ * must never match `10.5`.  Parse amount tokens with their units and compare
+ * their canonical wan values rather than looking for a numeric substring.
+ */
+function textContainsExactAmount(text: string, amountWan: number): boolean {
+  const normalized = String(text || "").normalize("NFKC");
+  for (const token of monetaryAmountTokens(normalized)) {
+    const candidateWan = token.amountWan;
+    if (Math.abs(candidateWan - amountWan) < 0.0000001) return true;
+  }
+  return false;
+}
+
+interface MonetaryAmountToken {
+  amountWan: number;
+  start: number;
+  end: number;
+}
+
+function monetaryAmountTokens(normalizedText: string): MonetaryAmountToken[] {
+  const amountPattern = /(?<![\d.])((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*(万元?|元)(?![\d.])/gu;
+  return [...normalizedText.matchAll(amountPattern)].flatMap((match) => {
+    const numeric = Number(match[1].replace(/,/gu, ""));
+    if (!Number.isFinite(numeric) || match.index === undefined) return [];
+    return [{
+      amountWan: match[2].startsWith("万") ? numeric : numeric / 10_000,
+      start: match.index,
+      end: match.index + match[0].length
+    }];
+  });
+}
+
+const MONTHLY_CADENCE_PATTERN = /(?:每月|每个月|月均|按月|月薪|月收入|\/月)/u;
+const ANNUAL_CADENCE_PATTERN = /(?:每年|年度|年薪|年收入|\/年)/u;
+
+/**
+ * A cadence is part of an income amount's factual proposition.  Restrict it
+ * to the amount's punctuation clause so an unrelated “每月” elsewhere in a
+ * sentence cannot turn an annual payment into a monthly recurring source.
+ */
+function exactAmountHasCadence(input: {
+  evidence: string;
+  amountWan: number;
+  accrualPolicy: "monthly" | "annual";
+}): boolean {
+  const normalized = String(input.evidence || "").normalize("NFKC");
+  return monetaryAmountTokens(normalized).some((token) => {
+    if (Math.abs(token.amountWan - input.amountWan) >= 0.0000001) return false;
+    let clauseStart = token.start;
+    while (clauseStart > 0 && !/[。；！？!?，,、\n]/u.test(normalized[clauseStart - 1]!)) clauseStart -= 1;
+    let clauseEnd = token.end;
+    while (clauseEnd < normalized.length && !/[。；！？!?，,、\n]/u.test(normalized[clauseEnd]!)) clauseEnd += 1;
+    const clause = normalized.slice(clauseStart, clauseEnd);
+    const hasMonthly = MONTHLY_CADENCE_PATTERN.test(clause);
+    const hasAnnual = ANNUAL_CADENCE_PATTERN.test(clause);
+    return input.accrualPolicy === "monthly"
+      ? hasMonthly && !hasAnnual
+      : hasAnnual && !hasMonthly;
+  });
+}
+
+/**
+ * A founder's draw or dividend changes the protagonist's personal cash.  It
+ * therefore needs a completed personal receipt, not merely incorporation,
+ * customer revenue, a future plan, or a conversation about profit-sharing.
+ *
+ * Self-employment also permits an explicit, quantified personal consulting
+ * earning (for example, a sole proprietor's directly earned consulting fee).
+ * That exception deliberately does not apply to a business dividend.
+ */
+export function hasExplicitPersonalBusinessIncomeReceipt(input: {
+  type: unknown;
+  evidence: string;
+}): boolean {
+  const type = String(input.type);
+  if (type !== "self_employment_draw" && type !== "business_dividend") return false;
+  const receiptTerm = type === "business_dividend"
+    ? "(?:分红|股息|利润分配)"
+    : "(?:工资|薪资|薪酬|报酬|顾问费|咨询收入|业主提款|个人提款|个人(?:可支配)?收入|税后(?:收入|工资|薪资)|分红|股息|利润分配)";
+  const clauses = String(input.evidence || "").split(/(?:[。；]|但是|不过|但)/u).filter(Boolean);
+  return clauses.some((clause) => {
+    const isExplicitlyUnpaid = (segment: string) => new RegExp(
+      `(?:暂不|尚未|暂未|没有|未|不)[^。；]{0,24}(?:领取|提取|获得|收到|拿到|给自己发|支付|发放|转入|打入)?[^。；]{0,20}${receiptTerm}|(?:暂不|尚未|暂未|没有|未|不)(?:领薪|领工资|领分红)`,
+      "u"
+    ).test(segment);
+    // Keep adjacent clauses together for “咨询零活，每月能多挣 5000 元”,
+    // while stripping a separate negated segment such as “尚未分红”.
+    const positiveClause = clause.split("，").filter((segment) => !isExplicitlyUnpaid(segment)).join("，");
+    if (!positiveClause) return false;
+    const receiptIsProspective = (matchIndex: number, matchLength: number) => {
+      let receiptClauseStart = matchIndex;
+      while (receiptClauseStart > 0 && !/[。；！？!?，,、\n]/u.test(positiveClause[receiptClauseStart - 1]!)) receiptClauseStart -= 1;
+      let receiptClauseEnd = matchIndex + matchLength;
+      while (receiptClauseEnd < positiveClause.length && !/[。；！？!?，,、\n]/u.test(positiveClause[receiptClauseEnd]!)) receiptClauseEnd += 1;
+      // A cross-comma consulting phrase can carry its prospective qualifier in
+      // the matched text itself; include it without pulling in an unrelated
+      // earlier or later proposition.
+      const context = `${positiveClause.slice(receiptClauseStart, receiptClauseEnd)} ${positiveClause.slice(matchIndex, matchIndex + matchLength)}`;
+      return /(?:计划|准备|拟|预计|将(?:会)?|下月|下个月|未来|待定|尚未|暂未|还未|未到账|未入账|未发放)/u.test(context);
+    };
+    const companyPaysProtagonist = new RegExp(
+      `(?:公司|企业|平台|团队|工作室|机构|中心)[^。；]{0,48}(?:向|给)(?:你|我|主角|本人)(?:的)?(?:个人(?:账户|银行卡)?|账户|银行卡)?[^。；]{0,24}(?:支付|发放|发了?|转入|打入|汇入|结算)[^。；]{0,32}${receiptTerm}`,
+      "u"
+    );
+    const protagonistReceivesIncome = new RegExp(
+      `(?:你|我|主角|本人)[^。；]{0,48}(?:领取|提取|收到|拿到|获得|给自己发)[^。；]{0,28}${receiptTerm}`,
+      "u"
+    );
+    const personalAccountReceivesIncome = new RegExp(
+      `(?:你|我|主角|本人)?(?:的)?个人(?:账户|银行卡)[^。；]{0,24}(?:收到|到账|入账|转入|打入)[^。；]{0,28}${receiptTerm}`,
+      "u"
+    );
+    const completedMatch = (pattern: RegExp) => {
+      const match = pattern.exec(positiveClause);
+      return Boolean(match && match.index !== undefined && !receiptIsProspective(match.index, match[0].length));
+    };
+    const quantifiedPersonalConsultingEarning = type === "self_employment_draw"
+      && completedMatch(/(?:你|我|主角|本人)[^。；]{0,32}(?:接(?:了|下)?|从事|提供)[^。；]{0,32}(?:顾问|咨询)[^。；]{0,48}(?:每月|月均|按月|每年|年度)[^。；]{0,16}(?:能)?(?:多)?(?:赚|挣|获得|收到)[^。；]{0,16}\d+(?:\.\d+)?\s*(?:万|元)/u);
+    const explicitOwnerCompensationAdjustment = type === "self_employment_draw"
+      && completedMatch(/(?:你|我|主角|本人)[^。；]{0,32}给自己(?:涨薪|降薪|调整(?:工资|薪资)?|定薪)[^。；]{0,28}(?:每月|月均|按月)?[^。；]{0,12}\d+(?:\.\d+)?\s*(?:万|元)/u);
+    return completedMatch(companyPaysProtagonist) || completedMatch(protagonistReceivesIncome) || completedMatch(personalAccountReceivesIncome)
+      || quantifiedPersonalConsultingEarning || explicitOwnerCompensationAdjustment;
+  });
+}
+
+/**
+ * A recurring personal draw/dividend carries a concrete monthly or annual
+ * amount.  Exact-string evidence matching alone is not enough: it would let a
+ * narrative such as “你领取 1.2 万元提款” authorize an invented 1.5 万元 source.
+ */
+export function hasMatchingPersonalBusinessIncomeAmount(input: {
+  type: unknown;
+  source: unknown;
+  evidence: string;
+}): boolean {
+  const type = String(input.type);
+  if (type !== "self_employment_draw" && type !== "business_dividend") return false;
+  if (!input.source || typeof input.source !== "object" || Array.isArray(input.source)) return false;
+  const source = input.source as Record<string, unknown>;
+  const accrualPolicy = String(source.accrualPolicy || "");
+  const amount = accrualPolicy === "monthly"
+    ? Number(source.monthlyNetAmountWan)
+    : accrualPolicy === "annual"
+      ? Number(source.annualNetAmountWan)
+      : Number.NaN;
+  if (!Number.isFinite(amount) || amount <= 0 || !textContainsExactAmount(String(input.evidence || ""), amount)) return false;
+  return accrualPolicy === "monthly" || accrualPolicy === "annual"
+    ? exactAmountHasCadence({ evidence: String(input.evidence || ""), amountWan: amount, accrualPolicy })
+    : false;
+}
+
 export function matchFinancialEvidence(input: {
   proposal: FinancialEventProposal;
   narrativeText: string;
@@ -108,7 +327,36 @@ export function matchFinancialEvidence(input: {
   const evidence = String(input.proposal.evidence || "").trim();
   if (!evidence) return { matched: false };
   const explicitPersonalReceipt = /(?:公司|企业|项目|团队).{0,32}(?:向|给)(?:你|主角|本人)(?:的)?(?:个人账户)?(?:支付|发放|转入|打入)|(?:你|主角|本人).{0,32}(?:领取|收到|获得).{0,20}(?:工资|薪资|报酬|分红|提款)/u.test(evidence);
-  if (!ENTITY_ONLY_EVENT_KINDS.has(input.proposal.kind) && NON_PROTAGONIST_ENTITY_PATTERN.test(evidence) && !explicitPersonalReceipt) {
+  // A child, parent, or partner can be the beneficiary of a personal
+  // commitment without being its payer.  Keep the entity-boundary rejection
+  // for all income/asset cases, but admit an expense only when the sentence
+  // explicitly makes the protagonist the actor.  In particular, "配偶替你
+  // 支付" must not pass merely because it contains the character "你".
+  const explicitPersonalExpenseLiability = PERSONAL_EXPENSE_EVENT_KINDS.has(input.proposal.kind)
+    && (/(?:由|需由|应由)(?:你(?!们)|我(?!们)|主角|本人)(?:来|负责)?(?:承担|支付|负担|缴纳|转给|转向)/u.test(evidence)
+      // A beneficiary clause commonly precedes a recurring transfer, for
+      // example “父母……，你每月固定转给他们三千元”。  Allow ordinary cadence
+      // modifiers between the explicit actor and payment verb, but retain a
+      // punctuation/start boundary so “配偶替你支付” cannot impersonate a
+      // protagonist-paid expense.
+      || /(?:^|[。；，、\s])(?:你(?!们)|我(?!们)|主角|本人)(?:(?:已|已经|开始|继续|每月|每年|将|会|需要|负责|愿意|主动|固定|定期|持续|一直|仍|都)\s*){0,3}(?:承担|支付|负担|缴纳|转给|转向)/u.test(evidence));
+  const explicitPersonalCareArrangement = hasExplicitPersonalCareArrangement({
+    proposal: input.proposal,
+    evidence
+  });
+  // An accepted child-independence fact is evidence that an existing child
+  // commitment ends; it is not evidence that the child pays the protagonist.
+  // The V4 authority check separately requires the same change reason and
+  // explicit independence wording before the reducer can end the account.
+  const explicitDependentIndependenceEnd = input.proposal.kind === "expense_commitment_ended"
+    && (input.proposal.payload as Record<string, unknown>)?.changeReason === "dependent_independent"
+    && /子女.{0,20}(?:独立|工作|不再需要抚养)|独立生活/u.test(evidence);
+  if (!ENTITY_ONLY_EVENT_KINDS.has(input.proposal.kind)
+    && NON_PROTAGONIST_ENTITY_PATTERN.test(evidence)
+    && !explicitPersonalReceipt
+    && !explicitPersonalExpenseLiability
+    && !explicitPersonalCareArrangement
+    && !explicitDependentIndependenceEnd) {
     return { matched: false };
   }
   if (input.narrativeText.includes(evidence)) {

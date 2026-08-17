@@ -159,6 +159,54 @@ assert.ok(validateStoryConsistency({
   worldState: romanticWorld("exploring")
 }).some((issue) => issue.code === "relationship_authority_conflict"));
 
+assert.equal(validateStoryConsistency({
+  node: {
+    ...node,
+    eventMeta: { eventId: "romance_connection_clarification", eventTags: ["relationship"], routeLine: "romance" },
+    description: "你和林遥还在慢慢了解彼此，认真讨论各自对关系的期待。",
+    choices: [
+      { id: "A", text: "主动和林遥谈一次，明确表达想和她正式交往", impactSummary: "确认关系" },
+      { id: "B", text: "保持目前的探索节奏", impactSummary: "继续了解" },
+      { id: "C", text: "回到普通朋友", impactSummary: "停止探索" }
+    ]
+  },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: romanticWorld("exploring")
+}).some((issue) => issue.code === "relationship_authority_conflict"), false, "a code-owned exploration checkpoint may offer dating as a future user choice");
+
+assert.ok(validateStoryConsistency({
+  node: {
+    ...node,
+    eventMeta: { eventId: "romance_exploration_resolution", eventTags: ["relationship"], routeLine: "romance" },
+    description: "你和林遥还在探索关系的可能性。",
+    choices: [
+      { id: "A", text: "主动和林遥谈一次，明确表达想和她正式交往", impactSummary: "确认关系" },
+      { id: "B", text: "半年后正式同居，把生活安排合并", impactSummary: "共同生活" },
+      { id: "C", text: "回到普通朋友", impactSummary: "停止探索" }
+    ]
+  },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: romanticWorld("exploring")
+}).some((issue) => issue.code === "relationship_authority_conflict"), "the checkpoint exemption must not authorize cohabitation");
+
+assert.ok(validateStoryConsistency({
+  node: {
+    ...node,
+    eventMeta: { eventId: "romance_exploration_resolution", eventTags: ["relationship"], routeLine: "romance" },
+    description: "你们已经正式交往，并开始以伴侣身份安排生活。",
+    choices: [
+      { id: "A", text: "主动和林遥谈一次，明确表达想和她正式交往", impactSummary: "确认关系" },
+      { id: "B", text: "保持目前的探索节奏", impactSummary: "继续了解" },
+      { id: "C", text: "回到普通朋友", impactSummary: "停止探索" }
+    ]
+  },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: romanticWorld("exploring")
+}).some((issue) => issue.code === "relationship_authority_conflict"), "the checkpoint exemption must not authorize a dating claim in prose");
+
 assert.ok(validateStoryConsistency({
   node: {
     ...node,
@@ -474,6 +522,65 @@ assert.ok(validateStoryConsistency({
   worldState: romanticWorld("dating")
 }).some((issue) => issue.code === "relationship_authority_conflict"));
 
+const firstPersonUngroundedFamily = validateStoryConsistency({
+  node: {
+    ...node,
+    description: "我们已经开始共同生活，随后领了证并办了婚礼。"
+  },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: romanticWorld("dating")
+});
+const firstPersonUngroundedFamilyIssue = firstPersonUngroundedFamily.find((issue) => issue.code === "relationship_authority_conflict");
+assert.ok(firstPersonUngroundedFamilyIssue, "first-person narration must not bypass relationship-stage authority");
+assert.match(firstPersonUngroundedFamilyIssue.message, /narrative_asserts_cohabiting/);
+assert.match(firstPersonUngroundedFamilyIssue.message, /narrative_asserts_married/);
+
+assert.equal(validateStoryConsistency({
+  node: { ...node, description: "我们仍在讨论是否同居和结婚，先分别核对住房与工作安排。" },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: romanticWorld("dating")
+}).some((issue) => issue.code === "relationship_authority_conflict"), false, "first-person future discussion is not a completed relationship transition");
+
+const ungroundedCommitmentConsequences = validateStoryConsistency({
+  node: {
+    ...node,
+    title: "共同生活的执行与磨合",
+    description: "放弃晋升后的这一年，你和林遥领了证，孩子出生，开销陡增。签订共同生活计划后，她每周有两天提前下班接孩子。孩子的托育费用也开始进入家庭预算。"
+  },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: romanticWorld("dating")
+});
+const ungroundedCommitmentIssue = ungroundedCommitmentConsequences.find((issue) => issue.code === "relationship_authority_conflict");
+assert.ok(ungroundedCommitmentIssue, "a shared commitment plan must not silently become cohabitation, marriage, or parenthood");
+assert.match(ungroundedCommitmentIssue.message, /narrative_asserts_cohabiting/);
+assert.match(ungroundedCommitmentIssue.message, /narrative_asserts_married/);
+assert.match(ungroundedCommitmentIssue.message, /narrative_asserts_ungrounded_parenthood/);
+
+const authoritativeChild = {
+  id: "person_child",
+  displayName: "林小满",
+  relation: "child" as const,
+  lifeStatus: "active" as const,
+  source: "user_fact" as const,
+  confidence: 1
+};
+assert.equal(validateStoryConsistency({
+  node: { ...node, description: "你带孩子去复诊，随后按原计划继续处理工作安排。" },
+  targetAgeInMonths: 984,
+  people: [romanticPerson, authoritativeChild],
+  worldState: { ...romanticWorld("dating"), people: [romanticPerson, authoritativeChild] }
+}).some((issue) => issue.code === "relationship_authority_conflict"), false, "an already authoritative child may appear in ordinary parenting narration");
+
+assert.equal(validateStoryConsistency({
+  node: { ...node, description: "你和林遥仍在讨论未来是否同居、领证和组建家庭，先把住房条件与彼此的职业安排列成筹备清单。" },
+  targetAgeInMonths: 984,
+  people: [romanticPerson],
+  worldState: romanticWorld("dating")
+}).some((issue) => issue.code === "relationship_authority_conflict"), false, "future-oriented commitment discussion must not be mistaken for an already completed transition");
+
 assert.ok(validateStoryConsistency({
   node: {
     ...node,
@@ -627,8 +734,14 @@ const strippedRomanticCharacterNode = stripUnauthorizedRomanticCharacters(
   staleRomanticCharacterNode,
   { people: [], directionArcs: [], pressureArcs: [], relationships: [], version: 2 }
 );
-assert.deepEqual(strippedRomanticCharacterNode.narrativeMeta?.activeCharacters, []);
-
+assert.deepEqual(strippedRomanticCharacterNode.narrativeMeta?.activeCharacters, [
+  { personId: "person_parent", relation: "parent", presenceMode: "active_scene", currentRole: "family" }
+]);
+assert.equal(
+  strippedRomanticCharacterNode.narrativeMeta?.activeCharacters.some((character) => character.candidateOrdinal != null),
+  false,
+  "a non-romantic character must survive while its stale candidate marker is removed"
+);
 const exploringChoiceNode = stripUnauthorizedRelationshipChoices({
   ...node,
   choices: [

@@ -1,6 +1,11 @@
 import type { AssetAccount, FinancialLedger } from "../domain/finance/types";
 import { isReportEligibleFinancialFact } from "../domain/finance/financialFactEligibility";
 import { totalDebtWan } from "../domain/finance/ledgerMath";
+import {
+  derivePersonalExpenseSummary,
+  formatPersonalExpenseSummaryForPrompt,
+  type PersonalExpenseSummary
+} from "../domain/finance/personalExpenseSummary";
 import type { FinalLifeOutcome, HistoryItem } from "../types";
 
 export const FINAL_FINANCIAL_NARRATIVE_AUTHORITY_VERSION = "final_financial_narrative_v1" as const;
@@ -47,6 +52,11 @@ export interface FinalFinancialNarrativeAuthority {
   debt: FinalDebtClaim;
   netWorth: FinalNetWorthClaim;
   property: FinalPropertyClaim;
+  /**
+   * The terminal report and poster must consume this exact V4 responsibility
+   * summary, never reconstruct an independent "living expense" total.
+   */
+  personalExpenseSummary: PersonalExpenseSummary;
   businessValue: FinalBusinessValueClaim;
   numericClaims: FinalFinancialNumericClaim[];
   permittedSemanticClaims: string[];
@@ -73,7 +83,10 @@ export interface FinalFinancialNarrativeIssue {
   text: string;
 }
 
-const DEBT_COMPLETION_PATTERN = /(?:还清(?:了|全部|所有)?(?:债务|欠款|贷款)?|结清(?:了|全部|所有)?(?:债务|欠款|贷款)?|清偿完毕|无债一身轻|摆脱(?:了)?全部债务|不再欠债)/u;
+// Keep this aligned with the production-audit completion detector.  A title
+// saying that debt has "归零/清零" is still a completed-settlement claim,
+// even when it avoids the literal words "还清" or "结清".
+const DEBT_COMPLETION_PATTERN = /(?:还清(?:了|全部|所有)?(?:债务|欠款|贷款)?|结清(?:了|全部|所有)?(?:债务|欠款|贷款)?|清偿完毕|无债一身轻|摆脱(?:了)?全部债务|不再欠债|(?:债务|欠款|贷款|房贷|信用卡)(?:已经|已|终于|最终|彻底)?(?:归零|清零))/u;
 const DEBT_NON_COMPLETION_PATTERNS = [
   /(?:未能|没有|并未|尚未|仍未|还未|从未|不曾|无法|不能|没能|未曾|未)(?:真正|完全|全部)?(?:还清|结清|清偿|摆脱)(?:了|全部|所有)?(?:债务|欠款|贷款)?/gu,
   /(?:未|没有|并无|尚无|缺少|无法|不能)[^，。！？；;\n]{0,12}(?:记录|证据|结果)?[^，。！？；;\n]{0,8}(?:显示|表明|证明|确认)[^，。！？；;\n]{0,20}(?:已|已经)?(?:还清|结清|清偿|摆脱)(?:了|全部|所有)?(?:债务|欠款|贷款)?/gu,
@@ -101,6 +114,27 @@ function matchesNumericAuthority(valueWan: number, authority: FinalFinancialNarr
   return authority.numericClaims.some((claim) => (
     Math.abs(claim.valueWan - valueWan) <= Math.max(0.01, Math.abs(claim.valueWan) * 0.001)
   ));
+}
+
+/**
+ * The model gets one semantic repair attempt. If that repair leaves an
+ * unsupported amount only in poster copy, keep the model-authored sentence
+ * but remove the ungrounded precision instead of turning the whole report
+ * into a visible pause. Supported ledger values are preserved verbatim.
+ */
+export function replaceUnsupportedFinancialAmountsWithQualitativeText(input: {
+  text: string;
+  authority: FinalFinancialNarrativeAuthority;
+}): { text: string; replacementCount: number } {
+  let replacementCount = 0;
+  const text = input.text.replace(MONEY_PATTERN, (match) => {
+    const valueWan = moneyToWan(match);
+    if (valueWan === undefined || matchesNumericAuthority(valueWan, input.authority)) return match;
+    replacementCount += 1;
+    return "一笔资金";
+  });
+  MONEY_PATTERN.lastIndex = 0;
+  return { text, replacementCount };
 }
 
 function hasUnsupportedDebtCompletionClaim(text: string): boolean {
@@ -136,9 +170,42 @@ function confirmedProperties(ledger: FinancialLedger): AssetAccount[] {
     && isReportEligibleFinancialFact(account));
 }
 
-function hasReliableRepaidDebt(ledger: FinancialLedger): string[] {
+/**
+ * A zero closing balance or a raw `repaid` account status is not, by itself,
+ * evidence that a repayment actually happened during the represented life.
+ * Repaid statuses may be present in migrated snapshots.  Final copy may use
+ * payoff language only when the authoritative ledger history contains a
+ * reducer-produced liability reduction (payment, forgiveness, or automatic
+ * shortfall recovery) targeted at that exact debt account. A period-level
+ * total must never make a different account look settled.
+ */
+function transactionHasDebtSettlementFactForAccount(
+  transaction: FinancialLedger["recentTransactions"][number],
+  debtAccountId: string
+): boolean {
+  if (transaction.debtSettlementAccountIds?.includes(debtAccountId)) return true;
+  // Historical reducer snapshots predate debtSettlementAccountIds, but a
+  // debt-service record has always carried the target account id and remains
+  // account-specific proof. Do not fall back to aggregate transaction totals.
+  return transaction.debtServiceRecords?.some((record) => record.debtAccountId === debtAccountId
+    && (record.principalPaidWan > 0 || record.interestPaidWan > 0)) ?? false;
+}
+
+function hasRecordedDebtSettlementForAccount(history: HistoryItem[], debtAccountId: string): boolean {
+  return history.some((item) => {
+    const ledger = item.financialLedger;
+    const account = ledger?.debtAccounts.find((candidate) => candidate.id === debtAccountId);
+    if (!ledger || !account || account.status !== "repaid") return false;
+    return ledger.recentTransactions.some((transaction) => (
+      transactionHasDebtSettlementFactForAccount(transaction, debtAccountId)
+    ));
+  });
+}
+
+function hasReliableRepaidDebt(history: HistoryItem[], ledger: FinancialLedger): string[] {
   return ledger.debtAccounts.filter((account) => account.status === "repaid"
-    && (isReportEligibleFinancialFact(account) || account.origin === "system_auto_shortfall"))
+    && (isReportEligibleFinancialFact(account) || account.origin === "system_auto_shortfall")
+    && hasRecordedDebtSettlementForAccount(history, account.id))
     .map((account) => account.id);
 }
 
@@ -158,14 +225,17 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
       && (record.principalPaidWan > 0 || record.interestPaidWan > 0))
     || (transaction.automaticLiquidityShortfallRecoveryWan ?? 0) > 0
   ));
-  const repaidAccounts = hasReliableRepaidDebt(ledger);
+  const terminalRepaidAccountIds = ledger.debtAccounts
+    .filter((account) => account.status === "repaid")
+    .map((account) => account.id);
+  const repaidAccounts = hasReliableRepaidDebt(history, ledger);
   const debt: FinalDebtClaim = debtWan > 0.01
     ? defaulted
       ? { kind: "formal_default_outstanding", totalDebtWan: debtWan }
       : hasRecentPayment
         ? { kind: "debt_repayment_in_progress", totalDebtWan: debtWan }
         : { kind: "debt_outstanding", totalDebtWan: debtWan }
-    : repaidAccounts.length > 0
+    : terminalRepaidAccountIds.length > 0 && repaidAccounts.length === terminalRepaidAccountIds.length
       ? { kind: "debt_fully_repaid", evidenceAccountIds: repaidAccounts }
       : { kind: "no_active_debt" };
   const reportEligibleCashWan = round(ledger.cashAccounts
@@ -202,9 +272,15 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
       if (source.accrualPolicy === "annual") return sum + (source.annualNetAmountWan ?? 0) * activeMonths / 12;
       return sum;
     }, 0));
-  const personalAnnualExpenseWan = round(ledger.expenseCommitments
-    .filter((commitment) => commitment.status === "active" && isReportEligibleFinancialFact(commitment))
-    .reduce((sum, commitment) => sum + commitment.monthlyAmountWan * activeMonthsInHorizon({ ...commitment, asOfAgeInMonths: ledger.asOfAgeInMonths }), 0));
+  const personalExpenseSummary = derivePersonalExpenseSummary(ledger);
+  // V4 has one canonical recurring-expense representation.  Keep the V3
+  // compatibility branch only for historical reports that predate V4; all
+  // V4 report values are derived from the exact same summary sent to prompts.
+  const personalAnnualExpenseWan = personalExpenseSummary.availability === "available"
+    ? personalExpenseSummary.reportEligibleAnnualizedExpenseWan
+    : round(ledger.expenseCommitments
+      .filter((commitment) => commitment.status === "active" && isReportEligibleFinancialFact(commitment))
+      .reduce((sum, commitment) => sum + commitment.monthlyAmountWan * activeMonthsInHorizon({ ...commitment, asOfAgeInMonths: ledger.asOfAgeInMonths }), 0));
   const numericClaims: FinalFinancialNumericClaim[] = [
     { kind: "cash", valueWan: reportEligibleCashWan, displayText: formatFinancialWan(reportEligibleCashWan), sourceLedgerRevision: ledger.revision },
     { kind: "total_debt", valueWan: debtWan, displayText: formatFinancialWan(debtWan), sourceLedgerRevision: ledger.revision },
@@ -235,17 +311,18 @@ export function deriveFinalFinancialNarrativeAuthority(history: HistoryItem[]): 
     debt,
     netWorth,
     property,
+    personalExpenseSummary,
     businessValue,
     numericClaims,
     permittedSemanticClaims: [debt.kind, netWorth.kind, property.kind, businessValue.kind],
     forbiddenSemanticClaims: [
-      ...(debtWan > 0.01 ? ["debt_fully_repaid"] : []),
+      ...(debt.kind !== "debt_fully_repaid" ? ["debt_fully_repaid"] : []),
       ...(netWorth.kind === "negative_net_worth" ? ["financial_freedom"] : []),
       ...(netWorth.kind === "negative_net_worth" ? ["negative_net_worth_as_worthwhile_trade"] : []),
       ...(property.kind === "no_confirmed_property" ? ["confirmed_property_ownership_or_sale"] : []),
       ...(businessValue.kind === "no_confirmed_business_value" ? ["confirmed_business_valuation_or_return"] : [])
     ],
-    canonicalSummary: `${debtSummary}${netWorthSummary}${propertySummary}`
+    canonicalSummary: `${debtSummary}${netWorthSummary}${propertySummary}\n${formatPersonalExpenseSummaryForPrompt(personalExpenseSummary)}`
   };
 }
 
@@ -300,7 +377,7 @@ export function collectFinalFinancialNarrativeIssues(input: {
         break;
       }
     }
-    if (["debt_outstanding", "debt_repayment_in_progress", "formal_default_outstanding"].includes(input.authority.debt.kind)
+    if (input.authority.debt.kind !== "debt_fully_repaid"
       && hasUnsupportedDebtCompletionClaim(item.text)) {
       issues.push({ path: item.path, code: "REPORT_DEBT_COMPLETION_CONFLICT", text: item.text });
     }
@@ -353,6 +430,7 @@ export function formatFinalFinancialNarrativeAuthorityForPrompt(authority?: Fina
     debt,
     netWorth,
     property,
+    personalExpenseSummary: authority.personalExpenseSummary,
     businessValue: authority.businessValue,
     numericClaims: authority.numericClaims.map(({ kind, displayText, sourceLedgerRevision }) => ({ kind, displayText, sourceLedgerRevision })),
     permittedSemanticClaims: authority.permittedSemanticClaims,

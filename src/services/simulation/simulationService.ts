@@ -1,7 +1,17 @@
 import { buildEventMeta, getEventTemporalProfile, getLastEventSelectionTrace, LIFE_EVENTS_DATABASE, queryDynamicLifeEvent, queryHealthEscalationEvent, type LifeEventSeed } from "../../data/lifeEvents";
-import { ChoiceTemporalHint, EmploymentTransitionProposal, EventMeta, FinancialState, HistoryItem, LifeAttributes, LifeIntensity, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, SimulationNode, UserInitialData, WorldDelta } from "../../types";
+import { ChoiceTemporalHint, EmploymentTransitionProposal, EventMeta, ExpenseLifecycleCandidateTelemetry, ExpenseLifecycleProjectedCommitmentChange, FinancialState, HistoryItem, LifeAttributes, LifeIntensity, PendingEmployerOfferResolution, PendingEmployerOfferState, PersonalityInsight, PressureArcState, QuestionItem, QuestionTurn, RelationshipProposal, SimulationNode, UserInitialData, WorldDelta, WorldStateSnapshot } from "../../types";
 import { DEFAULT_ENDING_POLICY } from "../../config/endingPolicy";
 import { DEFAULT_REPORT_INVITATION_POLICY } from "../../config/reportInvitationPolicy";
+import {
+  DEFAULT_EXPENSE_LIFECYCLE_MODE,
+  DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE,
+  DEFAULT_FINANCIAL_NODE_GATE_MODE,
+  FINANCIAL_GATE_MAX_REGENERATIONS,
+  compatibleExpenseNarrativeBindingMode,
+  type ExpenseNarrativeBindingMode,
+  type ExpenseLifecycleMode,
+  type FinancialNodeGateMode
+} from "../../config/financialGatePolicy";
 import { buildQuestionPrompt } from "../../utils/questionPrompt";
 import { normalizePersonalityInsight } from "../../utils/insightResponse";
 import { generateCompleteSimulationNode, isRetryableNodeGenerationError } from "../../utils/simulationNodeRetry";
@@ -22,19 +32,25 @@ import { applyDecisionDensityDowngrade, downgradeDensityLimitedNode, evaluateDec
 import { evaluateEnding } from "../../utils/endingDecision";
 import { rebuildPersonStates } from "../../utils/personTimeline";
 import { commitSimulationTransaction, emptyWorldState } from "../../utils/simulationTransaction";
+import { acceptedResidenceOccupancyState } from "../../utils/residenceOccupancyState";
+import {
+  explicitFactsFromAcceptedExpenseResponsibilityDeltas,
+  missingDetectedCompletedParentCareResponsibilities,
+  missingAcceptedExpenseResponsibilityDeltas
+} from "../../utils/expenseResponsibilityOutcome";
 import { buildBranchFingerprint, calculateTimelineAdvance, constrainTemporalProfileForDebtDistress, deriveTemporalProfile } from "../../utils/timelineAdvance";
 import { stableHash } from "../../utils/stableRandom";
 import { isValidRomanceDisplayName } from "../../utils/romanceCandidateName";
 import { containsForbiddenArcWrite, stripForbiddenArcWrites, stripUnauthorizedRelationshipChoices, stripUnauthorizedRomanticCharacters, validateStoryConsistency } from "../../utils/storyConsistency";
 import { estimateFinancialStateFromWealth, normalizeInitialFinancialState, withCalculatedWealth } from "../../utils/financialState";
-import { resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
+import { hasCompletedEmployerStartEvidence, resolveAuthoritativeEmploymentStatus } from "../../utils/employmentState";
 import { sanitizeFinancialNarrative, sanitizeOpeningFinancialTitle, sanitizeSimulationNodeFinancialNarrative, sanitizeUnsupportedFinancialCoverageClaims, sanitizeUnsupportedOpeningAccountClaims, stripUnsupportedPersonalIncomeClaim, validateDebtNarrativeConsistency } from "../../utils/financialNarrative";
 import { applyDebtNarrativeAuthorityToNode, applyDebtNarrativeFallback, collectDebtNarrativeSurfaceIssues, deriveDebtNarrativeAuthority, repairDebtNarrativeSurfaces } from "../../utils/debtNarrativeAuthority";
 import { reconcileHealth } from "../../utils/healthReconciliation";
 import { evaluateReportInvitation } from "../../utils/reportInvitationDecision";
 import { queryDebtEscalationEvent } from "../../utils/debtEventScheduling";
 import { adaptTransitionalEmploymentProposal, currentCareerState, initializeCareerState, validateAndAcceptCareerTransition } from "../../domain/career/careerState";
-import type { CareerState } from "../../domain/career/types";
+import type { AcceptedCareerTransition, CareerState } from "../../domain/career/types";
 import {
   applySelectedRelationshipOutcome,
   activeRelationshipCheckpoint,
@@ -54,11 +70,19 @@ import { createSelectionEntropy, type SelectionEntropy } from "../../config/line
 import { relationshipDispatchFeatureFlags, type RelationshipDispatchFeatureFlags } from "../../config/relationshipDispatchFlags";
 import {
   commitFinancialDomainTransaction,
+  previewFinancialDomainTransaction,
+  buildRequiredFinancialFactGroups,
+  evaluateFinancialNodeAcceptance,
+  applyLifeStageExpenseLifecycle,
+  reconcileExpenseCommitments,
   deriveDebtHealthState,
   deriveFinancialState,
   deriveConservativeWealthBasis,
   migrateFinancialLedgerV2ToV3,
-  initializeOpeningFinancialLedger,
+  preflightFinancialLedgerV3ToV4,
+  isFinancialLedgerV4,
+  prepareOpeningFinancialAuthority,
+  commitPreparedOpeningFinancialAuthority,
   migrateLegacyFinancialState,
   applyOpeningFactsToFinancialState,
   applyAuthoritativeOpeningFactsToFinancialState,
@@ -70,11 +94,18 @@ import {
   sentenceClaimsNewPersonalIncomeActivity,
   hasExplicitUnpaidPersonalIncomeStatement,
   buildLateLifeEmploymentClosure,
+  requiresHardLateLifeCareerIncomeResolution,
   completeCareerIncomeReplacementProposals,
   buildMortalityFinancialClosure,
   reconcileCareerIncomeAtomicity,
   validateFinancialProposals,
+  validateExpenseConfirmationAtomicity,
+  verifyAcceptedExpenseConfirmationAgainstFinalNarrative,
   isFinancialEventKind,
+  isUnacceptedIncomeOpportunityEvidence,
+  explicitProtagonistAnnualIncomeWan,
+  hasExplicitProtagonistAnnualIncomeFact,
+  isNarratedBeforePeriod,
   FinancialLedgerInvariantError,
   type FinancialEventKind,
   type FinancialEventProposal,
@@ -82,8 +113,13 @@ import {
   type AcceptedFinancialEvent,
   type FinancialLedger,
   type FinancialLedgerInput,
-  type FinancialLedgerIssue
+  type FinancialLedgerV3,
+  type FinancialLedgerIssue,
+  type ExpenseResponsibilityCandidate,
+  type ExpenseCommitmentReconciliationCandidateDecision
 } from "../../domain/finance";
+import type { FinancialNodeAcceptanceDecision, FinancialNodeGateRejectionDiagnostic, RequiredFinancialFactGroup } from "../../domain/finance";
+import type { ExpenseLivingArrangement, ExpenseResponsibilityEstimateContext } from "../../domain/finance/expenseEstimationPolicyV2";
 import { callDeepSeekJsonFromBrowser, callDeepSeekJsonStreamFromBrowser } from "../ai/deepseekBrowserClient";
 import { getBrowserAiEnv } from "../ai/env";
 import { AiClientError } from "../ai/errors";
@@ -153,12 +189,22 @@ function normalizeRepairedEmploymentTransition(input: {
     retirement: "retired",
     fully_retired: "retired"
   };
-  const toStatus = statusAliases[rawStatus] || rawStatus as EmploymentTransitionProposal["toStatus"];
+  // A repair must not let a transport label such as "consultant" override
+  // the completed narrative fact.  A named external paid consultant role that
+  // the protagonist has actually accepted is employment; independent projects
+  // remain excluded by hasCompletedEmployerStartEvidence.
+  const toStatus = hasExplicitSelfDirectedVentureEvidence(input.narrativeText, "narrative")
+    ? "self_employed"
+    : (hasCompletedEmployerStartEvidence(input.narrativeText)
+      ? "employed"
+      : (statusAliases[rawStatus] || rawStatus as EmploymentTransitionProposal["toStatus"]));
   let evidence = typeof merged.evidence === "string" ? merged.evidence : "";
   if (!evidence || !matchesNormalizedEvidence(input.narrativeText, evidence)) {
     const evidencePattern = toStatus === "retired" || toStatus === "not_working"
       ? /退休|离职|停止工作|结束工资|离开工资序列/
-      : /顾问|咨询|转为|岗位|工作节奏|工时/;
+      : (toStatus === "self_employed"
+        ? /联合创始人|创始人|共同创办|自己创办|自主创办|独立创办|创业/
+        : /顾问|咨询|转为|岗位|工作节奏|工时/);
     evidence = input.narrativeText.split(/(?<=[。！？；])/u).find((sentence) => evidencePattern.test(sentence))?.trim() || evidence;
   }
   const effectiveAtAgeInMonths = Number.isInteger(Number(merged.effectiveAtAgeInMonths))
@@ -199,12 +245,231 @@ export interface SimulationServiceDeps {
   /** Internal reason propagation for a recursive full regeneration. */
   fullRegenerationReasonCodes?: string[];
   relationshipDispatchFeatureFlags?: Partial<RelationshipDispatchFeatureFlags>;
+  financialNodeGateMode?: FinancialNodeGateMode;
+  /** V4 responsibility reconciliation rollout; independent from legacy gate mode. */
+  expenseLifecycleMode?: ExpenseLifecycleMode;
+  /** Selects the narrative candidate writer; separate from lifecycle commit mode. */
+  expenseNarrativeBindingMode?: ExpenseNarrativeBindingMode;
+  onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
+  /** Internal bounded-regeneration counter; callers should not set it. */
+  financialGateRegenerationCount?: number;
+  /** Internal feedback from the previous rejected financial preview. */
+  financialGateRetryReasonCodes?: string[];
   /** Internal recursion guard and evidence for a failed romance event redispatch. */
   romanceFallbackContext?: {
     requestedEventId: string;
     reason: string;
     repairAttempted: boolean;
   };
+}
+
+class FinancialNodeGateError extends AiClientError {
+  readonly decision: FinancialNodeAcceptanceDecision;
+  /**
+   * UI recovery must be able to distinguish a rejected, uncommitted Preview
+   * from an ordinary malformed model response without depending on this
+   * private error class.  The decision itself remains the audit record.
+   */
+  readonly retryScope = "financial_gate" as const;
+
+  constructor(decision: FinancialNodeAcceptanceDecision) {
+    super("AI_RESPONSE_INVALID", `财务节点接受门拒绝候选：${decision.blockingReasonCodes.join(",")}`);
+    this.name = "FinancialNodeGateError";
+    this.decision = decision;
+  }
+}
+
+const FINANCIAL_GATE_DIAGNOSTIC_MAX_PROPOSALS = 20;
+const FINANCIAL_GATE_DIAGNOSTIC_MAX_ISSUES = 24;
+const FINANCIAL_GATE_DIAGNOSTIC_MAX_TEXT = 1400;
+
+function redactFinancialGateDiagnosticText(value: unknown, maxLength = 320): { text: string; truncated: boolean } {
+  const redacted = String(value ?? "")
+    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/gu, "[REDACTED_SECRET]")
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{8,}\b/giu, "Bearer [REDACTED_SECRET]")
+    .replace(/\b(api[_-]?key|token|secret|password)\s*[=:]\s*[^\s,;]+/giu, "$1=[REDACTED_SECRET]")
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/giu, "[REDACTED_EMAIL]")
+    .replace(/\b1\d{10}\b/gu, "[REDACTED_PHONE]");
+  return {
+    text: redacted.slice(0, maxLength),
+    truncated: redacted.length > maxLength
+  };
+}
+
+function projectFinancialGateDiagnosticValue(value: unknown, depth = 0): unknown {
+  if (typeof value === "string") return redactFinancialGateDiagnosticText(value, 240).text;
+  if (value === null || typeof value === "number" || typeof value === "boolean") return value;
+  if (depth >= 3) return "[TRUNCATED_DEPTH]";
+  if (Array.isArray(value)) return value.slice(0, 8).map((item) => projectFinancialGateDiagnosticValue(item, depth + 1));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+      .slice(0, 16)
+      .map(([key, item]) => [
+        key,
+        /(?:api[_-]?key|token|secret|password)/iu.test(key)
+          ? "[REDACTED_SECRET]"
+          : projectFinancialGateDiagnosticValue(item, depth + 1)
+      ]));
+  }
+  return `[UNSUPPORTED_${typeof value}]`;
+}
+
+function buildFinancialGateRejectionDiagnostic(input: {
+  node: Pick<SimulationNode, "title" | "description">;
+  proposals: FinancialEventProposal[];
+  acceptedProposalIds: Set<string>;
+  rejectedProposalIds: Set<string>;
+  issues: FinancialLedgerIssue[];
+  requiredFactGroups: RequiredFinancialFactGroup[];
+  provisionalCareerTransitions: AcceptedCareerTransition[];
+}): FinancialNodeGateRejectionDiagnostic {
+  const description = redactFinancialGateDiagnosticText(input.node.description, FINANCIAL_GATE_DIAGNOSTIC_MAX_TEXT);
+  const title = redactFinancialGateDiagnosticText(input.node.title, 240);
+  const proposals = input.proposals.slice(0, FINANCIAL_GATE_DIAGNOSTIC_MAX_PROPOSALS).map((proposal) => ({
+    id: proposal.id,
+    kind: String(proposal.kind),
+    effectiveAtAgeInMonths: proposal.effectiveAtAgeInMonths,
+    ...(proposal.sourceOutcomeId ? { sourceOutcomeId: proposal.sourceOutcomeId } : {}),
+    ...(proposal.confidence === undefined ? {} : { confidence: proposal.confidence }),
+    ...(proposal.financialScope ? { financialScope: proposal.financialScope } : {}),
+    ...(proposal.systemGenerated ? { systemGenerated: proposal.systemGenerated } : {}),
+    disposition: input.acceptedProposalIds.has(proposal.id)
+      ? "accepted" as const
+      : input.rejectedProposalIds.has(proposal.id)
+        ? "rejected" as const
+        : "unaccepted" as const,
+    evidenceExcerpt: redactFinancialGateDiagnosticText(proposal.evidence, 320).text,
+    payload: projectFinancialGateDiagnosticValue(proposal.payload)
+  }));
+  return {
+    schemaVersion: 1,
+    candidate: {
+      titleExcerpt: title.text,
+      descriptionExcerpt: description.text,
+      descriptionFingerprint: stableHash({ version: "financial-gate-rejection-v1", description: description.text }),
+      descriptionTruncated: description.truncated
+    },
+    proposals,
+    normalizedProposalCount: input.proposals.length,
+    omittedProposalCount: Math.max(0, input.proposals.length - proposals.length),
+    rejectedProposalIds: [...input.rejectedProposalIds].slice(0, FINANCIAL_GATE_DIAGNOSTIC_MAX_PROPOSALS),
+    validatorIssues: input.issues.slice(0, FINANCIAL_GATE_DIAGNOSTIC_MAX_ISSUES).map((issue) => ({
+      id: issue.id,
+      code: issue.code,
+      severity: issue.severity,
+      ...(issue.status ? { status: issue.status } : {}),
+      summaryExcerpt: redactFinancialGateDiagnosticText(issue.summary, 360).text,
+      relatedProposalIds: [...(issue.relatedProposalIds || [])].slice(0, 12),
+      relatedIncomeSourceIds: [...(issue.relatedIncomeSourceIds || [])].slice(0, 12),
+      relatedAccountIds: [...(issue.relatedAccountIds || [])].slice(0, 12)
+    })),
+    unsatisfiedFactGroups: input.requiredFactGroups
+      .filter((group) => !group.satisfied)
+      .slice(0, 12)
+      .map((group) => ({
+        id: group.id,
+        kind: group.kind,
+        materiality: group.materiality,
+        reasonCode: group.reasonCode,
+        relatedIssueIds: [...group.relatedIssueIds].slice(0, 12),
+        relatedProposalIds: [...group.relatedProposalIds].slice(0, 12)
+      })),
+    provisionalCareerTransitions: input.provisionalCareerTransitions.slice(0, 4).map((transition) => ({
+      ...(transition.proposalId ? { proposalId: transition.proposalId } : {}),
+      fromCareerStateId: transition.fromCareerStateId,
+      nextCareerStateId: transition.nextCareerState.id,
+      employmentStatus: transition.nextCareerState.employmentStatus,
+      effectiveAtAgeInMonths: transition.effectiveAtAgeInMonths,
+      evidenceExcerpt: redactFinancialGateDiagnosticText(
+        transition.evidence.map((item) => item.excerpt).filter(Boolean).join("；"),
+        320
+      ).text
+    }))
+  };
+}
+
+/**
+ * Responsibility deltas are allowed to create a policy-backed cash outflow
+ * only when their evidence survives every later narrative writer.  The domain
+ * transaction is still local at this point; throwing the ordinary gate error
+ * therefore leaves ledger, timeline, WorldState and history untouched and
+ * lets the bounded generation loop regenerate the node.
+ */
+function requireFinalExpenseResponsibilityEvidence(input: {
+  initialOutcome: AcceptedNodeOutcome;
+  finalOutcome: AcceptedNodeOutcome;
+  narrativeText: string;
+  expenseLifecycleMode: ExpenseLifecycleMode;
+  transactionId: string;
+  regenerationCount: number;
+  authoritativeAgeBefore: number;
+  onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
+}): void {
+  if (input.expenseLifecycleMode !== "enforced") return;
+  const missingAccepted = missingAcceptedExpenseResponsibilityDeltas({
+    acceptedWorldDeltas: input.initialOutcome.worldDeltas,
+    finalWorldDeltas: input.finalOutcome.worldDeltas
+  });
+  // The first branch protects an already-Accepted delta from disappearing
+  // during later narrative repair. The second is the inverse: a narrow,
+  // high-confidence completed care fact in the final prose must not be
+  // silently committed without its corresponding structured responsibility.
+  // Both branches are pure Preview checks; throwing here leaves all authority
+  // state unchanged and routes the whole node through bounded regeneration.
+  const missingNarrative = missingDetectedCompletedParentCareResponsibilities({
+    narrativeText: input.narrativeText,
+    finalWorldDeltas: input.finalOutcome.worldDeltas
+  });
+  if (missingAccepted.length === 0 && missingNarrative.length === 0) return;
+  // A final-prose detector and the earlier accepted delta can observe the
+  // same responsibility through two different paths. Count each underlying
+  // responsibility once, while retaining distinct father/mother (or health)
+  // requirements as separate critical fact groups for audit telemetry.
+  const requiredFactGroupCount = new Set([
+    ...missingAccepted.map((delta) => {
+      const responsibility = delta.responsibility;
+      return [
+        responsibility.responsibilityKind,
+        responsibility.beneficiary,
+        responsibility.owner,
+        responsibility.cadence,
+        responsibility.evidence.replace(/\s+/gu, "")
+      ].join("\u001f");
+    }),
+    ...missingNarrative.map((responsibility) => [
+      responsibility.responsibilityKind,
+      responsibility.beneficiary,
+      responsibility.owner,
+      responsibility.cadence,
+      responsibility.evidence.replace(/\s+/gu, "")
+    ].join("\u001f"))
+  ]).size;
+  const reasonCodes = [
+    ...(missingAccepted.length > 0 ? ["EXPENSE_RESPONSIBILITY_FINAL_EVIDENCE_MISSING"] : []),
+    ...(missingNarrative.length > 0 ? ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"] : [])
+  ];
+  const decision: FinancialNodeAcceptanceDecision = {
+    mode: "enforced",
+    disposition: "regenerate",
+    allowDomainCommit: false,
+    wouldBlock: true,
+    blockingReasonCodes: reasonCodes,
+    reasonCodes,
+    relatedIssueIds: [],
+    relatedProposalIds: [],
+    requiredFactGroupCount,
+    satisfiedFactGroupCount: 0,
+    criticalFactGroupCount: requiredFactGroupCount,
+    satisfiedCriticalFactGroupCount: 0,
+    unsatisfiedCriticalFactGroupCount: requiredFactGroupCount,
+    activeCareerIncomeCount: 0,
+    previewAgeAligned: true,
+    transactionId: input.transactionId,
+    regenerationCount: input.regenerationCount,
+    authoritativeAgeBefore: input.authoritativeAgeBefore
+  };
+  input.onFinancialGateDecision?.(decision);
+  throw new FinancialNodeGateError(decision);
 }
 
 export interface GenerateQuestionsResult {
@@ -220,6 +485,238 @@ function rawFinancialEventProposals(rawNode: any): FinancialEventProposal[] {
   return Array.isArray(rawNode?.financialEventProposals)
     ? rawNode.financialEventProposals as FinancialEventProposal[]
     : [];
+}
+
+const LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR = "LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR";
+
+function isMigrationOnlyLegacyIncomeSource(source: FinancialLedger["incomeSources"][number], currentCareerStateId: string): boolean {
+  return source.id === "legacy_recurring_income"
+    && source.status === "active"
+    && source.linkedCareerStateId === currentCareerStateId
+    && ["estimated", "needs_review"].includes(source.factStatus)
+    && source.evidence.length > 0
+    && source.evidence.every((item) => item.source === "legacy_migration");
+}
+
+function legacyIncomeReconfirmationIsDue(input: {
+  ledger: FinancialLedger;
+  source: FinancialLedger["incomeSources"][number];
+  targetAgeInMonths: number;
+}): boolean {
+  if (input.source.accrualReviewStatus === "quarantined") return true;
+  const lastConfirmedAt = input.source.lastConfirmedAtAgeInMonths ?? input.source.activeFromAgeInMonths;
+  const materialTransactions = input.ledger.recentTransactions.filter((transaction) => (
+    transaction.periodEndAgeInMonths > lastConfirmedAt
+  )).length;
+  // Match addLegacyIncomeReconfirmation: the current Preview is the next
+  // material transaction, so candidate text must be reconciled before that
+  // Preview quarantines an otherwise exactly re-confirmed source.
+  return input.targetAgeInMonths - lastConfirmedAt >= 36 || materialTransactions + 1 >= 3;
+}
+
+function amountMatchesLegacyIncomeSource(input: {
+  source: FinancialLedger["incomeSources"][number];
+  nextSource: Record<string, unknown>;
+  evidence: string;
+}): boolean {
+  const isPersonal = /(?:你|主角|本人|个人账户)/u.test(input.evidence);
+  if (!isPersonal) return false;
+  // The accrual policy, rather than property presence, owns which amount is
+  // rendered as the current salary.  Some legacy records contain both fields;
+  // their unused amount still has to remain unchanged by the reconfirmation.
+  if (input.source.accrualPolicy === "annual") {
+    if (input.source.annualNetAmountWan === undefined) return false;
+    const nextAnnual = Number(input.nextSource.annualNetAmountWan);
+    const annualEvidence = input.evidence.match(/(?:(?:税后)?(?:年薪|年收入)|年税后收入)[^。！？]{0,20}?(\d+(?:\.\d+)?)\s*万元?/u);
+    return Number.isFinite(nextAnnual)
+      && nextAnnual === input.source.annualNetAmountWan
+      && annualEvidence !== null
+      && Number(annualEvidence[1]) === input.source.annualNetAmountWan;
+  }
+  if (input.source.accrualPolicy === "monthly") {
+    if (input.source.monthlyNetAmountWan === undefined) return false;
+    const nextMonthly = Number(input.nextSource.monthlyNetAmountWan);
+    const monthlyEvidence = input.evidence.match(/(?:税后)?(?:月薪|月收入|工资|薪资)[^。！？]{0,20}?(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u);
+    if (!monthlyEvidence || !Number.isFinite(nextMonthly) || nextMonthly !== input.source.monthlyNetAmountWan) return false;
+    const evidenceMonthlyWan = Number(monthlyEvidence[1]) * (monthlyEvidence[2] === "元" ? 0.0001 : 1);
+    return Math.abs(evidenceMonthlyWan - input.source.monthlyNetAmountWan) < 0.000001;
+  }
+  return false;
+}
+
+function hasExplicitPersonalCompensationAmount(text: string): boolean {
+  return /(?:你|主角|本人|个人账户).{0,80}(?:(?:税后)?(?:月薪|年薪|月收入|年收入|工资|薪资)|年税后收入)[^。！？]{0,20}\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(text);
+}
+
+function hasExplicitIncomeInterruption(text: string): boolean {
+  return hasExplicitUnpaidPersonalIncomeStatement(text)
+    || /(?:停薪|无薪|不领薪)/u.test(text)
+    || /(?:工资|薪资|薪水|收入)[^。！？]{0,20}(?:尚未|还未|未能|延迟|停薪|停发|暂停|中断)|(?:尚未|还未|未能|延迟|停薪|停发|暂停|中断)[^。！？]{0,20}(?:工资|薪资|薪水|收入)/u.test(text);
+}
+
+const LEGACY_INCOME_RECONFIRMATION_IMMUTABLE_FIELDS = [
+  "id",
+  "displayName",
+  "monthlyNetAmountWan",
+  "annualNetAmountWan",
+  "accrualPolicy",
+  "activeFromAgeInMonths",
+  "activeUntilAgeInMonths",
+  "status",
+  "linkedCareerStateId",
+  "linkedAssetAccountId",
+  "linkedBusinessHoldingId",
+  "lastConfirmedAtAgeInMonths"
+] as const;
+
+function isExactLegacyIncomeReconfirmationSource(input: {
+  source: FinancialLedger["incomeSources"][number];
+  nextSource: Record<string, unknown>;
+  expectedType: "salary" | "self_employment_draw";
+}): boolean {
+  const allowedFields = new Set([
+    ...LEGACY_INCOME_RECONFIRMATION_IMMUTABLE_FIELDS,
+    "type",
+    "factStatus",
+    "accrualReviewStatus",
+    "evidence"
+  ]);
+  if (Object.keys(input.nextSource).some((field) => !allowedFields.has(field))) return false;
+  if (input.nextSource.id !== input.source.id
+    || input.nextSource.linkedCareerStateId !== input.source.linkedCareerStateId
+    || input.nextSource.status !== "active"
+    || input.nextSource.type !== input.expectedType
+    || input.nextSource.accrualPolicy !== input.source.accrualPolicy
+    || input.nextSource.factStatus !== "known") return false;
+  if (Object.prototype.hasOwnProperty.call(input.nextSource, "accrualReviewStatus")
+    && input.nextSource.accrualReviewStatus !== "normal") return false;
+  if (Object.prototype.hasOwnProperty.call(input.nextSource, "evidence")
+    && !Array.isArray(input.nextSource.evidence)) return false;
+  return LEGACY_INCOME_RECONFIRMATION_IMMUTABLE_FIELDS.every((field) => (
+    !Object.prototype.hasOwnProperty.call(input.nextSource, field)
+    || Object.is(input.nextSource[field], input.source[field])
+  ));
+}
+
+function canonicalLegacyIncomeReconfirmationSource(input: {
+  source: FinancialLedger["incomeSources"][number];
+  expectedType: "salary" | "self_employment_draw";
+}) {
+  return {
+    ...structuredClone(input.source),
+    type: input.expectedType,
+    factStatus: "known" as const,
+    accrualReviewStatus: "normal" as const
+  };
+}
+
+/**
+ * The model sometimes provides a complete, same-source migration-income
+ * confirmation in Proposal.evidence but accidentally omits that very sentence
+ * from the user-visible candidate body.  The normal validator correctly
+ * rejects it because evidence is not visible.  This bounded repair reconciles
+ * the two fields only when the model has already supplied every financial fact
+ * and it exactly repeats the one migration baseline.  It never creates an
+ * amount, source, CareerState change or Accepted Event.
+ */
+export function reconcileLegacyIncomeProposalEvidenceNarrative(input: {
+  node: SimulationNode;
+  rawNode: unknown;
+  ledger?: FinancialLedger;
+  currentCareerState: CareerState;
+  targetAgeInMonths: number;
+  acceptedOutcomeId?: string;
+}): { node: SimulationNode; rawNode: unknown; reasonCodes: string[] } {
+  if (!input.ledger || !input.acceptedOutcomeId) return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  if (![
+    "employed",
+    "part_time",
+    "self_employed"
+  ].includes(input.currentCareerState.employmentStatus)) return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  if (narrativeRequiresCareerTransition({
+    narrativeText: input.node.description,
+    currentStatus: input.currentCareerState.employmentStatus
+  }) || hasExplicitIncomeInterruption(input.node.description) || hasExplicitPersonalCompensationAmount(input.node.description)) {
+    return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  }
+  const sources = input.ledger.incomeSources.filter((source) => (
+    isMigrationOnlyLegacyIncomeSource(source, input.currentCareerState.id)
+    && legacyIncomeReconfirmationIsDue({ ledger: input.ledger!, source, targetAgeInMonths: input.targetAgeInMonths })
+  ));
+  if (sources.length !== 1) return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  const source = sources[0]!;
+  const proposals = rawFinancialEventProposals(input.rawNode);
+  const careerIncomeMutations = proposals.filter((proposal) => (
+    ["income_source_started", "income_source_adjusted", "income_source_paused", "income_source_ended"].includes(proposal.kind)
+  ));
+  if (careerIncomeMutations.length !== 1 || careerIncomeMutations[0]?.kind !== "income_source_adjusted") {
+    return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  }
+  const proposal = careerIncomeMutations[0]!;
+  const payload = proposal.payload && typeof proposal.payload === "object"
+    ? proposal.payload as Record<string, unknown>
+    : undefined;
+  const nextSource = payload?.nextSource && typeof payload.nextSource === "object"
+    ? payload.nextSource as Record<string, unknown>
+    : undefined;
+  const evidence = proposal.evidence?.trim() || "";
+  const evidenceSentences = evidence.split(/(?<=[。！？])/u).map((sentence) => sentence.trim()).filter(Boolean);
+  const expectedType: "salary" | "self_employment_draw" = input.currentCareerState.employmentStatus === "self_employed"
+    ? "self_employment_draw"
+    : "salary";
+  const isExactSameSourceAdjustment = nextSource !== undefined
+    && isExactLegacyIncomeReconfirmationSource({ source, nextSource, expectedType })
+    && payload?.incomeSourceId === source.id
+    && proposal.sourceOutcomeId === input.acceptedOutcomeId
+    && proposal.financialScope === "personal"
+    && Number(proposal.confidence) >= 0.8
+    && evidenceSentences.length === 1
+    && amountMatchesLegacyIncomeSource({ source, nextSource: nextSource!, evidence });
+  if (!isExactSameSourceAdjustment || input.node.description.includes(evidence)) {
+    return { node: input.node, rawNode: input.rawNode, reasonCodes: [] };
+  }
+  const visibleEvidence = /[。！？]$/u.test(evidence) ? evidence : `${evidence}。`;
+  const append = (text: string) => `${text.trim()}\n\n${visibleEvidence}`.trim();
+  const raw = input.rawNode && typeof input.rawNode === "object"
+    ? structuredClone(input.rawNode) as Record<string, unknown>
+    : {};
+  const canonicalNextSource = canonicalLegacyIncomeReconfirmationSource({ source, expectedType });
+  const canonicalRawProposals = Array.isArray(raw.financialEventProposals)
+    ? raw.financialEventProposals.map((candidate) => {
+      if (!candidate || typeof candidate !== "object") return candidate;
+      const candidateRecord = candidate as Record<string, unknown>;
+      if (candidateRecord.id !== proposal.id || candidateRecord.kind !== "income_source_adjusted") return candidate;
+      const candidatePayload = candidateRecord.payload && typeof candidateRecord.payload === "object"
+        ? candidateRecord.payload as Record<string, unknown>
+        : {};
+      return {
+        ...candidateRecord,
+        payload: {
+          ...candidatePayload,
+          incomeSourceId: source.id,
+          nextSource: structuredClone(canonicalNextSource)
+        }
+      };
+    })
+    : raw.financialEventProposals;
+  const rawDescription = typeof raw.description === "string" && raw.description.trim()
+    ? raw.description
+    : input.node.description;
+  const description = append(input.node.description);
+  return {
+    node: {
+      ...input.node,
+      description,
+      descriptionParagraphs: splitNarrativeParagraphs(description)
+    },
+    rawNode: {
+      ...raw,
+      financialEventProposals: canonicalRawProposals,
+      description: append(rawDescription),
+      descriptionParagraphs: splitNarrativeParagraphs(append(rawDescription))
+    },
+    reasonCodes: [LEGACY_INCOME_EVIDENCE_NARRATIVE_REPAIR]
+  };
 }
 
 function normalizeFinancialNarrativeClaims(input: {
@@ -305,6 +802,243 @@ export function extractMisplacedEmploymentTransition(rawNode: any): EmploymentTr
   } as EmploymentTransitionProposal;
 }
 
+/**
+ * Career authority treats founding/ownership as self-employment.  The
+ * protagonist marker is intentional: a sentence about a company's founder
+ * inviting the protagonist to a normal role must remain an employer fact.
+ */
+type SelfDirectedVentureEvidenceContext = "selected_decision" | "narrative";
+
+function hasExplicitSelfDirectedVentureEvidence(
+  value: string,
+  context: SelfDirectedVentureEvidenceContext
+): boolean {
+  return value.split(/(?<=[。！？；])/u).some((sentence) => (
+    /(?:你|本人|你们)[^。；]{0,32}(?:作为|成为|担任|是)[^。；]{0,12}(?:联合创始人|创始人)(?=(?:兼|、|，|,|和|与|及|职位|岗位|角色|身份|负责|主导|领导|[。；！？]|$))/u.test(sentence)
+    || /(?:你|本人|你们)[^。；]{0,32}(?:作为|成为|担任|是)[^。；]{0,12}合伙人(?=(?:兼|、|，|,|和|与|及|职位|岗位|角色|身份|负责|主导|领导|[。；！？]|$))(?=[^。；]{0,24}(?:股权|持股|共同创办|自己创办|自主创办|独立创办|创业所有权))/u.test(sentence)
+    || /(?:你|本人|你们)[^。；]{0,32}(?:共同|自己|自主|独立)(?:创办|成立|创建)[^。；]{0,32}(?:公司|企业|工作室|团队)/u.test(sentence)
+    || /(?:你|本人|你们)[^。；]{0,24}(?:加入|进入)[^。；]{0,16}(?:自己|本人)[^。；]{0,16}(?:创办|成立|创建)[^。；]{0,32}(?:公司|企业|工作室|团队)/u.test(sentence)
+    || (context === "selected_decision"
+      && /(?:接受|选择|决定|同意)[^。；]{0,40}(?:联合创始人|创始人)(?=(?:兼|、|，|,|和|与|及|职位|岗位|角色|身份|$))/u.test(sentence))
+    || (context === "selected_decision"
+      && /(?:^|(?:选择|决定|接受)[^。；]{0,16})(?:共同|自己|自主|独立)(?:创办|成立|创建)[^。；]{0,32}(?:公司|企业|工作室|团队)/u.test(sentence))
+  ));
+}
+
+function isAcceptedEmployerRoleInvitation(
+  value: string,
+  context: SelfDirectedVentureEvidenceContext = "selected_decision"
+): boolean {
+  return /(?:接受|选择)[^。；]{0,40}(?:offer|职位|岗位|工作|入职|任职|担任|负责人)/iu.test(value)
+    && !/(?:外部董事|独立董事|外部顾问|兼职顾问|非执行董事|外部合伙人)/u.test(value)
+    && !hasExplicitSelfDirectedVentureEvidence(value, context);
+}
+
+/**
+ * A selected external role can resolve a bare offer only after the outcome
+ * records that the protagonist actually joined its employer.  Keep this
+ * coupled to the selected role: “加入公司” alone can also describe founding
+ * or joining a project, whereas an accepted product-role invitation plus a
+ * completed company join is an employed CareerState fact.
+ */
+function hasCompletedAcceptedEmployerRoleStart(input: {
+  selectedDecision?: string;
+  narrativeText: string;
+}): boolean {
+  if (!isAcceptedEmployerRoleInvitation(input.selectedDecision || "")
+    || hasExplicitSelfDirectedVentureEvidence(input.narrativeText, "narrative")) return false;
+  return input.narrativeText.split(/(?<=[。！？；])/u).some((sentence) => {
+    if (/(?:下(?:个)?月|下周|明天|未来|将于|将在|计划|准备|拟|预计|等待|确认|安排|尚未|还未|若|如果|一旦)[^。；]{0,32}加入[^。；]{0,24}(?:公司|企业|机构|团队)/u.test(sentence)) return false;
+    return hasCompletedEmployerStartEvidence(sentence)
+      || /(?:你|本人)[^。；]{0,36}(?:正式|已经|已(?:经)?)?加入(?:了)?[^。；]{0,24}(?:公司|企业|机构|团队)/u.test(sentence);
+  });
+}
+
+/**
+ * An accepted offer and an actual first day are distinct facts.  We only
+ * switch CareerState once the selected outcome or its narrative says that the
+ * protagonist actually started the role.  This deliberately excludes bare
+ * “接受 offer” language so it cannot manufacture a salary lifecycle.
+ */
+function isResolutionBoundToCurrentPendingOffer(input: {
+  current?: PendingEmployerOfferState;
+  acceptedOutcomeId?: string;
+  resolution?: PendingEmployerOfferResolution;
+}): boolean {
+  return Boolean(
+    input.current
+    && input.resolution
+    && input.resolution.pendingOfferSourceOutcomeId === input.current.sourceOutcomeId
+    && input.resolution.sourceOutcomeId === input.acceptedOutcomeId
+  );
+}
+
+function startsCurrentPendingEmployerOffer(input: {
+  current?: PendingEmployerOfferState;
+  acceptedOutcomeId?: string;
+  resolution?: PendingEmployerOfferResolution;
+  acceptedCareerTransitions: Array<Pick<AcceptedCareerTransition, "fromCareerStateId" | "nextCareerState">>;
+}): boolean {
+  return isResolutionBoundToCurrentPendingOffer(input)
+    && input.resolution?.action === "started"
+    && input.acceptedCareerTransitions.some((transition) => (
+      transition.fromCareerStateId === input.current?.fromCareerStateId
+      && transition.nextCareerState.employmentStatus === "employed"
+    ));
+}
+
+/**
+ * A repair may supply the missing CareerTransition after the initial proposal
+ * pass. Keep this invariant independent from that pass so a repaired start
+ * cannot commit while leaving the original pending offer behind.
+ */
+function pendingEmployerOfferStartResolutionIssue(input: {
+  current?: PendingEmployerOfferState;
+  acceptedOutcomeId?: string;
+  resolution?: PendingEmployerOfferResolution;
+  acceptedCareerTransitions: Array<Pick<AcceptedCareerTransition, "fromCareerStateId" | "nextCareerState">>;
+  transactionId: string;
+  ageInMonths: number;
+}): FinancialLedgerIssue | undefined {
+  const startsFromPendingCareer = input.acceptedCareerTransitions.some((transition) => (
+    transition.fromCareerStateId === input.current?.fromCareerStateId
+    && transition.nextCareerState.employmentStatus === "employed"
+  ));
+  if (!input.current || !startsFromPendingCareer || startsCurrentPendingEmployerOffer(input)) return undefined;
+  return {
+    id: `pending_employer_offer_start_resolution_missing_${input.transactionId}`,
+    code: "CAREER_INCOME_CONFLICT",
+    severity: "blocking",
+    status: "open",
+    relatedProposalIds: [],
+    summary: "已接受的待入职 offer 只有在同一 outcome 以 started resolution 绑定实际入职和职业收入原子提交后才能清除",
+    createdAtAgeInMonths: input.ageInMonths
+  };
+}
+
+export type PendingEmployerOfferUpdate =
+  | { action: "preserve" }
+  | { action: "clear" }
+  | { action: "set"; offer: PendingEmployerOfferState };
+
+/**
+ * Persist the user-authorized acceptance of an employer offer without
+ * pretending it is an employment or income event.  A later completed
+ * transition clears it atomically with the career/income write.
+ */
+export function resolvePendingEmployerOffer(input: {
+  current?: PendingEmployerOfferState;
+  selectedDecision?: string;
+  acceptedOutcomeId?: string;
+  narrativeText: string;
+  acceptedAtAgeInMonths: number;
+  currentCareerStateId: string;
+  pendingEmployerOfferResolution?: PendingEmployerOfferResolution;
+  acceptedCareerTransitions: Array<Pick<AcceptedCareerTransition, "fromCareerStateId" | "nextCareerState">>;
+}): PendingEmployerOfferUpdate {
+  const decision = input.selectedDecision?.trim() || "";
+  const evidence = [decision, input.narrativeText].filter(Boolean).join("\n");
+  const startsExistingOffer = startsCurrentPendingEmployerOffer({
+    current: input.current,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    resolution: input.pendingEmployerOfferResolution,
+    acceptedCareerTransitions: input.acceptedCareerTransitions
+  });
+  const withdrawsExistingOffer = isResolutionBoundToCurrentPendingOffer({
+    current: input.current,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    resolution: input.pendingEmployerOfferResolution
+  }) && input.pendingEmployerOfferResolution?.action === "withdrawn";
+  if (startsExistingOffer || withdrawsExistingOffer) {
+    return input.current ? { action: "clear" } : { action: "preserve" };
+  }
+  // A singular pending state must never be silently overwritten by another
+  // bare offer.  The next accepted outcome must either start a job atomically
+  // or submit a source-bound withdrawal before another offer can take its
+  // place.
+  if (input.current) return { action: "preserve" };
+  if (!input.acceptedOutcomeId || !isAcceptedEmployerRoleInvitation(decision) || hasCompletedEmployerStartEvidence(evidence)) {
+    return { action: "preserve" };
+  }
+  return {
+    action: "set",
+    offer: {
+      status: "accepted_pending_start",
+      sourceOutcomeId: input.acceptedOutcomeId,
+      acceptedAtAgeInMonths: input.acceptedAtAgeInMonths,
+      fromCareerStateId: input.currentCareerStateId,
+      decision,
+      evidence: decision
+    }
+  };
+}
+
+function applyPendingEmployerOfferUpdate(
+  worldState: WorldStateSnapshot,
+  update: PendingEmployerOfferUpdate
+): WorldStateSnapshot {
+  if (update.action === "preserve") return worldState;
+  if (update.action === "clear") {
+    const { pendingEmployerOffer: _ignored, ...withoutPendingOffer } = worldState;
+    return withoutPendingOffer;
+  }
+  return { ...worldState, pendingEmployerOffer: update.offer };
+}
+
+function isEmployerSalaryMutationProposal(input: {
+  proposal: FinancialEventProposal;
+  ledger: FinancialLedger;
+}): boolean {
+  const payload = input.proposal.payload as Record<string, any>;
+  const activeCareerIncomeIds = new Set(input.ledger.incomeSources
+    .filter((source) => source.status === "active"
+      && source.linkedCareerStateId
+      && (source.type === "salary" || source.type === "other"))
+    .map((source) => source.id));
+  if (input.proposal.kind === "income_source_started") {
+    const source = payload?.incomeSource ?? payload;
+    return source?.type === "salary"
+      || (Boolean(source?.linkedCareerStateId) && source?.type !== "contract");
+  }
+  if (input.proposal.kind === "income_source_adjusted") {
+    return payload?.nextSource?.type === "salary"
+      || (Boolean(payload?.nextSource?.linkedCareerStateId) && payload?.nextSource?.type !== "contract")
+      || activeCareerIncomeIds.has(payload?.incomeSourceId);
+  }
+  if (input.proposal.kind === "income_source_ended" || input.proposal.kind === "income_source_paused") {
+    return activeCareerIncomeIds.has(payload?.incomeSourceId);
+  }
+  return false;
+}
+
+/**
+ * A retirement plan is not a retirement event.  Selected-decision fallback
+ * may close an active career only when the choice says that retirement itself
+ * is happening, not when it merely mentions retirement savings or planning.
+ */
+export function selectedDecisionExplicitlyRetires(decision: string): boolean {
+  return /(?:办理退休(?:手续)?|正式退休|已经退休|已退休|(?:选择|决定)(?:了)?(?:正式|提前)?退休|提前退休|退休(?:了)?)(?=[，。；！？\s]|$)/u.test(decision.trim());
+}
+
+/**
+ * A selected choice can authorize a career transition, but preparatory work
+ * toward a possible move cannot.  In particular, updating a resume, speaking
+ * with recruiters, or "准备换工作" must preserve the current CareerState and
+ * income until the choice or resulting narrative records a completed move.
+ */
+export function selectedDecisionRequiresCareerTransition(decision: string): boolean {
+  const normalized = decision.trim();
+  if (!normalized) return false;
+  if (selectedDecisionExplicitlyRetires(normalized)) return true;
+  const transition = /转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业/iu;
+  if (!transition.test(normalized)) return false;
+  const preparatory = /(?:考虑|计划|准备|打算|可能|如果|若|接触[^。；]{0,12}(?:机会|猎头|公司)|寻找[^。；]{0,12}(?:机会|岗位|工作)|物色[^。；]{0,12}(?:机会|岗位|工作)|投递[^。；]{0,12}(?:简历|岗位)|更新[^。；]{0,8}简历)[^。；]{0,40}(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized);
+  const explicitlyDefers = /(?:先不|暂不|暂时不|不急着|不打算|没有[^。；]{0,8}打算|不考虑)[^。；]{0,20}(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized);
+  const explicitlyCompleted = /(?:正式|已经|已(?:经)?|最终决定|当场|立即|直接|办理)(?:了)?[^。；]{0,12}(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized)
+    || /^(?:转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|跳槽|开始.{0,8}创业|全职.{0,8}创业)/iu.test(normalized);
+  return explicitlyCompleted || (!preparatory && !explicitlyDefers);
+}
+
 export function synthesizeSelectedCareerTransition(input: {
   selectedDecision?: string;
   narrativeText: string;
@@ -314,16 +1048,44 @@ export function synthesizeSelectedCareerTransition(input: {
 }): EmploymentTransitionProposal | undefined {
   if (!input.acceptedOutcomeId || !input.selectedDecision) return undefined;
   const decision = input.selectedDecision;
-  const narrativeEvidence = input.narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
-    /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|转为.{0,12}顾问|顾问角色|被任命|晋升|提升为|成为.{0,12}负责人)/iu.test(sentence)
+  // "创业公司" is an employer, not evidence that the protagonist became a
+  // founder.  Keep that distinction explicit: leaving one job to join a
+  // startup must create an employed CareerState, while an explicit founder or
+  // self-directed venture remains self_employed.
+  const selfDirectedVenture = /(?:自己|自主|独立|全职|(?:辞职|辞去|辞掉|离职)[^。；]{0,12})创业(?!公司|企业|团队)|(?:创办|成立).{0,12}(?:自己|个人|独立)?(?:公司|工作室|企业|团队)/u;
+  const joinedEmployer = /(?:辞职|辞去|辞掉|离职|离开[^。；]{0,12}(?:岗位|公司|平台))[^。；]{0,48}(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)|(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)[^。；]{0,20}(?:担任|任职|负责|岗位|职位|工作)/u;
+  const narrativeSentences = input.narrativeText.split(/(?<=[。！？；])/u).map((item) => item.trim());
+  const narrativeEvidence = narrativeSentences.find((sentence) => (
+    /(?:你|主角|本人).{0,50}(?:辞职|辞去|辞掉|离职|离开.{0,10}(?:岗位|公司|平台)|正式退休|停止工作|开始创业|全职投入.{0,12}创业|回归职场|重返职场|正式入职|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)|转岗|转任|转为.{0,12}顾问|顾问角色|被任命|晋升|提升为|成为.{0,12}(?:负责人|联合创始人|创始人|合伙人)|(?:共同|自己|自主|独立)(?:创办|成立|创建))/iu.test(sentence)
   ));
+  const explicitSelfDirectedNarrativeEvidence = narrativeSentences.find((sentence) => (
+    hasExplicitSelfDirectedVentureEvidence(sentence, "narrative")
+  ));
+  const completedEmployerNarrativeEvidence = narrativeSentences.find((sentence) => (
+    hasCompletedEmployerStartEvidence(sentence)
+  ));
+  const completedAcceptedEmployerRoleStart = hasCompletedAcceptedEmployerRoleStart({
+    selectedDecision: decision,
+    narrativeText: input.narrativeText
+  });
+  const explicitSelfDirectedVenture = hasExplicitSelfDirectedVentureEvidence(decision, "selected_decision")
+    || hasExplicitSelfDirectedVentureEvidence(input.narrativeText, "narrative");
+  const joinsEmployer = !explicitSelfDirectedVenture && (
+    hasCompletedEmployerStartEvidence(decision)
+    || joinedEmployer.test(decision)
+    || completedAcceptedEmployerRoleStart
+    || Boolean(completedEmployerNarrativeEvidence && (hasCompletedEmployerStartEvidence(completedEmployerNarrativeEvidence) || joinedEmployer.test(completedEmployerNarrativeEvidence)))
+  );
+  const startsSelfDirectedVenture = explicitSelfDirectedVenture
+    || selfDirectedVenture.test(decision)
+    || Boolean(narrativeEvidence && selfDirectedVenture.test(narrativeEvidence));
   let toStatus: EmploymentTransitionProposal["toStatus"] | undefined;
-  if (/辞职.{0,12}创业|离职.{0,12}创业|全职.{0,12}创业/u.test(decision)) toStatus = "self_employed";
-  else if (/退休/u.test(decision)) toStatus = "retired";
+  if (joinsEmployer) toStatus = "employed";
+  else if (startsSelfDirectedVenture) toStatus = "self_employed";
+  else if (selectedDecisionExplicitlyRetires(decision)) toStatus = "retired";
   else if (/停止工作|不再工作/u.test(decision)) toStatus = "not_working";
-  else if (/入职|接受.{0,20}(?:offer|工作|职位|岗位)|回.{0,8}职场/iu.test(decision)) toStatus = "employed";
   else if (narrativeEvidence
-    && /正式入职|已经入职|已入职|受聘|拿到.{0,16}(?:录用通知|offer)|接受了?.{0,20}(?:offer|工作|职位|岗位)|获得了?.{0,20}(?:offer|工作|职位|岗位)/iu.test(narrativeEvidence)) {
+    && hasCompletedEmployerStartEvidence(narrativeEvidence)) {
     // The accepted choice may describe the attempt (for example, “争取实习
     // 转正”) while the generated outcome records the completed hire. Once the
     // same accepted outcome says the protagonist formally started work, the
@@ -334,12 +1096,6 @@ export function synthesizeSelectedCareerTransition(input: {
     && /转为.{0,12}顾问|顾问角色/u.test(narrativeEvidence)
     && !/保留.{0,16}(?:原工作|大公司工作|全职工作)|继续.{0,16}(?:双线|业余|兼职)/u.test(decision)) {
     toStatus = "self_employed";
-  }
-  else if (narrativeEvidence
-    && /转岗|转任|被任命|晋升|提升为|成为.{0,12}负责人/u.test(narrativeEvidence)
-    && input.currentStatus
-    && ["employed", "part_time", "self_employed"].includes(input.currentStatus)) {
-    toStatus = input.currentStatus;
   }
   else if (narrativeEvidence
     && /被任命|晋升|提升为|成为.{0,12}负责人/u.test(narrativeEvidence)
@@ -354,7 +1110,14 @@ export function synthesizeSelectedCareerTransition(input: {
   // The accepted choice is itself authoritative action evidence. Narrative text
   // may use a synonym such as "递交辞呈", so a prose regex miss must not leave
   // CareerState behind the accepted branch.
-  const evidence = narrativeEvidence || decision.trim();
+  const evidence = toStatus === "self_employed"
+    ? explicitSelfDirectedNarrativeEvidence || narrativeEvidence || decision.trim()
+    : (completedEmployerNarrativeEvidence
+      || (completedAcceptedEmployerRoleStart
+        ? narrativeSentences.find((sentence) => /(?:你|本人)[^。；]{0,36}(?:正式|已经|已(?:经)?)?加入(?:了)?[^。；]{0,24}(?:公司|企业|机构|团队)/u.test(sentence))
+        : undefined)
+      || narrativeEvidence
+      || decision.trim());
   return {
     subject: "protagonist",
     toStatus,
@@ -368,7 +1131,7 @@ export function synthesizeSelectedCareerTransition(input: {
 function rejectedProposalClaimsCompletedFact(proposal: FinancialEventProposal): boolean {
   const evidence = proposal.evidence?.trim() || "";
   if (!evidence) return false;
-  const completed = /已经|已(?:经)?(?:到账|支付|缴纳|买入|买下|卖出|偿还|还清|重组|减免|签署|完成)|到账|放款|获批|拿到|获得|收到|支付了|投入了|购买了|卖掉了|偿还了|结清/u.test(evidence);
+  const completed = /已经|已(?:经)?(?:到账|支付|缴纳|买入|买下|卖出|偿还|还清|重组|减免|签署|完成)|到账|放款|获批|拿到|获得|收到|(?:垫付|支付|缴纳)(?:了)?|投入了|购买了|卖掉了|偿还了|结清/u.test(evidence);
   const onlyPending = /计划|打算|考虑|准备|尝试|申请中|审批中|协商中|尚未|还未|未能|没有到账|等待/u.test(evidence)
     && !completed;
   return completed && !onlyPending;
@@ -415,6 +1178,13 @@ export function detectNarrativeFinancialCoverageIssues(input: {
   ledger: FinancialLedger;
   acceptedEvents: Array<{ kind: string; payload?: unknown }>;
   ageInMonths: number;
+  /**
+   * When prose explicitly opens at this age, a later "上个月" before the
+   * next explicit age marker is a late-arriving fact from before this
+   * transaction.  A normal current-period one-off event must not be used to
+   * rewrite that history at the period end.
+   */
+  periodStartAgeInMonths?: number;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
   const hasKind = (...kinds: string[]) => input.acceptedEvents.some((event) => kinds.includes(event.kind));
@@ -428,13 +1198,43 @@ export function detectNarrativeFinancialCoverageIssues(input: {
     summary,
     createdAtAgeInMonths: input.ageInMonths
   });
-  const protagonistSentences = input.narrativeText.split(/(?<=[。！？；])/u)
-    .filter((sentence) => /你|你的|你们|本人|自己|名下/u.test(sentence))
+  const narrativeSentences = input.narrativeText.split(/(?<=[。！？；])/u);
+  const protagonistSentences = narrativeSentences
+    .filter((sentence) => /你|你的|你们|我|我们|本人|自己|名下/u.test(sentence))
     .filter((sentence) => !/(?:母亲|父亲|妈妈|爸爸|表哥|表姐|堂哥|堂姐|朋友|同事|伴侣|丈夫|妻子)[^，。；]{0,24}(?:房贷|按揭)/u.test(sentence)
-      || /你(?:本人)?[^，。；]{0,24}(?:房贷|按揭)|(?:你的|你名下)[^，。；]{0,24}(?:房产|住房|房子|公寓)/u.test(sentence));
+      || /(?:你|我)(?:本人)?[^，。；]{0,24}(?:房贷|按揭)|(?:(?:你的|你名下|我的|我名下))[^，。；]{0,24}(?:房产|住房|房子|公寓)/u.test(sentence));
   const protagonistPropertyText = protagonistSentences.join(" ");
-  const hasCompletedPropertyFact = /(?:买下|购入|购买了|名下已有|自有|拥有)(?:[^。；]{0,20})(?:房产|住房|房子|公寓)|(?:你|你们)[^。；]{0,48}(?:付了|支付了|交了|拿出)[^。；]{0,16}(?:婚房|住房|房子|公寓)?首付/u.test(protagonistPropertyText);
-  const hasCompletedMortgageFact = /(?:还完|偿还|还清|背上|尚有|剩余)[^。；]{0,12}(?:房贷|按揭)|(?:房贷|按揭)[^。；]{0,12}(?:月供|本金|余额)/u.test(protagonistPropertyText);
+  // A completed purchase is sometimes narrated across sentences: the prose
+  // first gives a concrete home/first-payment context, then says \"签合同那天\".
+  // Require that context in the same or two preceding protagonist sentences,
+  // and reject a rental contract explicitly, so a future home plan plus a
+  // present lease cannot become a false-positive property purchase.
+  const completedHomeContractFact = protagonistSentences.some((sentence, index) => {
+    const completedContract = /(?:签(?:了|订了)?(?:购房|房屋买卖|买房)?合同|签订(?:了)?(?:购房|房屋买卖|买房)合同|签合同那天|完成网签|办理(?:了)?房贷)/u.test(sentence);
+    if (!completedContract || /(?:租房|租约|租赁)/u.test(sentence)) return false;
+    const nearbyHomeContext = protagonistSentences.slice(Math.max(0, index - 2), index + 1).join(" ");
+    if (/(?:租房|租约|租赁|续租|房东|房客)/u.test(nearbyHomeContext)) return false;
+    return /(?:购房|买房|婚房|首付|房贷|按揭)/u.test(nearbyHomeContext);
+  });
+  // Real prose commonly says "我们决定把那套小户型买下来。首付用掉积蓄，贷款
+  // 发放并开始月供".  The property noun precedes the completed verb and the
+  // settlement details land in the next sentence, so the older one-direction
+  // regex silently let an unrecorded purchase into history.
+  const completedHomePurchaseFact = protagonistSentences.some((sentence) => {
+    const hasProtagonist = /你|你们|我|我们|本人|自己|名下/u.test(sentence);
+    const hasHome = /(?:房产|住房|房子|公寓|小户型|房屋|婚房)/u.test(sentence);
+    const purchase = /(?:买下(?:来)?|购入|购买(?:了)?|成交|交割|取得(?:了)?房本)/u.test(sentence);
+    const explicitFuture = /(?:计划|打算|考虑|准备|预计|希望|将来|以后|明年)[^。！？；]{0,24}(?:买下|购入|购买|成交)/u.test(sentence);
+    const sentenceIndex = narrativeSentences.indexOf(sentence);
+    const settlementWindow = narrativeSentences.slice(Math.max(0, sentenceIndex), sentenceIndex + 3).join(" ");
+    const settled = /(?:首付)[^。！？；]{0,24}(?:付了|支付了|交了|用掉|拿出)|(?:贷款|房贷|按揭)[^。！？；]{0,24}(?:发放|放款|开始月供|月供)|搬进(?:了)?新家|入住(?:了)?新家/u.test(settlementWindow);
+    return hasProtagonist && hasHome && purchase && (!explicitFuture || settled);
+  });
+  const hasCompletedPropertyFact = /(?:买下|购入|购买了|名下已有|自有|拥有)(?:[^。；]{0,20})(?:房产|住房|房子|公寓)|(?:你|你们|我|我们)[^。；]{0,48}(?:付了|支付了|交了|拿出)[^。；]{0,16}(?:婚房|住房|房子|公寓)?首付/u.test(protagonistPropertyText)
+    || completedHomePurchaseFact
+    || completedHomeContractFact;
+  const hasCompletedMortgageFact = /(?:还完|偿还|还清|背上|尚有|剩余)[^。；]{0,12}(?:房贷|按揭)|(?:房贷|按揭)[^。；]{0,12}(?:月供|本金|余额)/u.test(protagonistPropertyText)
+    || (completedHomePurchaseFact && narrativeSentences.some((sentence) => /(?:贷款|房贷|按揭)[^。！？；]{0,24}(?:发放|放款|开始月供|月供)|开始月供/u.test(sentence)));
   if (hasCompletedPropertyFact
     && !input.ledger.assetAccounts.some((item) => item.status === "active" && item.type === "property")
     && !hasKind("asset_purchased", "asset_balance_discovered")) {
@@ -474,10 +1274,10 @@ export function detectNarrativeFinancialCoverageIssues(input: {
     if (historicalCompensation && !completedCompensation) return [];
     const personalContext = /(?:你(?:的|本人|个人)?[^。；]{0,45}|给自己[^。；]{0,24})(?:薪资调整为|工资调整为|税后工资|税后月薪|月薪|年薪)|薪资调整为[^。；]{0,18}(?:年薪|月薪)/u.test(sentence);
     if (!personalContext) return [];
-    const monthly = [...sentence.matchAll(/(?:税后)?月薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*(万|元)/gu)]
+    const monthly = [...sentence.matchAll(/(?:税后)?月薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|涨到|约为|为|约)?(?:约)?\s*(\d+(?:\.\d+)?)\s*(万|元)/gu)]
       .filter((match) => !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:会计|员工|助理|工程师|销售|运营|护工)[^。；]{0,35}$/u.test(sentence.slice(Math.max(0, Number(match.index) - 110), Number(match.index))))
       .map((match) => Math.round(Number(match[1]) * (match[2] === "元" ? 0.0001 : 1) * 12 * 10000) / 10000);
-    const annual = [...sentence.matchAll(/(?:税后)?年薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|约为|为|约)?\s*(\d+(?:\.\d+)?)\s*万/gu)]
+    const annual = [...sentence.matchAll(/(?:税后)?年薪(?:达到|提升至|升至|降至|恢复至|稳定在|调整为|维持|涨到|约为|为|约)?(?:约)?\s*(\d+(?:\.\d+)?)\s*万/gu)]
       .map((match) => Number(match[1]));
     return [...monthly, ...annual];
   });
@@ -500,6 +1300,72 @@ export function detectNarrativeFinancialCoverageIssues(input: {
       activeCareerSources.map((source) => source.id)
     );
   }
+
+  // A completed, quantified first-person medical/care outlay changes cash. It
+  // is not a recurring responsibility and must not be squeezed into
+  // `annualCoreExpenseWan`; a current-period fact needs a matching one-off
+  // personal cash event. Keep this deliberately narrow so a joint reserve
+  // contribution, a property down payment, a company cost, or a plan cannot
+  // be mistaken for a medical expense.
+  //
+  // A special case matters for long nodes: when the narrative itself starts
+  // at the period's opening age and says "上个月" before the next age marker,
+  // the cash fact predates this transaction. We deliberately cannot repair
+  // that by adding a normal current-period `one_off_expense_paid`; the only
+  // safe outcomes are a prose rewrite or a future late-cash-correction event.
+  const completedPersonalOutlays = narrativeSentences.flatMap((sentence) => {
+    const firstPersonPayer = /(?:你(?!们)|我(?!们)|本人|主角)[^。！？；]{0,24}(?:垫付(?:了)?|支付(?:了)?|缴纳(?:了)?|花费(?:了)?|支出(?:了)?|转出(?:了)?|拿出(?:了)?|付了)/u.test(sentence);
+    const sharedPayer = /(?:你们|我们|双方|两人)|(?:你|我)[^。！？；]{0,12}(?:和|与|跟)[^。！？；]{0,12}(?:伴侣|配偶|妻子|丈夫|爱人|男友|女友)/u.test(sentence);
+    const essentialCare = /(?:住院|急诊|手术|治疗|医疗|医药|护理|照护|父母|母亲|父亲|孩子|子女)/u.test(sentence);
+    const excludedScope = /(?:房贷|按揭|首付|购房|买房|房产|公司|企业|客户|团队|员工|工作室|办公室)/u.test(sentence);
+    const futureOnly = /(?:计划|打算|准备|考虑|如果|若|将|未来|明年|下月|下个月)[^。！？；]{0,24}(?:垫付|支付|缴纳|花费|支出|转出|拿出|付)/u.test(sentence);
+    const amount = [...sentence.matchAll(/(?:垫付(?:了)?|支付(?:了)?|缴纳(?:了)?|花费(?:了)?|支出(?:了)?|转出(?:了)?|拿出(?:了)?|付了)[^。！？；]{0,24}?(\d+(?:\.\d+)?)\s*(万元|万|元)/gu)]
+      .find((match) => {
+        const start = Number(match.index || 0);
+        const localAmountClause = sentence.slice(Math.max(0, start - 16), start + match[0].length);
+        return !/(?:每月|每个月|按月)/u.test(localAmountClause);
+      });
+    if (!firstPersonPayer || sharedPayer || !essentialCare || excludedScope || futureOnly || !amount) return [];
+    const numeric = Number(amount[1]);
+    if (!Number.isFinite(numeric) || numeric <= 0) return [];
+    const amountWan = amount[2].startsWith("万") ? numeric : numeric / 10_000;
+    const isLatePrePeriodFact = input.periodStartAgeInMonths !== undefined
+      && isNarratedBeforePeriod({
+        narrativeText: input.narrativeText,
+        evidence: sentence,
+        periodStartAgeInMonths: input.periodStartAgeInMonths
+      });
+    return [{
+      sentence,
+      amountWan: Math.round(amountWan * 10_000) / 10_000,
+      isLatePrePeriodFact
+    }];
+  });
+  const availableAcceptedOutlayAmounts = input.acceptedEvents.flatMap((event) => {
+    if (!['one_off_expense_paid', 'family_support_paid'].includes(event.kind)) return [];
+    const amountWan = (event.payload as { amountWan?: unknown } | undefined)?.amountWan;
+    return typeof amountWan === "number" && Number.isFinite(amountWan) && amountWan > 0 ? [amountWan] : [];
+  });
+  for (const outlay of completedPersonalOutlays) {
+    if (outlay.isLatePrePeriodFact) {
+      push(
+        "personal_outlay",
+        `正文在本期起点前明确主人公已经垫付 ${outlay.amountWan.toFixed(2)} 万元必要个人支出；当前账本没有可追溯的历史现金更正，不能伪造成期末一次性支出`
+      );
+      continue;
+    }
+    const matchedIndex = availableAcceptedOutlayAmounts.findIndex((amountWan) => (
+      Math.abs(amountWan - outlay.amountWan) <= Math.max(0.01, outlay.amountWan * 0.02)
+    ));
+    if (matchedIndex >= 0) {
+      availableAcceptedOutlayAmounts.splice(matchedIndex, 1);
+      continue;
+    }
+    push(
+      "personal_outlay",
+      `正文明确主人公已经发生 ${outlay.amountWan.toFixed(2)} 万元必要个人支出，但没有匹配的一次性个人支出 Proposal`
+    );
+  }
   return issues;
 }
 
@@ -514,13 +1380,15 @@ export function reconcileNarrativeFinancialIssues(input: {
   ledger: FinancialLedger;
   acceptedEvents: AcceptedFinancialEvent[];
   ageInMonths: number;
+  periodStartAgeInMonths?: number;
 }): FinancialLedgerIssue[] {
   const authoritativeIssues = [
     ...detectNarrativeFinancialCoverageIssues({
       narrativeText: input.narrativeText,
       ledger: input.ledger,
       acceptedEvents: input.acceptedEvents,
-      ageInMonths: input.ageInMonths
+      ageInMonths: input.ageInMonths,
+      periodStartAgeInMonths: input.periodStartAgeInMonths
     }),
     ...collectPersonalIncomeNarrativeContractIssues({
       narrativeText: input.narrativeText,
@@ -551,6 +1419,24 @@ export function stillClaimsRejectedDebtDraw(description: string): boolean {
   return description.split(/(?<=[。！？])/u).some((sentence) => {
     if (/尚未|还未|未能|没有|并未|不再|无需|尚在|仍在(?:申请|审核|审批|协商)/u.test(sentence)) return false;
     return /(?:贷款|借款)[^。！？]{0,36}(?:已(?:经)?(?:获批|放款|到账)|审批通过|完成(?:了)?放款|(?:完成[^。！？]{0,18})?贷款放款|到账|余额|还剩)|(?:拿到|获得|收到)[^。！？]{0,24}(?:贷款|借款)|(?:这笔|该笔|上述)(?:钱|资金|款项)[^。！？]{0,12}(?:到账|到手|入账)(?:后|以后|之后)|(?:资金|款项)[^。！？]{0,12}(?:到账|到手|入账)(?:后|以后|之后)|(?:开始|需要|每月需|每月|正在|扣除)[^。！？]{0,18}(?:月供|还贷|偿还贷款)|(?:本金未还|剩余本金|月供\s*\d)/u.test(sentence);
+  });
+}
+
+/**
+ * A rejected debt-draw narrative must also remove references to the resulting
+ * balance or repayment schedule, hence `stillClaimsRejectedDebtDraw` is
+ * intentionally broad.  That detector cannot be reused to invent a new draw:
+ * "剩余本金" and "月供" are ordinary restatements of an obligation, while
+ * missing-event synthesis needs an actual new disbursement instead.
+ */
+function claimsCompletedNewDebtDisbursement(description: string): boolean {
+  return description.split(/(?<=[。！？])/u).some((sentence) => {
+    if (/尚未|还未|未能|没有|并未|不再|无需|尚在|仍在(?:申请|审核|审批|协商)|(?:计划|预计|将|会|待|等待)[^。！？]{0,18}(?:放款|到账|入账|到手|借到)/u.test(sentence)) return false;
+    // A bare financing receipt belongs to the business domain unless this
+    // same sentence assigns it to the protagonist.  Treating "公司融资款到账"
+    // as a personal debt draw invents a mortgage and blocks an otherwise
+    // valid node.  Explicit protagonist financing remains covered below.
+    return /(?:贷款|借款|经营贷|消费贷|房贷|授信)[^。！？]{0,36}(?:已(?:经)?|正式)?(?:放款|到账|入账|到手)|(?:银行|金融机构)[^。！？]{0,24}(?:已(?:经)?|正式)?放款|(?:你|我|主角)[^。！？]{0,24}(?:借到|拿到|获得|收到)[^。！？]{0,20}(?:贷款|借款|融资(?:款)?|经营贷|消费贷|房贷|授信)|(?:你|我|主角)[^。！？]{0,24}借到[^。！？]{0,20}(?:\d|[一二三四五六七八九十百千万])[\d.一二三四五六七八九十百千万]*\s*(?:万|元)/u.test(sentence);
   });
 }
 
@@ -934,7 +1820,31 @@ export function settleRejectedFinancialProposalIssues(input: {
     const relatedIds = issue.relatedProposalIds || [];
     const rejectedOnly = relatedIds.length > 0
       && relatedIds.every((proposalId) => rejectedIds.has(proposalId) && !acceptedIds.has(proposalId));
-    if (!rejectedOnly || (issue.status ?? "open") !== "open") return issue;
+    // A prose rollback can remove a claim that a rejected proposal had already
+    // happened, but it cannot establish the missing ownership, scope, or
+    // allocation evidence required for a recurring personal expense.  Keep
+    // EXPENSE_* authority failures open until the final proposal set itself is
+    // valid; otherwise an invalid model proposal can be silently downgraded to
+    // a review and advance the authoritative period in enforced mode.
+    const rejectedExpenseAuthorityIssue = issue.severity === "blocking"
+      && (
+        issue.code.startsWith("EXPENSE_")
+        || issue.id.startsWith("expense_")
+        // Lifecycle proposals are validator-owned.  A rejected generated
+        // commitment must remain an authoritative blocking fact even when the
+        // low-level validator categorizes its failure as UNBALANCED_TRANSACTION
+        // (for example, evidence matching), rather than an EXPENSE_* code.
+        || relatedIds.some((proposalId) => proposalId.startsWith("system_expense_"))
+      );
+    // A career transition and its replacement income are one accepted fact
+    // group.  If atomicity rejects that group, treating the diagnostic as
+    // "resolved because no proposal committed" would let the prose describe a
+    // new job while the authoritative CareerState and wage remain unchanged.
+    // Leave it open so the enforced gate rejects the entire candidate and
+    // retries from the unchanged authority state.
+    const rejectedCareerAuthorityIssue = issue.severity === "blocking"
+      && issue.code === "CAREER_INCOME_CONFLICT";
+    if (!rejectedOnly || rejectedExpenseAuthorityIssue || rejectedCareerAuthorityIssue || (issue.status ?? "open") !== "open") return issue;
     return {
       ...issue,
       status: "resolved",
@@ -955,11 +1865,13 @@ export function synthesizeMissingDebtCompletionProposals(input: {
   if (!input.acceptedOutcomeId) return input.proposals;
   const proposals = [...input.proposals];
   const sentences = input.narrativeText.split(/(?<=[。！？])/u).map((sentence) => sentence.trim()).filter(Boolean);
-  const appendMissing = (kind: "debt_drawn" | "debt_restructured", claimsCompletion: boolean) => {
+  const appendMissing = (
+    kind: "debt_drawn" | "debt_restructured",
+    claimsCompletion: boolean,
+    evidenceMatches: (sentence: string) => boolean
+  ) => {
     if (!claimsCompletion || proposals.some((proposal) => proposal.kind === kind)) return;
-    const evidence = sentences.find((sentence) => (
-      kind === "debt_drawn" ? stillClaimsRejectedDebtDraw(sentence) : stillClaimsRejectedDebtRestructure(sentence)
-    )) || "";
+    const evidence = sentences.find(evidenceMatches) || "";
     proposals.push({
       id: `missing_${kind}_${input.effectiveAtAgeInMonths}`,
       kind,
@@ -970,8 +1882,12 @@ export function synthesizeMissingDebtCompletionProposals(input: {
       confidence: 0
     });
   };
-  appendMissing("debt_drawn", stillClaimsRejectedDebtDraw(input.narrativeText));
-  appendMissing("debt_restructured", stillClaimsRejectedDebtRestructure(input.narrativeText));
+  appendMissing(
+    "debt_drawn",
+    claimsCompletedNewDebtDisbursement(input.narrativeText),
+    claimsCompletedNewDebtDisbursement
+  );
+  appendMissing("debt_restructured", stillClaimsRejectedDebtRestructure(input.narrativeText), stillClaimsRejectedDebtRestructure);
   return proposals;
 }
 
@@ -1182,45 +2098,141 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   currentCareerStateId: string;
   currentEmploymentStatus: string;
   migrateToCurrentCareerState?: boolean;
+  /** An accepted offer is not yet a salary event until an actual start is established. */
+  suppressEmployerSalarySynthesis?: boolean;
   ledger: FinancialLedger;
 }): FinancialEventProposal[] {
   const decision = input.selectedDecision?.trim();
-  if (!decision || !input.acceptedOutcomeId) return input.proposals;
+  if (!decision || !input.acceptedOutcomeId || input.suppressEmployerSalarySynthesis) return input.proposals;
+  const narrativeText = input.narrativeText || "";
+  const narrativeSentences = narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
+  const completedStartSentence = input.migrateToCurrentCareerState
+    ? narrativeSentences.find((sentence) => hasCompletedEmployerStartEvidence(sentence))
+    : undefined;
+  const bindAcceptedSalaryTermsToCompletedStart = (salarySentence: string): string | undefined => {
+    if (!isUnacceptedIncomeOpportunityEvidence(salarySentence)) return salarySentence;
+    if (!completedStartSentence) return undefined;
+    const salaryStart = narrativeText.indexOf(salarySentence);
+    const completedStart = narrativeText.indexOf(completedStartSentence);
+    // The accepted start must close the preceding offer. Do not let an earlier
+    // start sentence retroactively authorize a different future offer later in
+    // the node.
+    if (salaryStart < 0 || completedStart < salaryStart) return undefined;
+    const excerptStart = salaryStart;
+    const excerptEnd = completedStart + completedStartSentence.length;
+    // An Accepted CareerTransition already proves that these terms and the
+    // completed start belong to this node. Preserve the exact contiguous prose
+    // so the validator can verify both facts without treating a bare offer as
+    // current income or manufacturing a replacement amount.
+    return narrativeText.slice(excerptStart, excerptEnd).trim();
+  };
   const narrativeEvidence = input.allowNarrativeEvidence
-    ? input.narrativeText?.split(/(?<=[。！？])/u).map((item) => item.trim()).find((sentence) => (
-        (
-          /(?:你|主角|本人|你的个人账户).{0,48}(?:税后)?(?:月薪|年薪|工资|薪资|副业月收入|个人月收入).{0,16}\d+(?:\.\d+)?\s*(?:万)?元|(?:税后)?(?:月薪|年薪|副业月收入|个人月收入)(?:约|为|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万)?元/u.test(sentence)
+    ? narrativeSentences.map((sentence) => ({
+        sentence,
+        boundEvidence: bindAcceptedSalaryTermsToCompletedStart(sentence)
+      })).find(({ sentence, boundEvidence }) => {
+        if (!boundEvidence) return false;
+        return (
+          /(?:你|主角|本人|你的个人账户).{0,48}(?:(?:税后)?(?:月薪|年薪|年收入|工资|薪资|副业月收入|个人月收入)|年税后收入).{0,16}\d+(?:\.\d+)?\s*(?:万(?:元)?|元)|(?:(?:税后)?(?:月薪|年薪|年收入|副业月收入|个人月收入)|年税后收入)(?:约|为|有|达到|降至|升至|涨到|调整为|维持在|稳定在)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元)|(?:税后)?月薪[^。！？；]{0,12}[一二两三四五六七八九十百千万]+元/u.test(sentence)
+          || (/税后到手(?:约|为|有)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元)/u.test(sentence)
+            && /(?:按月|每月|月度)结算/u.test(sentence))
         )
         && !/(?:招聘|招募|新招|聘请|雇佣)[^。；]{0,70}(?:员工|助理|工程师|销售|运营|护工)[^。；]{0,35}(?:月薪|年薪)/u.test(sentence)
         && !/(?:如果|若|预计|计划|考虑|希望|目标|可以给你)[^。；]{0,50}(?:月薪|年薪)/iu.test(sentence)
-      ))
+        // A bare annual-income phrase is ambiguous. It can be a company or a
+        // partner's income, so allow it only when this exact sentence assigns
+        // it explicitly to the protagonist.
+        && (!/年收入/u.test(sentence) || hasExplicitProtagonistAnnualIncomeFact(sentence));
+      })?.boundEvidence
     : undefined;
   const evidenceText = /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|我(?:每月|开始|从本月起).{0,24}(?:工资|薪资|月薪)/u.test(decision)
     ? decision
     : narrativeEvidence;
-  const sideIncomeEvidence = Boolean(evidenceText) && /副业|课程|咨询|工作坊|稿费|版税/u.test(evidenceText!);
-  const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪|副业月收入|个人月收入/u.test(evidenceText!);
-  const monthlyMatch = evidenceText?.match(/每月[^，。；]{0,28}?(?:支付|发放|领取|获得|拿到|为|达到|调整为|降至|升至)?\s*(\d+(?:\.\d+)?)\s*(万|元)(?:税后)?(?:工资|薪资|月薪)?/u)
-    || evidenceText?.match(/(?:税后)?(?:月薪|副业月收入|个人月收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*(万|元)/u);
-  const annualMatch = evidenceText?.match(/(?:税后)?年薪(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
-  if (!explicitlyPersonal || (!monthlyMatch && !annualMatch)) return input.proposals;
+  // A bare "咨询"/"课程"/"工作坊" is not enough to establish a second
+  // income stream: it also appears in ordinary employer names and job titles
+  // (for example, "在咨询公司工作").  Treat it as side income only when the
+  // prose explicitly marks a side activity or connects the activity to its
+  // own income/compensation.  Otherwise a current employee salary must adjust
+  // the one linked career source rather than open a duplicate contract source.
+  const sideIncomeSignal = /副业|兼职|稿费|版税|(?:课程|咨询|工作坊|顾问|外包)(?:收入|收费|报酬|酬劳|服务|业务|费)|(?:个人|独立|周末|业余|额外|线上|一对一).{0,12}(?:课程|咨询|工作坊|顾问|外包)/u;
+  const sideIncomeEvidence = Boolean(evidenceText) && sideIncomeSignal.test(evidenceText!);
+  const explicitlyPersonal = Boolean(evidenceText) && /个人账户|个人工资|个人薪资|给自己|向我(?:的)?账户|你|主角|本人|月薪|年薪|税后到手|副业月收入|个人月收入/u.test(evidenceText!);
+  // Parse named personal-income phrases before generic monthly wording.  The
+  // old permissive `每月…金额` matcher could skip a salary earlier in the
+  // same sentence and capture a later rent/medical outlay instead, silently
+  // turning a 1.5 万 salary into a 0.35 万 salary.
+  const monthlySalaryMatch = evidenceText?.match(/(?:税后)?(?:月薪|副业月收入|个人月收入)(?:\s*(?:从|由)\s*(?:原来(?:的)?|之前(?:的)?)?\s*\d+(?:\.\d+)?\s*(?:万(?:元)?|元))?\s*(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u);
+  const monthlySalaryChineseMatch = evidenceText?.match(/(?:税后)?(?:月薪|副业月收入|个人月收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*([一二两三四五六七八九十百千万]+)元/u);
+  const monthlyTakeHomeMatch = evidenceText && /(?:按月|每月|月度)结算/u.test(evidenceText)
+    ? evidenceText.match(/税后到手(?:\s*(?:约|为|有))?\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u)
+    : undefined;
+  const monthlyIncomeNamedMatch = evidenceText?.match(/每月[^，。；]{0,18}?(?:工资|薪资|收入|报酬|分红)[^，。；]{0,16}?(?:支付|发放|领取|获得|拿到|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)/u);
+  const monthlyIncomePaidMatch = evidenceText?.match(/每月[^，。；]{0,16}?(?:支付|发放|领取|获得|拿到)\s*(\d+(?:\.\d+)?)\s*(万(?:元)?|元)(?:税后)?(?:工资|薪资|收入|报酬|分红)/u);
+  const monthlyMatch = monthlySalaryMatch || monthlyTakeHomeMatch || monthlyIncomeNamedMatch || monthlyIncomePaidMatch;
+  // Real prose frequently combines a change verb with a hedging qualifier
+  // (for example, "税后年薪涨到约30万"). The amount is still an explicit
+  // personal-income fact and must be allowed to repair a malformed model
+  // proposal without lowering the acceptance gate.
+  const explicitAnnualIncomeWan = evidenceText
+    ? explicitProtagonistAnnualIncomeWan(evidenceText)
+    : undefined;
+  const annualMatch = evidenceText?.match(/(?:(?:税后)?(?:年薪|年收入)|年税后收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?(?:约)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
+  if (!explicitlyPersonal || (!monthlyMatch && !monthlySalaryChineseMatch && !annualMatch && explicitAnnualIncomeWan === undefined)) return input.proposals;
 
+  const chineseAmountYuan = (value: string): number | undefined => {
+    const digits: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+    const units: Record<string, number> = { 十: 10, 百: 100, 千: 1000, 万: 10000 };
+    let total = 0;
+    let section = 0;
+    let number = 0;
+    for (const character of value) {
+      if (digits[character] !== undefined) {
+        number = digits[character];
+        continue;
+      }
+      const unit = units[character];
+      if (!unit) return undefined;
+      if (unit === 10000) {
+        section += number;
+        total += (section || 1) * unit;
+        section = 0;
+      } else {
+        section += (number || 1) * unit;
+      }
+      number = 0;
+    }
+    const trailingDigitScale = number > 0 && digits[value.at(-1) || ""] !== undefined
+      ? value.includes("万") && !/[十百千]/u.test(value.slice(value.lastIndexOf("万") + 1))
+        ? 1000
+        : value.includes("千") && !/[十百]/u.test(value.slice(value.lastIndexOf("千") + 1))
+          ? 100
+          : value.includes("百") && !/十/u.test(value.slice(value.lastIndexOf("百") + 1))
+            ? 10
+            : 1
+      : 1;
+    const amount = total + section + number * trailingDigitScale;
+    return amount > 0 ? amount : undefined;
+  };
   const monthlyNetAmountWan = monthlyMatch
     ? Number(monthlyMatch[1]) * (monthlyMatch[2] === "元" ? 0.0001 : 1)
-    : undefined;
-  const annualNetAmountWan = annualMatch ? Number(annualMatch[1]) : undefined;
+    : monthlySalaryChineseMatch
+      ? (chineseAmountYuan(monthlySalaryChineseMatch[1]) || 0) * 0.0001
+      : undefined;
+  const annualNetAmountWan = explicitAnnualIncomeWan ?? (annualMatch ? Number(annualMatch[1]) : undefined);
   if (!(Number(monthlyNetAmountWan ?? annualNetAmountWan) > 0)) return input.proposals;
   const careerIncomeTypes = new Set(["salary", "contract", "self_employment_draw"]);
   const allActiveCareerSources = input.ledger.incomeSources.filter((source) => (
-    source.status === "active" && careerIncomeTypes.has(source.type)
+    source.status === "active"
+    && (careerIncomeTypes.has(source.type)
+      || (source.id === "legacy_recurring_income" && Boolean(source.linkedCareerStateId)))
   ));
   const activeCareerSources = allActiveCareerSources.filter((source) => (
-    source.status === "active" && careerIncomeTypes.has(source.type) && source.linkedCareerStateId === input.currentCareerStateId
+    source.status === "active" && source.linkedCareerStateId === input.currentCareerStateId
   ));
   const decisionChangesCareer = /辞职|离职|入职|就职|转岗|转行|回归职场|退休|停止工作/u.test(decision);
   const sideIncomeSources = allActiveCareerSources.filter((source) => (
     source.type === "contract"
-    && /副业|课程|咨询|工作坊|稿费|版税/u.test(`${source.displayName} ${source.evidence.map((item) => item.excerpt || "").join(" ")}`)
+    && sideIncomeSignal.test(`${source.displayName} ${source.evidence.map((item) => item.excerpt || "").join(" ")}`)
   ));
   const existingSource = sideIncomeEvidence
     ? (sideIncomeSources.length === 1 ? sideIncomeSources[0] : undefined)
@@ -1233,15 +2245,24 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   const sourceCareerStateId = input.migrateToCurrentCareerState
     ? input.currentCareerStateId
     : existingSource?.linkedCareerStateId || input.currentCareerStateId;
-  const incomeType = existingSource?.type
-    || (sideIncomeEvidence ? "contract" : undefined)
-    || (input.currentEmploymentStatus === "self_employed" ? "self_employment_draw" : "salary");
+  // A legacy recurring aggregate is deliberately typed as `other` during
+  // migration because it has not yet been evidenced as an actual wage. Once
+  // the narrator explicitly confirms the protagonist's current income, it
+  // must become a real career-income type; otherwise the acceptance gate sees
+  // an employed CareerState with no valid active source forever.
+  const incomeType = existingSource?.id === "legacy_recurring_income" && existingSource.type === "other"
+    ? (input.currentEmploymentStatus === "self_employed" ? "self_employment_draw" : "salary")
+    : existingSource?.type
+      || (sideIncomeEvidence ? "contract" : undefined)
+      || (input.currentEmploymentStatus === "self_employed" ? "self_employment_draw" : "salary");
   const proposalsWithoutCompetingCareerIncome = input.proposals.filter((proposal) => {
     if (proposal.kind === "income_source_started") {
       const type = String((proposal.payload as Record<string, unknown>)?.type);
       return sideIncomeEvidence ? type !== "contract" : !careerIncomeTypes.has(type);
     }
     if (proposal.kind === "income_source_adjusted") {
+      if (existingSource
+        && (proposal.payload as Record<string, any>)?.incomeSourceId === existingSource.id) return false;
       const type = String((proposal.payload as Record<string, any>)?.nextSource?.type);
       return sideIncomeEvidence ? type !== "contract" : !careerIncomeTypes.has(type);
     }
@@ -1252,7 +2273,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     type: incomeType,
     monthlyNetAmountWan,
     annualNetAmountWan,
-    accrualPolicy: monthlyMatch ? "monthly" as const : "annual" as const,
+    accrualPolicy: monthlyMatch || monthlySalaryChineseMatch ? "monthly" as const : "annual" as const,
     status: "active" as const,
     linkedCareerStateId: sourceCareerStateId,
     factStatus: "known" as const,
@@ -1268,7 +2289,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
       : (input.currentEmploymentStatus === "self_employed" ? "用户确认的创业个人工资" : "用户确认的个人工资"),
     monthlyNetAmountWan,
     annualNetAmountWan,
-    accrualPolicy: monthlyMatch ? "monthly" as const : "annual" as const,
+    accrualPolicy: monthlyMatch || monthlySalaryChineseMatch ? "monthly" as const : "annual" as const,
     activeFromAgeInMonths: input.periodStartAgeInMonths,
     status: "active" as const,
     linkedCareerStateId: sourceCareerStateId,
@@ -1310,28 +2331,64 @@ export function narrativeRequiresCareerTransition(input: {
   );
   const negatesExit = (sentence: string) => /(?:不敢|不想|不愿|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:辞职|离职|退休|停止工作|结束全职)/u.test(sentence);
   const negatesCareerMove = (sentence: string) => /(?:不|没有|并未|尚未|还未|不会|暂不)[^。；]{0,16}(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(sentence);
+  const negatesEmployerRoleInvitation = (sentence: string) => /(?:不|没有|并未|尚未|还未|不会|暂不|拒绝|婉拒)[^。；]{0,16}(?:接受|选择)/u.test(sentence);
   const employmentRelevantText = (sentence: string) => sentence.replace(
     /辞去(?:了)?[^。；]{0,20}(?:外部合伙人|董事|监事|股东)(?:身份|席位|职务)?/gu,
     "退出非雇佣治理角色"
   );
+  const switchesEmployer = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesCareerMove(sentence)
+    && /(?:你|本人)[^。；]{0,20}(?:辞职|辞去|辞掉|离职|离开[^。；]{0,12}(?:岗位|公司|平台))[^。；]{0,48}(?:正式)?加入[^。；]{0,20}(?:公司|企业|机构|团队)/u.test(sentence)
+  ));
+  if (switchesEmployer) return true;
+  const startsAcceptedEmployerRole = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesCareerMove(sentence)
+    && !negatesEmployerRoleInvitation(sentence)
+    && isAcceptedEmployerRoleInvitation(sentence, "narrative")
+    && hasCompletedEmployerStartEvidence(sentence)
+ ));
+  if (startsAcceptedEmployerRole) return true;
+  const startsSelfDirectedVenture = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesCareerMove(sentence)
+    && hasExplicitSelfDirectedVentureEvidence(sentence, "narrative")
+  ));
+  if (startsSelfDirectedVenture && input.currentStatus !== "self_employed") return true;
   const stopsWorking = protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesExit(sentence)
-    && /(?:你|本人)[^。；]{0,24}(?:正式退休|办理退休|已经退休|已退休|最终决定[^。；]{0,8}(?:离职|辞职|辞去|停止工作)|递交了?辞呈|提交了?辞职申请|正式离职|正式辞职|已经离职|已经辞职|辞去了|停止了?工作|结束了?全职工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(employmentRelevantText(sentence))
+    && /(?:你|本人)[^。；]{0,24}(?:正式退休|办理退休|已经退休|已退休|最终决定[^。；]{0,8}(?:离职|辞职|辞去|停止工作)|正式离职|正式辞职|已经离职|已经辞职|辞去了|停止了?工作|结束了?全职工作)|(?:正式退休|办理退休)[^。；]{0,16}你/u.test(employmentRelevantText(sentence))
   ));
   if (stopsWorking && !["retired", "not_working"].includes(input.currentStatus)) return true;
+  // Handing in a resignation is an auditable change of intent, but the old
+  // job can remain active through its handover.  It only proves a replacement
+  // CareerState together with a completed start at the new employer below.
+  const submittedCurrentJobExit = protagonistSentences.some((sentence) => (
+    !hypotheticalOnly(sentence)
+    && !negatesExit(sentence)
+    && /(?:你|本人)[^。；]{0,24}(?:递交了?辞呈|提交了?(?:辞职|离职)(?:申请)?)/u.test(employmentRelevantText(sentence))
+  ));
   const startsWorking = protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
-    && (
-      /你[^。；]{0,28}(?:正式入职|已经入职|已入职|受聘|开始全职工作|(?:决定|选择|正式)加入[^。；]{0,12}(?:公司|机构|团队)|(?:接受|选择)[^。；]{0,16}(?:offer|新职位|新工作))/iu.test(sentence)
-      || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(sentence)
-    )
+    && (hasCompletedEmployerStartEvidence(sentence) || /新公司[^。；]{0,40}你(?:负责|担任|任职)/u.test(sentence))
   ));
-  if (startsWorking && ["student", "not_working", "retired", "medical_leave"].includes(input.currentStatus)) return true;
+  // A completed external employer start also replaces a self-employed status.
+  // Without this branch, the prose can declare a stable paid job while the
+  // later income synthesizer still sees the obsolete founder state and writes
+  // an owner draw instead of salary.
+  if (startsWorking && ["student", "not_working", "retired", "medical_leave", "self_employed"].includes(input.currentStatus)) return true;
+  // An already-employed protagonist needs a new CareerState too when this
+  // period completes both sides of an employer switch.  Do not infer that
+  // transition from an isolated resignation or a generic old onboarding
+  // memory: require a completed new employer start and a non-negated current
+  // job exit in the same candidate.
+  if (startsWorking && input.currentStatus === "employed" && (stopsWorking || submittedCurrentJobExit)) return true;
   return protagonistSentences.some((sentence) => (
     !hypotheticalOnly(sentence)
     && !negatesCareerMove(sentence)
-    && /你[^。；]{0,24}(?:(?:决定|选择|正式|已经|已)[^。；]{0,8})(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(sentence)
+    && /你[^。；]{0,24}(?:(?:正式|已经|已)[^。；]{0,8})(?:换工作|跳槽|转任|转岗|转为[^。；]{0,8}顾问|全职投入创业|再次创业)/u.test(sentence)
   ));
 }
 
@@ -1350,6 +2407,333 @@ function attachPendingFinancialContext(input: {
   };
 }
 
+/**
+ * Financial reconciliation reads a candidate WorldState, never a state that
+ * has already been committed by a later simulation step. The preview applies
+ * only cross-domain facts that have passed their own acceptance path: romantic
+ * residence transitions, person status deltas, health deltas and accepted
+ * CareerState transitions. It intentionally does not use prose alone as a
+ * source of WorldState authority.
+ */
+export function previewExpenseCandidateWorldState(input: {
+  current: WorldStateSnapshot;
+  node: SimulationNode;
+  acceptedOutcome?: AcceptedNodeOutcome;
+  acceptedCareerTransitions?: AcceptedCareerTransition[];
+  acceptedOutcomeId?: string;
+  ageInMonths: number;
+}): WorldStateSnapshot {
+  if (!input.acceptedOutcomeId) return input.current;
+  const next = structuredClone(input.current);
+  next.relationships ||= [];
+  const transitions = (input.node.narrativeMeta?.relationshipProposals || []).filter((proposal): proposal is Extract<RelationshipProposal, { type: "romantic_transition" }> => (
+    proposal.type === "romantic_transition"
+    && proposal.sourceOutcomeId === input.acceptedOutcomeId
+    && Boolean(proposal.evidence?.trim())
+  ));
+  for (const transition of transitions) {
+    if (!transition.toStage || !["cohabiting", "married"].includes(transition.toStage)) continue;
+    const residenceConfirmed = /同居|共同生活|一起住|搬到.{0,16}(?:住|公寓|家)|搬入.{0,16}(?:住|公寓|家)/u.test(
+      `${transition.evidence} ${input.node.description}`
+    );
+    if (!residenceConfirmed) continue;
+    const index = next.relationships.findIndex((relationship) => (
+      relationship.id === transition.relationshipId
+      || (transition.personId !== undefined && relationship.participantPersonIds.includes(transition.personId))
+    ));
+    if (index >= 0) {
+      next.relationships[index] = {
+        ...next.relationships[index],
+        stage: transition.toStage,
+        livingTogether: true,
+        effectiveFromAgeInMonths: input.ageInMonths,
+        responsibilitySummary: transition.evidence,
+        source: "accepted_history",
+        confidence: Math.max(next.relationships[index].confidence, 0.9)
+      };
+      continue;
+    }
+    next.relationships.push({
+      id: transition.relationshipId || `candidate_relationship_${transition.personId || input.ageInMonths}`,
+      participantPersonIds: transition.personId ? [transition.personId] : [],
+      type: "romantic",
+      stage: transition.toStage,
+      status: "active",
+      livingTogether: true,
+      effectiveFromAgeInMonths: input.ageInMonths,
+      responsibilitySummary: transition.evidence,
+      source: "accepted_history",
+      confidence: 0.9
+    });
+  }
+  for (const delta of input.acceptedOutcome?.worldDeltas || []) {
+    if (delta.type === "location_change") {
+      // Location is a structured accepted delta. Carry it into the same
+      // candidate WorldState used for responsibility and policy evaluation;
+      // do not make residence/city decisions from prose alone.
+      next.locationSummary = delta.summary;
+      const residence = acceptedResidenceOccupancyState({ delta, ageInMonths: input.ageInMonths });
+      if (residence) next.residence = residence;
+      continue;
+    }
+    if (delta.type === "health_state") {
+      next.healthSummary = delta.summary;
+      continue;
+    }
+    if (delta.type === "person_status") {
+      const personIndex = next.people.findIndex((person) => person.id === delta.personId);
+      if (personIndex >= 0) {
+        next.people[personIndex] = {
+          ...next.people[personIndex],
+          lifeStatus: delta.status,
+          source: "accepted_history",
+          confidence: Math.max(next.people[personIndex].confidence, 0.9)
+        };
+      }
+    }
+  }
+  for (const transition of input.acceptedCareerTransitions || []) {
+    const nextCareerState = transition.nextCareerState;
+    next.careerStates ||= [];
+    const existingIndex = next.careerStates.findIndex((state) => state.id === nextCareerState.id);
+    if (existingIndex >= 0) next.careerStates[existingIndex] = structuredClone(nextCareerState);
+    else next.careerStates.push(structuredClone(nextCareerState));
+    next.currentCareerStateId = nextCareerState.id;
+    next.currentEmploymentStatus = nextCareerState.employmentStatus;
+    next.careerRevision = Math.max(next.careerRevision || 0, input.current.careerRevision || 0) + 1;
+    next.version = 2;
+  }
+  return next;
+}
+
+function cityCostBandFromAcceptedLocation(locationSummary: string | undefined): "low" | "medium" | "high" | "unknown" {
+  if (!locationSummary) return "unknown";
+  if (/北京|上海|深圳|广州|杭州|一线|核心城区|高房价/u.test(locationSummary)) return "high";
+  if (/县城|乡镇|小城|低成本/u.test(locationSummary)) return "low";
+  if (/成都|武汉|西安|南京|重庆|天津|苏州|二线|中等成本/u.test(locationSummary)) return "medium";
+  return "unknown";
+}
+
+/**
+ * Policy context is derived solely from the accepted candidate WorldState and
+ * the current ledger. It never turns marriage, age or a city name into a new
+ * expense by itself; it only calibrates an already-authoritative unknown
+ * responsibility that the lifecycle reconciler has chosen to review/start.
+ */
+export function expenseEstimateContextFromAuthority(input: {
+  candidateWorldState: WorldStateSnapshot;
+  ledger: FinancialLedger;
+  node: SimulationNode;
+}): Omit<ExpenseResponsibilityEstimateContext, "responsibilityKind" | "ageInMonths"> {
+  const ownerOccupied = input.ledger.assetAccounts.some((account) => (
+    account.type === "property" && account.status === "active"
+  ));
+  const hasConfirmedCohabitation = input.candidateWorldState.relationships?.some((relationship) => (
+    relationship.type === "romantic"
+    && relationship.status === "active"
+    && relationship.livingTogether === true
+  ));
+  // Do not infer free housing merely from family/relationship state. An
+  // accepted third-party/provided residence may calibrate basic living without
+  // becoming a personal housing charge; business premises remain excluded.
+  const acceptedResidenceContext = input.candidateWorldState.residence
+    && input.candidateWorldState.residence.financialScope !== "business_operating"
+    ? input.candidateWorldState.residence
+    : undefined;
+  const livingArrangement: ExpenseLivingArrangement = acceptedResidenceContext?.livingArrangement
+    || (ownerOccupied ? "owner_occupied" : hasConfirmedCohabitation ? "unknown" : "unknown");
+  const cohabitingPartnerIds = new Set((input.candidateWorldState.relationships || [])
+    .filter((relationship) => relationship.type === "romantic" && relationship.status === "active" && relationship.livingTogether)
+    .flatMap((relationship) => relationship.participantPersonIds));
+  const activeChildren = (input.candidateWorldState.people || []).filter((person) => (
+    person.relation === "child" && ["active", "limited"].includes(person.lifeStatus)
+  )).length;
+  return {
+    cityCostBand: cityCostBandFromAcceptedLocation(input.candidateWorldState.locationSummary),
+    livingArrangement,
+    householdSize: 1 + cohabitingPartnerIds.size + activeChildren,
+    lifeStage: input.node.lifeStage || input.node.stage,
+    employmentStatus: input.candidateWorldState.careerStates?.find((state) => (
+      state.id === input.candidateWorldState.currentCareerStateId
+    ))?.employmentStatus || input.candidateWorldState.currentEmploymentStatus
+  };
+}
+
+function expenseCommitmentIdFromLifecycleEvent(event: AcceptedFinancialEvent): string | undefined {
+  switch (event.kind) {
+    case "expense_commitment_started":
+      return event.payload.id;
+    case "expense_commitment_adjusted":
+    case "expense_commitment_ended":
+      return event.payload.expenseCommitmentId;
+    default:
+      return undefined;
+  }
+}
+
+function expenseLifecycleActionFromEvent(
+  event: AcceptedFinancialEvent
+): ExpenseLifecycleProjectedCommitmentChange["action"] | undefined {
+  if (event.kind === "expense_commitment_started") return "start";
+  if (event.kind === "expense_commitment_ended") return "end";
+  if (event.kind === "expense_commitment_adjusted") {
+    return event.acceptedByReasonCodes.includes("SYSTEM_POLICY_REVIEW")
+      || event.proposalId?.startsWith("system_expense_review_")
+      ? "review"
+      : "adjust";
+  }
+  return undefined;
+}
+
+/**
+ * Describe only the lifecycle plan events, but look up their state in the
+ * result of the complete transaction preview.  This preserves the exact
+ * production reducer semantics while making shadow output independently
+ * inspectable without touching the authoritative ledger.
+ */
+function buildProjectedExpenseLifecycleChanges(input: {
+  beforeLedger: FinancialLedger;
+  projectedLedger: FinancialLedger;
+  lifecycleEvents: AcceptedFinancialEvent[];
+}): ExpenseLifecycleProjectedCommitmentChange[] {
+  const beforeById = new Map(input.beforeLedger.expenseCommitments.map((commitment) => [commitment.id, commitment]));
+  const projectedById = new Map(input.projectedLedger.expenseCommitments.map((commitment) => [commitment.id, commitment]));
+  const seen = new Set<string>();
+  const changes: ExpenseLifecycleProjectedCommitmentChange[] = [];
+  for (const event of input.lifecycleEvents) {
+    const commitmentId = expenseCommitmentIdFromLifecycleEvent(event);
+    const action = expenseLifecycleActionFromEvent(event);
+    if (!commitmentId || !action || seen.has(`${action}:${commitmentId}`)) continue;
+    seen.add(`${action}:${commitmentId}`);
+    const before = beforeById.get(commitmentId);
+    const after = projectedById.get(commitmentId);
+    const startPayload = event.kind === "expense_commitment_started" ? event.payload : undefined;
+    const source = after || before || startPayload;
+    if (!source?.responsibilityKey || !source.responsibilityKind) continue;
+    const financialScope = source.financialScope === "personal" || source.financialScope === "shared_household"
+      ? source.financialScope
+      : undefined;
+    changes.push({
+      action,
+      commitmentId,
+      responsibilityKey: source.responsibilityKey,
+      responsibilityKind: source.responsibilityKind,
+      beforeMonthlyAmountWan: before?.monthlyAmountWan,
+      afterMonthlyAmountWan: after?.monthlyAmountWan,
+      beforeStatus: before?.status,
+      afterStatus: after?.status,
+      amountBasis: after?.amountBasis || before?.amountBasis || startPayload?.amountBasis,
+      financialScope
+    });
+  }
+  return changes;
+}
+
+/**
+ * Persist a candidate-level trace alongside the aggregate preview.  The
+ * amount fields intentionally describe only what the candidate supplied;
+ * policy-derived commitment amounts remain in `projectedCommitmentChanges`.
+ * This makes an absent amount auditable as unknown instead of looking like a
+ * generated zero or an asserted human fact.
+ */
+function buildExpenseLifecycleCandidateTelemetry(input: {
+  candidates: ExpenseResponsibilityCandidate[];
+  decisions: ExpenseCommitmentReconciliationCandidateDecision[];
+  validationIssues?: FinancialLedgerIssue[];
+  mode: ExpenseLifecycleMode;
+  acceptedProposalIds: Set<string>;
+}): ExpenseLifecycleCandidateTelemetry[] {
+  const decisionByCandidateId = new Map(input.decisions.map((decision) => [decision.candidateId, decision]));
+  const validationIssuesByProposalId = new Map<string, FinancialLedgerIssue[]>();
+  for (const issue of input.validationIssues || []) {
+    for (const proposalId of issue.relatedProposalIds || []) {
+      const items = validationIssuesByProposalId.get(proposalId) || [];
+      items.push(issue);
+      validationIssuesByProposalId.set(proposalId, items);
+    }
+  }
+  return input.candidates.map((candidate) => {
+    const decision = decisionByCandidateId.get(candidate.id) || {
+      candidateId: candidate.id,
+      disposition: "ignored" as const,
+      reasonCodes: ["MISSING_RECONCILIER_DECISION"],
+      relatedProposalIds: [],
+      relatedIssueIds: [],
+      wouldBlock: false
+    };
+    const validationIssues = decision.relatedProposalIds.flatMap((proposalId) => (
+      validationIssuesByProposalId.get(proposalId) || []
+    ));
+    const blockingValidationIssue = validationIssues.find((issue) => issue.severity === "blocking");
+    const sourceGrossMonthlyAmountWan = Number.isFinite(candidate.explicitMonthlyTotalWan)
+      ? candidate.explicitMonthlyTotalWan
+      : undefined;
+    const sourceMonthlyAmountWan = Number.isFinite(candidate.protagonistShareWan)
+      ? candidate.protagonistShareWan
+      : sourceGrossMonthlyAmountWan !== undefined && Number.isFinite(candidate.shareRate)
+        ? Number((sourceGrossMonthlyAmountWan * candidate.shareRate!).toFixed(4))
+        : sourceGrossMonthlyAmountWan;
+    const amountBasis = Number.isFinite(candidate.protagonistShareWan)
+      ? "explicit_protagonist_share" as const
+      : sourceGrossMonthlyAmountWan !== undefined && Number.isFinite(candidate.shareRate)
+        ? "explicit_shared_amount" as const
+        : sourceGrossMonthlyAmountWan !== undefined
+          ? "explicit_monthly_amount" as const
+          : "unknown" as const;
+    return {
+      candidateId: candidate.id,
+      responsibilityKey: candidate.responsibilityKey,
+      responsibilityKind: candidate.responsibilityKind,
+      proposedType: candidate.proposedType,
+      financialScope: candidate.financialScope,
+      action: candidate.action,
+      cadence: candidate.cadence,
+      liability: candidate.liability,
+      source: candidate.source,
+      amountBasis,
+      sourceMonthlyAmountWan,
+      sourceGrossMonthlyAmountWan,
+      shareRate: candidate.shareRate,
+      amountSourceId: candidate.amountSourceId,
+      sourceFactBindingId: candidate.sourceFactBindingId,
+      sourceSpans: candidate.sourceSpans,
+      sourceClause: candidate.sourceClause,
+      sourceMateriality: candidate.sourceMateriality,
+      unresolvedFields: candidate.unresolvedFields,
+      sourceBindingReasonCodes: candidate.sourceBindingReasonCodes,
+      evidenceReasonCodes: [...new Set(candidate.evidence.map((evidence) => evidence.reasonCode).filter(Boolean))],
+      reconcilerDisposition: blockingValidationIssue ? "blocked" : decision.disposition,
+      reconcilerReasonCodes: [...new Set([
+        ...decision.reasonCodes,
+        ...validationIssues.map((issue) => `VALIDATION_${issue.code}`)
+      ])],
+      relatedProposalIds: decision.relatedProposalIds,
+      relatedIssueIds: [...new Set([
+        ...decision.relatedIssueIds,
+        ...validationIssues.map((issue) => issue.id)
+      ])],
+      wouldBlock: decision.wouldBlock || Boolean(blockingValidationIssue),
+      finalDisposition: input.mode === "shadow"
+        ? "prospective_shadow"
+        : decision.relatedProposalIds.some((proposalId) => input.acceptedProposalIds.has(proposalId))
+          ? "committed"
+          : "rejected"
+    };
+  });
+}
+
+function hasNewBaselineDownwardBlock(input: {
+  beforeLedger: FinancialLedger;
+  projectedLedger: FinancialLedger;
+}): boolean {
+  const evidenceCount = (ledger: FinancialLedger, commitmentId: string) => ledger.expenseCommitments
+    .find((commitment) => commitment.id === commitmentId)
+    ?.evidence.filter((evidence) => evidence.reasonCode === "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED").length || 0;
+  return input.projectedLedger.expenseCommitments.some((commitment) => (
+    evidenceCount(input.projectedLedger, commitment.id) > evidenceCount(input.beforeLedger, commitment.id)
+  ));
+}
+
 async function commitAuthoritativeFinancialProgress(input: {
   node: SimulationNode;
   rawNode: any;
@@ -1357,6 +2741,12 @@ async function commitAuthoritativeFinancialProgress(input: {
   currentLedger?: SimulationNode["financialLedger"];
   previousDebtHealthState?: SimulationNode["debtHealthState"];
   currentWorldState: ReturnType<typeof emptyWorldState>;
+  /**
+   * State before deterministic person/family reconstruction for this node.
+   * It is used only to classify a current→candidate responsibility delta;
+   * authoritative WorldState still commits through the normal transaction.
+   */
+  expenseLifecycleBaselineWorldState?: WorldStateSnapshot;
   acceptedOutcome: AcceptedNodeOutcome;
   acceptedOutcomeId?: string;
   selectedDecision?: string;
@@ -1365,6 +2755,11 @@ async function commitAuthoritativeFinancialProgress(input: {
   transactionId: string;
   previousWealth: number;
   callAiJson: AiJsonCaller;
+  financialNodeGateMode: FinancialNodeGateMode;
+  expenseLifecycleMode: ExpenseLifecycleMode;
+  expenseNarrativeBindingMode: ExpenseNarrativeBindingMode;
+  onFinancialGateDecision?: (decision: FinancialNodeAcceptanceDecision) => void;
+  financialGateRegenerationCount: number;
   nodeIndex?: number;
   onGenerationCallTrace?: GenerationTraceListener;
   generationBudget: NodeGenerationBudget;
@@ -1387,6 +2782,10 @@ async function commitAuthoritativeFinancialProgress(input: {
   };
   let rejectedEmploymentTransition: EmploymentTransitionProposal | undefined;
   const careerValidationIssues: FinancialLedgerIssue[] = [];
+  const pendingEmployerOfferResolutionDelta = input.acceptedOutcome.worldDeltas.find((delta): delta is Extract<WorldDelta, { type: "career_state" }> => (
+    delta.type === "career_state" && Boolean(delta.pendingEmployerOfferResolution)
+  ));
+  const submittedPendingEmployerOfferResolution = pendingEmployerOfferResolutionDelta?.pendingEmployerOfferResolution;
   let acceptedCareerTransitions = input.acceptedOutcome.worldDeltas.flatMap((delta, index) => {
     if (delta.type !== "career_state" || !delta.employmentTransition || !input.acceptedOutcomeId) return [];
     try {
@@ -1492,8 +2891,33 @@ async function commitAuthoritativeFinancialProgress(input: {
     }
   }
   let nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
-  const selectedDecisionRequiresCareerTransition = /退休|转为.{0,12}顾问|结束.{0,12}全职|离职|辞职|换工作|入职|(?:接受|选择).{0,20}(?:offer|新职位|新工作)|开始.{0,8}创业|全职.{0,8}创业/iu.test(input.selectedDecision || "");
-  const careerTransitionRequired = selectedDecisionRequiresCareerTransition || narrativeRequiresCareerTransition({
+  // A bare acceptance of an external offer is represented by the pending
+  // offer state above.  It becomes a CareerState transition only after actual
+  // entry is established in the accepted outcome and its salary is known.
+  const selectedDecision = input.selectedDecision || "";
+  const selectedEmployerOfferEvidence = [selectedDecision, input.node.description].filter(Boolean).join("\n");
+  const selectedEmployerRoleStarted = hasCompletedAcceptedEmployerRoleStart({
+    selectedDecision,
+    narrativeText: input.node.description
+  });
+  const selectedDecisionIsPendingEmployerOffer = isAcceptedEmployerRoleInvitation(selectedDecision)
+    && !hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence)
+    && !selectedEmployerRoleStarted;
+  const selectedDecisionDemandsCareerTransition = !selectedDecisionIsPendingEmployerOffer && (
+    selectedDecisionRequiresCareerTransition(selectedDecision)
+    || hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence)
+    || selectedEmployerRoleStarted
+  );
+  const initialPendingOfferStartResolutionIssue = pendingEmployerOfferStartResolutionIssue({
+    current: input.currentWorldState.pendingEmployerOffer,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    resolution: submittedPendingEmployerOfferResolution,
+    acceptedCareerTransitions,
+    transactionId: input.transactionId,
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  if (initialPendingOfferStartResolutionIssue) careerValidationIssues.push(initialPendingOfferStartResolutionIssue);
+  const careerTransitionRequired = selectedDecisionDemandsCareerTransition || narrativeRequiresCareerTransition({
     narrativeText: input.node.description,
     currentStatus: currentCareer.employmentStatus
   });
@@ -1511,15 +2935,36 @@ async function commitAuthoritativeFinancialProgress(input: {
   // Persisted history may still contain a v2 ledger. Upgrade a cloned candidate
   // at the simulation boundary; never rewrite the historical snapshot in place.
   const migratedCurrentLedger = input.currentLedger
-    ? migrateFinancialLedgerV2ToV3(input.currentLedger as unknown as FinancialLedgerInput)
+    ? isFinancialLedgerV4(input.currentLedger)
+      ? structuredClone(input.currentLedger)
+      : migrateFinancialLedgerV2ToV3(input.currentLedger as unknown as FinancialLedgerInput)
     : undefined;
-  const initialLedger = migratedCurrentLedger?.asOfAgeInMonths === input.periodStartAgeInMonths
+  const compatibleInitialLedger = migratedCurrentLedger?.asOfAgeInMonths === input.periodStartAgeInMonths
     ? migratedCurrentLedger
     : migrateLegacyFinancialState({
         id: input.currentLedger?.id || `financial_${input.transactionId}`,
         legacyState: input.previousState,
         linkedCareerStateId: currentCareer.id
       });
+  // New transactions never write V3 commitments.  The upgrade is prospective:
+  // it clones the historical snapshot and preserves its previous cash rather
+  // than replaying or correcting past periods.
+  const migrationPreflight = isFinancialLedgerV4(compatibleInitialLedger)
+    ? undefined
+    : preflightFinancialLedgerV3ToV4(compatibleInitialLedger as FinancialLedgerV3);
+  // A migration candidate may be useful for audit, but it is never a legal
+  // authority write while it carries a blocking conflict (for example an
+  // unmatched mortgage payment).  Stopping here happens before Preview,
+  // period accrual, WorldState reduction or History construction.
+  if (migrationPreflight && !migrationPreflight.canEnableV4) {
+    throw new FinancialLedgerInvariantError(
+      "INVALID_LEDGER",
+      `FinancialLedger V3→V4 迁移存在阻断冲突：${migrationPreflight.blockingIssues.map((item) => item.code).join("、")}`
+    );
+  }
+  const initialLedger = isFinancialLedgerV4(compatibleInitialLedger)
+    ? compatibleInitialLedger
+    : migrationPreflight!.ledger;
   const normalizedFinancial = normalizeFinancialProposals({
         proposals: rawFinancialEventProposals(input.rawNode),
         acceptedOutcomeIds: input.acceptedOutcomeId ? [input.acceptedOutcomeId] : [],
@@ -1561,6 +3006,7 @@ async function commitAuthoritativeFinancialProgress(input: {
       ? acceptedCareerTransitions[0].nextCareerState.employmentStatus
       : currentCareer.employmentStatus,
     migrateToCurrentCareerState: acceptedCareerTransitions.length === 1,
+    suppressEmployerSalarySynthesis: selectedDecisionIsPendingEmployerOffer,
     ledger: initialLedger
   });
   normalizedFinancial.proposals = completeCareerIncomeReplacementProposals({
@@ -1570,6 +3016,15 @@ async function commitAuthoritativeFinancialProgress(input: {
     transition: acceptedCareerTransitions[0],
     acceptedOutcomeId: input.acceptedOutcomeId
   });
+  const suppressedPendingOfferIncomeProposals: FinancialEventProposal[] = [];
+  if (selectedDecisionIsPendingEmployerOffer) {
+    normalizedFinancial.proposals = normalizedFinancial.proposals.filter((proposal) => {
+      if (proposal.sourceOutcomeId !== input.acceptedOutcomeId
+        || !isEmployerSalaryMutationProposal({ proposal, ledger: initialLedger })) return true;
+      suppressedPendingOfferIncomeProposals.push(proposal);
+      return false;
+    });
+  }
   let finalCandidateProposals = normalizedFinancial.proposals;
   const validationInput = {
         currentLedger: initialLedger,
@@ -1583,7 +3038,8 @@ async function commitAuthoritativeFinancialProgress(input: {
         // Model proposals always trial with explicit funding. Deterministic
         // recurring obligations retain the production shortfall policy at the
         // final domain commit below.
-        liquidityPolicy: "require_explicit" as const
+        liquidityPolicy: "require_explicit" as const,
+        enforceExpenseConfirmation: true
       };
   let validated = validateFinancialProposals({
         proposals: normalizedFinancial.proposals,
@@ -1595,7 +3051,8 @@ async function commitAuthoritativeFinancialProgress(input: {
       narrativeText: input.node.description,
       ledger: initialLedger,
       acceptedEvents: validated.acceptedEvents,
-      ageInMonths: input.periodEndAgeInMonths
+      ageInMonths: input.periodEndAgeInMonths,
+      periodStartAgeInMonths: input.periodStartAgeInMonths
     })]
   };
   const completenessIssues: FinancialLedgerIssue[] = [];
@@ -1607,7 +3064,8 @@ async function commitAuthoritativeFinancialProgress(input: {
   if (input.periodEndAgeInMonths >= 55 * 12) {
     for (const source of initialLedger.incomeSources) {
       const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
-      if (source.status !== "active" || !source.linkedCareerStateId || acceptedIncomeIds.has(source.id)
+      if (!requiresHardLateLifeCareerIncomeResolution({ source, currentCareerStateId: currentCareer.id })
+        || acceptedIncomeIds.has(source.id)
         || input.periodStartAgeInMonths - lastConfirmedAt < 36) continue;
       completenessIssues.push({
         id: `proposal_issue_stale_late_career_${source.id}`,
@@ -1804,7 +3262,8 @@ async function commitAuthoritativeFinancialProgress(input: {
     narrativeText: input.node.description,
     ledger: initialLedger,
     acceptedEvents: validated.acceptedEvents,
-    ageInMonths: input.periodEndAgeInMonths
+    ageInMonths: input.periodEndAgeInMonths,
+    periodStartAgeInMonths: input.periodStartAgeInMonths
   });
   validated = {
     ...validated,
@@ -1866,6 +3325,12 @@ async function commitAuthoritativeFinancialProgress(input: {
       ))
     };
   }
+  // Preserve the pre-atomic candidate solely for a rejected Preview
+  // diagnostic.  `reconcileCareerIncomeAtomicity` correctly removes an
+  // unsupported CareerState transition; without this small snapshot a browser
+  // checkpoint cannot explain why an otherwise empty proposal list was
+  // blocked.
+  const provisionalCareerTransitions = acceptedCareerTransitions.map((transition) => structuredClone(transition));
   const atomicCareerIncome = reconcileCareerIncomeAtomicity({
     currentCareerStateId: currentCareer.id,
     currentLedger: initialLedger,
@@ -1884,6 +3349,121 @@ async function commitAuthoritativeFinancialProgress(input: {
     acceptedEvents: atomicCareerIncome.acceptedFinancialEvents,
     issues: [...validated.issues, ...atomicCareerIncome.issues]
   };
+  // The initial validation above is intentionally available to the repair
+  // prompt, but a repair can replace both the transition and its validated
+  // issue list. Reassert the source-bound pending-offer invariant after every
+  // repair and after career/income atomicity, immediately before Preview.
+  const finalPendingOfferStartResolutionIssue = pendingEmployerOfferStartResolutionIssue({
+    current: input.currentWorldState.pendingEmployerOffer,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    resolution: submittedPendingEmployerOfferResolution,
+    acceptedCareerTransitions,
+    transactionId: input.transactionId,
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  if (finalPendingOfferStartResolutionIssue
+    && !validated.issues.some((issue) => issue.id === finalPendingOfferStartResolutionIssue.id)) {
+    validated = {
+      ...validated,
+      issues: [...validated.issues, finalPendingOfferStartResolutionIssue]
+    };
+  }
+  const expenseCandidateWorldState = previewExpenseCandidateWorldState({
+    current: input.currentWorldState,
+    node: input.node,
+    acceptedOutcome: input.acceptedOutcome,
+    acceptedCareerTransitions,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  // This is an AcceptedOutcome-only bridge: the model may confirm that a
+  // recurring responsibility exists, but it cannot choose an account id or
+  // invent an amount. The lifecycle derives the stable account and, when
+  // necessary, its existing policy-backed needs-review estimate.
+  const acceptedExpenseResponsibilityFacts = explicitFactsFromAcceptedExpenseResponsibilityDeltas({
+    worldDeltas: input.acceptedOutcome.worldDeltas,
+    currentWorldState: expenseCandidateWorldState
+  });
+  const expenseLifecycle = input.expenseLifecycleMode === "off"
+    ? {
+        candidates: [],
+        triggers: [],
+        issues: [],
+        reviewReasonCodes: [],
+        coveredTriggerCount: 0,
+        narrativeBindingMode: "legacy" as const,
+        narrativeBinding: undefined
+      }
+    : applyLifeStageExpenseLifecycle({
+        narrativeText: input.node.description,
+        currentWorldState: input.expenseLifecycleBaselineWorldState || input.currentWorldState,
+        candidateWorldState: expenseCandidateWorldState,
+        existingExpenseCommitments: initialLedger.version === 4 ? initialLedger.expenseCommitments : undefined,
+        explicitFacts: acceptedExpenseResponsibilityFacts,
+        ageInMonths: input.periodEndAgeInMonths,
+        sourceNodeId: input.transactionId,
+        sourceOutcomeId: input.acceptedOutcomeId,
+        narrativeBindingMode: input.expenseNarrativeBindingMode
+      });
+  const expenseEstimateContext = expenseEstimateContextFromAuthority({
+    candidateWorldState: expenseCandidateWorldState,
+    ledger: initialLedger,
+    node: input.node
+  });
+  const expenseReconciliation = input.expenseLifecycleMode === "off"
+    ? undefined
+    : reconcileExpenseCommitments({
+        ledger: initialLedger,
+        candidates: expenseLifecycle.candidates,
+        // Direct Accepted expense facts are the first writer for a stable
+        // responsibility in this node. The lifecycle pass remains useful for
+        // detecting other responsibilities, but it must not emit a sibling
+        // start/adjust/end (or a stale scheduled review) for the same key.
+        acceptedExpenseEvents: validated.acceptedEvents,
+        ageInMonths: input.periodEndAgeInMonths,
+        sourceOutcomeId: input.acceptedOutcomeId,
+        mode: input.expenseLifecycleMode,
+        estimateContext: expenseEstimateContext
+      });
+  // Review plans are deterministic policy proposals, but still pass through
+  // the ordinary V4 payload schema, reference checks and reducer preview.
+  // They are not allowed to masquerade as a sentence the narrator wrote.
+  const expenseReviewProposals: FinancialEventProposal[] = expenseReconciliation
+    ? expenseReconciliation.reviewEvents.map((event) => ({
+        id: event.proposalId,
+        kind: event.kind,
+        effectiveAtAgeInMonths: event.effectiveAtAgeInMonths,
+        payload: event.payload,
+        evidence: event.evidence.map((item) => item.excerpt).filter(Boolean).join("；") || "V4 支出责任到期复核",
+        sourceOutcomeId: input.acceptedOutcomeId,
+        confidence: 1,
+        financialScope: event.evidence[0]?.financialScope || "personal",
+        systemGenerated: "expense_lifecycle_review"
+      }))
+    : [];
+  const expenseLifecycleValidation = expenseReconciliation
+    ? validateFinancialProposals({
+        proposals: [...expenseReconciliation.proposals, ...expenseReviewProposals],
+        ...validationInput
+      })
+    : undefined;
+  // Shadow runs the identical classifier/reconciler but intentionally never
+  // writes its V4 plan.  In enforced mode every generated proposal first goes
+  // through ordinary payload validation before it can join the atomic preview.
+  if (input.expenseLifecycleMode === "enforced" && expenseReconciliation && expenseLifecycleValidation) {
+    validated = {
+      acceptedEvents: [
+        ...validated.acceptedEvents,
+        ...expenseLifecycleValidation.acceptedEvents
+      ],
+      issues: [
+        ...validated.issues,
+        ...expenseLifecycleValidation.issues,
+        ...expenseLifecycle.issues,
+        ...expenseReconciliation.issues
+      ]
+    };
+  }
   const finalAcceptedProposalIds = new Set(validated.acceptedEvents.map((event) => event.proposalId));
   const finalRejectedFinancialProposalIds = [...new Set([
     ...validated.issues
@@ -1894,6 +3474,7 @@ async function commitAuthoritativeFinancialProgress(input: {
   const finalRejectedIdSet = new Set(finalRejectedFinancialProposalIds);
   const allCandidateProposals = new Map(normalizedFinancial.proposals.map((proposal) => [proposal.id, proposal]));
   for (const proposal of finalCandidateProposals) allCandidateProposals.set(proposal.id, proposal);
+  for (const proposal of suppressedPendingOfferIncomeProposals) allCandidateProposals.set(proposal.id, proposal);
   const normalizedNarrativeClaims = normalizeFinancialNarrativeClaims({
     rawNode: input.rawNode,
     proposals: [...allCandidateProposals.values()],
@@ -1957,7 +3538,8 @@ async function commitAuthoritativeFinancialProgress(input: {
       narrativeText: committedNarrativeNode.description,
       ledger: initialLedger,
       acceptedEvents: validated.acceptedEvents,
-      ageInMonths: input.periodEndAgeInMonths
+      ageInMonths: input.periodEndAgeInMonths,
+      periodStartAgeInMonths: input.periodStartAgeInMonths
     }),
     ...collectPersonalIncomeNarrativeContractIssues({
       narrativeText: committedNarrativeNode.description,
@@ -1990,6 +3572,20 @@ async function commitAuthoritativeFinancialProgress(input: {
     ageInMonths: input.periodEndAgeInMonths,
     narrativeRolledBack: rejectedNarrativeWasRolledBack
   });
+  const pendingEmployerOfferUpdate = resolvePendingEmployerOffer({
+    current: input.currentWorldState.pendingEmployerOffer,
+    selectedDecision: input.selectedDecision,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    narrativeText: input.node.description,
+    acceptedAtAgeInMonths: input.periodStartAgeInMonths,
+    currentCareerStateId: currentCareer.id,
+    pendingEmployerOfferResolution: submittedPendingEmployerOfferResolution,
+    acceptedCareerTransitions
+  });
+  const currentWorldStateForTransaction = applyPendingEmployerOfferUpdate(
+    input.currentWorldState,
+    pendingEmployerOfferUpdate
+  );
   const transactionInput = {
     transactionId: input.transactionId,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
@@ -1998,20 +3594,45 @@ async function commitAuthoritativeFinancialProgress(input: {
     expectedLedgerRevision: initialLedger.revision,
     currentCareer: currentCareerCollection,
     currentFinancialLedger: initialLedger,
-    currentWorldState: input.currentWorldState,
+    currentWorldState: currentWorldStateForTransaction,
     acceptedCareerTransitions,
     acceptedFinancialEvents: validated.acceptedEvents,
     financialIssues: finalizedFinancialIssues.filter((issue) => (
       issue.id !== "proposal_issue_missing_adult_expense"
       && !issue.id.startsWith("proposal_issue_stale_late_career_")
     )),
+    basicLivingEstimateContext: {
+      livingArrangement: expenseEstimateContext.livingArrangement,
+      cityCostBand: expenseEstimateContext.cityCostBand
+    },
+    aggregateExpenseEstimateContext: expenseEstimateContext,
     liquidityPolicy: "auto_shortfall_debt"
   } as const;
   // Narrative grounding depends on the closing ledger, while narrative contract
   // issues must describe the text the user actually sees. Trial the otherwise
   // pure transaction first, sanitize against that closing state, then rebuild
   // only the current node's narrative issues before the authoritative commit.
-  const previewCommitted = commitFinancialDomainTransaction(transactionInput);
+  const previewCommitted = previewFinancialDomainTransaction(transactionInput);
+  // Shadow must use the same accepted V4 plan events and the same reducer as
+  // enforced mode, but it must never add those events to `validated` or to the
+  // authoritative transaction.  Preview operates on a deep-cloned write set,
+  // so the result below is an auditable prospective diff only.
+  const expenseLifecyclePlanAcceptedEvents = expenseLifecycleValidation?.acceptedEvents || [];
+  const transactionEventIdentities = new Set(transactionInput.acceptedFinancialEvents.map((event) => (
+    `${event.id}:${event.proposalId || ""}`
+  )));
+  const lifecycleEventsMissingFromTransaction = expenseLifecyclePlanAcceptedEvents.filter((event) => (
+    !transactionEventIdentities.has(`${event.id}:${event.proposalId || ""}`)
+  ));
+  const expenseLifecyclePlanPreview = input.expenseLifecycleMode === "off"
+    ? undefined
+    : previewFinancialDomainTransaction({
+        ...transactionInput,
+        acceptedFinancialEvents: [
+          ...transactionInput.acceptedFinancialEvents,
+          ...lifecycleEventsMissingFromTransaction
+        ]
+      });
   const previewFinancialState = previewCommitted.derivedFinancialState.compatibilityState;
   let previewDescription = sanitizeFinancialNarrative(
     committedNarrativeNode.description,
@@ -2024,7 +3645,8 @@ async function commitAuthoritativeFinancialProgress(input: {
     narrativeText: previewDescription,
     ledger: initialLedger,
     acceptedEvents: validated.acceptedEvents,
-    ageInMonths: input.periodEndAgeInMonths
+    ageInMonths: input.periodEndAgeInMonths,
+    periodStartAgeInMonths: input.periodStartAgeInMonths
   });
   const unsupportedCoverageIssueIds = postSanitizationIssues
     .filter((issue) => (issue.status ?? "open") === "open" && issue.severity === "blocking")
@@ -2037,9 +3659,130 @@ async function commitAuthoritativeFinancialProgress(input: {
       narrativeText: previewDescription,
       ledger: initialLedger,
       acceptedEvents: validated.acceptedEvents,
-      ageInMonths: input.periodEndAgeInMonths
+      ageInMonths: input.periodEndAgeInMonths,
+      periodStartAgeInMonths: input.periodStartAgeInMonths
     });
   }
+  const finalExpenseConfirmationVerifications = input.acceptedOutcomeId
+    ? validated.acceptedEvents
+      .filter((event) => Boolean(event.expenseConfirmationResolution))
+      .map((event) => verifyAcceptedExpenseConfirmationAgainstFinalNarrative({
+        event,
+        finalNarrativeText: previewDescription,
+        sourceNodeId: input.transactionId,
+        sourceOutcomeId: input.acceptedOutcomeId!
+      }))
+    : [];
+  const invalidFinalExpenseConfirmationIssues: FinancialLedgerIssue[] = finalExpenseConfirmationVerifications
+    .filter((verification) => !verification.valid)
+    .map((verification) => {
+      const event = validated.acceptedEvents.find((candidate) => candidate.id === verification.eventId)!;
+      const resolution = event.expenseConfirmationResolution!;
+      return {
+        id: `expense_confirmation_post_sanitize_${event.id}`,
+        code: "PENDING_FACT" as const,
+        severity: "blocking" as const,
+        status: "open" as const,
+        relatedProposalIds: event.proposalId ? [event.proposalId] : [],
+        relatedAccountIds: [resolution.accountId],
+        expenseResolutionKind: resolution.resolutionKind,
+        expenseResponsibilityKey: resolution.responsibilityKey,
+        summary: `最终可见正文无法重新绑定已验证的支出确认：${verification.reasonCodes.join("、")}`,
+        createdAtAgeInMonths: input.periodEndAgeInMonths
+      };
+    });
+  if (invalidFinalExpenseConfirmationIssues.length > 0) {
+    postSanitizationIssues = [
+      ...postSanitizationIssues,
+      ...invalidFinalExpenseConfirmationIssues
+    ];
+  }
+  const expenseConfirmationAtomicityIssues: FinancialLedgerIssue[] = validateExpenseConfirmationAtomicity({
+    events: validated.acceptedEvents,
+    previewIssues: previewCommitted.financialLedger.unresolvedIssues
+  }).map((violation) => {
+    const event = validated.acceptedEvents.find((candidate) => candidate.id === violation.eventId)!;
+    const resolution = event.expenseConfirmationResolution!;
+    return {
+      id: `expense_confirmation_atomicity_${violation.eventId}_${violation.targetIssueId}`,
+      code: "EXPENSE_CONFIRMATION_ATOMICITY_FAILED" as const,
+      severity: "blocking" as const,
+      status: "open" as const,
+      relatedProposalIds: event.proposalId ? [event.proposalId] : [],
+      relatedAccountIds: [resolution.accountId],
+      expenseResolutionKind: resolution.resolutionKind,
+      expenseResponsibilityKey: resolution.responsibilityKey,
+      summary: `支出确认未由同一 Accepted Event 原子关闭目标复核 ${violation.targetIssueId}：${violation.reasonCodes.join("、")}`,
+      createdAtAgeInMonths: input.periodEndAgeInMonths
+    };
+  });
+  if (expenseConfirmationAtomicityIssues.length > 0) {
+    postSanitizationIssues = [...postSanitizationIssues, ...expenseConfirmationAtomicityIssues];
+  }
+  // Most completed financial facts must remain blocking even if their prose
+  // can be softened; the gate is what prevents a fictitious property, debt or
+  // asset transaction from becoming a silent narrative-only success.  The
+  // personal-income contract is deliberately narrower: its sanitizer removes
+  // the unsupported commercial-completion sentence altogether.  Feed that
+  // one final, user-visible status into the gate while retaining the original
+  // finalized status for every other material fact.
+  const postSanitizationIssueById = new Map(postSanitizationIssues.map((issue) => [issue.id, issue]));
+  const gateFinancialIssues = [
+    ...finalizedFinancialIssues.map((issue) => (
+    issue.id.startsWith("personal_income_claim_without_event_")
+      ? postSanitizationIssueById.get(issue.id) || issue
+      : issue
+    )),
+    ...invalidFinalExpenseConfirmationIssues,
+    ...expenseConfirmationAtomicityIssues
+  ];
+  const requiredFactGroups = buildRequiredFinancialFactGroups({
+    issues: gateFinancialIssues,
+    rejectedCompletedProposals,
+    reviewReasonCodes: [
+      ...expenseLifecycle.reviewReasonCodes,
+      ...(expenseReconciliation?.reviewReasonCodes || [])
+    ],
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  const expenseLifecycleProposalIds = new Set([
+    ...(expenseReconciliation?.proposals || []),
+    ...expenseReviewProposals
+  ].map((proposal) => proposal.id));
+  const hasEnforcedExpenseCritical = input.expenseLifecycleMode === "enforced"
+    && [...finalizedFinancialIssues, ...invalidFinalExpenseConfirmationIssues, ...expenseConfirmationAtomicityIssues].some((issue) => (
+      issue.severity === "blocking"
+      && (
+        issue.code.startsWith("EXPENSE_")
+        || issue.id.startsWith("expense_")
+        || (issue.relatedProposalIds || []).some((proposalId) => expenseLifecycleProposalIds.has(proposalId))
+      )
+    ));
+  const gateDecision = evaluateFinancialNodeAcceptance({
+    mode: hasEnforcedExpenseCritical ? "enforced" : input.financialNodeGateMode,
+    preview: previewCommitted,
+    requiredFactGroups,
+    expectedAgeInMonths: input.periodEndAgeInMonths,
+    transactionId: input.transactionId,
+    regenerationCount: input.financialGateRegenerationCount,
+    authoritativeAgeBefore: input.periodStartAgeInMonths
+  });
+  const reportedGateDecision = !gateDecision.allowDomainCommit
+    ? {
+        ...gateDecision,
+        rejectionDiagnostic: buildFinancialGateRejectionDiagnostic({
+          node: input.node,
+          proposals: [...allCandidateProposals.values()],
+          acceptedProposalIds: finalAcceptedProposalIds,
+          rejectedProposalIds: finalRejectedIdSet,
+          issues: gateFinancialIssues,
+          requiredFactGroups,
+          provisionalCareerTransitions
+        })
+      }
+    : gateDecision;
+  input.onFinancialGateDecision?.(reportedGateDecision);
+  if (!reportedGateDecision.allowDomainCommit) throw new FinancialNodeGateError(reportedGateDecision);
   const committed = commitFinancialDomainTransaction({
     ...transactionInput,
     financialIssues: postSanitizationIssues
@@ -2050,19 +3793,60 @@ async function commitAuthoritativeFinancialProgress(input: {
     derivedFinancialState: committed.derivedFinancialState.state,
     previousDebtHealthState: input.previousDebtHealthState
   });
+  const previousDerivedFinancialState = deriveFinancialState({
+    ledger: initialLedger,
+    employmentStatus: currentCareer.employmentStatus
+  }).compatibilityState;
+  const expenseLifecycleTelemetryPreview = expenseLifecyclePlanPreview || previewCommitted;
+  const expenseLifecycleProjectedState = expenseLifecycleTelemetryPreview.derivedFinancialState.compatibilityState;
+  const expenseLifecycleProjectedChanges = buildProjectedExpenseLifecycleChanges({
+    beforeLedger: initialLedger,
+    projectedLedger: expenseLifecycleTelemetryPreview.financialLedger,
+    lifecycleEvents: expenseLifecyclePlanAcceptedEvents
+  });
+  const lifecycleReviewCommitmentIds = expenseReconciliation?.reviewPlan.reviewedCommitmentIds || [];
+  const staleResponsibilityKeys = [...new Set(lifecycleReviewCommitmentIds.flatMap((commitmentId) => {
+    const commitment = initialLedger.expenseCommitments.find((item) => item.id === commitmentId);
+    return commitment?.responsibilityKey ? [commitment.responsibilityKey] : [];
+  }))];
+  const lifecycleSchemaRejectedCount = expenseLifecycleValidation?.issues.filter((issue) => (
+    issue.code === "EXPENSE_SCHEMA_FIELD_MISMATCH"
+  )).length || 0;
+  const lifecycleReviewCount = expenseLifecyclePlanAcceptedEvents.filter((event) => (
+    expenseLifecycleActionFromEvent(event) === "review"
+  )).length;
+  const expenseLifecycleCandidateTelemetry = buildExpenseLifecycleCandidateTelemetry({
+    candidates: expenseLifecycle.candidates,
+    decisions: expenseReconciliation?.candidateDecisions || [],
+    validationIssues: expenseLifecycleValidation?.issues,
+    mode: input.expenseLifecycleMode,
+    acceptedProposalIds: new Set(expenseLifecyclePlanAcceptedEvents.flatMap((event) => (
+      event.proposalId ? [event.proposalId] : []
+    )))
+  });
+  const previousConservativeWealthBasis = deriveConservativeWealthBasis({
+    ledger: initialLedger,
+    financialState: previousDerivedFinancialState
+  });
   const conservativeWealthBasis = deriveConservativeWealthBasis({ ledger: committed.financialLedger, financialState });
-  const description = sanitizeFinancialNarrative(
-    previewDescription,
-    financialState,
-    committed.financialLedger,
-    validated.acceptedEvents
-  );
+  // `previewDescription` has already been sanitized against the exact
+  // transaction preview and all code-stamped confirmations were rebound to
+  // that final text before Gate. The authoritative commit is the same pure
+  // write-set, so running another text writer here would invalidate the
+  // verified spans after the acceptance decision.
+  const description = previewDescription;
   return {
     node: {
       ...committedNarrativeNode,
       description,
       descriptionParagraphs: splitNarrativeParagraphs(description),
-      attributes: withCalculatedWealth(input.node.attributes, conservativeWealthBasis, input.previousWealth),
+      attributes: withCalculatedWealth(
+        input.node.attributes,
+        conservativeWealthBasis,
+        input.previousWealth,
+        12,
+        previousConservativeWealthBasis
+      ),
       financialLedger: committed.financialLedger,
       financialLedgerMode: "authoritative",
       financialState,
@@ -2085,6 +3869,74 @@ async function commitAuthoritativeFinancialProgress(input: {
         narrativeFallback: narrativeFallbackReasonCodes.length > 0,
         narrativeFallbackReasonCodes,
         rejectedDebtClaimKinds: narrativeFallbackReasonCodes,
+        financialGateMode: gateDecision.mode,
+        financialGateDisposition: gateDecision.disposition,
+        financialGateWouldBlock: gateDecision.wouldBlock,
+        financialGateReasonCodes: gateDecision.reasonCodes,
+        financialGateRequiredFactGroupCount: gateDecision.requiredFactGroupCount,
+        financialGateSatisfiedFactGroupCount: gateDecision.satisfiedFactGroupCount,
+        financialGateCriticalFactGroupCount: gateDecision.criticalFactGroupCount,
+        financialGateSatisfiedCriticalFactGroupCount: gateDecision.satisfiedCriticalFactGroupCount,
+        financialGateUnsatisfiedCriticalFactGroupCount: gateDecision.unsatisfiedCriticalFactGroupCount,
+        financialGateRegenerationCount: input.financialGateRegenerationCount,
+        expenseLifecycleTriggerCount: expenseLifecycle.triggers.length,
+        // Kept only for legacy readers; detector self-coverage is deliberately
+        // no longer a release metric.
+        expenseLifecycleCoveredTriggerCount: 0,
+        expenseLifecycleEstimatedAccountCount: expenseReconciliation?.proposals.filter((proposal) => proposal.kind === "expense_commitment_started").length || 0,
+        expenseLifecycleResponsibilityCodes: [...new Set(expenseLifecycle.candidates.flatMap((candidate) => candidate.evidence.map((evidence) => evidence.reasonCode)))],
+        expenseLifecycleTelemetry: {
+          mode: input.expenseLifecycleMode,
+          narrativeBindingMode: expenseLifecycle.narrativeBindingMode,
+          narrativeBindingCount: expenseLifecycle.narrativeBinding?.bindings.length || 0,
+          narrativeBindingCriticalCount: expenseLifecycle.narrativeBinding?.bindings.filter((binding) => (
+            binding.sourceMateriality === "critical"
+          )).length || 0,
+          narrativeBindingSourceIdentityMissingCount: expenseLifecycle.narrativeBinding?.bindings.filter((binding) => (
+            binding.sourceIdentityStatus === "missing"
+          )).length || 0,
+          expenseConfirmationAcceptedCount: validated.acceptedEvents.filter((event) => (
+            event.expenseConfirmationResolution?.disposition === "confirmed_exact"
+          )).length,
+          expenseConfirmationRejectedAfterSanitizeCount: invalidFinalExpenseConfirmationIssues.length,
+          candidateCount: expenseLifecycle.candidates.length,
+          candidates: expenseLifecycleCandidateTelemetry,
+          acceptedStartCount: expenseLifecyclePlanAcceptedEvents.filter((event) => event.kind === "expense_commitment_started").length,
+          acceptedAdjustCount: expenseLifecyclePlanAcceptedEvents.filter((event) => event.kind === "expense_commitment_adjusted").length,
+          acceptedEndCount: expenseLifecyclePlanAcceptedEvents.filter((event) => event.kind === "expense_commitment_ended").length,
+          reviewCount: lifecycleReviewCount,
+          ignoredCount: expenseReconciliation?.ignoredCandidateIds.length || 0,
+          reasonCodes: [...new Set([
+            ...expenseLifecycle.candidates.flatMap((candidate) => candidate.evidence.map((evidence) => evidence.reasonCode)),
+            ...expenseLifecyclePlanAcceptedEvents.flatMap((event) => event.evidence.map((evidence) => evidence.reasonCode)),
+            ...(expenseReconciliation?.reviewReasonCodes || [])
+          ])],
+          beforeAnnualizedExpenseWan: previousDerivedFinancialState.annualCoreExpenseWan,
+          afterAnnualizedExpenseWan: expenseLifecycleProjectedState.annualCoreExpenseWan,
+          projectedCommitmentChanges: expenseLifecycleProjectedChanges,
+          projectedAnnualizedExpenseDeltaWan: Number((
+            expenseLifecycleProjectedState.annualCoreExpenseWan - previousDerivedFinancialState.annualCoreExpenseWan
+          ).toFixed(4)),
+          baselineDownwardBlocked: hasNewBaselineDownwardBlock({
+            beforeLedger: initialLedger,
+            projectedLedger: expenseLifecycleTelemetryPreview.financialLedger
+          }),
+          staleResponsibilityKeys,
+          businessScopeRejectedKeys: expenseLifecycle.candidates
+            .filter((candidate) => candidate.financialScope === "business_operating" || candidate.financialScope === "third_party")
+            .map((candidate) => candidate.responsibilityKey),
+          duplicateAmountSourceIds: Object.entries(expenseLifecycle.candidates.reduce<Record<string, Set<string>>>((bySource, candidate) => {
+            if (!candidate.amountSourceId) return bySource;
+            (bySource[candidate.amountSourceId] ||= new Set()).add(candidate.responsibilityKey);
+            return bySource;
+          }, {})).filter(([, keys]) => keys.size > 1).map(([sourceId]) => sourceId),
+          schemaRejectedCount: lifecycleSchemaRejectedCount,
+          wouldBlock: Boolean(
+            expenseLifecycle.issues.some((issue) => issue.severity === "blocking")
+            || expenseReconciliation?.wouldBlock
+            || expenseLifecycleValidation?.issues.some((issue) => issue.severity === "blocking")
+          )
+        },
         rejectedFinancialProposalKinds: [...new Set(rejectedCompletedProposals.map((proposal) => proposal.kind))],
         financialNarrativeAuthorityVersion: "financial_narrative_claims_v1",
         financialNarrativeClaimCount: normalizedNarrativeClaims.claims.length,
@@ -2371,12 +4223,26 @@ export async function startSimulation(
       ? { ...choice, eventOutcomeId: relationshipOutcomeId, expectedWorldDeltaTypes: ["relationship_change" as const] }
       : choice;
   });
-  const openingResult = initializeOpeningFinancialLedger({
+  const openingPreparation = prepareOpeningFinancialAuthority({
     id: `financial_opening_${startAgeInMonths}`,
     proposedState: proposedFinancialState,
     linkedCareerStateId: openingCareerState.id,
-    openingFacts
+    openingFacts,
+    currentCareer: {
+      careerStates: startWorldState.careerStates,
+      currentCareerStateId: openingCareerState.id,
+      careerRevision: startWorldState.careerRevision
+    },
+    currentWorldState: startWorldState,
+    mode: deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE
   });
+  deps.onFinancialGateDecision?.(openingPreparation.gateDecision);
+  if (!openingPreparation.gateDecision.allowDomainCommit) {
+    // Start-node construction has not begun.  No ledger, WorldState snapshot,
+    // time line or opening accepted event is returned on a rejected candidate.
+    throw new FinancialNodeGateError(openingPreparation.gateDecision);
+  }
+  const openingResult = commitPreparedOpeningFinancialAuthority(openingPreparation);
   const openingFinancialLedger = openingResult.ledger;
   const openingDerivedFinancialState = deriveFinancialState({
     ledger: openingFinancialLedger,
@@ -2643,6 +4509,197 @@ function fallbackWorldDeltaTypes(node: SimulationNode): WorldDelta["type"][] {
   if (category === "relationship") return ["relationship_change"];
   if (category === "career" || category === "financial" || category === "opportunity") return ["career_state"];
   return [];
+}
+
+const RELATIONSHIP_AUTHORITY_FALLBACK_REASON = "relationship_authority_deterministic_fallback";
+const RELATIONSHIP_AUTHORITY_FALLBACK_TELEMETRY_CODE = "RELATIONSHIP_AUTHORITY_DETERMINISTIC_FALLBACK";
+const RELATIONSHIP_AUTHORITY_FALLBACK_SURFACE_PATH = "relationship_authority";
+
+function hasOnlyRelationshipAuthorityConflicts(issues: ReturnType<typeof validateStoryConsistency>): boolean {
+  const errors = issues.filter((issue) => issue.severity === "error");
+  return errors.length > 0 && errors.every((issue) => issue.code === "relationship_authority_conflict");
+}
+
+function buildRelationshipAuthorityDeterministicFallback(input: {
+  node: SimulationNode;
+  nodeEvent?: LifeEventSeed;
+  nodeEventMeta?: EventMeta;
+  elapsedMonths: number;
+}): { node: SimulationNode; eventMeta: EventMeta } {
+  const fallbackOutcomes = input.nodeEvent?.intent.allowedOutcomes?.length
+    ? input.nodeEvent.intent.allowedOutcomes
+    : ["maintain_current_direction", "adjust_execution_rhythm", "reassess_current_direction"];
+  const fallbackChoiceTexts = [
+    "按当前方向继续推进，同时保留必要的时间和资源缓冲",
+    "降低短期投入强度，先验证现实反馈再决定下一步",
+    "调整执行路径，把精力转向更可持续的替代方案"
+  ];
+  const fallbackDescription = `接下来的 ${input.elapsedMonths} 个月里，你继续处理当前选择带来的现实后果。本轮事件关注的是：${input.nodeEvent?.intent.meaning || "如何在现有生活条件下形成新的可执行方向"}。工作、家庭、健康和资源约束仍然存在，你没有把普通社交接触解释成已经成立的亲密关系。\n\n到了新的决策节点，真正需要确认的是执行强度、风险边界和替代路径。你可以继续推进，也可以降低投入或调整方向；任何关系阶段变化仍需等待对应事件和你的明确选择。`;
+  const eventMeta: EventMeta = {
+    ...(input.nodeEventMeta || { eventTags: [] }),
+    fallbackReason: RELATIONSHIP_AUTHORITY_FALLBACK_REASON
+  };
+  const fallbackExpectedWorldDeltaTypes = input.nodeEvent?.routeLine === "romance"
+    ? []
+    : fallbackWorldDeltaTypes({ ...input.node, eventMeta });
+  return {
+    eventMeta,
+    node: {
+      ...input.node,
+      title: input.nodeEvent?.title || "现实路径的重新校准",
+      description: fallbackDescription,
+      descriptionParagraphs: splitNarrativeParagraphs(fallbackDescription),
+      eventMeta,
+      choices: fallbackChoiceTexts.map((text, index) => {
+        const outcome = fallbackOutcomes[index % fallbackOutcomes.length];
+        return {
+          id: String.fromCharCode(65 + index),
+          text,
+          impactSummary: ["继续推进", "控制风险", "调整方向"][index],
+          eventOutcomeId: outcome,
+          decisionIntent: `fallback:${input.nodeEvent?.intent.type || "ordinary"}:${outcome}`,
+          expectedWorldDeltaTypes: fallbackExpectedWorldDeltaTypes
+        };
+      }),
+      narrativeMeta: input.node.narrativeMeta ? {
+        ...input.node.narrativeMeta,
+        activeCharacters: [],
+        relationshipProposals: [],
+        worldDeltas: (input.node.narrativeMeta.worldDeltas || []).filter((delta) => delta.type !== "relationship_change"),
+        storyEpisode: {
+          ...input.node.narrativeMeta.storyEpisode,
+          summary: fallbackDescription
+        }
+      } : input.node.narrativeMeta
+    }
+  };
+}
+
+/**
+ * Debt-surface authority deliberately clears financial fallback telemetry when
+ * it has repaired a debt claim. A relation-only deterministic fallback occurs
+ * earlier and must be re-marked after all later surface writers have finished,
+ * otherwise production audit treats a rendered fallback as an ordinary node.
+ */
+function markRelationshipAuthorityNarrativeFallback(node: SimulationNode): SimulationNode {
+  const meta = node.financialProcessingMeta;
+  if (!meta) return node;
+  return {
+    ...node,
+    financialProcessingMeta: {
+      ...meta,
+      narrativeFallback: true,
+      narrativeFallbackReasonCodes: [...new Set([
+        ...(meta.narrativeFallbackReasonCodes || []),
+        RELATIONSHIP_AUTHORITY_FALLBACK_TELEMETRY_CODE
+      ])],
+      narrativeFallbackSurfacePaths: [...new Set([
+        ...(meta.narrativeFallbackSurfacePaths || []),
+        RELATIONSHIP_AUTHORITY_FALLBACK_SURFACE_PATH
+      ])],
+      narrativeRepairAttempts: Math.max(1, meta.narrativeRepairAttempts || 0),
+      narrativeRepairSucceeded: false
+    }
+  };
+}
+
+/**
+ * This is deliberately a surface repair, not a second financial proposal. It
+ * keeps every description sentence and choice that remains valid against the
+ * relationship authority, removes only the rejected relationship surface, and
+ * therefore cannot erase already accepted financial facts after the ledger has
+ * been committed.
+ */
+export function repairRelationshipAuthorityFinalSurface(input: {
+  node: SimulationNode;
+  nodeEvent?: LifeEventSeed;
+  nodeEventMeta?: EventMeta;
+  elapsedMonths: number;
+  targetAgeInMonths: number;
+  people: WorldStateSnapshot["people"];
+  worldState: WorldStateSnapshot;
+}): { node: SimulationNode; eventMeta: EventMeta } {
+  const fallback = buildRelationshipAuthorityDeterministicFallback(input);
+  const eventMeta = fallback.eventMeta;
+  const metadataStripped = stripUnauthorizedRomanticCharacters(input.node, input.worldState);
+  const withoutRelationshipMetadata: SimulationNode = {
+    ...metadataStripped,
+    eventMeta,
+    narrativeMeta: metadataStripped.narrativeMeta ? {
+      ...metadataStripped.narrativeMeta,
+      relationshipProposals: [],
+      worldDeltas: (metadataStripped.narrativeMeta.worldDeltas || []).filter((delta) => delta.type !== "relationship_change")
+    } : metadataStripped.narrativeMeta
+  };
+  const hasRelationshipConflict = (candidate: SimulationNode) => validateStoryConsistency({
+    node: candidate,
+    targetAgeInMonths: input.targetAgeInMonths,
+    people: input.people,
+    worldState: input.worldState
+  }).some((issue) => issue.severity === "error" && issue.code === "relationship_authority_conflict");
+
+  // Begin from known-safe choices and an empty description, then add only the
+  // original user-visible fragments that remain legal. This is a monotonic
+  // cleanup: a retained financial sentence is never rewritten or inferred.
+  let repaired: SimulationNode = {
+    ...withoutRelationshipMetadata,
+    choices: fallback.node.choices,
+    description: "",
+    descriptionParagraphs: []
+  };
+  if (hasRelationshipConflict(repaired)) {
+    repaired = { ...repaired, title: fallback.node.title };
+  }
+
+  // Paragraphs often contain both a ledger-backed sentence and the offending
+  // relationship assertion. Split every supplied paragraph into sentences so
+  // removing the latter never silently drops the former.
+  const originalFragments = (input.node.descriptionParagraphs?.length
+    ? input.node.descriptionParagraphs.flatMap((paragraph) => paragraph.split(/(?<=[。！？；\n])/u))
+    : input.node.description.split(/(?<=[。！？；\n])/u)
+  ).map((fragment) => fragment.trim()).filter(Boolean);
+  const retainedFragments: string[] = [];
+  for (const fragment of originalFragments) {
+    const nextDescription = [...retainedFragments, fragment].join("\n\n");
+    const candidate = {
+      ...repaired,
+      description: nextDescription,
+      descriptionParagraphs: splitNarrativeParagraphs(nextDescription)
+    };
+    if (!hasRelationshipConflict(candidate)) {
+      retainedFragments.push(fragment);
+      repaired = candidate;
+    }
+  }
+  if (retainedFragments.length === 0) {
+    repaired = {
+      ...repaired,
+      description: fallback.node.description,
+      descriptionParagraphs: fallback.node.descriptionParagraphs
+    };
+  }
+
+  input.node.choices.forEach((choice, index) => {
+    const choices = repaired.choices.map((fallbackChoice, choiceIndex) => (
+      choiceIndex === index ? choice : fallbackChoice
+    ));
+    const candidate = { ...repaired, choices };
+    if (!hasRelationshipConflict(candidate)) repaired = candidate;
+  });
+
+  return {
+    eventMeta,
+    node: {
+      ...repaired,
+      narrativeMeta: repaired.narrativeMeta ? {
+        ...repaired.narrativeMeta,
+        storyEpisode: {
+          ...repaired.narrativeMeta.storyEpisode,
+          summary: repaired.description
+        }
+      } : repaired.narrativeMeta
+    }
+  };
 }
 
 function readRomanceCandidateRepair(value: unknown): NonNullable<SimulationNode["narrativeMeta"]>["activeCharacters"][number] | undefined {
@@ -2976,7 +5033,7 @@ function deferredRomanceEventIds(history: HistoryItem[]): string[] {
   return pending && pending.nodesSinceFallback < 2 ? [pending.requestedEventId] : [];
 }
 
-export async function generateNextNode(
+async function generateNextNodeAttempt(
   input: GenerateNextNodeInput,
   deps: SimulationServiceDeps = {}
 ): Promise<SimulationNode> {
@@ -2992,7 +5049,9 @@ export async function generateNextNode(
   // A restored v2 ledger is upgraded only as a working candidate. The HistoryItem
   // remains byte-for-byte unchanged until a new node is committed.
   const currentFinancialLedger = lastNode?.financialLedger
-    ? migrateFinancialLedgerV2ToV3(lastNode.financialLedger as unknown as FinancialLedgerInput)
+    ? isFinancialLedgerV4(lastNode.financialLedger)
+      ? structuredClone(lastNode.financialLedger)
+      : migrateFinancialLedgerV2ToV3(lastNode.financialLedger as unknown as FinancialLedgerInput)
     : undefined;
   const nodeIndex = input.nodeIndex ?? input.history.length;
   const dispatchFlags = relationshipDispatchFeatureFlags(deps.relationshipDispatchFeatureFlags);
@@ -3322,6 +5381,17 @@ export async function generateNextNode(
   }
   const people = rebuildPersonStates(input.userData, input.history, timelineAdvance.targetAgeInMonths, currentWorldState.people, input.answers);
   const worldState = { ...currentWorldState, people };
+  // `currentWorldState` already contains accepted relationship selections and
+  // a migrated CareerState. Preserve those compatibility facts in the
+  // baseline, but retain the last committed people/family/relationship sets
+  // so a newly reconstructed accepted child or family transition is visible
+  // to the lifecycle as a real state delta rather than a prose regex hit.
+  const expenseLifecycleBaselineWorldState: WorldStateSnapshot = {
+    ...currentWorldState,
+    people: structuredClone(baseWorldState.people),
+    relationships: structuredClone(baseWorldState.relationships || []),
+    familyRelationships: structuredClone(baseWorldState.familyRelationships || [])
+  };
   const ageContext = buildAgeContext({
     previousAgeInMonths: currentAgeInMonths,
     targetAgeInMonths: timelineAdvance.targetAgeInMonths,
@@ -3346,7 +5416,8 @@ export async function generateNextNode(
     ageContext,
     worldState,
     foregroundPressureArc: workingPressureArc,
-    pressureArcInterleaved: isPressureArcInterleave
+    pressureArcInterleaved: isPressureArcInterleave,
+    financialGateRetryReasonCodes: deps.financialGateRetryReasonCodes
   };
   const promptLayout = cacheAwarePromptV1
     ? buildNextNodePromptLayout(promptInput, { cacheAwarePromptV2 })
@@ -3481,6 +5552,9 @@ export async function generateNextNode(
     previousState: currentFinancialState
   });
   node = stripUnauthorizedRomanticCharacters(node, worldState);
+  // Later financial/narrative sanitizers can require a relation-only final
+  // surface fallback; keep that telemetry scoped to this generated node.
+  let relationshipAuthorityFallbackApplied = false;
   node = stripUnauthorizedRelationshipChoices(node, worldState);
   if (containsForbiddenArcWrite(latestRawNode)) {
     latestRawNode = stripForbiddenArcWrites(latestRawNode);
@@ -3508,6 +5582,225 @@ export async function generateNextNode(
         ]
       }
     };
+  }
+
+  // Relationship authority has a narrow, explicit repair contract. In the
+  // production Candidate-Patch mode, repair only the relation-owned surfaces
+  // first and fall back deterministically if that bounded patch is malformed.
+  // A full-node rewrite is reserved for deployments where Candidate Patch is
+  // disabled; otherwise a local authority conflict needlessly doubles the
+  // complete-generation count and can exhaust the user-visible retry budget.
+  let relationshipConsistencyIssues = validateStoryConsistency({
+    node,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    people,
+    worldState
+  });
+  if (
+    !isDeterministicRomanceIntent(nodeEvent?.intent.type)
+    && hasOnlyRelationshipAuthorityConflicts(relationshipConsistencyIssues)
+  ) {
+    const relationshipAuthorityRepairRule = `关系事实只能保持当前权威值：${worldState.relationships.map((relationship) => (
+      `stage=${relationship.stage || "unknown"}, status=${relationship.status}`
+    )).join("；") || "暂无 active relationship"}。共同计划、长期安排或时间流逝不是同居、婚姻或生育的授权。请删除而不是改写为既成事实的同居、领证/结婚、婚后称谓、孩子出生、接送、托育和共同育儿；只有当前权威人物中已有 relation=child 时，才可保留既有育儿日常。`;
+    const relationshipAuthorityFinalPatchRule = `【关系权威最终修复】\n上一次完整节点修复仍然让爱情正文或选项超前于权威关系状态。只修复当前候选的允许表面，并严格执行：\n1. 只写上一步 selectedDecision 和本次事件种子的现实后果；\n2. 当前事件不是爱情形成或关系 checkpoint，description 与 choices 必须删除新伴侣、具体爱情候选、约会、追求、表白、正式交往、复合、同居、领证、结婚、婚后称谓、孩子出生、接送、托育、共同育儿或分手；\n3. 可以写普通社交、参加活动、认识普通朋友，但不得让某个具体人物成为发展对象；\n4. 只能返回 node_candidate_patch_v1 合同，不得返回完整节点或解释。`;
+    const applyFullRelationshipRepairResponse = (response: { text: string }) => {
+      latestRawNode = stripForbiddenArcWrites(parseAiJsonResponse(response));
+      if (containsForbiddenArcWrite(latestRawNode)) {
+        throw new AiClientError("AI_RESPONSE_INVALID", "关系权威修复结果包含未授权的 Arc 状态修改。");
+      }
+      node = normalizeSimulationNode(latestRawNode, {
+        fallbackAge: timelineAdvance.targetAge,
+        minAge: timelineAdvance.targetAge,
+        maxAge: timelineAdvance.targetAge,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        previousAgeInMonths: currentAgeInMonths,
+        elapsedMonths: timelineAdvance.elapsedMonths,
+        lifeIntensity: timelineAdvance.lifeIntensity,
+        pressureArcId: workingPressureArc?.id
+      });
+      node = { ...node, isEndingNode: false, eventMeta: nodeEventMeta };
+      node = attachPendingFinancialContext({ node, previousState: currentFinancialState });
+      node = stripUnauthorizedRomanticCharacters(node, worldState);
+      node = stripUnauthorizedRelationshipChoices(node, worldState);
+      relationshipConsistencyIssues = validateStoryConsistency({
+        node,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        people,
+        worldState
+      });
+    };
+    const targetedRelationshipPatchAvailable = deps.enableCandidatePatchRepair === true
+      && canPatch(generationBudget);
+    if (!targetedRelationshipPatchAvailable) {
+      const repairedSurface = repairRelationshipAuthorityFinalSurface({
+        node,
+        nodeEvent,
+        nodeEventMeta,
+        elapsedMonths: timelineAdvance.elapsedMonths,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        people,
+        worldState
+      });
+      const repairedIssues = validateStoryConsistency({
+        node: repairedSurface.node,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        people,
+        worldState
+      });
+      if (!hasOnlyRelationshipAuthorityConflicts(repairedIssues)) {
+        node = repairedSurface.node;
+        nodeEventMeta = repairedSurface.eventMeta;
+        latestRawNode = {
+          ...latestRawNode,
+          ...node,
+          financialEventProposals: rawFinancialEventProposals(latestRawNode)
+        };
+        relationshipConsistencyIssues = repairedIssues;
+        relationshipAuthorityFallbackApplied = true;
+      }
+    }
+    if (
+      hasOnlyRelationshipAuthorityConflicts(relationshipConsistencyIssues)
+      && canRegenerate(generationBudget)
+      && !targetedRelationshipPatchAvailable
+    ) {
+      const candidateRevision = consumeFullGeneration(generationBudget);
+      const response = await traceGenerationCall({
+        kind: "full_regeneration",
+        context: {
+          transactionId,
+          nodeIndex,
+          candidateRevision,
+          issueCodes: [CANDIDATE_ISSUE.storyConsistency]
+        },
+        listener: deps.onGenerationCallTrace,
+        operation: async (markFirstToken) => {
+          const result = await callAiJson(`${prompt}\\n\\n【年龄与状态一致性修复】\\n${relationshipConsistencyIssues.map((issue) => issue.message).join("；")}；${relationshipAuthorityRepairRule}\\n请重新生成完整节点，不得修改 Arc 状态。`);
+          markFirstToken();
+          return result;
+        }
+      });
+      applyFullRelationshipRepairResponse(response);
+    }
+    if (
+      hasOnlyRelationshipAuthorityConflicts(relationshipConsistencyIssues)
+      && deps.enableCandidatePatchRepair === true
+      && canPatch(generationBudget)
+    ) {
+      deps.onGenerationStage?.("repairing");
+      consumeModelPatch(generationBudget);
+      const relationshipIssue = repairIssue({
+        code: CANDIDATE_ISSUE.storyConsistency,
+        message: `${relationshipConsistencyIssues.map((issue) => `${issue.code}:${issue.message}`).join("；")}；${relationshipAuthorityRepairRule}\n${relationshipAuthorityFinalPatchRule}`,
+        surfaces: ["titleReplacement", "descriptionParagraphPatches", "replacementChoices", "narrativeMetaPatch"],
+        authorityContext: {
+          careerRevision: worldState.careerRevision ?? 0,
+          relationshipRevision: worldState.relationshipRevision ?? 0,
+          familyRelationshipRevision: worldState.familyRelationshipRevision ?? 0,
+          relationshipAuthorityRule: relationshipAuthorityRepairRule
+        }
+      });
+      const skeleton: LockedCandidateSkeleton = {
+        simulationSeed,
+        branchFingerprint,
+        nodeIndex,
+        transactionId,
+        sourceSelectedDecision: input.selectedDecision,
+        selectedOutcomeId,
+        currentAgeInMonths,
+        targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+        elapsedMonths: timelineAdvance.elapsedMonths,
+        lifeIntensity: timelineAdvance.lifeIntensity,
+        eventId: nodeEvent?.id,
+        eventIntentType: nodeEvent?.intent.type,
+        allowedOutcomeIds: nodeEvent?.intent.allowedOutcomes ?? [],
+        foregroundPressureArcId: workingPressureArc?.id,
+        pressureArcPhasePolicyId: workingPressureArc?.phasePolicyId,
+        pressureArcPhaseId: workingPressureArc?.phaseId,
+        worldStateFingerprint: fingerprintWorldState(worldState),
+        worldStateVersion: worldState.version,
+        careerRevision: worldState.careerRevision ?? 0,
+        relationshipRevision: worldState.relationshipRevision ?? 0,
+        familyRelationshipRevision: worldState.familyRelationshipRevision ?? 0,
+        ledgerRevision: currentFinancialLedger?.revision,
+        authoritativeCharacterIds: worldState.people.map((person) => person.id),
+        relationshipCheckpointKey: relationshipCheckpoint ? relationshipCheckpointKey(relationshipCheckpoint) : undefined
+      };
+      const candidate: SimulationNodeCandidate = {
+        ...node,
+        financialEventProposals: rawFinancialEventProposals(latestRawNode)
+      };
+      const envelope = createNodeCandidateEnvelope({
+        candidateRevision: generationBudget.fullGenerationsUsed === 1 ? 0 : 1,
+        skeleton,
+        candidate,
+        requestedIssueCodes: [relationshipIssue.code],
+        allowedPatchSurfaces: relationshipIssue.surfaces
+      });
+      let patchResult: ApplyNodeCandidatePatchResult | undefined;
+      try {
+        patchResult = await traceGenerationCall({
+          kind: "candidate_patch",
+          context: {
+            transactionId,
+            nodeIndex,
+            candidateRevision: envelope.candidateRevision,
+            candidateHash: envelope.baseCandidateHash,
+            issueCodes: [relationshipIssue.code]
+          },
+          listener: deps.onGenerationCallTrace,
+          operation: async (markFirstToken) => {
+            const response = await callAiJson(buildNodeCandidatePatchPrompt({ envelope, issues: [relationshipIssue] }));
+            markFirstToken();
+            let parsedPatch;
+            try {
+              parsedPatch = parseNodeCandidatePatch(response.text);
+            } catch (error) {
+              throw new AiClientError("AI_RESPONSE_INVALID", "关系权威最终修复未返回合法 Candidate Patch JSON。", { cause: error });
+            }
+            const appliedPatch = applyNodeCandidatePatch(envelope, parsedPatch);
+            if ("code" in appliedPatch) {
+              throw new AiClientError("AI_RESPONSE_INVALID", `${appliedPatch.code}:${appliedPatch.message}`);
+            }
+            return appliedPatch;
+          }
+        });
+      } catch (error) {
+        // The model gets a single bounded Patch attempt. A complete node or an
+        // invalid patch is deliberately not normalized as a replacement: its
+        // failed trace is retained and the deterministic authority fallback
+        // below owns the final rendered result.
+        if (!(error instanceof AiClientError) || error.code !== "AI_RESPONSE_INVALID") throw error;
+      }
+      if (patchResult?.ok) {
+        const patchedCandidate = patchResult.envelope.candidate;
+        const { financialEventProposals, ...patchedNode } = patchedCandidate;
+        node = attachPendingFinancialContext({
+          node: stripUnauthorizedRomanticCharacters(patchedNode as SimulationNode, worldState),
+          previousState: currentFinancialState
+        });
+        node = stripUnauthorizedRelationshipChoices(node, worldState);
+        latestRawNode = { ...node, financialEventProposals };
+        relationshipConsistencyIssues = validateStoryConsistency({
+          node,
+          targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+          people,
+          worldState
+        });
+      }
+    }
+    if (hasOnlyRelationshipAuthorityConflicts(relationshipConsistencyIssues)) {
+      const fallback = buildRelationshipAuthorityDeterministicFallback({
+        node,
+        nodeEvent,
+        nodeEventMeta,
+        elapsedMonths: timelineAdvance.elapsedMonths
+      });
+      node = fallback.node;
+      nodeEventMeta = fallback.eventMeta;
+      relationshipAuthorityFallbackApplied = true;
+    }
   }
 
   let candidateDecisionGate = evaluateDecisionGate({
@@ -3583,6 +5876,31 @@ export async function generateNextNode(
   };
 
   let candidateIssues = collectPreSettlementIssues();
+  if (
+    candidateIssues.length > 0
+    && candidateIssues.every((issue) => issue.code === CANDIDATE_ISSUE.debtNarrative)
+  ) {
+    const currentDebtAuthority = deriveDebtNarrativeAuthority({
+      ledger: currentFinancialLedger,
+      debtHealthState: lastNode?.debtHealthState,
+      periodStartAgeInMonths: currentAgeInMonths,
+      acceptedCompletedEventKinds: []
+    });
+    const debtSurfaceIssues = collectDebtNarrativeSurfaceIssues({ node, authority: currentDebtAuthority });
+    if (debtSurfaceIssues.length > 0) {
+      node = repairDebtNarrativeSurfaces({
+        node,
+        authority: currentDebtAuthority,
+        issues: debtSurfaceIssues
+      });
+      latestRawNode = {
+        ...latestRawNode,
+        ...node,
+        financialEventProposals: rawFinancialEventProposals(latestRawNode)
+      };
+      candidateIssues = collectPreSettlementIssues();
+    }
+  }
   if (candidateIssues.length > 0 && deps.enableCandidatePatchRepair === true && canPatch(generationBudget)) {
     deps.onGenerationStage?.("repairing");
     consumeModelPatch(generationBudget);
@@ -3776,7 +6094,16 @@ export async function generateNextNode(
     policy: DEFAULT_ENDING_POLICY
   });
   if (endingDecision.shouldEnd || shouldForceBrowserE2eEnding(latestRawNode)) {
-    const endingPrompt = buildEndingNodePrompt({ userData: input.userData, history: input.history, candidateNode: node, targetAgeInMonths: timelineAdvance.targetAgeInMonths, forcedByHardMaximum: endingDecision.forcedByHardMaximum });
+    const endingPrompt = buildEndingNodePrompt({
+      userData: input.userData,
+      history: input.history,
+      candidateNode: node,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      forcedByHardMaximum: endingDecision.forcedByHardMaximum,
+      selectedOutcomeId,
+      currentFinancialLedger,
+      financialGateRetryReasonCodes: deps.financialGateRetryReasonCodes
+    });
     const response = await traceGenerationCall({
       kind: "final_outcome_generation",
       context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "final_outcome" },
@@ -3788,7 +6115,7 @@ export async function generateNextNode(
         return result;
       }
     });
-    const rawEnding = parseAiJsonResponse(response);
+    const rawEnding = await ensureGeneratedChoiceTexts(parseAiJsonResponse(response), callAiJson);
     const normalizedEnding = normalizeSimulationNode(rawEnding, {
       fallbackAge: timelineAdvance.targetAge,
       minAge: timelineAdvance.targetAge,
@@ -3837,16 +6164,41 @@ export async function generateNextNode(
       transactionId: endingTransactionId,
       previousWealth: input.currentAttributes.wealth,
       callAiJson,
+      financialNodeGateMode: deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE,
+      expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+      expenseNarrativeBindingMode: compatibleExpenseNarrativeBindingMode({
+        expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+        expenseNarrativeBindingMode: deps.expenseNarrativeBindingMode ?? DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE
+      }),
+      onFinancialGateDecision: deps.onFinancialGateDecision,
+      financialGateRegenerationCount: deps.financialGateRegenerationCount ?? 0,
       nodeIndex,
       onGenerationCallTrace: deps.onGenerationCallTrace,
       generationBudget
     });
     endingNode = authoritativeFinance.node;
+    const finalEndingOutcome = validateNodeOutcomeProposal({
+      worldDeltas: endingNode.narrativeMeta?.worldDeltas,
+      arcSignals: endingNode.narrativeMeta?.arcSignals,
+      policy: pressureArcPolicy,
+      narrativeText: endingNode.description,
+      expectedSourceOutcomeId: selectedOutcomeId
+    });
+    requireFinalExpenseResponsibilityEvidence({
+      initialOutcome: endingOutcome,
+      finalOutcome: finalEndingOutcome,
+      narrativeText: endingNode.description,
+      expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+      transactionId: endingTransactionId,
+      regenerationCount: deps.financialGateRegenerationCount ?? 0,
+      authoritativeAgeBefore: currentAgeInMonths,
+      onFinancialGateDecision: deps.onFinancialGateDecision
+    });
     return commitSimulationTransaction({
       transactionId: endingTransactionId,
       node: endingNode,
       storyEpisode: endingNode.narrativeMeta!.storyEpisode,
-      acceptedOutcome: endingOutcome,
+      acceptedOutcome: finalEndingOutcome,
       pressureArcTransition: terminalTransition,
       currentWorldStateSnapshot: authoritativeFinance.worldState,
       domainTransactionAlreadyCommitted: true
@@ -4134,6 +6486,17 @@ export async function generateNextNode(
     };
   }
 
+  const legacyIncomeEvidenceNarrativeRepair = reconcileLegacyIncomeProposalEvidenceNarrative({
+    node,
+    rawNode: latestRawNode,
+    ledger: currentFinancialLedger,
+    currentCareerState: currentCareerState(worldState)!,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    acceptedOutcomeId: selectedOutcomeId
+  });
+  node = legacyIncomeEvidenceNarrativeRepair.node;
+  latestRawNode = legacyIncomeEvidenceNarrativeRepair.rawNode;
+
   const financialCandidateOutcome = validateNodeOutcomeProposal({
     worldDeltas: node.narrativeMeta?.worldDeltas,
     arcSignals: node.narrativeMeta?.arcSignals,
@@ -4149,6 +6512,7 @@ export async function generateNextNode(
     currentLedger: currentFinancialLedger,
     previousDebtHealthState: lastNode?.debtHealthState,
     currentWorldState: worldState,
+    expenseLifecycleBaselineWorldState,
     acceptedOutcome: financialCandidateOutcome,
     acceptedOutcomeId: selectedOutcomeId,
     selectedDecision: input.selectedDecision,
@@ -4157,6 +6521,14 @@ export async function generateNextNode(
     transactionId,
     previousWealth: input.currentAttributes.wealth,
     callAiJson,
+    financialNodeGateMode: deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE,
+    expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+    expenseNarrativeBindingMode: compatibleExpenseNarrativeBindingMode({
+      expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+      expenseNarrativeBindingMode: deps.expenseNarrativeBindingMode ?? DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE
+    }),
+    onFinancialGateDecision: deps.onFinancialGateDecision,
+    financialGateRegenerationCount: deps.financialGateRegenerationCount ?? 0,
     nodeIndex,
     onGenerationCallTrace: deps.onGenerationCallTrace,
     generationBudget
@@ -4225,6 +6597,67 @@ export async function generateNextNode(
     throw new AiClientError("AI_RESPONSE_INVALID", committedDebtNarrativeIssues.join("；"));
   }
 
+  // Financial/debt surface repair can replace full paragraphs and choices after
+  // the first relationship check.  Re-close the authority boundary on the
+  // final, user-visible node before any SimulationTransaction is committed.
+  let finalSurfaceConsistencyIssues = validateStoryConsistency({
+    node,
+    targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+    people: authoritativeFinance.worldState.people,
+    worldState: authoritativeFinance.worldState
+  });
+  if (
+    !isDeterministicRomanceIntent(nodeEvent?.intent.type)
+    && hasOnlyRelationshipAuthorityConflicts(finalSurfaceConsistencyIssues)
+  ) {
+    // Later debt/financial writers may preserve a stale candidateOrdinal or
+    // replace a paragraph after the earlier repair. Repair only relation-owned
+    // surfaces here; accepted ledger-derived financial content stays intact.
+    const repairedSurface = repairRelationshipAuthorityFinalSurface({
+      node,
+      nodeEvent,
+      nodeEventMeta,
+      elapsedMonths: timelineAdvance.elapsedMonths,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      people: authoritativeFinance.worldState.people,
+      worldState: authoritativeFinance.worldState
+    });
+    node = sanitizeSimulationNodeFinancialNarrative(
+      repairedSurface.node,
+      repairedSurface.node.financialState!,
+      repairedSurface.node.financialLedger
+    );
+    nodeEventMeta = repairedSurface.eventMeta;
+    relationshipAuthorityFallbackApplied = true;
+    finalSurfaceConsistencyIssues = validateStoryConsistency({
+      node,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      people: authoritativeFinance.worldState.people,
+      worldState: authoritativeFinance.worldState
+    });
+  }
+  if (finalSurfaceConsistencyIssues.some((issue) => issue.severity === "error")) {
+    throw new AiClientError(
+      "AI_RESPONSE_INVALID",
+      finalSurfaceConsistencyIssues.filter((issue) => issue.severity === "error").map((issue) => issue.message).join("；")
+    );
+  }
+  if (relationshipAuthorityFallbackApplied) {
+    // Apply after debt authority has intentionally reset its own fallback
+    // fields, so a relation-only rendered fallback is visible to production
+    // audits without pretending that it was a debt narrative failure.
+    node = markRelationshipAuthorityNarrativeFallback(node);
+  }
+  if (legacyIncomeEvidenceNarrativeRepair.reasonCodes.length > 0 && node.financialProcessingMeta) {
+    node = {
+      ...node,
+      financialProcessingMeta: {
+        ...node.financialProcessingMeta,
+        candidateNarrativeRepairReasonCodes: legacyIncomeEvidenceNarrativeRepair.reasonCodes
+      }
+    };
+  }
+
   // Financial repair and narrative sanitization may change the final evidence
   // text. Revalidate from that final narrative, then reduce the Arc against the
   // same node's closing debt health so recovery never lags by one checkpoint.
@@ -4234,6 +6667,16 @@ export async function generateNextNode(
     policy: pressureArcPolicy,
     narrativeText: node.description,
     expectedSourceOutcomeId: selectedOutcomeId
+  });
+  requireFinalExpenseResponsibilityEvidence({
+    initialOutcome: financialCandidateOutcome,
+    finalOutcome: acceptedOutcome,
+    narrativeText: node.description,
+    expenseLifecycleMode: deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE,
+    transactionId,
+    regenerationCount: deps.financialGateRegenerationCount ?? 0,
+    authoritativeAgeBefore: currentAgeInMonths,
+    onFinancialGateDecision: deps.onFinancialGateDecision
   });
   const reducedPressureArcTransition = reducePressureArc({
     currentArc: workingPressureArc,
@@ -4281,6 +6724,53 @@ export async function generateNextNode(
   return invitationDecision.invitation
     ? { ...committed.node, reportInvitation: invitationDecision.invitation }
     : committed.node;
+}
+
+export async function generateNextNode(
+  input: GenerateNextNodeInput,
+  deps: SimulationServiceDeps = {}
+): Promise<SimulationNode> {
+  const gateMode = deps.financialNodeGateMode ?? DEFAULT_FINANCIAL_NODE_GATE_MODE;
+  const expenseMode = deps.expenseLifecycleMode ?? DEFAULT_EXPENSE_LIFECYCLE_MODE;
+  const narrativeBindingMode = compatibleExpenseNarrativeBindingMode({
+    expenseLifecycleMode: expenseMode,
+    expenseNarrativeBindingMode: deps.expenseNarrativeBindingMode ?? DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE
+  });
+  const initialRegenerationCount = deps.financialGateRegenerationCount ?? 0;
+  let lastGateError: FinancialNodeGateError | undefined;
+  for (
+    let regenerationCount = initialRegenerationCount;
+    regenerationCount <= FINANCIAL_GATE_MAX_REGENERATIONS;
+    regenerationCount += 1
+  ) {
+    try {
+      return await generateNextNodeAttempt(input, {
+        ...deps,
+        financialNodeGateMode: gateMode,
+        expenseLifecycleMode: expenseMode,
+        expenseNarrativeBindingMode: narrativeBindingMode,
+        financialGateRegenerationCount: regenerationCount,
+        // Review telemetry remains in the rejection diagnostic, but asking the
+        // model to repair it alongside a hard gate failure encourages invented
+        // expense facts. Regeneration must receive only the reasons that
+        // actually prevented the Preview from committing.
+        financialGateRetryReasonCodes: lastGateError?.decision.blockingReasonCodes
+          ?? deps.financialGateRetryReasonCodes
+      });
+    } catch (error) {
+      if (!(error instanceof FinancialNodeGateError) || (gateMode !== "enforced" && expenseMode !== "enforced")) throw error;
+      lastGateError = error;
+      // Production shares one bounded generation budget across the full
+      // financial-gate loop. Once it has no full candidate generation left,
+      // preserve the last authoritative rejection instead of entering another
+      // attempt solely to surface an internal budget-exhausted error.
+      if (
+        regenerationCount === FINANCIAL_GATE_MAX_REGENERATIONS
+        || (deps.generationBudget && !canRegenerate(deps.generationBudget))
+      ) throw error;
+    }
+  }
+  throw lastGateError || new AiClientError("AI_RESPONSE_INVALID", "财务节点未通过接受门");
 }
 
 export interface AnalyzePersonalityInput {

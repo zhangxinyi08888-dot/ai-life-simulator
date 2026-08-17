@@ -24,7 +24,14 @@ const SEMANTIC_CANONICALIZATIONS: Array<[RegExp, string]> = [
 ];
 
 function semanticChoiceTokens(choice: SimulationChoice): Set<string> {
-  let source = `${normalizedIntent(choice)} ${choice.text}`.toLowerCase();
+  let intent = normalizedIntent(choice);
+  // Deterministic recovery choices carry routing metadata in the form
+  // `event:<event-id>:<actual-action>:node-<index>`.  Event and node identity
+  // are shared by all three choices and must not dominate the semantic
+  // comparison; only the action segment describes what the user can choose.
+  const structuredEventIntent = intent.match(/^event:[^:]+:(.+?)(?::node-\d+)?$/u);
+  if (structuredEventIntent) intent = structuredEventIntent[1];
+  let source = `${intent} ${choice.text}`.toLowerCase();
   for (const [pattern, replacement] of SEMANTIC_CANONICALIZATIONS) {
     source = source.replace(pattern, replacement);
   }

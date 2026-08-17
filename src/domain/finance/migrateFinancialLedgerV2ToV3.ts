@@ -29,8 +29,9 @@ function migrateDebt(account: DebtAccountV2 | DebtAccount): DebtAccount {
  * deterministic and idempotent so a restore boundary may call it safely.
  */
 export function migrateFinancialLedgerV2ToV3(input: FinancialLedgerV2): FinancialLedger;
+export function migrateFinancialLedgerV2ToV3(input: FinancialLedger): FinancialLedger;
 export function migrateFinancialLedgerV2ToV3(input: FinancialLedgerInput): FinancialLedger;
-export function migrateFinancialLedgerV2ToV3(input: FinancialLedgerInput): FinancialLedger {
+export function migrateFinancialLedgerV2ToV3(input: FinancialLedgerInput | FinancialLedger): FinancialLedger {
   const isPersistedV2 = input.version === 2;
   const ledger = structuredClone(input) as Omit<FinancialLedger, "version" | "debtAccounts"> & {
     version: 3;

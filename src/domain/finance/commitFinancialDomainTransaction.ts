@@ -2,12 +2,19 @@ import type { EmploymentStatus, WorldStateSnapshot } from "../../types";
 import { currentCareerState, reduceCareerStates } from "../career/careerState";
 import type { AcceptedCareerTransition, CareerStateCollection } from "../career/types";
 import { deriveFinancialState } from "./deriveFinancialState";
-import { estimatedBasicLivingCommitment } from "./financialEstimationPolicy";
+import { buildExpenseLifecycleReviewPlan } from "./expenseLifecycleReview";
+import { estimatedBasicLivingCommitment, type FinancialEstimationContext } from "./financialEstimationPolicy";
+import type { ExpenseResponsibilityEstimateContext } from "./expenseEstimationPolicyV2";
 import { FinancialLedgerInvariantError } from "./ledgerMath";
+import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4";
 import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
+import { reconcileUnclassifiedCoreExpense } from "./reconcileUnclassifiedCoreExpense";
+import { requiresHardLateLifeCareerIncomeResolution } from "./lateLifeCareerIncomePolicy";
+import { isFinancialLedgerV4 } from "./types";
 import type {
   AcceptedFinancialEvent,
   DerivedFinancialStateResult,
+  ExpenseCommitment,
   FinancialLedger,
   FinancialLedgerIssue,
   FinancialPeriodSummary,
@@ -97,24 +104,88 @@ function addOrObserveIssue(ledger: FinancialLedger, issue: FinancialLedgerIssue,
   return next;
 }
 
+/**
+ * Phase 0 still creates the deterministic adult basic-living floor.  A V4
+ * ledger, however, may only receive a canonical responsibility record.  Keep
+ * that compatibility conversion at the write boundary rather than changing
+ * the V3 policy helper used by historical fixtures and migrations.
+ */
+function addAutomaticBasicLivingCommitment(input: {
+  ledger: FinancialLedger;
+  commitment: ExpenseCommitment;
+  asOfAgeInMonths: number;
+}): FinancialLedgerIssue[] {
+  if (isFinancialLedgerV4(input.ledger)) {
+    const canonical = canonicalizeExpenseCommitmentV4({
+      commitment: input.commitment,
+      asOfAgeInMonths: input.asOfAgeInMonths
+    });
+    input.ledger.expenseCommitments.push(canonical.commitment);
+    return canonical.issues;
+  }
+  input.ledger.expenseCommitments.push(input.commitment);
+  return [];
+}
+
+function ensureDefaultStudentFamilySupport(input: {
+  ledger: FinancialLedger;
+  monthlyAmountWan: number;
+  activeFromAgeInMonths: number;
+}): void {
+  const active = input.ledger.incomeSources.find((source) => (
+    source.status === "active" && isDefaultStudentFamilySupport(source)
+  ));
+  if (active) {
+    active.monthlyNetAmountWan = input.monthlyAmountWan;
+    return;
+  }
+  const baseId = "student_basic_family_support";
+  const id = input.ledger.incomeSources.some((source) => source.id === baseId)
+    ? `${baseId}_${input.activeFromAgeInMonths}`
+    : baseId;
+  input.ledger.incomeSources.push({
+    id,
+    type: "family_support",
+    displayName: "学生基础生活费家庭支持",
+    monthlyNetAmountWan: input.monthlyAmountWan,
+    accrualPolicy: "monthly",
+    activeFromAgeInMonths: input.activeFromAgeInMonths,
+    status: "active",
+    factStatus: "estimated",
+    evidence: [{
+      source: "system_policy",
+      reasonCode: "STUDENT_BASIC_LIVING_FAMILY_COVERED",
+      confidence: 0.6
+    }]
+  });
+}
+
 function applyPreAccrualFactCompletenessPolicy(input: {
   ledger: FinancialLedger;
   events: AcceptedFinancialEvent[];
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
   employmentStatus: EmploymentStatus;
+  currentCareerStateId: string;
+  basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
-  const isPolicyOrLegacyEstimate = (commitment: FinancialLedger["expenseCommitments"][number]) => (
-    commitment.status === "active"
-    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
-    && commitment.evidence.some((item) => item.source === "system_policy"
-      || (item.source === "legacy_migration" && item.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION"))
+  const isEstimatedOrNeedsReview = (factStatus: unknown) => (
+    factStatus === "estimated" || factStatus === "needs_review"
+  );
+  const isAdultBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
+    commitment.type === "basic_living"
+    // V3 had no responsibility identity, so its basic_living record remains
+    // the compatibility proxy.  Once V4 identifies a legacy aggregate, it is
+    // no longer eligible for the adult basic-living floor.
+    && (commitment.responsibilityKind === undefined || commitment.responsibilityKind === "adult_basic_living")
+  );
+  const isActiveAdultBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
+    commitment.status === "active" && isAdultBasicLiving(commitment)
   );
   const isPolicyManagedBasicLiving = (commitment: FinancialLedger["expenseCommitments"][number]) => (
-    commitment.type === "basic_living"
-    && commitment.status === "active"
-    && (commitment.factStatus === "estimated" || commitment.factStatus === "needs_review")
+    isActiveAdultBasicLiving(commitment)
+    && isEstimatedOrNeedsReview(commitment.factStatus)
     && commitment.evidence.some((item) => item.source === "system_policy"
       || (item.source === "legacy_migration" && item.reasonCode === "LEGACY_FINANCIAL_STATE_MIGRATION"))
   );
@@ -123,16 +194,43 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   ));
   const startsBasicLivingEvent = input.events.find((event) => (
     event.kind === "expense_commitment_started"
-    && (event.payload as { type?: string }).type === "basic_living"
+    && (event.payload as { type?: string; responsibilityKind?: string }).type === "basic_living"
+    && ((event.payload as { responsibilityKind?: string }).responsibilityKind === undefined
+      || (event.payload as { responsibilityKind?: string }).responsibilityKind === "adult_basic_living")
   ));
-  const authoritativeSingletonStarts = input.events.filter((event) => (
+  const authoritativeBasicLivingStarts = input.events.filter((event) => (
     event.kind === "expense_commitment_started"
-    && ["basic_living", "housing"].includes((event.payload as { type?: string }).type || "")
+    && (event.payload as { type?: string; responsibilityKind?: string }).type === "basic_living"
+    && ((event.payload as { responsibilityKind?: string }).responsibilityKind === undefined
+      || (event.payload as { responsibilityKind?: string }).responsibilityKind === "adult_basic_living")
   ));
-  for (const event of authoritativeSingletonStarts) {
-    const nextType = (event.payload as { type: string }).type;
+  for (const event of authoritativeBasicLivingStarts) {
+    const nextCommitment = event.payload as {
+      monthlyAmountWan?: number;
+      factStatus?: string;
+      evidence?: FinancialLedger["expenseCommitments"][number]["evidence"];
+    };
+    const previousEstimate = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
+    // A low-confidence start is not evidence that a previously accepted or
+    // migrated basic-living amount has become cheaper.  Keep the existing
+    // cash-flow protection when the model only supplies another estimate; an
+    // explicit known amount remains allowed to lower it.
+    if (previousEstimate
+      && isEstimatedOrNeedsReview(nextCommitment.factStatus)
+      && Number.isFinite(Number(nextCommitment.monthlyAmountWan))
+      && Number(nextCommitment.monthlyAmountWan) < previousEstimate.monthlyAmountWan) {
+      nextCommitment.monthlyAmountWan = previousEstimate.monthlyAmountWan;
+      const evidence = Array.isArray(nextCommitment.evidence) ? nextCommitment.evidence : [];
+      if (!evidence.some((item) => item.reasonCode === "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED")) {
+        nextCommitment.evidence = [...evidence, {
+          source: "system_policy",
+          reasonCode: "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED",
+          confidence: 1
+        }];
+      }
+    }
     for (const commitment of input.ledger.expenseCommitments) {
-      if (commitment.type !== nextType || !isPolicyOrLegacyEstimate(commitment)) continue;
+      if (!isPolicyManagedBasicLiving(commitment)) continue;
       commitment.status = "ended";
       commitment.activeUntilAgeInMonths = event.effectiveAtAgeInMonths;
     }
@@ -141,28 +239,39 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     if (event.kind !== "expense_commitment_adjusted" && event.kind !== "expense_commitment_ended") return false;
     const commitmentId = (event.payload as { expenseCommitmentId?: string }).expenseCommitmentId;
     return input.ledger.expenseCommitments.some((commitment) => (
-      commitment.id === commitmentId && commitment.type === "basic_living"
+      commitment.id === commitmentId && isAdultBasicLiving(commitment)
     ));
   });
   const activeSystemEstimate = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
   for (const event of input.events) {
     if (event.kind !== "expense_commitment_adjusted") continue;
     const existing = input.ledger.expenseCommitments.find((commitment) => (
-      commitment.id === event.payload.expenseCommitmentId && isPolicyManagedBasicLiving(commitment)
+      commitment.id === event.payload.expenseCommitmentId && isActiveAdultBasicLiving(commitment)
     ));
     if (!existing) continue;
     const next = event.payload.nextCommitment;
-    const remainsEstimated = next.factStatus === "estimated" || next.factStatus === "needs_review";
+    const remainsEstimated = isEstimatedOrNeedsReview(next.factStatus);
     if (!remainsEstimated) continue;
     const policyFloor = estimatedBasicLivingCommitment({
       ageInMonths: event.effectiveAtAgeInMonths,
-      employmentStatus: input.employmentStatus
+      employmentStatus: input.employmentStatus,
+      ...input.basicLivingEstimateContext
     });
-    if (!policyFloor || next.monthlyAmountWan >= policyFloor.monthlyAmountWan) continue;
-    next.monthlyAmountWan = policyFloor.monthlyAmountWan;
+    const protectedMinimum = Math.max(existing.monthlyAmountWan, policyFloor?.monthlyAmountWan || 0);
+    if (next.monthlyAmountWan >= protectedMinimum) continue;
+    next.monthlyAmountWan = protectedMinimum;
+    // An estimated lower figure cannot downgrade an already confirmed amount
+    // while it is being blocked.  Preserve its fact authority as well as the
+    // cash-flow amount until an explicit accepted reduction arrives.
+    if (existing.factStatus === "known") next.factStatus = "known";
     next.evidence = [
-      ...(next.evidence || []).filter((item) => item.source !== "system_policy"),
-      ...policyFloor.evidence
+      ...(existing.factStatus === "known" ? existing.evidence : (next.evidence || []).filter((item) => item.source !== "system_policy")),
+      ...(policyFloor?.evidence || []),
+      {
+        source: "system_policy",
+        reasonCode: "BASIC_LIVING_DOWNWARD_REPLACEMENT_BLOCKED",
+        confidence: 1
+      }
     ];
   }
   // An accepted adjustment/closure is the authority for this period. Do not
@@ -176,12 +285,20 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       : input.periodStartAgeInMonths;
     const nextEstimate = estimatedBasicLivingCommitment({
       ageInMonths: policyBoundary,
-      employmentStatus: input.employmentStatus
+      employmentStatus: input.employmentStatus,
+      ...input.basicLivingEstimateContext
     });
-    if (nextEstimate && nextEstimate.monthlyAmountWan !== activeSystemEstimate.monthlyAmountWan) {
+    // The policy value is a floor for adult basic living, not a replacement
+    // estimate for the whole account.  It may only raise a lower baseline;
+    // notably it must never turn a legacy 1.5 万/月 estimate into 0.35.
+    if (nextEstimate && nextEstimate.monthlyAmountWan > activeSystemEstimate.monthlyAmountWan) {
       activeSystemEstimate.activeUntilAgeInMonths = policyBoundary;
       if (policyBoundary <= input.periodStartAgeInMonths) activeSystemEstimate.status = "ended";
-      input.ledger.expenseCommitments.push(nextEstimate);
+      issues.push(...addAutomaticBasicLivingCommitment({
+        ledger: input.ledger,
+        commitment: nextEstimate,
+        asOfAgeInMonths: policyBoundary
+      }));
       if (input.employmentStatus === "student") {
         for (const source of input.ledger.incomeSources) {
           if (source.status === "active" && isDefaultStudentFamilySupport(source)) {
@@ -200,14 +317,74 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     }
   }
   if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveBasicLiving && !startsBasicLivingEvent) {
-    const estimatedLiving = estimatedBasicLivingCommitment({ ageInMonths: input.periodStartAgeInMonths });
-    if (estimatedLiving) input.ledger.expenseCommitments.push(estimatedLiving);
+    const estimatedLiving = estimatedBasicLivingCommitment({
+      ageInMonths: input.periodStartAgeInMonths,
+      employmentStatus: input.employmentStatus,
+      ...input.basicLivingEstimateContext
+    });
+    if (estimatedLiving) {
+      issues.push(...addAutomaticBasicLivingCommitment({
+        ledger: input.ledger,
+        commitment: estimatedLiving,
+        asOfAgeInMonths: input.periodStartAgeInMonths
+      }));
+    }
+  }
+  if (input.employmentStatus === "student") {
+    const policyManagedLiving = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
+    if (policyManagedLiving) {
+      ensureDefaultStudentFamilySupport({
+        ledger: input.ledger,
+        monthlyAmountWan: policyManagedLiving.monthlyAmountWan,
+        activeFromAgeInMonths: input.periodStartAgeInMonths
+      });
+    }
+  }
+
+  // A legacy identifier is only referential stability, not proof that an
+  // estimated recurring income remains current.  This has to run before the
+  // reducer accrues the period: applying the quarantine afterwards lets
+  // shadow/off callers count one more unsupported wage even though the same
+  // candidate is already due for a current compensation fact.
+  for (const source of input.ledger.incomeSources) {
+    if (source.status !== "active"
+      || !source.id.startsWith("legacy_")
+      || !["estimated", "needs_review"].includes(source.factStatus)
+      || source.accrualPolicy === "event_only"
+      || source.accrualReviewStatus === "quarantined") continue;
+    const hasAcceptedResolution = input.events.some((event) => {
+      if (!eventReferences(event).incomeSourceIds.includes(source.id)) return false;
+      if (event.kind === "income_source_ended") return true;
+      if (event.kind !== "income_source_adjusted") return false;
+      return (event.payload as { nextSource?: { factStatus?: string } }).nextSource?.factStatus === "known";
+    });
+    if (hasAcceptedResolution) continue;
+    const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
+    const materialTransactions = input.ledger.recentTransactions.filter((transaction) => (
+      transaction.periodEndAgeInMonths > lastConfirmedAt
+    )).length;
+    // The candidate transaction itself would become the next material node,
+    // so use the same threshold as the Preview prompt and quarantine it before
+    // that node can accrue an extra unconfirmed period.
+    if (input.periodEndAgeInMonths - lastConfirmedAt < 36 && materialTransactions + 1 < 3) continue;
+    source.factStatus = "needs_review";
+    source.accrualReviewStatus = "quarantined";
+    issues.push({
+      id: `pending_fact_legacy_income_${source.id}`,
+      code: "PENDING_FACT",
+      severity: "warning",
+      status: "open",
+      relatedProposalIds: [],
+      relatedIncomeSourceIds: [source.id],
+      summary: `旧版估算收入 ${source.displayName} 已连续多个实质节点未获确认，确定性计提已隔离；下一节点需要确认当前收入`,
+      createdAtAgeInMonths: input.periodEndAgeInMonths
+    });
   }
 
   if (input.periodEndAgeInMonths >= 55 * 12) {
     const confirmedIncomeIds = new Set(input.events.flatMap((event) => eventReferences(event).incomeSourceIds));
     for (const source of input.ledger.incomeSources) {
-      if (source.status !== "active" || !source.linkedCareerStateId || source.accrualPolicy === "event_only") continue;
+      if (!requiresHardLateLifeCareerIncomeResolution({ source, currentCareerStateId: input.currentCareerStateId })) continue;
       if (confirmedIncomeIds.has(source.id)) continue;
       const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
       if (input.periodStartAgeInMonths - lastConfirmedAt < 36) continue;
@@ -228,11 +405,107 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   return issues;
 }
 
+function isExpenseReviewIssue(issue: FinancialLedgerIssue): boolean {
+  return issue.id.startsWith("expense_lifecycle_review_")
+    || issue.id.startsWith("expense_review_due_");
+}
+
+/**
+ * A due-review issue represents an unresolved amount or responsibility
+ * boundary.  Merely touching the same account must not make that missing fact
+ * disappear: a narrative-only/needs-review adjustment still needs a stable
+ * prompt and issue on later nodes.  Only an exact Accepted amount, an
+ * explicitly authorized pause, or an Accepted ending actually closes it.
+ */
+function acceptedEventResolvesExpenseReviewIssue(event: AcceptedFinancialEvent): boolean {
+  if (event.kind === "expense_commitment_ended") return true;
+  if (event.kind !== "expense_commitment_adjusted") return false;
+  const payload = event.payload as {
+    nextCommitment?: {
+      factStatus?: string;
+      amountBasis?: string;
+      status?: string;
+    };
+    changeReason?: string;
+  };
+  const next = payload.nextCommitment;
+  if (!next) return false;
+  if (next.status === "paused" && payload.changeReason) return true;
+  return next.factStatus === "known"
+    && (next.amountBasis === "explicit_known" || next.amountBasis === "explicit_shared_amount");
+}
+
+function acceptedEventResolvesTypedExpenseIssue(input: {
+  issue: FinancialLedgerIssue;
+  event: AcceptedFinancialEvent;
+  accountIds: string[];
+}): boolean {
+  const { issue, event } = input;
+  if (!issue.expenseResolutionKind || !issue.expenseResponsibilityKey) return false;
+  const resolution = event.expenseConfirmationResolution;
+  if (issue.expenseResolutionKind === "exact_amount" || issue.expenseResolutionKind === "shared_allocation") {
+    return Boolean(
+      resolution
+      && resolution.disposition === "confirmed_exact"
+      && resolution.resolutionKind === issue.expenseResolutionKind
+      && resolution.responsibilityKey === issue.expenseResponsibilityKey
+      && resolution.targetIssueIds.includes(issue.id)
+      && input.accountIds.includes(resolution.accountId)
+      && ((issue.relatedAccountIds || []).length === 0
+        || (issue.relatedAccountIds || []).includes(resolution.accountId))
+    );
+  }
+  if (issue.expenseResolutionKind === "end_or_pause_authority") {
+    if (event.kind === "expense_commitment_ended") {
+      return (issue.relatedAccountIds || []).includes(event.payload.expenseCommitmentId);
+    }
+    return event.kind === "expense_commitment_adjusted"
+      && event.payload.nextCommitment.status === "paused"
+      && Boolean(event.payload.changeReason)
+      && (issue.relatedAccountIds || []).includes(event.payload.expenseCommitmentId);
+  }
+  if (issue.expenseResolutionKind === "aggregate_split") {
+    return event.kind === "expense_commitment_ended"
+      && event.payload.changeReason === "aggregate_atomically_split"
+      && (issue.relatedAccountIds || []).includes(event.payload.expenseCommitmentId);
+  }
+  // payer_scope requires a future code-stamped Accepted payer/scope resolver;
+  // touching or repricing the account is deliberately insufficient.
+  return false;
+}
+
 function resolveIssuesFromAcceptedEvents(ledger: FinancialLedger, events: AcceptedFinancialEvent[], ageInMonths: number): void {
   for (const event of events) {
     const refs = eventReferences(event);
     for (const issue of ledger.unresolvedIssues) {
       if (issue.status === "resolved") continue;
+      // A system review says only that an existing amount is overdue for
+      // confirmation.  It must not resolve its own pending-fact issue: the
+      // issue stays open (and is observed on later nodes) until an Accepted
+      // amount, responsibility change, or closure supplies the missing fact.
+      // Older snapshots use `expense_lifecycle_review_`; V4 writes the stable
+      // `expense_review_due_` identity.
+      const isSystemGeneratedExpenseReview = isExpenseReviewIssue(issue)
+        && event.evidence.some((evidence) => (
+          evidence.source === "system_policy"
+          && (evidence.reasonCode === "EXPENSE_REVIEW_DUE" || evidence.reasonCode === "SYSTEM_POLICY_REVIEW")
+        ));
+      if (isSystemGeneratedExpenseReview) continue;
+      if (issue.expenseResolutionKind && issue.expenseResponsibilityKey
+        && !acceptedEventResolvesTypedExpenseIssue({
+          issue,
+          event,
+          accountIds: refs.accountIds
+        })) continue;
+      if (isExpenseReviewIssue(issue) && !acceptedEventResolvesExpenseReviewIssue(event)) continue;
+      // A V4 aggregate/component gap is intentionally durable: a scheduled
+      // review acknowledges that the aggregate is still uncertain, it does
+      // not establish the coverage relation or authorize a split.  Only an
+      // explicit accepted component/split fact may close this issue.
+      const isAggregateGapOnlyReviewed = issue.code === "EXPENSE_OPENING_COMPONENT_GAP"
+        && event.evidence.some((evidence) => evidence.source === "system_policy"
+          && evidence.reasonCode === "SYSTEM_POLICY_REVIEW");
+      if (isAggregateGapOnlyReviewed) continue;
       const resolvesMissingExpense = issue.id === "pending_fact_missing_adult_expense"
         && event.kind === "expense_commitment_started";
       const resolvesCoverage = (issue.id.startsWith("narrative_coverage_property_") && (event.kind === "asset_purchased" || event.kind === "asset_balance_discovered"))
@@ -355,28 +628,6 @@ function applyPendingFactPolicy(ledger: FinancialLedger, issues: FinancialLedger
   }
 }
 
-function addLegacyIncomeReconfirmation(ledger: FinancialLedger, ageInMonths: number): void {
-  for (const source of ledger.incomeSources) {
-    if (source.status !== "active" || !source.id.startsWith("legacy_") || source.factStatus !== "estimated" || source.accrualReviewStatus === "quarantined") continue;
-    const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
-    const materialTransactions = ledger.recentTransactions.filter((transaction) => transaction.periodEndAgeInMonths > lastConfirmedAt).length;
-    if (ageInMonths - lastConfirmedAt < 36 && materialTransactions < 3) continue;
-    source.factStatus = "needs_review";
-    source.accrualReviewStatus = "quarantined";
-    const issueId = `pending_fact_legacy_income_${source.id}`;
-    addOrObserveIssue(ledger, {
-      id: issueId,
-      code: "PENDING_FACT",
-      severity: "warning",
-      status: "open",
-      relatedProposalIds: [],
-      relatedIncomeSourceIds: [source.id],
-      summary: `旧版估算收入 ${source.displayName} 已连续多个实质节点未获确认，确定性计提已隔离；下一节点需要确认当前收入`,
-      createdAtAgeInMonths: ageInMonths
-    }, ageInMonths);
-  }
-}
-
 function resolveRecoveredDebtDelinquencyIssues(
   ledger: FinancialLedger,
   ageInMonths: number,
@@ -417,6 +668,8 @@ export interface FinancialDomainTransactionInput {
   acceptedFinancialEvents: AcceptedFinancialEvent[];
   financialIssues?: FinancialLedgerIssue[];
   liquidityPolicy?: LiquidityPolicy;
+  basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
+  aggregateExpenseEstimateContext?: Omit<ExpenseResponsibilityEstimateContext, "responsibilityKind" | "ageInMonths">;
 }
 
 export interface CommittedFinancialDomainTransaction {
@@ -489,15 +742,31 @@ export function commitFinancialDomainTransaction(
     events: input.acceptedFinancialEvents,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
-    employmentStatus: nextCurrentCareerState.employmentStatus
+    employmentStatus: nextCurrentCareerState.employmentStatus,
+    currentCareerStateId: nextCurrentCareerState.id,
+    basicLivingEstimateContext: input.basicLivingEstimateContext
   });
+  const unclassifiedExpenseEvents = isFinancialLedgerV4(settlementLedger) && input.aggregateExpenseEstimateContext
+    ? reconcileUnclassifiedCoreExpense({
+      ledger: settlementLedger,
+      transactionId: input.transactionId,
+      periodStartAgeInMonths: input.periodStartAgeInMonths,
+      periodEndAgeInMonths: input.periodEndAgeInMonths,
+      acceptedFinancialEvents: input.acceptedFinancialEvents,
+      estimateContext: input.aggregateExpenseEstimateContext
+    })
+    : [];
+  const transactionFinancialEvents = [
+    ...input.acceptedFinancialEvents,
+    ...unclassifiedExpenseEvents
+  ];
   const financialResult = reduceFinancialLedger({
     ledger: settlementLedger,
     transactionId: input.transactionId,
     expectedLedgerRevision: input.expectedLedgerRevision,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
-    events: input.acceptedFinancialEvents,
+    events: transactionFinancialEvents,
     liquidityPolicy: input.liquidityPolicy
   });
   if (financialResult.alreadyCommitted || !("periodSummary" in financialResult)) {
@@ -517,16 +786,32 @@ export function commitFinancialDomainTransaction(
       source.status = "ended";
     }
   }
-  const newIssues = [...completenessIssues, ...(input.financialIssues || [])];
+  const providedIssues = [...completenessIssues, ...(input.financialIssues || [])];
+  const providedIssueIds = new Set(providedIssues.map((issue) => issue.id));
+  // A long simulation period can create a new responsibility at its start and
+  // cross that responsibility's first review deadline before the node is
+  // committed.  The pre-period lifecycle plan cannot see that new account.
+  // Record the boundary issue now so the committed node never contains a
+  // silently stale responsibility; the next transaction remains the sole
+  // writer of any review transition or authoritative amount change.
+  const periodBoundaryReviewIssues = isFinancialLedgerV4(committedLedger)
+    ? buildExpenseLifecycleReviewPlan({
+      ledger: committedLedger,
+      ageInMonths: input.periodEndAgeInMonths,
+      proposalNamespace: `system_expense_period_boundary_${input.transactionId}`
+    }).issues
+      .filter((issue) => !providedIssueIds.has(issue.id))
+      .map((issue) => ({ ...issue, relatedProposalIds: [] }))
+    : [];
+  const newIssues = [...providedIssues, ...periodBoundaryReviewIssues];
   const observedIssues = newIssues.map((issue) => addOrObserveIssue(committedLedger, issue, input.periodEndAgeInMonths));
   // Preserve the rejected sibling as an auditable pending fact first, then let
   // the accepted event resolve both records in the same transaction. This keeps
   // the history honest without allowing the rejected sibling to quarantine an
   // income source that was authoritatively confirmed.
   applyPendingFactPolicy(committedLedger, observedIssues, input.periodEndAgeInMonths);
-  resolveIssuesFromAcceptedEvents(committedLedger, input.acceptedFinancialEvents, input.periodEndAgeInMonths);
+  resolveIssuesFromAcceptedEvents(committedLedger, transactionFinancialEvents, input.periodEndAgeInMonths);
   resolveCareerTransitionIssues(committedLedger, input.acceptedCareerTransitions, input.periodEndAgeInMonths);
-  addLegacyIncomeReconfirmation(committedLedger, input.periodEndAgeInMonths);
   resolveRecoveredDebtDelinquencyIssues(committedLedger, input.periodEndAgeInMonths, input.transactionId);
   const nextWorldState: WorldStateSnapshot = {
     ...structuredClone(input.currentWorldState),

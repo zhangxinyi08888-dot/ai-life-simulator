@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "financial-expense-responsibility-gold-v2",
+  "corpusKind": "frozen_gold",
+  "nodeIndexBase": 0,
+  "reviewer": "human",
+  "purpose": "Versioned deterministic regression corpus promoted from the 2026-08-01 fresh five-route human annotations. It freezes the seven missed material responsibilities and the false-positive boundaries that caused the failed release evidence. It is not generated from the detector.",
+  "annotations": [
+    {
+      "caseSlug": "real-career-first-release",
+      "nodeIndex": 7,
+      "evidenceExcerpt": "你主动把每月医疗补贴从1200元提到1500元。",
+      "expectedAction": "adjust",
+      "expectedType": "healthcare",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "recurring_healthcare:opening_parent",
+      "expectedMonthlyAmountWan": 0.15,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-relationship-first-release",
+      "nodeIndex": 9,
+      "evidenceExcerpt": "给家里请了一位每周来三次的钟点工，负责打扫和做晚饭，每月多出两千四的固定开销。",
+      "expectedAction": "start",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:parents",
+      "expectedMonthlyAmountWan": 0.24,
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-education-second-release",
+      "nodeIndex": 5,
+      "evidenceExcerpt": "年初刚续租了公司附近的房子。",
+      "expectedAction": "start",
+      "expectedType": "housing",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 8,
+      "evidenceExcerpt": "父亲血压偏高需要长期监测，医生开了降压药。为了更好照顾父母，我调整了每月回家的频率。",
+      "expectedAction": "review",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:parents",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 32,
+      "evidenceExcerpt": "父母已过百岁，虽身体尚可，但已需要更多照料。你每隔几周会去看望他们，或请人帮忙照看。",
+      "expectedAction": "start",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:parents",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 35,
+      "evidenceExcerpt": "父母已过百岁，请人照护的费用逐年增加。",
+      "expectedAction": "review",
+      "expectedType": "dependent_support",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "elder_care:parents",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 42,
+      "evidenceExcerpt": "将房租和伙食费从共同账户支付，其他个人开支保持独立。",
+      "expectedAction": "start",
+      "expectedType": "housing",
+      "expectedScope": "shared_household",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": true,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-education-second-release",
+      "nodeIndex": 0,
+      "evidenceExcerpt": "家里明确表示承担国内学费没问题。",
+      "expectedAction": "ignore",
+      "expectedScope": "third_party",
+      "expectedResponsibilityKey": "continuing_education:opening",
+      "material": false,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-venture-second-release",
+      "nodeIndex": 1,
+      "evidenceExcerpt": "房贷每月1.3万元的固定支出。",
+      "expectedAction": "ignore",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": false,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-venture-second-release",
+      "nodeIndex": 21,
+      "evidenceExcerpt": "每月1.4万元顾问费勉强维持着生活。",
+      "expectedAction": "ignore",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "personal_insurance:main",
+      "material": false,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 16,
+      "evidenceExcerpt": "协助她把老家的房子租了出去，租金定期转入她的账户。",
+      "expectedAction": "ignore",
+      "expectedScope": "third_party",
+      "expectedResponsibilityKey": "primary_residence:main",
+      "material": false,
+      "reviewer": "human"
+    },
+    {
+      "caseSlug": "real-custom-lifespan-release",
+      "nodeIndex": 32,
+      "evidenceExcerpt": "父母已过百岁，虽身体尚可，但已需要更多照料。",
+      "expectedAction": "ignore",
+      "expectedScope": "personal",
+      "expectedResponsibilityKey": "personal_insurance:main",
+      "material": false,
+      "reviewer": "human"
+    }
+  ]
+}

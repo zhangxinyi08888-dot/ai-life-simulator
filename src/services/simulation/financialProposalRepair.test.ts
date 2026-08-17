@@ -4,7 +4,7 @@ import { initializeFinancialLedger } from "../../domain/finance/initializeLedger
 import { PRIMARY_CASH_ACCOUNT_ID } from "../../domain/finance/ledgerMath";
 import type { FinancialEvidence } from "../../domain/finance/types";
 import { buildFinancialProposalRepairPrompt, formatRestrictedFinancialLedger } from "./prompts";
-import { buildDeterministicFinancialNarrativeRollback, extractMisplacedEmploymentTransition, isCompanyOperatingNarrativeProposal, resolveSelectedOutcomeId, settleRejectedFinancialProposalIssues, stillClaimsRejectedDebtDraw, stillClaimsRejectedDebtRestructure, synthesizeMissingBusinessHoldingStartProposal, synthesizeMissingBusinessOptionGrantProposal, synthesizeMissingDebtCompletionProposals, synthesizeSelectedCareerTransition, validateSelectedDecisionConsistency } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, extractMisplacedEmploymentTransition, isCompanyOperatingNarrativeProposal, resolveSelectedOutcomeId, selectedDecisionExplicitlyRetires, settleRejectedFinancialProposalIssues, stillClaimsRejectedDebtDraw, stillClaimsRejectedDebtRestructure, synthesizeMissingBusinessHoldingStartProposal, synthesizeMissingBusinessOptionGrantProposal, synthesizeMissingDebtCompletionProposals, synthesizeSelectedCareerTransition, validateSelectedDecisionConsistency } from "./simulationService";
 import type { HistoryItem } from "../../types";
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "TEST", confidence: 1 }];
@@ -70,6 +70,121 @@ test("repair prompt supplies rejection reasons, period bounds and the unique out
   assert.match(prompt, /confidence 必须在 0.6-1 之间/);
   assert.match(prompt, /employmentTransition/);
   assert.match(prompt, /原子组/);
+  assert.match(prompt, /payload\.type 只能是 basic_living、housing、dependent_support、education、healthcare、insurance、other/u);
+  assert.match(prompt, /绝不能返回 confirmed/u);
+  assert.match(prompt, /不要为 review_due 账户返回无变化的 adjusted Proposal/u);
+});
+
+test("expense fact repair exposes only identity and missing dimensions, never the old policy amount", () => {
+  const expenseLedger = structuredClone(ledger) as any;
+  expenseLedger.version = 4;
+  expenseLedger.expenseCommitments = [{
+    id: "rent_review",
+    type: "housing",
+    displayName: "当前住房",
+    monthlyAmountWan: 0.35,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "needs_review",
+    evidence: [],
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    amountBasis: "policy_floor",
+    amountSourceIds: ["policy:secret-old-floor"],
+    financialScope: "personal",
+    accrualReviewStatus: "review_due"
+  }];
+  const prompt = buildFinancialProposalRepairPrompt({
+    rejectedProposals: [{
+      id: "rent_confirmation",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 312,
+      payload: {
+        expenseCommitmentId: "rent_review",
+        nextCommitment: { ...expenseLedger.expenseCommitments[0], monthlyAmountWan: 0.5 }
+      },
+      sourceOutcomeId: "choice_1",
+      evidence: "你现在每月支付房租5000元。",
+      confidence: 0.9,
+      financialScope: "personal"
+    }],
+    issues: [{
+      id: "expense_confirmation_missing_payer",
+      code: "PENDING_FACT",
+      severity: "blocking",
+      relatedProposalIds: ["rent_confirmation"],
+      relatedAccountIds: ["rent_review"],
+      expenseResolutionKind: "payer_scope",
+      expenseResponsibilityKey: "primary_residence:main",
+      summary: "付款人仍待确认",
+      createdAtAgeInMonths: 312
+    }],
+    ledger: expenseLedger,
+    acceptedOutcomeId: "choice_1",
+    narrativeText: "你现在每月支付房租5000元。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312
+  });
+  assert.match(prompt, /missingField[\s\S]*payer_scope/u);
+  assert.match(prompt, /responsibilityKey=primary_residence:main/u);
+  assert.match(prompt, /不得复制旧账本/u);
+  assert.doesNotMatch(prompt, /0\.35/u);
+  assert.doesNotMatch(prompt, /policy:secret-old-floor/u);
+});
+
+test("exact downward repair exposes the current estimate only for audited replacement", () => {
+  const expenseLedger = structuredClone(ledger) as any;
+  expenseLedger.version = 4;
+  expenseLedger.expenseCommitments = [{
+    id: "rent_review",
+    type: "housing",
+    displayName: "当前住房",
+    monthlyAmountWan: 0.45,
+    grossMonthlyAmountWan: 0.45,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "needs_review",
+    evidence: [],
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["policy:old-estimate"],
+    financialScope: "personal",
+    accrualReviewStatus: "review_due"
+  }];
+  const prompt = buildFinancialProposalRepairPrompt({
+    rejectedProposals: [{
+      id: "rent_adjustment",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 312,
+      payload: {
+        expenseCommitmentId: "rent_review",
+        nextCommitment: { ...expenseLedger.expenseCommitments[0], monthlyAmountWan: 0.04 }
+      },
+      sourceOutcomeId: "choice_1",
+      evidence: "宿舍每月四百元的房租仍由你个人承担。",
+      confidence: 0.9,
+      financialScope: "personal"
+    }],
+    issues: [{
+      id: "expense_downward_missing_authority",
+      code: "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY",
+      severity: "blocking",
+      relatedProposalIds: ["rent_adjustment"],
+      relatedAccountIds: ["rent_review"],
+      summary: "下调必须保存 previousCommitmentId 和允许的变化原因",
+      createdAtAgeInMonths: 312
+    }],
+    ledger: expenseLedger,
+    acceptedOutcomeId: "choice_1",
+    narrativeText: "宿舍每月四百元的房租仍由你个人承担。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312
+  });
+  assert.match(prompt, /monthlyAmountWan=0\.45/u);
+  assert.match(prompt, /changeReason="estimate_superseded_by_exact_fact"/u);
+  assert.match(prompt, /省略 confirmedMonthlyAmountWan\/lastConfirmedAtAgeInMonths/u);
+  assert.doesNotMatch(prompt, /policy:old-estimate/u);
 });
 
 test("selected choices without eventOutcomeId receive a deterministic fallback authority id", () => {
@@ -153,6 +268,37 @@ test("a completed consultant transition is synthesized while a retained day job 
     currentStatus: "employed"
   });
   assert.equal(retained, undefined);
+});
+
+test("retirement savings and planning do not close an active career", () => {
+  const continuedWorkNarrative = "你决定继续留在城市，用稳定的工作收入支撑父母医疗和乡村教育，同时逐步建立保险和退休储蓄。";
+  for (const selectedDecision of [
+    "继续用稳定的工作收入支持父母医疗和乡村教育，并在未来五年积累退休储蓄安排。",
+    "继续当前岗位，完善退休规划，并保留稳定现金流。",
+    "决定退休储蓄目标，同时继续当前工作。"
+  ]) {
+    assert.equal(selectedDecisionExplicitlyRetires(selectedDecision), false);
+    assert.equal(synthesizeSelectedCareerTransition({
+      selectedDecision,
+      narrativeText: continuedWorkNarrative,
+      acceptedOutcomeId: "continue_work",
+      effectiveAtAgeInMonths: 417,
+      currentStatus: "employed"
+    }), undefined);
+  }
+});
+
+test("an explicit retirement action still closes the active career", () => {
+  for (const selectedDecision of ["正式退休，结束全职工作。", "办理退休，结束全职工作。", "办理退休手续，结束全职工作。"] ) {
+    assert.equal(selectedDecisionExplicitlyRetires(selectedDecision), true);
+    assert.equal(synthesizeSelectedCareerTransition({
+      selectedDecision,
+      narrativeText: "你结束了全职工作，开始安排退休生活。",
+      acceptedOutcomeId: "retire",
+      effectiveAtAgeInMonths: 720,
+      currentStatus: "employed"
+    })?.toStatus, "retired");
+  }
 });
 
 test("loan balance and active monthly payment claims require an accepted debt draw", () => {
@@ -400,6 +546,63 @@ test("rejected proposal diagnostics are closed after the proposal is not committ
   });
   assert.equal(issue.status, "resolved");
   assert.equal(issue.resolvedByEventId, "system:rejected_proposal_narrative_rollback");
+});
+
+test("rejected expense authority diagnostics remain blocking after a prose rollback", () => {
+  const [issue] = settleRejectedFinancialProposalIssues({
+    issues: [{
+      id: "expense_scope_collective_rent_300",
+      code: "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["collective_rent_as_personal"],
+      summary: "共同承担的房租缺少主角个人份额证据",
+      createdAtAgeInMonths: 300
+    }],
+    acceptedProposalIds: [],
+    rejectedProposalIds: ["collective_rent_as_personal"],
+    ageInMonths: 300,
+    narrativeRolledBack: true
+  });
+  assert.equal(issue.status, "open");
+});
+
+test("a generic validation failure from a lifecycle proposal remains blocking", () => {
+  const [issue] = settleRejectedFinancialProposalIssues({
+    issues: [{
+      id: "proposal_issue_system_expense_start_elder_care_303",
+      code: "UNBALANCED_TRANSACTION",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["system_expense_start_elder_care_303"],
+      summary: "持续赡养支出缺少可靠正文证据",
+      createdAtAgeInMonths: 303
+    }],
+    acceptedProposalIds: [],
+    rejectedProposalIds: ["system_expense_start_elder_care_303"],
+    ageInMonths: 303,
+    narrativeRolledBack: false
+  });
+  assert.equal(issue.status, "open");
+});
+
+test("a rejected career-income atomicity group remains blocking", () => {
+  const [issue] = settleRejectedFinancialProposalIssues({
+    issues: [{
+      id: "career_income_atomicity_new_role_303",
+      code: "CAREER_INCOME_CONFLICT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: ["new_role_transition"],
+      summary: "新职业没有唯一有效收入来源",
+      createdAtAgeInMonths: 303
+    }],
+    acceptedProposalIds: [],
+    rejectedProposalIds: ["new_role_transition"],
+    ageInMonths: 303,
+    narrativeRolledBack: false
+  });
+  assert.equal(issue.status, "open");
 });
 
 test("unresolved authoritative facts are not hidden by proposal settlement", () => {
@@ -820,10 +1023,10 @@ test("PB-CAREER-05 an accepted resignation-to-startup choice synthesizes self-em
   assert.equal(transition?.sourceOutcomeId, "start_company");
 });
 
-test("PB-CAREER-06 a return-to-work choice and accepted offer synthesize employed authority", () => {
+test("PB-CAREER-06 an actual return-to-work start with confirmed pay synthesizes employed authority", () => {
   const transition = synthesizeSelectedCareerTransition({
     selectedDecision: "C. 回归职场稳定",
-    narrativeText: "你决定结束创业，回归职场。最终你接受了年薪45万元的offer，税后月薪约2.6万元。",
+    narrativeText: "你决定结束创业，回归职场。最终你接受了年薪45万元的offer，并于本月正式入职，税后月薪约2.6万元。",
     acceptedOutcomeId: "return_to_work",
     effectiveAtAgeInMonths: 639
   });
@@ -852,7 +1055,7 @@ test("PB-CAREER-08 the accepted resignation choice remains authority when prose 
   assert.equal(transition?.evidence, "辞职创业，先用半年做出三个付费客户");
 });
 
-test("PB-CAREER-09 an internal promotion preserves the authoritative working status", () => {
+test("PB-CAREER-09 an internal promotion does not synthesize a no-op CareerTransition", () => {
   const transition = synthesizeSelectedCareerTransition({
     selectedDecision: "接受内部转岗，负责新的产品线",
     narrativeText: "你主动申请转岗，并被任命为新产品线负责人。",
@@ -860,8 +1063,7 @@ test("PB-CAREER-09 an internal promotion preserves the authoritative working sta
     effectiveAtAgeInMonths: 610,
     currentStatus: "employed"
   });
-  assert.equal(transition?.toStatus, "employed");
-  assert.match(transition?.evidence || "", /转岗|任命/);
+  assert.equal(transition, undefined);
 });
 
 test("PB-CAREER-16 a completed internship conversion commits employed even when the choice described the attempt", () => {

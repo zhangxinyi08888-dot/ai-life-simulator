@@ -20,6 +20,7 @@ export function fingerprintWorldState(worldState: WorldStateSnapshot): string {
     pressureArcs: worldState.pressureArcs,
     foregroundPressureArcId: worldState.foregroundPressureArcId,
     currentEmploymentStatus: worldState.currentEmploymentStatus,
+    pendingEmployerOffer: worldState.pendingEmployerOffer,
     careerStates: worldState.careerStates,
     currentCareerStateId: worldState.currentCareerStateId,
     careerRevision: worldState.careerRevision ?? 0,

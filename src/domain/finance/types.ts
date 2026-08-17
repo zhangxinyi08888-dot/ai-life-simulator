@@ -8,6 +8,18 @@ export type FinancialFactSource =
   | "system_policy"
   | "legacy_migration";
 
+/**
+ * A fact may be relevant to the expense classifier without being admissible
+ * to the protagonist's personal ledger.  V4 keeps that distinction explicit
+ * so a workshop or a parent's own bill cannot silently become a personal
+ * recurring commitment.
+ */
+export type FinancialScopeV4 =
+  | "personal"
+  | "shared_household"
+  | "business_operating"
+  | "third_party";
+
 export interface FinancialEvidence {
   source: FinancialFactSource;
   sourceNodeId?: string;
@@ -16,7 +28,7 @@ export interface FinancialEvidence {
   excerpt?: string;
   reasonCode: string;
   confidence: number;
-  financialScope?: "personal" | "business_operating";
+  financialScope?: FinancialScopeV4;
 }
 
 export interface CashAccount {
@@ -78,6 +90,49 @@ export interface IncomeSource {
 
 export type ExpenseCommitmentType = "basic_living" | "housing" | "dependent_support" | "education" | "healthcare" | "insurance" | "other";
 
+export type ExpenseResponsibilityKind =
+  | "adult_basic_living"
+  | "unclassified_core_consumption"
+  | "primary_residence"
+  | "child_support"
+  | "elder_care"
+  | "recurring_healthcare"
+  | "personal_insurance"
+  | "continuing_education"
+  | "legacy_aggregate";
+
+export type ExpenseAmountBasis =
+  | "explicit_known"
+  | "explicit_shared_amount"
+  | "last_known"
+  | "contextual_estimate"
+  | "policy_floor"
+  | "legacy_estimate";
+
+/**
+ * The auditable authority for a lower recurring expense, an end, or a
+ * temporary pause.  These are deliberately about a changed responsibility,
+ * never about cash pressure, employment status, elapsed time, or a policy
+ * version.  Those facts may trigger a review, but cannot remove cashflow.
+ */
+export type ExpenseCommitmentChangeReason =
+  | "residence_ended"
+  | "shared_responsibility_changed"
+  | "explicit_amount_reduced"
+  /** A new Accepted exact fact replaces a previously policy/context/legacy estimate. */
+  | "estimate_superseded_by_exact_fact"
+  | "dependent_independent"
+  | "care_responsibility_transferred"
+  | "care_recipient_deceased"
+  | "treatment_completed"
+  | "insurance_cancelled"
+  | "education_completed"
+  | "aggregate_atomically_split"
+  | "aggregate_residual_reallocated"
+  | "temporary_third_party_coverage"
+  | "responsibility_resumed"
+  | "responsibility_ended";
+
 export interface ExpenseCommitment {
   id: string;
   type: ExpenseCommitmentType;
@@ -87,9 +142,117 @@ export interface ExpenseCommitment {
   activeUntilAgeInMonths?: number;
   status: "active" | "paused" | "ended";
   factStatus: FinancialFactStatus;
-  accrualReviewStatus?: "normal" | "conservative";
+  accrualReviewStatus?: "normal" | "conservative" | "review_due";
+  evidence: FinancialEvidence[];
+
+  /**
+   * V4 fields stay optional on this compatibility shape so persisted V3
+   * ledgers and their restore fixtures remain readable.  New committed V4
+   * ledgers use ExpenseCommitmentV4 below, where every required field is
+   * made non-optional and enforced by ledger invariants.
+   */
+  responsibilityKey?: string;
+  responsibilityKind?: ExpenseResponsibilityKind;
+  grossMonthlyAmountWan?: number;
+  confirmedMonthlyAmountWan?: number;
+  plausibleMonthlyAmountRangeWan?: [number, number];
+  amountBasis?: ExpenseAmountBasis;
+  amountSourceIds?: string[];
+  estimationPolicyId?: string;
+  financialScope?: FinancialScopeV4;
+  participantPersonIds?: string[];
+  householdShareRate?: number;
+  lastConfirmedAtAgeInMonths?: number;
+  lastReviewedAtAgeInMonths?: number;
+  nextReviewAtAgeInMonths?: number;
+}
+
+/** Canonical recurring-expense record written by FinancialLedger v4 only. */
+export interface ExpenseCommitmentV4 extends ExpenseCommitment {
+  responsibilityKey: string;
+  responsibilityKind: ExpenseResponsibilityKind;
+  amountBasis: ExpenseAmountBasis;
+  amountSourceIds: string[];
+  financialScope: "personal" | "shared_household";
+  accrualReviewStatus: "normal" | "conservative" | "review_due";
+  nextReviewAtAgeInMonths: number;
+}
+
+export interface ExpenseResponsibilityCandidate {
+  id: string;
+  responsibilityKey: string;
+  responsibilityKind: ExpenseResponsibilityKind;
+  proposedType: ExpenseCommitmentType;
+  action: "start" | "adjust" | "end" | "review";
+  completion: "completed" | "ongoing" | "planned" | "hypothetical";
+  cadence: "one_off" | "monthly" | "quarterly" | "annual" | "recurring_unknown";
+  liability: "protagonist" | "shared" | "third_party" | "none" | "unknown";
+  financialScope: FinancialScopeV4;
+  explicitMonthlyTotalWan?: number;
+  protagonistShareWan?: number;
+  shareRate?: number;
+  amountSourceId?: string;
+  participantPersonIds: string[];
+  /**
+   * The accepted outcome named one parent role, but that role has not yet
+   * resolved to an accepted PersonState identity. It is an owner/identity
+   * review only and must not be widened to the aggregate `elder_care:parents`
+   * account by a same-node narrative fallback.
+   */
+  identityResolutionRequired?: boolean;
+  source: "user_fact" | "accepted_world_delta" | "accepted_outcome" | "narrative_supplement" | "scheduled_review";
+  /** Required whenever this candidate pauses, lowers, or permanently ends an existing V4 responsibility. */
+  changeReason?: ExpenseCommitmentChangeReason;
+  /** `adjust` may temporarily pause or later resume an existing responsibility; starts and ends use their own states. */
+  nextStatus?: "active" | "paused";
+  /**
+   * A newly accepted, higher-intensity responsibility observation can refresh
+   * an existing contextual estimate upward. This is deliberately not an
+   * amount fact: it never creates an account, confirms an amount, or lowers
+   * an existing accrual. The reconciler may use it only for an active
+   * `needs_review` contextual estimate of the same responsibility.
+   */
+  policyEstimateAdjustment?: "increase_only";
+  /**
+   * Non-persistent binding metadata. It is carried only from the narrative
+   * clause binder through reconciliation/gate telemetry; it never contributes
+   * to account identity or ledger math.
+   */
+  sourceFactBindingId?: string;
+  sourceSpans?: {
+    responsibility: ExpenseNarrativeTextSpan;
+    completion?: ExpenseNarrativeTextSpan;
+    payer?: ExpenseNarrativeTextSpan;
+    amount?: ExpenseNarrativeTextSpan;
+    cadence?: ExpenseNarrativeTextSpan;
+  };
+  sourceClause?: {
+    clauseId: string;
+    contextClauseIds: string[];
+    sentenceIndex: number;
+    clauseIndex: number;
+  };
+  sourceBindingDisposition?: "bound" | "owner_review" | "ambiguous";
+  sourceMateriality?: "nonmaterial" | "review" | "critical";
+  unresolvedFields?: Array<"completion" | "payer" | "scope" | "amount" | "share" | "cadence">;
+  sourceBindingReasonCodes?: string[];
   evidence: FinancialEvidence[];
 }
+
+/** A UTF-16 half-open span into one candidate narrative. */
+export interface ExpenseNarrativeTextSpan {
+  start: number;
+  end: number;
+  excerpt: string;
+}
+
+/** Which future Accepted fact is allowed to close a durable expense review. */
+export type ExpenseIssueResolutionKind =
+  | "exact_amount"
+  | "payer_scope"
+  | "shared_allocation"
+  | "end_or_pause_authority"
+  | "aggregate_split";
 
 export type DebtType = "mortgage" | "consumer_loan" | "student_loan" | "credit_balance" | "business_personal_guarantee" | "family_or_personal_loan" | "liquidity_shortfall";
 
@@ -226,7 +389,25 @@ export interface FinancialLedgerIssue {
     | "LIQUIDITY_SHORTFALL_PERSISTED"
     | "MODEL_OPENING_BALANCE_IGNORED"
     | "CAREER_STATE_STALE"
-    | "INVALID_ASSET_TYPE";
+    | "INVALID_ASSET_TYPE"
+    | "EXPENSE_BASELINE_DOWNWARD_OVERWRITE"
+    | "EXPENSE_RESPONSIBILITY_SCOPE_CONFLICT"
+    | "EXPENSE_BUSINESS_FLOW_IN_PERSONAL_LEDGER"
+    | "EXPENSE_THIRD_PARTY_LIABILITY"
+    | "EXPENSE_UNKNOWN_ZERO_AMOUNT"
+    | "EXPENSE_SHARED_AMOUNT_MISMATCH"
+    | "EXPENSE_DUPLICATE_RESPONSIBILITY"
+    | "EXPENSE_AGGREGATE_SPLIT_LOSS"
+    | "EXPENSE_END_WITHOUT_EVIDENCE"
+    | "EXPENSE_REVIEW_OVERDUE"
+    | "EXPENSE_OPENING_COMPONENT_GAP"
+    | "EXPENSE_MODEL_AGGREGATE_NOT_AUTHORITATIVE"
+    | "EXPENSE_DEBT_SERVICE_DOUBLE_COUNT"
+    | "EXPENSE_ESTIMATION_POLICY_MISSING"
+    | "EXPENSE_AMOUNT_SOURCE_DOUBLE_COUNT"
+    | "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY"
+    | "EXPENSE_CONFIRMATION_ATOMICITY_FAILED"
+    | "EXPENSE_SCHEMA_FIELD_MISMATCH";
   severity: "warning" | "blocking";
   status?: "open" | "resolved";
   relatedProposalIds: string[];
@@ -240,6 +421,13 @@ export interface FinancialLedgerIssue {
   occurrenceCount?: number;
   resolvedAtAgeInMonths?: number;
   resolvedByEventId?: string;
+  /**
+   * New V4 recurring-expense reviews record the missing-fact dimension so an
+   * unrelated event touching the same account cannot close them.  Optional
+   * for backward-compatible reading of historical ledgers.
+   */
+  expenseResolutionKind?: ExpenseIssueResolutionKind;
+  expenseResponsibilityKey?: string;
   pendingFactPolicy?: "bounded_last_known_income";
 }
 
@@ -271,8 +459,47 @@ export interface FinancialLedgerV3 extends FinancialLedgerCommon {
   version: 3;
 }
 
-export type FinancialLedgerInput = FinancialLedgerV2 | FinancialLedgerV3;
-export type FinancialLedger = FinancialLedgerV3;
+/**
+ * V4 makes the responsibility identity, amount basis, scope and review clock
+ * mandatory for every committed recurring expense.  V3 remains a read-only
+ * compatibility input until it is upgraded at the simulation boundary.
+ */
+export interface FinancialLedgerV4 extends Omit<FinancialLedgerCommon, "expenseCommitments"> {
+  debtAccounts: DebtAccount[];
+  expenseCommitments: ExpenseCommitmentV4[];
+  version: 4;
+}
+
+export type FinancialLedgerInput = FinancialLedgerV2 | FinancialLedgerV3 | FinancialLedgerV4;
+/**
+ * The runtime boundary deliberately exposes the common commitment shape so
+ * legacy financial arithmetic can read V3 and V4 histories without producing
+ * array-union inference failures.  V4 writers must narrow with
+ * isFinancialLedgerV4 (or accept FinancialLedgerV4 explicitly), which keeps
+ * their strict ExpenseCommitmentV4 contract intact.
+ */
+export interface FinancialLedger extends FinancialLedgerCommon {
+  debtAccounts: DebtAccount[];
+  version: 3 | 4;
+}
+
+export function isFinancialLedgerV4(ledger: FinancialLedgerInput | FinancialLedger): ledger is FinancialLedgerV4 {
+  return ledger.version === 4;
+}
+
+export function isExpenseCommitmentV4(commitment: unknown): commitment is ExpenseCommitmentV4 {
+  if (!commitment || typeof commitment !== "object") return false;
+  const candidate = commitment as Partial<ExpenseCommitmentV4>;
+  return Boolean(
+    candidate.responsibilityKey
+    && candidate.responsibilityKind
+    && candidate.amountBasis
+    && Array.isArray(candidate.amountSourceIds)
+    && candidate.financialScope
+    && candidate.accrualReviewStatus
+    && Number.isInteger(candidate.nextReviewAtAgeInMonths)
+  );
+}
 
 export type FinancialEventKind =
   | "income_source_started"
@@ -319,7 +546,29 @@ export interface FinancialEventProposal {
   sourceOutcomeId?: string;
   confidence: number;
   /** Whether the fact belongs to the protagonist's personal ledger or to company operations. */
-  financialScope?: "personal" | "business_operating";
+  financialScope?: FinancialScopeV4;
+  /**
+   * Reserved for deterministic policy transitions created inside the domain,
+   * never accepted from the model transport.  It lets a scheduled V4 review
+   * use the same schema/validator/reducer path without pretending the review
+   * text was narrated as a new financial fact.
+   */
+  systemGenerated?: "expense_lifecycle_review"
+    | "expense_responsibility_reconciliation"
+    /**
+     * A tightly constrained, evidence-driven refinement of an existing
+     * contextual parent-care estimate. It may only increase that same
+     * active responsibility; the validator rejects every identity, scope,
+     * status, or amount-basis change outside the dedicated contract.
+     */
+    | "expense_contextual_care_uplift"
+    /**
+     * A responsibility projection from an already accepted structured
+     * WorldState delta. This is deliberately distinct from prose-derived
+     * reconciliation: the accepted state, rather than a fresh narrative
+     * string match, is its fact authority.
+     */
+    | "expense_world_delta_reconciliation";
 }
 
 /**
@@ -495,11 +744,17 @@ export interface IncomeSourceStatusPayload {
 
 export interface ExpenseCommitmentMutationPayload {
   expenseCommitmentId: string;
+  /** Stable audit link for a lower/pause/resume mutation; equals expenseCommitmentId for an in-place V4 change. */
+  previousCommitmentId?: string;
+  changeReason?: ExpenseCommitmentChangeReason;
   nextCommitment: ExpenseCommitment;
 }
 
 export interface ExpenseCommitmentStatusPayload {
   expenseCommitmentId: string;
+  /** Stable audit link for a permanent V4 end; equals expenseCommitmentId. */
+  previousCommitmentId?: string;
+  changeReason?: ExpenseCommitmentChangeReason;
 }
 
 export interface FinancialEventPayloadMap {
@@ -549,6 +804,19 @@ export type AcceptedFinancialEvent<K extends FinancialEventKind = FinancialEvent
   payload: FinancialEventPayloadMap[K];
   evidence: FinancialEvidence[];
   acceptedByReasonCodes: string[];
+  /**
+   * Code-owned proof that this event resolved one or more recurring-expense
+   * fact dimensions.  Model transport cannot provide this field; the
+   * confirmation validator stamps it after matching final evidence.
+   */
+  expenseConfirmationResolution?: {
+    disposition: "confirmed_exact";
+    responsibilityKey: string;
+    accountId: string;
+    targetIssueIds: string[];
+    resolutionKind: "exact_amount" | "shared_allocation";
+    matchedBindingId?: string;
+  };
   liquidityTreatment?: "require_explicit" | "allow_system_shortfall";
 } : never;
 
@@ -581,6 +849,27 @@ export interface FinancialTransaction {
   debtInterestLiabilityPaidWan?: number;
   debtInterestForgivenWan?: number;
   debtCapitalizedInterestWan?: number;
+  /**
+   * The specific personal debt accounts whose liability was reduced by a
+   * repayment, forgiveness, scheduled servicing, or automatic shortfall
+   * recovery in this transaction. Totals alone are not enough to prove which
+   * account was settled when a period contains more than one liability.
+   */
+  debtSettlementAccountIds?: string[];
+  evidence: FinancialEvidence[];
+  /**
+   * Evidence is otherwise aggregated at transaction level. Keep the accepted
+   * event boundary so production audits can distinguish a personal cash
+   * receipt from another, non-personal fact committed in the same period.
+   * Optional only for backwards-compatible historical snapshots; all new
+   * reducer transactions populate it.
+   */
+  acceptedEventAudit?: FinancialTransactionEventAudit[];
+}
+
+export interface FinancialTransactionEventAudit {
+  eventId: string;
+  kind: FinancialEventKind;
   evidence: FinancialEvidence[];
 }
 

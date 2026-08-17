@@ -345,6 +345,208 @@ export function sanitizeFinancialNarrative(
     }).join(""))));
 }
 
+const CHINESE_MONEY_DIGIT_TOKEN = "零〇一二两三四五六七八九";
+const CHINESE_MONEY_TOKEN = `${CHINESE_MONEY_DIGIT_TOKEN}十百千万`;
+// Include compact spoken amounts such as “四千五” as one token rather than
+// matching its “四千” prefix and silently degrading a ledger-backed 4,500-yuan
+// amount. The short form may not stop before another Chinese unit or 元.
+const OPENING_EXPENSE_AMOUNT = String.raw`(?:\d+(?:\.\d+)?\s*(?:万元?|万|元)|\d{3,6}|[${CHINESE_MONEY_TOKEN}]+(?:万|千|百|十)[${CHINESE_MONEY_DIGIT_TOKEN}]?(?![${CHINESE_MONEY_TOKEN}元])|[${CHINESE_MONEY_TOKEN}]+(?:万元?|万|千|百|十|元))`;
+const OPENING_EXPENSE_AMOUNT_CAPTURE = `(${OPENING_EXPENSE_AMOUNT})`;
+// `explicit_shared_amount` stores the protagonist's share, not necessarily
+// the total that prose such as "合租每月 X" would assert.  Keep it out of
+// this narrow sanitizer until a scope-aware renderer can prove the wording.
+const EXPLICIT_OPENING_EXPENSE_AMOUNT_BASES = new Set(["explicit_known"]);
+const CHINESE_MONEY_DIGITS: Record<string, number> = {
+  零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9
+};
+const CHINESE_MONEY_UNITS: Record<string, number> = { 十: 10, 百: 100, 千: 1_000, 万: 10_000 };
+
+type OpeningNarrativeExpenseType = "basic_living" | "housing" | "healthcare" | "dependent_support" | "insurance" | "education";
+
+interface OpeningNarrativeExpenseContext {
+  type: OpeningNarrativeExpenseType;
+  pattern: string;
+  label: string;
+  /**
+   * These categories can also occur as a one-off transaction.  Only strip an
+   * invented amount when the same clause establishes a recurring cadence.
+   */
+  requiresRecurringCadence?: boolean;
+}
+
+const OPENING_NARRATIVE_EXPENSE_CONTEXTS: OpeningNarrativeExpenseContext[] = [
+  { type: "basic_living", pattern: "日常(?:开销|生活|支出)|基本生活费|生活成本|(?:个人|自己(?:的)?)生活费", label: "日常生活", requiresRecurringCadence: true },
+  { type: "housing", pattern: "房租|租金|物业(?:费)?|住房(?:维护|维修)?", label: "住房" },
+  { type: "healthcare", pattern: "(?:父母|爸妈|母亲|父亲)?(?:医疗|医药|治疗|药费|住院|康复)(?:费|支出)?", label: "医疗" },
+  { type: "dependent_support", pattern: "(?:父母|爸妈|母亲|父亲)[^，。！？；]{0,12}(?:家用|赡养|生活费|照护|护理)|(?:家用|赡养|生活费|照护|护理)[^，。！？；]{0,12}(?:父母|爸妈|母亲|父亲)", label: "家庭照护" },
+  { type: "insurance", pattern: "保险费|保费|医疗险|重疾险|商业保险|养老保险", label: "保险", requiresRecurringCadence: true },
+  { type: "education", pattern: "学费|教育费|课程费|培训费|进修费", label: "教育", requiresRecurringCadence: true }
+];
+
+const OPENING_RECURRING_EXPENSE_CADENCE = /每月|每个月|月均|月度|按月|月缴|月交|月付|每年|每年度|年度|按年|年缴|年交|年付|\/\s*(?:月|年)/u;
+const OPENING_ANNUAL_EXPENSE_CADENCE = /每年|每年度|年度|按年|年缴|年交|年付|\/\s*年/u;
+const OPENING_ONE_OFF_EXPENSE_MARKER = /一次性|单次|首期|报名费|退费|报销|获赔/u;
+const OPENING_NON_PERSONAL_RECURRING_EXPENSE_CONTEXT = /^(?:公司|企业|团队|项目|工坊|工作室|办公室|机构|学校|基金会|雇主)[^，；：]{0,20}(?:保险费|保费|医疗险|重疾险|商业保险|养老保险|学费|教育费|课程费|培训费|进修费)/u;
+const OPENING_THIRD_PARTY_EXPENSE_PAYER = /^(?:父母|爸妈|母亲|父亲|伴侣|配偶|家人|公司|雇主)[^，；：]{0,20}(?:承担|支付|缴纳|报销|代付|负担)/u;
+
+function parseChineseMoneyInteger(raw: string): number | undefined {
+  // Spoken shorthand elides the lower-order unit: 四千五 = 4,500 and
+  // 二万五 = 25,000. It must be resolved before the general unit parser,
+  // which otherwise treats the final 五 as individual yuan.
+  const compact = raw.match(/^([零〇一二两三四五六七八九])([万千百十])([零〇一二两三四五六七八九])$/u);
+  if (compact) {
+    const leading = CHINESE_MONEY_DIGITS[compact[1]!];
+    const unit = CHINESE_MONEY_UNITS[compact[2]!];
+    const trailing = CHINESE_MONEY_DIGITS[compact[3]!];
+    if (leading === undefined || unit === undefined || trailing === undefined) return undefined;
+    return leading * unit + trailing * (unit / 10);
+  }
+  let total = 0;
+  let section = 0;
+  let digit: number | undefined;
+  for (const character of raw) {
+    if (character in CHINESE_MONEY_DIGITS) {
+      digit = CHINESE_MONEY_DIGITS[character];
+      continue;
+    }
+    const unit = CHINESE_MONEY_UNITS[character];
+    if (!unit) return undefined;
+    if (unit === 10_000) {
+      total += (section + (digit ?? 0)) * unit;
+      section = 0;
+      digit = undefined;
+      continue;
+    }
+    section += (digit ?? 1) * unit;
+    digit = undefined;
+  }
+  return total + section + (digit ?? 0);
+}
+
+function parseOpeningExpenseAmountWan(raw: string): number | undefined {
+  const normalized = raw.replace(/\s/gu, "");
+  // Chinese spoken/compact money forms are all CNY amounts here: 四千五、
+  // 四千五百、二万五元 should therefore be parsed as 4,500 / 4,500 / 25,000
+  // yuan before converting to 万元. Treat them as a whole instead of first
+  // stripping the final 千/百 unit, which would turn 四千五 into 4,005.
+  const chineseNumberText = normalized.replace(/元$/u, "");
+  if (new RegExp(`^[${CHINESE_MONEY_TOKEN}]+$`, "u").test(chineseNumberText)) {
+    const chineseValue = parseChineseMoneyInteger(chineseNumberText);
+    return chineseValue === undefined ? undefined : chineseValue * 0.0001;
+  }
+  const unitMatch = normalized.match(/(万元?|万|元|千|百|十)$/u);
+  const unit = unitMatch?.[1];
+  const numberText = unit ? normalized.slice(0, -unit.length) : normalized;
+  const numeric = /^\d+(?:\.\d+)?$/u.test(numberText)
+    ? Number(numberText)
+    : parseChineseMoneyInteger(numberText);
+  if (!Number.isFinite(numeric)) return undefined;
+  const multiplier = unit === "万" || unit === "万元"
+    ? 1
+    : unit === "千"
+      ? 0.1
+      : unit === "百"
+        ? 0.01
+        : unit === "十"
+          ? 0.001
+          : 0.0001;
+  return numeric * multiplier;
+}
+
+function openingExpenseClause(sentence: string, matchIndex: number): string {
+  const before = sentence.slice(0, matchIndex);
+  const boundary = Math.max(
+    before.lastIndexOf("，"),
+    before.lastIndexOf("；"),
+    before.lastIndexOf("：")
+  );
+  const after = sentence.slice(matchIndex);
+  const nextBoundary = after.search(/[，；：。！？]/u);
+  return sentence.slice(boundary + 1, nextBoundary === -1 ? sentence.length : matchIndex + nextBoundary);
+}
+
+function hasClearlyNonPersonalOpeningExpenseContext(clause: string): boolean {
+  return OPENING_NON_PERSONAL_RECURRING_EXPENSE_CONTEXT.test(clause)
+    || OPENING_THIRD_PARTY_EXPENSE_PAYER.test(clause);
+}
+
+function openingExpenseAmountsForContext(
+  sentence: string,
+  context: string,
+  requiresRecurringCadence = false
+): number[] {
+  const amounts = new Set<number>();
+  const patterns = [
+    new RegExp(`(?:${context})[^，。！？；]{0,16}?${OPENING_EXPENSE_AMOUNT_CAPTURE}`, "gu"),
+    new RegExp(`${OPENING_EXPENSE_AMOUNT_CAPTURE}[^，。！？；]{0,8}?(?:${context})`, "gu")
+  ];
+  for (const pattern of patterns) {
+    for (const match of sentence.matchAll(pattern)) {
+      const clause = openingExpenseClause(sentence, match.index ?? 0);
+      if (requiresRecurringCadence && (
+        !OPENING_RECURRING_EXPENSE_CADENCE.test(clause)
+        || OPENING_ONE_OFF_EXPENSE_MARKER.test(clause)
+        || hasClearlyNonPersonalOpeningExpenseContext(clause)
+      )) continue;
+      let amount = parseOpeningExpenseAmountWan(match[1] || "");
+      if (amount !== undefined && requiresRecurringCadence && OPENING_ANNUAL_EXPENSE_CADENCE.test(clause)) {
+        amount /= 12;
+      }
+      if (amount !== undefined) amounts.add(amount);
+    }
+  }
+  return [...amounts];
+}
+
+function hasExplicitOpeningExpenseAmount(ledger: FinancialLedger, type: OpeningNarrativeExpenseType, amountWan: number): boolean {
+  return ledger.expenseCommitments.some((commitment) => (
+    commitment.status === "active"
+    && commitment.type === type
+    && commitment.factStatus === "known"
+    && isNarrativeEligibleFinancialFact(commitment)
+    && ["personal", "shared_household"].includes(commitment.financialScope || "")
+    && EXPLICIT_OPENING_EXPENSE_AMOUNT_BASES.has(commitment.amountBasis || "")
+    && Math.abs(commitment.monthlyAmountWan - amountWan) < 0.0001
+  ));
+}
+
+function hasCombinedParentExpenseAmount(sentence: string): boolean {
+  return new RegExp(
+    `(?:医疗|医药|治疗|药费|住院|康复)[^，。！？；]{0,12}(?:家用|赡养|生活费|照护|护理)[^，。！？；]{0,12}${OPENING_EXPENSE_AMOUNT_CAPTURE}`,
+    "u"
+  ).test(sentence);
+}
+
+/**
+ * The opening node is generated after deterministic opening fact extraction.
+ * Its prose cannot promote a model-supplied recurring expense amount into an
+ * opening fact.  A displayed number is allowed only when the committed V4
+ * account has the same explicit amount; contextual estimates remain visible
+ * as reviewable accounts, never as a falsely precise story claim.
+ */
+function hasUnsupportedOpeningRecurringExpenseClaim(sentence: string, ledger: FinancialLedger): boolean {
+  if (!new RegExp(OPENING_EXPENSE_AMOUNT, "u").test(sentence)) return false;
+  if (hasCombinedParentExpenseAmount(sentence)) return true;
+  return OPENING_NARRATIVE_EXPENSE_CONTEXTS.some(({ type, pattern, requiresRecurringCadence }) => (
+    openingExpenseAmountsForContext(sentence, pattern, requiresRecurringCadence)
+      .some((amountWan) => !hasExplicitOpeningExpenseAmount(ledger, type, amountWan))
+  ));
+}
+
+function openingExpenseReviewNarrative(sentence: string, ledger: FinancialLedger): string {
+  const activeTypes = new Set(ledger.expenseCommitments
+    .filter((commitment) => commitment.status === "active")
+    .map((commitment) => commitment.type));
+  const labels = OPENING_NARRATIVE_EXPENSE_CONTEXTS
+    .filter(({ type, pattern }) => activeTypes.has(type) && new RegExp(`(?:${pattern})`, "u").test(sentence))
+    .map(({ label }) => label);
+  if (labels.length === 0) return "你正在重新评估日常生活成本，具体金额仍待确认。";
+  const subject = labels.length === 1
+    ? labels[0]
+    : `${labels.slice(0, -1).join("、")}与${labels[labels.length - 1]}`;
+  return `你仍在承担${subject}等持续支出，具体金额仍待确认。`;
+}
+
 export function sanitizeUnsupportedOpeningAccountClaims(description: string, ledger: FinancialLedger): string {
   const hasProperty = ledger.assetAccounts.some((account) => account.status === "active"
     && account.type === "property" && isNarrativeEligibleFinancialFact(account));
@@ -355,6 +557,9 @@ export function sanitizeUnsupportedOpeningAccountClaims(description: string, led
     }
     if (!hasDebt && /(?:背着|背上|欠下|偿还|月供|房贷|贷款|负债|债务)/u.test(sentence)) {
       return "你开始更谨慎地安排现金流与接下来的生活选择。";
+    }
+    if (hasUnsupportedOpeningRecurringExpenseClaim(sentence, ledger)) {
+      return openingExpenseReviewNarrative(sentence, ledger);
     }
     return sentence;
   }).join("");
@@ -371,7 +576,8 @@ export function sanitizeUnsupportedFinancialCoverageClaims(
     || hasIssue("narrative_coverage_personal_option_");
   const unsupportedCompensation = hasIssue("narrative_coverage_personal_compensation_")
     || hasIssue("personal_income_claim_without_event_");
-  if (!unsupportedProperty && !unsupportedMortgage && !unsupportedHolding && !unsupportedCompensation) return description;
+  const unsupportedPersonalOutlay = hasIssue("narrative_coverage_personal_outlay_");
+  if (!unsupportedProperty && !unsupportedMortgage && !unsupportedHolding && !unsupportedCompensation && !unsupportedPersonalOutlay) return description;
   return dedupeCanonicalFinancialFallbackSentences(description.split(/(?<=[。！？])/u).map((sentence) => {
     if (unsupportedProperty && /(?:名下|自有|自己的).{0,16}(?:房|住房|公寓)|(?:买了|买下|购入|购买|卖掉|出售).{0,16}(?:房|住房|公寓)|(?:婚房|住房|房子|公寓)?首付|房产升值/u.test(sentence)) {
       return "";
@@ -392,6 +598,11 @@ export function sanitizeUnsupportedFinancialCoverageClaims(
     }
     if (unsupportedCompensation && /月薪|年薪|工资|薪资|个人收入|个人进账|个人净收入/u.test(sentence)) {
       return stripUnsupportedPersonalIncomeClaim(sentence);
+    }
+    if (unsupportedPersonalOutlay
+      && /(?:你(?!们)|我(?!们)|本人|主角)[^。！？；]{0,24}(?:垫付(?:了)?|支付(?:了)?|缴纳(?:了)?|花费(?:了)?|支出(?:了)?|转出(?:了)?|拿出(?:了)?|付了)/u.test(sentence)
+      && /(?:住院|急诊|手术|治疗|医疗|医药|护理|照护|父母|母亲|父亲|孩子|子女)/u.test(sentence)) {
+      return "这段时间你持续处理家庭照护与健康安排，具体费用仍待权威账本确认。";
     }
     return sentence;
   }).join(""));

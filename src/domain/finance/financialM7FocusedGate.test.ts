@@ -6,7 +6,7 @@ import { commitFinancialDomainTransaction } from "./commitFinancialDomainTransac
 import { deriveFinancialState } from "./deriveFinancialState";
 import { initializeFinancialLedger } from "./initializeLedger";
 import { migrateLegacyFinancialState } from "./migrateLegacyFinancialState";
-import type { AcceptedFinancialEvent, ExpenseCommitment, FinancialEvidence, FinancialLedger, IncomeSource } from "./types";
+import type { AcceptedFinancialEvent, ExpenseCommitment, FinancialEvidence, FinancialLedger, FinancialLedgerV3, IncomeSource } from "./types";
 
 const evidence: FinancialEvidence[] = [{ source: "user", reasonCode: "TEST", confidence: 1 }];
 
@@ -39,7 +39,7 @@ function living(age: number): ExpenseCommitment {
   };
 }
 
-function ledger(age: number, input: { income?: IncomeSource[]; expenses?: ExpenseCommitment[]; cash?: number } = {}): FinancialLedger {
+function ledger(age: number, input: { income?: IncomeSource[]; expenses?: ExpenseCommitment[]; cash?: number } = {}): FinancialLedgerV3 {
   return initializeFinancialLedger({
     id: "focused", asOfAgeInMonths: age,
     openingPosition: {
@@ -90,6 +90,23 @@ test("M7 focused: explicit mortgage opens debt, repayment policy and a property 
   assert.equal(property?.marketValueWan, 0);
 });
 
+test("M7 focused: opening model annual core cannot create a legacy expense commitment", () => {
+  const migrated = migrateLegacyFinancialState({
+    id: "opening_model_aggregate_ignored",
+    legacyState: {
+      currencyUnit: "CNY_WAN_REAL", asOfAgeInMonths: 288, cashWan: 0, investmentAssetsWan: 0,
+      propertyMarketValueWan: 0, businessAndOtherAssetsWan: 0, totalDebtWan: 0, netWorthWan: 0,
+      annualAfterTaxIncomeWan: 30, annualCoreExpenseWan: 18, annualDisposableIncomeWan: 12,
+      employmentStatus: "employed", incomeStability: "stable", isEstimated: true
+    },
+    openingFacts: { evidenceText: "刚入职，手头没有额外财务资料。", ownsProperty: false }
+  });
+  assert.equal(migrated.expenseCommitments.some((item) => item.id === "legacy_core_expense"), false);
+  const basicLiving = migrated.expenseCommitments.find((item) => item.type === "basic_living");
+  assert.equal(basicLiving?.monthlyAmountWan, 0.35);
+  assert.equal(basicLiving?.evidence[0]?.source, "system_policy");
+});
+
 test("M7 focused: missing adult expenses receive a deterministic estimate without quarantining income", () => {
   const initial = ledger(360, { income: [salary(360)], cash: 20 });
   const committed = commit({ ledger: initial, worldState: world(), start: 360, end: 372, transactionId: "missing_expense" });
@@ -114,15 +131,15 @@ test("M7 focused: an accepted expense fact replaces the system estimate", () => 
   assert.equal(second.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
 });
 
-test("M7 focused: stale late-career salary is paused before settlement", () => {
-  const age = 80 * 12;
+test("M7 focused: exact salary attached to an unchanged late-career state keeps accruing", () => {
+  const age = 55 * 12;
   const initial = ledger(age, { income: [salary(55 * 12, age - 48)], expenses: [living(age)], cash: 30 });
   const committed = commit({ ledger: initial, worldState: world(), start: age, end: age + 12, transactionId: "late_career" });
-  assert.equal(committed.financialPeriodSummary?.incomeWan, 0);
-  assert.equal(committed.financialLedger.incomeSources[0].accrualReviewStatus, "quarantined");
-  assert.ok(committed.financialLedger.unresolvedIssues.some((issue) => (
-    issue.id === "pending_fact_stale_late_career_salary" && issue.severity === "warning"
-  )));
+  assert.equal(committed.financialPeriodSummary?.incomeWan, 24);
+  assert.equal(committed.financialLedger.incomeSources[0].accrualReviewStatus, "normal");
+  assert.equal(committed.financialLedger.unresolvedIssues.some((issue) => (
+    issue.id === "pending_fact_stale_late_career_salary"
+  )), false);
 });
 
 test("M7 focused: deterministic basic living persists without repeated issues", () => {
