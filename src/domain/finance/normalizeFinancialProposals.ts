@@ -11,7 +11,7 @@ export interface FinancialProposalNormalizationAudit {
     | "FOUNDER_CONTRIBUTION_NORMALIZED" | "INCOME_START_NORMALIZED_TO_ADJUSTMENT" | "NO_OP_PROPOSAL_DROPPED" | "LEGACY_INCOME_RECONFIRMATION_PRESERVED"
     | "ACCOUNT_ID_TYPE_CORRECTED" | "INCOME_SOURCE_SHAPE_COMPLETED" | "EXPENSE_COMMITMENT_SHAPE_COMPLETED" | "EXPENSE_EVIDENCE_PRESERVED" | "EXPENSE_TYPE_PRESERVED"
     | "EXPENSE_INCOME_FIELD_DROPPED" | "EXPENSE_NEXT_ALIAS_NORMALIZED" | "OPENING_PARENT_HEALTHCARE_RECONFIRMED"
-    | "EXPENSE_FACT_STATUS_NORMALIZED" | "REPAIR_SOURCE_OUTCOME_REBASED"
+    | "EXPENSE_FACT_STATUS_NORMALIZED" | "EXPENSE_COMMITMENT_ID_CORRECTED" | "EXPENSE_CHANGE_REASON_NORMALIZED" | "REPAIR_SOURCE_OUTCOME_REBASED"
     | "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"
     | "EXPENSE_EVIDENCE_SHAPE_NORMALIZED"
     | "V4_EXPENSE_CANONICALIZED"
@@ -34,6 +34,31 @@ const DEBT_TYPE_ALIASES: Record<string, DebtType> = {
   bank_personal_loan: "family_or_personal_loan",
   credit_card: "credit_balance"
 };
+
+const EXPENSE_REFERENCE_NOISE_TOKENS = new Set([
+  "expense", "commitment", "adjust", "adjusted", "current", "node", "recurring"
+]);
+
+function expenseResponsibilitySignature(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const tokens = value
+    .toLowerCase()
+    .split(/[^a-z0-9\u4e00-\u9fff]+/u)
+    .filter(Boolean)
+    .map((token) => token === "medical" ? "healthcare" : token)
+    .filter((token) => !EXPENSE_REFERENCE_NOISE_TOKENS.has(token))
+    .sort();
+  return tokens.length > 0 ? tokens.join(":") : undefined;
+}
+
+function isExplicitParentHealthcareEvidence(value: string): boolean {
+  return /(?:父母|爸妈|母亲|父亲|妈妈|爸爸)/u.test(value)
+    && /(?:医疗|医药|药费|用药|复查|康复|理疗|护工|手术|治疗)/u.test(value);
+}
+
+function hasApproximateExpenseAmountEvidence(value: string): boolean {
+  return /(?:约|大概|预算|预计)\s*\d+(?:\.\d+)?\s*(?:万元?|元)|\d+(?:\.\d+)?\s*(?:万元?|元)\s*左右/u.test(value);
+}
 
 function normalizedDebtType(value: unknown): DebtType {
   const raw = String(value || "family_or_personal_loan");
@@ -1110,11 +1135,81 @@ export function normalizeFinancialProposals(input: {
         });
       }
     }
+    if (payload && kind === "expense_commitment_adjusted" && payload.expenseCommitmentId) {
+      const referencedId = String(payload.expenseCommitmentId);
+      const directAccount = input.currentLedger?.expenseCommitments.find((item) => item.id === referencedId);
+      if (!directAccount) {
+        // Models sometimes return the stable semantic responsibility key in
+        // the account-id field. Repair that transport mismatch only when the
+        // ledger has exactly one matching responsibility. Never guess by type
+        // or amount: an ambiguous/missing key must continue to fail closed.
+        const semanticReferences = new Set([
+          referencedId,
+          typeof payload.nextCommitment?.responsibilityKey === "string"
+            ? payload.nextCommitment.responsibilityKey
+            : undefined
+        ].filter((value): value is string => Boolean(value)));
+        const responsibilityMatches = input.currentLedger?.expenseCommitments.filter((item) => (
+          Boolean(item.responsibilityKey) && semanticReferences.has(item.responsibilityKey!)
+        )) || [];
+        const referenceSignatures = new Set(Array.from(semanticReferences)
+          .map(expenseResponsibilitySignature)
+          .filter((value): value is string => Boolean(value)));
+        const signatureMatches = responsibilityMatches.length === 0 && referenceSignatures.size > 0
+          ? input.currentLedger?.expenseCommitments.filter((item) => {
+              const signature = expenseResponsibilitySignature(item.responsibilityKey);
+              return item.status !== "ended" && Boolean(signature) && referenceSignatures.has(signature!);
+            }) || []
+          : [];
+        const nextType = String(payload.nextCommitment?.type || "").toLowerCase();
+        const parentHealthcareMatches = responsibilityMatches.length === 0 && signatureMatches.length === 0
+          && isExplicitParentHealthcareEvidence(evidenceText)
+          && (!nextType || /(?:healthcare|medical|recurring_healthcare)/u.test(nextType))
+          ? input.currentLedger?.expenseCommitments.filter((item) => (
+              item.status !== "ended"
+              && item.responsibilityKind === "recurring_healthcare"
+              && ["recurring_healthcare:opening_parent", "recurring_healthcare:parents"].includes(String(item.responsibilityKey))
+            )) || []
+          : [];
+        const resolvedMatches = responsibilityMatches.length > 0
+          ? responsibilityMatches
+          : signatureMatches.length > 0
+            ? signatureMatches
+            : parentHealthcareMatches;
+        if (resolvedMatches.length === 1) {
+          payload.expenseCommitmentId = resolvedMatches[0].id;
+          if (payload.previousCommitmentId === referencedId) {
+            payload.previousCommitmentId = resolvedMatches[0].id;
+          }
+          audit.push({
+            proposalId: id,
+            reasonCode: "EXPENSE_COMMITMENT_ID_CORRECTED",
+            originalValue: referencedId,
+            normalizedValue: resolvedMatches[0].id
+          });
+        }
+      }
+    }
+    if (payload && kind === "expense_commitment_adjusted"
+      && ["confirmed_by_exact_fact", "exact_fact_confirmed"].includes(String(payload.changeReason))) {
+      const originalValue = String(payload.changeReason);
+      payload.changeReason = "estimate_superseded_by_exact_fact";
+      audit.push({
+        proposalId: id,
+        reasonCode: "EXPENSE_CHANGE_REASON_NORMALIZED",
+        originalValue,
+        normalizedValue: payload.changeReason
+      });
+    }
     if (payload && kind === "expense_commitment_adjusted" && payload.expenseCommitmentId && payload.nextCommitment && typeof payload.nextCommitment === "object") {
       const existingCommitment = input.currentLedger?.expenseCommitments.find((item) => item.id === payload.expenseCommitmentId);
       if (existingCommitment) {
         payload.nextCommitment = mergeMissing(existingCommitment, payload.nextCommitment);
         payload.nextCommitment.id = payload.expenseCommitmentId;
+        // An adjustment cannot reopen the same responsibility at the current
+        // node. Its original start remains ledger history even when the model
+        // repeats a later observation timestamp in this field.
+        payload.nextCommitment.activeFromAgeInMonths = existingCommitment.activeFromAgeInMonths;
         if (!Array.isArray(payload.nextCommitment.evidence) || payload.nextCommitment.evidence.length === 0) {
           payload.nextCommitment.evidence = structuredClone(existingCommitment.evidence);
           audit.push({ proposalId: id, reasonCode: "EXPENSE_EVIDENCE_PRESERVED", normalizedValue: payload.expenseCommitmentId });
@@ -1135,6 +1230,21 @@ export function normalizeFinancialProposals(input: {
             reasonCode: "EXPENSE_FACT_STATUS_NORMALIZED",
             originalValue: rawRequestedFactStatus,
             normalizedValue: String(payload.nextCommitment.factStatus)
+          });
+        }
+        if (payload.changeReason === "estimate_superseded_by_exact_fact"
+          && hasApproximateExpenseAmountEvidence(evidenceText)) {
+          // "约/大概/左右" is useful last-known evidence, but it cannot
+          // authorize an exact confirmation. Keep the existing reviewable
+          // account and let a same-amount restatement collapse to a no-op.
+          delete payload.previousCommitmentId;
+          delete payload.changeReason;
+          payload.nextCommitment.factStatus = existingCommitment.factStatus;
+          audit.push({
+            proposalId: id,
+            reasonCode: "EXPENSE_CHANGE_REASON_NORMALIZED",
+            originalValue: "estimate_superseded_by_exact_fact",
+            normalizedValue: "review_only_approximate_amount"
           });
         }
         const isMortgageRepayment = ["mortgage_payment", "mortgage", "debt_payment"].includes(rawRequestedType)

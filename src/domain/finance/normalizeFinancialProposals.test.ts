@@ -1332,6 +1332,237 @@ test("preserves policy evidence when an expense adjustment omits it", () => {
   assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_EVIDENCE_PRESERVED"), true);
 });
 
+test("corrects a unique responsibility key used as an expense account id before completing its V4 shape", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "expense_responsibility_key_reference",
+    asOfAgeInMonths: 383
+  }));
+  currentLedger.expenseCommitments.push({
+    id: "opening_recurring_healthcare_opening_parent",
+    type: "healthcare",
+    displayName: "医疗持续支出（待确认）",
+    monthlyAmountWan: 1.1,
+    activeFromAgeInMonths: 288,
+    status: "active",
+    factStatus: "needs_review",
+    evidence: [],
+    responsibilityKey: "recurring_healthcare:opening_parent",
+    responsibilityKind: "recurring_healthcare",
+    amountBasis: "last_known",
+    amountSourceIds: ["opening_parent_healthcare"],
+    financialScope: "personal",
+    accrualReviewStatus: "review_due",
+    lastReviewedAtAgeInMonths: 300,
+    nextReviewAtAgeInMonths: 312
+  });
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["offer_specific_help_with_limits"],
+    currentLedger,
+    proposals: [{
+      id: "expense_adjust_parent_healthcare",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 416,
+      sourceOutcomeId: "offer_specific_help_with_limits",
+      payload: {
+        expenseCommitmentId: "recurring_healthcare:opening_parent",
+        nextCommitment: {
+          id: "recurring_healthcare:opening_parent",
+          type: "recurring_healthcare",
+          monthlyAmountWan: 0.8,
+          factStatus: "needs_review",
+          amountBasis: "last_known",
+          status: "active",
+          evidence: []
+        },
+        previousCommitmentId: "recurring_healthcare:opening_parent",
+        changeReason: "estimate_superseded_by_exact_fact"
+      },
+      financialScope: "personal",
+      evidence: "你确认每月固定承担0.8万元父母医疗与康复支出。",
+      confidence: 0.9
+    }]
+  });
+
+  assert.equal(result.proposals.length, 1);
+  const payload = result.proposals[0].payload as any;
+  assert.equal(payload.expenseCommitmentId, "opening_recurring_healthcare_opening_parent");
+  assert.equal(payload.previousCommitmentId, "opening_recurring_healthcare_opening_parent");
+  assert.equal(payload.nextCommitment.id, "opening_recurring_healthcare_opening_parent");
+  assert.equal(payload.nextCommitment.type, "healthcare");
+  assert.equal(payload.nextCommitment.responsibilityKey, "recurring_healthcare:opening_parent");
+  assert.equal(payload.nextCommitment.activeFromAgeInMonths, 288);
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_COMMITMENT_ID_CORRECTED"), true);
+  const validation = validateFinancialProposals({
+    proposals: result.proposals,
+    currentLedger,
+    currentCareerState: initializeCareerState({
+      id: "career_current",
+      employmentStatus: "employed",
+      effectiveFromAgeInMonths: 288
+    }),
+    acceptedOutcomeId: "offer_specific_help_with_limits",
+    narrativeText: "你确认每月固定承担0.8万元父母医疗与康复支出。",
+    periodStartAgeInMonths: 383,
+    periodEndAgeInMonths: 416,
+    simulationTransactionId: "expense_responsibility_key_reference",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.deepEqual(validation.issues, []);
+  assert.equal(validation.acceptedEvents.length, 1);
+});
+
+test("corrects model-prefixed parent-healthcare expense ids and exact-fact reason aliases", () => {
+  for (const expenseCommitmentId of [
+    "expense_recurring_healthcare_opening_parent",
+    "expense_opening_parent_medical"
+  ]) {
+    const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+      id: `expense_reference_${expenseCommitmentId}`,
+      asOfAgeInMonths: 383
+    }));
+    currentLedger.expenseCommitments.push({
+      id: "opening_recurring_healthcare_opening_parent",
+      type: "healthcare",
+      displayName: "医疗持续支出（待确认）",
+      monthlyAmountWan: 1.1,
+      activeFromAgeInMonths: 288,
+      status: "active",
+      factStatus: "needs_review",
+      evidence: [],
+      responsibilityKey: "recurring_healthcare:opening_parent",
+      responsibilityKind: "recurring_healthcare",
+      amountBasis: "last_known",
+      amountSourceIds: ["opening_parent_healthcare"],
+      financialScope: "personal",
+      accrualReviewStatus: "review_due",
+      lastReviewedAtAgeInMonths: 300,
+      nextReviewAtAgeInMonths: 312
+    });
+    const result = normalizeFinancialProposals({
+      acceptedOutcomeIds: ["selected"],
+      currentLedger,
+      proposals: [{
+        id: `adjust_${expenseCommitmentId}`,
+        kind: "expense_commitment_adjusted",
+        effectiveAtAgeInMonths: 416,
+        sourceOutcomeId: "selected",
+        payload: {
+          expenseCommitmentId,
+          previousCommitmentId: expenseCommitmentId,
+          changeReason: "confirmed_by_exact_fact",
+          nextCommitment: {
+            id: expenseCommitmentId,
+            type: "medical",
+            monthlyAmountWan: 0.8,
+            factStatus: "needs_review",
+            amountBasis: "last_known",
+            status: "active",
+            evidence: []
+          }
+        },
+        financialScope: "personal",
+        evidence: "你确认每月固定承担0.8万元父母医疗与康复支出。",
+        confidence: 0.9
+      }]
+    });
+    const payload = result.proposals[0].payload as any;
+    assert.equal(payload.expenseCommitmentId, "opening_recurring_healthcare_opening_parent");
+    assert.equal(payload.previousCommitmentId, "opening_recurring_healthcare_opening_parent");
+    assert.equal(payload.nextCommitment.id, "opening_recurring_healthcare_opening_parent");
+    assert.equal(payload.changeReason, "estimate_superseded_by_exact_fact");
+    assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_COMMITMENT_ID_CORRECTED"), true);
+    assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_CHANGE_REASON_NORMALIZED"), true);
+  }
+});
+
+test("keeps an approximate same-amount expense restatement reviewable and drops it as a no-op", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({ id: "approximate_expense_restatement", asOfAgeInMonths: 383 }));
+  currentLedger.expenseCommitments.push({
+    id: "opening_recurring_healthcare_opening_parent", type: "healthcare", displayName: "医疗持续支出（待确认）",
+    monthlyAmountWan: 1.1, activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+    responsibilityKey: "recurring_healthcare:opening_parent", responsibilityKind: "recurring_healthcare",
+    amountBasis: "last_known", amountSourceIds: ["opening_parent_healthcare"], financialScope: "personal",
+    accrualReviewStatus: "review_due", lastReviewedAtAgeInMonths: 300, nextReviewAtAgeInMonths: 312
+  });
+  const result = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], currentLedger, proposals: [{
+    id: "approximate_parent_healthcare", kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: 416,
+    sourceOutcomeId: "selected", financialScope: "personal", confidence: 0.9,
+    evidence: "你确认每月约1.1万元的父母医疗及赡养开支由你承担。",
+    payload: {
+      expenseCommitmentId: "expense_recurring_healthcare_opening_parent",
+      previousCommitmentId: "expense_recurring_healthcare_opening_parent",
+      changeReason: "confirmed_by_exact_fact",
+      nextCommitment: {
+        id: "expense_recurring_healthcare_opening_parent", type: "medical", monthlyAmountWan: 1.1,
+        activeFromAgeInMonths: 416, status: "active", factStatus: "needs_review", amountBasis: "last_known", evidence: []
+      }
+    }
+  }] });
+  assert.equal(result.proposals.length, 0);
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_COMMITMENT_ID_CORRECTED"), true);
+  assert.equal(result.audit.some((item) => item.normalizedValue === "review_only_approximate_amount"), true);
+});
+
+test("uses exact parent-healthcare evidence to resolve only a unique aggregate account", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "expense_generic_parent_healthcare_reference",
+    asOfAgeInMonths: 383
+  }));
+  const aggregate = {
+    id: "opening_recurring_healthcare_opening_parent",
+    type: "healthcare" as const,
+    displayName: "医疗持续支出（待确认）",
+    monthlyAmountWan: 1.1,
+    activeFromAgeInMonths: 288,
+    status: "active" as const,
+    factStatus: "needs_review" as const,
+    evidence: [],
+    responsibilityKey: "recurring_healthcare:opening_parent",
+    responsibilityKind: "recurring_healthcare" as const,
+    amountBasis: "last_known" as const,
+    amountSourceIds: ["opening_parent_healthcare"],
+    financialScope: "personal" as const,
+    accrualReviewStatus: "review_due" as const,
+    lastReviewedAtAgeInMonths: 300,
+    nextReviewAtAgeInMonths: 312
+  };
+  currentLedger.expenseCommitments.push(aggregate);
+  const proposal = {
+    id: "adjust_generic_parent_healthcare",
+    kind: "expense_commitment_adjusted" as const,
+    effectiveAtAgeInMonths: 416,
+    sourceOutcomeId: "selected",
+    payload: {
+      expenseCommitmentId: "expense_adjust_current_node",
+      previousCommitmentId: "expense_adjust_current_node",
+      changeReason: "estimate_superseded_by_exact_fact",
+      nextCommitment: {
+        id: "expense_adjust_current_node",
+        type: "healthcare",
+        monthlyAmountWan: 0.8,
+        factStatus: "needs_review",
+        amountBasis: "last_known",
+        status: "active",
+        evidence: []
+      }
+    },
+    financialScope: "personal" as const,
+    evidence: "你确认父亲康复和用药费用由你承担，每月固定0.8万元。",
+    confidence: 0.9
+  };
+  const resolved = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], currentLedger, proposals: [proposal] });
+  assert.equal((resolved.proposals[0].payload as any).expenseCommitmentId, aggregate.id);
+
+  currentLedger.expenseCommitments.push({
+    ...aggregate,
+    id: "another_parent_healthcare",
+    responsibilityKey: "recurring_healthcare:parents"
+  });
+  const ambiguous = normalizeFinancialProposals({ acceptedOutcomeIds: ["selected"], currentLedger, proposals: [proposal] });
+  assert.equal((ambiguous.proposals[0].payload as any).expenseCommitmentId, "expense_adjust_current_node");
+  assert.equal(ambiguous.audit.some((item) => item.reasonCode === "EXPENSE_COMMITMENT_ID_CORRECTED"), false);
+});
+
 test("normalizes the narrow nextState alias for an existing expense adjustment", () => {
   const currentLedger = initializeFinancialLedger({ id: "expense_next_state_alias", asOfAgeInMonths: 288, openingPosition: {
     expenseCommitments: [{

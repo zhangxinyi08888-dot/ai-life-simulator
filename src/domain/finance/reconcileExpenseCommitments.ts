@@ -368,6 +368,13 @@ function mutationForExistingCandidate(input: {
   const { existing, candidate } = input;
   const nextAmount = actualShare(candidate);
   const hasExactAmount = nextAmount !== undefined;
+  // Narrative-only numbers are useful as review evidence, but conservative
+  // expense handling means they can never lower an existing cash outflow.
+  // Without this guard the reconciler emitted a downshift proposal without
+  // Accepted change authority, guaranteeing a schema-validity blocker.
+  if (hasExactAmount
+    && !sourceIsAccepted(candidate)
+    && nextAmount < existing.monthlyAmountWan - 0.0001) return undefined;
   // This is the only estimate-refresh path for an existing responsibility.
   // It is deliberately much narrower than a periodic review: the account
   // must already be personal, active, and contextual/unknown; a newly

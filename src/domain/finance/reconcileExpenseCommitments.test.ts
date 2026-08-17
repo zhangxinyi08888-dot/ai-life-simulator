@@ -1281,6 +1281,31 @@ test("narrative-only explicit amount remains a nonzero reviewable V4 commitment 
   assertFinancialLedgerInvariants(prospective);
 });
 
+test("narrative-only evidence cannot lower an existing expense commitment", () => {
+  const current = ledger();
+  current.expenseCommitments.push({
+    id: "parent_health_existing", type: "healthcare", displayName: "父母医疗", monthlyAmountWan: 1.1,
+    activeFromAgeInMonths: 300, status: "active", factStatus: "needs_review", evidence: [],
+    responsibilityKey: "recurring_healthcare:opening_parent", responsibilityKind: "recurring_healthcare",
+    amountBasis: "last_known", amountSourceIds: ["opening_parent_healthcare"], financialScope: "personal",
+    accrualReviewStatus: "review_due", lastReviewedAtAgeInMonths: 300, nextReviewAtAgeInMonths: 312
+  });
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [parentMedicalCandidate({
+      responsibilityKey: "recurring_healthcare:opening_parent",
+      source: "narrative_supplement",
+      explicitMonthlyTotalWan: 0.2,
+      protagonistShareWan: 0.2,
+      amountSourceId: "narrative_parent_health_2000"
+    })],
+    ageInMonths: 416,
+    sourceOutcomeId: "selected",
+    mode: "enforced"
+  });
+  assert.equal(result.proposals.some((proposal) => proposal.kind === "expense_commitment_adjusted"), false);
+});
+
 test("a later Accepted start fact adjusts and confirms an existing reviewable healthcare responsibility", () => {
   const current = ledger();
   const tentative = parentMedicalCandidate();

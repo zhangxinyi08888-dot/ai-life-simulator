@@ -160,3 +160,36 @@ test("F-01/F-12/I-03 same-amount Accepted confirmation closes the typed review a
   assert.equal(next.financialPeriodSummary.netCashFlowWan, -8.4);
   assert.equal(next.financialLedger.cashAccounts.find((item) => item.id === PRIMARY_CASH_ACCOUNT_ID)?.balanceWan, 41.6);
 });
+
+test("a bound generic-parent amount confirms the unique opening parent-healthcare aggregate", () => {
+  const startAge = 383;
+  const current = authorityAt(startAge);
+  const healthcare: ExpenseCommitmentV4 = {
+    id: "opening_recurring_healthcare_opening_parent", type: "healthcare", displayName: "父母医疗",
+    monthlyAmountWan: 1.1, activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],
+    responsibilityKey: "recurring_healthcare:opening_parent", responsibilityKind: "recurring_healthcare",
+    amountBasis: "last_known", amountSourceIds: ["opening_parent_healthcare"], financialScope: "personal",
+    accrualReviewStatus: "review_due", lastReviewedAtAgeInMonths: 300, nextReviewAtAgeInMonths: 312
+  };
+  current.ledger.expenseCommitments.push(healthcare);
+  const narrative = "你重新核对账单后，确认你单独承担父母医疗每月2000元。";
+  const proposal: FinancialEventProposal = {
+    id: "confirm_generic_parent_healthcare", kind: "expense_commitment_adjusted", effectiveAtAgeInMonths: 416,
+    sourceOutcomeId: "selected", evidence: narrative, confidence: 0.95, financialScope: "personal",
+    payload: {
+      expenseCommitmentId: healthcare.id,
+      previousCommitmentId: healthcare.id,
+      changeReason: "estimate_superseded_by_exact_fact",
+      nextCommitment: { ...healthcare, monthlyAmountWan: 0.2, activeFromAgeInMonths: 288 }
+    }
+  };
+  const validated = validateFinancialProposals({
+    proposals: [proposal], currentLedger: current.ledger, currentCareerState: current.career,
+    acceptedOutcomeId: "selected", narrativeText: narrative, periodStartAgeInMonths: startAge,
+    periodEndAgeInMonths: 416, simulationTransactionId: "generic_parent_healthcare", enforceExpenseConfirmation: true
+  });
+  assert.deepEqual(validated.issues.filter((issue) => issue.severity === "blocking"), []);
+  assert.equal(validated.acceptedEvents.length, 1);
+  assert.equal((validated.acceptedEvents[0].payload as any).nextCommitment.responsibilityKey, "recurring_healthcare:opening_parent");
+  assert.equal((validated.acceptedEvents[0].payload as any).nextCommitment.monthlyAmountWan, 0.2);
+});

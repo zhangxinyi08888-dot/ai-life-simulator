@@ -1209,7 +1209,36 @@ function exactExpenseConfirmationAttempt(input: {
     return { proposal: input.proposal, result: fallbackResult };
   }
 
-  const cadence = binding.cadence === "annual" ? "annual" : "monthly";
+  const adjustmentAccountId = input.proposal.kind === "expense_commitment_adjusted"
+    ? String((input.proposal.payload as Record<string, unknown>).expenseCommitmentId || "")
+    : undefined;
+  const adjustmentAccount = adjustmentAccountId
+    ? input.ledger.expenseCommitments.find((item) => item.id === adjustmentAccountId && item.status !== "ended")
+    : undefined;
+  const genericParentHealthcareAlias = binding.responsibilityKind === "recurring_healthcare"
+    && ["opening_parent", "parents", "parent", "person_parent_unspecified"].includes(
+      binding.responsibilityKey.replace(/^recurring_healthcare:/u, "")
+    );
+  const canonicalParentHealthcareTargets = genericParentHealthcareAlias
+    ? input.ledger.expenseCommitments.filter((item) => (
+        item.status !== "ended"
+        && item.responsibilityKind === "recurring_healthcare"
+        && ["recurring_healthcare:opening_parent", "recurring_healthcare:parents"].includes(String(item.responsibilityKey))
+      ))
+    : [];
+  const confirmationBinding = adjustmentAccount
+    && canonicalParentHealthcareTargets.length === 1
+    && canonicalParentHealthcareTargets[0].id === adjustmentAccount.id
+    ? {
+        ...binding,
+        responsibilityKey: adjustmentAccount.responsibilityKey,
+        participantPersonIds: adjustmentAccount.participantPersonIds?.length
+          ? adjustmentAccount.participantPersonIds
+          : binding.participantPersonIds
+      }
+    : binding;
+
+  const cadence = confirmationBinding.cadence === "annual" ? "annual" : "monthly";
   const cadenceMultiplier = cadence === "annual" ? 12 : 1;
   const observation: ExpenseAmountObservation = {
     id: `expense_observation_${input.proposal.id}`,
@@ -1219,31 +1248,31 @@ function exactExpenseConfirmationAttempt(input: {
     expenseCommitmentId: input.proposal.kind === "expense_commitment_adjusted"
       ? String((input.proposal.payload as Record<string, unknown>).expenseCommitmentId || commitment.id)
       : undefined,
-    responsibilityKey: binding.responsibilityKey,
-    responsibilityKind: binding.responsibilityKind,
-    proposedType: binding.proposedType,
+    responsibilityKey: confirmationBinding.responsibilityKey,
+    responsibilityKind: confirmationBinding.responsibilityKind,
+    proposedType: confirmationBinding.proposedType,
     statementKind: "exact",
     cadence,
-    payer: binding.liability as "protagonist" | "shared",
-    financialScope: binding.financialScope,
-    protagonistAmountWan: binding.protagonistShareWan * cadenceMultiplier,
-    grossAmountWan: binding.explicitMonthlyTotalWan === undefined
+    payer: confirmationBinding.liability as "protagonist" | "shared",
+    financialScope: confirmationBinding.financialScope,
+    protagonistAmountWan: confirmationBinding.protagonistShareWan! * cadenceMultiplier,
+    grossAmountWan: confirmationBinding.explicitMonthlyTotalWan === undefined
       ? undefined
-      : binding.explicitMonthlyTotalWan * cadenceMultiplier,
-    householdShareRate: binding.shareRate,
+      : confirmationBinding.explicitMonthlyTotalWan * cadenceMultiplier,
+    householdShareRate: confirmationBinding.shareRate,
     effectiveAtAgeInMonths: input.proposal.effectiveAtAgeInMonths,
-    amountSourceId: binding.amountSourceId,
-    evidenceFingerprint: binding.evidenceFingerprint,
-    bindingId: binding.id,
+    amountSourceId: confirmationBinding.amountSourceId!,
+    evidenceFingerprint: confirmationBinding.evidenceFingerprint,
+    bindingId: confirmationBinding.id,
     evidenceAnchor: {
       kind: "final_narrative_span",
-      ...binding.amountSpan,
-      fingerprint: binding.evidenceFingerprint
+      ...confirmationBinding.amountSpan!,
+      fingerprint: confirmationBinding.evidenceFingerprint
     }
   };
   const targetIssueIds = input.ledger.unresolvedIssues.filter((issue) => (
     issue.status !== "resolved"
-    && (issue.expenseResponsibilityKey === binding.responsibilityKey
+    && (issue.expenseResponsibilityKey === confirmationBinding.responsibilityKey
       || (issue.relatedAccountIds || []).includes(commitment.id))
     && (!issue.expenseResolutionKind
       || issue.expenseResolutionKind === "exact_amount"
@@ -1257,11 +1286,11 @@ function exactExpenseConfirmationAttempt(input: {
   if (proposalForConfirmation.kind === "expense_commitment_started") {
     proposalForConfirmation.payload = {
       ...(proposalForConfirmation.payload as Record<string, unknown>),
-      responsibilityKey: binding.responsibilityKey,
-      responsibilityKind: binding.responsibilityKind,
-      type: binding.proposedType,
-      financialScope: binding.financialScope,
-      participantPersonIds: binding.participantPersonIds
+      responsibilityKey: confirmationBinding.responsibilityKey,
+      responsibilityKind: confirmationBinding.responsibilityKind,
+      type: confirmationBinding.proposedType,
+      financialScope: confirmationBinding.financialScope,
+      participantPersonIds: confirmationBinding.participantPersonIds
     };
   }
   const result = validateExpenseConfirmation({
@@ -1280,7 +1309,7 @@ function exactExpenseConfirmationAttempt(input: {
     finalNarrativeText: input.narrativeText,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
-    bindings: bindings.bindings,
+    bindings: bindings.bindings.map((item) => item.id === binding.id ? confirmationBinding : item),
     targetIssueIds
   });
   if (result.disposition !== "confirmed_exact" || !result.canonicalConfirmation) {
@@ -1307,7 +1336,7 @@ function exactExpenseConfirmationAttempt(input: {
       + expenseReviewIntervalMonths(commitment.responsibilityKind)
   };
   const proposal = proposalForConfirmation;
-  proposal.financialScope = binding.financialScope;
+  proposal.financialScope = confirmationBinding.financialScope;
   proposal.payload = proposal.kind === "expense_commitment_started"
     ? nextCommitment
     : { ...(proposal.payload as Record<string, unknown>), nextCommitment };

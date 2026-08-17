@@ -1318,7 +1318,12 @@ export function detectNarrativeFinancialCoverageIssues(input: {
     const essentialCare = /(?:住院|急诊|手术|治疗|医疗|医药|护理|照护|父母|母亲|父亲|孩子|子女)/u.test(sentence);
     const excludedScope = /(?:房贷|按揭|首付|购房|买房|房产|公司|企业|客户|团队|员工|工作室|办公室)/u.test(sentence);
     const futureOnly = /(?:计划|打算|准备|考虑|如果|若|将|未来|明年|下月|下个月)[^。！？；]{0,24}(?:垫付|支付|缴纳|花费|支出|转出|拿出|付)/u.test(sentence);
-    const amount = sentence.match(/(?:垫付(?:了)?|支付(?:了)?|缴纳(?:了)?|花费(?:了)?|支出(?:了)?|转出(?:了)?|拿出(?:了)?|付了)[^。！？；]{0,24}?(\d+(?:\.\d+)?)\s*(万元|万|元)/u);
+    const amount = [...sentence.matchAll(/(?:垫付(?:了)?|支付(?:了)?|缴纳(?:了)?|花费(?:了)?|支出(?:了)?|转出(?:了)?|拿出(?:了)?|付了)[^。！？；]{0,24}?(\d+(?:\.\d+)?)\s*(万元|万|元)/gu)]
+      .find((match) => {
+        const start = Number(match.index || 0);
+        const localAmountClause = sentence.slice(Math.max(0, start - 16), start + match[0].length);
+        return !/(?:每月|每个月|按月)/u.test(localAmountClause);
+      });
     if (!firstPersonPayer || sharedPayer || !essentialCare || excludedScope || futureOnly || !amount) return [];
     const numeric = Number(amount[1]);
     if (!Number.isFinite(numeric) || numeric <= 0) return [];

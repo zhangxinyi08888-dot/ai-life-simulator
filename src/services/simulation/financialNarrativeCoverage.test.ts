@@ -234,8 +234,23 @@ test("a completed quantified personal medical outlay requires the matching one-o
   });
   assert.deepEqual(wrongAmount.map((issue) => issue.id), ["narrative_coverage_personal_outlay_416"]);
 
+  const mixedRecurringAndOneOff = "你每月支付父亲药费1000元，本月另垫付了1.2万元手术费。";
+  const mixedMissing = detectNarrativeFinancialCoverageIssues({
+    narrativeText: mixedRecurringAndOneOff, ledger, acceptedEvents: [], ageInMonths: 416, periodStartAgeInMonths: 393
+  });
+  assert.deepEqual(mixedMissing.map((issue) => issue.id), ["narrative_coverage_personal_outlay_416"]);
+  const mixedMatched = detectNarrativeFinancialCoverageIssues({
+    narrativeText: mixedRecurringAndOneOff,
+    ledger,
+    acceptedEvents: [{ kind: "one_off_expense_paid", payload: { amountWan: 1.2 } }],
+    ageInMonths: 416,
+    periodStartAgeInMonths: 393
+  });
+  assert.equal(mixedMatched.length, 0);
+
   for (const nonOutlay of [
     "你们调整共同账户规则，每月各存1000元作为父母应急医疗金。",
+    "你每月固定转给家里用于康复和日常照护，也重新核对了医疗账单，确认每月约1.1万元的父母医疗及赡养开支由你承担。",
     "你计划明年垫付1.2万元父亲的住院押金。",
     "伴侣垫付了1.2万元父亲的住院押金。",
     "公司垫付了1.2万元员工住院押金。",
