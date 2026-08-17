@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { HistoryItem } from "../types";
-import { collectFinalOutcomeQualityIssues } from "./finalOutcomeQuality";
+import { buildFinalOutcomeRepairPrompt, collectFinalOutcomeQualityIssues } from "./finalOutcomeQuality";
 
 const attributes = { happiness: 50, intelligence: 60, wealth: 40, relation: 55, health: 45 };
 
@@ -171,4 +171,25 @@ test("a multi-school claim is allowed when history directly records several scho
       .some((issue) => issue.code === "FINAL_REPORT_UNGROUNDED_SCALE_CLAIM"),
     false
   );
+});
+
+test("repair prompt gives explicit safe rewrites for debt, property, mortality and scale conflicts", () => {
+  const prompt = buildFinalOutcomeRepairPrompt({
+    originalPrompt: "生成终局报告",
+    data: completeLongLifeData([0, 8, 15]),
+    history: longHistory(),
+    issues: [
+      { code: "REPORT_DEBT_COMPLETION_CONFLICT", path: "report.futureTrends[0].trend" },
+      { code: "REPORT_PROPERTY_ABSENCE_OVERCLAIM", path: "report.patternEffects[0].paragraphs[0]" },
+      { code: "REPORT_NEGATIVE_NET_WORTH_ROMANTICIZATION", path: "report.finalLifeReading.paragraphs[0]" },
+      { code: "FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT", path: "report" },
+      { code: "FINAL_REPORT_UNGROUNDED_SCALE_CLAIM", path: "report" }
+    ]
+  });
+  assert.match(prompt, /全文不得出现“还清、清零、偿清、债务结束、终于无债”/u);
+  assert.match(prompt, /no_confirmed_property 只表示房产未知/u);
+  assert.match(prompt, /mortality 报告不得编造遗产清算、继承人/u);
+  assert.match(prompt, /不得把负净资产、现金见底或未偿债务浪漫化/u);
+  assert.match(prompt, /多所学校、多个县域/u);
+  assert.match(prompt, /任何 share\/report 字段都不得残留/u);
 });

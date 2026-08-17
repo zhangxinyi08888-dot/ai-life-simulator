@@ -2708,6 +2708,45 @@ test("V4 accepts a residence end only when Accepted evidence, reason, and prior 
   assert.equal(accepted.payload.previousCommitmentId, "home_main");
 });
 
+test("V4 accepts a Chinese-numeral exact rent that supersedes a higher estimate", () => {
+  const context = v4LedgerWithHousing();
+  const current = context.currentLedger.expenseCommitments.find((item) => item.id === "home_main")!;
+  current.monthlyAmountWan = 0.45;
+  current.grossMonthlyAmountWan = 0.45;
+  current.factStatus = "needs_review";
+  current.amountBasis = "contextual_estimate";
+  delete current.confirmedMonthlyAmountWan;
+  delete current.lastConfirmedAtAgeInMonths;
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [proposal({
+      id: "confirm_chinese_rent_exact_amount",
+      kind: "expense_commitment_adjusted",
+      payload: {
+        expenseCommitmentId: current.id,
+        previousCommitmentId: current.id,
+        changeReason: "estimate_superseded_by_exact_fact",
+        nextCommitment: {
+          ...current,
+          monthlyAmountWan: 0.04,
+          grossMonthlyAmountWan: 0.04,
+          factStatus: "needs_review",
+          amountBasis: "last_known"
+        }
+      },
+      evidence: "宿舍每月四百元的房租仍由你个人承担。"
+    })],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: "宿舍每月四百元的房租仍由你个人承担。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "v4_chinese_exact_rent",
+    liquidityPolicy: "require_explicit"
+  });
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.acceptedEvents.length, 1);
+});
+
 test("V4 does not let unemployment pause a continuing expense without temporary-payment proof", () => {
   const context = v4LedgerWithHousing();
   const current = context.currentLedger.expenseCommitments.find((item) => item.id === "home_main")!;

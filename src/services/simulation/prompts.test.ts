@@ -137,6 +137,16 @@ const responsibilityDeltaRetryPrompt = buildNextNodePrompt({
   selectedOutcomeId: "care_choice",
   financialGateRetryReasonCodes: ["EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING"]
 });
+const rejectedExpenseLifecycleRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "继续承担当前住房支出",
+  eventSeed: healthWarningEvent,
+  selectedOutcomeId: "keep_current_home",
+  financialGateRetryReasonCodes: ["REJECTED_COMPLETED_EXPENSE_LIFECYCLE"]
+});
 const endingResponsibilityDeltaRetryPrompt = buildEndingNodePrompt({
   userData,
   history,
@@ -645,6 +655,10 @@ assert.match(responsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
 assert.match(responsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);
 assert.match(responsibilityDeltaRetryPrompt, /evidence 必须逐字包含病情句与服务句/);
 assert.match(responsibilityDeltaRetryPrompt, /未知金额由系统建立 needs_review/);
+assert.match(rejectedExpenseLifecycleRetryPrompt, /estimate_superseded_by_exact_fact/);
+assert.match(rejectedExpenseLifecycleRetryPrompt, /previousCommitmentId=原账户 id/);
+assert.match(rejectedExpenseLifecycleRetryPrompt, /不得使用自由文本 changeReason/);
+assert.match(rejectedExpenseLifecycleRetryPrompt, /删除这项已完成支出断言或改写为尚在核对的计划/);
 assert.match(endingResponsibilityDeltaRetryPrompt, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
 assert.match(endingResponsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
 assert.match(endingResponsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);
@@ -753,6 +767,8 @@ assert.match(debtRepairPrompt, /不得返回把 id、type、principalAmountWan/)
 assert.match(debtRepairPrompt, /debt_restructured 只能在正文明确写出银行已经批准且新还款安排已经生效时返回/);
 assert.match(debtRepairPrompt, /不得为了让故事推进而新增卖车到账/);
 assert.match(debtRepairPrompt, /即使正文写“你收到”或“到账”，也必须移除对应个人收入 Proposal/);
+assert.match(debtRepairPrompt, /changeReason="estimate_superseded_by_exact_fact"/);
+assert.match(debtRepairPrompt, /不得用自由文本 changeReason/);
 
 const narrativeRepairPrompt = buildFinancialNarrativeRepairPrompt({
   narrativeText: "银行完成20万元贷款放款，你开始每月还贷。",

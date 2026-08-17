@@ -132,6 +132,61 @@ test("expense fact repair exposes only identity and missing dimensions, never th
   assert.doesNotMatch(prompt, /policy:secret-old-floor/u);
 });
 
+test("exact downward repair exposes the current estimate only for audited replacement", () => {
+  const expenseLedger = structuredClone(ledger) as any;
+  expenseLedger.version = 4;
+  expenseLedger.expenseCommitments = [{
+    id: "rent_review",
+    type: "housing",
+    displayName: "当前住房",
+    monthlyAmountWan: 0.45,
+    grossMonthlyAmountWan: 0.45,
+    activeFromAgeInMonths: 300,
+    status: "active",
+    factStatus: "needs_review",
+    evidence: [],
+    responsibilityKey: "primary_residence:main",
+    responsibilityKind: "primary_residence",
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["policy:old-estimate"],
+    financialScope: "personal",
+    accrualReviewStatus: "review_due"
+  }];
+  const prompt = buildFinancialProposalRepairPrompt({
+    rejectedProposals: [{
+      id: "rent_adjustment",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 312,
+      payload: {
+        expenseCommitmentId: "rent_review",
+        nextCommitment: { ...expenseLedger.expenseCommitments[0], monthlyAmountWan: 0.04 }
+      },
+      sourceOutcomeId: "choice_1",
+      evidence: "宿舍每月四百元的房租仍由你个人承担。",
+      confidence: 0.9,
+      financialScope: "personal"
+    }],
+    issues: [{
+      id: "expense_downward_missing_authority",
+      code: "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY",
+      severity: "blocking",
+      relatedProposalIds: ["rent_adjustment"],
+      relatedAccountIds: ["rent_review"],
+      summary: "下调必须保存 previousCommitmentId 和允许的变化原因",
+      createdAtAgeInMonths: 312
+    }],
+    ledger: expenseLedger,
+    acceptedOutcomeId: "choice_1",
+    narrativeText: "宿舍每月四百元的房租仍由你个人承担。",
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312
+  });
+  assert.match(prompt, /monthlyAmountWan=0\.45/u);
+  assert.match(prompt, /changeReason="estimate_superseded_by_exact_fact"/u);
+  assert.match(prompt, /省略 confirmedMonthlyAmountWan\/lastConfirmedAtAgeInMonths/u);
+  assert.doesNotMatch(prompt, /policy:old-estimate/u);
+});
+
 test("selected choices without eventOutcomeId receive a deterministic fallback authority id", () => {
   const history = [{
     age: 30,

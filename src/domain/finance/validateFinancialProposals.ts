@@ -500,7 +500,9 @@ function changeReasonHasAcceptedEvidence(reason: string, text: string): boolean 
     case "explicit_amount_reduced":
       return /(?:月租|房租|支出|费用|保费|医疗费|生活费).{0,20}(?:降|减少|下调|变为|调整为)|(?:降为|减少至|下调至).{0,20}(?:元|万)/u.test(text);
     case "estimate_superseded_by_exact_fact":
-      return /(?:实际|当前|现行).{0,32}(?:月租|房租|支出|费用|保费|医疗费|生活费|每月).{0,32}\d+(?:\.\d+)?\s*(?:元|万)/u.test(text);
+      return /(?:实际|当前|现行|仍|每月).{0,32}(?:月租|房租|支出|费用|保费|医疗费|生活费|每月).{0,32}(?:\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百千万]+)\s*(?:元|万)/u.test(text)
+        || /(?:每月|每季度|每年)(?:\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百千万]+)\s*(?:元|万).{0,20}(?:月租|房租|支出|费用|保费|医疗费|生活费)/u.test(text)
+        || /(?:月租|房租|支出|费用|保费|医疗费|生活费).{0,20}(?:每月|每季度|每年)?(?:\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百千万]+)\s*(?:元|万)/u.test(text);
     case "dependent_independent":
       return /子女.{0,20}(?:独立|工作|不再需要抚养)|独立生活/u.test(text);
     case "care_responsibility_transferred":

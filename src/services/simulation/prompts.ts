@@ -308,6 +308,12 @@ function buildFinancialGateRetryPrompt(input: {
   const careerIncomeTransitionRetryRule = reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION")
     ? "- 若正文把进入外部公司职位、接受 offer 或担任负责人写成已经完成：不得再写“个人收入尚待确认”；必须在正文写出可验证的主角个人税后薪资，并原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入。若无法确认薪资，则不得写成已经完成入职。"
     : "";
+  const expenseLifecycleRetryRule = reasonCodes.some((code) => (
+    code === "REJECTED_COMPLETED_EXPENSE_LIFECYCLE" || code === "UNSATISFIED_EXPENSE_LIFECYCLE"
+  ))
+    ? `- 若正文给出当前已经发生的个人持续支出精确金额，且它低于账本中的 policy/context/legacy/last-known 估算：必须引用原 expenseCommitmentId，返回 expense_commitment_adjusted，并同时填写 previousCommitmentId=原账户 id、changeReason="estimate_superseded_by_exact_fact"；nextCommitment 只用本轮精确金额替换 monthlyAmountWan/grossMonthlyAmountWan，保留原责任 identity，factStatus 保持 needs_review，amountBasis="last_known"，并省略 confirmedMonthlyAmountWan/lastConfirmedAtAgeInMonths。不得使用自由文本 changeReason，不得 started 重复账户。
+- 若不能从本轮正文逐字证明当前金额、付款人和责任范围，就删除这项已完成支出断言或改写为尚在核对的计划，并省略 Proposal；不得复制旧账本金额冒充新确认。`
+    : "";
   return `【财务接受门重生修正】
 - 上一个完整候选被拒绝，原因：${reasonCodes.join("、")}。
 - 必须重新生成整个节点，不能重复上一个财务 Proposal 错误。
@@ -315,6 +321,7 @@ function buildFinancialGateRetryPrompt(input: {
 - 若正文明确写出主角新的个人工资、薪资或固定个人收入：必须返回与当前或本节点已提交 CareerState 关联的合法 income_source_started / income_source_adjusted。
 - 职业变化必须同时包含 employmentTransition 和旧工资关闭/新工资开启；否则保留当前权威职业与收入，不要凭空改写。
 ${careerIncomeTransitionRetryRule}
+${expenseLifecycleRetryRule}
 - 若拒绝原因包含 EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING，且正文已完成“父/母健康受限 + 你为其找/请康复师或理疗师 + 每周/固定上门”的持续照护安排：必须在 narrativeMeta.worldDeltas 返回一条 amount-free expense_responsibility（responsibilityKind="elder_care"、beneficiary="father"|"mother"|"parents"、owner="protagonist"、cadence="recurring_unknown"、sourceOutcomeId=本轮已选 outcome、evidence=逐字原句、confidence=0.8-1）。病情和服务若跨句，evidence 必须逐字包含病情句与服务句，不能只引用服务句。未知金额由系统建立 needs_review，绝不可编造金额；一次陪诊、高龄、父母自行支付、公司场地或计划不得返回该 delta。
 ${formatEmployedIncomeGateRetryRule(input.currentFinancialLedger, reasonCodes, input.currentEmploymentStatus)}`;
 }
@@ -1296,7 +1303,13 @@ export function buildFinancialProposalRepairPrompt(input: {
   const expenseFactRepair = input.issues.some((issue) => (
     Boolean(issue.expenseResolutionKind)
     || issue.id.startsWith("expense_responsibility_review_")
+    || issue.code === "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY"
+    || (issue.code === "EXPENSE_SCHEMA_FIELD_MISMATCH" && /changeReason|previousCommitmentId/u.test(issue.summary))
     || /EXPENSE_CONFIRMATION_|付款人|承担份额|责任范围/u.test(issue.summary)
+  ));
+  const expenseExactDownwardRepair = input.issues.some((issue) => (
+    issue.code === "EXPENSE_DOWNWARD_WITHOUT_AUTHORITY"
+    || (issue.code === "EXPENSE_SCHEMA_FIELD_MISMATCH" && /changeReason|previousCommitmentId/u.test(issue.summary))
   ));
   const restrictedLedgerSummary = expenseFactRepair
     ? input.ledger.expenseCommitments
@@ -1304,7 +1317,7 @@ export function buildFinancialProposalRepairPrompt(input: {
         issue.expenseResponsibilityKey === commitment.responsibilityKey
         || (issue.relatedAccountIds || []).includes(commitment.id)
       )))
-      .map((commitment) => `- 支出账户 ${commitment.id}: responsibilityKey=${commitment.responsibilityKey}, 名称=${commitment.displayName}, status=${commitment.status}`)
+      .map((commitment) => `- 支出账户 ${commitment.id}: responsibilityKey=${commitment.responsibilityKey}, responsibilityKind=${commitment.responsibilityKind}, type=${commitment.type}, 名称=${commitment.displayName}, status=${commitment.status}${expenseExactDownwardRepair ? `, monthlyAmountWan=${commitment.monthlyAmountWan}, grossMonthlyAmountWan=${commitment.grossMonthlyAmountWan ?? commitment.monthlyAmountWan}, factStatus=${commitment.factStatus}, amountBasis=${commitment.amountBasis}` : ""}`)
       .join("\n") || "- 本轮没有可引用的既有支出账户；若正文证明新责任，只能创建一个 canonical 账户。"
     : formatRestrictedFinancialLedger(input.ledger);
   const rejectedProposalsForPrompt = expenseFactRepair
@@ -1377,6 +1390,7 @@ ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) =>
 要求：
 - 只修正被拒 Proposal；不能新增正文没有发生的事实。为满足原子依赖，可以同时补充同一收入替换所必需的旧来源 income_source_ended、同一资产购买所必需的 debt_drawn，或正文已经明确给出主角个人薪资/业主提款/到账分红但首轮遗漏的对应个人收入 Proposal。
 - 支出责任修复只补拒绝原因点名的 payer、scope、share 或 exact amount，并逐字引用同一事实单元；共同总额必须同时给出主角份额。不得复制旧账本的 policy/last-known 金额，不得因重复叙事、issue 次数或系统提示把估算升级为 known；正文没有当前实际事实时省略 Proposal，让节点接受门拒绝并重生。
+- 若本轮正文以当前、实际、现行、仍由主角承担等完成语义给出精确金额，并且该金额低于既有估算：expense_commitment_adjusted.payload 必须同时包含 expenseCommitmentId、previousCommitmentId（两者都等于上方真实账户 id）、changeReason="estimate_superseded_by_exact_fact" 与完整 nextCommitment。nextCommitment 保留原 id、responsibilityKey、responsibilityKind、type、financialScope、activeFromAgeInMonths 和 status，只把 monthlyAmountWan/grossMonthlyAmountWan 改为正文精确金额，factStatus="needs_review"、amountBasis="last_known"，并省略 confirmedMonthlyAmountWan/lastConfirmedAtAgeInMonths；不得用自由文本 changeReason。若正文只是说“按实际发生记清”而没有精确金额，不得下调。
 - expense_commitment_started/adjusted 的 payload.type 只能是 basic_living、housing、dependent_support、education、healthcare、insurance、other；房贷或月供不是支出 type，不能返回 mortgage_payment。factStatus 只能是 known、estimated、unknown、needs_review，绝不能返回 confirmed；正文没有本轮新的精确金额与付款责任时，不要为 review_due 账户返回无变化的 adjusted Proposal。
 - MISSING_FUNDING_SOURCE 必须通过正文已经支持的明确借款、资产出售、家庭支持到账、收入到账来补足；若正文只表达计划、尝试或协商，可以省略尚未发生的支出。禁止依赖后台自动缺口，禁止把 liquidityTreatment 写入 Proposal。
 - 资产购买、投资或企业出资、债务本金/利息、债务重组费用都必须有明确可用现金或同一原子组内有正文证据的资金来源；不能用新的自动短期周转来让它们通过。
