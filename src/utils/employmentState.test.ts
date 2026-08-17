@@ -83,6 +83,18 @@ test("treats completed post-entry narration as an actual employer start", () => 
   assert.equal(hasCompletedEmployerStartEvidence(
     "入职后的前三个月，你将接受产品培训并完成交接。"
   ), false, "a future post-entry duration remains pending");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "23岁7月，你正式签了那家在线教育公司的劳动合同，岗位是官网维护。"
+  ), true, "a formally signed employment contract is a completed employer start");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "实习期结束后，你已经完成转正手续，继续负责官网维护。"
+  ), true, "a completed internship conversion is a completed employer start");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "你计划下月正式签订劳动合同，确认薪资后再办理入职。"
+  ), false, "future contract signing and onboarding remain pending");
+  assert.equal(hasCompletedEmployerStartEvidence(
+    "你接受转正意向，先和公司确认劳动合同与薪资。"
+  ), false, "contract confirmation is not proof that employment started");
 });
 
 test("recognizes a completed external consultant role, but not a future or independent engagement", () => {

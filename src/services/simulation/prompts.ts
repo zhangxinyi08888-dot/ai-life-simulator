@@ -306,7 +306,7 @@ function buildFinancialGateRetryPrompt(input: {
   const reasonCodes = input.reasonCodes || [];
   if (reasonCodes.length === 0) return "";
   const careerIncomeTransitionRetryRule = reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION")
-    ? "- 若正文把进入外部公司职位、接受 offer 或担任负责人写成已经完成：不得再写“个人收入尚待确认”；必须在正文写出可验证的主角个人税后薪资，并原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入。若无法确认薪资，则不得写成已经完成入职。"
+    ? "- 若正文把正式入职、签订并生效劳动合同、实习转正、内部转岗、进入外部公司职位、接受 offer 后到岗或担任负责人写成已经完成：不得再写“个人收入尚待确认”；必须在正文写出可验证的主角个人税后薪资，并原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入。toStatus 为 employed 或 part_time 时，新职业收入不是可选项。若无法确认薪资，则不得写成已经完成入职、转正或转岗。"
     : "";
   const expenseLifecycleRetryRule = reasonCodes.some((code) => (
     code === "REJECTED_COMPLETED_EXPENSE_LIFECYCLE" || code === "UNSATISFIED_EXPENSE_LIFECYCLE"
@@ -1394,7 +1394,7 @@ ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) =>
 - expense_commitment_started/adjusted 的 payload.type 只能是 basic_living、housing、dependent_support、education、healthcare、insurance、other；房贷或月供不是支出 type，不能返回 mortgage_payment。factStatus 只能是 known、estimated、unknown、needs_review，绝不能返回 confirmed；正文没有本轮新的精确金额与付款责任时，不要为 review_due 账户返回无变化的 adjusted Proposal。
 - MISSING_FUNDING_SOURCE 必须通过正文已经支持的明确借款、资产出售、家庭支持到账、收入到账来补足；若正文只表达计划、尝试或协商，可以省略尚未发生的支出。禁止依赖后台自动缺口，禁止把 liquidityTreatment 写入 Proposal。
 - 资产购买、投资或企业出资、债务本金/利息、债务重组费用都必须有明确可用现金或同一原子组内有正文证据的资金来源；不能用新的自动短期周转来让它们通过。
-- 正文或已接受选择明确发生辞职、离职、创业、退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新职业收入（如有）一起返回；辞职创业使用 toStatus="self_employed"，个人经营所得使用 type="self_employment_draw" 且 linkedCareerStateId 指向新 CareerState，不得使用 type="other"。该组要么全部提交，要么全部不提交。
+- 正文或已接受选择明确发生辞职、离职、创业、退休、停止工作、签约入职、实习转正、内部转岗或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移以及新职业收入一起返回；toStatus 为 employed 或 part_time 时必须有恰好一个与新 CareerState 绑定的个人职业收入，不能把新收入当作“如有”的可选项。辞职创业使用 toStatus="self_employed"，个人经营所得使用 type="self_employment_draw" 且 linkedCareerStateId 指向新 CareerState，不得使用 type="other"。该组要么全部提交，要么全部不提交。
 - 只修正被拒 Proposal，或为逐条拒绝原因中的 narrative coverage issue 补交正文已经发生但遗漏的 Proposal；不能新增正文没有发生的事实。为满足原子依赖，可以同时补充同一收入替换所必需的旧来源 income_source_ended、同一资产购买所必需的 debt_drawn，或公司融资前遗漏的 business_holding_started。
 - coverage 指向“此前已有房产/尚有房贷”而非本期购买/借入时，必须分别使用 asset_balance_discovered / debt_balance_discovered；不得用 asset_purchased / debt_drawn 制造不存在的本期现金流。debt_balance_discovered 必须引用正文明确给出的余额或本金，绝不能从月供、期限或利率反推本金。房产只明确存在但没有可靠市值时，可保留 marketValueWan=0、factStatus=needs_review 的资产事实；不能凭空补市场价。
 - 正文明确发生退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新顾问收入（如有）一起返回；三者将作为一个原子组，要么全部提交，要么全部不提交。

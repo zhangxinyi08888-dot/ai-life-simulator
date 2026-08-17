@@ -104,6 +104,8 @@ const careerIncomeTransitionRetryPrompt = buildNextNodePrompt({
   eventSeed: healthWarningEvent,
   financialGateRetryReasonCodes: ["UNSATISFIED_CAREER_INCOME_TRANSITION"]
 });
+assert.match(careerIncomeTransitionRetryPrompt, /实习转正/u);
+assert.match(careerIncomeTransitionRetryPrompt, /新职业收入不是可选项/u);
 const pendingEmployerOfferPrompt = buildNextNodePrompt({
   userData,
   answers,

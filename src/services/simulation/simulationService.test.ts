@@ -54,6 +54,18 @@ assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "你选择保持当前工作节奏，暂不考虑新的机会。",
   currentStatus: "employed"
 }), false);
+const completedInternConversionNarrative = "23岁7月，你正式签了那家在线教育公司的劳动合同，岗位是官网维护。";
+assert.equal(narrativeRequiresCareerTransition({
+  narrativeText: completedInternConversionNarrative,
+  currentStatus: "student"
+}), true, "a signed employment contract must not leave the protagonist in student authority");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: "接受实习公司的转正意向，先稳定下来。",
+  narrativeText: completedInternConversionNarrative,
+  acceptedOutcomeId: "join_with_explicit_exit_conditions",
+  effectiveAtAgeInMonths: 283,
+  currentStatus: "student"
+})?.toStatus, "employed", "a completed internship conversion must synthesize employed authority");
 assert.equal(selectedDecisionRequiresCareerTransition(
   "不签字也不接折中方案，提出内部仲裁，同时开始接触外部机会、更新简历，准备换工作"
 ), false, "preparing a possible job change must preserve the current CareerState and salary");
