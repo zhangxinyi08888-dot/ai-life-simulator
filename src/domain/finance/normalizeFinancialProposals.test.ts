@@ -50,6 +50,76 @@ test("canonicalizes model expense transport before it can target a V4 ledger", (
   assert.equal(result.audit.some((item) => item.reasonCode === "V4_EXPENSE_CANONICALIZED"), true);
 });
 
+test("normalizes malformed model expense evidence before V4 canonicalization", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "v4_malformed_expense_evidence",
+    asOfAgeInMonths: 360
+  }));
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    currentLedger,
+    proposals: [{
+      id: "rent_adjustment",
+      kind: "expense_commitment_adjusted",
+      effectiveAtAgeInMonths: 372,
+      payload: {
+        expenseCommitmentId: "model_unknown_rent",
+        nextCommitment: {
+          id: "model_unknown_rent",
+          type: "housing",
+          displayName: "住房支出",
+          monthlyAmountWan: 0.45,
+          activeFromAgeInMonths: 360,
+          status: "active",
+          factStatus: "needs_review",
+          evidence: { excerpt: "每月支付房租4500元" }
+        }
+      },
+      evidence: "你每月支付房租4500元。",
+      confidence: 0.9
+    }]
+  });
+
+  const commitment = (result.proposals[0].payload as any).nextCommitment;
+  assert.deepEqual(commitment.evidence, []);
+  assert.equal(commitment.responsibilityKind, "primary_residence");
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_EVIDENCE_SHAPE_NORMALIZED"), true);
+  assert.equal(result.audit.some((item) => item.reasonCode === "V4_EXPENSE_CANONICALIZED"), true);
+});
+
+test("drops null model expense evidence entries before V4 canonicalization", () => {
+  const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
+    id: "v4_null_expense_evidence",
+    asOfAgeInMonths: 360
+  }));
+  const result = normalizeFinancialProposals({
+    acceptedOutcomeIds: ["selected"],
+    currentLedger,
+    proposals: [{
+      id: "rent_start_with_null_evidence",
+      kind: "expense_commitment_started",
+      effectiveAtAgeInMonths: 372,
+      payload: {
+        id: "rent_main",
+        type: "housing",
+        displayName: "住房支出",
+        monthlyAmountWan: 0.45,
+        activeFromAgeInMonths: 372,
+        status: "active",
+        factStatus: "needs_review",
+        evidence: [null, { source: "system_policy", reasonCode: "RENT_ESTIMATE" }]
+      },
+      evidence: "你开始承担住房支出。",
+      confidence: 0.8
+    }]
+  });
+
+  const commitment = result.proposals[0].payload as any;
+  assert.equal(commitment.evidence.length, 1);
+  assert.equal(commitment.evidence[0].reasonCode, "RENT_ESTIMATE");
+  assert.equal(result.audit.some((item) => item.reasonCode === "EXPENSE_EVIDENCE_SHAPE_NORMALIZED"), true);
+});
+
 test("reconfirms the exact opening parent-healthcare placeholder instead of starting a duplicate account", () => {
   const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
     id: "opening_parent_healthcare_reconfirmation",

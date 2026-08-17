@@ -13,6 +13,7 @@ export interface FinancialProposalNormalizationAudit {
     | "EXPENSE_INCOME_FIELD_DROPPED" | "EXPENSE_NEXT_ALIAS_NORMALIZED" | "OPENING_PARENT_HEALTHCARE_RECONFIRMED"
     | "EXPENSE_FACT_STATUS_NORMALIZED" | "REPAIR_SOURCE_OUTCOME_REBASED"
     | "MORTGAGE_PAYMENT_KEPT_OUT_OF_HOUSING"
+    | "EXPENSE_EVIDENCE_SHAPE_NORMALIZED"
     | "V4_EXPENSE_CANONICALIZED"
     | "BUSINESS_HOLDING_SHAPE_COMPLETED" | "OPTION_EVENT_NORMALIZED" | "OPTION_TERMS_NORMALIZED"
     | "OPTION_UNITS_UNKNOWN" | "OPTION_HOLDING_ID_DISAMBIGUATED" | "OPTION_EFFECTIVE_DATE_CLAMPED"
@@ -1302,6 +1303,23 @@ export function normalizeFinancialProposals(input: {
       const candidate = (kind === "expense_commitment_adjusted" ? payload.nextCommitment : payload) as ExpenseCommitment;
       if (candidate && typeof candidate === "object"
         && ["basic_living", "housing", "dependent_support", "education", "healthcare", "insurance", "other"].includes(String(candidate.type))) {
+        // This is the anti-corruption boundary for model-authored transport.
+        // The V4 canonicalizer intentionally assumes domain-shaped evidence;
+        // never let an object, string, null entry, or omitted field escape the
+        // transport layer and become a user-visible runtime exception.
+        const rawEvidence = (candidate as unknown as Record<string, unknown>).evidence;
+        const normalizedEvidence = Array.isArray(rawEvidence)
+          ? rawEvidence.filter((item) => item !== null && typeof item === "object")
+          : [];
+        if (!Array.isArray(rawEvidence) || normalizedEvidence.length !== rawEvidence.length) {
+          candidate.evidence = normalizedEvidence as ExpenseCommitment["evidence"];
+          audit.push({
+            proposalId: id,
+            reasonCode: "EXPENSE_EVIDENCE_SHAPE_NORMALIZED",
+            originalValue: Array.isArray(rawEvidence) ? "array_with_invalid_entries" : typeof rawEvidence,
+            normalizedValue: "evidence[]"
+          });
+        }
         const canonical = canonicalizeExpenseCommitmentV4({
           commitment: candidate,
           asOfAgeInMonths: effectiveAtAgeInMonths
