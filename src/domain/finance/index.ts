@@ -32,3 +32,4 @@ export * from "./narrativeExpenseFactBinding";
 export * from "./expenseConfirmation";
 export * from "./personalExpenseSummary";
 export * from "./migrateFinancialLedgerV3ToV4";
+export * from "./careerCompensationPolicy";

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "7ff187cb32ad9493bfe1f667cec8c9be4fc87c33",
+  "periodStartAgeInMonths": 300,
+  "periodEndAgeInMonths": 312,
+  "transitionMonths": [300, 301, 306, 311, 312],
+  "oldMonthlySalaryWan": 0.3,
+  "role": {
+    "occupation": "前端工程师",
+    "industry": "互联网",
+    "organization": "头部互联网公司",
+    "narrative": "你正式加入头部互联网公司担任前端工程师。"
+  },
+  "metamorphicRoleTexts": [
+    "前端工程师",
+    "Web Engineer",
+    "Web 工程师",
+    "前端开发工程师"
+  ],
+  "requiredMutationGuards": [
+    "missing_same_month_compensation_rolls_back",
+    "cross_career_salary_is_not_reused",
+    "bounded_internship_has_exact_end",
+    "strict_gap_creates_no_debt",
+    "duplicate_transaction_is_idempotent",
+    "policy_metadata_survives_json_restore"
+  ]
+}

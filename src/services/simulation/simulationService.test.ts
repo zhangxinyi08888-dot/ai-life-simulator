@@ -916,6 +916,10 @@ const legacyIncomeRetryCareer = legacyIncomeRetryWorld.careerStates.find((state)
 legacyIncomeRetryCareer.employmentStatus = "employed";
 legacyIncomeRetryWorld.currentEmploymentStatus = "employed";
 legacyIncomeRetryLedger.asOfAgeInMonths = 335;
+// This fixture isolates legacy-income confirmation rather than liquidity.
+// Preserve an accepted opening reserve so fail-closed funding cannot turn it
+// into an unrelated automatic-shortfall scenario.
+legacyIncomeRetryLedger.cashAccounts.find((account) => account.id === "primary_cash")!.balanceWan = 20;
 legacyIncomeRetryLedger.incomeSources = [{
   id: "legacy_recurring_income",
   type: "other",
@@ -2501,15 +2505,13 @@ assert.equal(
 assert.equal(retirementPlanningNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
 
 // A completed employer start, including a cross-sentence "提交离职。入职创业
-// 公司后" switch, is not a bare offer. Without a
-// replacement personal income it must be rejected before it can preserve a
-// pending offer alongside narration that says the protagonist is already at
-// work.
+// 公司后" switch, is not a bare offer. When the accepted role is sufficiently
+// defined but no amount is stated, the versioned compensation policy supplies
+// the replacement salary in the same atomic transaction.
 const postEntryWithoutIncomeHistory = structuredClone(pendingOfferHistory);
 const postEntryWithoutIncomeHistoryBefore = structuredClone(postEntryWithoutIncomeHistory);
 const postEntryWithoutIncomeGateDecisions: FinancialNodeAcceptanceDecision[] = [];
-await assert.rejects(
-  generateNextNode({
+const postEntryWithoutIncomeNode = await generateNextNode({
     userData,
     answers,
     history: postEntryWithoutIncomeHistory,
@@ -2562,21 +2564,21 @@ await assert.rejects(
         })
       };
     }
-  }),
-  (error: unknown) => {
-    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
-    return true;
-  }
-);
-assert.deepEqual(postEntryWithoutIncomeGateDecisions.map((decision) => decision.disposition), ["regenerate"]);
-assert.ok(
-  postEntryWithoutIncomeGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"),
-  "post-entry prose without an atomic replacement income must be a blocking career-income conflict"
-);
+  });
+assert.deepEqual(postEntryWithoutIncomeGateDecisions.map((decision) => decision.disposition), ["accept"]);
+assert.equal(postEntryWithoutIncomeNode.financialProcessingMeta?.acceptedCareerTransitionCount, 1);
+assert.equal(postEntryWithoutIncomeNode.worldStateSnapshot?.currentEmploymentStatus, "employed");
+const postEntryEstimatedSalary = postEntryWithoutIncomeNode.financialLedger?.incomeSources.find((source) => (
+  source.status === "active"
+  && source.linkedCareerStateId === postEntryWithoutIncomeNode.worldStateSnapshot?.currentCareerStateId
+));
+assert.equal(postEntryEstimatedSalary?.factStatus, "estimated");
+assert.equal(postEntryEstimatedSalary?.compensationEstimate?.policyVersion, 1);
+assert.notEqual(postEntryEstimatedSalary?.monthlyNetAmountWan, pendingOfferIncomeBefore?.monthlyNetAmountWan);
 assert.deepEqual(
   postEntryWithoutIncomeHistory,
   postEntryWithoutIncomeHistoryBefore,
-  "a rejected post-entry candidate must leave history, time, CareerState and ledger unchanged"
+  "generating the accepted post-entry candidate must not mutate its input history"
 );
 
 const pendingOfferWithQuotedSalaryNode = await generateNextNode({
@@ -4511,10 +4513,14 @@ let postResolutionPrompt = "";
 const postResolutionHistory: HistoryItem[] = [
   ...operationHistory,
   {
-    ...resolvedHealthNode,
+    ...structuredClone(resolvedHealthNode),
     selectedChoice: "继续走向下一段人生"
   }
 ];
+// This dispatch-only fixture has no career-income authority. Keep an accepted
+// reserve on its cloned snapshot so strict liquidity does not create an
+// unrelated funding failure after the health arc has resolved.
+postResolutionHistory.at(-1)!.financialLedger!.cashAccounts.find((account) => account.id === "primary_cash")!.balanceWan = 100;
 const postResolutionNode = await generateNextNode({
   userData,
   answers,
@@ -4561,6 +4567,15 @@ function genericArcHistory(phaseId: "growth" | "operation", length: number): His
     description: "她仍在处理这次事业机会带来的现金流和长期方向压力。",
     selectedChoice: `处理事业机会 ${index + 1}`,
     attributes,
+    // This pressure-arc fixture is intentionally non-financial. Give its
+    // legacy opening snapshot an accepted reserve so strict liquidity cannot
+    // manufacture a debt or block the unrelated arc assertion.
+    financialState: {
+      ...structuredClone(nextNode.financialState!),
+      asOfAgeInMonths: 36 * 12,
+      cashWan: 100,
+      netWorthWan: 100
+    },
     choices: [{ id: "A", text: `处理事业机会 ${index + 1}`, impactSummary: "继续评估" }],
     isEndingNode: false,
     eventMeta: {
@@ -5142,6 +5157,12 @@ const relationshipOptionAHistory: HistoryItem[] = [{
   selectedChoice: "接受华东外派，拉近与陈曦的距离",
   selectedDecisionIntent: "career:accept:regional_assignment",
   attributes,
+  financialState: {
+    ...structuredClone(nextNode.financialState!),
+    asOfAgeInMonths: 36 * 12,
+    cashWan: 100,
+    netWorthWan: 100
+  },
   choices: [
     { id: "A", text: "接受华东外派，拉近与陈曦的距离", impactSummary: "接受外派", eventOutcomeId: "accept_regional_assignment" },
     { id: "B", text: "留在本地继续当前项目", impactSummary: "保持本地" },

@@ -46,6 +46,8 @@ export function completeCareerIncomeReplacementProposals(input: {
   const additions: FinancialEventProposal[] = input.currentLedger.incomeSources
     .filter((source) => source.status === "active"
       && source.linkedCareerStateId === input.currentCareerStateId
+      && (source.activeUntilAgeInMonths === undefined
+        || source.activeUntilAgeInMonths > input.transition!.effectiveAtAgeInMonths)
       && !settledIds.has(source.id))
     .map((source) => ({
       id: `career_settlement_${input.transition!.proposalId}_${source.id}`,

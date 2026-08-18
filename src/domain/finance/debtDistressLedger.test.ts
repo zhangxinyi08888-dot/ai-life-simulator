@@ -418,11 +418,13 @@ test("D1-16 v2-to-v3 migration consolidates legacy shortfalls without changing c
   );
 });
 
-test("D1-17 proposals default to explicit funding while deterministic essential obligations may create shortfall", () => {
+test("D1-17 proposals and deterministic obligations both fail closed without an accepted funding event", () => {
   const opening = ledger({ cashWan: 0, monthlyExpenseWan: 1 });
-  const result = committed(commitOneMonth(opening, "d1_deterministic_obligation", [], "require_explicit"));
-  assert.equal(result.ledger.cashAccounts[0].balanceWan, 0);
-  assert.equal(result.ledger.debtAccounts.filter((item) => item.type === "liquidity_shortfall").length, 1);
+  assert.throws(() => commitOneMonth(opening, "d1_deterministic_obligation", [], "require_explicit"),
+    (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "UNRESOLVED_FUNDING_GAP");
+  assert.equal(opening.cashAccounts[0].balanceWan, 0);
+  assert.equal(opening.debtAccounts.length, 0);
+  assert.equal(opening.revision, 0);
 
   const proposed = validateFinancialProposals({
     proposals: [{
@@ -448,7 +450,7 @@ test("D1-17 proposals default to explicit funding while deterministic essential 
     simulationTransactionId: "d1_default_trial"
   });
   assert.equal(proposed.acceptedEvents.length, 0);
-  assert.equal(proposed.issues.some((issue) => issue.code === "MISSING_FUNDING_SOURCE"), true);
+  assert.equal(proposed.issues.some((issue) => issue.code === "UNRESOLVED_FUNDING_GAP"), true);
 });
 
 test("D1-18 asset purchase, debt payment and restructure fee cannot use automatic shortfall", () => {
@@ -470,7 +472,7 @@ test("D1-18 asset purchase, debt payment and restructure fee cannot use automati
   ];
   for (const [index, events] of forbidden.entries()) {
     assert.throws(() => commitOneMonth(opening, `d1_forbidden_${index}`, events, "auto_shortfall_debt"),
-      (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
+      (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "UNRESOLVED_FUNDING_GAP");
   }
 });
 
@@ -481,7 +483,7 @@ test("D1-19 only validator-marked incurred essential expense may use system shor
     amountWan: 1
   });
   assert.throws(() => commitOneMonth(opening, "d1_unmarked_expense", [expense], "auto_shortfall_debt"),
-    (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
+    (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "UNRESOLVED_FUNDING_GAP");
 
   const marked = { ...expense, liquidityTreatment: "allow_system_shortfall" } as AcceptedFinancialEvent;
   const result = committed(commitOneMonth(opening, "d1_marked_expense", [marked], "auto_shortfall_debt"));
@@ -489,7 +491,7 @@ test("D1-19 only validator-marked incurred essential expense may use system shor
   assert.equal(result.ledger.debtAccounts.find((item) => item.type === "liquidity_shortfall")!.principalWan, 1);
 });
 
-test("D1-20 rejected proposal does not commit, while independent deterministic settlement stays committable", () => {
+test("D1-20 rejected proposal and an independent funding gap both leave the ledger unchanged", () => {
   const opening = ledger({ cashWan: 0, monthlyIncomeWan: 0.5, monthlyExpenseWan: 1 });
   const proposal: FinancialEventProposal = {
     id: "unfunded_asset",
@@ -518,8 +520,10 @@ test("D1-20 rejected proposal does not commit, while independent deterministic s
   assert.equal(validation.acceptedEvents.length, 0);
   assert.equal(validation.issues.some((issue) => issue.relatedProposalIds.includes("unfunded_asset")), true);
 
-  const deterministic = committed(commitOneMonth(opening, "d1_after_repair_failure", [], "require_explicit"));
-  assert.equal(deterministic.ledger.assetAccounts.some((item) => item.id === "never_committed"), false);
-  assert.equal(deterministic.ledger.cashAccounts[0].balanceWan, 0);
-  assert.equal(deterministic.ledger.debtAccounts.find((item) => item.type === "liquidity_shortfall")!.principalWan, 0.5);
+  assert.throws(() => commitOneMonth(opening, "d1_after_repair_failure", [], "require_explicit"),
+    (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "UNRESOLVED_FUNDING_GAP");
+  assert.equal(opening.assetAccounts.some((item) => item.id === "never_committed"), false);
+  assert.equal(opening.cashAccounts[0].balanceWan, 0);
+  assert.equal(opening.debtAccounts.length, 0);
+  assert.equal(opening.revision, 0);
 });

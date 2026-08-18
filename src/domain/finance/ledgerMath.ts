@@ -55,7 +55,7 @@ export function cloneLedger(ledger: FinancialLedger): FinancialLedger {
 }
 
 export class FinancialLedgerInvariantError extends Error {
-  readonly code: "INVALID_LEDGER" | "MISSING_FUNDING_SOURCE" | "UNBALANCED_TRANSACTION" | "REVISION_CONFLICT";
+  readonly code: "INVALID_LEDGER" | "MISSING_FUNDING_SOURCE" | "UNRESOLVED_FUNDING_GAP" | "UNBALANCED_TRANSACTION" | "REVISION_CONFLICT";
 
   constructor(code: FinancialLedgerInvariantError["code"], message: string) {
     super(message);

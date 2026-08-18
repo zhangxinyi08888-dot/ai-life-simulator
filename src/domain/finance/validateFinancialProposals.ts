@@ -238,6 +238,22 @@ function proposalMatchesAuthoritativeRelativeSalary(input: {
     && Math.abs(proposedMonthlyWan - priorSalaries[0].monthlyNetAmountWan * ratio) < 0.000001;
 }
 
+function hasValidPolicyCompensationAuthority(source: Record<string, any> | undefined): boolean {
+  const estimate = source?.compensationEstimate as Record<string, any> | undefined;
+  if (source?.factStatus !== "estimated" || !estimate) return false;
+  const range = estimate.monthlyNetRangeWan;
+  return estimate.resolution === "estimated"
+    && estimate.policyId === "career_compensation_cn_v1"
+    && estimate.policyVersion === 1
+    && Array.isArray(range) && range.length === 2
+    && Number.isFinite(range[0]) && Number.isFinite(range[1]) && range[0] > 0 && range[1] >= range[0]
+    && Number.isFinite(estimate.monthlyNetAmountWan)
+    && estimate.monthlyNetAmountWan >= range[0] && estimate.monthlyNetAmountWan <= range[1]
+    && Number.isInteger(estimate.effectiveAtAgeInMonths)
+    && Number.isInteger(estimate.reviewAtAgeInMonths)
+    && estimate.reviewAtAgeInMonths > estimate.effectiveAtAgeInMonths;
+}
+
 function proposalIssue(input: {
   proposal?: FinancialEventProposal;
   code: FinancialLedgerIssue["code"];
@@ -811,6 +827,20 @@ function acceptedEvent(
         }
       : {})
   } as AcceptedFinancialEvent;
+  const acceptedIncomeSource = event.kind === "income_source_started"
+    ? event.payload
+    : event.kind === "income_source_adjusted" ? event.payload.nextSource : undefined;
+  if (acceptedIncomeSource?.compensationEstimate) {
+    event.evidence.push({
+      source: "system_policy",
+      sourceEventId: proposal.sourceOutcomeId,
+      excerpt: proposal.evidence.trim(),
+      reasonCode: acceptedIncomeSource.compensationEstimate.policyId,
+      confidence: acceptedIncomeSource.compensationEstimate.confidence,
+      financialScope: "personal"
+    });
+    event.acceptedByReasonCodes.push("VERSIONED_COMPENSATION_POLICY");
+  }
   if (event.kind === "asset_purchased") {
     const account = event.payload.assetAccount;
     if (!Array.isArray(account.evidence) || account.evidence.length === 0) {
@@ -1710,7 +1740,9 @@ export function validateFinancialProposals(input: {
         ledger: input.currentLedger,
         narrativeText: input.narrativeText
       });
-      if ((!personalCareerIncomeEvidenceIsExplicit(payload.type, proposal.evidence) && !matchesAuthoritativeRelativeSalary)
+      if ((!personalCareerIncomeEvidenceIsExplicit(payload.type, proposal.evidence)
+          && !matchesAuthoritativeRelativeSalary
+          && !hasValidPolicyCompensationAuthority(payload))
         || (requiresCompletedBusinessIncomeReceipt && !hasMatchingPersonalBusinessIncomeAmount({ type: payload.type, source: payload, evidence: proposal.evidence }))) {
         issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额、营业收入或不匹配金额不能证明主角已经按该金额和频率领取个人工资、提款或分红", ageInMonths: proposal.effectiveAtAgeInMonths }));
         continue;
@@ -1727,7 +1759,11 @@ export function validateFinancialProposals(input: {
         continue;
       }
       if (isCareerIncome) {
-        const activeCareerSources = input.currentLedger.incomeSources.filter((source) => source.status === "active" && Boolean(source.linkedCareerStateId));
+        const activeCareerSources = input.currentLedger.incomeSources.filter((source) => (
+          source.status === "active" && Boolean(source.linkedCareerStateId)
+          && (source.activeUntilAgeInMonths === undefined
+            || source.activeUntilAgeInMonths > proposal.effectiveAtAgeInMonths)
+        ));
         const replacedSourceIds = new Set(input.proposals.flatMap((candidate) => {
           if (candidate.kind === "income_source_ended" || candidate.kind === "income_source_paused") {
             const id = (candidate.payload as Record<string, unknown>)?.incomeSourceId;
@@ -1755,7 +1791,8 @@ export function validateFinancialProposals(input: {
     const adjustedIncomeType = adjustedIncomeSource?.type;
     const adjustedRequiresCompletedBusinessIncomeReceipt = adjustedIncomeType === "self_employment_draw" || adjustedIncomeType === "business_dividend";
     if (proposal.kind === "income_source_adjusted"
-      && (!personalCareerIncomeEvidenceIsExplicit(adjustedIncomeType, proposal.evidence)
+      && ((!personalCareerIncomeEvidenceIsExplicit(adjustedIncomeType, proposal.evidence)
+        && !hasValidPolicyCompensationAuthority(payload.nextSource as Record<string, any> | undefined))
         || (adjustedRequiresCompletedBusinessIncomeReceipt && !hasMatchingPersonalBusinessIncomeAmount({ type: adjustedIncomeType, source: adjustedIncomeSource, evidence: proposal.evidence })))) {
       issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额、营业收入或不匹配金额不能证明主角个人收入已经按该金额和频率调整", ageInMonths: proposal.effectiveAtAgeInMonths }));
       continue;
@@ -1846,7 +1883,8 @@ export function validateFinancialProposals(input: {
       });
       acceptedAfterTrial.push(...groupEvents);
     } catch (error) {
-      const missingFunding = error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE";
+      const missingFunding = error instanceof FinancialLedgerInvariantError
+        && (error.code === "MISSING_FUNDING_SOURCE" || error.code === "UNRESOLVED_FUNDING_GAP");
       const mayUseSystemShortfall = missingFunding
         && group.length > 0
         && group.every((proposal) => isIncurredEssentialOneOffExpense(proposal, input.narrativeText));
@@ -1869,8 +1907,9 @@ export function validateFinancialProposals(input: {
         }
       }
       if (!(error instanceof FinancialLedgerInvariantError)) throw error;
-      const code = error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE"
-        ? "MISSING_FUNDING_SOURCE"
+      const code = error instanceof FinancialLedgerInvariantError
+        && (error.code === "MISSING_FUNDING_SOURCE" || error.code === "UNRESOLVED_FUNDING_GAP")
+        ? "UNRESOLVED_FUNDING_GAP"
         : "UNBALANCED_TRANSACTION";
       for (const proposal of group) {
         issues.push(proposalIssue({

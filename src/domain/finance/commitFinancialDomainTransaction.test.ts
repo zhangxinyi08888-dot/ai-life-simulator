@@ -144,7 +144,7 @@ test("a ledger failure returns no partial CareerState or WorldState mutation", (
       sourceCashAccountId: PRIMARY_CASH_ACCOUNT_ID,
       amountWan: 5
     })]
-  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
+  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "UNRESOLVED_FUNDING_GAP");
   assert.equal(current.career.currentCareerStateId, "career_employed");
   assert.equal(current.career.careerRevision, 0);
   assert.equal(current.ledger.revision, 0);

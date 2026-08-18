@@ -14,6 +14,14 @@ function ledger(): FinancialLedgerV4 {
     id: "explicit_expense_change",
     asOfAgeInMonths: 400,
     openingPosition: {
+      cashAccounts: [{
+        id: "primary_cash",
+        type: "bank_deposit",
+        balanceWan: 10,
+        status: "active",
+        factStatus: "known",
+        evidence: [{ source: "accepted_history", reasonCode: "TEST_RESERVE", confidence: 1 }]
+      }],
       expenseCommitments: [{
         id: "home_main",
         type: "housing",

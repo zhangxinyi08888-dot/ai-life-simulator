@@ -993,6 +993,7 @@ export function reduceFinancialLedger(input: {
   const automaticLiquidityRecoveryEventIds: string[] = [];
   const automaticLiquidityRecoveryDebtAccountIds: string[] = [];
   let automaticLiquidityShortfallIncreaseWan = 0;
+  const allowsAutomaticShortfall = input.liquidityPolicy === "auto_shortfall_debt";
 
   const closeLiquidityShortfall = (ageInMonths: number, allowed: boolean) => {
     const cash = totalCashWan(next);
@@ -1106,7 +1107,7 @@ export function reduceFinancialLedger(input: {
       .filter((event) => event.kind === "debt_restructured")
       .map((event) => event.kind === "debt_restructured" ? event.payload.oldDebtAccountId : ""));
     const accrual = accumulatePeriodAccrual(accruePeriodSlice(next, cursor, boundary, {
-      closeNonDebtLiquidityShortfall: (ageInMonths) => closeLiquidityShortfall(ageInMonths, true),
+      closeNonDebtLiquidityShortfall: (ageInMonths) => closeLiquidityShortfall(ageInMonths, allowsAutomaticShortfall),
       recoverAutomaticLiquidityShortfall,
       excludedDebtAccountIds: restructuringDebtIds
     }), totals);
@@ -1132,7 +1133,7 @@ export function reduceFinancialLedger(input: {
     cursor = boundary;
   }
   const finalAccrual = accumulatePeriodAccrual(accruePeriodSlice(next, cursor, input.periodEndAgeInMonths, {
-    closeNonDebtLiquidityShortfall: (ageInMonths) => closeLiquidityShortfall(ageInMonths, true),
+    closeNonDebtLiquidityShortfall: (ageInMonths) => closeLiquidityShortfall(ageInMonths, allowsAutomaticShortfall),
     recoverAutomaticLiquidityShortfall
   }), totals);
   recurringIncomeWan = roundWan(recurringIncomeWan + finalAccrual.incomeWan);

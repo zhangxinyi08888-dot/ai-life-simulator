@@ -14,7 +14,13 @@ import type { ExpenseCommitmentV4, FinancialLedgerV3 } from "./types";
 function ledger() {
   return migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
     id: "review", asOfAgeInMonths: 80 * 12,
-    openingPosition: { expenseCommitments: [{
+    openingPosition: {
+      cashAccounts: [{
+        id: "primary_cash", type: "bank_deposit", balanceWan: 20,
+        status: "active", factStatus: "known",
+        evidence: [{ source: "accepted_history", reasonCode: "TEST_RESERVE", confidence: 1 }]
+      }],
+      expenseCommitments: [{
       id: "long_term_medical", type: "healthcare", displayName: "长期用药", monthlyAmountWan: 0.12,
       activeFromAgeInMonths: 79 * 12, status: "active", factStatus: "known",
       evidence: [{ source: "accepted_history", reasonCode: "TREATMENT", confidence: 1, excerpt: "持续用药" }]
@@ -22,7 +28,8 @@ function ledger() {
       id: "paused_insurance", type: "insurance", displayName: "暂停保费", monthlyAmountWan: 0.08,
       activeFromAgeInMonths: 78 * 12, status: "paused", factStatus: "needs_review",
       evidence: [{ source: "accepted_history", reasonCode: "COVERAGE", confidence: 1 }]
-    }] }
+      }]
+    }
   }) as FinancialLedgerV3);
 }
 

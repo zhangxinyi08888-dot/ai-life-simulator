@@ -23,8 +23,32 @@ const userData: UserInitialData = {
 // default remains enforced and is covered by dedicated financial-gate tests.
 const incompleteFinancialFixtureDeps = {
   financialNodeGateMode: "shadow" as const,
-  expenseLifecycleMode: "shadow" as const
+  expenseLifecycleMode: "shadow" as const,
+  relationshipDispatchFeatureFlags: {
+    enableLineMixPolicy: false,
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  }
 };
+
+function nonFinancialFixtureReserve(ageInMonths: number) {
+  return {
+    currencyUnit: "CNY_WAN_REAL" as const,
+    asOfAgeInMonths: ageInMonths,
+    cashWan: 100,
+    investmentAssetsWan: 0,
+    propertyMarketValueWan: 0,
+    businessAndOtherAssetsWan: 0,
+    totalDebtWan: 0,
+    netWorthWan: 100,
+    annualAfterTaxIncomeWan: 0,
+    annualDisposableIncomeWan: 0,
+    annualCoreExpenseWan: 0,
+    incomeStability: "unstable" as const,
+    isEstimated: false
+  };
+}
 
 function choices(repetitive = false): SimulationChoice[] {
   if (repetitive) {
@@ -34,7 +58,7 @@ function choices(repetitive = false): SimulationChoice[] {
   }
   return [
     { id: "A", text: "扩大现有业务", impactSummary: "继续扩张", decisionIntent: "expand", expectedWorldDeltaTypes: ["career_state"] },
-    { id: "B", text: "引入职业经理人", impactSummary: "协作经营", decisionIntent: "delegate", expectedWorldDeltaTypes: ["career_state", "relationship_change"] },
+    { id: "B", text: "改用标准化流程", impactSummary: "流程经营", decisionIntent: "delegate", expectedWorldDeltaTypes: ["career_state"] },
     { id: "C", text: "缩减规模保持利润", impactSummary: "稳健经营", decisionIntent: "reduce_scope", expectedWorldDeltaTypes: ["career_state"] }
   ];
 }
@@ -96,8 +120,29 @@ function pressureArc(age: number, phaseId = "operation"): PressureArcState {
 }
 
 function historyAt(age: number, arc?: PressureArcState): HistoryItem[] {
+  const partnerId = "age_fixture_partner";
   const worldStateSnapshot: WorldStateSnapshot = {
-    people: [],
+    // These tests isolate age and pressure-arc behavior. Keep an authoritative
+    // relationship context so unrelated relationship heuristics cannot reject
+    // a career-only fixture after the stricter finance gate lets it proceed.
+    people: [{
+      id: partnerId,
+      displayName: "伴侣",
+      relation: "partner",
+      lifeStatus: "active",
+      source: "accepted_history",
+      confidence: 1
+    }],
+    relationships: [{
+      id: "age_fixture_relationship",
+      participantPersonIds: [partnerId],
+      type: "romantic",
+      stage: "married",
+      status: "active",
+      effectiveFromAgeInMonths: 30 * 12,
+      source: "accepted_history",
+      confidence: 1
+    }],
     directionArcs: [{ id: "direction_venture", directionType: "career", summary: "长期创业", status: "active", startedAtAgeInMonths: 35 * 12, userReinforcementCount: 3, establishedAssets: ["公司"] }],
     pressureArcs: arc ? [arc] : [],
     foregroundPressureArcId: arc?.id,
@@ -113,6 +158,7 @@ function historyAt(age: number, arc?: PressureArcState): HistoryItem[] {
     selectedChoice: "继续创业",
     choices: [{ id: "A", text: "继续创业", impactSummary: "继续经营", temporalHint: { lifeIntensity: "high_tension", durationMonths: [6, 12], requiresFollowUp: true, reason: "创业" } }],
     attributes,
+    financialState: nonFinancialFixtureReserve(age * 12),
     isEndingNode: false,
     worldStateSnapshot
   }];
@@ -134,6 +180,7 @@ function healthHistory(healthValues: number[]): HistoryItem[] {
     selectedChoice: "记录指标继续观察",
     choices: healthChoices,
     attributes: { happiness: 40, intelligence: 40, wealth: 50, relation: 30, health },
+    financialState: nonFinancialFixtureReserve((34 + index) * 12),
     isEndingNode: false,
     eventMeta: index === 0 ? {
       eventId: "health_system_warning",

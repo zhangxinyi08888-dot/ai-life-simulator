@@ -114,7 +114,7 @@ test("M5-4 static debt: scheduled principal consumes equal cash while interest a
   assert.equal(result.periodSummary.netWorthChangeWan, -0.1);
 });
 
-test("M5-5 liquidity: negative disposable cash flow is valid and recurring essentials close through one shortfall debt", () => {
+test("M5-5 liquidity: negative disposable cash flow is valid but an unfunded negative balance fails closed", () => {
   const opening = (cashWan: number) => initializeFinancialLedger({
     id: `coverage_liquidity_${cashWan}`,
     asOfAgeInMonths: 360,
@@ -134,18 +134,19 @@ test("M5-5 liquidity: negative disposable cash flow is valid and recurring essen
   assert.equal(valid.alreadyCommitted, false);
   assert.equal(valid.ledger.cashAccounts[0].balanceWan, 10);
   assert.equal(deriveFinancialState({ ledger: valid.ledger, employmentStatus: "not_working" }).state.annualizedDisposableCashFlowWan, -24);
-  const shortfall = reduceFinancialLedger({
-    ledger: opening(1),
+  const unfunded = opening(1);
+  assert.throws(() => reduceFinancialLedger({
+    ledger: unfunded,
     transactionId: "coverage_negative_cash",
     expectedLedgerRevision: 0,
     periodStartAgeInMonths: 360,
     periodEndAgeInMonths: 361,
-    events: []
-  });
-  assert.equal(shortfall.alreadyCommitted, false);
-  assert.equal(shortfall.ledger.cashAccounts[0].balanceWan, 0);
-  assert.equal(shortfall.ledger.debtAccounts.filter((item) => item.type === "liquidity_shortfall" && item.status === "active").length, 1);
-  assert.equal(shortfall.ledger.debtAccounts.find((item) => item.type === "liquidity_shortfall")?.principalWan, 1);
+    events: [],
+    liquidityPolicy: "require_explicit"
+  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "UNRESOLVED_FUNDING_GAP");
+  assert.equal(unfunded.cashAccounts[0].balanceWan, 1);
+  assert.equal(unfunded.debtAccounts.length, 0);
+  assert.equal(unfunded.revision, 0);
 });
 
 test("M5-6 retirement semantics: pension and rent define the run rate independently of status", () => {

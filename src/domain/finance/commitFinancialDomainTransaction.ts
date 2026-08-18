@@ -168,8 +168,16 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   employmentStatus: EmploymentStatus;
   currentCareerStateId: string;
   basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
+  currentEmploymentStatus: EmploymentStatus;
+  careerTransitions: AcceptedCareerTransition[];
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
+  const employmentStatusAt = (ageInMonths: number): EmploymentStatus => {
+    const latest = [...input.careerTransitions]
+      .filter((transition) => transition.effectiveAtAgeInMonths <= ageInMonths)
+      .sort((left, right) => right.effectiveAtAgeInMonths - left.effectiveAtAgeInMonths)[0];
+    return latest?.nextCareerState.employmentStatus ?? input.currentEmploymentStatus;
+  };
   const isEstimatedOrNeedsReview = (factStatus: unknown) => (
     factStatus === "estimated" || factStatus === "needs_review"
   );
@@ -254,7 +262,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     if (!remainsEstimated) continue;
     const policyFloor = estimatedBasicLivingCommitment({
       ageInMonths: event.effectiveAtAgeInMonths,
-      employmentStatus: input.employmentStatus,
+      employmentStatus: employmentStatusAt(event.effectiveAtAgeInMonths),
       ...input.basicLivingEstimateContext
     });
     const protectedMinimum = Math.max(existing.monthlyAmountWan, policyFloor?.monthlyAmountWan || 0);
@@ -285,7 +293,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       : input.periodStartAgeInMonths;
     const nextEstimate = estimatedBasicLivingCommitment({
       ageInMonths: policyBoundary,
-      employmentStatus: input.employmentStatus,
+      employmentStatus: employmentStatusAt(policyBoundary),
       ...input.basicLivingEstimateContext
     });
     // The policy value is a floor for adult basic living, not a replacement
@@ -299,7 +307,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
         commitment: nextEstimate,
         asOfAgeInMonths: policyBoundary
       }));
-      if (input.employmentStatus === "student") {
+      if (employmentStatusAt(policyBoundary) === "student") {
         for (const source of input.ledger.incomeSources) {
           if (source.status === "active" && isDefaultStudentFamilySupport(source)) {
             source.monthlyNetAmountWan = nextEstimate.monthlyAmountWan;
@@ -319,7 +327,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   if (input.periodEndAgeInMonths >= 18 * 12 && !hasActiveBasicLiving && !startsBasicLivingEvent) {
     const estimatedLiving = estimatedBasicLivingCommitment({
       ageInMonths: input.periodStartAgeInMonths,
-      employmentStatus: input.employmentStatus,
+      employmentStatus: employmentStatusAt(input.periodStartAgeInMonths),
       ...input.basicLivingEstimateContext
     });
     if (estimatedLiving) {
@@ -330,7 +338,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       }));
     }
   }
-  if (input.employmentStatus === "student") {
+  if (employmentStatusAt(input.periodStartAgeInMonths) === "student") {
     const policyManagedLiving = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
     if (policyManagedLiving) {
       ensureDefaultStudentFamilySupport({
@@ -379,6 +387,36 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       summary: `旧版估算收入 ${source.displayName} 已连续多个实质节点未获确认，确定性计提已隔离；下一节点需要确认当前收入`,
       createdAtAgeInMonths: input.periodEndAgeInMonths
     });
+  }
+
+  // A status accepted at an event boundary changes only the following slice.
+  // Rotate policy-managed living costs at that boundary instead of applying
+  // the period-end status retroactively to the whole period.
+  if (!startsBasicLivingEvent && !touchesExistingBasicLiving) {
+    for (const transition of [...input.careerTransitions]
+      .filter((item) => item.effectiveAtAgeInMonths >= input.periodStartAgeInMonths
+        && item.effectiveAtAgeInMonths <= input.periodEndAgeInMonths)
+      .sort((left, right) => left.effectiveAtAgeInMonths - right.effectiveAtAgeInMonths)) {
+      const boundary = transition.effectiveAtAgeInMonths;
+      const currentEstimate = input.ledger.expenseCommitments.find((commitment) => (
+        isPolicyManagedBasicLiving(commitment)
+        && commitment.activeFromAgeInMonths <= boundary
+        && (commitment.activeUntilAgeInMonths === undefined || commitment.activeUntilAgeInMonths > boundary)
+      ));
+      const nextEstimate = estimatedBasicLivingCommitment({
+        ageInMonths: boundary,
+        employmentStatus: transition.nextCareerState.employmentStatus,
+        ...input.basicLivingEstimateContext
+      });
+      if (!currentEstimate || !nextEstimate || currentEstimate.monthlyAmountWan === nextEstimate.monthlyAmountWan) continue;
+      currentEstimate.activeUntilAgeInMonths = boundary;
+      if (boundary <= input.periodStartAgeInMonths) currentEstimate.status = "ended";
+      issues.push(...addAutomaticBasicLivingCommitment({
+        ledger: input.ledger,
+        commitment: nextEstimate,
+        asOfAgeInMonths: boundary
+      }));
+    }
   }
 
   if (input.periodEndAgeInMonths >= 55 * 12) {
@@ -702,6 +740,30 @@ function assertLinkedCareerStates(
   }
 }
 
+function assertCareerCompensationAtomicity(input: {
+  transitions: AcceptedCareerTransition[];
+  events: AcceptedFinancialEvent[];
+}): void {
+  for (const transition of input.transitions) {
+    if (!["employed", "part_time"].includes(transition.nextCareerState.employmentStatus)) continue;
+    const replacement = input.events.find((event) => {
+      const source = event.kind === "income_source_started"
+        ? event.payload
+        : event.kind === "income_source_adjusted" ? event.payload.nextSource : undefined;
+      return source?.status === "active"
+        && source.linkedCareerStateId === transition.nextCareerState.id
+        && ["salary", "contract"].includes(source.type)
+        && event.effectiveAtAgeInMonths === transition.effectiveAtAgeInMonths;
+    });
+    if (!replacement) {
+      throw new FinancialLedgerInvariantError(
+        "INVALID_LEDGER",
+        `有薪职业转换 ${transition.nextCareerState.id} 缺少同月 known/estimated 收入决议`
+      );
+    }
+  }
+}
+
 export function commitFinancialDomainTransaction(
   input: FinancialDomainTransactionInput
 ): CommittedFinancialDomainTransaction {
@@ -730,6 +792,10 @@ export function commitFinancialDomainTransaction(
   });
   const nextCurrentCareerState = currentCareerState(nextCareer);
   if (!nextCurrentCareerState) throw new FinancialLedgerInvariantError("INVALID_LEDGER", "职业事务未产生当前 CareerState");
+  assertCareerCompensationAtomicity({
+    transitions: input.acceptedCareerTransitions,
+    events: input.acceptedFinancialEvents
+  });
   assertLinkedCareerStates(input.acceptedFinancialEvents, nextCareer);
   const settlementLedger = structuredClone(input.currentFinancialLedger);
   applyStudentFamilySupportLifecycle({
@@ -744,7 +810,9 @@ export function commitFinancialDomainTransaction(
     periodEndAgeInMonths: input.periodEndAgeInMonths,
     employmentStatus: nextCurrentCareerState.employmentStatus,
     currentCareerStateId: nextCurrentCareerState.id,
-    basicLivingEstimateContext: input.basicLivingEstimateContext
+    basicLivingEstimateContext: input.basicLivingEstimateContext,
+    currentEmploymentStatus: currentState.employmentStatus,
+    careerTransitions: input.acceptedCareerTransitions
   });
   const unclassifiedExpenseEvents = isFinancialLedgerV4(settlementLedger) && input.aggregateExpenseEstimateContext
     ? reconcileUnclassifiedCoreExpense({

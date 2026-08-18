@@ -215,6 +215,8 @@ export function reconcileCareerIncomeAtomicity(input: {
     if (!stopsWorking && !continuesWorking) return true;
     const linkedActiveSources = input.currentLedger.incomeSources.filter((source) => (
       source.status === "active" && source.linkedCareerStateId === input.currentCareerStateId
+      && (source.activeUntilAgeInMonths === undefined
+        || source.activeUntilAgeInMonths > transition.effectiveAtAgeInMonths)
     ));
     const settledIds = new Set(authoritativeFinancialEvents.flatMap((event) => {
       const sourceId = incomeSourceId(event);

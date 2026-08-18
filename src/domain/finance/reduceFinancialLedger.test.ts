@@ -499,7 +499,7 @@ test("requires an explicit funding event and never silently commits negative cas
     periodStartAgeInMonths: 240,
     periodEndAgeInMonths: 241,
     events: [expense]
-  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
+  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "UNRESOLVED_FUNDING_GAP");
   assert.equal(ledger.cashAccounts[0].balanceWan, 1);
   assert.equal(ledger.revision, 0);
 
@@ -675,7 +675,7 @@ test("does not let a later inflow retroactively fund an earlier expense", () => 
         amountWan: 3
       })
     ]
-  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "MISSING_FUNDING_SOURCE");
+  }), (error: unknown) => error instanceof FinancialLedgerInvariantError && error.code === "UNRESOLVED_FUNDING_GAP");
 });
 
 test("records late-discovered property and mortgage as prior fact correction without fake cash flow", () => {

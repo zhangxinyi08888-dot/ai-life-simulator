@@ -85,7 +85,53 @@ export interface IncomeSource {
   factStatus: FinancialFactStatus;
   accrualReviewStatus?: "normal" | "quarantined";
   lastConfirmedAtAgeInMonths?: number;
+  /** Auditable provenance for a deterministic role-based compensation estimate. */
+  compensationEstimate?: CareerCompensationEstimate;
   evidence: FinancialEvidence[];
+}
+
+export type CareerOccupationFamily =
+  | "software_engineering"
+  | "design"
+  | "product"
+  | "management"
+  | "consulting"
+  | "education"
+  | "sales_operations"
+  | "general";
+
+export type CareerCompensationStage =
+  | "internship"
+  | "entry"
+  | "mid"
+  | "senior"
+  | "lead"
+  | "manager"
+  | "executive";
+
+export type CareerEmploymentType = "internship" | "part_time" | "full_time" | "self_employed";
+
+export interface CareerCompensationPolicyInputs {
+  occupationFamily: CareerOccupationFamily;
+  careerStage: CareerCompensationStage;
+  employmentType: CareerEmploymentType;
+  industryTier: "technology" | "professional_services" | "education" | "general";
+  organizationTier: "top" | "large" | "small" | "unknown";
+  regionTier: "tier_1" | "other" | "unknown";
+  calendarYear: number;
+}
+
+export interface CareerCompensationEstimate {
+  resolution: "estimated";
+  policyId: "career_compensation_cn_v1";
+  policyVersion: 1;
+  monthlyNetRangeWan: [number, number];
+  monthlyNetAmountWan: number;
+  inputs: CareerCompensationPolicyInputs;
+  confidence: number;
+  effectiveAtAgeInMonths: number;
+  reviewAtAgeInMonths: number;
+  evidence: string;
 }
 
 export type ExpenseCommitmentType = "basic_living" | "housing" | "dependent_support" | "education" | "healthcare" | "insurance" | "other";
@@ -376,6 +422,7 @@ export interface FinancialLedgerIssue {
   id: string;
   code:
     | "MISSING_FUNDING_SOURCE"
+    | "UNRESOLVED_FUNDING_GAP"
     | "UNBALANCED_TRANSACTION"
     | "CAREER_INCOME_CONFLICT"
     | "BUSINESS_PERSONAL_BOUNDARY_CONFLICT"

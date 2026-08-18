@@ -11,7 +11,7 @@ test("M7 gate: production nodes use the authoritative domain transaction as the 
   assert.equal((simulationSource.match(/commitAuthoritativeFinancialProgress\(\{/g) || []).length, 2);
   assert.match(simulationSource, /financialLedgerMode: "authoritative"/);
   assert.match(simulationSource, /domainTransactionAlreadyCommitted: true/);
-  assert.match(simulationSource, /liquidityPolicy: "auto_shortfall_debt"/);
+  assert.match(simulationSource, /liquidityPolicy: "require_explicit"/);
   assert.doesNotMatch(simulationSource, /rawNode\?\.financialSignals|rawNode\?\.financialChange/);
   assert.doesNotMatch(simulationSource, /inferFinancialSignalsFromNarrative|applyFinancialSignals|applyFinancialChange/);
   assert.doesNotMatch(simulationSource, /runFinancialShadowTransition|adaptLegacyFinancialSignalsToProposals/);

@@ -95,9 +95,12 @@ import {
   hasExplicitUnpaidPersonalIncomeStatement,
   buildLateLifeEmploymentClosure,
   requiresHardLateLifeCareerIncomeResolution,
+  completeCareerCompensationProposals,
+  completeDueCareerCompensationReviewProposals,
   completeCareerIncomeReplacementProposals,
   buildMortalityFinancialClosure,
   reconcileCareerIncomeAtomicity,
+  reclassifyBoundedStudentEngagement,
   validateFinancialProposals,
   validateExpenseConfirmationAtomicity,
   verifyAcceptedExpenseConfirmationAgainstFinalNarrative,
@@ -2891,6 +2894,17 @@ async function commitAuthoritativeFinancialProgress(input: {
     }
   }
   let nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
+  const studentEngagement = reclassifyBoundedStudentEngagement({
+    currentCareerState: currentCareer,
+    transitions: acceptedCareerTransitions,
+    narrativeText: input.node.description,
+    acceptedOutcomeId: input.acceptedOutcomeId
+  });
+  const reclassifiedCareerStateIds = new Set(acceptedCareerTransitions
+    .filter((transition) => !studentEngagement.transitions.includes(transition))
+    .map((transition) => transition.nextCareerState.id));
+  acceptedCareerTransitions = studentEngagement.transitions;
+  nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
   // A bare acceptance of an external offer is represented by the pending
   // offer state above.  It becomes a CareerState transition only after actual
   // entry is established in the accepted outcome and its salary is known.
@@ -2921,7 +2935,8 @@ async function commitAuthoritativeFinancialProgress(input: {
     narrativeText: input.node.description,
     currentStatus: currentCareer.employmentStatus
   });
-  if (careerTransitionRequired && acceptedCareerTransitions.length === 0 && careerValidationIssues.length === 0) {
+  if (careerTransitionRequired && acceptedCareerTransitions.length === 0
+    && careerValidationIssues.length === 0 && !studentEngagement.reclassified) {
     careerValidationIssues.push({
       id: `career_transition_missing_${input.transactionId}`,
       code: "CAREER_INCOME_CONFLICT",
@@ -2972,6 +2987,18 @@ async function commitAuthoritativeFinancialProgress(input: {
         currentCareerStateId: currentCareer.id,
     nextCareerStateIds: nextCareerIds
   });
+  normalizedFinancial.proposals = [
+    ...normalizedFinancial.proposals.filter((proposal) => {
+      if (proposal.kind === "income_source_started") {
+        return !reclassifiedCareerStateIds.has(String((proposal.payload as Record<string, unknown>)?.linkedCareerStateId || ""));
+      }
+      if (proposal.kind === "income_source_adjusted") {
+        return !reclassifiedCareerStateIds.has(String((proposal.payload as Record<string, any>)?.nextSource?.linkedCareerStateId || ""));
+      }
+      return true;
+    }),
+    ...studentEngagement.proposals
+  ];
   normalizedFinancial.proposals = synthesizeMissingDebtCompletionProposals({
     proposals: normalizedFinancial.proposals,
     narrativeText: input.node.description,
@@ -3009,6 +3036,26 @@ async function commitAuthoritativeFinancialProgress(input: {
     suppressEmployerSalarySynthesis: selectedDecisionIsPendingEmployerOffer,
     ledger: initialLedger
   });
+  normalizedFinancial.proposals = completeCareerCompensationProposals({
+    proposals: normalizedFinancial.proposals,
+    currentLedger: initialLedger,
+    transition: acceptedCareerTransitions[0],
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    narrativeText: input.node.description,
+    explicitUnpaid: hasExplicitUnpaidPersonalIncomeStatement(input.node.description),
+    userEvidenceText: input.selectedDecision
+  });
+  if (acceptedCareerTransitions.length === 0) {
+    normalizedFinancial.proposals = completeDueCareerCompensationReviewProposals({
+      proposals: normalizedFinancial.proposals,
+      currentLedger: initialLedger,
+      currentCareerState: currentCareer,
+      periodStartAgeInMonths: input.periodStartAgeInMonths,
+      periodEndAgeInMonths: input.periodEndAgeInMonths,
+      acceptedOutcomeId: input.acceptedOutcomeId,
+      narrativeText: input.node.description
+    });
+  }
   normalizedFinancial.proposals = completeCareerIncomeReplacementProposals({
     proposals: normalizedFinancial.proposals,
     currentLedger: initialLedger,
@@ -3223,7 +3270,7 @@ async function commitAuthoritativeFinancialProgress(input: {
       issues: [...validated.issues, ...careerValidationIssues.filter((issue) => !existingIds.has(issue.id))]
     };
   }
-  if (careerTransitionRequired && acceptedCareerTransitions.length === 0
+  if (careerTransitionRequired && acceptedCareerTransitions.length === 0 && !studentEngagement.reclassified
     && !validated.issues.some((issue) => issue.id === `career_transition_missing_${input.transactionId}`)) {
     validated = {
       ...validated,
@@ -3606,7 +3653,7 @@ async function commitAuthoritativeFinancialProgress(input: {
       cityCostBand: expenseEstimateContext.cityCostBand
     },
     aggregateExpenseEstimateContext: expenseEstimateContext,
-    liquidityPolicy: "auto_shortfall_debt"
+    liquidityPolicy: "require_explicit"
   } as const;
   // Narrative grounding depends on the closing ledger, while narrative contract
   // issues must describe the text the user actually sees. Trial the otherwise

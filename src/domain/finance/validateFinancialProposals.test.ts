@@ -149,7 +149,7 @@ test("rolls back only the event that fails incremental ledger trial", () => {
     })
   ], "这一年，你已经收到2万元项目奖金。你已经支付50万元费用。");
   assert.deepEqual(result.acceptedEvents.map((event) => event.proposalId), ["bonus"]);
-  assert.equal(result.issues.some((issue) => issue.code === "MISSING_FUNDING_SOURCE" && issue.relatedProposalIds.includes("unfunded")), true);
+  assert.equal(result.issues.some((issue) => issue.code === "UNRESOLVED_FUNDING_GAP" && issue.relatedProposalIds.includes("unfunded")), true);
 });
 
 test("rejects a period-end one-off that tries to book an explicitly pre-period medical outlay", () => {

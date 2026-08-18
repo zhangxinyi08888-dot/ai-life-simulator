@@ -678,6 +678,8 @@ test("resets the legacy student expense floor after an authoritative adult trans
 
   assert.equal(signals.employmentStatus, "employed");
   assert.equal(signals.monthlyLivingExpenseWan, 0.35);
+  assert.equal(signals.monthlyNetIncomeWan, 0);
+  assert.match(signals.reasons.join(" "), /不得复用上一职业收入/);
 });
 
 test("floors negative cash into debt without changing net worth twice", () => {

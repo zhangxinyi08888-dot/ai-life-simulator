@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "inputSchemaVersion": 1,
+  "baselineCommit": "7ff187cb32ad9493bfe1f667cec8c9be4fc87c33",
+  "deterministic": true,
+  "inputDigestSha256": "f17b73c43b932a9f3e39fc2a7c163c62d7a9896d947aa37b6fa07b8397ccdf71",
+  "allPassed": true,
+  "summary": {
+    "boundaryCases": 5,
+    "metamorphicCases": 4,
+    "mutationGuards": 6,
+    "restoredLedgerRevision": 2,
+    "restoredLedgerDigestSha256": "b846e8380ebb026e4c4513ce38ea28912f1507e2a53e13f17aef94dc900edf54"
+  },
+  "boundaryMatrix": [
+    {
+      "transitionMonth": 300,
+      "oldIncomeMonths": 0,
+      "newIncomeMonths": 12,
+      "estimatedMonthlySalaryWan": 3.09,
+      "expectedIncomeWan": 37.08,
+      "actualIncomeWan": 37.08,
+      "incomeMatches": true,
+      "monthlyCoverage": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "exactlyOneCareerIncomePerMonth": true,
+      "noOldSalaryReuse": true,
+      "sameMonthEffective": true
+    },
+    {
+      "transitionMonth": 301,
+      "oldIncomeMonths": 1,
+      "newIncomeMonths": 11,
+      "estimatedMonthlySalaryWan": 3.09,
+      "expectedIncomeWan": 34.29,
+      "actualIncomeWan": 34.29,
+      "incomeMatches": true,
+      "monthlyCoverage": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "exactlyOneCareerIncomePerMonth": true,
+      "noOldSalaryReuse": true,
+      "sameMonthEffective": true
+    },
+    {
+      "transitionMonth": 306,
+      "oldIncomeMonths": 6,
+      "newIncomeMonths": 6,
+      "estimatedMonthlySalaryWan": 3.09,
+      "expectedIncomeWan": 20.34,
+      "actualIncomeWan": 20.34,
+      "incomeMatches": true,
+      "monthlyCoverage": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "exactlyOneCareerIncomePerMonth": true,
+      "noOldSalaryReuse": true,
+      "sameMonthEffective": true
+    },
+    {
+      "transitionMonth": 311,
+      "oldIncomeMonths": 11,
+      "newIncomeMonths": 1,
+      "estimatedMonthlySalaryWan": 3.09,
+      "expectedIncomeWan": 6.39,
+      "actualIncomeWan": 6.39,
+      "incomeMatches": true,
+      "monthlyCoverage": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "exactlyOneCareerIncomePerMonth": true,
+      "noOldSalaryReuse": true,
+      "sameMonthEffective": true
+    },
+    {
+      "transitionMonth": 312,
+      "oldIncomeMonths": 12,
+      "newIncomeMonths": 0,
+      "estimatedMonthlySalaryWan": 3.09,
+      "expectedIncomeWan": 3.6,
+      "actualIncomeWan": 3.6,
+      "incomeMatches": true,
+      "monthlyCoverage": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "exactlyOneCareerIncomePerMonth": true,
+      "noOldSalaryReuse": true,
+      "sameMonthEffective": true
+    }
+  ],
+  "metamorphic": {
+    "equivalent": true,
+    "estimates": [
+      {
+        "occupation": "前端工程师",
+        "normalizedInputs": {
+          "occupationFamily": "software_engineering",
+          "careerStage": "mid",
+          "employmentType": "full_time",
+          "industryTier": "technology",
+          "organizationTier": "top",
+          "regionTier": "unknown",
+          "calendarYear": 2026
+        },
+        "monthlyNetRangeWan": [
+          1.75,
+          4.43
+        ],
+        "monthlyNetAmountWan": 3.09,
+        "policyId": "career_compensation_cn_v1",
+        "policyVersion": 1
+      },
+      {
+        "occupation": "Web Engineer",
+        "normalizedInputs": {
+          "occupationFamily": "software_engineering",
+          "careerStage": "mid",
+          "employmentType": "full_time",
+          "industryTier": "technology",
+          "organizationTier": "top",
+          "regionTier": "unknown",
+          "calendarYear": 2026
+        },
+        "monthlyNetRangeWan": [
+          1.75,
+          4.43
+        ],
+        "monthlyNetAmountWan": 3.09,
+        "policyId": "career_compensation_cn_v1",
+        "policyVersion": 1
+      },
+      {
+        "occupation": "Web 工程师",
+        "normalizedInputs": {
+          "occupationFamily": "software_engineering",
+          "careerStage": "mid",
+          "employmentType": "full_time",
+          "industryTier": "technology",
+          "organizationTier": "top",
+          "regionTier": "unknown",
+          "calendarYear": 2026
+        },
+        "monthlyNetRangeWan": [
+          1.75,
+          4.43
+        ],
+        "monthlyNetAmountWan": 3.09,
+        "policyId": "career_compensation_cn_v1",
+        "policyVersion": 1
+      },
+      {
+        "occupation": "前端开发工程师",
+        "normalizedInputs": {
+          "occupationFamily": "software_engineering",
+          "careerStage": "mid",
+          "employmentType": "full_time",
+          "industryTier": "technology",
+          "organizationTier": "top",
+          "regionTier": "unknown",
+          "calendarYear": 2026
+        },
+        "monthlyNetRangeWan": [
+          1.75,
+          4.43
+        ],
+        "monthlyNetAmountWan": 3.09,
+        "policyId": "career_compensation_cn_v1",
+        "policyVersion": 1
+      }
+    ]
+  },
+  "recovery": {
+    "checkpointAgeInMonths": 312,
+    "continuationEndAgeInMonths": 324,
+    "restoreEquivalent": true,
+    "duplicateTransactionAlreadyCommitted": true,
+    "finalLedgerDigestSha256": "b846e8380ebb026e4c4513ce38ea28912f1507e2a53e13f17aef94dc900edf54"
+  },
+  "mutationGuards": {
+    "missing_same_month_compensation_rolls_back": true,
+    "cross_career_salary_is_not_reused": true,
+    "bounded_internship_has_exact_end": true,
+    "strict_gap_creates_no_debt": true,
+    "duplicate_transaction_is_idempotent": true,
+    "policy_metadata_survives_json_restore": true
+  }
+}

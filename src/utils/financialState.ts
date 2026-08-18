@@ -249,12 +249,15 @@ export function inferFinancialSignalsFromNarrative(input: {
   const explicitMonthlyTransfer = firstMoneyMatch(input.description, [
     /每月(?:寄|汇|转)[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万元|万|元)/
   ]) || 0;
-  const resolvedMonthlyIncome = monthlyIncome ?? previousMonthlyIncome;
+  const sameEmploymentStage = input.previousState.employmentStatus === employmentStatus;
+  const resolvedMonthlyIncome = monthlyIncome ?? (sameEmploymentStage ? previousMonthlyIncome : 0);
   const inactive = employmentStatus === "not_working" || employmentStatus === "medical_leave" || employmentStatus === "retired";
   const incomeMonths = inactive && monthlyIncome === undefined ? 0 : input.periodMonths;
   const reasons = monthlyIncome !== undefined
     ? ["根据正文明确月收入估算", "按阶段月份累计收入并参考上期生活成本"]
-    : ["正文未给出新薪资，沿用上一阶段收入和生活水平"];
+    : sameEmploymentStage
+      ? ["正文未给出薪资变化，沿用同一就业阶段已确认的收入和生活水平"]
+      : ["就业阶段已经变化且正文未给出薪资；不得复用上一职业收入，等待权威薪资决议"];
   if (explicitMonthlyTransfer > 0) reasons.push("计入正文明确的每月家庭汇款");
 
   return normalizeFinancialSignals({

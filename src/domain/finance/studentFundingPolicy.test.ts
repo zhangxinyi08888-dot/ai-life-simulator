@@ -107,6 +107,26 @@ test("default family coverage ends at an accepted transition out of student stat
     evidence: [{ source: "accepted_simulation_outcome", reasonCode: "TEST_GRADUATION", confidence: 1 }],
     acceptedByReasonCodes: ["TEST"]
   };
+  const startingSalary: AcceptedFinancialEvent<"income_source_started"> = {
+    id: "accepted_graduation_salary",
+    proposalId: "graduation_salary",
+    kind: "income_source_started",
+    effectiveAtAgeInMonths: 19 * 12,
+    payload: {
+      id: "graduation_salary",
+      type: "salary",
+      displayName: "毕业后工资",
+      monthlyNetAmountWan: 1,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 19 * 12,
+      status: "active",
+      linkedCareerStateId: employed.id,
+      factStatus: "known",
+      evidence: [{ source: "accepted_simulation_outcome", reasonCode: "TEST_GRADUATION_SALARY", confidence: 1 }]
+    },
+    evidence: [{ source: "accepted_simulation_outcome", reasonCode: "TEST_GRADUATION_SALARY", confidence: 1 }],
+    acceptedByReasonCodes: ["TEST"]
+  };
   const committed = commitFinancialDomainTransaction({
     transactionId: "student_graduation",
     periodStartAgeInMonths: startAge,
@@ -120,7 +140,7 @@ test("default family coverage ends at an accepted transition out of student stat
       currentEmploymentStatus: "student", careerRevision: 0, committedTransactionIds: [], version: 2
     },
     acceptedCareerTransitions: [transition],
-    acceptedFinancialEvents: [],
+    acceptedFinancialEvents: [startingSalary],
     liquidityPolicy: "auto_shortfall_debt"
   });
   const support = committed.financialLedger.incomeSources.find((source) => source.id === "student_basic_family_support");
