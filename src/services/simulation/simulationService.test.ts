@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
-import { buildDeterministicFinancialNarrativeRollback, detectNarrativeFinancialCoverageIssues, eventSpecificFallbackDefinitions, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, selectedDecisionRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, buildDeterministicRomanceRescheduleNode, detectNarrativeFinancialCoverageIssues, eventSpecificFallbackDefinitions, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, selectedDecisionRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
@@ -35,9 +35,245 @@ const careerFallbackEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "c
 assert.ok(careerFallbackEvent, "career fallback regression requires a concrete event seed");
 const careerFallbackChoices = eventSpecificFallbackDefinitions(careerFallbackEvent);
 assert.equal(careerFallbackChoices.length, 3);
-assert.ok(careerFallbackChoices.every((choice) => choice.text.includes(careerFallbackEvent.title)));
+assert.ok(careerFallbackChoices.every((choice) => !choice.text.includes(careerFallbackEvent.title)));
 assert.ok(careerFallbackChoices.every((choice) => choice.intent.startsWith(`event:${careerFallbackEvent.id}:`)));
 assert.doesNotMatch(careerFallbackChoices.map((choice) => choice.text).join("\n"), /候选修复预算已用尽|按当前方向继续推进/);
+
+const contentQualityFallbackFixtures = [
+  {
+    eventId: "financial_resource_priority_choice",
+    forbiddenLabel: "资源优先级选择",
+    node: {
+      title: "在线展示与两封试探信",
+      narrativeMeta: { primaryActivity: "整理在线展示页并主动联系外部团队，试探下一阶段机会", activeCharacters: [] },
+      financialState: { cashWan: 0, totalDebtWan: 25 }
+    },
+    expected: [
+      "先列清未来三个月的确定到账收入、必要生活支出和最低还款，写出每月不能突破的支出上限",
+      "为整理在线展示页并主动联系外部团队设定一笔不挤占必要生活和还款的投入上限",
+      "只在新增收入实际到账后投入整理在线展示页并主动联系外部团队，其余先补必要生活和最低还款"
+    ]
+  },
+  {
+    eventId: "career_long_project_completion",
+    forbiddenLabel: "长期项目阶段完成",
+    node: {
+      title: "低成本的支点",
+      description: "你把组件库的重绘优化沉淀成一篇技术文档。月底，一家小型设计工作室通过技术文档联系你，询问组件评审顾问服务。",
+      narrativeMeta: { primaryActivity: "career:focus:internal_component_library", activeCharacters: [] }
+    },
+    expected: [
+      "把可视化组件库与技术文档中已经完成的功能、遗留问题和可复用材料整理成一份交付清单",
+      "与联系你的那家小型设计工作室确认下一阶段只延续一项组件评审工作，并写清交付时间与费用边界",
+      "从可视化组件库与技术文档中选出一个可运行案例对外发布，用真实反馈决定下一条职业路径"
+    ]
+  },
+  {
+    eventId: "financial_long_term_order",
+    forbiddenLabel: "长期财务秩序",
+    node: {
+      title: "稳定秩序中的新可能性",
+      narrativeMeta: {
+        primaryActivity: "乡村教师支持与培训包维护",
+        activeCharacters: [{ name: "周岚", role: "志愿者" }]
+      },
+      financialState: { cashWan: 777.7827, totalDebtWan: 0 }
+    },
+    expected: [
+      "把现金缓冲、必要生活支出和确定到账收入逐项写入年度预算，并定下每季度核账日期",
+      "等年度结余实际到账后，为乡村教师支持与培训包维护划出固定上限，其余留作生活储备",
+      "为乡村教师支持与培训包维护设置金额、期限和停止条件，再决定是否持续投入"
+    ]
+  },
+  {
+    eventId: "opportunity_unstable_alliance",
+    forbiddenLabel: "不稳定联盟与未来押注",
+    node: {
+      title: "护工进门，枣树依旧",
+      narrativeMeta: {
+        primaryActivity: "维持乡村教师支持手册的季度回访与半年更新，同时通过护工分摊父母照护责任",
+        activeCharacters: [
+          { name: "父亲", relation: "father" },
+          { name: "周岚", role: "collaborator" },
+          { name: "护工小陈", role: "caregiver" }
+        ]
+      }
+    },
+    expected: [
+      "先与周岚围绕维持乡村教师支持手册的季度回访与半年更新做一轮小规模协作，只验证一个明确结果",
+      "暂不扩大与周岚的协作，先核对时间、资金和现有照护责任是否承受得住",
+      "明确婉拒周岚提出的新增协作，把精力留给当前工作和照护安排"
+    ]
+  }
+] as const;
+
+for (const fixture of contentQualityFallbackFixtures) {
+  const event = LIFE_EVENTS_DATABASE.find((candidate) => candidate.id === fixture.eventId);
+  assert.ok(event, `missing content-quality fixture event ${fixture.eventId}`);
+  const choices = eventSpecificFallbackDefinitions(event, { node: fixture.node as unknown as import("../../types").SimulationNode });
+  assert.deepEqual(choices.map((choice) => choice.text), [...fixture.expected]);
+  assert.equal(choices.length, 3);
+  assert.doesNotMatch(choices.map((choice) => choice.text).join("\n"), new RegExp(fixture.forbiddenLabel));
+}
+
+const liveNarrativeFallbackFixtures = [
+  {
+    eventId: "career_sustainable_work_rhythm",
+    node: {
+      title: "33岁3个月：共同生活的筹备与手艺的新土壤",
+      ageInMonths: 399,
+      description: "你和林晓开始推进共同生活筹备，同时延续作品集沉淀，并把每周投入写进共同日历。",
+      narrativeMeta: { primaryActivity: "推进共同生活筹备并延续作品集沉淀", activeCharacters: [{ name: "林晓", relation: "partner" }] }
+    },
+    expected: [
+      "把推进共同生活筹备并延续作品集沉淀写成一页本周期清单，明确唯一交付物和截止日期，并与林晓逐项确认",
+      "暂停推进共同生活筹备并延续作品集沉淀中的新增承诺一个月，只保留已经确认的交付和每周投入上限",
+      "从推进共同生活筹备并延续作品集沉淀已完成的材料中选一个可运行案例，本周对外发布并记录三条真实反馈"
+    ],
+    forbidden: /一项可执行安排|高风险承诺|职业备选路径|直接相关的人/u
+  },
+  {
+    eventId: "career_long_project_completion",
+    node: {
+      title: "三十岁九个月：作品集的回声",
+      ageInMonths: 369,
+      description: "你重新打磨作品集里的课程原型和交互页面，把学生注意力注释发到专业社区并收到教育产品同行反馈。智慧校园产品进入维护期，你准备与主管讨论一个新模块。",
+      narrativeMeta: { primaryActivity: "career_craft_refinement", activeCharacters: [{ name: "林晓", relation: "romantic_interest" }] }
+    },
+    expected: [
+      "把智慧校园作品集中重做的交互页面、学生注意力注释和待改项整理成一份交付清单",
+      "与主管确认下一阶段只负责一个智慧校园新模块，并写清设计范围、评审节点和交付日期",
+      "从重做的作品集选出一个课程原型发布到专业社区，用教育产品同行的反馈决定下一步"
+    ],
+    forbidden: /当前项目与现实责任|组件评审|与林晓确认下一阶段/u
+  },
+  {
+    eventId: "career_venture_pressure",
+    node: {
+      title: "26岁1月：资助落空的半年之后",
+      ageInMonths: 313,
+      description: "你继续维护无障碍开源项目，但现金流见底，下个月房租成了问题。你靠零散UI外包维持生计，后来拿到一笔小额资助。智慧城市公司邀请你每周去两三天做无障碍模块顾问。",
+      narrativeMeta: { primaryActivity: "career_venture_pressure", activeCharacters: [] }
+    },
+    expected: [
+      "与智慧城市公司确认每周两三天的顾问范围、顾问费和三个月交付周期，用收入覆盖房租，同时保留无障碍开源项目",
+      "只接一项能覆盖房租的UI外包，停止新增服务器支出，把无障碍开源项目维持在每周两个固定时段",
+      "婉拒智慧城市顾问邀请，把小额资助用于无障碍开源项目的最后三个月冲刺，并以用户增长和现金余额设停止条件"
+    ],
+    forbidden: /已经展开的事情|当前事业试点与现金流安排|确认一项可执行安排|职业备选路径/u
+  },
+  {
+    eventId: "health_sustainable_routine",
+    node: {
+      title: "34岁6个月，稳步中的自我校准",
+      ageInMonths: 414,
+      description: "你每周抽出三天试水线上公益课程和轻量咨询。线上工作坊的剪辑、推广、答疑占据不少时间。本地协调员已经能独立处理日常事务。你试着固定睡眠，每天散步半小时，并要准备独立审计。",
+      narrativeMeta: { primaryActivity: "教育项目运营与线上课程探索", activeCharacters: [{ name: "父母", relation: "parent_unspecified" }] }
+    },
+    expected: [
+      "把线上工作坊的剪辑、推广和答疑限定在每周三个固定时段，同时连续四周记录睡眠和疲劳",
+      "保留线上工作坊，暂停轻量咨询一个月，再核对额外工作是否仍影响固定睡眠和每日散步",
+      "把学校项目的日常事务交给本地协调员，自己只保留每周两次现场跟进，并完成独立审计准备"
+    ],
+    forbidden: /教育项目运营与线上课程探索|落实作息|身体能够承受|重建稳定/u
+  },
+  {
+    eventId: "life_normal_transition",
+    node: {
+      title: "26岁，同城后的第一个春天",
+      ageInMonths: 312,
+      description: "林晚搬到你所在的城市。你们列了房租、通勤和岗位机会对比表，每周见面两晚，也讨论一起租更大的房子。你独立维护组件库，并把报名流程做成可复用文档。",
+      narrativeMeta: { primaryActivity: "工作与感情同城磨合，生活进入稳定积累期", activeCharacters: [{ name: "林晚" }] }
+    },
+    expected: [
+      "与林晚约定每周两个见面晚上的家务分工，执行一个月后再讨论是否合租更大的房子",
+      "把组件库维护和报名流程文档各限定为每周一个固定时段，保留同城见面与休息时间",
+      "与林晚按房租、通勤和岗位机会清单试算合租方案，一个月后再决定是否搬家"
+    ],
+    forbidden: /工作与感情同城磨合|拆成一个本周|缩减为每周一次|替代安排/u
+  },
+  {
+    eventId: "self_value_reorientation",
+    node: {
+      title: "37岁9个月，把标准活成生活的一部分",
+      ageInMonths: 453,
+      description: "你每周固定维护组件库规范，新增无障碍校验项，也把时间留给跑步和林晚。你们每周见面，联名记账本每月底复盘，并讨论明年出行预算。",
+      narrativeMeta: { primaryActivity: "维护组件库规范，平衡输出与生活节奏", activeCharacters: [{ name: "林晚", relation: "partner" }] }
+    },
+    expected: [
+      "本周为组件库规范补完一项无障碍校验，并记录它被其他组复用后的具体反馈",
+      "把组件库规范固定为每周维护一次，另外锁定跑步和与林晚见面的时间",
+      "暂停无障碍手册更新一个月，与林晚复盘联名记账本和明年出行预算后再定投入"
+    ],
+    forbidden: /维护组件库规范拆成|空出的时间优先|替代安排/u
+  }
+] as const;
+
+for (const fixture of liveNarrativeFallbackFixtures) {
+  const event = LIFE_EVENTS_DATABASE.find((candidate) => candidate.id === fixture.eventId);
+  assert.ok(event, `missing live narrative fallback event ${fixture.eventId}`);
+  const choices = eventSpecificFallbackDefinitions(event, { node: fixture.node as unknown as import("../../types").SimulationNode });
+  assert.deepEqual(choices.map((choice) => choice.text), [...fixture.expected]);
+  assert.equal(new Set(choices.map((choice) => choice.text)).size, 3);
+  assert.doesNotMatch(choices.map((choice) => choice.text).join("\n"), fixture.forbidden);
+  assert.doesNotMatch(choices.map((choice) => choice.text).join("\n"), /当前项目与现实责任|已经展开的事情|确认一项替代安排|身体能够承受的范围/u);
+}
+
+const romanceRescheduleRegression = buildDeterministicRomanceRescheduleNode({
+  title: "校外接单时的一次联系",
+  description: "你继续完成本地留学机构的官网改版，并准备数据库课程考试。",
+  age: 22,
+  ageInMonths: 272,
+  stage: "毕业准备",
+  choices: [],
+  attributes: { happiness: 60, intelligence: 70, wealth: 40, relation: 50, health: 65 },
+  narrativeMeta: {
+    primaryActivity: "接校外网页设计单并积累项目经验",
+    activeCharacters: [],
+    worldDeltas: [],
+    relationshipProposals: []
+  }
+} as unknown as import("../../types").SimulationNode, "romance_new_connection", "romance_contract_failed:romanceChoiceSemantics", false);
+assert.deepEqual(romanceRescheduleRegression.choices.map((choice) => choice.text), [
+  "按原计划继续接校外网页设计单并积累项目经验，本周期只保留普通业务联系，不把它写成私人关系",
+  "把接校外网页设计单并积累项目经验限定为每周两个固定时段，另外留一个晚上处理学习、求职或健康安排",
+  "先完成接校外网页设计单并积累项目经验手头的一项交付，再决定是否接受新的私人邀约"
+]);
+assert.match(romanceRescheduleRegression.description, /接校外网页设计单并积累项目经验/);
+assert.doesNotMatch(romanceRescheduleRegression.choices.map((choice) => choice.text).join("\n"), /保持当前工作与生活节奏|重新安排时间和责任|最紧迫的现实任务/u);
+
+const longPrimaryActivityRomanceRegression = buildDeterministicRomanceRescheduleNode({
+  title: "旧书店里的一次联系",
+  description: "你继续整理外省教师来信，也维持每周回县城带阅读课和陪伴父母的节奏。",
+  age: 64,
+  ageInMonths: 770,
+  stage: "晚年沉淀",
+  choices: [],
+  attributes: { happiness: 70, intelligence: 72, wealth: 55, relation: 60, health: 58 },
+  narrativeMeta: {
+    primaryActivity: "继续以低强度推进公益课程与反馈档案，维持每月与协调员的经验交换，同时保持每周回县城带阅读课和陪伴父母的节奏。",
+    activeCharacters: [],
+    worldDeltas: [],
+    relationshipProposals: []
+  }
+} as unknown as import("../../types").SimulationNode, "romance_new_connection", "romance_contract_failed:romanceChoiceSemantics", true);
+assert.match(longPrimaryActivityRomanceRegression.description, /公益课程与反馈档案/u);
+assert.doesNotMatch(longPrimaryActivityRomanceRegression.choices.map((choice) => choice.text).join("\n"), /当前项目与现实责任/u);
+
+const internalPrimaryActivityEvent = LIFE_EVENTS_DATABASE.find((event) => event.id === "self_daily_meaning");
+assert.ok(internalPrimaryActivityEvent);
+const internalPrimaryActivityChoices = eventSpecificFallbackDefinitions(internalPrimaryActivityEvent, { node: {
+  title: "一封盖着邮戳的回执",
+  description: "工作坊方案定稿后，你把提问设计片段整理成单页讲义，交给林蔚在下一期培训里试用。",
+  age: 73,
+  ageInMonths: 881,
+  stage: "晚年沉淀",
+  choices: [],
+  attributes: { happiness: 72, intelligence: 74, wealth: 56, relation: 66, health: 54 },
+  narrativeMeta: { primaryActivity: "self_daily_meaning", activeCharacters: [{ name: "林蔚", relation: "partner" }] }
+} as unknown as import("../../types").SimulationNode });
+assert.match(internalPrimaryActivityChoices.map((choice) => choice.text).join("\n"), /提问设计单页讲义/u);
+assert.doesNotMatch(internalPrimaryActivityChoices.map((choice) => choice.text).join("\n"), /当前项目与现实责任/u);
 
 assert.equal(narrativeRequiresCareerTransition({
   narrativeText: "31岁8个月，你选择了成都那家创业公司的offer，税后月薪9000元，并于下月正式入职。",
@@ -765,6 +1001,7 @@ const history: HistoryItem[] = [
   }
 ];
 let capturedNextPrompt = "";
+let firstPersonNodeCalls = 0;
 const nextGenerationStages: string[] = [];
 const nextNarrativePreviews: Array<{ title?: string; paragraphs: string[] }> = [];
 const nextGenerationTraces: GenerationCallTrace[] = [];
@@ -782,6 +1019,7 @@ const nextNode = await generateNextNode({
   onGenerationCallTrace: (trace) => nextGenerationTraces.push(trace),
   cacheAwarePromptV2: true,
   callAiJson: async (prompt) => {
+    firstPersonNodeCalls += 1;
     capturedNextPrompt = prompt;
     const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 23 * 12);
     return {
@@ -796,11 +1034,11 @@ const nextNode = await generateNextNode({
       },
       text: JSON.stringify({
         age: 23,
-        stage: "试错开局",
-        title: "新行业的第一年",
-        description: "目前存款约90万；她进入小团队做基础内容执行，收入变低，但每天都能接触真实项目。她收到一万元项目奖金。",
+        stage: "我的试错开局",
+        title: "我的新行业第一年",
+        description: "目前存款约90万；我进入小团队做基础内容执行，收入变低，但每天都能接触真实项目。我收到一万元项目奖金。",
         choices: [
-          { id: "stay_content_team", text: "继续留在小团队磨作品", impactSummary: "低薪成长", decisionIntent: "career:stay_content_team" },
+          { id: "stay_content_team", text: "我继续留在小团队磨作品", impactSummary: "低薪成长", decisionIntent: "career:stay_content_team" },
           { id: "return_stable_role", text: "回到稳定岗位补现金流", impactSummary: "现实回撤", decisionIntent: "career:return_stable_role" },
           { id: "freelance_expand_network", text: "兼职接单扩展人脉", impactSummary: "双线积累", decisionIntent: "career:freelance_expand_network" }
         ],
@@ -811,14 +1049,14 @@ const nextNode = await generateNextNode({
           effectiveAtAgeInMonths: targetAgeInMonths,
           payload: { destinationCashAccountId: "primary_cash", amountWan: 1 },
           sourceOutcomeId: "accept_content_trial",
-          evidence: "她收到一万元项目奖金。",
+          evidence: "我收到一万元项目奖金。",
           confidence: 0.9
         }],
         financialNarrativeClaims: [{
           id: "claim_content_bonus",
           proposalId: "content_bonus",
           kind: "one_off_income_received",
-          surfaceText: "她收到一万元项目奖金。"
+          surfaceText: "我收到一万元项目奖金。"
         }],
         isEndingNode: false
       })
@@ -834,7 +1072,7 @@ assert.match(capturedNextPrompt, /当前财务快照/);
 assert.doesNotMatch(capturedNextPrompt, /next_node_cache_prefix_v1/);
 assert.ok(nextNode.financialState);
 assert.deepEqual(nextNode.choices.map((choice) => choice.id), ["A", "B", "C"]);
-assert.deepEqual(nextNode.choices.map((choice) => choice.text), ["继续留在小团队磨作品", "回到稳定岗位补现金流", "兼职接单扩展人脉"]);
+assert.deepEqual(nextNode.choices.map((choice) => choice.text), ["你继续留在小团队磨作品", "回到稳定岗位补现金流", "兼职接单扩展人脉"]);
 assert.equal(nextNode.eventMeta?.fallbackReason, undefined);
 assert.equal(nextNode.financialLedgerMode, "authoritative");
 assert.equal(nextNode.financialLedger?.asOfAgeInMonths, nextNode.ageInMonths);
@@ -844,11 +1082,16 @@ assert.ok(nextNode.financialLedger?.recentTransactions.at(-1)?.eventIds.includes
 assert.deepEqual(nextNode.financialNarrativeClaims?.map((claim) => claim.id), ["claim_content_bonus"]);
 assert.equal(nextNode.financialProcessingMeta?.financialNarrativeAuthorityVersion, "financial_narrative_claims_v1");
 assert.doesNotMatch(nextNode.description, /存款约90万/);
+assert.doesNotMatch(nextNode.description, /我进入小团队/);
+assert.match(nextNode.description, /你进入小团队/);
 assert.match(nextNode.description, /现金流|现金缓冲|储蓄|负债状态/);
+assert.equal(nextNode.stage, "你的试错开局");
+assert.equal(nextNode.choices[0]?.text, "你继续留在小团队磨作品");
 assert.equal(nextNode.attributes.wealth, Math.min(attributes.wealth + 12, deriveWealthScore(nextNode.financialState!)));
 assert.deepEqual(nextGenerationStages, ["preparing", "generating", "validating", "finalizing"]);
-assert.equal(nextNarrativePreviews.at(-1)?.title, "新行业的第一年");
-assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /小团队做基础内容执行/);
+assert.equal(nextNarrativePreviews.at(-1)?.title, "你的新行业第一年");
+assert.match(nextNarrativePreviews.at(-1)?.paragraphs[0] || "", /你进入小团队做基础内容执行/);
+assert.equal(firstPersonNodeCalls, 1, "第一人称叙述必须由本地归一化修正，不得触发内容重试");
 const completedNextTrace = nextGenerationTraces.find((trace) => trace.outcome === "succeeded")!;
 assert.equal(completedNextTrace.kind, "initial_generation");
 assert.equal(completedNextTrace.promptFamily, "next_node");
@@ -916,10 +1159,6 @@ const legacyIncomeRetryCareer = legacyIncomeRetryWorld.careerStates.find((state)
 legacyIncomeRetryCareer.employmentStatus = "employed";
 legacyIncomeRetryWorld.currentEmploymentStatus = "employed";
 legacyIncomeRetryLedger.asOfAgeInMonths = 335;
-// This fixture isolates legacy-income confirmation rather than liquidity.
-// Preserve an accepted opening reserve so fail-closed funding cannot turn it
-// into an unrelated automatic-shortfall scenario.
-legacyIncomeRetryLedger.cashAccounts.find((account) => account.id === "primary_cash")!.balanceWan = 20;
 legacyIncomeRetryLedger.incomeSources = [{
   id: "legacy_recurring_income",
   type: "other",
@@ -1666,10 +1905,15 @@ const directExpenseLifecycleNode = await generateNextNode({
   selectedDecision: shadowLifecycleChoice.text,
   nodeIndex: 2,
   simulationSeed: "expense-lifecycle-direct-first-writer"
-}, {
-  financialNodeGateMode: "shadow",
-  expenseLifecycleMode: "enforced",
-  callAiJson: async (prompt) => {
+  }, {
+    financialNodeGateMode: "shadow",
+    expenseLifecycleMode: "enforced",
+    relationshipDispatchFeatureFlags: {
+      enableAuthoritativeRelationshipStages: false,
+      enableRomanceFormationEvents: false,
+      enableRomanceLifecycleScheduling: false
+    },
+    callAiJson: async (prompt) => {
     directExpenseLifecycleCalls += 1;
     const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 24 * 12);
     const directRentProposal = {
@@ -2505,13 +2749,15 @@ assert.equal(
 assert.equal(retirementPlanningNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
 
 // A completed employer start, including a cross-sentence "提交离职。入职创业
-// 公司后" switch, is not a bare offer. When the accepted role is sufficiently
-// defined but no amount is stated, the versioned compensation policy supplies
-// the replacement salary in the same atomic transaction.
+// 公司后" switch, is not a bare offer. Without a
+// replacement personal income it must be rejected before it can preserve a
+// pending offer alongside narration that says the protagonist is already at
+// work.
 const postEntryWithoutIncomeHistory = structuredClone(pendingOfferHistory);
 const postEntryWithoutIncomeHistoryBefore = structuredClone(postEntryWithoutIncomeHistory);
 const postEntryWithoutIncomeGateDecisions: FinancialNodeAcceptanceDecision[] = [];
-const postEntryWithoutIncomeNode = await generateNextNode({
+await assert.rejects(
+  generateNextNode({
     userData,
     answers,
     history: postEntryWithoutIncomeHistory,
@@ -2564,21 +2810,21 @@ const postEntryWithoutIncomeNode = await generateNextNode({
         })
       };
     }
-  });
-assert.deepEqual(postEntryWithoutIncomeGateDecisions.map((decision) => decision.disposition), ["accept"]);
-assert.equal(postEntryWithoutIncomeNode.financialProcessingMeta?.acceptedCareerTransitionCount, 1);
-assert.equal(postEntryWithoutIncomeNode.worldStateSnapshot?.currentEmploymentStatus, "employed");
-const postEntryEstimatedSalary = postEntryWithoutIncomeNode.financialLedger?.incomeSources.find((source) => (
-  source.status === "active"
-  && source.linkedCareerStateId === postEntryWithoutIncomeNode.worldStateSnapshot?.currentCareerStateId
-));
-assert.equal(postEntryEstimatedSalary?.factStatus, "estimated");
-assert.equal(postEntryEstimatedSalary?.compensationEstimate?.policyVersion, 1);
-assert.notEqual(postEntryEstimatedSalary?.monthlyNetAmountWan, pendingOfferIncomeBefore?.monthlyNetAmountWan);
+  }),
+  (error: unknown) => {
+    assert.match(error instanceof Error ? error.message : String(error), /财务节点接受门拒绝候选/);
+    return true;
+  }
+);
+assert.deepEqual(postEntryWithoutIncomeGateDecisions.map((decision) => decision.disposition), ["regenerate"]);
+assert.ok(
+  postEntryWithoutIncomeGateDecisions[0]?.reasonCodes.includes("UNSATISFIED_CAREER_INCOME_TRANSITION"),
+  "post-entry prose without an atomic replacement income must be a blocking career-income conflict"
+);
 assert.deepEqual(
   postEntryWithoutIncomeHistory,
   postEntryWithoutIncomeHistoryBefore,
-  "generating the accepted post-entry candidate must not mutate its input history"
+  "a rejected post-entry candidate must leave history, time, CareerState and ledger unchanged"
 );
 
 const pendingOfferWithQuotedSalaryNode = await generateNextNode({
@@ -2919,7 +3165,7 @@ await assert.rejects(
         age: 23,
         stage: "职业转换",
         title: "接受邀请，踏上产品负责人征程",
-        description: "你已正式入职AI创业公司，担任产品负责人，但实际到账的个人收入尚待确认。（调试标记 sk-test-real-secret，Bearer raw-token）",
+        description: "你已正式入职AI创业公司，担任产品负责人，但实际到账的个人收入尚待确认。（调试标记 sk-test1234，Bearer raw-token）",
         choices: [
           { id: "A", text: "继续完成产品上线", impactSummary: "推进产品" },
           { id: "B", text: "先确认劳动合同与薪酬", impactSummary: "确认薪酬" },
@@ -2957,7 +3203,7 @@ assert.match(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.candidate.des
 assert.ok(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.unsatisfiedFactGroups.some((group) => group.kind === "career_income_transition"));
 assert.equal(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.provisionalCareerTransitions.length, 1);
 assert.match(careerAuthorityGateDecisions[0]?.rejectionDiagnostic?.validatorIssues.map((issue) => issue.id).join(",") || "", /career_income_atomicity/);
-assert.doesNotMatch(JSON.stringify(careerAuthorityGateDecisions[0]?.rejectionDiagnostic), /sk-test-real-secret|Bearer raw-token/u);
+assert.doesNotMatch(JSON.stringify(careerAuthorityGateDecisions[0]?.rejectionDiagnostic), /sk-test1234|Bearer raw-token/u);
 assert.deepEqual(careerAuthorityHistory, careerAuthorityHistoryBefore, "rejected career transition must leave history, time and old authority unchanged");
 
 // The production App shares one 2-full / 1-patch budget across this entire
@@ -3633,6 +3879,11 @@ await assert.rejects(
     simulationSeed: "personal-medical-outlay-zero-mutation"
   }, {
     financialNodeGateMode: "enforced",
+    relationshipDispatchFeatureFlags: {
+      enableAuthoritativeRelationshipStages: false,
+      enableRomanceFormationEvents: false,
+      enableRomanceLifecycleScheduling: false
+    },
     // Isolate the one-off cash-flow acceptance contract from recurring
     // lifecycle classification: this medical deposit must not become a
     // synthesized monthly healthcare account just to let the node commit.
@@ -3738,6 +3989,11 @@ await assert.rejects(
   }, {
     financialNodeGateMode: "enforced",
     expenseLifecycleMode: "off",
+    relationshipDispatchFeatureFlags: {
+      enableAuthoritativeRelationshipStages: false,
+      enableRomanceFormationEvents: false,
+      enableRomanceLifecycleScheduling: false
+    },
     onFinancialGateDecision: (decision) => historicalMedicalOutlayGateDecisions.push({
       mode: decision.mode,
       disposition: decision.disposition,
@@ -3834,6 +4090,11 @@ const repairedCollectiveNode = await generateNextNode({
 }, {
   financialNodeGateMode: "shadow",
   expenseLifecycleMode: "enforced",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
   callAiJson: async (prompt) => {
     const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || collectiveExpenseAgeBefore + 12);
     if (prompt.includes("你只修复财务 Proposal")) {
@@ -4342,6 +4603,67 @@ const deterministicDecisionGateNode = await generateNextNode({
 assert.equal(deterministicDecisionGateCalls, 1);
 assert.equal(new Set(deterministicDecisionGateNode.choices.map((choice) => choice.decisionIntent)).size >= 2, true);
 
+const decisionGateBatchNodes = [];
+for (let index = 0; index < 5; index += 1) {
+  const checkpointAgeInMonths = 40 * 12 + index * 6;
+  const checkpointHistory = recoveryHistory.map((item) => ({
+    ...item,
+    age: checkpointAgeInMonths / 12,
+    ageInMonths: checkpointAgeInMonths,
+    title: `恢复阶段历史 ${index + 1}`
+  }));
+  const batchNode = await generateNextNode({
+    userData,
+    answers,
+    history: checkpointHistory,
+    currentAttributes: { ...attributes, health: 35 + index },
+    selectedDecision: `执行第 ${index + 1} 阶段恢复安排`,
+    nodeIndex: checkpointHistory.length,
+    simulationSeed: `decision-gate-batch-${index + 1}`
+  }, {
+    callAiJson: async () => {
+      const arcId = checkpointHistory.at(-1)!.worldStateSnapshot!.foregroundPressureArcId!;
+      const candidate = healthArcRawNode({ arcId });
+      candidate.title = `第 ${index + 1} 阶段的恢复取舍`;
+      candidate.choices = candidate.choices.map((choice) => ({
+        ...choice,
+        decisionIntent: "health:wait:same-plan",
+        expectedWorldDeltaTypes: ["health_state"]
+      }));
+      return { text: JSON.stringify(candidate) };
+    }
+  });
+  decisionGateBatchNodes.push(batchNode);
+}
+
+assert.equal(decisionGateBatchNodes.every((node) => (
+  node.eventMeta?.fallbackReason?.startsWith("decision_gate_deterministic:") === true
+)), true);
+assert.equal(decisionGateBatchNodes.every((node) => (
+  (node.eventMeta?.fallbackReason?.split(":", 2)[1]?.length || 0) > 0
+)), true);
+assert.equal(decisionGateBatchNodes.every((node) => (
+  node.choices.map((choice) => choice.id).join("|") === "A|B|C"
+)), true);
+const decisionGateBatchChoiceIntents = decisionGateBatchNodes.map((node) => node.choices.map((choice) => choice.decisionIntent).join("|"));
+const decisionGateBatchChoiceTexts = decisionGateBatchNodes.map((node) => node.choices.map((choice) => choice.text).join("|"));
+assert.equal(decisionGateBatchChoiceIntents.every((intents) => new Set(intents.split("|")).size === 3), true);
+const decisionGateTextsByEvent = new Map<string, Set<string>>();
+decisionGateBatchNodes.forEach((node, index) => {
+  const eventId = node.eventMeta?.eventId || "unknown";
+  const texts = decisionGateTextsByEvent.get(eventId) || new Set<string>();
+  texts.add(decisionGateBatchChoiceTexts[index]!);
+  decisionGateTextsByEvent.set(eventId, texts);
+});
+assert.equal(
+  [...decisionGateTextsByEvent.values()].every((texts) => texts.size === 1),
+  true,
+  "identical authoritative facts for the same event should not be made artificially different by changing only the node title"
+);
+assert.match(decisionGateBatchChoiceTexts.join("\n"), /治疗与工作减负安排/);
+assert.doesNotMatch(decisionGateBatchChoiceTexts.join("\n"), /第\s*\d+\s*阶段的恢复取舍|对应的当前项目|已经展开的事情/u);
+assert.doesNotMatch(decisionGateBatchChoiceTexts.join("\n"), /按当前方向继续推进|缩小当前投入|暂停当前方向/u);
+
 let exhaustedRecursiveGenerationCalls = 0;
 const deterministicBudgetFallbackNode = await generateNextNode({
   userData,
@@ -4513,14 +4835,10 @@ let postResolutionPrompt = "";
 const postResolutionHistory: HistoryItem[] = [
   ...operationHistory,
   {
-    ...structuredClone(resolvedHealthNode),
+    ...resolvedHealthNode,
     selectedChoice: "继续走向下一段人生"
   }
 ];
-// This dispatch-only fixture has no career-income authority. Keep an accepted
-// reserve on its cloned snapshot so strict liquidity does not create an
-// unrelated funding failure after the health arc has resolved.
-postResolutionHistory.at(-1)!.financialLedger!.cashAccounts.find((account) => account.id === "primary_cash")!.balanceWan = 100;
 const postResolutionNode = await generateNextNode({
   userData,
   answers,
@@ -4567,15 +4885,6 @@ function genericArcHistory(phaseId: "growth" | "operation", length: number): His
     description: "她仍在处理这次事业机会带来的现金流和长期方向压力。",
     selectedChoice: `处理事业机会 ${index + 1}`,
     attributes,
-    // This pressure-arc fixture is intentionally non-financial. Give its
-    // legacy opening snapshot an accepted reserve so strict liquidity cannot
-    // manufacture a debt or block the unrelated arc assertion.
-    financialState: {
-      ...structuredClone(nextNode.financialState!),
-      asOfAgeInMonths: 36 * 12,
-      cashWan: 100,
-      netWorthWan: 100
-    },
     choices: [{ id: "A", text: `处理事业机会 ${index + 1}`, impactSummary: "继续评估" }],
     isEndingNode: false,
     eventMeta: {
@@ -5157,12 +5466,6 @@ const relationshipOptionAHistory: HistoryItem[] = [{
   selectedChoice: "接受华东外派，拉近与陈曦的距离",
   selectedDecisionIntent: "career:accept:regional_assignment",
   attributes,
-  financialState: {
-    ...structuredClone(nextNode.financialState!),
-    asOfAgeInMonths: 36 * 12,
-    cashWan: 100,
-    netWorthWan: 100
-  },
   choices: [
     { id: "A", text: "接受华东外派，拉近与陈曦的距离", impactSummary: "接受外派", eventOutcomeId: "accept_regional_assignment" },
     { id: "B", text: "留在本地继续当前项目", impactSummary: "保持本地" },
@@ -5245,7 +5548,7 @@ const optionAFallbackNode = await generateNextNode({
 
 assert.equal(romanceFullNodeCalls, 1, "the failed romance event must not run three full-node retries");
 assert.equal(romanceCandidateRepairCalls, 1, "candidate extraction gets one localized repair attempt");
-assert.equal(fallbackFullNodeCalls, 1, "a failed romance contract gets one bounded ordinary redispatch before deterministic fallback");
+assert.equal(fallbackFullNodeCalls, 0, "a failed romance contract is rescheduled without another full-node model call");
 assert.notEqual(optionAFallbackNode.eventMeta?.eventId, "romance_new_connection");
 assert.equal(optionAFallbackNode.eventMeta?.requestedEventId, "romance_new_connection");
 assert.match(optionAFallbackNode.eventMeta?.fallbackReason || "", /^romance_contract_failed:/);
@@ -5319,7 +5622,7 @@ const optionAMismatchedFocusFallbackNode = await generateNextNode({
   }
 });
 assert.equal(mismatchedRomanceNodeCalls, 1, "a career-focused romance draft gets one bounded first attempt");
-assert.equal(mismatchedRomanceFallbackCalls, 1, "a mismatched romance draft must redispatch instead of overwriting its visible choices");
+assert.equal(mismatchedRomanceFallbackCalls, 0, "a mismatched romance draft is rescheduled without another full-node model call");
 assert.notEqual(optionAMismatchedFocusFallbackNode.eventMeta?.eventId, "romance_new_connection");
 assert.match(optionAMismatchedFocusFallbackNode.eventMeta?.fallbackReason || "", /^romance_contract_failed:/);
 assert.equal(optionAMismatchedFocusFallbackNode.eventMeta?.romanceRescheduled, true);

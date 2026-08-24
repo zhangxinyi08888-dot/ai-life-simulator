@@ -49,6 +49,8 @@ export interface GenerationCallTrace {
   inputTokens?: number;
   outputTokens?: number;
   providerRequestId?: string;
+  /** Explicitly distinguishes a provider that returned no usage from an uninspected trace. */
+  providerUsageStatus?: "reported" | "missing";
 }
 
 export interface NodeGenerationSummary {
@@ -67,6 +69,7 @@ export interface NodeGenerationSummary {
   cacheMissTokens: number;
   completionTokens: number;
   usageCallCount: number;
+  missingUsageCallCount: number;
   cacheHitRate?: number;
 }
 
@@ -102,12 +105,14 @@ function errorCode(error: unknown): string | undefined {
 }
 
 function isAbort(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError"
+  return Boolean(error)
+    && typeof error === "object"
+    && (error as { name?: unknown }).name === "AbortError"
     || errorCode(error) === "AI_REQUEST_ABORTED";
 }
 
 function responseTraceFields(metadata: GenerationResponseMetadata | undefined): Pick<GenerationCallTrace,
-  "promptTokens" | "cacheHitTokens" | "cacheMissTokens" | "completionTokens" | "totalTokens" | "inputTokens" | "outputTokens" | "providerRequestId" | "model"
+  "promptTokens" | "cacheHitTokens" | "cacheMissTokens" | "completionTokens" | "totalTokens" | "inputTokens" | "outputTokens" | "providerRequestId" | "model" | "providerUsageStatus"
 > {
   const usage = metadata?.usage;
   return {
@@ -119,7 +124,8 @@ function responseTraceFields(metadata: GenerationResponseMetadata | undefined): 
     inputTokens: usage?.promptTokens,
     outputTokens: usage?.completionTokens,
     providerRequestId: metadata?.providerRequestId,
-    model: metadata?.model
+    model: metadata?.model,
+    providerUsageStatus: usage ? "reported" : "missing"
   };
 }
 
@@ -221,6 +227,7 @@ export function summarizeGenerationTraces(traces: GenerationCallTrace[]): NodeGe
     cacheMissTokens,
     completionTokens,
     usageCallCount: usageTraces.length,
+    missingUsageCallCount: completed.length - usageTraces.length,
     cacheHitRate: cacheHitTokens + cacheMissTokens > 0
       ? cacheHitTokens / (cacheHitTokens + cacheMissTokens)
       : undefined

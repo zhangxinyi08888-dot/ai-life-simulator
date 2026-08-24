@@ -164,7 +164,6 @@ test("F-01/F-12/I-03 same-amount Accepted confirmation closes the typed review a
 test("a bound generic-parent amount confirms the unique opening parent-healthcare aggregate", () => {
   const startAge = 383;
   const current = authorityAt(startAge);
-  current.ledger.cashAccounts[0].balanceWan = 100;
   const healthcare: ExpenseCommitmentV4 = {
     id: "opening_recurring_healthcare_opening_parent", type: "healthcare", displayName: "父母医疗",
     monthlyAmountWan: 1.1, activeFromAgeInMonths: 288, status: "active", factStatus: "needs_review", evidence: [],

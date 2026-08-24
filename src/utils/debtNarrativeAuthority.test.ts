@@ -412,7 +412,35 @@ test("PB-NARR-18 a payoff claim is rejected when debt was already zero before th
   assert.equal(issues.some((issue) => issue.reasonCode === "UNACCEPTED_DEBT_COMPLETION"), true);
   const repaired = repairDebtNarrativeSurfaces({ node: unsafe, authority, issues });
   assert.doesNotMatch(repaired.description, /还清|结清|清偿/u);
-  assert.match(repaired.description, /现金缓冲与生活安排/u);
+  assert.match(repaired.description, /个人税后分成10万元/u);
+  assert.doesNotMatch(repaired.description, /这笔收入被留作现金缓冲与生活安排/u);
+});
+
+test("PB-NARR-18 debt-free idioms are removed even when a zero-debt ledger has no canonical debt fact", () => {
+  const ledger = initializeFinancialLedger({ id: "zero_debt_idiom", asOfAgeInMonths: 1037 });
+  const authority = deriveDebtNarrativeAuthority({
+    ledger,
+    debtHealthState: { ...debtHealth(), asOfAgeInMonths: 1037, level: "none", totalDebtWan: 0, consecutiveMissedPaymentMonths: 0 },
+    periodStartAgeInMonths: 1033
+  });
+  const unsafe = node({
+    description: "这些年你无债一身轻，仍按月核对专项账户并整理教师反馈。",
+    descriptionParagraphs: ["这些年你无债一身轻，仍按月核对专项账户并整理教师反馈。"],
+    narrativeMeta: {
+      ...node().narrativeMeta!,
+      storyEpisode: {
+        ...node().narrativeMeta!.storyEpisode,
+        summary: "你不再欠债，继续整理公开监督的分工细则。"
+      }
+    }
+  });
+  const issues = collectDebtNarrativeSurfaceIssues({ node: unsafe, authority });
+  assert.equal(issues.filter((issue) => issue.reasonCode === "UNACCEPTED_DEBT_COMPLETION").length, 2);
+  const repaired = repairDebtNarrativeSurfaces({ node: unsafe, authority, issues });
+  assert.equal(collectDebtNarrativeSurfaceIssues({ node: repaired, authority }).length, 0);
+  assert.doesNotMatch(`${repaired.description}\n${repaired.narrativeMeta?.storyEpisode.summary}`, /无债一身轻|不再欠债/u);
+  assert.match(repaired.description, /仍按月核对专项账户并整理教师反馈/u);
+  assert.match(repaired.narrativeMeta?.storyEpisode.summary || "", /继续整理公开监督的分工细则/u);
 });
 
 test("PB-NARR-19 debt-free career legal language is outside debt authority", () => {

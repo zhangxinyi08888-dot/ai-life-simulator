@@ -28,6 +28,12 @@ assert.deepEqual(constrainTemporalProfileForDebtDistress({
   debtHealthLevel: "distressed",
   isDebtDistressEvent: true
 }).durationMonths, [6, 18]);
+assert.deepEqual(constrainTemporalProfileForDebtDistress({
+  temporalProfile: DEFAULT_TEMPORAL_PROFILES.stable,
+  debtHealthLevel: "distressed",
+  previousDebtHealthLevel: "distressed",
+  isDebtDistressEvent: false
+}).durationMonths, DEFAULT_TEMPORAL_PROFILES.stable.durationMonths);
 
 const startup = calculateTimelineAdvance({
   currentAgeInMonths: 30 * 12,

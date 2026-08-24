@@ -78,6 +78,9 @@ function incomeSource(value: unknown, path: string, errors: FinancialPayloadSche
   requiredString(source.displayName, `${path}.displayName`, errors); requiredEnum(source.accrualPolicy, INCOME_POLICIES, `${path}.accrualPolicy`, errors);
   if (source.accrualPolicy === "monthly") requiredNumber(source.monthlyNetAmountWan, `${path}.monthlyNetAmountWan`, errors);
   if (source.accrualPolicy === "annual") requiredNumber(source.annualNetAmountWan, `${path}.annualNetAmountWan`, errors);
+  if (source.employmentConfirmedAtAgeInMonths !== undefined) {
+    requiredInteger(source.employmentConfirmedAtAgeInMonths, `${path}.employmentConfirmedAtAgeInMonths`, errors);
+  }
   requiredInteger(source.activeFromAgeInMonths, `${path}.activeFromAgeInMonths`, errors); requiredEnum(source.status, INCOME_STATUSES, `${path}.status`, errors);
   requiredEnum(source.factStatus, FACT_STATUSES, `${path}.factStatus`, errors); evidenceArray(source.evidence, `${path}.evidence`, errors);
 }

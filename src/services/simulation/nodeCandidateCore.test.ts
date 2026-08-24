@@ -239,11 +239,17 @@ test("generation telemetry classifies calls and summarizes latency without unkno
   assert.equal(summary.cacheMissTokens, 28);
   assert.equal(summary.completionTokens, 12);
   assert.equal(summary.usageCallCount, 1);
+  assert.equal(summary.missingUsageCallCount, 1);
   assert.equal(summary.cacheHitRate, 0.72);
   const completed = traces.find((trace) => trace.outcome === "succeeded" && trace.kind === "initial_generation")!;
   assert.equal(completed.promptFamily, "next_node");
   assert.equal(completed.promptPrefixVersion, "next_node_cache_prefix_v1");
   assert.equal(completed.providerRequestId, "trace-usage-1");
+  assert.equal(completed.providerUsageStatus, "reported");
+  assert.equal(
+    traces.find((trace) => trace.outcome === "succeeded" && trace.kind === "candidate_patch")?.providerUsageStatus,
+    "missing"
+  );
 });
 
 function hashText(value: string): string {

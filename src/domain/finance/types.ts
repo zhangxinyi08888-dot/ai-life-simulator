@@ -85,6 +85,8 @@ export interface IncomeSource {
   factStatus: FinancialFactStatus;
   accrualReviewStatus?: "normal" | "quarantined";
   lastConfirmedAtAgeInMonths?: number;
+  /** Latest accepted narrative evidence that the protagonist still performs this work. */
+  employmentConfirmedAtAgeInMonths?: number;
   /** Auditable provenance for a deterministic role-based compensation estimate. */
   compensationEstimate?: CareerCompensationEstimate;
   evidence: FinancialEvidence[];
@@ -609,6 +611,12 @@ export interface FinancialEventProposal {
      * status, or amount-basis change outside the dedicated contract.
      */
     | "expense_contextual_care_uplift"
+    /**
+     * Confirms only that one existing career-income relationship is still
+     * active. It deliberately preserves an estimated amount instead of
+     * turning "still working" prose into a newly known salary.
+     */
+    | "career_income_continuation_review"
     /**
      * A responsibility projection from an already accepted structured
      * WorldState delta. This is deliberately distinct from prose-derived

@@ -35,3 +35,22 @@ assert.equal(hardMaximum.forcedByHardMaximum, true);
 
 const repeated = evaluateEnding({ candidateNode: node(80, 50), history: [], targetAgeInMonths: 80 * 12, elapsedMonths: 12, simulationSeed: "s", branchFingerprint: "b", nodeIndex: 1, policy: DEFAULT_ENDING_POLICY });
 assert.equal(repeated.roll, age80.roll);
+
+const postSoftHistory = Array.from({ length: DEFAULT_ENDING_POLICY.maximumPostSoftEndingNodes - 1 }, (_, index) => ({
+  ...node(73 + Math.floor(index / 3)),
+  ageInMonths: (73 * 12) + index,
+  selectedChoice: "A"
+}));
+const boundedByCheckpoints = evaluateEnding({
+  candidateNode: node(95),
+  history: postSoftHistory,
+  targetAgeInMonths: 95 * 12,
+  elapsedMonths: 6,
+  simulationSeed: "bounded-checkpoints",
+  branchFingerprint: "long-route",
+  nodeIndex: 80,
+  policy: DEFAULT_ENDING_POLICY
+});
+assert.equal(boundedByCheckpoints.shouldEnd, true);
+assert.equal(boundedByCheckpoints.forcedByHardMaximum, false);
+assert.match(boundedByCheckpoints.reasonCodes.join(" "), /post-soft-node-limit/);

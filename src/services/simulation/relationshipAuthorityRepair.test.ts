@@ -58,21 +58,6 @@ const history: HistoryItem[] = [{
   selectedChoice: commitmentEvidence,
   selectedEventOutcomeId: "make_shared_commitment_plan",
   attributes: { happiness: 62, intelligence: 70, wealth: 48, relation: 72, health: 64 },
-  financialState: {
-    currencyUnit: "CNY_WAN_REAL",
-    asOfAgeInMonths: 360,
-    cashWan: 100,
-    investmentAssetsWan: 0,
-    propertyMarketValueWan: 0,
-    businessAndOtherAssetsWan: 0,
-    totalDebtWan: 0,
-    netWorthWan: 100,
-    annualAfterTaxIncomeWan: 0,
-    annualDisposableIncomeWan: 0,
-    annualCoreExpenseWan: 0,
-    incomeStability: "unstable",
-    isEstimated: false
-  },
   choices: [{
     id: "A",
     text: commitmentEvidence,

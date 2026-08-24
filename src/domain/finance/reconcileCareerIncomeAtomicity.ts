@@ -24,7 +24,7 @@ const COMPANY_OPERATING_INCOME_PATTERN = /(?:公司|企业|平台|团队|机构|
 const ORGANIZATION_COMMERCIAL_TRACTION_PATTERN = /(?:(?:公司|平台|团队|机构|中心|工作室|产品|SaaS|系统|项目)(?:的)?[^。！？]{0,36}(?:付费(?:试用)?客户|续约意向|续费|试点|订单|合同|签约|回款|收入|营收|盈利)|(?:付费(?:试用)?客户|续约意向|续费|试点|订单|合同|签约|回款|收入|营收|盈利)[^。！？]{0,36}(?:公司|平台|团队|机构|中心|工作室|产品|SaaS|系统|项目))/u;
 const EXPLICIT_PERSONAL_COMPENSATION_RECEIPT_PATTERN = /(?:你|本人|主角)[^。！？]{0,48}(?:收了|收到|拿到|领取|提取|获得)[^。！？]{0,24}(?:工资|薪资|咨询费|顾问费|课酬|报酬|酬劳|服务费|个人(?:净)?收入|个人进账|业主提款|分红)/u;
 const PAST_OR_ENDED_PERSONAL_INCOME_PATTERN = /(?:辞职|辞去|离职|退休|离开|结束|中断|停发|上一份|原工作).{0,36}(?:月薪|年薪|工资|薪资)|(?:月薪|年薪|工资|薪资).{0,36}(?:辞职|辞去|离职|退休|结束|中断|停发)/u;
-const EXPLICIT_UNPAID_PATTERN = /(?:暂不|没有|未|不)(?:领取|提取|获得)(?:个人)?(?:工资|薪资|业主提款|分红|收入)|不领薪|无薪/u;
+const EXPLICIT_ZERO_COMPENSATION_PATTERN = /(?:暂不|没有|未|不)(?:领取|提取|获得)(?:个人)?(?:工资|薪资|业主提款|分红|收入)|不领薪|无薪|(?:业主提款|分红)[^。！？]{0,32}(?:以后再说|之后再说|回头再说|再说|暂缓|推迟|延期)/u;
 const TENTATIVE_PERSONAL_INCOME_PATTERN = /(?:个人)?收入[^。！？]{0,16}(?:是否形成|尚待确认|仍需观察|未形成|没有形成|尚未形成|暂时没有)|(?:是否形成|尚待确认|仍需观察|未形成|没有形成|尚未形成|暂时没有)[^。！？]{0,16}(?:个人)?收入/u;
 // A conditional choice or a forecast describes a possible future cash flow,
 // not a completed personal-income fact. Keep this sentence-scoped so an
@@ -60,7 +60,13 @@ export function sentenceClaimsNewPersonalIncomeActivity(sentence: string): boole
 }
 
 export function hasExplicitUnpaidPersonalIncomeStatement(narrativeText: string): boolean {
-  return EXPLICIT_UNPAID_PATTERN.test(narrativeText);
+  return hasExplicitUnpaidCareerCompensationDecision(narrativeText)
+    || TENTATIVE_PERSONAL_INCOME_PATTERN.test(narrativeText);
+}
+
+/** A committed zero-compensation fact, excluding tentative/unknown income prose. */
+export function hasExplicitUnpaidCareerCompensationDecision(narrativeText: string): boolean {
+  return EXPLICIT_ZERO_COMPENSATION_PATTERN.test(narrativeText);
 }
 
 function acceptedPersonalIncomeEvent(event: AcceptedFinancialEvent): boolean {
@@ -205,6 +211,31 @@ export function reconcileCareerIncomeAtomicity(input: {
   personalIncomeClaimed?: boolean;
 }): CareerIncomeAtomicityResult {
   const authoritativeFinancialEvents = dedupeSameEvidenceCareerIncome(input.financialEvents);
+  // The current service can receive more than one primary-career transition in
+  // a single node.  Until each transition has its own ordered compensation
+  // transaction, accepting a subset is worse than rejecting the candidate: it
+  // silently commits the first job and drops the second.  Make this boundary
+  // explicitly all-or-nothing so the node is regenerated instead.
+  if (input.careerTransitions.length > 1) {
+    return {
+      acceptedCareerTransitions: [],
+      acceptedFinancialEvents: [],
+      issues: [{
+        id: `career_income_multi_transition_${input.ageInMonths}`,
+        code: "CAREER_INCOME_CONFLICT",
+        severity: "blocking",
+        status: "open",
+        relatedProposalIds: input.careerTransitions.flatMap((transition) => (
+          transition.proposalId ? [transition.proposalId] : []
+        )),
+        relatedIncomeSourceIds: input.currentLedger.incomeSources
+          .filter((source) => source.status === "active" && Boolean(source.linkedCareerStateId))
+          .map((source) => source.id),
+        summary: "同一节点包含两次以上主人公职业转换，但尚未形成逐段完整薪酬事务；职业与财务变化已整体回滚",
+        createdAtAgeInMonths: input.ageInMonths
+      }]
+    };
+  }
   const removedCareerStateIds = new Set<string>();
   const removedIncomeSourceIds = new Set<string>();
   const issues: FinancialLedgerIssue[] = [];
@@ -231,7 +262,9 @@ export function reconcileCareerIncomeAtomicity(input: {
       careerStateId: transition.nextCareerState.id
     });
     const hasNextCareerIncome = finalNextCareerIncomeIds.size > 0;
-    const hasExactEmployedIncome = nextStatus !== "employed" || finalNextCareerIncomeIds.size === 1;
+    const hasExactEmployedIncome = nextStatus !== "employed"
+      || finalNextCareerIncomeIds.size === 1
+      || (input.explicitUnpaid === true && finalNextCareerIncomeIds.size === 0);
     const selfEmployedWithoutPersonalIncome = nextStatus === "self_employed" && input.personalIncomeClaimed === false;
     if (missing.length === 0 && hasExactEmployedIncome
       && (!continuesWorking || hasNextCareerIncome || input.explicitUnpaid || selfEmployedWithoutPersonalIncome)) return true;

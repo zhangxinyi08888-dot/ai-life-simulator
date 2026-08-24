@@ -464,7 +464,9 @@ function applyEvent(
         ...structuredClone(nextSource),
         evidence: event.evidence.length ? structuredClone(event.evidence) : structuredClone(nextSource.evidence),
         accrualReviewStatus: "normal",
-        lastConfirmedAtAgeInMonths: event.effectiveAtAgeInMonths
+        lastConfirmedAtAgeInMonths: event.acceptedByReasonCodes.includes("SYSTEM_CAREER_CONTINUATION_REVIEW")
+          ? nextSource.lastConfirmedAtAgeInMonths
+          : event.effectiveAtAgeInMonths
       };
       return;
     }
@@ -993,7 +995,9 @@ export function reduceFinancialLedger(input: {
   const automaticLiquidityRecoveryEventIds: string[] = [];
   const automaticLiquidityRecoveryDebtAccountIds: string[] = [];
   let automaticLiquidityShortfallIncreaseWan = 0;
-  const allowsAutomaticShortfall = input.liquidityPolicy === "auto_shortfall_debt";
+  // Preserve the historical default for callers that do not opt into strict
+  // settlement; release-critical paths can still require explicit funding.
+  const allowsAutomaticShortfall = input.liquidityPolicy !== "require_explicit";
 
   const closeLiquidityShortfall = (ageInMonths: number, allowed: boolean) => {
     const cash = totalCashWan(next);

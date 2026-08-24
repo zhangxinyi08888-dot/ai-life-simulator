@@ -1335,12 +1335,7 @@ test("preserves policy evidence when an expense adjustment omits it", () => {
 test("corrects a unique responsibility key used as an expense account id before completing its V4 shape", () => {
   const currentLedger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
     id: "expense_responsibility_key_reference",
-    asOfAgeInMonths: 383,
-    openingPosition: { cashAccounts: [{
-      id: "primary_cash", type: "bank_deposit", balanceWan: 100,
-      status: "active", factStatus: "known",
-      evidence: [{ source: "accepted_history", reasonCode: "TEST_RESERVE", confidence: 1 }]
-    }] }
+    asOfAgeInMonths: 383
   }));
   currentLedger.expenseCommitments.push({
     id: "opening_recurring_healthcare_opening_parent",

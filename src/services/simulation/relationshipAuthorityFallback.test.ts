@@ -106,6 +106,45 @@ test("final relationship repair keeps ledger-backed financial text while removin
   }).some((issue) => issue.code === "relationship_authority_conflict"), false);
 });
 
+test("final authority repair removes an implausibly old parent's present-day activity without touching financial text", () => {
+  const oldParent = {
+    id: "person_parent",
+    relation: "parent" as const,
+    displayName: "父母",
+    estimatedAgeRange: [106.6, 133.6] as [number, number],
+    lifeStatus: "active" as const,
+    source: "user_fact" as const,
+    confidence: 0.9
+  };
+  const lateLifeWorldState: WorldStateSnapshot = {
+    people: [oldParent], directionArcs: [], pressureArcs: [], relationships: [], version: 2
+  };
+  const lateLifeNode: SimulationNode = {
+    ...node,
+    age: 88,
+    ageInMonths: 1064,
+    lifeStage: "longevity",
+    description: "本期咨询收入仍按权威账本记录。父亲在院子里慢慢走动，母亲在屋里整理最后一批手工订单。",
+    descriptionParagraphs: ["本期咨询收入仍按权威账本记录。父亲在院子里慢慢走动，母亲在屋里整理最后一批手工订单。"]
+  };
+  const repaired = repairRelationshipAuthorityFinalSurface({
+    node: lateLifeNode,
+    elapsedMonths: 14,
+    targetAgeInMonths: 1064,
+    people: lateLifeWorldState.people,
+    worldState: lateLifeWorldState
+  }).node;
+
+  assert.match(repaired.description, /咨询收入仍按权威账本记录/);
+  assert.doesNotMatch(repaired.description, /父亲在院子|母亲在屋里/);
+  assert.equal(validateStoryConsistency({
+    node: repaired,
+    targetAgeInMonths: 1064,
+    people: lateLifeWorldState.people,
+    worldState: lateLifeWorldState
+  }).some((issue) => issue.severity === "error"), false);
+});
+
 const generationUserData: UserInitialData = {
   birthday: "1994-02-10",
   birthtime: "08:00",

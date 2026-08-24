@@ -63,7 +63,7 @@ export function buildAgeContext(input: {
     if (person.lifeStatus === "deceased") {
       hardConstraints.push(`${person.displayName || person.relation}已故，只能通过回忆、遗物、纪念或长期影响出现。`);
     }
-    if ((person.relation === "parent" || person.relation === "grandparent") && person.estimatedAgeRange?.[0] && person.estimatedAgeRange[0] >= 105 && person.lifeStatus === "unknown") {
+    if ((person.relation === "parent" || person.relation === "grandparent") && person.estimatedAgeRange?.[0] && person.estimatedAgeRange[0] >= 100 && person.lifeStatus !== "deceased") {
       hardConstraints.push(`${person.relation}估算年龄已达${person.estimatedAgeRange[0]}岁以上，不能默认仍在工作或日常活跃；如无明确长寿事实，应改为回忆、间接消息或已故影响。`);
     }
   }

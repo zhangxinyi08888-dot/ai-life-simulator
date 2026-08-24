@@ -89,10 +89,18 @@ function previousTriggerKeys(history: HistoryItem[]): Set<string> {
   return new Set(history.flatMap((item) => item.reportInvitation?.triggerKey ? [item.reportInvitation.triggerKey] : []));
 }
 
-function latestDeclinedInvitation(history: HistoryItem[]): ReportInvitationMeta | undefined {
-  return history.flatMap((item) => item.reportInvitation ? [item.reportInvitation] : [])
-    .filter((invitation) => invitation.status === "declined")
-    .sort((left, right) => (right.declinedAtChoiceCount ?? right.completedChoiceCount) - (left.declinedAtChoiceCount ?? left.completedChoiceCount))[0];
+function latestDeclinedInvitation(history: HistoryItem[]): {
+  invitation: ReportInvitationMeta;
+  ageInMonths: number;
+} | undefined {
+  return history.flatMap((item) => item.reportInvitation?.status === "declined" ? [{
+    invitation: item.reportInvitation,
+    ageInMonths: item.ageInMonths ?? item.age * 12
+  }] : [])
+    .sort((left, right) => (
+      (right.invitation.declinedAtChoiceCount ?? right.invitation.completedChoiceCount)
+      - (left.invitation.declinedAtChoiceCount ?? left.invitation.completedChoiceCount)
+    ))[0];
 }
 
 function buildInvitation(input: {
@@ -137,14 +145,25 @@ export function evaluateReportInvitation(input: {
 
   const invitedKeys = previousTriggerKeys(input.history);
   const chronicDebtArcId = chronicFinancialDebtArcId(input.history, input.candidateNode, input.policy);
-  const declinedInvitation = latestDeclinedInvitation(input.history);
-  if (declinedInvitation) {
+  const latestDeclined = latestDeclinedInvitation(input.history);
+  if (latestDeclined) {
+    const declinedInvitation = latestDeclined.invitation;
     const declinedAt = declinedInvitation.declinedAtChoiceCount ?? declinedInvitation.completedChoiceCount;
     const eligibleAt = declinedAt + input.policy.reinviteAfterChoices;
+    const candidateAgeInMonths = input.candidateNode.ageInMonths ?? input.candidateNode.age * 12;
+    const eligibleAtAgeInMonths = latestDeclined.ageInMonths + input.policy.reinviteAfterAgeMonths;
+    // All invitation reasons share the same dual cooldown. Without this
+    // return, a new stable-stage or arc key can bypass a recent decline and
+    // create an invitation storm even though the scheduled retry is blocked.
+    if (input.completedChoiceCount < eligibleAt || candidateAgeInMonths < eligibleAtAgeInMonths) {
+      return { shouldInvite: false, reasonCodes: [
+        input.completedChoiceCount < eligibleAt ? "reinvite-choice-cooldown" : "reinvite-choice-cooldown-complete",
+        candidateAgeInMonths < eligibleAtAgeInMonths ? "reinvite-age-cooldown" : "reinvite-age-cooldown-complete"
+      ] };
+    }
     const triggerKey = `retry:${declinedInvitation.id}:${eligibleAt}`;
     if (
-      input.completedChoiceCount >= eligibleAt
-      && !invitedKeys.has(triggerKey)
+      !invitedKeys.has(triggerKey)
       && isSafeNode(input.candidateNode, input.policy)
       && (!hasActiveForegroundArc(input.candidateNode) || Boolean(chronicDebtArcId))
     ) {

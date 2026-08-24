@@ -26,6 +26,10 @@ import {
 const FINANCIAL_NARRATIVE_RULE = `- 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
 - 允许描述本阶段实际发生的交易金额，例如月薪、房租、医疗费、首付、贷款、投资额和项目收入。`;
 
+const NARRATIVE_PERSPECTIVE_RULE = `【叙述视角硬约束】
+- 用户可见的 title、stage、descriptionParagraphs 与 choice.text 必须使用第二人称“你”或无主语表达；不得使用“我、我们、我的、咱们、本人”叙述用户。
+- 只有其他人物被直接引号包裹的原话可以保留第一人称；不得把用户背景答复中的“我”复制进章节正文。`;
+
 function focusLabel(value: string): string {
   if (value === "career") return "事业发展与职场长征";
   if (value === "romance") return "情感羁绊与婚姻现实";
@@ -190,6 +194,7 @@ ${JSON.stringify(invalidChoiceIndexes)}（index 从 0 开始）
 【硬性要求】
 - 只为上述索引返回 choiceTextRepairs；不得增加、删除、重排选项。
 - text 必须是非空、具体、可直接执行的完整中文选择，符合对应 impactSummary、decisionIntent 和 eventOutcomeId。
+- text 必须使用第二人称“你”或无主语表达，不得把用户写成“我、我们、我的、咱们、本人”。
 - 不得修改或重写 id、impactSummary、decisionIntent、eventOutcomeId、title、description 或其他节点字段。
 - 不得把内部 id 加到 text 前面；不得用 impactSummary、decisionIntent 或“\${id}. \${impactSummary}”充当 text。
 - 只返回合法 JSON，不要解释，不要 Markdown。
@@ -238,6 +243,7 @@ initialFinancialState 要求：
 
 startNode 要求：
 - descriptionParagraphs：2-4 个完整自然段组成的字符串数组，总计 150-250 字，具体、干练、写实，包含现实事务和社会压力。
+${NARRATIVE_PERSPECTIVE_RULE}
 ${FINANCIAL_NARRATIVE_RULE}
 - stage 和 title：大白话、贴近真实处境。
 - choices：A、B、C 三个脚踏实地的路线选项，每个带 4 字 impactSummary。
@@ -499,6 +505,7 @@ ${eventSeedPrompt}
 - 本轮 LifeIntensity=${timelineAdvance?.lifeIntensity || "normal"}，由 PressureArc 当前 phase 或新事件首阶段决定。
 - 本轮只生成普通 decision checkpoint，isEndingNode 必须为 false；终章由代码的有界长寿规则另行决定。
 - 如果不是结局，请通过 descriptionParagraphs 返回 2-4 个完整自然段，总计 150-250 字现实冲突，避免金手指和无理倒霉；每个数组项只能包含一个完整段落。
+${NARRATIVE_PERSPECTIVE_RULE}
 ${FINANCIAL_NARRATIVE_RULE}
 - 年龄约束执行条件，不约束人生愿望。45岁读书、55岁创业、70岁写书、80岁旅行、90岁研究均可成立。
 - 每个非终章节点至少一个选项继续推进用户当前方向；禁止三个选项共同导向退休、照护、退出或回忆。
@@ -663,6 +670,7 @@ export const NEXT_NODE_INVARIANT_PREFIX_V1 = `你是一个才华横溢、精通�
 【固定写实与输出契约】
 - 本轮只生成普通 decision checkpoint，isEndingNode 必须为 false；终章由代码的有界长寿规则另行决定。
 - 如果不是结局，请通过 descriptionParagraphs 返回 2-4 个完整自然段，总计 150-250 字现实冲突，避免金手指和无理倒霉；每个数组项只能包含一个完整段落。
+${NARRATIVE_PERSPECTIVE_RULE}
 - 正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额；需要表达财务状况时，使用“略有积蓄”“现金流紧张”等定性描述，最终金额由系统统一计算和展示。
 - 允许描述本阶段实际发生的交易金额，例如月薪、房租、医疗费、首付、贷款、投资额和项目收入。
 - 年龄约束执行条件，不约束人生愿望。45岁读书、55岁创业、70岁写书、80岁旅行、90岁研究均可成立。
@@ -1019,7 +1027,23 @@ export function formatRestrictedFinancialLedger(ledger?: FinancialLedger): strin
   const holdings = ledger.businessHoldings.filter((item) => !["sold", "written_off", "exercised", "expired", "cancelled"].includes(item.status)).map((item) => (
     `- 企业权益 ${item.id}: instrument=${item.instrumentType || "equity"}, company=${item.business.displayName}, carryingValue=${item.personalCarryingValueWan}, optionGranted=${item.optionTerms?.grantedUnits ?? "-"}, optionVested=${item.optionTerms?.vestedUnits ?? "-"}, optionExercised=${item.optionTerms?.exercisedUnits ?? "-"}, strike=${item.optionTerms?.strikePriceWanPerUnit ?? "-"}, fairValue=${item.optionTerms?.fairValueWanPerUnit ?? "-"}, factStatus=${item.factStatus}`
   ));
-  const issues = ledger.unresolvedIssues.filter((item) => item.status !== "resolved").map((item) => (
+  const issues = ledger.unresolvedIssues.filter((item) => {
+    if (item.status === "resolved") return false;
+    const linkedCommitments = ledger.expenseCommitments.filter((commitment) => (
+      commitment.status !== "ended" && item.relatedAccountIds?.includes(commitment.id)
+    ));
+    // Policy/context estimates already accrue conservatively and are reviewed
+    // by deterministic lifecycle code. Showing their due-review issue to the
+    // model repeatedly made it invent same-amount "confirmations", which the
+    // acceptance gate correctly rejected and then regenerated. Keep only
+    // review issues whose accepted amount basis genuinely requires a new
+    // narrative fact; all unrelated issues remain visible.
+    if (linkedCommitments.length > 0
+      && linkedCommitments.every((commitment) => !expenseReviewRequiresPromptConfirmation(item, commitment))) {
+      return false;
+    }
+    return true;
+  }).map((item) => (
     `- open issue ${item.id}: code=${item.code}, occurrences=${item.occurrenceCount ?? 1}, age=${item.createdAtAgeInMonths}-${item.lastObservedAtAgeInMonths ?? item.createdAtAgeInMonths}, ${item.summary}`
   ));
   return [...cash, ...income, ...expenses, ...debts, ...holdings, ...issues].join("\n") || "- 当前没有有效收入、支出、债务、持股或 open issue。";
@@ -1154,6 +1178,15 @@ function isUnresolvedLegacyCareerIncomeSource(source: IncomeSource): boolean {
     && ["estimated", "needs_review"].includes(source.factStatus);
 }
 
+function isRetryableEstimatedCareerIncomeSource(source: IncomeSource): boolean {
+  return (source.id === "legacy_recurring_income"
+      || source.evidence.some((item) => item.source === "accepted_simulation_outcome"))
+    && source.status === "active"
+    && source.accrualPolicy !== "event_only"
+    && Boolean(source.linkedCareerStateId)
+    && ["estimated", "needs_review"].includes(source.factStatus);
+}
+
 function legacyIncomeReconfirmationIsDue(input: {
   ledger: FinancialLedger;
   source: IncomeSource;
@@ -1281,7 +1314,13 @@ function formatEmployedIncomeGateRetryRule(
   employmentStatus?: FinancialState["employmentStatus"]
 ): string {
   if (!reasonCodes.includes("EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME") || !ledger) return "";
-  const sources = ledger.incomeSources.filter(isUnresolvedLegacyCareerIncomeSource);
+  // The acceptance gate can quarantine any stale estimated income linked to
+  // the current employed CareerState, not only the migration compatibility
+  // aggregate. The retry prompt must therefore expose the one authoritative
+  // source that Preview is about to quarantine; otherwise every regeneration
+  // repeats EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME without a resolvable fact
+  // contract.
+  const sources = ledger.incomeSources.filter(isRetryableEstimatedCareerIncomeSource);
   if (sources.length !== 1) return "";
   const source = sources[0]!;
   return `【当前职业收入必须在本次重生中确认】
@@ -1392,7 +1431,7 @@ ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) =>
 - 支出责任修复只补拒绝原因点名的 payer、scope、share 或 exact amount，并逐字引用同一事实单元；共同总额必须同时给出主角份额。不得复制旧账本的 policy/last-known 金额，不得因重复叙事、issue 次数或系统提示把估算升级为 known；正文没有当前实际事实时省略 Proposal，让节点接受门拒绝并重生。
 - 若本轮正文以当前、实际、现行、仍由主角承担等完成语义给出精确金额，并且该金额低于既有估算：expense_commitment_adjusted.payload 必须同时包含 expenseCommitmentId、previousCommitmentId（两者都等于上方真实账户 id）、changeReason="estimate_superseded_by_exact_fact" 与完整 nextCommitment。nextCommitment 保留原 id、responsibilityKey、responsibilityKind、type、financialScope、activeFromAgeInMonths 和 status，只把 monthlyAmountWan/grossMonthlyAmountWan 改为正文精确金额，factStatus="needs_review"、amountBasis="last_known"，并省略 confirmedMonthlyAmountWan/lastConfirmedAtAgeInMonths；不得用自由文本 changeReason。若正文只是说“按实际发生记清”而没有精确金额，不得下调。
 - expense_commitment_started/adjusted 的 payload.type 只能是 basic_living、housing、dependent_support、education、healthcare、insurance、other；房贷或月供不是支出 type，不能返回 mortgage_payment。factStatus 只能是 known、estimated、unknown、needs_review，绝不能返回 confirmed；正文没有本轮新的精确金额与付款责任时，不要为 review_due 账户返回无变化的 adjusted Proposal。
-- UNRESOLVED_FUNDING_GAP 必须通过正文已经支持的明确借款、资产出售、家庭支持到账、收入到账来补足；若正文只表达计划、尝试或协商，可以省略尚未发生的支出。禁止依赖后台自动缺口，禁止把 liquidityTreatment 写入 Proposal。
+- MISSING_FUNDING_SOURCE 或 UNRESOLVED_FUNDING_GAP 必须通过正文已经支持的明确借款、资产出售、家庭支持到账、收入到账来补足；若正文只表达计划、尝试或协商，可以省略尚未发生的支出。禁止依赖后台自动缺口，禁止把 liquidityTreatment 写入 Proposal。
 - 资产购买、投资或企业出资、债务本金/利息、债务重组费用都必须有明确可用现金或同一原子组内有正文证据的资金来源；不能用新的自动短期周转来让它们通过。
 - 正文或已接受选择明确发生辞职、离职、创业、退休、停止工作、签约入职、实习转正、内部转岗或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移以及新职业收入一起返回；toStatus 为 employed 或 part_time 时必须有恰好一个与新 CareerState 绑定的个人职业收入，不能把新收入当作“如有”的可选项。辞职创业使用 toStatus="self_employed"，个人经营所得使用 type="self_employment_draw" 且 linkedCareerStateId 指向新 CareerState，不得使用 type="other"。该组要么全部提交，要么全部不提交。
 - 只修正被拒 Proposal，或为逐条拒绝原因中的 narrative coverage issue 补交正文已经发生但遗漏的 Proposal；不能新增正文没有发生的事实。为满足原子依赖，可以同时补充同一收入替换所必需的旧来源 income_source_ended、同一资产购买所必需的 debt_drawn，或公司融资前遗漏的 business_holding_started。
@@ -1446,6 +1485,7 @@ ${JSON.stringify(input.acceptedEvents.map((event) => ({
 - 已接受事件的事实和金额必须保留；不能为了修复一项失败交易而删除其他成功事实。
 - 不得新增任何财务事实，不得返回 financialEventProposals，不得解释校验过程。
 - 保持原正文 2-4 个自然段和原有叙事语气。
+${NARRATIVE_PERSPECTIVE_RULE}
 
 只返回：
 { "descriptionParagraphs": ["修复后的第一段", "修复后的第二段"] }`;
@@ -1490,6 +1530,7 @@ ${input.selectedOutcomeId ? `【本轮已接受 outcome id】
 - 通过 descriptionParagraphs 返回 2-4 个完整自然段，总计 150-250 字自然收束，结合最近选择、关系、事业、健康和长期方向。
 - 不要把年龄本身写成失败，不要使用突然灾难或具体猎奇死因。
 - title、stage、descriptionParagraphs 要面向完整人生收束。
+${NARRATIVE_PERSPECTIVE_RULE}
 ${financialGateRetryPrompt}
 ${FINANCIAL_NARRATIVE_RULE}
 - attributes 必须与候选后果一致。
@@ -1562,6 +1603,7 @@ ${formatHistoryForSimulation(history) || "这是时光重生的原点（更早�
 
 请在此岁数开启完全不同的命运平行宇宙：
 - descriptionParagraphs：2-4 个完整自然段组成的字符串数组，总计 150-250 字，突出新方向面临的现实磨练、物质局限和世俗博弈。
+${NARRATIVE_PERSPECTIVE_RULE}
 ${FINANCIAL_NARRATIVE_RULE}
 - choices：A、B、C 三个全新分支选项，每个带 4 字 impactSummary。
 - 每个 choice 必须返回 temporalHint、decisionIntent、expectedWorldDeltaTypes。

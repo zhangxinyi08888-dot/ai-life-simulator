@@ -144,20 +144,6 @@ test("explicit known or unpaid compensation wins over policy estimation", () => 
   }), []);
 });
 
-test("self-employed role definition never creates a personal owner draw without an accepted receipt", () => {
-  const old = career({ id: "employee_before_founder", employmentStatus: "employed", occupation: "工程师", effectiveFromAgeInMonths: 300 });
-  const founder = career({ id: "founder_without_draw", employmentStatus: "self_employed", occupation: "供应链咨询公司创始人", effectiveFromAgeInMonths: 360 });
-  const transition: AcceptedCareerTransition = {
-    id: "accepted_founder", proposalId: "founder", fromCareerStateId: old.id,
-    nextCareerState: founder, effectiveAtAgeInMonths: 360, evidence, acceptedByReasonCodes: ["TEST"]
-  };
-  const ledger = initializeFinancialLedger({ id: "founder_no_draw", asOfAgeInMonths: 360 });
-  assert.deepEqual(completeCareerCompensationProposals({
-    proposals: [], currentLedger: ledger, transition, acceptedOutcomeId: "outcome",
-    narrativeText: "你辞职创办供应链咨询公司，公司签下了第一位客户。"
-  }), []);
-});
-
 test("material outliers are detected against the versioned role band", () => {
   const state = career({ id: "entry", employmentStatus: "employed", occupation: "应届前端工程师", effectiveFromAgeInMonths: 300 });
   const estimate = resolveCareerCompensationEstimate({ careerState: state, effectiveAtAgeInMonths: 300 });

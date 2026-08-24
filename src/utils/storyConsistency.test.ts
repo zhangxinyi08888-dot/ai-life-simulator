@@ -810,6 +810,69 @@ assert.equal(validateStoryConsistency({
   worldState: { people: [], directionArcs: [], pressureArcs: [], relationships: [], version: 2 }
 }).some((issue) => issue.code === "relationship_authority_conflict"), false);
 
+const implausiblyOldParent = {
+  id: "parent-old-unconfirmed",
+  displayName: "父亲",
+  relation: "parent" as const,
+  firstSeenAgeInMonths: 22 * 12,
+  lastSeenAgeInMonths: 99 * 12,
+  presenceMode: "active_scene" as const,
+  lifeStatus: "active" as const,
+  estimatedAgeRange: [110, 125] as [number, number],
+  source: "accepted_history" as const,
+  confidence: 1
+};
+assert.ok(validateStoryConsistency({
+  node: { ...node, description: "父亲约你喝早茶，还送来一篮新鲜蔬菜。" },
+  targetAgeInMonths: 99 * 12,
+  people: [implausiblyOldParent],
+  worldState: { people: [implausiblyOldParent], directionArcs: [], pressureArcs: [], relationships: [], version: 2 }
+}).some((issue) => issue.code === "character_timeline_conflict"));
+assert.ok(validateStoryConsistency({
+  node: {
+    ...node,
+    description: "父亲在你每周去探望时依然会走到院子里坐一会儿，只是步子更慢。"
+  },
+  targetAgeInMonths: 83 * 12 + 9,
+  people: [{ ...implausiblyOldParent, estimatedAgeRange: [101.75, 128.75] }],
+  worldState: {
+    people: [{ ...implausiblyOldParent, estimatedAgeRange: [101.75, 128.75] }],
+    directionArcs: [], pressureArcs: [], relationships: [], version: 2
+  }
+}).some((issue) => issue.code === "character_timeline_conflict"));
+assert.ok(validateStoryConsistency({
+  node: {
+    ...node,
+    description: "八十八岁的深秋，父亲在院子里慢慢走动，母亲在屋里整理她最后一批手工订单。"
+  },
+  targetAgeInMonths: 88 * 12 + 8,
+  people: [{ ...implausiblyOldParent, estimatedAgeRange: [106.6, 133.6] }],
+  worldState: {
+    people: [{ ...implausiblyOldParent, estimatedAgeRange: [106.6, 133.6] }],
+    directionArcs: [], pressureArcs: [], relationships: [], version: 2
+  }
+}).some((issue) => issue.code === "character_timeline_conflict"));
+assert.ok(validateStoryConsistency({
+  node: {
+    ...node,
+    description: "你整理了这季的生活安排。",
+    choices: [
+      { id: "A", text: "请父母提供日常照护开销清单，再一起核对共同账户", impactSummary: "核对开销" },
+      { id: "B", text: "维持当前安排", impactSummary: "保持节奏" },
+      { id: "C", text: "减少一项工作", impactSummary: "降低负担" }
+    ]
+  },
+  targetAgeInMonths: 99 * 12,
+  people: [{ ...implausiblyOldParent, estimatedAgeRange: [101, 128] }],
+  worldState: { people: [{ ...implausiblyOldParent, estimatedAgeRange: [101, 128] }], directionArcs: [], pressureArcs: [], relationships: [], version: 2 }
+}).some((issue) => issue.code === "character_timeline_conflict"));
+assert.equal(validateStoryConsistency({
+  node: { ...node, description: "你想起父亲当年约你喝早茶的清晨。" },
+  targetAgeInMonths: 99 * 12,
+  people: [implausiblyOldParent],
+  worldState: { people: [implausiblyOldParent], directionArcs: [], pressureArcs: [], relationships: [], version: 2 }
+}).some((issue) => issue.code === "character_timeline_conflict"), false);
+
 assert.equal(containsForbiddenArcWrite({ narrativeMeta: { nextPhaseId: "growth" } }), true);
 const sanitizedArcOutput = stripForbiddenArcWrites({
   title: "保留的节点",

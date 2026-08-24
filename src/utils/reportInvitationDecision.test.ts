@@ -13,10 +13,12 @@ function node(input: {
   foregroundArcId?: string;
   foregroundPhasePolicyId?: string;
   invitation?: SimulationNode["reportInvitation"];
+  ageInMonths?: number;
 }): SimulationNode {
+  const ageInMonths = input.ageInMonths ?? 35 * 12;
   return {
-    age: 35,
-    ageInMonths: 35 * 12,
+    age: Math.floor(ageInMonths / 12),
+    ageInMonths,
     stage: "现实抉择",
     title: input.title,
     description: `${input.title}形成了明确而可验证的现实结果。`,
@@ -194,7 +196,8 @@ const stableAfterResolvedArc = evaluateReportInvitation({
   candidateNode: node({ title: "解决后的稳定生活" })
 });
 assert.equal(stableAfterResolvedArc.shouldInvite, false);
-assert.equal(stableAfterResolvedArc.reasonCodes.includes("stable-stage-already-invited"), true);
+assert.equal(stableAfterResolvedArc.reasonCodes.includes("reinvite-choice-cooldown"), true);
+assert.equal(stableAfterResolvedArc.reasonCodes.includes("reinvite-age-cooldown"), true);
 
 const tension = historyItem(node({ title: "新的高张力阶段", intensity: "high_tension" }));
 const firstStableAfterTension = historyItem(node({ title: "重新稳定一" }));
@@ -208,8 +211,8 @@ const newStableStage = evaluateReportInvitation({
   simulationSeed: "seed",
   branchFingerprint: "new-stable-stage"
 });
-assert.equal(newStableStage.shouldInvite, true);
-assert.equal(newStableStage.invitation?.triggerKey, "stable:2");
+assert.equal(newStableStage.shouldInvite, false);
+assert.equal(newStableStage.reasonCodes.includes("reinvite-age-cooldown"), true);
 
 const beforeScheduledReinvite = evaluateReportInvitation({
   ...stableInvitationInput(declinedStableNode),
@@ -220,12 +223,20 @@ assert.equal(beforeScheduledReinvite.shouldInvite, false);
 
 const scheduledReinvite = evaluateReportInvitation({
   ...stableInvitationInput(declinedStableNode),
-  candidateNode: node({ title: "到达二次邀请" }),
+  candidateNode: node({ title: "到达二次邀请", ageInMonths: 38 * 12 }),
   completedChoiceCount: 21
 });
 assert.equal(scheduledReinvite.shouldInvite, true);
 assert.equal(scheduledReinvite.invitation?.triggerKey, "retry:invite-stable:21");
 assert.equal(scheduledReinvite.reasonCodes.includes("scheduled-reinvite"), true);
+
+const choicesReadyButAgeCooling = evaluateReportInvitation({
+  ...stableInvitationInput(declinedStableNode),
+  candidateNode: node({ title: "新阶段也不能绕过年龄冷却", ageInMonths: 36 * 12 }),
+  completedChoiceCount: 24
+});
+assert.equal(choicesReadyButAgeCooling.shouldInvite, false);
+assert.equal(choicesReadyButAgeCooling.reasonCodes.includes("reinvite-age-cooldown"), true);
 
 const clearedForegroundResolvedNode = historyItem(node({ title: "已清空前台 Arc", arcId: "arc-boundary" }));
 assert.equal(findStableEpisodeStartChoiceCount([clearedForegroundResolvedNode], node({ title: "边界之后" })), 1);

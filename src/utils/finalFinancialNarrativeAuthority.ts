@@ -137,6 +137,28 @@ export function replaceUnsupportedFinancialAmountsWithQualitativeText(input: {
   return { text, replacementCount };
 }
 
+/**
+ * Removes only clauses that falsely claim debt was fully settled. Remaining
+ * model-authored clauses are kept; no replacement financial fact is invented.
+ */
+export function removeUnsupportedDebtCompletionClauses(text: string): {
+  text: string;
+  removalCount: number;
+} {
+  let removalCount = 0;
+  const clauses = text.match(/[^，；。！？]+[，；。！？]?/gu) || [text];
+  const retained = clauses.filter((clause) => {
+    if (!hasUnsupportedDebtCompletionClaim(clause)) return true;
+    removalCount += 1;
+    return false;
+  });
+  const normalized = retained.join("")
+    .replace(/^\s*(?:也|并且|而且|但|但是|却)\s*/u, "")
+    .replace(/^[，；、\s]+|[，；、\s]+$/gu, "")
+    .trim();
+  return { text: normalized, removalCount };
+}
+
 function hasUnsupportedDebtCompletionClaim(text: string): boolean {
   const withoutNonCompletionClaims = DEBT_NON_COMPLETION_PATTERNS.reduce(
     (remaining, pattern) => remaining.replace(pattern, " "),

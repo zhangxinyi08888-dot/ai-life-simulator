@@ -384,3 +384,57 @@ test("unsupported title duration left after one repair is downgraded without hid
   assert.equal(repaired.meta.finalOutcomeQualityRepairTriggered, true);
   assert.deepEqual(repaired.meta.finalOutcomeQualityIssueCodes, ["FINAL_REPORT_UNSUPPORTED_DURATION"]);
 });
+
+test("mortality terminal fallback removes only the remaining invalid future item and forbidden sentences", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    context: { closureType: "mortality", invitationReason: "stable_window" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.report.futureTrends = [
+        { title: "已留下的作品", trend: "公开作品已经成为相关协作的具体材料。", reason: "31岁的节点记录了作品完成。", keyMomentIndexes: [3] },
+        { title: "死后继续工作", trend: "你将继续担任顾问。", reason: "家人会接手债务并继续偿还。", keyMomentIndexes: [4] }
+      ];
+      payload.report.finalLifeReading.title = "完整人生回望";
+      payload.report.finalLifeReading.paragraphs = ["作品曾被多所学校广泛采用。你应该继续扩大影响。", "这段人生留下了具体作品。"];
+      payload.report.patternsToKeep[0].paragraphs = ["小成果曾帮助你校准方向。"];
+      payload.report.patternsToAdjust[0].paragraphs = ["独自承担曾带来健康代价。"];
+      payload.share.viralTitle = "重生之我用8年把兴趣做成作品";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.report.futureTrends.length, 1);
+  assert.doesNotMatch(JSON.stringify(repaired), /你将继续|家人会接手债务|多所学校|广泛采用|你应该继续/u);
+  assert.equal(repaired.share.viralTitle, "重生之我用多年把兴趣做成作品");
+  assert.ok((repaired.meta.finalOutcomeQualityFallbackCount || 0) >= 4);
+  assert.ok(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_POST_MORTEM_CONTINUATION"));
+});
+
+test("a debt payoff claim left only in share closing copy is removed without a third model call", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history: historyWithOutstandingDebt(),
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.closingLine = "你终于还清了全部债务，也学会把生活放回自己的节奏。";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.share.closingLine, "学会把生活放回自己的节奏。");
+  assert.equal(repaired.meta.financialClaimFallbackCount, 1);
+  assert.ok(repaired.meta.financialClaimViolationCodes?.includes("REPORT_DEBT_COMPLETION_CONFLICT"));
+});

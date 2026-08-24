@@ -5,6 +5,7 @@ export interface ReportInvitationPolicy {
   minChoicesForStableWindow: number;
   chronicFinancialDebtArcChoices: number;
   reinviteAfterChoices: number;
+  reinviteAfterAgeMonths: number;
   safeIntensities: LifeIntensity[];
 }
 
@@ -13,5 +14,6 @@ export const DEFAULT_REPORT_INVITATION_POLICY: ReportInvitationPolicy = {
   minChoicesForStableWindow: 15,
   chronicFinancialDebtArcChoices: 8,
   reinviteAfterChoices: 6,
+  reinviteAfterAgeMonths: 36,
   safeIntensities: ["normal", "stable"]
 };

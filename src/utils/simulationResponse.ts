@@ -38,6 +38,42 @@ function clampNumber(value: number, min?: number, max?: number): number {
   return value;
 }
 
+// Match the whole generated age phrase, including malformed modifiers such as
+// “47岁6个月半” and approximate forms. The replacement below is authoritative;
+// these suffixes must not survive merely because the numeric month total is
+// otherwise equal.
+const LEADING_NUMERIC_AGE_PATTERN = /^\s*(\d+)\s*岁(?:(?:\s*(\d+)\s*个?月(\s*半)?)|(?:\s*(\d+)\s*个?半月)|(\s*半))?(?:\s*(多|余|左右|上下))?/u;
+
+export function formatAuthoritativeAge(ageInMonths: number): string {
+  const safeAgeInMonths = Math.max(0, Math.round(ageInMonths));
+  const years = Math.floor(safeAgeInMonths / 12);
+  const months = safeAgeInMonths % 12;
+  return months > 0 ? `${years}岁${months}个月` : `${years}岁`;
+}
+
+/**
+ * A generated title may decorate the chapter with an age, but that age is not
+ * an independent narrative fact.  When the title starts with a numeric age we
+ * deterministically bind only that prefix to the authoritative timeline.  All
+ * other title copy remains byte-for-byte unchanged.
+ */
+export function bindTitleToAuthoritativeAge(title: string, ageInMonths: number): string {
+  const normalizedTitle = readString(title);
+  const match = normalizedTitle.match(LEADING_NUMERIC_AGE_PATTERN);
+  if (!match) return normalizedTitle;
+  const authoritativeAgeInMonths = Math.max(0, Math.round(ageInMonths));
+  const statedAgeInMonths = Number(match[1]) * 12
+    + Number(match[2] || match[4] || 0)
+    + (match[3] || match[4] ? 0.5 : match[5] ? 6 : 0);
+  // Preserve semantically exact formatting variants such as “35 岁 6 个月”
+  // and “70岁11月”. Approximate or half-month suffixes are never exact.
+  if (!match[6] && statedAgeInMonths === authoritativeAgeInMonths) return normalizedTitle;
+  return normalizedTitle.replace(
+    LEADING_NUMERIC_AGE_PATTERN,
+    formatAuthoritativeAge(authoritativeAgeInMonths)
+  );
+}
+
 function normalizeAttributes(
   attributes: any,
   fallbackAttributes?: LifeAttributes
@@ -431,9 +467,20 @@ export function groundedRomanceCharacter(node: Record<string, any>, eventIntentT
     ? node.narrativeMeta.activeCharacters as Array<Record<string, unknown>>
     : [];
   if (["romance_connection_clarification", "romance_exploration_resolution", "relationship_material_commitment_test", "relationship_commitment_resolution"].includes(eventIntentType || "")) {
-    return activeCharacters.find((character) => (
-      typeof character.personId === "string" && character.personId.trim().length > 0
-    ));
+    const authoritativePartner = activeCharacters.find((character) => {
+      const displayName = readString(character.displayName) || readString(character.name);
+      return typeof character.personId === "string"
+        && character.personId.trim().length > 0
+        && character.relation === "partner"
+        && isValidRomanceDisplayName(displayName);
+    });
+    if (authoritativePartner) return authoritativePartner;
+    return activeCharacters.find((character) => {
+      const displayName = readString(character.displayName) || readString(character.name);
+      return typeof character.personId === "string"
+        && character.personId.trim().length > 0
+        && isValidRomanceDisplayName(displayName);
+    });
   }
   if (eventIntentType !== "romance_new_connection") return undefined;
   const description = readNodeDescription(node);
@@ -502,7 +549,7 @@ export function repairDeterministicRomanceChoices<T extends Record<string, any>>
   )).length;
   if (unrelatedDecisionCount >= 2) return { ...node, choices: normalized.choices };
 
-  const displayName = readString(groundedCharacter.displayName) || "对方";
+  const displayName = readString(groundedCharacter.displayName) || readString(groundedCharacter.name) || "对方";
   const unused = [...normalized.choices];
   const choices = contract.map((item, index) => {
     const matchingIndex = unused.findIndex((choice) => choice.eventOutcomeId === item.outcomeId);
@@ -588,8 +635,9 @@ export function normalizeSimulationNode<T extends Record<string, any>>(node: T, 
   const relationshipProposals = Array.isArray(normalized.narrativeMeta?.relationshipProposals)
     ? normalized.narrativeMeta.relationshipProposals
     : [];
-  const episodeId = readString(normalized.narrativeMeta?.storyEpisode?.id) || `episode_${stableHash({ ageInMonths, title: normalized.title })}`;
-  const title = readString(normalized.title) || "新的选择";
+  const rawTitle = readString(normalized.title) || "新的选择";
+  const title = bindTitleToAuthoritativeAge(rawTitle, ageInMonths);
+  const episodeId = readString(normalized.narrativeMeta?.storyEpisode?.id) || `episode_${stableHash({ ageInMonths, title })}`;
   const description = readNodeDescription(normalized) || "新的现实局面正在展开。";
   const descriptionParagraphs = Array.isArray(normalized.descriptionParagraphs)
     ? normalized.descriptionParagraphs.map(readString).filter(Boolean)

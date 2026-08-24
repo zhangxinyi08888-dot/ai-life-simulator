@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { callDeepSeekJson, callDeepSeekJsonStream, extractJsonText, flattenAiPromptInput } from "./deepseek";
+import { callDeepSeekJson, callDeepSeekJsonStream, extractJsonText, flattenAiPromptInput, parseDeepSeekUsage } from "./deepseek";
 
 assert.equal(extractJsonText('```json\n{"ok":true}\n```'), '{"ok":true}');
 assert.equal(extractJsonText('{"ok":true}'), '{"ok":true}');
@@ -49,6 +49,20 @@ assert.deepEqual(response.usage, {
 });
 assert.equal(response.providerRequestId, "chatcmpl-non-stream");
 assert.equal(response.model, "deepseek-v4-flash");
+
+const agentPlanUsage = parseDeepSeekUsage({
+  prompt_tokens: 100,
+  completion_tokens: 20,
+  total_tokens: 120,
+  prompt_tokens_details: { cached_tokens: 75 }
+});
+assert.deepEqual(agentPlanUsage, {
+  promptTokens: 100,
+  cacheHitTokens: 75,
+  cacheMissTokens: 25,
+  completionTokens: 20,
+  totalTokens: 120
+});
 
 const segmentedResponse = await callDeepSeekJson(
   {

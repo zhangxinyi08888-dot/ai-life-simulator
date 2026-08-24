@@ -186,14 +186,11 @@ export function completeCareerCompensationProposals(input: {
 }): FinancialEventProposal[] {
   const transition = input.transition;
   if (!transition || !input.acceptedOutcomeId || input.explicitUnpaid) return input.proposals;
-  // A role definition can estimate an employee wage, but company traction or
-  // founder status alone never authorizes a personal owner draw. Self-employed
-  // compensation still requires an explicit accepted personal receipt.
-  if (!["employed", "part_time"].includes(transition.nextCareerState.employmentStatus)) return input.proposals;
+  if (!["employed", "part_time", "self_employed"].includes(transition.nextCareerState.employmentStatus)) return input.proposals;
   const resolvedProposal = input.proposals.find((proposal) => {
     const source = proposalIncomeSource(proposal);
     return source?.status === "active" && source.linkedCareerStateId === transition.nextCareerState.id
-      && ["salary", "contract"].includes(String(source.type));
+      && ["salary", "contract", "self_employment_draw"].includes(String(source.type));
   });
   const estimate = resolveCareerCompensationEstimate({
     careerState: transition.nextCareerState,
@@ -215,9 +212,10 @@ export function completeCareerCompensationProposals(input: {
     }
     proposals = input.proposals.filter((proposal) => proposal !== resolvedProposal);
   }
+  const incomeType = transition.nextCareerState.employmentStatus === "self_employed" ? "self_employment_draw" : "salary";
   const source: IncomeSource = {
     id: `career_income_${transition.nextCareerState.id}`,
-    type: "salary",
+    type: incomeType,
     displayName: `${transition.nextCareerState.occupation || "当前职位"}估算税后收入`,
     monthlyNetAmountWan: estimate.monthlyNetAmountWan,
     accrualPolicy: "monthly",
@@ -265,9 +263,17 @@ export function completeDueCareerCompensationReviewProposals(input: {
   for (const source of input.currentLedger.incomeSources) {
     if (source.status !== "active" || source.linkedCareerStateId !== input.currentCareerState.id
       || !source.compensationEstimate || touchedIds.has(source.id)) continue;
-    let reviewMonth = source.compensationEstimate.reviewAtAgeInMonths;
+    // A restored checkpoint may be later than more than one missed review.
+    // Collapse those stale boundaries into one catch-up at periodStart, then
+    // move the clock forward from that actual review month.  Otherwise two
+    // old boundaries can both become `periodStart` and double-adjust salary in
+    // the same effective month.
+    let reviewMonth = Math.max(
+      source.compensationEstimate.reviewAtAgeInMonths,
+      input.periodStartAgeInMonths
+    );
     while (reviewMonth <= input.periodEndAgeInMonths) {
-      const effectiveMonth = Math.max(reviewMonth, input.periodStartAgeInMonths);
+      const effectiveMonth = reviewMonth;
       const estimate = resolveCareerCompensationEstimate({
         careerState: input.currentCareerState,
         narrativeText: input.narrativeText,
@@ -293,18 +299,37 @@ export function completeDueCareerCompensationReviewProposals(input: {
         evidence: input.narrativeText.trim(),
         confidence: estimate.confidence
       });
-      reviewMonth += REVIEW_INTERVAL_MONTHS;
+      reviewMonth = estimate.reviewAtAgeInMonths;
     }
   }
   return [...input.proposals, ...additions];
 }
 
+function parseChineseMonthCount(value: string): number | undefined {
+  const digits: Record<string, number> = {
+    零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9
+  };
+  if (!value.includes("十")) return value.length === 1 ? digits[value] : undefined;
+  const [tensText, unitsText, overflow] = value.split("十");
+  if (overflow !== undefined) return undefined;
+  const tens = tensText ? digits[tensText] : 1;
+  const units = unitsText ? digits[unitsText] : 0;
+  if (tens === undefined || units === undefined) return undefined;
+  return tens * 10 + units;
+}
+
 export function parseBoundedEngagementMonths(text: string): number | undefined {
-  const arabic = text.match(/(?:为期|持续|做了|进行|实习期)(?:约)?\s*(\d{1,2})\s*个?月/u);
-  if (arabic) return Number(arabic[1]);
-  const chinese: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
-  const localized = text.match(/(?:为期|持续|做了|进行|实习期)(?:约)?\s*([一二两三四五六])\s*个?月/u);
-  return localized ? chinese[localized[1]] : undefined;
+  const normalized = text.replace(/\s+/gu, "");
+  const bareDuration = normalized.match(
+    /^(?:约|大约)?(\d{1,2}|[零一二两三四五六七八九十]{1,3})个?月[\p{P}\p{S}]*$/u
+  )?.[1];
+  const contextualDuration = normalized.match(
+    /(?:为期|持续|做了|进行了?|实习期(?:为|是)?|实习(?:共|了)?)[\p{P}\p{S}]*(?:约|大约)?(\d{1,2}|[零一二两三四五六七八九十]{1,3})个?月/u
+  )?.[1];
+  const duration = bareDuration ?? contextualDuration;
+  if (!duration) return undefined;
+  const months = /^\d+$/u.test(duration) ? Number(duration) : parseChineseMonthCount(duration);
+  return months !== undefined && Number.isInteger(months) && months > 0 ? months : undefined;
 }
 
 export function reclassifyBoundedStudentEngagement(input: {
@@ -313,17 +338,46 @@ export function reclassifyBoundedStudentEngagement(input: {
   narrativeText: string;
   acceptedOutcomeId?: string;
   calendarYear?: number;
-}): { transitions: AcceptedCareerTransition[]; proposals: FinancialEventProposal[]; reclassified: boolean } {
+}): {
+  transitions: AcceptedCareerTransition[];
+  proposals: FinancialEventProposal[];
+  reclassified: boolean;
+  unboundedEngagementBlocked: boolean;
+} {
   if (input.currentCareerState.employmentStatus !== "student" || !input.acceptedOutcomeId) {
-    return { transitions: input.transitions, proposals: [], reclassified: false };
+    return {
+      transitions: input.transitions,
+      proposals: [],
+      reclassified: false,
+      unboundedEngagementBlocked: false
+    };
   }
-  const engagement = input.transitions.find((transition) => {
-    const text = `${transition.evidence.map((item) => item.excerpt || "").join(" ")} ${input.narrativeText}`;
-    return /实习|intern/u.test(text) && Boolean(parseBoundedEngagementMonths(text));
-  });
-  if (!engagement) return { transitions: input.transitions, proposals: [], reclassified: false };
+  const internshipCandidates = input.transitions.map((transition) => {
+    const evidenceText = transition.evidence.map((item) => item.excerpt || "").join(" ");
+    const roleText = [transition.nextCareerState.occupation, transition.nextCareerState.careerStage]
+      .filter(Boolean).join(" ");
+    // Current-transition evidence or the accepted role owns the classification.
+    // A historical internship sentence elsewhere in the node may not downgrade
+    // a present full-time graduation/entry transition.
+    const currentTransitionIsInternship = /实习|intern/iu.test(`${roleText} ${evidenceText}`);
+    const durationMonths = currentTransitionIsInternship
+      ? parseBoundedEngagementMonths(evidenceText) ?? parseBoundedEngagementMonths(input.narrativeText)
+      : undefined;
+    return { transition, currentTransitionIsInternship, durationMonths };
+  }).filter((candidate) => candidate.currentTransitionIsInternship);
+  const engagementCandidate = internshipCandidates.find((candidate) => candidate.durationMonths !== undefined);
+  if (!engagementCandidate) {
+    const blockedIds = new Set(internshipCandidates.map((candidate) => candidate.transition.id));
+    return {
+      transitions: input.transitions.filter((transition) => !blockedIds.has(transition.id)),
+      proposals: [],
+      reclassified: false,
+      unboundedEngagementBlocked: blockedIds.size > 0
+    };
+  }
+  const engagement = engagementCandidate.transition;
   const evidence = engagement.evidence.find((item) => item.excerpt)?.excerpt || input.narrativeText.trim();
-  const durationMonths = parseBoundedEngagementMonths(`${evidence} ${input.narrativeText}`)!;
+  const durationMonths = engagementCandidate.durationMonths!;
   const internshipCareer: CareerState = {
     ...engagement.nextCareerState,
     id: input.currentCareerState.id,
@@ -366,6 +420,7 @@ export function reclassifyBoundedStudentEngagement(input: {
       evidence,
       confidence: explicit ? 1 : estimate.confidence
     }],
-    reclassified: true
+    reclassified: true,
+    unboundedEngagementBlocked: false
   };
 }

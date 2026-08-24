@@ -144,6 +144,52 @@ test("a bound generic parent-health narrative reuses the one opening aggregate a
   assert.equal((adjusted?.payload as ExpenseCommitmentMutationPayload | undefined)?.nextCommitment.responsibilityKey, "recurring_healthcare:opening_parent");
 });
 
+test("a plural parent-health narrative reuses the accepted unspecified-parent account", () => {
+  const current = ledger();
+  current.expenseCommitments.push({
+    id: "accepted_unspecified_parent_healthcare",
+    responsibilityKey: "recurring_healthcare:person_parent_unspecified",
+    responsibilityKind: "recurring_healthcare",
+    type: "healthcare",
+    displayName: "父母医疗支出（待确认）",
+    monthlyAmountWan: 0.24,
+    activeFromAgeInMonths: 480,
+    status: "active",
+    factStatus: "needs_review",
+    accrualReviewStatus: "conservative",
+    lastReviewedAtAgeInMonths: 480,
+    nextReviewAtAgeInMonths: 492,
+    amountBasis: "contextual_estimate",
+    amountSourceIds: ["accepted_parent_healthcare"],
+    financialScope: "personal",
+    participantPersonIds: ["person_parent_unspecified"],
+    evidence: [{ source: "accepted_simulation_outcome", reasonCode: "PARENT_HEALTHCARE", confidence: 1 }]
+  });
+  const result = reconcileExpenseCommitments({
+    ledger: current,
+    candidates: [parentMedicalCandidate({
+      id: "plural_parent_healthcare_followup",
+      responsibilityKey: "recurring_healthcare:parents",
+      explicitMonthlyTotalWan: undefined,
+      protagonistShareWan: undefined,
+      amountSourceId: undefined,
+      participantPersonIds: [],
+      source: "narrative_supplement"
+    })],
+    ageInMonths: 500,
+    sourceOutcomeId: "plural_parent_healthcare_reuse",
+    mode: "enforced"
+  });
+  assert.equal(result.proposals.some((proposal) => proposal.kind === "expense_commitment_started"), false);
+  assert.equal(result.reviewEvents.some((event) => (
+    event.payload.expenseCommitmentId === "accepted_unspecified_parent_healthcare"
+    && event.payload.nextCommitment.responsibilityKey === "recurring_healthcare:person_parent_unspecified"
+  )), true);
+  assert.equal(result.proposals.some((proposal) => (
+    (proposal.payload as { responsibilityKey?: string }).responsibilityKey === "recurring_healthcare:parents"
+  )), false);
+});
+
 function elderCareCandidate(overrides: Partial<ExpenseResponsibilityCandidate> = {}): ExpenseResponsibilityCandidate {
   return candidate({
     id: "elder_care_mother",

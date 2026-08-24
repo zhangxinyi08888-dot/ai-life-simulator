@@ -419,6 +419,15 @@ function repairDebtNarrativeText(
   const debtFact = authority.canonicalFacts.find((fact) => fact.kind === "debt_outstanding")?.text;
   const missedFact = authority.canonicalFacts.find((fact) => fact.kind === "missed_payments_continue")?.text;
   const chunks = text.split(/(?<=[。！？])|\n+/u).filter(Boolean);
+  const stripUnsupportedDebtCompletion = (chunk: string): string => {
+    const terminal = chunk.match(/[。！？]$/u)?.[0] ?? "。";
+    const kept = chunk.replace(/[。！？]$/u, "").split(/[，；]/u)
+      .map((clause) => clause.trim())
+      .filter((clause) => clause && !DEBT_COMPLETED_PATTERN.test(clause))
+      .map((clause) => clause.replace(/^(?:并|但|而|因此|所以)[，、]?/u, "").trim())
+      .filter(Boolean);
+    return kept.length > 0 ? `${kept.join("，")}${terminal}` : "";
+  };
   const repaired = chunks.map((chunk) => {
     const reasons = new Set(issuesForText(chunk, surface, authority).map((issue) => issue.reasonCode));
     if (reasons.size === 0) return chunk;
@@ -426,7 +435,7 @@ function repairDebtNarrativeText(
       return "你已经提交调整还款安排的申请，结果仍待确认。";
     }
     if (reasons.has("UNACCEPTED_DEBT_COMPLETION")) {
-      return debtFact ?? "这笔收入被留作现金缓冲与生活安排。";
+      return debtFact ?? stripUnsupportedDebtCompletion(chunk);
     }
     if (reasons.has("UNACCEPTED_ARREARS_CATCHUP")) {
       return "你恢复按当前计划还款，过去的偿付问题仍按账本继续处理。";

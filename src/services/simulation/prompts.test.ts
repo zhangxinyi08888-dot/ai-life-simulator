@@ -95,6 +95,35 @@ const financialGateRetryPrompt = buildNextNodePrompt({
   eventSeed: healthWarningEvent,
   financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
 });
+const estimatedConsultingIncomeLedger = initializeFinancialLedger({
+  id: "estimated_consulting_income_retry",
+  asOfAgeInMonths: 636,
+  openingPosition: {
+    incomeSources: [{
+      id: "income_consulting_fee_367",
+      type: "other",
+      displayName: "零散顾问费",
+      monthlyNetAmountWan: 0.6,
+      accrualPolicy: "monthly",
+      activeFromAgeInMonths: 418,
+      status: "active",
+      linkedCareerStateId: "career_current",
+      factStatus: "estimated",
+      lastConfirmedAtAgeInMonths: 418,
+      evidence: [{ source: "accepted_simulation_outcome", reasonCode: "EVIDENCE_EXACT_MATCHED", confidence: 0.8 }]
+    }]
+  }
+});
+const estimatedConsultingIncomeRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "维持普通认识，不发展浪漫关系",
+  eventSeed: healthWarningEvent,
+  currentFinancialLedger: estimatedConsultingIncomeLedger,
+  financialGateRetryReasonCodes: ["EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME"]
+});
 const careerIncomeTransitionRetryPrompt = buildNextNodePrompt({
   userData,
   answers,
@@ -600,6 +629,7 @@ const choiceTextRepairPrompt = buildChoiceTextRepairPrompt({
 assert.match(choiceTextRepairPrompt, /stay_in_current_role/);
 assert.match(choiceTextRepairPrompt, /startup_for_larger_platform/);
 assert.match(choiceTextRepairPrompt, /只为上述索引返回 choiceTextRepairs/);
+assert.match(choiceTextRepairPrompt, /text 必须使用第二人称“你”或无主语表达/);
 assert.match(choiceTextRepairPrompt, /不得修改或重写 id、impactSummary、decisionIntent、eventOutcomeId/);
 assert.match(choiceTextRepairPrompt, /"index": 0/);
 assert.match(choiceTextRepairPrompt, /"index": 2/);
@@ -612,6 +642,8 @@ assert.match(prompt, /继续工作也可以是 protected/);
 assert.match(prompt, /recoveryState=depleted 必须有/);
 assert.match(prompt, /不能自行创建或修改 Arc 状态|模型不得修改 phase/);
 assert.match(prompt, /正文禁止描述当前存款、积蓄、银行余额、身家、净资产或累计财富的精确总额/);
+assert.match(prompt, /【叙述视角硬约束】/);
+assert.match(prompt, /第二人称“你”或无主语表达/);
 assert.match(prompt, /允许描述本阶段实际发生的交易金额/);
 assert.match(prompt, /financialEventProposals 必须放在返回 JSON 顶层/);
 assert.match(prompt, /financialNarrativeClaims 必须放在返回 JSON 顶层/);
@@ -644,6 +676,9 @@ assert.match(prompt, /不得凭空提交就业状态转换/);
 assert.match(financialGateRetryPrompt, /财务接受门重生修正/);
 assert.match(financialGateRetryPrompt, /EMPLOYED_WITHOUT_ACTIVE_CAREER_INCOME/);
 assert.match(financialGateRetryPrompt, /不得返回 income_source_ended、income_source_paused/);
+assert.match(estimatedConsultingIncomeRetryPrompt, /incomeSourceId=income_consulting_fee_367/);
+assert.match(estimatedConsultingIncomeRetryPrompt, /当前已经实际获得的个人税后月薪或年收入/);
+assert.match(estimatedConsultingIncomeRetryPrompt, /toStatus=self_employed/);
 assert.match(careerIncomeTransitionRetryPrompt, /不得再写“个人收入尚待确认”/);
 assert.match(careerIncomeTransitionRetryPrompt, /原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入/);
 assert.match(pendingEmployerOfferPrompt, /已接受但尚未生效的外部职位/);
@@ -741,6 +776,7 @@ assert.match(overdueExpenseReviewPrompt, /expense_commitment_adjusted/u);
 assert.doesNotMatch(firstObservationExpenseReviewPrompt, /连续至少两个已提交的实质节点未获得新的确认/u);
 assert.doesNotMatch(overduePolicyEstimatePrompt, /以下持续支出已连续至少两个已提交的实质节点未获得新的确认/u);
 assert.doesNotMatch(overduePolicyEstimatePrompt, /当前月计提=0\.35/u);
+assert.doesNotMatch(overduePolicyEstimatePrompt, /open issue expense_review_due_policy_floor_basic_living/u);
 assert.match(overduePolicyEstimatePrompt, /不能只因账本显示 needs_review、review_due 或门禁重生而凭空“确认”或调整/u);
 assert.match(prompt, /selectedDecision 是本轮唯一获授权执行的分支/);
 assert.match(prompt, /没有 relationship outcome id 时/);
@@ -782,6 +818,7 @@ const narrativeRepairPrompt = buildFinancialNarrativeRepairPrompt({
 });
 assert.match(narrativeRepairPrompt, /不得继续声称贷款已经获批、放款、到账/);
 assert.match(narrativeRepairPrompt, /不得继续声称已经产生该笔贷款的月供、还贷或欠款/);
+assert.match(narrativeRepairPrompt, /【叙述视角硬约束】/);
 
 const lateCareerPrompt = buildNextNodePrompt({
   userData,

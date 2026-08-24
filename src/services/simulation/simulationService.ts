@@ -93,6 +93,7 @@ import {
   collectPersonalIncomeNarrativeContractIssues,
   sentenceClaimsNewPersonalIncomeActivity,
   hasExplicitUnpaidPersonalIncomeStatement,
+  hasExplicitUnpaidCareerCompensationDecision,
   buildLateLifeEmploymentClosure,
   requiresHardLateLifeCareerIncomeResolution,
   completeCareerCompensationProposals,
@@ -130,6 +131,7 @@ import { flattenAiPromptInput, type AiJsonResult, type AiPromptInput, type DeepS
 import { getBrowserE2eAiJsonCaller, getBrowserE2eAiJsonStreamCaller, getBrowserE2eEventOverride, shouldForceBrowserE2eEnding } from "../e2e/e2eAiMock";
 import { extractStreamedNodePreview, type StreamedNodePreview } from "../../utils/streamingJsonPreview";
 import { splitNarrativeParagraphs } from "../../utils/narrativePresentation";
+import { hasFirstPersonNarration, normalizeNarrativePayloadToSecondPerson } from "../../utils/narrativePerspective";
 import {
   buildChoiceTextRepairPrompt,
   buildNextNodePromptLayout,
@@ -175,8 +177,13 @@ function normalizeRepairedEmploymentTransition(input: {
   acceptedOutcomeId: string;
   narrativeText: string;
   periodStartAgeInMonths: number;
+  currentEmploymentStatus: CareerState["employmentStatus"];
 }): EmploymentTransitionProposal | undefined {
   if (!input.raw || typeof input.raw !== "object") return undefined;
+  if (!narrativeRequiresCareerTransition({
+    narrativeText: input.narrativeText,
+    currentStatus: input.currentEmploymentStatus
+  })) return undefined;
   const raw = structuredClone(input.raw) as Record<string, unknown>;
   const fallback = input.fallback ? structuredClone(input.fallback) as unknown as Record<string, unknown> : {};
   const merged = { ...fallback, ...Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== undefined && value !== null && value !== "")) };
@@ -2098,6 +2105,7 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   allowNarrativeEvidence?: boolean;
   acceptedOutcomeId?: string;
   periodStartAgeInMonths: number;
+  periodEndAgeInMonths?: number;
   currentCareerStateId: string;
   currentEmploymentStatus: string;
   migrateToCurrentCareerState?: boolean;
@@ -2109,6 +2117,60 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
   if (!decision || !input.acceptedOutcomeId || input.suppressEmployerSalarySynthesis) return input.proposals;
   const narrativeText = input.narrativeText || "";
   const narrativeSentences = narrativeText.split(/(?<=[。！？])/u).map((item) => item.trim()).filter(Boolean);
+  const periodEndAgeInMonths = input.periodEndAgeInMonths ?? input.periodStartAgeInMonths;
+  const activeCurrentCareerSources = input.ledger.incomeSources.filter((source) => (
+    source.status === "active"
+    && source.linkedCareerStateId === input.currentCareerStateId
+    && ["salary", "contract", "self_employment_draw"].includes(source.type)
+  ));
+  const continuationSource = activeCurrentCareerSources.length === 1 ? activeCurrentCareerSources[0] : undefined;
+  const continuationReferenceAge = continuationSource
+    ? Math.max(
+        continuationSource.lastConfirmedAtAgeInMonths ?? continuationSource.activeFromAgeInMonths,
+        continuationSource.employmentConfirmedAtAgeInMonths ?? continuationSource.activeFromAgeInMonths
+      )
+    : undefined;
+  const continuationEvidence = narrativeSentences.find((sentence) => (
+    /你|本人/u.test(sentence)
+    && /仍|依然|继续|照常|保持/u.test(sentence)
+    && /工作|咨询|顾问|报表|任职|在岗/u.test(sentence)
+    && /收入|工资|薪资|报酬|顾问费|咨询费/u.test(sentence)
+    && !hasExplicitIncomeInterruption(sentence)
+    && !isUnacceptedIncomeOpportunityEvidence(sentence)
+  ));
+  const alreadyMutatesContinuationSource = continuationSource && input.proposals.some((proposal) => {
+    const payload = proposal.payload as Record<string, any>;
+    return payload?.incomeSourceId === continuationSource.id
+      || (proposal.kind === "income_source_started" && payload?.linkedCareerStateId === input.currentCareerStateId);
+  });
+  const continuationDue = continuationSource
+    && continuationReferenceAge !== undefined
+    && periodEndAgeInMonths >= 55 * 12
+    && periodEndAgeInMonths - continuationReferenceAge >= 36
+    && continuationSource.factStatus !== "known";
+  const continuationProposal = continuationDue
+    && continuationEvidence
+    && !alreadyMutatesContinuationSource
+    && !narrativeRequiresCareerTransition({ narrativeText, currentStatus: input.currentEmploymentStatus as CareerState["employmentStatus"] })
+    ? {
+        id: `system_career_continuation_${continuationSource.id}_${periodEndAgeInMonths}`,
+        kind: "income_source_adjusted" as const,
+        effectiveAtAgeInMonths: periodEndAgeInMonths,
+        sourceOutcomeId: input.acceptedOutcomeId,
+        financialScope: "personal" as const,
+        evidence: continuationEvidence,
+        confidence: 1,
+        systemGenerated: "career_income_continuation_review" as const,
+        payload: {
+          incomeSourceId: continuationSource.id,
+          nextSource: {
+            ...structuredClone(continuationSource),
+            accrualReviewStatus: "normal" as const,
+            employmentConfirmedAtAgeInMonths: periodEndAgeInMonths
+          }
+        }
+      }
+    : undefined;
   const completedStartSentence = input.migrateToCurrentCareerState
     ? narrativeSentences.find((sentence) => hasCompletedEmployerStartEvidence(sentence))
     : undefined;
@@ -2180,7 +2242,9 @@ export function synthesizeSelectedPersonalIncomeProposal(input: {
     ? explicitProtagonistAnnualIncomeWan(evidenceText)
     : undefined;
   const annualMatch = evidenceText?.match(/(?:(?:税后)?(?:年薪|年收入)|年税后收入)(?:正式)?(?:约|为|达到|调整为|降至|升至|涨到|维持在|稳定在)?(?:约)?\s*(\d+(?:\.\d+)?)\s*万元?/u);
-  if (!explicitlyPersonal || (!monthlyMatch && !monthlySalaryChineseMatch && !annualMatch && explicitAnnualIncomeWan === undefined)) return input.proposals;
+  if (!explicitlyPersonal || (!monthlyMatch && !monthlySalaryChineseMatch && !annualMatch && explicitAnnualIncomeWan === undefined)) {
+    return continuationProposal ? [...input.proposals, continuationProposal] : input.proposals;
+  }
 
   const chineseAmountYuan = (value: string): number | undefined => {
     const digits: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
@@ -2900,6 +2964,17 @@ async function commitAuthoritativeFinancialProgress(input: {
     narrativeText: input.node.description,
     acceptedOutcomeId: input.acceptedOutcomeId
   });
+  if (studentEngagement.unboundedEngagementBlocked) {
+    careerValidationIssues.push({
+      id: `career_unbounded_student_engagement_${input.transactionId}`,
+      code: "CAREER_INCOME_CONFLICT",
+      severity: "blocking",
+      status: "open",
+      relatedProposalIds: [],
+      summary: "学生实习缺少可识别的明确期限，已阻止开放式实习工资和职业状态提交",
+      createdAtAgeInMonths: input.periodEndAgeInMonths
+    });
+  }
   const reclassifiedCareerStateIds = new Set(acceptedCareerTransitions
     .filter((transition) => !studentEngagement.transitions.includes(transition))
     .map((transition) => transition.nextCareerState.id));
@@ -3028,6 +3103,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     allowNarrativeEvidence: true,
     acceptedOutcomeId: input.acceptedOutcomeId,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
+    periodEndAgeInMonths: input.periodEndAgeInMonths,
     currentCareerStateId: nextCareerIds.length === 1 ? nextCareerIds[0] : currentCareer.id,
     currentEmploymentStatus: acceptedCareerTransitions.length === 1
       ? acceptedCareerTransitions[0].nextCareerState.employmentStatus
@@ -3110,7 +3186,10 @@ async function commitAuthoritativeFinancialProgress(input: {
   }));
   if (input.periodEndAgeInMonths >= 55 * 12) {
     for (const source of initialLedger.incomeSources) {
-      const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
+      const lastConfirmedAt = Math.max(
+        source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths,
+        source.employmentConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths
+      );
       if (!requiresHardLateLifeCareerIncomeResolution({ source, currentCareerStateId: currentCareer.id })
         || acceptedIncomeIds.has(source.id)
         || input.periodStartAgeInMonths - lastConfirmedAt < 36) continue;
@@ -3158,6 +3237,7 @@ async function commitAuthoritativeFinancialProgress(input: {
           transactionId: input.transactionId,
           nodeIndex: input.nodeIndex,
           promptFamily: "financial_proposal_repair",
+          promptPrefixVersion: "financial_proposal_repair_v1",
           issueCodes: blockingIssues.map((issue) => issue.code)
         },
         listener: input.onGenerationCallTrace,
@@ -3175,7 +3255,8 @@ async function commitAuthoritativeFinancialProgress(input: {
             fallback: rejectedEmploymentTransition,
             acceptedOutcomeId: input.acceptedOutcomeId,
             narrativeText: input.node.description,
-            periodStartAgeInMonths: input.periodStartAgeInMonths
+            periodStartAgeInMonths: input.periodStartAgeInMonths,
+            currentEmploymentStatus: currentCareer.employmentStatus
           })
         : undefined;
       if (repairedEmploymentTransition) {
@@ -3384,7 +3465,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     careerTransitions: acceptedCareerTransitions,
     financialEvents: validated.acceptedEvents,
     ageInMonths: input.periodEndAgeInMonths,
-    explicitUnpaid: hasExplicitUnpaidPersonalIncomeStatement(input.node.description),
+    explicitUnpaid: hasExplicitUnpaidCareerCompensationDecision(input.node.description),
     personalIncomeClaimed: collectPersonalIncomeNarrativeContractIssues({
       narrativeText: input.node.description,
       acceptedFinancialEvents: [],
@@ -3653,7 +3734,7 @@ async function commitAuthoritativeFinancialProgress(input: {
       cityCostBand: expenseEstimateContext.cityCostBand
     },
     aggregateExpenseEstimateContext: expenseEstimateContext,
-    liquidityPolicy: "require_explicit"
+    liquidityPolicy: "auto_shortfall_debt"
   } as const;
   // Narrative grounding depends on the closing ledger, while narrative contract
   // issues must describe the text the user actually sees. Trial the otherwise
@@ -4057,7 +4138,20 @@ function buildNextNodeRetryPrompt(
 
 function parseAiJsonResponse(response: { text?: string }): any {
   try {
-    return JSON.parse(response.text || "{}");
+    // Perspective is a presentation invariant. Correct the returned payload
+    // deterministically at the model boundary instead of asking the model to
+    // generate another version solely because it used first-person narration.
+    const parsed = JSON.parse(response.text || "{}");
+    const visibleNarrative = [
+      parsed?.title,
+      parsed?.stage,
+      parsed?.description,
+      ...(Array.isArray(parsed?.descriptionParagraphs) ? parsed.descriptionParagraphs : []),
+      ...(Array.isArray(parsed?.choices) ? parsed.choices.map((choice: any) => choice?.text) : [])
+    ];
+    return visibleNarrative.some(hasFirstPersonNarration)
+      ? normalizeNarrativePayloadToSecondPerson(parsed)
+      : parsed;
   } catch (error) {
     throw new AiClientError("AI_RESPONSE_INVALID", "AI 返回内容不是合法 JSON，请重试。", { cause: error });
   }
@@ -4564,7 +4658,9 @@ const RELATIONSHIP_AUTHORITY_FALLBACK_SURFACE_PATH = "relationship_authority";
 
 function hasOnlyRelationshipAuthorityConflicts(issues: ReturnType<typeof validateStoryConsistency>): boolean {
   const errors = issues.filter((issue) => issue.severity === "error");
-  return errors.length > 0 && errors.every((issue) => issue.code === "relationship_authority_conflict");
+  return errors.length > 0 && errors.every((issue) => (
+    issue.code === "relationship_authority_conflict" || issue.code === "character_timeline_conflict"
+  ));
 }
 
 function buildRelationshipAuthorityDeterministicFallback(input: {
@@ -4573,15 +4669,17 @@ function buildRelationshipAuthorityDeterministicFallback(input: {
   nodeEventMeta?: EventMeta;
   elapsedMonths: number;
 }): { node: SimulationNode; eventMeta: EventMeta } {
+  const activity = groundedFallbackActivity(input.node);
+  const counterparty = groundedFallbackCounterparty(input.node, activity);
   const fallbackOutcomes = input.nodeEvent?.intent.allowedOutcomes?.length
     ? input.nodeEvent.intent.allowedOutcomes
     : ["maintain_current_direction", "adjust_execution_rhythm", "reassess_current_direction"];
   const fallbackChoiceTexts = [
-    "按当前方向继续推进，同时保留必要的时间和资源缓冲",
-    "降低短期投入强度，先验证现实反馈再决定下一步",
-    "调整执行路径，把精力转向更可持续的替代方案"
+    `把${activity}的下一项交付、完成标准和截止时间写清，本周期只推进这份清单`,
+    `把${activity}限定为每周两个固定时段，四周后按交付记录决定是否恢复投入`,
+    `暂停${activity}一个月，把现有材料交给${counterparty}复核，并写明复核日期和恢复条件`
   ];
-  const fallbackDescription = `接下来的 ${input.elapsedMonths} 个月里，你继续处理当前选择带来的现实后果。本轮事件关注的是：${input.nodeEvent?.intent.meaning || "如何在现有生活条件下形成新的可执行方向"}。工作、家庭、健康和资源约束仍然存在，你没有把普通社交接触解释成已经成立的亲密关系。\n\n到了新的决策节点，真正需要确认的是执行强度、风险边界和替代路径。你可以继续推进，也可以降低投入或调整方向；任何关系阶段变化仍需等待对应事件和你的明确选择。`;
+  const fallbackDescription = `接下来的 ${input.elapsedMonths} 个月里，你继续处理${activity}的交付、时间和资源约束，没有把普通社交接触解释成已经成立的亲密关系。\n\n到了新的决策节点，你需要在继续完成清单、限定每周投入，或暂停一个月并交给${counterparty}复核之间作出选择；任何关系阶段变化仍需等待对应事件和你的明确选择。`;
   const eventMeta: EventMeta = {
     ...(input.nodeEventMeta || { eventTags: [] }),
     fallbackReason: RELATIONSHIP_AUTHORITY_FALLBACK_REASON
@@ -4683,7 +4781,9 @@ export function repairRelationshipAuthorityFinalSurface(input: {
     targetAgeInMonths: input.targetAgeInMonths,
     people: input.people,
     worldState: input.worldState
-  }).some((issue) => issue.severity === "error" && issue.code === "relationship_authority_conflict");
+  }).some((issue) => issue.severity === "error" && (
+    issue.code === "relationship_authority_conflict" || issue.code === "character_timeline_conflict"
+  ));
 
   // Begin from known-safe choices and an empty description, then add only the
   // original user-visible fragments that remain legal. This is a monotonic
@@ -4811,18 +4911,19 @@ interface PendingRomanceReschedule {
   nodesSinceFallback: number;
 }
 
-function buildDeterministicRomanceRescheduleNode(
+export function buildDeterministicRomanceRescheduleNode(
   node: SimulationNode,
   requestedEventId: string,
   reason: string,
   repairAttempted: boolean
 ): SimulationNode {
+  const activity = groundedFallbackActivity(node);
   const fallbackChoices = [
-    "保持当前工作与生活节奏，等待更明确的信息",
-    "重新安排时间和责任，为未来选择留出空间",
-    "把注意力放回最紧迫的现实任务，暂不推进新的关系"
+    `按原计划继续${activity}，本周期只保留普通业务联系，不把它写成私人关系`,
+    `把${activity}限定为每周两个固定时段，另外留一个晚上处理学习、求职或健康安排`,
+    `先完成${activity}手头的一项交付，再决定是否接受新的私人邀约`
   ];
-  const description = "这次见面停留在工作与日常交流上。你照常处理手边的工作、健康和生活安排，没有急着把一次联系推向更远的关系。";
+  const description = `这次联系停留在普通业务与日常交流上。你按原计划继续${activity}，没有因为一次联系增加新的私人承诺。`;
   return {
     ...node,
     title: "一次尚未展开的联系",
@@ -4858,65 +4959,359 @@ function buildDeterministicRomanceRescheduleNode(
   };
 }
 
-export function eventSpecificFallbackDefinitions(event?: LifeEventSeed): Array<{
+export interface DecisionGateFallbackContext {
+  node?: SimulationNode;
+}
+
+function groundedFallbackActivity(node?: SimulationNode): string {
+  const primaryActivity = (node?.narrativeMeta as unknown as { primaryActivity?: unknown } | undefined)?.primaryActivity;
+  if (typeof primaryActivity === "string") {
+    const internalActivityLabels: Array<[RegExp, string]> = [
+      [/internal_component_library/iu, "可视化组件库与技术文档"],
+      [/teacher_support|training_(?:pack|manual)|education_support/iu, "乡村教师支持手册"],
+      [/portfolio|showcase/iu, "在线展示页与作品集"],
+      [/career_venture_pressure/iu, "当前事业试点与现金流安排"]
+    ];
+    const mapped = internalActivityLabels.find(([pattern]) => pattern.test(primaryActivity));
+    if (mapped) return mapped[1];
+  }
+  if (
+    typeof primaryActivity === "string"
+    && primaryActivity.trim().length >= 4
+    && primaryActivity.trim().length <= 48
+    && !/[:_]/u.test(primaryActivity)
+  ) {
+    const concise = primaryActivity.trim()
+      .replace(/^与/u, "和")
+      .split(/，|；|。|同时/u)[0]!
+      .replace(/^(?:继续|当前|目前)/u, "")
+      .trim();
+    if (concise.length >= 4 && concise.length <= 30) return concise;
+  }
+  if (primaryActivity && typeof primaryActivity === "object") {
+    const domain = (primaryActivity as { domain?: unknown }).domain;
+    const labels: Record<string, string> = {
+      education: "当前学习安排",
+      career: "当前工作项目",
+      family: "当前家庭安排",
+      health: "当前健康安排",
+      community: "当前社区参与",
+      leisure: "当前生活安排",
+      legacy: "当前长期传承工作"
+    };
+    if (typeof domain === "string" && labels[domain]) return labels[domain]!;
+  }
+  const narrative = `${typeof primaryActivity === "string" ? primaryActivity : ""}\n${node?.description || ""}`;
+  const narrativeActivities: Array<[RegExp, string]> = [
+    [/提问设计[^。；，\n]{0,16}单页讲义|单页讲义/u, "提问设计单页讲义"],
+    [/公益课程/u, "公益课程"],
+    [/反馈档案/u, "反馈档案"],
+    [/教师培训课程大纲/u, "教师培训课程大纲"],
+    [/秋季工作坊|教师培训工作坊/u, "教师培训工作坊"],
+    [/县城[^。；，\n]{0,8}阅读课|每周[^。；，\n]{0,8}阅读课/u, "县城阅读课"],
+    [/治疗和减负安排|减负和治疗安排|治疗、睡眠和工作减负安排/u, "治疗与工作减负安排"],
+    [/无障碍[^。；，]{0,12}(?:开源)?项目|(?:开源)?无障碍项目/u, "无障碍开源项目"],
+    [/智慧城市[^。；，]{0,12}(?:顾问|公司)/u, "智慧城市顾问合作"],
+    [/线上工作坊/u, "线上工作坊"],
+    [/轻量咨询/u, "轻量咨询"],
+    [/组件库规范/u, "组件库规范"],
+    [/报名流程[^。；，]{0,8}文档/u, "报名流程文档"],
+    [/(?:可视化)?组件库/u, "可视化组件库"],
+    [/教师支持手册|内部教师支持手册/u, "乡村教师支持手册"],
+    [/培训包/u, "教师培训包"],
+    [/在线展示(?:页面|页)/u, "在线展示页"],
+    [/技术文档/u, "技术文档"],
+    [/个人作品集/u, "个人作品集"],
+    [/专栏/u, "专栏创作"],
+    [/读者来信/u, "整理读者来信"]
+  ];
+  const found = narrativeActivities.filter(([pattern]) => pattern.test(narrative)).map(([, label]) => label);
+  if (found.length >= 2) return `${found[0]}与${found[1]}`;
+  if (found.length === 1) return found[0]!;
+  return "当前项目与现实责任";
+}
+
+function groundedFallbackPerson(node?: SimulationNode): string {
+  const characters = (node?.narrativeMeta?.activeCharacters || []) as unknown as Array<Record<string, unknown>>;
+  const preferred = characters.find((character) => {
+    const relation = `${character.relation || ""} ${character.role || ""} ${character.currentRole || ""}`;
+    return !/父|母|father|mother|parent|family|caregiver|护工/iu.test(relation);
+  }) || characters[0];
+  const name = preferred?.displayName || preferred?.name;
+  return typeof name === "string" && name.trim() ? name.trim() : "这次提出合作的人";
+}
+
+function groundedFallbackCounterparty(node?: SimulationNode, activity = groundedFallbackActivity(node)): string {
+  const narrative = node?.description || "";
+  if (/一家小型设计工作室[^。]{0,30}(?:联系|询问|邀请)你/u.test(narrative)) {
+    return "联系你的那家小型设计工作室";
+  }
+  if (/导师[^。]{0,30}(?:建议|要求|询问|确认|评估)/u.test(narrative)) return "导师";
+  const person = groundedFallbackPerson(node);
+  return person === "这次提出合作的人" ? `直接参与${activity}的人` : person;
+}
+
+function roundedWan(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/u, "");
+}
+
+function groundedFallbackFinance(node?: SimulationNode): string {
+  const state = node?.financialState;
+  if (!state) return "确定到账收入、必要生活支出和还款责任";
+  if (state.totalDebtWan > 0) return "确定到账收入、必要生活支出和最低还款";
+  return "现金缓冲、必要生活支出和确定到账收入";
+}
+
+function groundedNarrativeFallbackDefinitions(
+  event: LifeEventSeed,
+  node: SimulationNode | undefined,
+  prefix: string
+): Array<{ text: string; summary: string; intent: string; delta: WorldDelta["type"] }> | undefined {
+  const narrative = node?.description || "";
+  const person = groundedFallbackPerson(node);
+
+  if (
+    event.id === "career_long_project_completion"
+    && /作品集/u.test(narrative)
+    && /智慧校园/u.test(narrative)
+    && /专业社区/u.test(narrative)
+  ) {
+    return [
+      {
+        text: "把智慧校园作品集中重做的交互页面、学生注意力注释和待改项整理成一份交付清单",
+        summary: "收束作品成果",
+        intent: `${prefix}:confirm_work_plan`,
+        delta: "career_state"
+      },
+      {
+        text: "与主管确认下一阶段只负责一个智慧校园新模块，并写清设计范围、评审节点和交付日期",
+        summary: "确认一个新模块",
+        intent: `${prefix}:bound_commitment`,
+        delta: "health_state"
+      },
+      {
+        text: "从重做的作品集选出一个课程原型发布到专业社区，用教育产品同行的反馈决定下一步",
+        summary: "发布原型验证",
+        intent: `${prefix}:test_alternative`,
+        delta: "location_change"
+      }
+    ];
+  }
+
+  if (
+    event.id === "career_venture_pressure"
+    && /智慧城市/u.test(narrative)
+    && /(?:无障碍|开源)项目/u.test(narrative)
+    && /房租|现金流/u.test(narrative)
+  ) {
+    return [
+      {
+        text: "与智慧城市公司确认每周两三天的顾问范围、顾问费和三个月交付周期，用收入覆盖房租，同时保留无障碍开源项目",
+        summary: "限时顾问试点",
+        intent: `${prefix}:confirm_work_plan`,
+        delta: "career_state"
+      },
+      {
+        text: "只接一项能覆盖房租的UI外包，停止新增服务器支出，把无障碍开源项目维持在每周两个固定时段",
+        summary: "收缩保留项目",
+        intent: `${prefix}:bound_commitment`,
+        delta: "health_state"
+      },
+      {
+        text: "婉拒智慧城市顾问邀请，把小额资助用于无障碍开源项目的最后三个月冲刺，并以用户增长和现金余额设停止条件",
+        summary: "限期全力冲刺",
+        intent: `${prefix}:test_alternative`,
+        delta: "location_change"
+      }
+    ];
+  }
+
+  if (
+    event.category === "health"
+    && /线上(?:公益)?课程|线上工作坊/u.test(narrative)
+    && /本地协调员/u.test(narrative)
+    && /睡眠/u.test(narrative)
+  ) {
+    return [
+      {
+        text: "把线上工作坊的剪辑、推广和答疑限定在每周三个固定时段，同时连续四周记录睡眠和疲劳",
+        summary: "固定时段复查",
+        intent: `${prefix}:follow_recovery_plan`,
+        delta: "health_state"
+      },
+      {
+        text: "保留线上工作坊，暂停轻量咨询一个月，再核对额外工作是否仍影响固定睡眠和每日散步",
+        summary: "暂停咨询减负",
+        intent: `${prefix}:reduce_load`,
+        delta: "career_state"
+      },
+      {
+        text: "把学校项目的日常事务交给本地协调员，自己只保留每周两次现场跟进，并完成独立审计准备",
+        summary: "移交日常事务",
+        intent: `${prefix}:pause_overload`,
+        delta: "location_change"
+      }
+    ];
+  }
+
+  if (
+    event.category === "growth"
+    && person !== "这次提出合作的人"
+    && /组件库/u.test(narrative)
+    && /房租/u.test(narrative)
+    && /通勤/u.test(narrative)
+    && /(?:一起租|更大的房子|每天见面)/u.test(narrative)
+  ) {
+    return [
+      {
+        text: `与${person}约定每周两个见面晚上的家务分工，执行一个月后再讨论是否合租更大的房子`,
+        summary: "试行同城分工",
+        intent: `${prefix}:continue_and_review`,
+        delta: "career_state"
+      },
+      {
+        text: "把组件库维护和报名流程文档各限定为每周一个固定时段，保留同城见面与休息时间",
+        summary: "限定工作时段",
+        intent: `${prefix}:stabilize_commitment`,
+        delta: "health_state"
+      },
+      {
+        text: `与${person}按房租、通勤和岗位机会清单试算合租方案，一个月后再决定是否搬家`,
+        summary: "试算合租方案",
+        intent: `${prefix}:pivot_to_test`,
+        delta: "location_change"
+      }
+    ];
+  }
+
+  if (
+    event.category === "growth"
+    && person !== "这次提出合作的人"
+    && /组件库/u.test(narrative)
+    && /无障碍/u.test(narrative)
+    && /联名记账本/u.test(narrative)
+  ) {
+    return [
+      {
+        text: "本周为组件库规范补完一项无障碍校验，并记录它被其他组复用后的具体反馈",
+        summary: "补完一项校验",
+        intent: `${prefix}:continue_and_review`,
+        delta: "career_state"
+      },
+      {
+        text: `把组件库规范固定为每周维护一次，另外锁定跑步和与${person}见面的时间`,
+        summary: "固定维护节奏",
+        intent: `${prefix}:stabilize_commitment`,
+        delta: "health_state"
+      },
+      {
+        text: `暂停无障碍手册更新一个月，与${person}复盘联名记账本和明年出行预算后再定投入`,
+        summary: "暂停手册复盘",
+        intent: `${prefix}:pivot_to_test`,
+        delta: "location_change"
+      }
+    ];
+  }
+
+  return undefined;
+}
+
+export function eventSpecificFallbackDefinitions(event?: LifeEventSeed, context: DecisionGateFallbackContext = {}): Array<{
   text: string;
   summary: string;
   intent: string;
   delta: WorldDelta["type"];
 }> {
   if (!event) {
+    const activity = groundedFallbackActivity(context.node);
     return [
-      { text: "按当前方向继续推进，并在三个月内核验已经发生的现实结果", summary: "继续核验", intent: "growth:continue_with_review", delta: "career_state" },
-      { text: "缩小当前投入，优先稳定现金流、健康和日常责任", summary: "收缩稳定", intent: "growth:stabilize_resources", delta: "health_state" },
-      { text: "暂停当前方向，转向另一项可以立即验证的现实机会", summary: "暂停转向", intent: "growth:pivot_to_alternative", delta: "location_change" }
+      { text: `从${activity}选出一个本周交付物，写明完成标准并在周末记录结果`, summary: "完成一项交付", intent: "growth:continue_with_review", delta: "career_state" },
+      { text: `把${activity}固定为每周一次，另外锁定两个晚上用于休息和日常责任`, summary: "固定每周一次", intent: "growth:stabilize_resources", delta: "health_state" },
+      { text: `暂停${activity}一个月，写明恢复日期、恢复条件和当前材料的保管位置`, summary: "暂停至复核日", intent: "growth:pivot_to_alternative", delta: "location_change" }
     ];
   }
 
-  const subject = `“${event.title}”`;
+  const activity = groundedFallbackActivity(context.node);
+  const person = groundedFallbackPerson(context.node);
+  const counterparty = groundedFallbackCounterparty(context.node, activity);
+  const finance = groundedFallbackFinance(context.node);
   const prefix = `event:${event.id}`;
+  const narrativeGroundedDefinitions = groundedNarrativeFallbackDefinitions(event, context.node, prefix);
+  if (narrativeGroundedDefinitions) return narrativeGroundedDefinitions;
+  if (event.id === "financial_resource_priority_choice") {
+    return [
+      { text: `先列清未来三个月的${finance}，写出每月不能突破的支出上限`, summary: "核清三月账", intent: `${prefix}:set_cash_boundary`, delta: "career_state" },
+      { text: `为${activity}设定一笔不挤占必要生活和还款的投入上限`, summary: "限定投入", intent: `${prefix}:reduce_exposure`, delta: "health_state" },
+      { text: `只在新增收入实际到账后投入${activity}，其余先补必要生活和最低还款`, summary: "到账后再投", intent: `${prefix}:test_low_cost`, delta: "location_change" }
+    ];
+  }
+  if (event.id === "career_long_project_completion") {
+    const boundedContinuation = /组件/u.test(activity)
+      ? "一项组件评审工作"
+      : `一项${activity}的后续交付`;
+    return [
+      { text: `把${activity}中已经完成的功能、遗留问题和可复用材料整理成一份交付清单`, summary: "收束成果", intent: `${prefix}:confirm_work_plan`, delta: "career_state" },
+      { text: `与${counterparty}确认下一阶段只延续${boundedContinuation}，并写清交付时间与费用边界`, summary: "延续一项", intent: `${prefix}:bound_commitment`, delta: "health_state" },
+      { text: `从${activity}中选出一个可运行案例对外发布，用真实反馈决定下一条职业路径`, summary: "公开验证", intent: `${prefix}:test_alternative`, delta: "location_change" }
+    ];
+  }
+  if (event.id === "financial_long_term_order") {
+    return [
+      { text: `把${finance}逐项写入年度预算，并定下每季度核账日期`, summary: "季度核账", intent: `${prefix}:set_cash_boundary`, delta: "career_state" },
+      { text: `等年度结余实际到账后，为${activity}划出固定上限，其余留作生活储备`, summary: "结余后投入", intent: `${prefix}:reduce_exposure`, delta: "health_state" },
+      { text: `为${activity}设置金额、期限和停止条件，再决定是否持续投入`, summary: "有限支持", intent: `${prefix}:test_low_cost`, delta: "location_change" }
+    ];
+  }
+  if (event.id === "opportunity_unstable_alliance") {
+    return [
+      { text: `先与${person}围绕${activity}做一轮小规模协作，只验证一个明确结果`, summary: "小范围试", intent: `${prefix}:run_small_trial`, delta: "career_state" },
+      { text: `暂不扩大与${person}的协作，先核对时间、资金和现有照护责任是否承受得住`, summary: "先核条件", intent: `${prefix}:verify_constraints`, delta: "health_state" },
+      { text: `明确婉拒${person}提出的新增协作，把精力留给当前工作和照护安排`, summary: "拒绝扩张", intent: `${prefix}:decline_terms`, delta: "location_change" }
+    ];
+  }
   switch (event.category) {
     case "career":
       return [
-        { text: `围绕${subject}与相关方确认一项可执行的工作安排，并在本周期核验结果`, summary: "确认工作", intent: `${prefix}:confirm_work_plan`, delta: "career_state" },
-        { text: `暂缓${subject}中的高风险承诺，先把职责、时间和现实边界谈清楚`, summary: "厘清边界", intent: `${prefix}:bound_commitment`, delta: "health_state" },
-        { text: `保留${subject}的关键信息，同时把精力投入一条能尽快验证的职业备选路径`, summary: "验证备选", intent: `${prefix}:test_alternative`, delta: "location_change" }
+        { text: `把${activity}写成一页本周期清单，明确唯一交付物和截止日期，并与${counterparty}逐项确认`, summary: "确认一项交付", intent: `${prefix}:confirm_work_plan`, delta: "career_state" },
+        { text: `暂停${activity}中的新增承诺一个月，只保留已经确认的交付和每周投入上限`, summary: "暂停新增承诺", intent: `${prefix}:bound_commitment`, delta: "health_state" },
+        { text: `从${activity}已完成的材料中选一个可运行案例，本周对外发布并记录三条真实反馈`, summary: "发布案例验证", intent: `${prefix}:test_alternative`, delta: "location_change" }
       ];
     case "financial":
       return [
-        { text: `为${subject}列出可承受的资金边界，再决定是否继续投入`, summary: "核定边界", intent: `${prefix}:set_cash_boundary`, delta: "career_state" },
-        { text: `缩小${subject}的支出或承诺，优先守住必要生活与现有现金流`, summary: "保留现金", intent: `${prefix}:reduce_exposure`, delta: "health_state" },
-        { text: `放弃${subject}中无法核验的部分，改用低成本方案验证下一步`, summary: "低成本试", intent: `${prefix}:test_low_cost`, delta: "location_change" }
+        { text: `核对${finance}，再为${activity}列出可承受的资金边界`, summary: "核定边界", intent: `${prefix}:set_cash_boundary`, delta: "career_state" },
+        { text: `缩小${activity}的支出或承诺，优先守住必要生活与现有现金流`, summary: "保留现金", intent: `${prefix}:reduce_exposure`, delta: "health_state" },
+        { text: `放弃${activity}中无法核验的投入，改用低成本方案验证下一步`, summary: "低成本试", intent: `${prefix}:test_low_cost`, delta: "location_change" }
       ];
     case "relationship":
       return [
-        { text: `围绕${subject}把彼此的边界和下一步安排说清楚，再决定是否继续投入`, summary: "沟通边界", intent: `${prefix}:clarify_boundary`, delta: "relationship_change" },
-        { text: `保留${subject}中的必要联系，但暂不作出超出现实条件的承诺`, summary: "保留联系", intent: `${prefix}:maintain_boundary`, delta: "health_state" },
-        { text: `退出${subject}中让自己持续消耗的部分，把注意力放回当下责任`, summary: "退出消耗", intent: `${prefix}:step_back`, delta: "career_state" }
+        { text: `与${person}约一次三十分钟谈话，分别写下关系边界、下一次联系日期和不能接受的条件`, summary: "写清三项边界", intent: `${prefix}:clarify_boundary`, delta: "relationship_change" },
+        { text: `与${person}约定每周只联系一次，一个月后按双方实际投入决定是否继续`, summary: "每周联系一次", intent: `${prefix}:maintain_boundary`, delta: "health_state" },
+        { text: `向${person}明确回复结束这段探索，并停止新的见面安排一个月`, summary: "明确结束探索", intent: `${prefix}:step_back`, delta: "career_state" }
       ];
     case "health":
       return [
-        { text: `围绕${subject}落实作息、治疗或减负安排，并在短期内复查效果`, summary: "落实修复", intent: `${prefix}:follow_recovery_plan`, delta: "health_state" },
-        { text: `保留${subject}相关的必要活动，但把强度降到身体能够承受的范围`, summary: "降低强度", intent: `${prefix}:reduce_load`, delta: "career_state" },
-        { text: `暂停${subject}中会继续透支的部分，先重建稳定的生活节奏`, summary: "暂停透支", intent: `${prefix}:pause_overload`, delta: "location_change" }
+        { text: `为${activity}固定睡眠、治疗复查和工作交付时段，并连续四周记录睡眠与疲劳`, summary: "四周记录复查", intent: `${prefix}:follow_recovery_plan`, delta: "health_state" },
+        { text: `把${activity}只保留一项必要任务，每周最多两个固定时段，四周后按记录决定是否恢复`, summary: "限为一项任务", intent: `${prefix}:reduce_load`, delta: "career_state" },
+        { text: `暂停${activity}一个月，把手头交付移交给${counterparty}，先完成复查和固定作息`, summary: "暂停并移交", intent: `${prefix}:pause_overload`, delta: "location_change" }
       ];
     case "opportunity":
       return [
-        { text: `为${subject}安排一次小范围试做，用真实结果判断是否继续投入`, summary: "小范围试", intent: `${prefix}:run_small_trial`, delta: "career_state" },
-        { text: `保留${subject}的机会窗口，但先核对时间、资金和已有责任是否匹配`, summary: "核对条件", intent: `${prefix}:verify_constraints`, delta: "health_state" },
-        { text: `婉拒${subject}中不合适的条件，把资源留给当前更重要的方向`, summary: "保留资源", intent: `${prefix}:decline_terms`, delta: "location_change" }
+        { text: `与${person}为${activity}约定一次两周试做，写清交付物、截止日期和停止条件`, summary: "两周试做", intent: `${prefix}:run_small_trial`, delta: "career_state" },
+        { text: `先用一周核对${activity}需要的时间、资金和已有责任，再向${person}回复是否参加`, summary: "一周核对条件", intent: `${prefix}:verify_constraints`, delta: "health_state" },
+        { text: `明确婉拒${person}提出的${activity}新增条件，把本周期资源留给已确认的交付`, summary: "拒绝新增条件", intent: `${prefix}:decline_terms`, delta: "location_change" }
       ];
     case "community":
       return [
-        { text: `把${subject}落实为一次具体参与，先观察它是否能形成持续支持`, summary: "实际参与", intent: `${prefix}:participate_once`, delta: "relationship_change" },
-        { text: `保留${subject}中的联系，但控制投入频率以免挤占现有责任`, summary: "控制投入", intent: `${prefix}:limit_commitment`, delta: "health_state" },
-        { text: `暂不继续${subject}中无明确回报的安排，重新选择更适合当前阶段的连接`, summary: "调整连接", intent: `${prefix}:redirect_connection`, delta: "career_state" }
+        { text: `为${activity}参加一次两小时现场活动，结束后记录一个可继续支持的具体任务`, summary: "参加一次活动", intent: `${prefix}:participate_once`, delta: "relationship_change" },
+        { text: `与${person}约定${activity}每月只参加一次，并提前写明不承担的责任`, summary: "每月参与一次", intent: `${prefix}:limit_commitment`, delta: "health_state" },
+        { text: `停止${activity}中没有负责人和截止日期的安排，把已完成材料交还给${person}`, summary: "停止无主安排", intent: `${prefix}:redirect_connection`, delta: "career_state" }
       ];
     case "growth":
     default:
       return [
-        { text: `围绕${subject}继续推进一个可核验的步骤，并在本周期回看实际影响`, summary: "推进核验", intent: `${prefix}:continue_and_review`, delta: "career_state" },
-        { text: `缩小${subject}中的非必要投入，优先稳定健康和日常责任`, summary: "收缩稳定", intent: `${prefix}:stabilize_commitment`, delta: "health_state" },
-        { text: `暂停${subject}当前的做法，转向一条可以立即验证的现实路径`, summary: "转向验证", intent: `${prefix}:pivot_to_test`, delta: "location_change" }
+        { text: `从${activity}选出一个本周交付物，写明完成标准并在周末记录结果`, summary: "完成一项交付", intent: `${prefix}:continue_and_review`, delta: "career_state" },
+        { text: `把${activity}固定为每周一次，另外锁定两个晚上用于休息和日常责任`, summary: "固定每周一次", intent: `${prefix}:stabilize_commitment`, delta: "health_state" },
+        { text: `暂停${activity}一个月，并与${person}约定下次复核日期和恢复条件`, summary: "暂停至复核日", intent: `${prefix}:pivot_to_test`, delta: "location_change" }
       ];
   }
 }
@@ -4928,7 +5323,7 @@ function applyDeterministicDecisionGateFallback(
   event?: LifeEventSeed,
   reasonCodes: string[] = []
 ): SimulationNode {
-  const definitions = eventSpecificFallbackDefinitions(event);
+  const definitions = eventSpecificFallbackDefinitions(event, { node });
   const fallbackReason = `decision_gate_deterministic:${reasonCodes.join("+") || "unspecified"}`;
   return {
     ...node,
@@ -5381,6 +5776,7 @@ async function generateNextNodeAttempt(
   const temporalProfile = constrainTemporalProfileForDebtDistress({
     temporalProfile: baseTemporalProfile,
     debtHealthLevel: lastNode?.debtHealthState?.level,
+    previousDebtHealthLevel: input.history.at(-2)?.debtHealthState?.level,
     isDebtDistressEvent: [
       "financial_debt_pressure_emerges",
       "financial_repayment_tradeoff",
@@ -5510,7 +5906,7 @@ async function generateNextNodeAttempt(
               onUsage: (usage) => recordResponseMetadata({ usage }),
               onContent: (content) => {
                 markFirstToken();
-                const preview = extractStreamedNodePreview(content);
+                const preview = normalizeNarrativePayloadToSecondPerson(extractStreamedNodePreview(content));
                 const signature = JSON.stringify(preview);
                 if (signature === lastPreviewSignature) return;
                 lastPreviewSignature = signature;
@@ -5552,6 +5948,7 @@ async function generateNextNodeAttempt(
                 nodeIndex,
                 candidateRevision: generationBudget.fullGenerationsUsed - 1,
                 promptFamily: "candidate_patch",
+                promptPrefixVersion: "node_candidate_patch_v1",
                 issueCodes: ["choiceText"]
               },
               listener: deps.onGenerationCallTrace,
@@ -5719,11 +6116,14 @@ async function generateNextNodeAttempt(
           transactionId,
           nodeIndex,
           candidateRevision,
+          promptFamily: "next_node",
+          promptPrefixVersion,
           issueCodes: [CANDIDATE_ISSUE.storyConsistency]
         },
         listener: deps.onGenerationCallTrace,
-        operation: async (markFirstToken) => {
+        operation: async (markFirstToken, recordResponseMetadata) => {
           const result = await callAiJson(`${prompt}\\n\\n【年龄与状态一致性修复】\\n${relationshipConsistencyIssues.map((issue) => issue.message).join("；")}；${relationshipAuthorityRepairRule}\\n请重新生成完整节点，不得修改 Arc 状态。`);
+          recordResponseMetadata(result);
           markFirstToken();
           return result;
         }
@@ -5794,11 +6194,14 @@ async function generateNextNodeAttempt(
             nodeIndex,
             candidateRevision: envelope.candidateRevision,
             candidateHash: envelope.baseCandidateHash,
+            promptFamily: "candidate_patch",
+            promptPrefixVersion: "node_candidate_patch_v1",
             issueCodes: [relationshipIssue.code]
           },
           listener: deps.onGenerationCallTrace,
-          operation: async (markFirstToken) => {
+          operation: async (markFirstToken, recordResponseMetadata) => {
             const response = await callAiJson(buildNodeCandidatePatchPrompt({ envelope, issues: [relationshipIssue] }));
+            recordResponseMetadata(response);
             markFirstToken();
             let parsedPatch;
             try {
@@ -5998,6 +6401,7 @@ async function generateNextNodeAttempt(
           candidateRevision: envelope.candidateRevision,
           candidateHash: envelope.baseCandidateHash,
           promptFamily: "candidate_patch",
+          promptPrefixVersion: "node_candidate_patch_v1",
           issueCodes: candidateIssues.map((issue) => issue.code)
         },
         listener: deps.onGenerationCallTrace,
@@ -6007,7 +6411,7 @@ async function generateNextNodeAttempt(
           markFirstToken();
           let parsedPatch;
           try {
-            parsedPatch = parseNodeCandidatePatch(response.text);
+            parsedPatch = normalizeNarrativePayloadToSecondPerson(parseNodeCandidatePatch(response.text));
           } catch (error) {
             throw new AiClientError("AI_RESPONSE_INVALID", "候选 Patch 不是合法 JSON。", { cause: error });
           }
@@ -6153,7 +6557,7 @@ async function generateNextNodeAttempt(
     });
     const response = await traceGenerationCall({
       kind: "final_outcome_generation",
-      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "final_outcome" },
+      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "final_outcome", promptPrefixVersion: "final_outcome_v1" },
       listener: deps.onGenerationCallTrace,
       operation: async (markFirstToken, recordResponseMetadata) => {
         const result = await callAiJson(endingPrompt);
@@ -6477,7 +6881,7 @@ async function generateNextNodeAttempt(
     nodeEvent?.intent.type,
     async (romancePrompt) => traceGenerationCall({
       kind: "romance_candidate_extraction",
-      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "romance_candidate" },
+      context: { transactionId, nodeIndex, candidateRevision: generationBudget.fullGenerationsUsed - 1, promptFamily: "romance_candidate", promptPrefixVersion: "romance_candidate_v1" },
       listener: deps.onGenerationCallTrace,
       operation: async (markFirstToken, recordResponseMetadata) => {
         const result = await callAiJson(romancePrompt);
@@ -6497,20 +6901,9 @@ async function generateNextNodeAttempt(
   if (finalNodeContractIssues.length > 0) {
     if (isDeterministicRomanceIntent(nodeEvent?.intent.type)) {
       const reason = `romance_contract_failed:${finalNodeContractIssues.join("+")}`;
-      if (!deps.romanceFallbackContext && canRegenerate(generationBudget)) {
-        return generateNextNode(input, {
-          ...deps,
-          fullRegenerationReasonCodes: ["ROMANCE_CONTRACT_FAILED", ...finalNodeContractIssues],
-          romanceFallbackContext: {
-            requestedEventId: nodeEvent.id,
-            reason,
-            repairAttempted: romanceCandidatePreparation.repairAttempted
-          }
-        });
-      }
       node = buildDeterministicRomanceRescheduleNode(
         node,
-        deps.romanceFallbackContext?.requestedEventId ?? nodeEvent.id,
+        nodeEvent.id,
         reason,
         romanceCandidatePreparation.repairAttempted
       );
@@ -6653,6 +7046,27 @@ async function generateNextNodeAttempt(
     people: authoritativeFinance.worldState.people,
     worldState: authoritativeFinance.worldState
   });
+  if (romanceContractFallbackApplied && hasOnlyRelationshipAuthorityConflicts(finalSurfaceConsistencyIssues)) {
+    // A later financial writer can carry candidate metadata from the raw
+    // romance draft back onto an already-rescheduled node. The visible copy is
+    // safe, so clear only unaccepted relationship metadata instead of running
+    // another full generation or replacing the chapter.
+    node = {
+      ...node,
+      narrativeMeta: node.narrativeMeta ? {
+        ...node.narrativeMeta,
+        activeCharacters: [],
+        relationshipProposals: [],
+        worldDeltas: (node.narrativeMeta.worldDeltas || []).filter((delta) => delta.type !== "relationship_change")
+      } : node.narrativeMeta
+    };
+    finalSurfaceConsistencyIssues = validateStoryConsistency({
+      node,
+      targetAgeInMonths: timelineAdvance.targetAgeInMonths,
+      people: authoritativeFinance.worldState.people,
+      worldState: authoritativeFinance.worldState
+    });
+  }
   if (
     !isDeterministicRomanceIntent(nodeEvent?.intent.type)
     && hasOnlyRelationshipAuthorityConflicts(finalSurfaceConsistencyIssues)

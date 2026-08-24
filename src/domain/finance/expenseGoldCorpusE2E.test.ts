@@ -268,17 +268,7 @@ function acceptedFactForAnnotation(annotation: GoldAnnotation, sourceSuffix: str
 function freshLedger(id: string, ageInMonths: number): FinancialLedgerV4 {
   return migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
     id,
-    asOfAgeInMonths: ageInMonths,
-    openingPosition: {
-      cashAccounts: [{
-        id: "primary_cash",
-        type: "bank_deposit",
-        balanceWan: 1000,
-        status: "active",
-        factStatus: "known",
-        evidence: [{ source: "accepted_history", reasonCode: "TEST_RESERVE", confidence: 1 }]
-      }]
-    }
+    asOfAgeInMonths: ageInMonths
   }) as FinancialLedgerV3);
 }
 

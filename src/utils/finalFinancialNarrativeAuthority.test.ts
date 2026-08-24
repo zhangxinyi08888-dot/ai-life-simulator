@@ -6,7 +6,16 @@ import { migrateFinancialLedgerV3ToV4 } from "../domain/finance/migrateFinancial
 import type { DebtAccount, FinancialEvidence, FinancialLedgerV3 } from "../domain/finance/types";
 import type { FinalLifeOutcome, HistoryItem } from "../types";
 import { buildFinalOutcomePrompt } from "../services/finalOutcome/prompts";
-import { collectFinalFinancialNarrativeIssues, deriveFinalFinancialNarrativeAuthority, formatFinalFinancialNarrativeAuthorityForPrompt } from "./finalFinancialNarrativeAuthority";
+import { collectFinalFinancialNarrativeIssues, deriveFinalFinancialNarrativeAuthority, formatFinalFinancialNarrativeAuthorityForPrompt, removeUnsupportedDebtCompletionClauses } from "./finalFinancialNarrativeAuthority";
+
+assert.deepEqual(
+  removeUnsupportedDebtCompletionClauses("你终于还清了全部债务，也学会把生活放回自己的节奏。"),
+  { text: "学会把生活放回自己的节奏。", removalCount: 1 }
+);
+assert.deepEqual(
+  removeUnsupportedDebtCompletionClauses("你仍未还清债务，但已经不再让焦虑替你选择。"),
+  { text: "你仍未还清债务，但已经不再让焦虑替你选择。", removalCount: 0 }
+);
 
 const evidence: FinancialEvidence[] = [{ source: "accepted_history", reasonCode: "TEST", confidence: 1 }];
 

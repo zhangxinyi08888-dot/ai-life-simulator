@@ -92,10 +92,16 @@ export function deriveTemporalProfile(input: {
 export function constrainTemporalProfileForDebtDistress(input: {
   temporalProfile: TemporalProfile;
   debtHealthLevel?: string;
+  previousDebtHealthLevel?: string;
   isDebtDistressEvent: boolean;
 }): TemporalProfile {
   const profile = input.temporalProfile;
-  if (input.debtHealthLevel !== "distressed" || input.isDebtDistressEvent) {
+  // The short checkpoint belongs only to the transition into distress. Once
+  // the state is already distressed, repeating the clamp on every unrelated
+  // event makes life advance three months forever and can prevent mortality.
+  const newlyDistressed = input.debtHealthLevel === "distressed"
+    && input.previousDebtHealthLevel !== "distressed";
+  if (!newlyDistressed || input.isDebtDistressEvent) {
     return { ...profile, durationMonths: [...profile.durationMonths] as [number, number] };
   }
   const maximumMonths = 3;

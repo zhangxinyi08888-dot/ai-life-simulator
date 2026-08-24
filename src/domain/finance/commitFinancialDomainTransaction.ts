@@ -10,6 +10,7 @@ import { canonicalizeExpenseCommitmentV4 } from "./migrateFinancialLedgerV3ToV4"
 import { reduceFinancialLedger, type LiquidityPolicy } from "./reduceFinancialLedger";
 import { reconcileUnclassifiedCoreExpense } from "./reconcileUnclassifiedCoreExpense";
 import { requiresHardLateLifeCareerIncomeResolution } from "./lateLifeCareerIncomePolicy";
+import { hasExplicitUnpaidCareerCompensationDecision } from "./reconcileCareerIncomeAtomicity";
 import { isFinancialLedgerV4 } from "./types";
 import type {
   AcceptedFinancialEvent,
@@ -165,11 +166,10 @@ function applyPreAccrualFactCompletenessPolicy(input: {
   events: AcceptedFinancialEvent[];
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
-  employmentStatus: EmploymentStatus;
-  currentCareerStateId: string;
-  basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
   currentEmploymentStatus: EmploymentStatus;
+  currentCareerStateId: string;
   careerTransitions: AcceptedCareerTransition[];
+  basicLivingEstimateContext?: Pick<FinancialEstimationContext, "livingArrangement" | "cityCostBand">;
 }): FinancialLedgerIssue[] {
   const issues: FinancialLedgerIssue[] = [];
   const employmentStatusAt = (ageInMonths: number): EmploymentStatus => {
@@ -338,7 +338,7 @@ function applyPreAccrualFactCompletenessPolicy(input: {
       }));
     }
   }
-  if (employmentStatusAt(input.periodStartAgeInMonths) === "student") {
+  if (employmentStatusAt(input.periodEndAgeInMonths) === "student") {
     const policyManagedLiving = input.ledger.expenseCommitments.find(isPolicyManagedBasicLiving);
     if (policyManagedLiving) {
       ensureDefaultStudentFamilySupport({
@@ -424,7 +424,10 @@ function applyPreAccrualFactCompletenessPolicy(input: {
     for (const source of input.ledger.incomeSources) {
       if (!requiresHardLateLifeCareerIncomeResolution({ source, currentCareerStateId: input.currentCareerStateId })) continue;
       if (confirmedIncomeIds.has(source.id)) continue;
-      const lastConfirmedAt = source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths;
+      const lastConfirmedAt = Math.max(
+        source.lastConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths,
+        source.employmentConfirmedAtAgeInMonths ?? source.activeFromAgeInMonths
+      );
       if (input.periodStartAgeInMonths - lastConfirmedAt < 36) continue;
       source.factStatus = "needs_review";
       source.accrualReviewStatus = "quarantined";
@@ -746,6 +749,9 @@ function assertCareerCompensationAtomicity(input: {
 }): void {
   for (const transition of input.transitions) {
     if (!["employed", "part_time"].includes(transition.nextCareerState.employmentStatus)) continue;
+    const explicitlyUnpaid = hasExplicitUnpaidCareerCompensationDecision(
+      transition.evidence.map((item) => item.excerpt || "").join(" ")
+    );
     const replacement = input.events.find((event) => {
       const source = event.kind === "income_source_started"
         ? event.payload
@@ -755,7 +761,7 @@ function assertCareerCompensationAtomicity(input: {
         && ["salary", "contract"].includes(source.type)
         && event.effectiveAtAgeInMonths === transition.effectiveAtAgeInMonths;
     });
-    if (!replacement) {
+    if (!replacement && !explicitlyUnpaid) {
       throw new FinancialLedgerInvariantError(
         "INVALID_LEDGER",
         `有薪职业转换 ${transition.nextCareerState.id} 缺少同月 known/estimated 收入决议`
@@ -808,11 +814,10 @@ export function commitFinancialDomainTransaction(
     events: input.acceptedFinancialEvents,
     periodStartAgeInMonths: input.periodStartAgeInMonths,
     periodEndAgeInMonths: input.periodEndAgeInMonths,
-    employmentStatus: nextCurrentCareerState.employmentStatus,
-    currentCareerStateId: nextCurrentCareerState.id,
-    basicLivingEstimateContext: input.basicLivingEstimateContext,
     currentEmploymentStatus: currentState.employmentStatus,
-    careerTransitions: input.acceptedCareerTransitions
+    currentCareerStateId: nextCurrentCareerState.id,
+    careerTransitions: input.acceptedCareerTransitions,
+    basicLivingEstimateContext: input.basicLivingEstimateContext
   });
   const unclassifiedExpenseEvents = isFinancialLedgerV4(settlementLedger) && input.aggregateExpenseEstimateContext
     ? reconcileUnclassifiedCoreExpense({

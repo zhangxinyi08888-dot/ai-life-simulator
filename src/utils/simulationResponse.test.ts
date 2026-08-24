@@ -1,11 +1,33 @@
 import assert from "node:assert/strict";
 import {
+  bindTitleToAuthoritativeAge,
   canonicalizeGeneratedChoiceIds,
+  formatAuthoritativeAge,
   getInvalidExplicitChoiceTextIndexes,
   getSimulationNodeValidationIssues,
   normalizeSimulationNode,
   repairDeterministicRomanceChoices
 } from "./simulationResponse";
+
+assert.equal(formatAuthoritativeAge(715), "59岁7个月");
+assert.equal(formatAuthoritativeAge(895), "74岁7个月");
+assert.equal(bindTitleToAuthoritativeAge("57岁4个月——边界与回声", 715), "59岁7个月——边界与回声");
+assert.equal(bindTitleToAuthoritativeAge("73岁1月——内部手册的试用与节奏的确认", 895), "74岁7个月——内部手册的试用与节奏的确认");
+assert.equal(bindTitleToAuthoritativeAge("35 岁 6 个月：关系评估后的现实调整", 426), "35 岁 6 个月：关系评估后的现实调整");
+assert.equal(bindTitleToAuthoritativeAge("70岁11月——边界之内，绿萝新芽", 851), "70岁11月——边界之内，绿萝新芽");
+assert.equal(bindTitleToAuthoritativeAge("47岁6个月半，桂花树下的新秩序", 570), "47岁6个月，桂花树下的新秩序");
+assert.equal(bindTitleToAuthoritativeAge("47岁6个半月，桂花树下的新秩序", 570), "47岁6个月，桂花树下的新秩序");
+assert.equal(bindTitleToAuthoritativeAge("47岁6个月左右，桂花树下的新秩序", 570), "47岁6个月，桂花树下的新秩序");
+assert.equal(bindTitleToAuthoritativeAge("内部手册：回望73岁春天", 895), "内部手册：回望73岁春天");
+
+const authoritativeTitleNode = normalizeSimulationNode({
+  age: 57,
+  ageInMonths: 688,
+  title: "57岁4个月——模型写错的年龄",
+  choices: []
+}, { targetAgeInMonths: 715 });
+assert.equal(authoritativeTitleNode.ageInMonths, 715);
+assert.equal(authoritativeTitleNode.title, "59岁7个月——模型写错的年龄");
 
 const node = normalizeSimulationNode({
   stage: "选择前夜",
@@ -342,6 +364,32 @@ assert.deepEqual(
   ["eventOutcomeId", "eventOutcomeCoverage"],
   "the service must redispatch or reschedule the mismatched event instead of silently rewriting it"
 );
+
+const commitmentWithCompetingPerson = repairDeterministicRomanceChoices({
+  ...eventContractNode,
+  description: "你和林然讨论是否共同生活，项目经理也参加了前半段工作会议。",
+  narrativeMeta: {
+    activeCharacters: [
+      { personId: "person_project_manager", name: "项目经理", relation: "colleague" },
+      { personId: "person_linran", displayName: "林然", relation: "partner", presenceMode: "active_scene" }
+    ]
+  },
+  choices: [
+    { id: "A", text: "讨论未来", impactSummary: "讨论", eventOutcomeId: "make_shared_commitment_plan" },
+    { id: "B", text: "晚点再说", impactSummary: "延后", eventOutcomeId: "delay_with_clear_conditions" },
+    { id: "C", text: "重新评估", impactSummary: "评估", eventOutcomeId: "reassess_relationship_fit" }
+  ]
+}, "relationship_material_commitment_test", [
+  "make_shared_commitment_plan",
+  "delay_with_clear_conditions",
+  "reassess_relationship_fit"
+]);
+assert.deepEqual(commitmentWithCompetingPerson.choices.map((choice) => choice.text), [
+  "与林然讨论并形成共同生活的筹备计划和长期安排",
+  "与林然明确延后承诺的现实条件和下一次复核时间",
+  "与林然重新评估长期生活是否真正适合彼此"
+]);
+assert.doesNotMatch(commitmentWithCompetingPerson.choices.map((choice) => choice.text).join("\n"), /与对方|与项目经理/u);
 
 assert.deepEqual(getSimulationNodeValidationIssues({
   ...eventContractNode,

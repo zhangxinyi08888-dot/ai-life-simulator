@@ -785,12 +785,7 @@ test("an accepted parent-care trial with an explicit payer keeps the named careg
   const ageInMonths = 73 * 12 + 4;
   const ledger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
     id: "narrative_only_parent_care",
-    asOfAgeInMonths: ageInMonths,
-    openingPosition: { cashAccounts: [{
-      id: "primary_cash", type: "bank_deposit", balanceWan: 10,
-      status: "active", factStatus: "known",
-      evidence: [{ source: "accepted_history", reasonCode: "TEST_RESERVE", confidence: 1 }]
-    }] }
+    asOfAgeInMonths: ageInMonths
   }) as FinancialLedgerV3);
   const reconciliation = reconcileExpenseCommitments({
     ledger,
@@ -891,12 +886,7 @@ test("a fixed monthly parent transfer becomes a validator-accepted personal resp
 
   const ledger = migrateFinancialLedgerV3ToV4(initializeFinancialLedger({
     id: "fixed_monthly_parent_transfer",
-    asOfAgeInMonths: ageInMonths,
-    openingPosition: { cashAccounts: [{
-      id: "primary_cash", type: "bank_deposit", balanceWan: 10,
-      status: "active", factStatus: "known",
-      evidence: [{ source: "accepted_history", reasonCode: "TEST_RESERVE", confidence: 1 }]
-    }] }
+    asOfAgeInMonths: ageInMonths
   }) as FinancialLedgerV3);
   const reconciliation = reconcileExpenseCommitments({
     ledger,

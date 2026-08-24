@@ -10,7 +10,7 @@ export function resolveFinancialNodeGateMode(value: unknown): FinancialNodeGateM
 }
 
 export const DEFAULT_FINANCIAL_NODE_GATE_MODE: FinancialNodeGateMode = resolveFinancialNodeGateMode(
-  (import.meta as ImportMeta & { env?: ImportMetaEnv }).env?.VITE_FINANCIAL_NODE_GATE_MODE
+  process.env.TARO_APP_FINANCIAL_NODE_GATE_MODE
 );
 
 export const FINANCIAL_GATE_MAX_REGENERATIONS = 2;
@@ -32,7 +32,7 @@ export function resolveExpenseLifecycleMode(value: unknown): ExpenseLifecycleMod
 }
 
 export const DEFAULT_EXPENSE_LIFECYCLE_MODE: ExpenseLifecycleMode = resolveExpenseLifecycleMode(
-  (import.meta as ImportMeta & { env?: ImportMetaEnv }).env?.VITE_EXPENSE_LIFECYCLE_MODE
+  process.env.TARO_APP_EXPENSE_LIFECYCLE_MODE
 );
 
 /**
@@ -49,7 +49,7 @@ export function resolveExpenseNarrativeBindingMode(value: unknown): ExpenseNarra
 }
 
 export const DEFAULT_EXPENSE_NARRATIVE_BINDING_MODE: ExpenseNarrativeBindingMode = resolveExpenseNarrativeBindingMode(
-  (import.meta as ImportMeta & { env?: ImportMetaEnv }).env?.VITE_EXPENSE_NARRATIVE_BINDING_MODE
+  process.env.TARO_APP_EXPENSE_NARRATIVE_BINDING_MODE
 );
 
 /**

@@ -57,6 +57,10 @@ export function evaluateEnding(input: {
 }): EndingDecision {
   const age = Math.floor(input.targetAgeInMonths / 12);
   const forcedByHardMaximum = input.targetAgeInMonths >= input.policy.hardMaximumAge * 12;
+  const postSoftEndingNodeCount = input.history.filter((item) => (
+    (item.ageInMonths ?? item.age * 12) >= input.policy.softEndingAge * 12
+  )).length + (input.targetAgeInMonths >= input.policy.softEndingAge * 12 ? 1 : 0);
+  const forcedByPostSoftNodeLimit = postSoftEndingNodeCount >= input.policy.maximumPostSoftEndingNodes;
   const recovery = input.candidateNode.narrativeMeta?.recoveryState ?? "neutral";
   const trend = healthTrend(input.candidateNode, input.history);
   const recentMajorHealth = input.history.slice(-3).some((item) => item.eventMeta?.eventCategory === "health" && item.eventMeta.eventIntensity === "major");
@@ -71,7 +75,7 @@ export function evaluateEnding(input: {
   if (input.candidateNode.attributes.health < input.policy.criticalHealthThreshold) {
     annualProbability = Math.max(annualProbability, 0.65);
   }
-  const nodeProbability = forcedByHardMaximum
+  const nodeProbability = forcedByHardMaximum || forcedByPostSoftNodeLimit
     ? 1
     : 1 - Math.pow(1 - annualProbability, Math.max(1 / 12, input.elapsedMonths / 12));
   const roll = stableRandom({
@@ -83,7 +87,7 @@ export function evaluateEnding(input: {
   });
 
   return {
-    shouldEnd: forcedByHardMaximum || roll < nodeProbability,
+    shouldEnd: forcedByHardMaximum || forcedByPostSoftNodeLimit || roll < nodeProbability,
     forcedByHardMaximum,
     annualProbability,
     nodeProbability,
@@ -93,7 +97,8 @@ export function evaluateEnding(input: {
       `health:${input.candidateNode.attributes.health}`,
       `recovery:${recovery}`,
       `trend:${trend}`,
-      recentMajorHealth ? "recent-major-health" : "no-recent-major-health"
+      recentMajorHealth ? "recent-major-health" : "no-recent-major-health",
+      forcedByPostSoftNodeLimit ? `post-soft-node-limit:${postSoftEndingNodeCount}` : `post-soft-nodes:${postSoftEndingNodeCount}`
     ]
   };
 }

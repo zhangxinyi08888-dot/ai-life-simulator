@@ -217,8 +217,8 @@ export function validateStoryConsistency(input: {
     if (person?.lifeStatus === "deceased" && (character.presenceMode === "active_scene" || character.presenceMode === "remote_contact")) {
       issues.push({ code: "deceased_character_active", severity: "error", message: `${person.displayName || person.relation}已故，不能作为现实行动者出现。` });
     }
-    if (person?.estimatedAgeRange?.[0] && person.estimatedAgeRange[0] >= 105 && person.lifeStatus === "unknown" && character.currentRole?.includes("工作")) {
-      issues.push({ code: "character_timeline_conflict", severity: "error", message: `${person.relation}估算年龄超过105岁，缺少明确长寿事实时不能默认仍在工作。` });
+    if (person?.estimatedAgeRange?.[0] && person.estimatedAgeRange[0] >= 100 && person.lifeStatus !== "deceased" && character.currentRole?.includes("工作")) {
+      issues.push({ code: "character_timeline_conflict", severity: "error", message: `${person.relation}最低估算年龄超过100岁，缺少明确长寿事实时不能默认仍在工作。` });
     }
   }
 
@@ -229,6 +229,27 @@ export function validateStoryConsistency(input: {
   const parentSentences = input.node.description
     .split(/(?<=[。！？；])/u)
     .filter((sentence) => /父母|父亲|母亲|爸爸|妈妈/.test(sentence));
+  const parentActionSentences = [input.node.description, ...input.node.choices.map((choice) => choice.text)]
+    .flatMap((text) => text.split(/(?<=[。！？；])/u))
+    .filter((sentence) => /父母|父亲|母亲|爸爸|妈妈/.test(sentence));
+  const implausiblyOldUnconfirmedParent = input.people.some((person) => (
+    (person.relation === "parent" || person.relation === "grandparent")
+    && person.lifeStatus !== "deceased"
+    && (person.estimatedAgeRange?.[0] || 0) >= 100
+  ));
+  if (implausiblyOldUnconfirmedParent) {
+    const activeParentSentence = parentActionSentences.find((sentence) => (
+      /(?:说|告诉|送|来|联系|商量|提起|约|喝|见面|帮|陪|照顾|提供|核对|转入|打电话|通话|安排|走动|走到|散步|坐下|坐一会儿|整理|打包|贴标签|做饭|处理|活动|理疗|康复|坚持)/u.test(sentence)
+      && !/(?:回忆|想起|当年|曾经|已故|去世|离世|遗物|纪念|留下)/u.test(sentence)
+    ));
+    if (activeParentSentence) {
+      issues.push({
+        code: "character_timeline_conflict",
+        severity: "error",
+        message: "父母或祖辈的最低估算年龄已超过100岁，缺少本轮明确长寿事实时不能继续作为日常行动者。"
+      });
+    }
+  }
   for (const relationship of input.worldState?.familyRelationships || []) {
     const careerStance = relationship.topicStances.find((stance) => stance.topic === "career_change")?.stance;
     for (const sentence of parentSentences) {

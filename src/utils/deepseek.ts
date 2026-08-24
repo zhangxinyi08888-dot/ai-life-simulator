@@ -81,10 +81,26 @@ function finiteTokenCount(value: unknown): number {
 export function parseDeepSeekUsage(value: unknown): AiUsage | undefined {
   if (!value || typeof value !== "object") return undefined;
   const usage = value as Record<string, unknown>;
+  const promptTokens = finiteTokenCount(usage.prompt_tokens);
+  const promptTokenDetails = usage.prompt_tokens_details && typeof usage.prompt_tokens_details === "object"
+    ? usage.prompt_tokens_details as Record<string, unknown>
+    : undefined;
+  const hasDeepSeekCacheUsage = Object.prototype.hasOwnProperty.call(usage, "prompt_cache_hit_tokens")
+    || Object.prototype.hasOwnProperty.call(usage, "prompt_cache_miss_tokens");
+  const hasOpenAiCacheUsage = !!promptTokenDetails
+    && Object.prototype.hasOwnProperty.call(promptTokenDetails, "cached_tokens");
+  const cacheHitTokens = hasDeepSeekCacheUsage
+    ? finiteTokenCount(usage.prompt_cache_hit_tokens)
+    : finiteTokenCount(promptTokenDetails?.cached_tokens);
+  const cacheMissTokens = hasDeepSeekCacheUsage
+    ? finiteTokenCount(usage.prompt_cache_miss_tokens)
+    : hasOpenAiCacheUsage
+      ? Math.max(0, promptTokens - cacheHitTokens)
+      : 0;
   return {
-    promptTokens: finiteTokenCount(usage.prompt_tokens),
-    cacheHitTokens: finiteTokenCount(usage.prompt_cache_hit_tokens),
-    cacheMissTokens: finiteTokenCount(usage.prompt_cache_miss_tokens),
+    promptTokens,
+    cacheHitTokens,
+    cacheMissTokens,
     completionTokens: finiteTokenCount(usage.completion_tokens),
     totalTokens: finiteTokenCount(usage.total_tokens)
   };

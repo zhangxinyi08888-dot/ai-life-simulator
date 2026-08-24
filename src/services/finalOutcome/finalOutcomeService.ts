@@ -8,6 +8,7 @@ import { getBrowserE2eAiJsonCaller } from "../e2e/e2eAiMock";
 import {
   collectFinalFinancialNarrativeIssues,
   deriveFinalFinancialNarrativeAuthority,
+  removeUnsupportedDebtCompletionClauses,
   replaceUnsupportedFinancialAmountsWithQualitativeText,
   type FinalFinancialNarrativeIssue
 } from "../../utils/finalFinancialNarrativeAuthority";
@@ -84,7 +85,72 @@ function invalidAfterRepair(issues: UnifiedIssue[]): AiClientError {
   );
 }
 
-function applyShareTerminalFallback(input: {
+const POST_MORTEM_CONTINUATION_TEXT = /(?:^|[，。；])你(?:将|会|仍|继续|开始|需要|应该|可以)|你的(?:债务|还款)[^。！？]{0,30}(?:继续|未来)|由(?:家人|亲友|捐赠人|法定继承人|遗产管理人)[^。！？]{0,24}(?:偿还|承担|处置)|(?:法定继承人|遗产管理人|遗产清算|变卖资产|协商分期偿还)/u;
+const POST_MORTEM_ADVICE_TEXT = /(?:如果我是十年后的你|未来的你|下一阶段|请(?:继续|保持|勿|不要)|你(?:需要|应该|应当|仍需|还要|要继续))/u;
+const POST_MORTEM_EXTERNAL_TEXT = /(?:遗产清偿|遗产清算|遗产管理人|法定继承人|法律程序|无人追讨|变卖资产|协商分期偿还)|(?:(?:家人|家庭|父母|亲友|机构)[^。！？]{0,32}(?:债务|负债|偿还|承担|接手|负担)|(?:债务|负债)[^。！？]{0,32}(?:家人|家庭|父母|亲友|机构)[^。！？]{0,16}(?:偿还|承担|接手|负担)?)/u;
+
+function mapStringLeaves(value: unknown, transform: (text: string) => string): number {
+  let replacementCount = 0;
+  const visit = (current: unknown): void => {
+    if (!current || typeof current !== "object") return;
+    for (const [key, child] of Object.entries(current as Record<string, unknown>)) {
+      if (typeof child === "string") {
+        const repaired = transform(child);
+        if (repaired !== child && repaired.trim()) {
+          (current as Record<string, unknown>)[key] = repaired;
+          replacementCount += 1;
+        }
+      } else {
+        visit(child);
+      }
+    }
+  };
+  visit(value);
+  return replacementCount;
+}
+
+function removeMatchingSentences(text: string, pattern: RegExp): string {
+  const sentences = text.match(/[^。！？；]+[。！？；]?/gu) || [text];
+  const kept = sentences.filter((sentence) => !pattern.test(sentence));
+  return kept.length > 0 ? kept.join("").trim() : text;
+}
+
+function applyTerminalQualityFallback(data: any, issues: UnifiedIssue[]): number {
+  let count = 0;
+  const codes = new Set(issues.map((issue) => issue.code));
+  if (codes.has("FINAL_REPORT_POST_MORTEM_CONTINUATION") && Array.isArray(data?.report?.futureTrends)) {
+    const rejectedIndexes = new Set(issues.flatMap((issue) => {
+      if (issue.code !== "FINAL_REPORT_POST_MORTEM_CONTINUATION") return [];
+      const match = issue.path.match(/^report\.futureTrends\[(\d+)\]$/u);
+      return match ? [Number(match[1])] : [];
+    }));
+    if (data.report.futureTrends.length - rejectedIndexes.size >= 1) {
+      data.report.futureTrends = data.report.futureTrends.filter((_: unknown, index: number) => !rejectedIndexes.has(index));
+      count += rejectedIndexes.size;
+    } else {
+      count += mapStringLeaves(data.report.futureTrends, (text) => removeMatchingSentences(text, POST_MORTEM_CONTINUATION_TEXT));
+    }
+  }
+  if (codes.has("FINAL_REPORT_POST_MORTEM_ADVICE")) {
+    count += mapStringLeaves(data?.report, (text) => removeMatchingSentences(text, POST_MORTEM_ADVICE_TEXT));
+  }
+  if (codes.has("FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT")) {
+    count += mapStringLeaves(data?.report, (text) => removeMatchingSentences(text, POST_MORTEM_EXTERNAL_TEXT));
+  }
+  if (codes.has("FINAL_REPORT_UNGROUNDED_SCALE_CLAIM")) {
+    count += mapStringLeaves(data?.report, (text) => text
+      .replace(/无数|成千上万/gu, "一些")
+      .replace(/全国|遍布各地/gu, "相关地区")
+      .replace(/一代代/gu, "后来的人")
+      .replace(/广泛采用/gu, "有人使用")
+      .replace(/参考案例/gu, "实践记录")
+      .replace(/多所(?:学校|中学)/gu, "相关学校")
+      .replace(/(?:多个|更多|多地)县域/gu, "相关县域"));
+  }
+  return count;
+}
+
+function applyTerminalFallback(input: {
   data: any;
   issues: UnifiedIssue[];
   history: HistoryItem[];
@@ -94,7 +160,14 @@ function applyShareTerminalFallback(input: {
     issue.code === "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT" && supportedFinancialPaths.has(issue.path)
   ) || (
     issue.code === "FINAL_REPORT_UNSUPPORTED_DURATION" && issue.path === "share.viralTitle"
-  );
+  ) || (
+    issue.code === "REPORT_DEBT_COMPLETION_CONFLICT" && issue.path === "share.closingLine"
+  ) || [
+    "FINAL_REPORT_POST_MORTEM_CONTINUATION",
+    "FINAL_REPORT_POST_MORTEM_ADVICE",
+    "FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT",
+    "FINAL_REPORT_UNGROUNDED_SCALE_CLAIM"
+  ].includes(issue.code);
   if (input.issues.length === 0 || input.issues.some((issue) => !supportedIssue(issue))) {
     return { financialCount: 0, qualityCount: 0 };
   }
@@ -111,6 +184,12 @@ function applyShareTerminalFallback(input: {
       input.data.share[field] = replaced.text;
       financialCount += replaced.replacementCount;
     }
+    if (input.issues.some((issue) => issue.code === "REPORT_DEBT_COMPLETION_CONFLICT" && issue.path === "share.closingLine")
+      && typeof input.data.share.closingLine === "string") {
+      const repaired = removeUnsupportedDebtCompletionClauses(input.data.share.closingLine);
+      input.data.share.closingLine = repaired.text || input.data.share.oneLineSummary;
+      financialCount += repaired.removalCount;
+    }
   }
   let qualityCount = 0;
   if (input.issues.some((issue) => issue.code === "FINAL_REPORT_UNSUPPORTED_DURATION")
@@ -121,6 +200,7 @@ function applyShareTerminalFallback(input: {
     });
     input.data.share.viralTitle = replacedTitle;
   }
+  qualityCount += applyTerminalQualityFallback(input.data, input.issues);
   return { financialCount, qualityCount };
 }
 
@@ -155,7 +235,7 @@ export async function generateFinalOutcome(
     observedFinancialIssues.push(...finalValidation.financial);
     observedQualityIssues.push(...finalValidation.quality);
     if (finalValidation.all.length > 0) {
-      const fallback = applyShareTerminalFallback({
+      const fallback = applyTerminalFallback({
         data,
         issues: finalValidation.all,
         history: input.history

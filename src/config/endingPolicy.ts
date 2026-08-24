@@ -2,6 +2,8 @@ export interface EndingPolicy {
   mode: "bounded_longevity";
   softEndingAge: number;
   hardMaximumAge: number;
+  /** Maximum ordinary checkpoints at or after softEndingAge before mortality is forced. */
+  maximumPostSoftEndingNodes: number;
   criticalHealthThreshold: number;
   maximumAnnualProbability: number;
   annualBaseProbabilityByAge: Array<{ minAge: number; maxAge: number; probability: number }>;
@@ -11,6 +13,7 @@ export const DEFAULT_ENDING_POLICY: EndingPolicy = {
   mode: "bounded_longevity",
   softEndingAge: 73,
   hardMaximumAge: 110,
+  maximumPostSoftEndingNodes: 24,
   criticalHealthThreshold: 15,
   maximumAnnualProbability: 0.85,
   annualBaseProbabilityByAge: [

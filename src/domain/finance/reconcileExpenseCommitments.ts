@@ -112,10 +112,20 @@ function canonicalizeNarrativeParentHealthcareCandidate(input: {
   // a genuinely separate obligation and needs an Accepted atomic split rather
   // than an eager alias guess at the ledger boundary.
   if (!["opening_parent", "parents", "parent", "person_parent_unspecified"].includes(beneficiary)) return candidate;
+  const genericParentKeys = new Set([
+    "recurring_healthcare:opening_parent",
+    "recurring_healthcare:parents",
+    "recurring_healthcare:parent",
+    "recurring_healthcare:person_parent_unspecified"
+  ]);
+  const candidateParticipants = new Set(candidate.participantPersonIds || []);
   const aggregateTargets = input.ledger.expenseCommitments.filter((commitment) => (
     commitment.status !== "ended"
     && commitment.responsibilityKind === "recurring_healthcare"
-    && ["recurring_healthcare:opening_parent", "recurring_healthcare:parents"].includes(commitment.responsibilityKey)
+    && (
+      genericParentKeys.has(commitment.responsibilityKey)
+      || (commitment.participantPersonIds || []).some((personId) => candidateParticipants.has(personId))
+    )
   ));
   if (aggregateTargets.length !== 1) return candidate;
   const target = aggregateTargets[0];

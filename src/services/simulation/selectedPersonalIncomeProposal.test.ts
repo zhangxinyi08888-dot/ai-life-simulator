@@ -1,9 +1,113 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { initializeFinancialLedger } from "../../domain/finance/initializeLedger";
+import { reduceFinancialLedger } from "../../domain/finance/reduceFinancialLedger";
+import { validateFinancialProposals } from "../../domain/finance/validateFinancialProposals";
 import { resolveAllowedIncomeCareerStateIds, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 
 const decision = "现有客户续费；我与合伙人签署工资决议，从本月起公司向我的个人账户每月支付4万元税后工资。";
+
+test("late-life continuing work refreshes employment evidence without promoting an estimated amount to known", () => {
+  const ledger = initializeFinancialLedger({
+    id: "late_life_continuation",
+    asOfAgeInMonths: 640,
+    openingPosition: {
+      incomeSources: [{
+        id: "income_urban_consulting",
+        type: "salary",
+        displayName: "市里教育科技公司顾问工资",
+        monthlyNetAmountWan: 4.2,
+        accrualPolicy: "monthly",
+        activeFromAgeInMonths: 471,
+        status: "active",
+        linkedCareerStateId: "career_current",
+        factStatus: "estimated",
+        accrualReviewStatus: "normal",
+        lastConfirmedAtAgeInMonths: 471,
+        evidence: []
+      }]
+    }
+  });
+  const narrativeText = "远程咨询的报表你仍每周处理两个晚上，收入稳定，足够覆盖日常开销。";
+  const proposals = synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续整理乡村教师共读材料。",
+    narrativeText,
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "continue_reading_program",
+    periodStartAgeInMonths: 640,
+    periodEndAgeInMonths: 666,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    ledger
+  });
+  assert.equal(proposals.length, 1);
+  assert.equal(proposals[0]?.systemGenerated, "career_income_continuation_review");
+  assert.equal((proposals[0]?.payload as any).nextSource.factStatus, "estimated");
+  assert.equal((proposals[0]?.payload as any).nextSource.monthlyNetAmountWan, 4.2);
+  assert.equal((proposals[0]?.payload as any).nextSource.lastConfirmedAtAgeInMonths, 471);
+  assert.equal((proposals[0]?.payload as any).nextSource.employmentConfirmedAtAgeInMonths, 666);
+
+  const validated = validateFinancialProposals({
+    proposals,
+    currentLedger: ledger,
+    currentCareerState: {
+      id: "career_current",
+      employmentStatus: "employed",
+      activeProjectIds: [],
+      effectiveFromAgeInMonths: 300,
+      source: "accepted_history",
+      confidence: 1
+    },
+    acceptedOutcomeId: "continue_reading_program",
+    narrativeText,
+    periodStartAgeInMonths: 640,
+    periodEndAgeInMonths: 666,
+    simulationTransactionId: "late_life_continuation",
+    allowedCareerStateIds: ["career_current"]
+  });
+  assert.equal(validated.issues.filter((issue) => issue.severity === "blocking").length, 0);
+  assert.equal(validated.acceptedEvents.length, 1);
+  const reduced = reduceFinancialLedger({
+    ledger,
+    events: validated.acceptedEvents,
+    transactionId: "late_life_continuation",
+    expectedLedgerRevision: ledger.revision,
+    periodStartAgeInMonths: 640,
+    periodEndAgeInMonths: 666
+  });
+  const source = reduced.ledger.incomeSources[0]!;
+  assert.equal(source.factStatus, "estimated");
+  assert.equal(source.lastConfirmedAtAgeInMonths, 471);
+  assert.equal(source.employmentConfirmedAtAgeInMonths, 666);
+});
+
+test("late-life work prose without an income receipt does not refresh career income", () => {
+  const ledger = initializeFinancialLedger({
+    id: "late_life_work_only",
+    asOfAgeInMonths: 640,
+    openingPosition: {
+      incomeSources: [{
+        id: "income_consulting", type: "salary", displayName: "顾问工资",
+        monthlyNetAmountWan: 4.2, accrualPolicy: "monthly", activeFromAgeInMonths: 471,
+        status: "active", linkedCareerStateId: "career_current", factStatus: "estimated",
+        lastConfirmedAtAgeInMonths: 471, evidence: []
+      }]
+    }
+  });
+  assert.deepEqual(synthesizeSelectedPersonalIncomeProposal({
+    proposals: [],
+    selectedDecision: "继续当前安排。",
+    narrativeText: "远程咨询的报表你仍每周处理两个晚上。",
+    allowNarrativeEvidence: true,
+    acceptedOutcomeId: "continue",
+    periodStartAgeInMonths: 640,
+    periodEndAgeInMonths: 666,
+    currentCareerStateId: "career_current",
+    currentEmploymentStatus: "employed",
+    ledger
+  }), []);
+});
 
 test("PB-BIZ-20 accepted custom decision starts explicit personal income deterministically", () => {
   const ledger = initializeFinancialLedger({ id: "selected_income", asOfAgeInMonths: 300 });
