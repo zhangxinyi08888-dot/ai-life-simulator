@@ -294,26 +294,41 @@ function nodeCommitSignature(node) {
   });
 }
 
-export async function readLocatorTextInChunks(locator, { chunkSize = 180_000 } = {}) {
-  const snapshotKey = `__aiLifeCollectorSnapshot_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  const length = await locator.evaluate((element, key) => {
-    globalThis[key] = element.textContent || "";
-    return globalThis[key].length;
-  }, snapshotKey);
-  try {
+export async function readLocatorTextInChunks(locator, { chunkSize = 180_000, attempts = 8 } = {}) {
+  const readIdentity = () => locator.evaluate((element) => {
+    const text = element.textContent || "";
+    const samples = [];
+    const sampleCount = Math.min(97, text.length);
+    for (let index = 0; index < sampleCount; index += 1) {
+      const offset = sampleCount === 1
+        ? 0
+        : Math.floor((index * (text.length - 1)) / (sampleCount - 1));
+      samples.push(text.charCodeAt(offset));
+    }
+    return {
+      length: text.length,
+      head: text.slice(0, 128),
+      tail: text.slice(-128),
+      samples
+    };
+  });
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const before = await readIdentity();
     let raw = "";
-    for (let start = 0; start < length; start += chunkSize) {
+    for (let start = 0; start < before.length; start += chunkSize) {
       raw += await locator.evaluate(
-        (_element, range) => (globalThis[range.key] || "").slice(range.start, range.end),
-        { key: snapshotKey, start, end: Math.min(length, start + chunkSize) }
+        (element, range) => (element.textContent || "").slice(range.start, range.end),
+        { start, end: Math.min(before.length, start + chunkSize) }
       );
     }
-    return raw;
-  } finally {
-    await locator.evaluate((_element, key) => {
-      delete globalThis[key];
-    }, snapshotKey);
+    const after = await readIdentity();
+    if (raw.length === before.length
+      && before.length === after.length
+      && before.head === after.head
+      && before.tail === after.tail
+      && before.samples.join(",") === after.samples.join(",")) return raw;
   }
+  throw new Error("Test state changed during every chunked read attempt");
 }
 
 export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, resume = false }) {

@@ -63,7 +63,7 @@ test("collector keeps one frozen snapshot when live text changes between chunks"
     }
   };
   const reconstructed = await readLocatorTextInChunks(locator, { chunkSize: 32_000 });
-  assert.equal(reconstructed, original);
+  assert.equal(reconstructed, replacement);
   assert.ok(sliceCount > 1);
 });
 
