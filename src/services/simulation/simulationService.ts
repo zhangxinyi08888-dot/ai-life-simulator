@@ -836,6 +836,13 @@ function hasExplicitSelfDirectedVentureEvidence(
   ));
 }
 
+function isCurrentRoleCompensationDecision(value: string): boolean {
+  const decision = value.trim();
+  if (!decision
+    || /(?:offer|入职|就职|加入|离职|辞职|跳槽|换工作|转岗|转行|新(?:公司|岗位|职位)|工作(?:邀请|机会))/iu.test(decision)) return false;
+  return /(?:接受|确认|同意|采用)[^。；]{0,28}(?:工资|薪资|薪酬|待遇|月薪)(?:方案|安排|调整)?|(?:正式)?(?:开始|继续|恢复)[^。；]{0,20}(?:领取|执行|采用)[^。；]{0,20}(?:工资|薪资|薪酬|待遇|月薪)/u.test(decision);
+}
+
 function isAcceptedEmployerRoleInvitation(
   value: string,
   context: SelfDirectedVentureEvidenceContext = "selected_decision"
@@ -844,7 +851,8 @@ function isAcceptedEmployerRoleInvitation(
   // not an employer offer.  Keep explicit job/role language while requiring
   // `工作` itself to be shaped like a job opportunity rather than merely the
   // prefix of another noun.
-  return /(?:接受|选择)[^。；]{0,40}(?:offer|职位|岗位|入职|任职|担任|负责人|工作(?:邀请|机会)|(?:一份|这份|那份|新|全职|正式)工作)/iu.test(value)
+  return !isCurrentRoleCompensationDecision(value)
+    && /(?:接受|选择)[^。；]{0,40}(?:offer|职位|岗位|入职|任职|担任|负责人|工作(?:邀请|机会)|(?:一份|这份|那份|新|全职|正式)工作)/iu.test(value)
     && !/(?:外部董事|独立董事|外部顾问|兼职顾问|非执行董事|外部合伙人)/u.test(value)
     && !hasExplicitSelfDirectedVentureEvidence(value, context);
 }
@@ -1119,6 +1127,7 @@ export function synthesizeSelectedCareerTransition(input: {
 }): EmploymentTransitionProposal | undefined {
   if (!input.acceptedOutcomeId || !input.selectedDecision) return undefined;
   const decision = input.selectedDecision;
+  if (input.currentStatus === "employed" && isCurrentRoleCompensationDecision(decision)) return undefined;
   // "创业公司" is an employer, not evidence that the protagonist became a
   // founder.  Keep that distinction explicit: leaving one job to join a
   // startup must create an employed CareerState, while an explicit founder or
@@ -3017,6 +3026,12 @@ async function commitAuthoritativeFinancialProgress(input: {
         });
       }
     }
+  }
+  if (currentCareer.employmentStatus === "employed"
+    && isCurrentRoleCompensationDecision(input.selectedDecision || "")) {
+    acceptedCareerTransitions = [];
+    rejectedEmploymentTransition = undefined;
+    careerValidationIssues.length = 0;
   }
   let nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
   const studentEngagement = reclassifyBoundedStudentEngagement({

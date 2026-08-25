@@ -434,6 +434,22 @@ assert.equal(resolvePendingEmployerOffer({
   currentCareerStateId: "career_current",
   acceptedCareerTransitions: []
 }).action, "preserve", "a workshop invitation is a limited engagement, not a pending employer offer");
+const currentRoleSalaryDecision = "接受新的工资方案，正式开始领取产品负责人的税后月薪，并继续推进现有客户试点。";
+assert.equal(resolvePendingEmployerOffer({
+  selectedDecision: currentRoleSalaryDecision,
+  acceptedOutcomeId: "accept_current_role_salary",
+  narrativeText: "你继续担任产品负责人，税后月薪调整为2.8万元。",
+  acceptedAtAgeInMonths: 311,
+  currentCareerStateId: "career_current",
+  acceptedCareerTransitions: []
+}).action, "preserve", "a current-role salary plan is compensation, not another employer offer");
+assert.equal(synthesizeSelectedCareerTransition({
+  selectedDecision: currentRoleSalaryDecision,
+  narrativeText: "你继续担任产品负责人，税后月薪调整为2.8万元。",
+  acceptedOutcomeId: "accept_current_role_salary",
+  effectiveAtAgeInMonths: 311,
+  currentStatus: "employed"
+}), undefined, "a current-role salary adjustment must not create another CareerState");
 if (pendingOffer.action === "set") {
   assert.equal(resolvePendingEmployerOffer({
     current: pendingOffer.offer,
