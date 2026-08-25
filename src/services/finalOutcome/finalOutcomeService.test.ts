@@ -373,10 +373,10 @@ test("unsupported amounts left only in poster copy use a deterministic qualitati
   assert.equal(repaired.meta.financialClaimRepairTriggered, true);
 });
 
-test("deterministic poster fallback never hides an unsupported amount in the report body", async () => {
+test("deterministic terminal fallback removes an unsupported amount from the report body after one focused repair", async () => {
   let calls = 0;
   const financialHistory = historyWithOutstandingDebt();
-  await assert.rejects(generateFinalOutcome({
+  const repaired = await generateFinalOutcome({
     userData,
     answers,
     history: financialHistory,
@@ -390,8 +390,35 @@ test("deterministic poster fallback never hides an unsupported amount in the rep
       payload.report.finalLifeReading.paragraphs = ["你最终留下了46万元现金。"];
       return { text: JSON.stringify(payload) };
     }
-  }), /report.finalLifeReading.paragraphs\[0\]:REPORT_UNSUPPORTED_FINANCIAL_AMOUNT/u);
+  });
   assert.equal(calls, 2);
+  assert.equal(repaired.report.finalLifeReading.paragraphs[0], "你最终留下了一笔资金现金。");
+  assert.equal(repaired.meta.financialClaimFallbackCount, 2);
+  assert.doesNotMatch(JSON.stringify(repaired), /46万元/u);
+});
+
+test("terminal fallback handles unsupported amounts and unknown property absence together", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history: historyWithOutstandingDebt(),
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "stable_window" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.closingLine = "你靠46万元守住了选择空间。";
+      payload.report.patternEffects[0].compoundReturn = "46万元带来了复利。";
+      payload.report.patternEffects[0].paragraphs.push("你没有房产。" );
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.meta.financialClaimFallbackCount, 3);
+  assert.doesNotMatch(JSON.stringify(repaired), /46万元|没有房产/u);
+  assert.match(repaired.report.patternEffects[0].paragraphs[1], /房产情况缺少可靠记录/u);
 });
 
 test("poster fallback records a financial violation introduced by a structural repair", async () => {

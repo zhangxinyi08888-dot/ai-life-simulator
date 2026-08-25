@@ -170,9 +170,8 @@ function applyTerminalFallback(input: {
   issues: UnifiedIssue[];
   history: HistoryItem[];
 }): { financialCount: number; qualityCount: number } {
-  const supportedFinancialPaths = new Set(["share.viralTitle", "share.imageAlt"]);
   const supportedIssue = (issue: UnifiedIssue) => (
-    issue.code === "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT" && supportedFinancialPaths.has(issue.path)
+    issue.code === "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT"
   ) || (
     issue.code === "FINAL_REPORT_UNSUPPORTED_DURATION" && issue.path === "share.viralTitle"
   ) || (
@@ -193,14 +192,14 @@ function applyTerminalFallback(input: {
   if (!input.data?.share) return { financialCount: 0, qualityCount: 0 };
   let financialCount = 0;
   if (authority) {
-    for (const field of ["viralTitle", "imageAlt"] as const) {
-      if (typeof input.data.share[field] !== "string") continue;
+    if (input.issues.some((issue) => issue.code === "REPORT_UNSUPPORTED_FINANCIAL_AMOUNT")) {
+      financialCount += mapStringLeaves(input.data, (text) => {
       const replaced = replaceUnsupportedFinancialAmountsWithQualitativeText({
-        text: input.data.share[field],
+          text,
         authority
       });
-      input.data.share[field] = replaced.text;
-      financialCount += replaced.replacementCount;
+        return replaced.text;
+      });
     }
     if (input.issues.some((issue) => issue.code === "REPORT_DEBT_COMPLETION_CONFLICT" && issue.path === "share.closingLine")
       && typeof input.data.share.closingLine === "string") {
