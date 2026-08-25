@@ -294,7 +294,11 @@ function nodeCommitSignature(node) {
   });
 }
 
-export async function readLocatorTextInChunks(locator, { chunkSize = 180_000, attempts = 8 } = {}) {
+export async function readLocatorTextInChunks(locator, {
+  chunkSize = 180_000,
+  attempts = 400,
+  retryDelayMs = 50
+} = {}) {
   const readIdentity = () => locator.evaluate((element) => {
     const text = element.textContent || "";
     const samples = [];
@@ -314,6 +318,9 @@ export async function readLocatorTextInChunks(locator, { chunkSize = 180_000, at
   });
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const before = await readIdentity();
+    if (before.length <= chunkSize) {
+      return locator.evaluate((element) => element.textContent || "");
+    }
     let raw = "";
     for (let start = 0; start < before.length; start += chunkSize) {
       raw += await locator.evaluate(
@@ -327,6 +334,9 @@ export async function readLocatorTextInChunks(locator, { chunkSize = 180_000, at
       && before.head === after.head
       && before.tail === after.tail
       && before.samples.join(",") === after.samples.join(",")) return raw;
+    if (attempt + 1 < attempts && retryDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+    }
   }
   throw new Error("Test state changed during every chunked read attempt");
 }

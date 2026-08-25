@@ -62,9 +62,32 @@ test("collector keeps one frozen snapshot when live text changes between chunks"
       return value;
     }
   };
-  const reconstructed = await readLocatorTextInChunks(locator, { chunkSize: 32_000 });
+  const reconstructed = await readLocatorTextInChunks(locator, { chunkSize: 32_000, retryDelayMs: 0 });
   assert.equal(reconstructed, replacement);
   assert.ok(sliceCount > 1);
+});
+
+test("collector waits through more than eight streaming updates before accepting evidence", async () => {
+  let version = 0;
+  let mutationsRemaining = 90;
+  const locator = {
+    evaluate: async (callback, argument) => {
+      const payload = JSON.stringify({ version, history: ["流式节点".repeat(12_000)] });
+      const value = callback({ textContent: payload }, argument);
+      if (typeof value === "string" && argument?.start !== undefined && mutationsRemaining > 0) {
+        version += 1;
+        mutationsRemaining -= 1;
+      }
+      return value;
+    }
+  };
+  const reconstructed = await readLocatorTextInChunks(locator, {
+    chunkSize: 5_000,
+    attempts: 30,
+    retryDelayMs: 0
+  });
+  assert.equal(JSON.parse(reconstructed).version, 90);
+  assert.equal(mutationsRemaining, 0);
 });
 
 test("PB-RUN-01 a new journey never inherits an old same-slug interaction log", () => {
