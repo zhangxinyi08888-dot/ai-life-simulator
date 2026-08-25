@@ -158,6 +158,29 @@ const pendingEmployerOfferPrompt = buildNextNodePrompt({
     }
   }
 });
+const recentPendingEmployerOfferPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "确认新岗位的劳动合同",
+  eventSeed: healthWarningEvent,
+  worldState: {
+    people: [],
+    directionArcs: [],
+    pressureArcs: [],
+    committedTransactionIds: [],
+    version: 2,
+    pendingEmployerOffer: {
+      status: "accepted_pending_start",
+      sourceOutcomeId: "accept_recent_offer",
+      acceptedAtAgeInMonths: 297,
+      fromCareerStateId: "career_legacy",
+      decision: "接受新岗位邀请",
+      evidence: "接受新岗位邀请"
+    }
+  }
+});
 const responsibilityDeltaRetryPrompt = buildNextNodePrompt({
   userData,
   answers,
@@ -687,6 +710,13 @@ assert.match(pendingEmployerOfferPrompt, /实际入职与主角个人税后薪�
 assert.match(pendingEmployerOfferPrompt, /pendingEmployerOfferResolution/);
 assert.match(pendingEmployerOfferPrompt, /action:"started"/);
 assert.match(pendingEmployerOfferPrompt, /accept_ai_startup_offer/);
+assert.match(pendingEmployerOfferPrompt, /已经经过 12 个月/);
+assert.match(pendingEmployerOfferPrompt, /超过 6 个月待确认窗口/);
+assert.match(pendingEmployerOfferPrompt, /本节点必须二选一并形成已发生事实/);
+assert.match(pendingEmployerOfferPrompt, /不得继续写成确认中、交接中、安排中、等待合同或以后再决定/);
+assert.match(recentPendingEmployerOfferPrompt, /已经经过 3 个月/);
+assert.match(recentPendingEmployerOfferPrompt, /尚未超过 6 个月/);
+assert.doesNotMatch(recentPendingEmployerOfferPrompt, /本节点必须二选一并形成已发生事实/);
 assert.match(responsibilityDeltaRetryPrompt, /EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING/);
 assert.match(responsibilityDeltaRetryPrompt, /找\/请康复师或理疗师/);
 assert.match(responsibilityDeltaRetryPrompt, /responsibilityKind="elder_care"/);

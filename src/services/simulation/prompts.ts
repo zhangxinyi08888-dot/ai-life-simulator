@@ -332,6 +332,28 @@ ${expenseLifecycleRetryRule}
 ${formatEmployedIncomeGateRetryRule(input.currentFinancialLedger, reasonCodes, input.currentEmploymentStatus)}`;
 }
 
+const PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS = 6;
+
+function formatPendingEmployerOfferPrompt(input: {
+  worldState?: WorldStateSnapshot;
+  selectedOutcomeId?: string;
+  targetAgeInMonths: number;
+}): string {
+  const offer = input.worldState?.pendingEmployerOffer;
+  if (!offer) return "";
+  const waitedMonths = Math.max(0, input.targetAgeInMonths - offer.acceptedAtAgeInMonths);
+  const overdueResolutionRule = waitedMonths >= PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS
+    ? `- 这份 offer 从接受到本节点已经经过 ${waitedMonths} 个月，超过 ${PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS} 个月待确认窗口。本节点必须二选一并形成已发生事实：A. 已正式到岗，按下方 started 原子事务提交；B. 因合同、薪资或到岗条件未落实而正式撤回，按下方 withdrawn 事务提交。不得继续写成确认中、交接中、安排中、等待合同或以后再决定，也不得让 pending offer 原样跨入下一节点。`
+    : `- 这份 offer 从接受到本节点已经经过 ${waitedMonths} 个月；尚未超过 ${PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS} 个月时，可以如实保留短期交接或合同确认状态，但不能把计划写成已经到岗。`;
+  return `【已接受但尚未生效的外部职位】
+- 主角已接受：${offer.decision}
+- 接受发生在 ageInMonths=${offer.acceptedAtAgeInMonths}，本节点目标 ageInMonths=${input.targetAgeInMonths}。
+- 当前权威 CareerState 与个人工资尚未变化，不能写成已经离职、已入职、开始领取新工资或同时领取两份工资。
+${overdueResolutionRule}
+- 若本轮正式入职，必须同时提供实际入职与主角个人税后薪资事实，并同时返回关联当前 outcome 的 employmentTransition、新职业收入，以及 pendingEmployerOfferResolution={action:"started",pendingOfferSourceOutcomeId:"${offer.sourceOutcomeId}",sourceOutcomeId:"${input.selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；三者缺一不可。若仍在允许的短期交接或确认合同窗口内，则只如实写该状态且不得返回 employmentTransition 或任何职业工资变更。
+- 若正式放弃这份 offer，必须返回一条 type="career_state" worldDelta，并仅填写 pendingEmployerOfferResolution={action:"withdrawn",pendingOfferSourceOutcomeId:"${offer.sourceOutcomeId}",sourceOutcomeId:"${input.selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；不得用普通正文或未经绑定的状态字段清除它。`;
+}
+
 function buildNextNodePromptLegacy(input: NextNodePromptInput): string {
   const { userData, answers, history, currentAttributes, currentFinancialState, currentFinancialLedger, currentDebtHealthState, selectedDecision, eventSeed, storyContext, timelineAdvance, ageContext, worldState, foregroundPressureArc, pressureArcInterleaved } = input;
   const lastNode = history[history.length - 1];
@@ -370,13 +392,11 @@ function buildNextNodePromptLegacy(input: NextNodePromptInput): string {
         return `- familyRelationshipId=${relationship.id}，role=${relationship.role}，人物=${person?.displayName || "未具名父母"}，activation=${relationship.activation}，contact=${relationship.contact}，emotionalSupport=${relationship.emotionalSupport}，practicalSupport=${relationship.practicalSupport}，autonomyRespect=${relationship.autonomyRespect}，conflictIntensity=${relationship.conflictIntensity}，topicStances=${stances}`;
       }).join("\n")
     : "- 暂无权威家庭关系状态；不得根据一般家庭想象补写父母立场或压力";
-  const pendingEmployerOfferPrompt = worldState?.pendingEmployerOffer
-    ? `【已接受但尚未生效的外部职位】
-- 主角已接受：${worldState.pendingEmployerOffer.decision}
-- 该事实只表示 offer 已接受、入职和薪资仍待确认；当前权威 CareerState 与个人工资尚未变化，不能写成已经离职、已入职、开始领取新工资或同时领取两份工资。
-- 若本轮正式入职，必须同时提供实际入职与主角个人税后薪资事实，并同时返回关联当前 outcome 的 employmentTransition、新职业收入，以及 pendingEmployerOfferResolution={action:"started",pendingOfferSourceOutcomeId:"${worldState.pendingEmployerOffer.sourceOutcomeId}",sourceOutcomeId:"${selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；三者缺一不可。若仍在交接或确认合同，则只如实写该状态且不得返回 employmentTransition 或任何职业工资变更。
-- 若正式放弃这份 offer，必须返回一条 type="career_state" worldDelta，并仅填写 pendingEmployerOfferResolution={action:"withdrawn",pendingOfferSourceOutcomeId:"${worldState.pendingEmployerOffer.sourceOutcomeId}",sourceOutcomeId:"${selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；不得用普通正文或未经绑定的状态字段清除它。`
-    : "";
+  const pendingEmployerOfferPrompt = formatPendingEmployerOfferPrompt({
+    worldState,
+    selectedOutcomeId,
+    targetAgeInMonths
+  });
   const pressurePrompt = foregroundPressureArc && pressureArcInterleaved
     ? `pressureArcId=${foregroundPressureArc.id}，phase=${foregroundPressureArc.phaseId}，当前压力主线=${foregroundPressureArc.unresolvedSummary}。本节点是为避免关系 checkpoint 饥饿或越过硬截止而插入 PressureArc 的关系 checkpoint：压力主线只作为背景保留，不得推进、解决或切换 phase；arcSignals 必须返回空数组。`
     : foregroundPressureArc
@@ -815,18 +835,16 @@ function buildNextNodePromptV1(
   const lastNode = history[history.length - 1];
   const lastAge = lastNode ? lastNode.age : (userData.regressionAge || 20);
   const selectedOutcomeId = input.selectedOutcomeId;
-  const pendingEmployerOfferPrompt = worldState?.pendingEmployerOffer
-    ? `【已接受但尚未生效的外部职位】
-- 主角已接受：${worldState.pendingEmployerOffer.decision}
-- 该事实只表示 offer 已接受、入职和薪资仍待确认；当前权威 CareerState 与个人工资尚未变化，不能写成已经离职、已入职、开始领取新工资或同时领取两份工资。
-- 若本轮正式入职，必须同时提供实际入职与主角个人税后薪资事实，并同时返回关联当前 outcome 的 employmentTransition、新职业收入，以及 pendingEmployerOfferResolution={action:"started",pendingOfferSourceOutcomeId:"${worldState.pendingEmployerOffer.sourceOutcomeId}",sourceOutcomeId:"${selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；三者缺一不可。若仍在交接或确认合同，则只如实写该状态且不得返回 employmentTransition 或任何职业工资变更。
-- 若正式放弃这份 offer，必须返回一条 type="career_state" worldDelta，并仅填写 pendingEmployerOfferResolution={action:"withdrawn",pendingOfferSourceOutcomeId:"${worldState.pendingEmployerOffer.sourceOutcomeId}",sourceOutcomeId:"${selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；不得用普通正文或未经绑定的状态字段清除它。`
-    : "";
   const eventSeedPrompt = eventSeed
     ? buildCacheAwareEventIntentTail(eventSeed, storyContext, { referenceContext })
     : buildCacheAwareNullEventTail(storyContext, { referenceContext });
   const targetAgeInMonths = timelineAdvance?.targetAgeInMonths ?? (lastAge + 1) * 12;
   const elapsedMonths = timelineAdvance?.elapsedMonths ?? 12;
+  const pendingEmployerOfferPrompt = formatPendingEmployerOfferPrompt({
+    worldState,
+    selectedOutcomeId,
+    targetAgeInMonths
+  });
   const ageContextPrompt = ageContext ? formatAgeContextForPrompt(ageContext) : `【当前年龄与世界状态】\n- 目标时间：${Math.floor(targetAgeInMonths / 12)}岁`;
   const peoplePrompt = worldState?.people.length
     ? worldState.people.map(formatPersonStateForPrompt).map((item) => `- ${item}`).join("\n")
