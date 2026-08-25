@@ -114,10 +114,10 @@ function mapStringLeaves(value: unknown, transform: (text: string) => string): n
   return replacementCount;
 }
 
-function removeMatchingSentences(text: string, pattern: RegExp): string {
+function removeMatchingSentences(text: string, pattern: RegExp, fallback?: string): string {
   const sentences = text.match(/[^。！？；]+[。！？；]?/gu) || [text];
   const kept = sentences.filter((sentence) => !pattern.test(sentence));
-  return kept.length > 0 ? kept.join("").trim() : text;
+  return kept.length > 0 ? kept.join("").trim() : (fallback || text);
 }
 
 function repairUnsupportedAssetAbsenceClaims(text: string): string {
@@ -207,7 +207,11 @@ function applyTerminalQualityFallback(data: any, issues: UnifiedIssue[]): number
     }
   }
   if (codes.has("FINAL_REPORT_POST_MORTEM_ADVICE")) {
-    count += mapStringLeaves(data?.report, (text) => removeMatchingSentences(text, POST_MORTEM_ADVICE_TEXT));
+    count += mapStringLeaves(data?.report, (text) => removeMatchingSentences(
+      text,
+      POST_MORTEM_ADVICE_TEXT,
+      "这段人生已经走完，留下的是曾经发生的选择与影响。"
+    ));
   }
   if (codes.has("FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT")) {
     count += mapStringLeaves(data?.report, (text) => removeMatchingSentences(text, POST_MORTEM_EXTERNAL_TEXT));

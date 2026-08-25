@@ -528,6 +528,32 @@ test("mortality terminal fallback removes only the remaining invalid future item
   assert.ok(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_POST_MORTEM_CONTINUATION"));
 });
 
+test("mortality terminal fallback replaces an advice-only report leaf after one focused repair", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    context: { closureType: "mortality", invitationReason: "stable_window" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.report.patternsToKeep[0].paragraphs = ["你需要继续保持这种节奏。"];
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(
+    repaired.report.patternsToKeep[0].paragraphs,
+    ["这段人生已经走完，留下的是曾经发生的选择与影响。"]
+  );
+  assert.doesNotMatch(JSON.stringify(repaired), /你需要继续保持/u);
+  assert.ok(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_POST_MORTEM_ADVICE"));
+  assert.ok((repaired.meta.finalOutcomeQualityFallbackCount || 0) >= 1);
+});
+
 test("a debt payoff claim left only in share closing copy is removed without a third model call", async () => {
   let calls = 0;
   const repaired = await generateFinalOutcome({
