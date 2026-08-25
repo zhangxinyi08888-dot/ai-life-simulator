@@ -959,12 +959,13 @@ function pendingEmployerOfferOverdueResolutionIssue(input: {
 function synthesizeSameOutcomePendingEmployerOfferStart(input: {
   current?: PendingEmployerOfferState;
   acceptedOutcomeId?: string;
+  selectedDecision: string;
   narrativeText: string;
   acceptedCareerTransitions: Array<Pick<AcceptedCareerTransition, "fromCareerStateId" | "nextCareerState">>;
 }): PendingEmployerOfferResolution | undefined {
   if (!input.current
     || !input.acceptedOutcomeId
-    || input.current.sourceOutcomeId !== input.acceptedOutcomeId
+    || input.current.decision.trim() !== input.selectedDecision.trim()
     || !hasCompletedAcceptedEmployerRoleStart({
       selectedDecision: input.current.decision,
       narrativeText: input.narrativeText
@@ -3061,6 +3062,7 @@ async function commitAuthoritativeFinancialProgress(input: {
     submittedPendingEmployerOfferResolution = synthesizeSameOutcomePendingEmployerOfferStart({
       current: input.currentWorldState.pendingEmployerOffer,
       acceptedOutcomeId: input.acceptedOutcomeId,
+      selectedDecision: input.selectedDecision || "",
       narrativeText: input.node.description,
       acceptedCareerTransitions
     });
