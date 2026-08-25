@@ -426,6 +426,14 @@ assert.equal(resolvePendingEmployerOffer({
   currentCareerStateId: "career_current",
   acceptedCareerTransitions: []
 }).action, "preserve", "a founder choice is not an employer-offer pending state");
+assert.equal(resolvePendingEmployerOffer({
+  selectedDecision: "接受山区中学的工作坊邀请，把它排进每年讲学的路线里。",
+  acceptedOutcomeId: "run_limited_venture_pilot",
+  narrativeText: "你接下工作坊，按项目提供两天培训，报酬只覆盖路费。",
+  acceptedAtAgeInMonths: 837,
+  currentCareerStateId: "career_current",
+  acceptedCareerTransitions: []
+}).action, "preserve", "a workshop invitation is a limited engagement, not a pending employer offer");
 if (pendingOffer.action === "set") {
   assert.equal(resolvePendingEmployerOffer({
     current: pendingOffer.offer,

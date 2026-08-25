@@ -840,7 +840,11 @@ function isAcceptedEmployerRoleInvitation(
   value: string,
   context: SelfDirectedVentureEvidenceContext = "selected_decision"
 ): boolean {
-  return /(?:接受|选择)[^。；]{0,40}(?:offer|职位|岗位|工作|入职|任职|担任|负责人)/iu.test(value)
+  // A bare `工作` token is too broad: `工作坊邀请` is a limited engagement,
+  // not an employer offer.  Keep explicit job/role language while requiring
+  // `工作` itself to be shaped like a job opportunity rather than merely the
+  // prefix of another noun.
+  return /(?:接受|选择)[^。；]{0,40}(?:offer|职位|岗位|入职|任职|担任|负责人|工作(?:邀请|机会)|(?:一份|这份|那份|新|全职|正式)工作)/iu.test(value)
     && !/(?:外部董事|独立董事|外部顾问|兼职顾问|非执行董事|外部合伙人)/u.test(value)
     && !hasExplicitSelfDirectedVentureEvidence(value, context);
 }
