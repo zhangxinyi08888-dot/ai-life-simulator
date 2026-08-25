@@ -4166,12 +4166,7 @@ function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
     };
   }
 
-  // Do not pass the browser's global `fetch` here. A supplied fetch function is
-  // intentionally the pure-function/test path in deepseekBrowserClient; doing
-  // so skips the CloudBase transport entirely. On a real mini-program that
-  // turns the first background-question request into a Web-only fetch attempt
-  // before the WebSocket/Container route can run.
-  return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt, undefined, deps.signal);
+  return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt, fetch, deps.signal);
 }
 
 function getAiJsonStreamCaller(deps: SimulationServiceDeps, fallbackCaller: AiJsonCaller): AiJsonStreamCaller {
