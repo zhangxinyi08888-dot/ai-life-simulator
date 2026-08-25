@@ -194,7 +194,7 @@ function hasCompletedDebtRestructureEvidence(evidenceText: string): boolean {
   const hardPending = /(?:尚未|还未|未获批|没有获批|等待|待(?:审核|审批|批准)|(?:审核|审批|协商|谈判)中)|(?:如果|若|一旦)[^。；]{0,48}(?:重组|调整|展期|月供|还款)/u.test(text);
   if (hardPending) return false;
 
-  const approvedOrEffective = /(?:(?:申请|审批|审核|重组|调整|展期)[^。；]{0,36}(?:已(?:经)?|正式)?(?:通过|获批|批准|生效|执行|完成)|(?:银行|贷款机构)[^。；]{0,48}(?:已(?:经)?|正式)?(?:通过|获批|批准|同意|确认|完成|实施|执行)[^。；]{0,36}(?:重组|调整|展期|还款计划|月供)|(?:新|调整后(?:的)?)?(?:还款计划|月供)[^。；]{0,36}(?:确认|确认函|获批|批准|已(?:经)?生效|开始执行|正式执行))/u.test(text);
+  const approvedOrEffective = /(?:(?:申请|审批|审核|重组|调整|展期)[^。；]{0,36}(?:已(?:经)?|正式)?(?:通过|获批|批准|生效|执行|完成)|(?:银行|贷款机构)[^。；]{0,48}(?:已(?:经)?|正式)?(?:通过|获批|批准|同意|确认|完成|实施|执行)[^。；]{0,36}(?:重组|调整|展期|还款(?:计划|方案)|月供)|(?:新|调整后(?:的)?)?(?:还款(?:计划|方案)|月供)[^。；]{0,36}(?:确认|确认函|获批|批准|已(?:经)?生效|开始执行|正式执行))/u.test(text);
   if (approvedOrEffective) return true;
 
   const unapprovedApplication = /(?:申请|计划|准备|拟|希望|尝试|考虑|打算)[^。；]{0,20}(?:将|把|申请|调整|重组|展期)[^。；]{0,36}(?:月供|每月(?:还款|偿还)|还款额|还款计划)/u.test(text);
@@ -203,12 +203,12 @@ function hasCompletedDebtRestructureEvidence(evidenceText: string): boolean {
   // A concrete before/after payment statement is a confirmed new repayment
   // plan when there is no pending marker above. It stays narrower than a bare
   // "申请调整月供", which is retained for the gate to reject/retry.
-  return /(?:月供|每月(?:还款|偿还)|还款额)[^。；]{0,48}(?:从|由)[^。；]{0,32}(?:降至|降到(?:了)?|降为|调整为|改为|变为)\s*\d+(?:\.\d+)?\s*(?:万元?|元)/u.test(text);
+  return /(?:月供|每月(?:还款|偿还)|还款额)[^。；]{0,48}(?:从|由)[^。；]{0,32}(?:降至|降到(?:了)?|降为|调整为|改为|变为)\s*(?:约|大约)?\s*\d+(?:\.\d+)?\s*(?:万元?|元)/u.test(text);
 }
 
 function explicitRestructuredMonthlyPaymentWan(evidenceText: string): number | undefined {
   const text = evidenceText.normalize("NFKC");
-  const match = text.match(/(?:月供|每月(?:还款|偿还)|还款额)[^。；]{0,64}?(?:降至|降到(?:了)?|降为|调整为|改为|变为)\s*(\d+(?:\.\d+)?)\s*(万元?|元)/u);
+  const match = text.match(/(?:月供|每月(?:还款|偿还)|还款额)[^。；]{0,64}?(?:降至|降到(?:了)?|降为|调整为|改为|变为)\s*(?:约|大约)?\s*(\d+(?:\.\d+)?)\s*(万元?|元)/u);
   if (!match) return undefined;
   const amount = Number(match[1]);
   if (!Number.isFinite(amount) || amount <= 0) return undefined;

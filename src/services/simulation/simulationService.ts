@@ -1939,8 +1939,10 @@ export function settleRejectedFinancialProposalIssues(input: {
 export function synthesizeMissingDebtCompletionProposals(input: {
   proposals: FinancialEventProposal[];
   narrativeText: string;
+  selectedDecision?: string;
   acceptedOutcomeId?: string;
   effectiveAtAgeInMonths: number;
+  currentLedger?: FinancialLedger;
 }): FinancialEventProposal[] {
   if (!input.acceptedOutcomeId) return input.proposals;
   const proposals = [...input.proposals];
@@ -1952,14 +1954,35 @@ export function synthesizeMissingDebtCompletionProposals(input: {
   ) => {
     if (!claimsCompletion || proposals.some((proposal) => proposal.kind === kind)) return;
     const evidence = sentences.find(evidenceMatches) || "";
+    const activeDebts = input.currentLedger?.debtAccounts.filter((account) => (
+      account.status === "active" || account.status === "defaulted"
+    )) || [];
+    const decision = input.selectedDecision?.normalize("NFKC").trim() || "";
+    const explicitlyAcceptedRestructure = kind === "debt_restructured"
+      && /(?:接受|同意|确认|选择)[^。；]{0,48}(?:债务重组|贷款重组|还款重组|展期|延长(?:还款)?(?:期限|年限)|调整还款(?:安排|计划)|月供[^。；]{0,20}(?:降至|降到|降为|调整为))/u.test(decision);
+    const narrowedDebts = /房贷|按揭|住房贷款/u.test(decision)
+      ? activeDebts.filter((account) => account.type === "mortgage")
+      : activeDebts;
+    const selectedDebt = explicitlyAcceptedRestructure && narrowedDebts.length === 1
+      ? narrowedDebts[0]
+      : undefined;
     proposals.push({
       id: `missing_${kind}_${input.effectiveAtAgeInMonths}`,
       kind,
       effectiveAtAgeInMonths: input.effectiveAtAgeInMonths,
-      payload: {},
+      payload: selectedDebt ? {
+        oldDebtAccountId: selectedDebt.id,
+        replacementDebtAccount: {
+          id: `${selectedDebt.id}_restructured_${input.effectiveAtAgeInMonths}`,
+          type: selectedDebt.type,
+          principalWan: selectedDebt.principalWan
+        },
+        transactionFeeWan: 0
+      } : {},
       sourceOutcomeId: input.acceptedOutcomeId,
       evidence,
-      confidence: 0
+      confidence: selectedDebt ? 1 : 0,
+      ...(selectedDebt ? { financialScope: "personal" as const } : {})
     });
   };
   appendMissing(
@@ -3148,8 +3171,16 @@ async function commitAuthoritativeFinancialProgress(input: {
   const initialLedger = isFinancialLedgerV4(compatibleInitialLedger)
     ? compatibleInitialLedger
     : migrationPreflight!.ledger;
+  const rawFinancialProposals = synthesizeMissingDebtCompletionProposals({
+    proposals: rawFinancialEventProposals(input.rawNode),
+    narrativeText: input.node.description,
+    selectedDecision: input.selectedDecision,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    effectiveAtAgeInMonths: input.periodEndAgeInMonths,
+    currentLedger: initialLedger
+  });
   const normalizedFinancial = normalizeFinancialProposals({
-        proposals: rawFinancialEventProposals(input.rawNode),
+        proposals: rawFinancialProposals,
         acceptedOutcomeIds: input.acceptedOutcomeId ? [input.acceptedOutcomeId] : [],
         currentLedger: initialLedger,
         currentCareerStateId: currentCareer.id,
@@ -3167,12 +3198,6 @@ async function commitAuthoritativeFinancialProgress(input: {
     }),
     ...studentEngagement.proposals
   ];
-  normalizedFinancial.proposals = synthesizeMissingDebtCompletionProposals({
-    proposals: normalizedFinancial.proposals,
-    narrativeText: input.node.description,
-    acceptedOutcomeId: input.acceptedOutcomeId,
-    effectiveAtAgeInMonths: input.periodEndAgeInMonths
-  });
   normalizedFinancial.proposals = synthesizeMissingBusinessHoldingStartProposal({
     proposals: normalizedFinancial.proposals,
     narrativeText: input.node.description,
