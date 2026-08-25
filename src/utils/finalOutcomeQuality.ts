@@ -431,8 +431,12 @@ export function buildFinalOutcomeRepairPrompt(input: {
     : "";
   const strictClaimRepair = input.issues.some((issue) => [
     "REPORT_DEBT_COMPLETION_CONFLICT",
+    "REPORT_NEGATIVE_NET_WORTH_CONFLICT",
     "REPORT_PROPERTY_ABSENCE_OVERCLAIM",
+    "REPORT_ASSET_ABSENCE_OVERCLAIM",
+    "REPORT_PROPERTY_CONFLICT",
     "REPORT_NEGATIVE_NET_WORTH_ROMANTICIZATION",
+    "FINAL_REPORT_RAW_ATTRIBUTE_SCORE",
     "FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT",
     "FINAL_REPORT_UNGROUNDED_SCALE_CLAIM"
   ].includes(issue.code))
@@ -440,10 +444,11 @@ export function buildFinalOutcomeRepairPrompt(input: {
 - 对每个被点名 path 只删除或改写冲突句，不得把同一断言搬到其他字段。
 - 若权威账本仍有债务，全文不得出现“还清、清零、偿清、债务结束、终于无债”等完成语义；只能写仍有负担、仍在偿付或财务压力仍存在。
 - 不得把负净资产、现金见底或未偿债务浪漫化成“财富自由、财务圆满、已经翻身、没有留下负担”。
-- no_confirmed_property 只表示房产未知，不能写成没有房产、从未置业或名下无房。
+- no_confirmed_property 只表示房产未知：不能写成没有房产、从未置业、名下无房或没有其他可变现资产；也不能写拥有、买下、卖掉、抵押、房产升值或房贷压力。被点名字段应改回由历史锚点直接支持、且不讨论房产或资产有无的具体人生模式。
+- 删除“幸福/才智/财富/人际/健康达到多少分”等内部属性分数表达；不得换一种句式把这些分数搬到其他字段，也不得把分数改写成金额或比例。
 - mortality 报告不得编造遗产清算、继承人、家人/机构接手债务、法律程序，也不得写死后继续还款或继续行动。
 - “无数、成千上万、全国、多所学校、多个县域、一代代、广泛采用、参考案例”等规模结论，只有历史锚点逐字支持时才能保留；否则改成不扩大范围的具体局部影响。
-- 修复完成后对完整 JSON 做一次自检：上述禁句在任何 share/report 字段都不得残留。`
+- 修复完成后逐一对照【全部问题】中的 path，再对完整 JSON 做一次自检：上述禁句、内部属性分数、房产拥有/处置断言和资产不存在断言在任何 share/report 字段都不得残留。`
     : "";
   const posterCopyRepair = input.issues.some((issue) => issue.code === "FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED")
     ? `\n【分享海报内容预算定向修复】

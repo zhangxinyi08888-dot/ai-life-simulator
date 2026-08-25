@@ -115,6 +115,18 @@ test("a signed home contract after concrete down-payment context requires a prop
   assert.equal(issues.some((issue) => issue.id === "narrative_coverage_mortgage_332"), false);
 });
 
+test("a completed purchase-contract phrase from a selected home purchase cannot advance without an asset transaction", () => {
+  const issues = detectNarrativeFinancialCoverageIssues({
+    narrativeText: "签完购房合同的那个下午，你站在即将属于你们的小两居里。首付用掉你存款的大半，剩下的钱刚好够简单装修。",
+    ledger,
+    acceptedEvents: [],
+    ageInMonths: 336
+  });
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_property_336"), true);
+  assert.equal(issues.find((issue) => issue.id === "narrative_coverage_property_336")?.severity, "blocking");
+  assert.equal(issues.some((issue) => issue.id === "narrative_coverage_mortgage_336"), false);
+});
+
 test("first-person completed small-home purchase and released loan require property and mortgage facts", () => {
   const issues = detectNarrativeFinancialCoverageIssues({
     narrativeText: "我们终于决定把城郊那套看了很久的小户型买下来。首付用掉了大部分积蓄，贷款已经发放并开始月供。",

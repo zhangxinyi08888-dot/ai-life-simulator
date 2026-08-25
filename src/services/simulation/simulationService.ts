@@ -1220,7 +1220,7 @@ export function detectNarrativeFinancialCoverageIssues(input: {
   // and reject a rental contract explicitly, so a future home plan plus a
   // present lease cannot become a false-positive property purchase.
   const completedHomeContractFact = protagonistSentences.some((sentence, index) => {
-    const completedContract = /(?:签(?:了|订了)?(?:购房|房屋买卖|买房)?合同|签订(?:了)?(?:购房|房屋买卖|买房)合同|签合同那天|完成网签|办理(?:了)?房贷)/u.test(sentence);
+    const completedContract = /(?:签(?:完|下|了|订了)?(?:购房|房屋买卖|买房)?合同|签订(?:完|了)?(?:购房|房屋买卖|买房)合同|签合同那天|完成网签|办理(?:了)?房贷)/u.test(sentence);
     if (!completedContract || /(?:租房|租约|租赁)/u.test(sentence)) return false;
     const nearbyHomeContext = protagonistSentences.slice(Math.max(0, index - 2), index + 1).join(" ");
     if (/(?:租房|租约|租赁|续租|房东|房客)/u.test(nearbyHomeContext)) return false;

@@ -187,6 +187,38 @@ test("incomplete final report receives one focused quality repair", async () => 
   assert.equal(repaired.report.executiveSummary.patterns.length, 3);
 });
 
+test("relationship-route score and unknown-asset claims receive executable unified repair rules", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history: historyWithOutstandingDebt(),
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "arc_resolved" }
+  }, {
+    callAiJson: async (prompt) => {
+      calls += 1;
+      const payload = completePayload();
+      if (calls === 1) {
+        payload.report.futureTrends[0].trend = "财富达到58分，而且没有其他可变现资产。";
+        payload.report.futureTrends[0].reason = "你卖掉自己的公寓后会重新安排生活。";
+        return { text: JSON.stringify(payload) };
+      }
+      assert.match(prompt, /FINAL_REPORT_RAW_ATTRIBUTE_SCORE/u);
+      assert.match(prompt, /REPORT_ASSET_ABSENCE_OVERCLAIM/u);
+      assert.match(prompt, /REPORT_PROPERTY_CONFLICT/u);
+      assert.match(prompt, /内部属性分数/u);
+      assert.match(prompt, /没有其他可变现资产/u);
+      assert.match(prompt, /拥有、买下、卖掉、抵押、房产升值或房贷压力/u);
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_RAW_ATTRIBUTE_SCORE"), true);
+  assert.equal(repaired.meta.financialClaimViolationCodes?.includes("REPORT_ASSET_ABSENCE_OVERCLAIM"), true);
+  assert.equal(repaired.meta.financialClaimViolationCodes?.includes("REPORT_PROPERTY_CONFLICT"), true);
+});
+
 test("a still-incomplete focused repair is rejected instead of normalized with templates", async () => {
   let calls = 0;
   await assert.rejects(
