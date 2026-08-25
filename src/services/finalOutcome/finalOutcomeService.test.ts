@@ -219,6 +219,29 @@ test("relationship-route score and unknown-asset claims receive executable unifi
   assert.equal(repaired.meta.financialClaimViolationCodes?.includes("REPORT_PROPERTY_CONFLICT"), true);
 });
 
+test("a repeated unknown-asset absence overclaim is deterministically downgraded after focused repair", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history: historyWithOutstandingDebt(),
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "stable_window" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.report.patternEffects[0].paragraphs.push("你没有房产或其他可变现资产。");
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.equal(repaired.meta.financialClaimFallbackCount, 1);
+  assert.equal(repaired.meta.financialClaimViolationCodes?.includes("REPORT_ASSET_ABSENCE_OVERCLAIM"), true);
+  assert.match(repaired.report.patternEffects[0].paragraphs[1], /缺少可靠记录/u);
+  assert.doesNotMatch(JSON.stringify(repaired), /没有房产或其他可变现资产/u);
+});
+
 test("a still-incomplete focused repair is rejected instead of normalized with templates", async () => {
   let calls = 0;
   await assert.rejects(

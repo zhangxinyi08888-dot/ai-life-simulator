@@ -88,6 +88,8 @@ function invalidAfterRepair(issues: UnifiedIssue[]): AiClientError {
 const POST_MORTEM_CONTINUATION_TEXT = /(?:^|[，。；])你(?:将|会|仍|继续|开始|需要|应该|可以)|你的(?:债务|还款)[^。！？]{0,30}(?:继续|未来)|由(?:家人|亲友|捐赠人|法定继承人|遗产管理人)[^。！？]{0,24}(?:偿还|承担|处置)|(?:法定继承人|遗产管理人|遗产清算|变卖资产|协商分期偿还)/u;
 const POST_MORTEM_ADVICE_TEXT = /(?:如果我是十年后的你|未来的你|下一阶段|请(?:继续|保持|勿|不要)|你(?:需要|应该|应当|仍需|还要|要继续))/u;
 const POST_MORTEM_EXTERNAL_TEXT = /(?:遗产清偿|遗产清算|遗产管理人|法定继承人|法律程序|无人追讨|变卖资产|协商分期偿还)|(?:(?:家人|家庭|父母|亲友|机构)[^。！？]{0,32}(?:债务|负债|偿还|承担|接手|负担)|(?:债务|负债)[^。！？]{0,32}(?:家人|家庭|父母|亲友|机构)[^。！？]{0,16}(?:偿还|承担|接手|负担)?)/u;
+const TERMINAL_PROPERTY_ABSENCE_OVERCLAIM = /(?:(?:没有|并无|名下无|未持有|从未拥有)(?!已确认)(?:任何|一套|属于自己的|自己的)?(?:房屋|房产|住房|公寓)|(?:房屋|房产|住房|公寓)[^。！？]{0,8}(?:并不存在|不存在|一套也没有))/u;
+const TERMINAL_ASSET_ABSENCE_OVERCLAIM = /(?:没有|并无|不存在)[^。！？]{0,10}(?:其他)?(?:可变现|流动|个人)?资产/u;
 
 function mapStringLeaves(value: unknown, transform: (text: string) => string): number {
   let replacementCount = 0;
@@ -113,6 +115,19 @@ function removeMatchingSentences(text: string, pattern: RegExp): string {
   const sentences = text.match(/[^。！？；]+[。！？；]?/gu) || [text];
   const kept = sentences.filter((sentence) => !pattern.test(sentence));
   return kept.length > 0 ? kept.join("").trim() : text;
+}
+
+function repairUnsupportedAssetAbsenceClaims(text: string): string {
+  const sentences = text.match(/[^。！？；]+[。！？；]?/gu) || [text];
+  return sentences.map((sentence) => {
+    const property = TERMINAL_PROPERTY_ABSENCE_OVERCLAIM.test(sentence);
+    const asset = TERMINAL_ASSET_ABSENCE_OVERCLAIM.test(sentence);
+    if (!property && !asset) return sentence;
+    const punctuation = sentence.match(/[。！？；]$/u)?.[0] || "";
+    if (property && asset) return `房产及其他资产情况缺少可靠记录${punctuation}`;
+    if (property) return `房产情况缺少可靠记录${punctuation}`;
+    return `其他资产情况缺少可靠记录${punctuation}`;
+  }).join("").trim();
 }
 
 function applyTerminalQualityFallback(data: any, issues: UnifiedIssue[]): number {
@@ -162,6 +177,9 @@ function applyTerminalFallback(input: {
     issue.code === "FINAL_REPORT_UNSUPPORTED_DURATION" && issue.path === "share.viralTitle"
   ) || (
     issue.code === "REPORT_DEBT_COMPLETION_CONFLICT" && issue.path === "share.closingLine"
+  ) || (
+    issue.code === "REPORT_PROPERTY_ABSENCE_OVERCLAIM"
+    || issue.code === "REPORT_ASSET_ABSENCE_OVERCLAIM"
   ) || [
     "FINAL_REPORT_POST_MORTEM_CONTINUATION",
     "FINAL_REPORT_POST_MORTEM_ADVICE",
@@ -189,6 +207,12 @@ function applyTerminalFallback(input: {
       const repaired = removeUnsupportedDebtCompletionClauses(input.data.share.closingLine);
       input.data.share.closingLine = repaired.text || input.data.share.oneLineSummary;
       financialCount += repaired.removalCount;
+    }
+    if (input.issues.some((issue) => (
+      issue.code === "REPORT_PROPERTY_ABSENCE_OVERCLAIM"
+      || issue.code === "REPORT_ASSET_ABSENCE_OVERCLAIM"
+    ))) {
+      financialCount += mapStringLeaves(input.data, repairUnsupportedAssetAbsenceClaims);
     }
   }
   let qualityCount = 0;
