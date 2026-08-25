@@ -443,6 +443,14 @@ assert.equal(resolvePendingEmployerOffer({
   currentCareerStateId: "career_current",
   acceptedCareerTransitions: []
 }).action, "preserve", "a current-role salary plan is compensation, not another employer offer");
+assert.equal(resolvePendingEmployerOffer({
+  selectedDecision: "接受周宁的引荐，先和她厂里的信息化负责人做一次非正式流程诊断，了解需求和预算，但明确不承诺排期。",
+  acceptedOutcomeId: "explore_factory_diagnostic",
+  narrativeText: "你与信息化负责人完成了需求诊断，没有承诺排期，也没有接受任何岗位。",
+  acceptedAtAgeInMonths: 382,
+  currentCareerStateId: "career_self_employed",
+  acceptedCareerTransitions: []
+}).action, "preserve", "an introduction to a business contact who is a department lead is not an employer offer");
 assert.equal(synthesizeSelectedCareerTransition({
   selectedDecision: currentRoleSalaryDecision,
   narrativeText: "你继续担任产品负责人，税后月薪调整为2.8万元。",
