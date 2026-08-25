@@ -15,6 +15,8 @@ import {
 import {
   buildFinalOutcomeRepairPrompt,
   collectFinalOutcomeQualityIssues,
+  SHARE_POSTER_COPY_BUDGET,
+  sharePosterDisplayUnits,
   type FinalOutcomeQualityIssue
 } from "../../utils/finalOutcomeQuality";
 
@@ -90,6 +92,7 @@ const POST_MORTEM_ADVICE_TEXT = /(?:如果我是十年后的你|未来的你|下
 const POST_MORTEM_EXTERNAL_TEXT = /(?:遗产清偿|遗产清算|遗产管理人|法定继承人|法律程序|无人追讨|变卖资产|协商分期偿还)|(?:(?:家人|家庭|父母|亲友|机构)[^。！？]{0,32}(?:债务|负债|偿还|承担|接手|负担)|(?:债务|负债)[^。！？]{0,32}(?:家人|家庭|父母|亲友|机构)[^。！？]{0,16}(?:偿还|承担|接手|负担)?)/u;
 const TERMINAL_PROPERTY_ABSENCE_OVERCLAIM = /(?:(?:没有|并无|名下无|未持有|从未拥有)(?!已确认)(?:任何|一套|属于自己的|自己的)?(?:房屋|房产|住房|公寓)|(?:房屋|房产|住房|公寓)[^。！？]{0,8}(?:并不存在|不存在|一套也没有))/u;
 const TERMINAL_ASSET_ABSENCE_OVERCLAIM = /(?:没有|并无|不存在)[^。！？]{0,10}(?:其他)?(?:可变现|流动|个人)?资产/u;
+const TERMINAL_RAW_ATTRIBUTE_SCORE = /(?:幸福|才智|财富|人际|健康)(?:度)?\s*(?:为|达到|有)?\s*\d+(?:\.\d+)?\s*分?|\d+(?:\.\d+)?\s*分(?:的)?(?:幸福|才智|财富|人际|健康)/gu;
 
 function mapStringLeaves(value: unknown, transform: (text: string) => string): number {
   let replacementCount = 0;
@@ -130,6 +133,63 @@ function repairUnsupportedAssetAbsenceClaims(text: string): string {
   }).join("").trim();
 }
 
+function repairRawAttributeScores(text: string): string {
+  return text.replace(TERMINAL_RAW_ATTRIBUTE_SCORE, (claim) => {
+    if (/幸福/u.test(claim)) return "幸福感的变化";
+    if (/才智/u.test(claim)) return "认知能力的积累";
+    if (/财富/u.test(claim)) return "财务状态的变化";
+    if (/人际/u.test(claim)) return "关系状态的变化";
+    return "健康状态的变化";
+  });
+}
+
+function trimToPosterBudget(text: string, maximumUnits: number): string {
+  if (sharePosterDisplayUnits(text) <= maximumUnits) return text;
+  let units = 0;
+  let trimmed = "";
+  for (const character of [...text.trim()]) {
+    const nextUnits = units + (/^[\u0000-\u00ff]$/u.test(character) ? 0.5 : 1);
+    if (nextUnits > maximumUnits) break;
+    trimmed += character;
+    units = nextUnits;
+  }
+  return trimmed.replace(/[，、：；\-—]+$/u, "").trim();
+}
+
+function applyPosterBudgetFallback(data: any, issues: UnifiedIssue[]): number {
+  let count = 0;
+  for (const issue of issues) {
+    if (issue.code !== "FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED") continue;
+    const direct = issue.path.match(/^share\.(viralTitle|oneLineSummary|closingLine)$/u);
+    if (direct) {
+      const key = direct[1] as keyof typeof SHARE_POSTER_COPY_BUDGET;
+      const value = data?.share?.[key];
+      if (typeof value !== "string") continue;
+      const repaired = trimToPosterBudget(value, SHARE_POSTER_COPY_BUDGET[key]);
+      if (repaired && repaired !== value) {
+        data.share[key] = repaired;
+        count += 1;
+      }
+      continue;
+    }
+    const timeline = issue.path.match(/^share\.timeline\[(\d+)\]\.(title|choiceSummary)$/u);
+    if (!timeline) continue;
+    const item = data?.share?.timeline?.[Number(timeline[1])];
+    const field = timeline[2] as "title" | "choiceSummary";
+    const value = item?.[field];
+    if (typeof value !== "string") continue;
+    const maximum = field === "title"
+      ? SHARE_POSTER_COPY_BUDGET.timelineTitle
+      : SHARE_POSTER_COPY_BUDGET.timelineChoiceSummary;
+    const repaired = trimToPosterBudget(value, maximum);
+    if (repaired && repaired !== value) {
+      item[field] = repaired;
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function applyTerminalQualityFallback(data: any, issues: UnifiedIssue[]): number {
   let count = 0;
   const codes = new Set(issues.map((issue) => issue.code));
@@ -162,6 +222,12 @@ function applyTerminalQualityFallback(data: any, issues: UnifiedIssue[]): number
       .replace(/多所(?:学校|中学)/gu, "相关学校")
       .replace(/(?:多个|更多|多地)县域/gu, "相关县域"));
   }
+  if (codes.has("FINAL_REPORT_RAW_ATTRIBUTE_SCORE")) {
+    count += mapStringLeaves(data, repairRawAttributeScores);
+  }
+  if (codes.has("FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED")) {
+    count += applyPosterBudgetFallback(data, issues);
+  }
   return count;
 }
 
@@ -183,7 +249,9 @@ function applyTerminalFallback(input: {
     "FINAL_REPORT_POST_MORTEM_CONTINUATION",
     "FINAL_REPORT_POST_MORTEM_ADVICE",
     "FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT",
-    "FINAL_REPORT_UNGROUNDED_SCALE_CLAIM"
+    "FINAL_REPORT_UNGROUNDED_SCALE_CLAIM",
+    "FINAL_REPORT_RAW_ATTRIBUTE_SCORE",
+    "FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED"
   ].includes(issue.code);
   if (input.issues.length === 0 || input.issues.some((issue) => !supportedIssue(issue))) {
     return { financialCount: 0, qualityCount: 0 };

@@ -4,6 +4,7 @@ import { HistoryItem, LifeAttributes, QuestionTurn, UserInitialData } from "../.
 import { initializeFinancialLedger } from "../../domain/finance/initializeLedger";
 import { PRIMARY_CASH_ACCOUNT_ID } from "../../domain/finance/ledgerMath";
 import type { DebtAccount, FinancialEvidence } from "../../domain/finance/types";
+import { sharePosterDisplayUnits } from "../../utils/finalOutcomeQuality";
 import { generateFinalOutcome } from "./finalOutcomeService";
 
 const userData: UserInitialData = {
@@ -313,6 +314,34 @@ test("Venture-length poster copy receives one targeted budget repair", async () 
   assert.equal(repaired.share.viralTitle, "重生之我让公司重新站稳");
   assert.equal(repaired.meta.finalOutcomeQualityRepairTriggered, true);
   assert.equal(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED"), true);
+});
+
+test("terminal fallback bounds poster copy and removes raw attribute scores left after repair", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    context: { closureType: "user_reflection", invitationReason: "stable_window" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.share.viralTitle = "我在漫长人生里把每一次选择都变成可持续的教育实践与关系承诺";
+      payload.report.patternEffects[0].compoundReturn = "财富达到58分，也让我更敢于继续投入。";
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.ok(sharePosterDisplayUnits(repaired.share.viralTitle) <= 24);
+  assert.doesNotMatch(JSON.stringify(repaired), /财富达到58分/u);
+  assert.match(repaired.report.patternEffects[0].compoundReturn, /财务状态的变化/u);
+  assert.equal(repaired.meta.finalOutcomeQualityFallbackCount, 2);
+  assert.deepEqual(
+    repaired.meta.finalOutcomeQualityIssueCodes?.sort(),
+    ["FINAL_REPORT_POSTER_COPY_BUDGET_EXCEEDED", "FINAL_REPORT_RAW_ATTRIBUTE_SCORE"].sort()
+  );
 });
 
 test("financial and structural issues share one repair and never trigger a third call", async () => {
