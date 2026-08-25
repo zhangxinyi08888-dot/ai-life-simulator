@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -15,6 +15,16 @@ import {
 import { verifyReleaseApproval } from "./verify-release-approval.mjs";
 
 const execFileAsync = promisify(execFile);
+
+test("Vite replaces shared Taro finance-policy environment reads before browser execution", async () => {
+  const source = await readFile(new URL("../vite.config.ts", import.meta.url), "utf8");
+  assert.match(source, /'process\.env\.TARO_APP_FINANCIAL_NODE_GATE_MODE'/u);
+  assert.match(source, /process\.env\.VITE_FINANCIAL_NODE_GATE_MODE/u);
+  assert.match(source, /'process\.env\.TARO_APP_EXPENSE_LIFECYCLE_MODE'/u);
+  assert.match(source, /process\.env\.VITE_EXPENSE_LIFECYCLE_MODE/u);
+  assert.match(source, /'process\.env\.TARO_APP_EXPENSE_NARRATIVE_BINDING_MODE'/u);
+  assert.match(source, /process\.env\.VITE_EXPENSE_NARRATIVE_BINDING_MODE/u);
+});
 
 async function createRepository() {
   const repositoryPath = await mkdtemp(path.join(os.tmpdir(), "ai-life-release-candidate-"));
@@ -105,6 +115,7 @@ test("candidate runtime server receives the frozen non-secret identity and effec
       VITE_DEEPSEEK_BASE_URL: "https://example.test/",
       VITE_FINANCIAL_NODE_GATE_MODE: "shadow",
       VITE_EXPENSE_LIFECYCLE_MODE: "enforced",
+      VITE_EXPENSE_NARRATIVE_BINDING_MODE: "shadow",
       VITE_ENABLE_CANDIDATE_PATCH_REPAIR: "true"
     })
   };
@@ -112,6 +123,7 @@ test("candidate runtime server receives the frozen non-secret identity and effec
   assert.equal(environment.BASE_PATH, "/release/");
   assert.equal(environment.VITE_DEEPSEEK_MODEL, "test-model");
   assert.equal(environment.VITE_DEEPSEEK_BASE_URL, "https://example.test");
+  assert.equal(environment.VITE_EXPENSE_NARRATIVE_BINDING_MODE, "shadow");
   assert.equal(environment.VITE_RELEASE_CANDIDATE_ID, candidate.candidateId);
   assert.equal(environment.VITE_RELEASE_RUNTIME_FINGERPRINT, candidate.runtimeFingerprint);
 });

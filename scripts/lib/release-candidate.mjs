@@ -32,6 +32,7 @@ export const RELEASE_ENVIRONMENT_DEFAULTS = Object.freeze({
   modelBaseUrl: "https://api.deepseek.com",
   financialNodeGateMode: "enforced",
   expenseLifecycleMode: "enforced",
+  expenseNarrativeBindingMode: "enforced",
   enableCandidatePatchRepair: "false"
 });
 
@@ -92,6 +93,10 @@ export function resolveReleaseEnvironment(env = process.env) {
       effectiveString(env.VITE_EXPENSE_LIFECYCLE_MODE, RELEASE_ENVIRONMENT_DEFAULTS.expenseLifecycleMode),
       "expenseLifecycleMode"
     ),
+    expenseNarrativeBindingMode: normalizeMode(
+      effectiveString(env.VITE_EXPENSE_NARRATIVE_BINDING_MODE, RELEASE_ENVIRONMENT_DEFAULTS.expenseNarrativeBindingMode),
+      "expenseNarrativeBindingMode"
+    ),
     enableCandidatePatchRepair: normalizeBooleanString(
       effectiveString(env.VITE_ENABLE_CANDIDATE_PATCH_REPAIR, RELEASE_ENVIRONMENT_DEFAULTS.enableCandidatePatchRepair)
     )
@@ -114,6 +119,7 @@ export function assertCompleteReleaseEnvironment(environment) {
     VITE_DEEPSEEK_BASE_URL: environment.modelBaseUrl,
     VITE_FINANCIAL_NODE_GATE_MODE: environment.financialNodeGateMode,
     VITE_EXPENSE_LIFECYCLE_MODE: environment.expenseLifecycleMode,
+    VITE_EXPENSE_NARRATIVE_BINDING_MODE: environment.expenseNarrativeBindingMode,
     VITE_ENABLE_CANDIDATE_PATCH_REPAIR: environment.enableCandidatePatchRepair
   });
 }
@@ -132,6 +138,7 @@ export function releaseRuntimeEnvFromCandidate(candidate) {
     VITE_DEEPSEEK_BASE_URL: environment.modelBaseUrl,
     VITE_FINANCIAL_NODE_GATE_MODE: environment.financialNodeGateMode,
     VITE_EXPENSE_LIFECYCLE_MODE: environment.expenseLifecycleMode,
+    VITE_EXPENSE_NARRATIVE_BINDING_MODE: environment.expenseNarrativeBindingMode,
     VITE_ENABLE_CANDIDATE_PATCH_REPAIR: environment.enableCandidatePatchRepair,
     VITE_RELEASE_CANDIDATE_ID: identity.candidateId,
     VITE_RELEASE_SOURCE_COMMIT: identity.sourceCommit,

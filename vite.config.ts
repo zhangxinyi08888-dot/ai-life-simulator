@@ -6,6 +6,15 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     base: process.env.BASE_PATH || '/',
+    // Shared finance policy code is also compiled by Taro and reads the
+    // TARO_APP_* names.  Replace those exact expressions in the Web bundle so
+    // the browser never needs a Node `process` global while both platforms
+    // keep the same enforced-by-default policy contract.
+    define: {
+      'process.env.TARO_APP_FINANCIAL_NODE_GATE_MODE': JSON.stringify(process.env.VITE_FINANCIAL_NODE_GATE_MODE || ''),
+      'process.env.TARO_APP_EXPENSE_LIFECYCLE_MODE': JSON.stringify(process.env.VITE_EXPENSE_LIFECYCLE_MODE || ''),
+      'process.env.TARO_APP_EXPENSE_NARRATIVE_BINDING_MODE': JSON.stringify(process.env.VITE_EXPENSE_NARRATIVE_BINDING_MODE || '')
+    },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
