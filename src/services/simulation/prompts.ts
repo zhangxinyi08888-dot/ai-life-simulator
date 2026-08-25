@@ -332,7 +332,7 @@ ${expenseLifecycleRetryRule}
 ${formatEmployedIncomeGateRetryRule(input.currentFinancialLedger, reasonCodes, input.currentEmploymentStatus)}`;
 }
 
-const PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS = 6;
+export const PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS = 6;
 
 function formatPendingEmployerOfferPrompt(input: {
   worldState?: WorldStateSnapshot;

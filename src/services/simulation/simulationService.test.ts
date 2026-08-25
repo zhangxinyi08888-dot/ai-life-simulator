@@ -2628,7 +2628,13 @@ const pendingOfferHistory: HistoryItem[] = [{
     id: "A",
     text: careerAuthorityDecision,
     impactSummary: "进入创业公司",
-    eventOutcomeId: "join_ai_startup_product_lead"
+    eventOutcomeId: "join_ai_startup_product_lead",
+    temporalHint: {
+      durationMonths: [3, 3],
+      lifeIntensity: "normal",
+      requiresFollowUp: true,
+      reason: "短期合同与交接确认窗口"
+    }
   }]
 }];
 const pendingOfferIncomeBefore = pendingOfferHistory[0]!.financialLedger?.incomeSources.find((source) => source.status === "active");
@@ -2674,6 +2680,110 @@ assert.equal(
   "offer acceptance must preserve the old linked salary until actual entry"
 );
 assert.equal(pendingOfferNode.financialProcessingMeta?.acceptedCareerTransitionCount, 0);
+
+// The selected decision is already the accepted input to the next
+// transaction. An explicit start window must therefore enter the candidate
+// baseline before generation, rather than appearing one committed node late.
+// Once the bounded window is exceeded, a generic progress node is rejected
+// and the single full regeneration must start or withdraw the offer.
+const immediateOfferDecision = "接受创业公司的产品负责人邀请，下个月入职，用两年验证产品";
+const immediateOfferOutcomeId = "join_ai_startup_product_lead_immediate";
+const immediateOfferHistory: HistoryItem[] = [{
+  ...structuredClone(nextNode),
+  selectedChoice: immediateOfferDecision,
+  selectedDecisionIntent: "career:accept_offer:ai_startup_product_head_immediate",
+  choices: [{
+    id: "A",
+    text: immediateOfferDecision,
+    impactSummary: "下月入职",
+    eventOutcomeId: immediateOfferOutcomeId,
+    temporalHint: {
+      durationMonths: [10, 10],
+      lifeIntensity: "normal",
+      requiresFollowUp: true,
+      reason: "显式下月入职不得跨越一个实质节点"
+    }
+  }]
+}];
+const immediateOfferPrompts: string[] = [];
+let immediateOfferCalls = 0;
+const immediateOfferNode = await generateNextNode({
+  userData,
+  answers,
+  history: immediateOfferHistory,
+  currentAttributes: nextNode.attributes,
+  selectedDecision: immediateOfferDecision,
+  nodeIndex: 2,
+  simulationSeed: "pending-employer-offer-visible-before-first-candidate"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget(),
+  callAiJson: async (prompt) => {
+    immediateOfferCalls += 1;
+    immediateOfferPrompts.push(prompt);
+    const targetAgeInMonths = Number(prompt.match(/ageInMonths=(\d+)/)?.[1] || 298);
+    const resolvesOverdueOffer = prompt.includes("财务接受门重生修正");
+    const evidence = "你已正式入职AI创业公司担任产品负责人，当前税后月薪为3.5万元。";
+    return {
+      text: JSON.stringify({
+        age: Math.floor(targetAgeInMonths / 12),
+        ageInMonths: targetAgeInMonths,
+        stage: resolvesOverdueOffer ? "正式入职" : "职业交接",
+        title: resolvesOverdueOffer ? "产品负责人新岗位" : "继续准备交接",
+        description: resolvesOverdueOffer
+          ? evidence
+          : "你继续整理项目交接清单，并等待创业公司确认后续安排。",
+        choices: [
+          { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+          { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+          { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+        ],
+        attributes,
+        narrativeMeta: resolvesOverdueOffer ? {
+          worldDeltas: [{
+            type: "career_state",
+            summary: "正式入职外部雇主",
+            employmentTransition: {
+              subject: "protagonist",
+              toStatus: "employed",
+              effectiveAtAgeInMonths: targetAgeInMonths,
+              sourceOutcomeId: immediateOfferOutcomeId,
+              evidence,
+              confidence: 0.9
+            },
+            pendingEmployerOfferResolution: {
+              action: "started",
+              pendingOfferSourceOutcomeId: immediateOfferOutcomeId,
+              sourceOutcomeId: immediateOfferOutcomeId,
+              evidence,
+              confidence: 0.9
+            }
+          }]
+        } : undefined,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(immediateOfferCalls, 3, "an overdue same-transaction offer uses one bounded Proposal repair and one full regeneration");
+assert.match(immediateOfferPrompts[0]!, /已接受但尚未生效的外部职位/u);
+assert.match(immediateOfferPrompts[0]!, /已经经过 10 个月/u);
+assert.match(immediateOfferPrompts[0]!, /本节点必须二选一并形成已发生事实/u);
+assert.match(immediateOfferPrompts[1]!, /你只修复财务 Proposal/u);
+assert.match(immediateOfferPrompts[2]!, /财务接受门重生修正/u);
+assert.match(immediateOfferPrompts[2]!, /本节点必须二选一并形成已发生事实/u);
+assert.equal(immediateOfferNode.worldStateSnapshot?.pendingEmployerOffer, undefined);
+assert.equal(immediateOfferNode.financialLedger?.incomeSources.filter((source) => (
+  source.status === "active" && source.type === "salary"
+)).length, 1);
+assert.equal(immediateOfferNode.financialState?.annualAfterTaxIncomeWan, 42);
 
 // Planning for retirement is not evidence that the protagonist has retired.
 // The existing employed CareerState and its linked salary must remain the

@@ -141,6 +141,7 @@ import {
   buildFinancialProposalRepairPrompt,
   buildNodePromptWithRetryNotice,
   buildPersonalityPrompt,
+  PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS,
   buildStartSimulationPrompt,
   buildTimeTravelPrompt
 } from "./prompts";
@@ -922,6 +923,31 @@ function pendingEmployerOfferStartResolutionIssue(input: {
     status: "open",
     relatedProposalIds: [],
     summary: "已接受的待入职 offer 只有在同一 outcome 以 started resolution 绑定实际入职和职业收入原子提交后才能清除",
+    createdAtAgeInMonths: input.ageInMonths
+  };
+}
+
+function pendingEmployerOfferOverdueResolutionIssue(input: {
+  current?: PendingEmployerOfferState;
+  acceptedOutcomeId?: string;
+  resolution?: PendingEmployerOfferResolution;
+  transactionId: string;
+  ageInMonths: number;
+}): FinancialLedgerIssue | undefined {
+  if (!input.current
+    || input.ageInMonths - input.current.acceptedAtAgeInMonths < PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS
+    || isResolutionBoundToCurrentPendingOffer({
+      current: input.current,
+      acceptedOutcomeId: input.acceptedOutcomeId,
+      resolution: input.resolution
+    })) return undefined;
+  return {
+    id: `pending_employer_offer_resolution_overdue_${input.transactionId}`,
+    code: "CAREER_INCOME_CONFLICT",
+    severity: "blocking",
+    status: "open",
+    relatedProposalIds: [],
+    summary: `已接受的待入职 offer 超过 ${PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS} 个月仍未以 started 或 withdrawn resolution 形成已发生事实`,
     createdAtAgeInMonths: input.ageInMonths
   };
 }
@@ -3006,6 +3032,14 @@ async function commitAuthoritativeFinancialProgress(input: {
     ageInMonths: input.periodEndAgeInMonths
   });
   if (initialPendingOfferStartResolutionIssue) careerValidationIssues.push(initialPendingOfferStartResolutionIssue);
+  const initialPendingOfferOverdueResolutionIssue = pendingEmployerOfferOverdueResolutionIssue({
+    current: input.currentWorldState.pendingEmployerOffer,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    resolution: submittedPendingEmployerOfferResolution,
+    transactionId: input.transactionId,
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  if (initialPendingOfferOverdueResolutionIssue) careerValidationIssues.push(initialPendingOfferOverdueResolutionIssue);
   const careerTransitionRequired = selectedDecisionDemandsCareerTransition || narrativeRequiresCareerTransition({
     narrativeText: input.node.description,
     currentStatus: currentCareer.employmentStatus
@@ -3494,6 +3528,20 @@ async function commitAuthoritativeFinancialProgress(input: {
     validated = {
       ...validated,
       issues: [...validated.issues, finalPendingOfferStartResolutionIssue]
+    };
+  }
+  const finalPendingOfferOverdueResolutionIssue = pendingEmployerOfferOverdueResolutionIssue({
+    current: input.currentWorldState.pendingEmployerOffer,
+    acceptedOutcomeId: input.acceptedOutcomeId,
+    resolution: submittedPendingEmployerOfferResolution,
+    transactionId: input.transactionId,
+    ageInMonths: input.periodEndAgeInMonths
+  });
+  if (finalPendingOfferOverdueResolutionIssue
+    && !validated.issues.some((issue) => issue.id === finalPendingOfferOverdueResolutionIssue.id)) {
+    validated = {
+      ...validated,
+      issues: [...validated.issues, finalPendingOfferOverdueResolutionIssue]
     };
   }
   const expenseCandidateWorldState = previewExpenseCandidateWorldState({
@@ -5535,7 +5583,24 @@ async function generateNextNodeAttempt(
         trustedFamilyActivationEnabled: dispatchFlags.enableTrustedFamilyActivation
       })
     : { worldStateSnapshot: migratedWorldState, committed: false };
-  const currentWorldState = relationshipOutcome.worldStateSnapshot;
+  const relationshipWorldState = relationshipOutcome.worldStateSnapshot;
+  // The selected outcome is already the user-authorized input to this
+  // transaction. Preview its pending-offer state before generating the next
+  // node so that an explicit start window cannot disappear for one whole
+  // material node and only become visible after commit.
+  const selectedPendingEmployerOfferUpdate = resolvePendingEmployerOffer({
+    current: relationshipWorldState.pendingEmployerOffer,
+    selectedDecision: input.selectedDecision,
+    acceptedOutcomeId: selectedOutcomeId,
+    narrativeText: "",
+    acceptedAtAgeInMonths: currentAgeInMonths,
+    currentCareerStateId: currentCareerState(relationshipWorldState)!.id,
+    acceptedCareerTransitions: []
+  });
+  const currentWorldState = applyPendingEmployerOfferUpdate(
+    relationshipWorldState,
+    selectedPendingEmployerOfferUpdate
+  );
   const selectionHistory = lastNode
     ? [...input.history.slice(0, -1), { ...lastNode, worldStateSnapshot: currentWorldState }]
     : input.history;
