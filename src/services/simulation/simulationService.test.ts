@@ -3280,6 +3280,78 @@ assert.deepEqual(
   "a rejected repaired pending-offer start must leave history, time, CareerState and ledger unchanged"
 );
 
+let pendingOfferResolutionRepairCalls = 0;
+const pendingOfferResolutionRepairGateDecisions: FinancialNodeAcceptanceDecision[] = [];
+const pendingOfferResolutionRepairNode = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(pendingOfferRepairHistory),
+  currentAttributes: pendingOfferNode.attributes,
+  selectedDecision: pendingOfferStartDecision,
+  nodeIndex: 3,
+  simulationSeed: "pending-employer-offer-resolution-repaired-atomically"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  onFinancialGateDecision: (decision) => pendingOfferResolutionRepairGateDecisions.push(decision),
+  callAiJson: async (prompt) => {
+    if (prompt.includes("你只修复财务 Proposal")) {
+      pendingOfferResolutionRepairCalls += 1;
+      assert.match(prompt, /【当前待入职 offer】/u);
+      assert.match(prompt, /join_ai_startup_product_lead/u);
+      return {
+        text: JSON.stringify({
+          employmentTransition: null,
+          pendingEmployerOfferResolution: {
+            action: "started",
+            pendingOfferSourceOutcomeId: "join_ai_startup_product_lead",
+            sourceOutcomeId: "start_ai_startup_product_lead",
+            evidence: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+            confidence: 0.95
+          },
+          financialEventProposals: []
+        })
+      };
+    }
+    return {
+      text: JSON.stringify({
+        age: 25,
+        stage: "正式入职",
+        title: "产品负责人新岗位",
+        description: "你于本月正式入职AI创业公司，担任产品负责人，税后月薪3.5万元。",
+        choices: [
+          { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+          { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+          { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+        ],
+        attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(pendingOfferResolutionRepairCalls, 1);
+assert.deepEqual(pendingOfferResolutionRepairGateDecisions.map((decision) => decision.disposition), ["accept"]);
+assert.equal(pendingOfferResolutionRepairNode.worldStateSnapshot?.pendingEmployerOffer, undefined);
+assert.equal(pendingOfferResolutionRepairNode.worldStateSnapshot?.currentEmploymentStatus, "employed");
+const resolutionRepairCareerId = pendingOfferResolutionRepairNode.worldStateSnapshot?.currentCareerStateId;
+const resolutionRepairActiveSalary = pendingOfferResolutionRepairNode.financialLedger?.incomeSources.filter((source) => (
+  source.status === "active" && source.type === "salary" && source.linkedCareerStateId === resolutionRepairCareerId
+)) || [];
+assert.equal(resolutionRepairActiveSalary.length, 1);
+assert.equal(resolutionRepairActiveSalary[0]?.monthlyNetAmountWan, 3.5);
+assert.equal(
+  pendingOfferResolutionRepairNode.financialLedger?.incomeSources.find((source) => source.id === pendingOfferIncomeBefore?.id)?.status,
+  "ended"
+);
+
 const careerAuthorityHistory: HistoryItem[] = [{
   ...structuredClone(history[0]!),
   selectedChoice: careerAuthorityDecision,

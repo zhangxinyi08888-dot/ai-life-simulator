@@ -1356,6 +1356,11 @@ export function buildFinancialProposalRepairPrompt(input: {
   narrativeText: string;
   periodStartAgeInMonths: number;
   periodEndAgeInMonths: number;
+  pendingEmployerOffer?: {
+    sourceOutcomeId: string;
+    acceptedAtAgeInMonths: number;
+    fromCareerStateId: string;
+  };
 }): string {
   const expenseFactRepair = input.issues.some((issue) => (
     Boolean(issue.expenseResolutionKind)
@@ -1425,6 +1430,9 @@ ${JSON.stringify(rejectedProposalsForPrompt, null, 2)}
 【被拒或待补齐的职业转换】
 ${JSON.stringify(input.rejectedEmploymentTransition || null, null, 2)}
 
+【当前待入职 offer】
+${JSON.stringify(input.pendingEmployerOffer || null, null, 2)}
+
 【逐条拒绝原因】
 ${JSON.stringify(input.issues.map((issue) => ({
   proposalIds: issue.relatedProposalIds,
@@ -1442,7 +1450,7 @@ ${JSON.stringify(evidenceCandidates, null, 2)}
 ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) => item.trim()).filter(Boolean), null, 2)}
 
 只返回：
-{ "employmentTransition": 修正后的职业转换或 null, "financialEventProposals": [修正后的 Proposal] }
+{ "employmentTransition": 修正后的职业转换或 null, "pendingEmployerOfferResolution": 修正后的待入职 offer resolution 或 null, "financialEventProposals": [修正后的 Proposal] }
 
 要求：
 - 只修正被拒 Proposal；不能新增正文没有发生的事实。为满足原子依赖，可以同时补充同一收入替换所必需的旧来源 income_source_ended、同一资产购买所必需的 debt_drawn，或正文已经明确给出主角个人薪资/业主提款/到账分红但首轮遗漏的对应个人收入 Proposal。
@@ -1456,6 +1464,7 @@ ${JSON.stringify(input.narrativeText.split(/(?<=[。！？；])/u).map((item) =>
 - coverage 指向“此前已有房产/尚有房贷”而非本期购买/借入时，必须分别使用 asset_balance_discovered / debt_balance_discovered；不得用 asset_purchased / debt_drawn 制造不存在的本期现金流。debt_balance_discovered 必须引用正文明确给出的余额或本金，绝不能从月供、期限或利率反推本金。房产只明确存在但没有可靠市值时，可保留 marketValueWan=0、factStatus=needs_review 的资产事实；不能凭空补市场价。
 - 正文明确发生退休、停止工作或转为顾问等岗位变化时，employmentTransition 必须与旧职业收入结束/迁移、以及新顾问收入（如有）一起返回；三者将作为一个原子组，要么全部提交，要么全部不提交。
 - employmentTransition 必须完整返回 subject="protagonist"、toStatus、effectiveAtAgeInMonths、sourceOutcomeId、occupation（如有）、evidence、confidence；证据与置信度规则和财务 Proposal 相同。
+- 只有“当前待入职 offer”非 null 且正文逐字证明已经实际到岗或明确放弃时，才能返回 pendingEmployerOfferResolution。实际到岗必须返回 action="started"，pendingOfferSourceOutcomeId 必须等于当前待入职 offer.sourceOutcomeId，sourceOutcomeId 必须等于本轮 outcome id，evidence 必须逐字引用正文的已到岗原句；明确放弃时 action="withdrawn" 并遵守同样的双重绑定。它必须与 employmentTransition 及职业收入原子提交，不能单独清除 offer。
 - 每项都必须完整返回 id、kind、effectiveAtAgeInMonths、payload、sourceOutcomeId、evidence、confidence、financialScope；不得省略 confidence。公司营业收入、员工工资和运营成本使用 business_operating，个人工资、业主提款和已到账分红使用 personal；business_operating 事实不得伪装成个人收支 Proposal。
 - 项目基金、公益资助或拨款若有学校、教师、硬件、受助人或项目运营等专款用途，即使正文写“你收到”或“到账”，也必须移除对应个人收入 Proposal；不要伪造机构账户。明确归主角个人且可自由支配的创作奖、奖金或报酬可以保留。
 - debt_drawn 的 payload 必须是 { "debtAccount": 完整债务账户, "destinationCashAccountId": "账本中的现金账户 id", "principalDrawnWan": 本次到账本金 }。不得返回把 id、type、principalAmountWan、annualInterestRate、termMonths 平铺在 payload 的旧格式；debtAccount.principalWan 必须等于 principalDrawnWan。

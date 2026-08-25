@@ -2878,7 +2878,7 @@ async function commitAuthoritativeFinancialProgress(input: {
   const pendingEmployerOfferResolutionDelta = input.acceptedOutcome.worldDeltas.find((delta): delta is Extract<WorldDelta, { type: "career_state" }> => (
     delta.type === "career_state" && Boolean(delta.pendingEmployerOfferResolution)
   ));
-  const submittedPendingEmployerOfferResolution = pendingEmployerOfferResolutionDelta?.pendingEmployerOfferResolution;
+  let submittedPendingEmployerOfferResolution = pendingEmployerOfferResolutionDelta?.pendingEmployerOfferResolution;
   let acceptedCareerTransitions = input.acceptedOutcome.worldDeltas.flatMap((delta, index) => {
     if (delta.type !== "career_state" || !delta.employmentTransition || !input.acceptedOutcomeId) return [];
     try {
@@ -3263,7 +3263,8 @@ async function commitAuthoritativeFinancialProgress(input: {
         acceptedOutcomeId: input.acceptedOutcomeId,
         narrativeText: input.node.description,
         periodStartAgeInMonths: input.periodStartAgeInMonths,
-        periodEndAgeInMonths: input.periodEndAgeInMonths
+        periodEndAgeInMonths: input.periodEndAgeInMonths,
+        pendingEmployerOffer: input.currentWorldState.pendingEmployerOffer
       });
       const repairedRaw = parseAiJsonResponse(await traceGenerationCall({
         kind: "proposal_repair",
@@ -3314,6 +3315,31 @@ async function commitAuthoritativeFinancialProgress(input: {
         } catch {
           acceptedCareerTransitions = [];
           nextCareerIds = [];
+        }
+      }
+      const repairedPendingResolution = repairedRaw?.pendingEmployerOfferResolution;
+      const pendingOffer = input.currentWorldState.pendingEmployerOffer;
+      if (pendingOffer && repairedPendingResolution && typeof repairedPendingResolution === "object") {
+        const rawResolution = repairedPendingResolution as Record<string, unknown>;
+        const action = rawResolution.action === "started" || rawResolution.action === "withdrawn"
+          ? rawResolution.action
+          : undefined;
+        const evidence = typeof rawResolution.evidence === "string" ? rawResolution.evidence.trim() : "";
+        const evidenceMatches = evidence.length > 0 && matchesNormalizedEvidence(input.node.description, evidence);
+        const actionSupported = action === "started"
+          ? hasCompletedEmployerStartEvidence(evidence)
+          : action === "withdrawn"
+            ? /(?:放弃|拒绝|撤回|取消)[^。；]{0,36}(?:offer|职位|岗位|入职|工作)/iu.test(evidence)
+            : false;
+        const confidence = Number(rawResolution.confidence);
+        if (action && evidenceMatches && actionSupported && Number.isFinite(confidence) && confidence >= 0.6 && confidence <= 1) {
+          submittedPendingEmployerOfferResolution = {
+            action,
+            pendingOfferSourceOutcomeId: pendingOffer.sourceOutcomeId,
+            sourceOutcomeId: input.acceptedOutcomeId,
+            evidence,
+            confidence
+          };
         }
       }
       const repairedNormalized = normalizeRepairedFinancialProposals({
@@ -4140,7 +4166,12 @@ function getAiJsonCaller(deps: SimulationServiceDeps = {}): AiJsonCaller {
     };
   }
 
-  return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt, fetch, deps.signal);
+  // Do not pass the browser's global `fetch` here. A supplied fetch function is
+  // intentionally the pure-function/test path in deepseekBrowserClient; doing
+  // so skips the CloudBase transport entirely. On a real mini-program that
+  // turns the first background-question request into a Web-only fetch attempt
+  // before the WebSocket/Container route can run.
+  return (prompt: string) => callDeepSeekJsonFromBrowser(getBrowserAiEnv(), prompt, undefined, deps.signal);
 }
 
 function getAiJsonStreamCaller(deps: SimulationServiceDeps, fallbackCaller: AiJsonCaller): AiJsonStreamCaller {
