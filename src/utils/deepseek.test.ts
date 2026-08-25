@@ -136,6 +136,47 @@ assert.deepEqual(streamedUsages, [streamResponse.usage]);
 assert.equal(streamResponse.providerRequestId, "chatcmpl-stream");
 assert.equal(streamResponse.model, "deepseek-v4-flash");
 
+const jsonFallbackContents: string[] = [];
+const jsonFallbackUsages: any[] = [];
+const jsonFallbackResponse = await callDeepSeekJsonStream(
+  {
+    apiKey: "test-key",
+    baseUrl: "http://127.0.0.1:8787/v1",
+    model: "ark-code-latest"
+  },
+  "本地代理可以用普通 JSON 响应兼容流式调用",
+  {
+    onContent: (content) => jsonFallbackContents.push(content),
+    onUsage: (usage) => jsonFallbackUsages.push(usage)
+  },
+  async () => new Response(JSON.stringify({
+    id: "chatcmpl-json-fallback",
+    model: "deepseek-v4-flash-ga-260731",
+    choices: [{ message: { content: '{"title":"本地新章"}' } }],
+    usage: {
+      prompt_tokens: 90,
+      prompt_tokens_details: { cached_tokens: 60 },
+      completion_tokens: 12,
+      total_tokens: 102
+    }
+  }), {
+    status: 200,
+    headers: { "Content-Type": "application/json; charset=utf-8" }
+  })
+);
+assert.equal(jsonFallbackResponse.text, '{"title":"本地新章"}');
+assert.deepEqual(jsonFallbackContents, ['{"title":"本地新章"}']);
+assert.deepEqual(jsonFallbackUsages, [jsonFallbackResponse.usage]);
+assert.deepEqual(jsonFallbackResponse.usage, {
+  promptTokens: 90,
+  cacheHitTokens: 60,
+  cacheMissTokens: 30,
+  completionTokens: 12,
+  totalTokens: 102
+});
+assert.equal(jsonFallbackResponse.providerRequestId, "chatcmpl-json-fallback");
+assert.equal(jsonFallbackResponse.model, "deepseek-v4-flash-ga-260731");
+
 const noUsageResponse = await callDeepSeekJson(
   {
     apiKey: "test-key",

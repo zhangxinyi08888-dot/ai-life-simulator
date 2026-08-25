@@ -226,7 +226,16 @@ export async function callDeepSeekJsonStream(
     if (flush && lineBuffer.trim()) consumeLine(lineBuffer);
   };
 
-  if (response.body) {
+  const responseContentType = response.headers?.get("content-type")?.toLowerCase() || "";
+  if (responseContentType.includes("application/json")) {
+    const body = JSON.parse(await response.text() || "null");
+    captureMetadata(body);
+    const completeContent = body?.choices?.[0]?.message?.content;
+    if (typeof completeContent === "string") {
+      content = completeContent;
+      options.onContent?.(content);
+    }
+  } else if (response.body) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     while (true) {
