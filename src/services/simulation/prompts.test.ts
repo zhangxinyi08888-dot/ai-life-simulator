@@ -706,13 +706,15 @@ assert.match(careerIncomeTransitionRetryPrompt, /不得再写“个人收入尚�
 assert.match(careerIncomeTransitionRetryPrompt, /原子提交 employmentTransition、旧职业收入结束或迁移与新职业收入/);
 assert.match(pendingEmployerOfferPrompt, /已接受但尚未生效的外部职位/);
 assert.match(pendingEmployerOfferPrompt, /当前权威 CareerState 与个人工资尚未变化/);
-assert.match(pendingEmployerOfferPrompt, /实际入职与主角个人税后薪资事实/);
+assert.match(pendingEmployerOfferPrompt, /薪酬必须落入 known \/ estimated \/ unpaid 三者之一/);
+assert.match(pendingEmployerOfferPrompt, /由代码按版本化职业政策建立 estimated 工资/);
 assert.match(pendingEmployerOfferPrompt, /pendingEmployerOfferResolution/);
 assert.match(pendingEmployerOfferPrompt, /action:"started"/);
 assert.match(pendingEmployerOfferPrompt, /accept_ai_startup_offer/);
 assert.match(pendingEmployerOfferPrompt, /已经经过 12 个月/);
 assert.match(pendingEmployerOfferPrompt, /超过 6 个月待确认窗口/);
 assert.match(pendingEmployerOfferPrompt, /本节点必须二选一并形成已发生事实/);
+assert.match(pendingEmployerOfferPrompt, /必须优先写 A 的正式到岗后果/);
 assert.match(pendingEmployerOfferPrompt, /不得继续写成确认中、交接中、安排中、等待合同或以后再决定/);
 assert.match(recentPendingEmployerOfferPrompt, /已经经过 3 个月/);
 assert.match(recentPendingEmployerOfferPrompt, /尚未超过 6 个月/);

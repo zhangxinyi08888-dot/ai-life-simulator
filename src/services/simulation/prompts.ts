@@ -343,14 +343,14 @@ function formatPendingEmployerOfferPrompt(input: {
   if (!offer) return "";
   const waitedMonths = Math.max(0, input.targetAgeInMonths - offer.acceptedAtAgeInMonths);
   const overdueResolutionRule = waitedMonths >= PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS
-    ? `- 这份 offer 从接受到本节点已经经过 ${waitedMonths} 个月，超过 ${PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS} 个月待确认窗口。本节点必须二选一并形成已发生事实：A. 已正式到岗，按下方 started 原子事务提交；B. 因合同、薪资或到岗条件未落实而正式撤回，按下方 withdrawn 事务提交。不得继续写成确认中、交接中、安排中、等待合同或以后再决定，也不得让 pending offer 原样跨入下一节点。`
+    ? `- 这份 offer 从接受到本节点已经经过 ${waitedMonths} 个月，超过 ${PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS} 个月待确认窗口。本节点必须二选一并形成已发生事实：A. 已正式到岗，按下方 started 原子事务提交；B. 因合同、薪资或到岗条件未落实而正式撤回，按下方 withdrawn 事务提交。当前 selectedDecision 本身是接受 offer；除非本节点正文给出合同失败、岗位取消或本人正式反悔等具体已发生原因，必须优先写 A 的正式到岗后果。不得继续写成确认中、交接中、安排中、等待合同或以后再决定，也不得让 pending offer 原样跨入下一节点。`
     : `- 这份 offer 从接受到本节点已经经过 ${waitedMonths} 个月；尚未超过 ${PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS} 个月时，可以如实保留短期交接或合同确认状态，但不能把计划写成已经到岗。`;
   return `【已接受但尚未生效的外部职位】
 - 主角已接受：${offer.decision}
 - 接受发生在 ageInMonths=${offer.acceptedAtAgeInMonths}，本节点目标 ageInMonths=${input.targetAgeInMonths}。
 - 当前权威 CareerState 与个人工资尚未变化，不能写成已经离职、已入职、开始领取新工资或同时领取两份工资。
 ${overdueResolutionRule}
-- 若本轮正式入职，必须同时提供实际入职与主角个人税后薪资事实，并同时返回关联当前 outcome 的 employmentTransition、新职业收入，以及 pendingEmployerOfferResolution={action:"started",pendingOfferSourceOutcomeId:"${offer.sourceOutcomeId}",sourceOutcomeId:"${input.selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；三者缺一不可。若仍在允许的短期交接或确认合同窗口内，则只如实写该状态且不得返回 employmentTransition 或任何职业工资变更。
+- 若本轮正式入职，description 必须写明已经到岗，并同时返回关联当前 outcome 的 employmentTransition 与 pendingEmployerOfferResolution={action:"started",pendingOfferSourceOutcomeId:"${offer.sourceOutcomeId}",sourceOutcomeId:"${input.selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}。薪酬必须落入 known / estimated / unpaid 三者之一：正文有明确个人税后薪资金额时提交新职业收入 Proposal；正文明确无薪时写明无薪且不得生成估算工资；正文和用户材料都没有薪资金额时禁止编造金额、financialEventProposals 可不写工资，由代码按版本化职业政策建立 estimated 工资。若仍在允许的短期交接或确认合同窗口内，则只如实写该状态且不得返回 employmentTransition 或任何职业工资变更。
 - 若正式放弃这份 offer，必须返回一条 type="career_state" worldDelta，并仅填写 pendingEmployerOfferResolution={action:"withdrawn",pendingOfferSourceOutcomeId:"${offer.sourceOutcomeId}",sourceOutcomeId:"${input.selectedOutcomeId || "当前 outcome id"}",evidence:"正文原句",confidence:0.6-1}；不得用普通正文或未经绑定的状态字段清除它。`;
 }
 
