@@ -181,9 +181,10 @@ function relativeSalaryRatio(evidence: string): number | undefined {
   const sentences = String(evidence || "").split(/(?<=[。！？；])/u).filter(Boolean);
   for (const sentence of sentences) {
     const hasPersonalSalaryReceipt = /(?:你(?!们)|我(?!们)|主角|本人)[^。；]{0,64}(?:领取|领到|拿到|到手|发放|调整为|降为|降至)[^。；]{0,48}(?:工资|薪水|薪资|月薪|年薪)|(?:你(?!们)|我(?!们)|主角|本人)[^。；]{0,40}(?:工资|薪水|薪资|月薪|年薪)[^。；]{0,32}(?:调整为|降为|降至|发放|领取|领到|拿到|到手)/u.test(sentence);
-    const referencesPriorSalary = /(?:原来|原先|原工资|原薪水|原薪资|原月薪|原年薪|此前|之前|上一份工作|上份工作)/u.test(sentence);
+    const completedRelativeSalary = /(?:工资|薪水|薪资|月薪|年薪|个人收入|收入)[^。；]{0,24}(?:比|较)(?:原来|原先|原岗位|原工作|大厂|此前|之前|上一份工作|上份工作)[^。；]{0,20}(?:少|低|下降|减少)/u.test(sentence);
+    const referencesPriorSalary = /(?:原来|原先|原工资|原薪水|原薪资|原月薪|原年薪|原岗位|原工作|大厂|此前|之前|上一份工作|上份工作)/u.test(sentence);
     const isProspective = /(?:计划|打算|考虑|准备|希望|可能|如果|将来|未来|尚未|还未|预计|拟)[^。；]{0,40}(?:领取|领到|拿到|工资|薪水|薪资|月薪|年薪)/u.test(sentence);
-    if (!hasPersonalSalaryReceipt || !referencesPriorSalary || isProspective) continue;
+    if ((!hasPersonalSalaryReceipt && !completedRelativeSalary) || !referencesPriorSalary || isProspective) continue;
     if (/一半/u.test(sentence)) return 0.5;
     const numericPercent = sentence.match(/(\d+(?:\.\d+)?)\s*%/u);
     if (numericPercent) {
@@ -199,7 +200,11 @@ function relativeSalaryRatio(evidence: string): number | undefined {
     if (proportion) {
       const numeric = Number(proportion[1]);
       const tenths = Number.isFinite(numeric) ? numeric : CHINESE_SALARY_RATIO_DIGITS[proportion[1]];
-      if (tenths !== undefined && tenths > 0 && tenths <= 10) return tenths / 10;
+      if (tenths !== undefined && tenths > 0 && tenths <= 10) {
+        return /(?:少|低|下降|减少)[^。；]{0,8}(?:[\d.]+|[一二两三四五六七八九十])\s*成/u.test(sentence)
+          ? 1 - tenths / 10
+          : tenths / 10;
+      }
     }
   }
   return undefined;
@@ -224,18 +229,26 @@ function proposalMatchesAuthoritativeRelativeSalary(input: {
   if (ratio === undefined) return false;
   const priorSalaries = input.ledger.incomeSources.filter((source) => (
     source.status === "active"
-    && source.type === "salary"
     && Boolean(source.linkedCareerStateId)
-    && source.accrualPolicy === "monthly"
-    && Number.isFinite(source.monthlyNetAmountWan)
+    && (
+      (source.type === "salary" && source.accrualPolicy === "monthly" && Number.isFinite(source.monthlyNetAmountWan))
+      || (source.type === "other"
+        && source.displayName === "旧版持续收入聚合"
+        && source.accrualPolicy === "annual"
+        && Number.isFinite(source.annualNetAmountWan))
+    )
   ));
   if (priorSalaries.length !== 1) return false;
   const nextCareerStateId = input.source.linkedCareerStateId;
   if (typeof nextCareerStateId !== "string"
     || nextCareerStateId === priorSalaries[0].linkedCareerStateId) return false;
   const proposedMonthlyWan = Number(input.source.monthlyNetAmountWan);
+  const priorMonthlyWan = priorSalaries[0].accrualPolicy === "monthly"
+    ? Number(priorSalaries[0].monthlyNetAmountWan)
+    : Number(priorSalaries[0].annualNetAmountWan) / 12;
   return Number.isFinite(proposedMonthlyWan)
-    && Math.abs(proposedMonthlyWan - priorSalaries[0].monthlyNetAmountWan * ratio) < 0.000001;
+    && Number.isFinite(priorMonthlyWan)
+    && Math.abs(proposedMonthlyWan - priorMonthlyWan * ratio) < 0.000001;
 }
 
 function hasValidPolicyCompensationAuthority(source: Record<string, any> | undefined): boolean {

@@ -956,6 +956,36 @@ function pendingEmployerOfferOverdueResolutionIssue(input: {
   };
 }
 
+function synthesizeSameOutcomePendingEmployerOfferStart(input: {
+  current?: PendingEmployerOfferState;
+  acceptedOutcomeId?: string;
+  narrativeText: string;
+  acceptedCareerTransitions: Array<Pick<AcceptedCareerTransition, "fromCareerStateId" | "nextCareerState">>;
+}): PendingEmployerOfferResolution | undefined {
+  if (!input.current
+    || !input.acceptedOutcomeId
+    || input.current.sourceOutcomeId !== input.acceptedOutcomeId
+    || !hasCompletedAcceptedEmployerRoleStart({
+      selectedDecision: input.current.decision,
+      narrativeText: input.narrativeText
+    })
+    || !input.acceptedCareerTransitions.some((transition) => (
+      transition.fromCareerStateId === input.current?.fromCareerStateId
+      && transition.nextCareerState.employmentStatus === "employed"
+    ))) return undefined;
+  const evidence = input.narrativeText.split(/(?<=[。！？；])/u)
+    .map((sentence) => sentence.trim())
+    .find((sentence) => hasCompletedEmployerStartEvidence(sentence));
+  if (!evidence) return undefined;
+  return {
+    action: "started",
+    pendingOfferSourceOutcomeId: input.current.sourceOutcomeId,
+    sourceOutcomeId: input.acceptedOutcomeId,
+    evidence,
+    confidence: 1
+  };
+}
+
 export type PendingEmployerOfferUpdate =
   | { action: "preserve" }
   | { action: "clear" }
@@ -3027,6 +3057,14 @@ async function commitAuthoritativeFinancialProgress(input: {
     || hasCompletedEmployerStartEvidence(selectedEmployerOfferEvidence)
     || selectedEmployerRoleStarted
   );
+  if (!submittedPendingEmployerOfferResolution) {
+    submittedPendingEmployerOfferResolution = synthesizeSameOutcomePendingEmployerOfferStart({
+      current: input.currentWorldState.pendingEmployerOffer,
+      acceptedOutcomeId: input.acceptedOutcomeId,
+      narrativeText: input.node.description,
+      acceptedCareerTransitions
+    });
+  }
   const initialPendingOfferStartResolutionIssue = pendingEmployerOfferStartResolutionIssue({
     current: input.currentWorldState.pendingEmployerOffer,
     acceptedOutcomeId: input.acceptedOutcomeId,

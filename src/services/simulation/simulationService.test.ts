@@ -2793,6 +2793,54 @@ assert.equal(immediateOfferNode.financialLedger?.incomeSources.filter((source) =
 )).length, 1);
 assert.equal(immediateOfferNode.financialState?.annualAfterTaxIncomeWan, 42);
 
+let sameOutcomeStartCalls = 0;
+const sameOutcomeStartNode = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(immediateOfferHistory),
+  currentAttributes: nextNode.attributes,
+  selectedDecision: immediateOfferDecision,
+  nodeIndex: 2,
+  simulationSeed: "same-outcome-pending-offer-start-is-source-bound"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => {
+    sameOutcomeStartCalls += 1;
+    return {
+      text: JSON.stringify({
+        age: 25,
+        ageInMonths: 300,
+        stage: "正式入职",
+        title: "产品负责人新岗位",
+        description: "完成交接后，你已经正式入职AI创业公司担任产品负责人。正文没有说明个人薪资金额。",
+        choices: [
+          { id: "A", text: "先完成产品路线图", impactSummary: "推进工作" },
+          { id: "B", text: "与团队校准目标", impactSummary: "建立协作" },
+          { id: "C", text: "安排试用期重点", impactSummary: "稳住节奏" }
+        ],
+        attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    };
+  }
+});
+assert.equal(sameOutcomeStartCalls, 1, "same-outcome completed start should not require the model to echo source ids in a repair");
+assert.equal(sameOutcomeStartNode.worldStateSnapshot?.pendingEmployerOffer, undefined);
+assert.equal(sameOutcomeStartNode.worldStateSnapshot?.currentEmploymentStatus, "employed");
+assert.equal(sameOutcomeStartNode.financialLedger?.incomeSources.filter((source) => (
+  source.status === "active"
+  && source.type === "salary"
+  && source.linkedCareerStateId === sameOutcomeStartNode.worldStateSnapshot?.currentCareerStateId
+)).length, 1);
+
 // If the provider exhausts its one complete-candidate attempt, the
 // deterministic authority fallback must obey the same overdue-offer contract
 // as a model candidate. It may omit an unknown amount, but it must atomically

@@ -1224,6 +1224,37 @@ test("PB-CAREER-08 accepts an exact completed salary fraction of the one authori
   assert.equal((result.acceptedEvents[1].payload as { factStatus: string }).factStatus, "estimated");
 });
 
+test("PB-CAREER-08b accepts a completed three-tenths pay cut against one migrated annual wage", () => {
+  const context = setup();
+  context.currentLedger.incomeSources.push({
+    id: "legacy_recurring_income", type: "other", displayName: "旧版持续收入聚合", annualNetAmountWan: 30,
+    accrualPolicy: "annual", activeFromAgeInMonths: 300, status: "active",
+    linkedCareerStateId: "career_current", factStatus: "estimated", evidence: []
+  });
+  const closeEvidence = "你正式辞去大公司的产品经理职位，加入了前同事的AI创业公司担任产品负责人。";
+  const salaryEvidence = "收入比大厂少了三成，每月房租和给父母转的医疗费依然雷打不动。";
+  const result = validateFinancialProposals({
+    ...context,
+    proposals: [
+      proposal({ id: "end_legacy_income", kind: "income_source_ended", evidence: closeEvidence, payload: { incomeSourceId: "legacy_recurring_income" } }),
+      relativeSalaryStart(1.75, salaryEvidence)
+    ],
+    acceptedOutcomeId: "accepted_choice",
+    narrativeText: `${closeEvidence}${salaryEvidence}`,
+    periodStartAgeInMonths: 300,
+    periodEndAgeInMonths: 312,
+    simulationTransactionId: "relative_salary_migrated_annual",
+    allowedCareerStateIds: ["career_next"],
+    liquidityPolicy: "require_explicit"
+  });
+  assert.deepEqual(
+    result.acceptedEvents.map((event) => event.proposalId),
+    ["end_legacy_income", "start_relative_salary"],
+    JSON.stringify(result.issues)
+  );
+  assert.equal((result.acceptedEvents[1].payload as { factStatus: string }).factStatus, "estimated");
+});
+
 test("PB-CAREER-09 rejects mismatched, prospective, ambiguous-baseline and non-salary relative income", () => {
   const completed = "你已正式加入AI创业公司，只领取相当于原来六成的薪水。";
   const planned = "你计划加入AI创业公司后只领取原工资的60%。";
