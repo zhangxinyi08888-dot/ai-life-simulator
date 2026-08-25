@@ -554,6 +554,32 @@ test("mortality terminal fallback replaces an advice-only report leaf after one 
   assert.ok((repaired.meta.finalOutcomeQualityFallbackCount || 0) >= 1);
 });
 
+test("mortality terminal fallback replaces an external-fact-only report leaf after one focused repair", async () => {
+  let calls = 0;
+  const repaired = await generateFinalOutcome({
+    userData,
+    answers,
+    history,
+    currentAttributes: attributes,
+    context: { closureType: "mortality", invitationReason: "stable_window" }
+  }, {
+    callAiJson: async () => {
+      calls += 1;
+      const payload = completePayload();
+      payload.report.patternEffects[0].paragraphs = ["家人会接手债务并承担后续偿还。"];
+      return { text: JSON.stringify(payload) };
+    }
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(
+    repaired.report.patternEffects[0].paragraphs,
+    ["这段人生只按已经确认的人生记录回顾。"]
+  );
+  assert.doesNotMatch(JSON.stringify(repaired), /家人会接手债务|承担后续偿还/u);
+  assert.ok(repaired.meta.finalOutcomeQualityIssueCodes?.includes("FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT"));
+  assert.ok((repaired.meta.finalOutcomeQualityFallbackCount || 0) >= 1);
+});
+
 test("a debt payoff claim left only in share closing copy is removed without a third model call", async () => {
   let calls = 0;
   const repaired = await generateFinalOutcome({

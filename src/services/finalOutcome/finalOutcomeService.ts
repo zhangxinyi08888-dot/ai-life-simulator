@@ -214,7 +214,11 @@ function applyTerminalQualityFallback(data: any, issues: UnifiedIssue[]): number
     ));
   }
   if (codes.has("FINAL_REPORT_UNGROUNDED_EXTERNAL_FACT")) {
-    count += mapStringLeaves(data?.report, (text) => removeMatchingSentences(text, POST_MORTEM_EXTERNAL_TEXT));
+    count += mapStringLeaves(data?.report, (text) => removeMatchingSentences(
+      text,
+      POST_MORTEM_EXTERNAL_TEXT,
+      "这段人生只按已经确认的人生记录回顾。"
+    ));
   }
   if (codes.has("FINAL_REPORT_UNGROUNDED_SCALE_CLAIM")) {
     count += mapStringLeaves(data?.report, (text) => text
