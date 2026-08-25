@@ -47,6 +47,26 @@ test("collector reads a multi-megabyte test state without one oversized bridge f
   assert.ok(maximumSlice <= 180_000);
 });
 
+test("collector keeps one frozen snapshot when live text changes between chunks", async () => {
+  const original = JSON.stringify({ history: ["初始节点".repeat(80_000)] });
+  const replacement = JSON.stringify({ history: ["更新节点".repeat(10)] });
+  let liveText = original;
+  let sliceCount = 0;
+  const locator = {
+    evaluate: async (callback, argument) => {
+      const value = callback({ textContent: liveText }, argument);
+      if (typeof value === "string" && argument?.start !== undefined) {
+        sliceCount += 1;
+        liveText = replacement;
+      }
+      return value;
+    }
+  };
+  const reconstructed = await readLocatorTextInChunks(locator, { chunkSize: 32_000 });
+  assert.equal(reconstructed, original);
+  assert.ok(sliceCount > 1);
+});
+
 test("PB-RUN-01 a new journey never inherits an old same-slug interaction log", () => {
   const trace = initializeJourneyTrace({
     identity,

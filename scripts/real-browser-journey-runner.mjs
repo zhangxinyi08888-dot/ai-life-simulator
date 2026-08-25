@@ -295,15 +295,25 @@ function nodeCommitSignature(node) {
 }
 
 export async function readLocatorTextInChunks(locator, { chunkSize = 180_000 } = {}) {
-  const length = await locator.evaluate((element) => (element.textContent || "").length);
-  let raw = "";
-  for (let start = 0; start < length; start += chunkSize) {
-    raw += await locator.evaluate(
-      (element, range) => (element.textContent || "").slice(range.start, range.end),
-      { start, end: Math.min(length, start + chunkSize) }
-    );
+  const snapshotKey = `__aiLifeCollectorSnapshot_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const length = await locator.evaluate((element, key) => {
+    globalThis[key] = element.textContent || "";
+    return globalThis[key].length;
+  }, snapshotKey);
+  try {
+    let raw = "";
+    for (let start = 0; start < length; start += chunkSize) {
+      raw += await locator.evaluate(
+        (_element, range) => (globalThis[range.key] || "").slice(range.start, range.end),
+        { key: snapshotKey, start, end: Math.min(length, start + chunkSize) }
+      );
+    }
+    return raw;
+  } finally {
+    await locator.evaluate((_element, key) => {
+      delete globalThis[key];
+    }, snapshotKey);
   }
-  return raw;
 }
 
 export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, resume = false }) {
