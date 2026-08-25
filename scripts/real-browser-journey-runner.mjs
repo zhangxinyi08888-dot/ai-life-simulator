@@ -294,6 +294,18 @@ function nodeCommitSignature(node) {
   });
 }
 
+export async function readLocatorTextInChunks(locator, { chunkSize = 180_000 } = {}) {
+  const length = await locator.evaluate((element) => (element.textContent || "").length);
+  let raw = "";
+  for (let start = 0; start < length; start += chunkSize) {
+    raw += await locator.evaluate(
+      (element, range) => (element.textContent || "").slice(range.start, range.end),
+      { start, end: Math.min(length, start + chunkSize) }
+    );
+  }
+  return raw;
+}
+
 export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, resume = false }) {
   const workingDir = path.join(recordRoot, "working");
   const casesDir = path.join(recordRoot, "cases");
@@ -347,7 +359,7 @@ export async function createRealBrowserJourneyRunner({ tab, recordRoot, config, 
       const locator = tab.playwright.locator("#ai-life-test-state");
       const count = await locator.count();
       if (count === 1) {
-        const raw = await locator.textContent();
+        const raw = await readLocatorTextInChunks(locator);
         const state = JSON.parse(raw || "{}");
         assertRuntimeIdentityMatchesCandidate({
           runtimeIdentity: state.releaseRuntimeIdentity,

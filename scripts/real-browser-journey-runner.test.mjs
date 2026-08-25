@@ -13,6 +13,7 @@ import {
   createRealBrowserJourneyRunner,
   FINAL_IMAGE_VIEWPORT,
   initializeJourneyTrace,
+  readLocatorTextInChunks,
   submittedPersonaMatchesConfig,
   validateShortSampleState,
   waitForUniqueLocator,
@@ -26,6 +27,25 @@ const identity = {
   scenario: "accept_second",
   startedAt: "2026-07-21T00:00:00.000Z"
 };
+
+test("collector reads a multi-megabyte test state without one oversized bridge frame", async () => {
+  const payload = JSON.stringify({ history: Array.from({ length: 50 }, (_, index) => ({
+    index,
+    description: "完整人生节点".repeat(12_000)
+  })) });
+  let maximumSlice = 0;
+  const locator = {
+    evaluate: async (callback, range) => {
+      const element = { textContent: payload };
+      const value = callback(element, range);
+      if (typeof value === "string") maximumSlice = Math.max(maximumSlice, value.length);
+      return value;
+    }
+  };
+  const reconstructed = await readLocatorTextInChunks(locator);
+  assert.equal(reconstructed, payload);
+  assert.ok(maximumSlice <= 180_000);
+});
 
 test("PB-RUN-01 a new journey never inherits an old same-slug interaction log", () => {
   const trace = initializeJourneyTrace({
