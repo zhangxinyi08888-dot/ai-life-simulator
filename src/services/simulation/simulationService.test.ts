@@ -2785,6 +2785,48 @@ assert.equal(immediateOfferNode.financialLedger?.incomeSources.filter((source) =
 )).length, 1);
 assert.equal(immediateOfferNode.financialState?.annualAfterTaxIncomeWan, 42);
 
+// If the provider exhausts its one complete-candidate attempt, the
+// deterministic authority fallback must obey the same overdue-offer contract
+// as a model candidate. It may omit an unknown amount, but it must atomically
+// start the employer CareerState, clear the pending offer, close the old wage,
+// and let policy create exactly one estimated replacement wage.
+const invalidProviderOfferFallback = await generateNextNode({
+  userData,
+  answers,
+  history: structuredClone(immediateOfferHistory),
+  currentAttributes: nextNode.attributes,
+  selectedDecision: immediateOfferDecision,
+  nodeIndex: 2,
+  simulationSeed: "pending-employer-offer-invalid-provider-fallback"
+}, {
+  financialNodeGateMode: "enforced",
+  expenseLifecycleMode: "off",
+  relationshipDispatchFeatureFlags: {
+    enableAuthoritativeRelationshipStages: false,
+    enableRomanceFormationEvents: false,
+    enableRomanceLifecycleScheduling: false
+  },
+  generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1 }),
+  callAiJson: async () => ({ text: "not-json" })
+});
+assert.equal(invalidProviderOfferFallback.title, "新岗位正式到岗");
+assert.match(invalidProviderOfferFallback.description, /具体个人薪资尚无可靠金额/u);
+assert.equal(invalidProviderOfferFallback.worldStateSnapshot?.pendingEmployerOffer, undefined);
+assert.equal(invalidProviderOfferFallback.worldStateSnapshot?.currentEmploymentStatus, "employed");
+const fallbackActiveEmployerSalaries = invalidProviderOfferFallback.financialLedger?.incomeSources.filter((source) => (
+  source.status === "active" && source.type === "salary"
+)) || [];
+assert.equal(fallbackActiveEmployerSalaries.length, 1);
+assert.equal(fallbackActiveEmployerSalaries[0]?.factStatus, "estimated");
+assert.equal(
+  fallbackActiveEmployerSalaries[0]?.linkedCareerStateId,
+  invalidProviderOfferFallback.worldStateSnapshot?.currentCareerStateId
+);
+assert.equal(
+  invalidProviderOfferFallback.financialLedger?.incomeSources.find((source) => source.id === pendingOfferIncomeBefore?.id)?.status,
+  "ended"
+);
+
 // Planning for retirement is not evidence that the protagonist has retired.
 // The existing employed CareerState and its linked salary must remain the
 // authority when the accepted choice and prose both say that work continues.

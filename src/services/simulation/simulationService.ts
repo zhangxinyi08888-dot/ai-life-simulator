@@ -5409,6 +5409,8 @@ function buildDeterministicCandidateFallback(input: {
   intentScope?: string;
   event?: LifeEventSeed;
   decisionGateReasonCodes?: string[];
+  currentWorldState?: WorldStateSnapshot;
+  selectedOutcomeId?: string;
 }): SimulationNode {
   const safeNode = applyDeterministicDecisionGateFallback(
     input.node,
@@ -5421,22 +5423,56 @@ function buildDeterministicCandidateFallback(input: {
   const description = selectedDecision
     ? `你把“${selectedDecision}”写进接下来三个月的安排里。能立刻动手的部分先做，暂时卡住的部分留到下一次复盘。`
     : "你把眼前的责任重新排了一遍，能立刻动手的部分先做，暂时卡住的部分留到下一次复盘。";
+  const pendingOffer = input.currentWorldState?.pendingEmployerOffer;
+  const mustResolvePendingOffer = Boolean(
+    pendingOffer
+    && safeNode.ageInMonths - pendingOffer.acceptedAtAgeInMonths >= PENDING_EMPLOYER_OFFER_MAX_WAIT_MONTHS
+  );
+  const resolutionOutcomeId = input.selectedOutcomeId || pendingOffer?.sourceOutcomeId;
+  const resolvedStartEvidence = "完成必要交接后，你已经正式到岗，开始履行外部雇主职责。";
+  const resolvedDescription = mustResolvePendingOffer && pendingOffer
+    ? `${resolvedStartEvidence}具体个人薪资尚无可靠金额，由版本化职业政策建立估算工资并等待后续复核。`
+    : description;
+  const pendingOfferResolutionDelta: WorldDelta[] = mustResolvePendingOffer && pendingOffer
+    ? [{
+        type: "career_state",
+        summary: "已接受的外部雇主 offer 在最长等待窗口到期后正式到岗",
+        employmentTransition: {
+          subject: "protagonist",
+          toStatus: "employed",
+          effectiveAtAgeInMonths: safeNode.ageInMonths,
+          sourceOutcomeId: resolutionOutcomeId,
+          evidence: resolvedStartEvidence,
+          confidence: 0.8
+        },
+        pendingEmployerOfferResolution: {
+          action: "started",
+          pendingOfferSourceOutcomeId: pendingOffer.sourceOutcomeId,
+          sourceOutcomeId: resolutionOutcomeId,
+          evidence: resolvedStartEvidence,
+          confidence: 0.8
+        }
+      }]
+    : [];
   return {
     ...safeNode,
-    title: "选择落地前的现实调整",
-    description,
-    descriptionParagraphs: [description],
+    stage: mustResolvePendingOffer ? "正式入职" : safeNode.stage,
+    title: mustResolvePendingOffer ? "新岗位正式到岗" : "选择落地前的现实调整",
+    description: resolvedDescription,
+    descriptionParagraphs: [resolvedDescription],
     narrativeMeta: safeNode.narrativeMeta ? {
       ...safeNode.narrativeMeta,
       activeCharacters: [],
       relationshipProposals: [],
-      worldDeltas: [],
+      worldDeltas: pendingOfferResolutionDelta,
       arcSignals: [],
       recoveryEvidence: [],
       storyEpisode: {
         ...safeNode.narrativeMeta.storyEpisode,
         internalTransitions: [],
-        summary: selectedDecision ? `开始落实“${selectedDecision}”，并设置下一次复盘。` : "重新安排当前责任，并设置下一次复盘。"
+        summary: mustResolvePendingOffer
+          ? "完成交接并正式到岗，新职业工资进入版本化估算与复核流程。"
+          : selectedDecision ? `开始落实“${selectedDecision}”，并设置下一次复盘。` : "重新安排当前责任，并设置下一次复盘。"
       }
     } : safeNode.narrativeMeta,
     eventMeta: {
@@ -5462,6 +5498,8 @@ function buildInvalidInitialGenerationFallback(input: {
   elapsedMonths: number;
   lifeIntensity: LifeIntensity;
   nodeIndex: number;
+  currentWorldState?: WorldStateSnapshot;
+  selectedOutcomeId?: string;
 }): SimulationNode {
   const baseNode = normalizeSimulationNode({
     title: "选择落地前的现实调整",
@@ -5495,7 +5533,9 @@ function buildInvalidInitialGenerationFallback(input: {
     selectedDecision: input.selectedDecision,
     allowedOutcomeIds: input.allowedOutcomeIds,
     issueCodes: ["INITIAL_GENERATION_INVALID"],
-    intentScope: `node-${input.nodeIndex}`
+    intentScope: `node-${input.nodeIndex}`,
+    currentWorldState: input.currentWorldState,
+    selectedOutcomeId: input.selectedOutcomeId
   });
 }
 
@@ -6041,7 +6081,9 @@ async function generateNextNodeAttempt(
       previousAgeInMonths: currentAgeInMonths,
       elapsedMonths: timelineAdvance.elapsedMonths,
       lifeIntensity: timelineAdvance.lifeIntensity,
-      nodeIndex
+      nodeIndex,
+      currentWorldState,
+      selectedOutcomeId
     });
     latestRawNode = node;
   }
@@ -6564,7 +6606,9 @@ async function generateNextNodeAttempt(
       issueCodes: candidateIssues.map((issue) => issue.code),
       intentScope: `node-${nodeIndex}`,
       event: nodeEvent,
-      decisionGateReasonCodes: candidateDecisionGate.reasonCodes
+      decisionGateReasonCodes: candidateDecisionGate.reasonCodes,
+      currentWorldState,
+      selectedOutcomeId
     });
     latestRawNode = node;
     candidateDecisionGate = evaluateDecisionGate({
