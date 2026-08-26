@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { HistoryItem, LifeAttributes, PressureArcState, QuestionTurn, UserInitialData } from "../../types";
 import type { FinancialNodeAcceptanceDecision } from "../../domain/finance";
-import { buildDeterministicFinancialNarrativeRollback, buildDeterministicRomanceRescheduleNode, detectNarrativeFinancialCoverageIssues, eventSpecificFallbackDefinitions, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, selectedDecisionRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
+import { buildDeterministicFinancialNarrativeRollback, buildDeterministicRomanceRescheduleNode, detectNarrativeFinancialCoverageIssues, eventSpecificFallbackDefinitions, financialPreviewInvariantReasonCode, generateNextNode as generateNextNodeProduction, generateQuestions, narrativeRequiresCareerTransition, reconcileLegacyIncomeProposalEvidenceNarrative, resolvePendingEmployerOffer, rollbackRejectedFinancialCompletionTitle, selectedDecisionRequiresCareerTransition, startSimulation, synthesizeSelectedCareerTransition, synthesizeSelectedPersonalIncomeProposal } from "./simulationService";
 import { generateNextNodeWithEventOutcomes as generateNextNode } from "./testEventOutcomeAdapter";
 import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 import { deriveWealthScore, estimateFinancialStateFromWealth, normalizeInitialFinancialState } from "../../utils/financialState";
@@ -15,6 +15,19 @@ import {
 } from "../../domain/relationship/relationshipLifecycle";
 import type { GenerationCallTrace } from "./generationTelemetry";
 import { NEXT_NODE_REFERENCE_CONTEXT_PREFIX_VERSION } from "./prompts";
+import { FinancialLedgerInvariantError } from "../../domain/finance/ledgerMath";
+
+assert.equal(
+  financialPreviewInvariantReasonCode(new FinancialLedgerInvariantError(
+    "INVALID_LEDGER",
+    "V4 active 支出责任不得重复: adult_basic_living:protagonist"
+  )),
+  "DUPLICATE_ACTIVE_EXPENSE_RESPONSIBILITY"
+);
+assert.equal(
+  financialPreviewInvariantReasonCode(new FinancialLedgerInvariantError("UNBALANCED_TRANSACTION", "借贷不平")),
+  "FINANCIAL_PREVIEW_UNBALANCED_TRANSACTION"
+);
 
 const userData: UserInitialData = {
   birthday: "1995-05-20",

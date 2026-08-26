@@ -201,6 +201,18 @@ const rejectedExpenseLifecycleRetryPrompt = buildNextNodePrompt({
   selectedOutcomeId: "keep_current_home",
   financialGateRetryReasonCodes: ["REJECTED_COMPLETED_EXPENSE_LIFECYCLE"]
 });
+const duplicateExpenseResponsibilityRetryPrompt = buildNextNodePrompt({
+  userData,
+  answers,
+  history,
+  currentAttributes,
+  selectedDecision: "继续承担当前住房支出",
+  eventSeed: healthWarningEvent,
+  selectedOutcomeId: "keep_current_home",
+  financialGateRetryReasonCodes: ["DUPLICATE_ACTIVE_EXPENSE_RESPONSIBILITY"]
+});
+assert.match(duplicateExpenseResponsibilityRetryPrompt, /不得再次返回 expense_commitment_started/u);
+assert.match(duplicateExpenseResponsibilityRetryPrompt, /必须引用原 expenseCommitmentId/u);
 const endingResponsibilityDeltaRetryPrompt = buildEndingNodePrompt({
   userData,
   history,

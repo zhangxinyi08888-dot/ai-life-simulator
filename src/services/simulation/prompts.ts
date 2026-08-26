@@ -320,6 +320,9 @@ function buildFinancialGateRetryPrompt(input: {
     ? `- 若正文给出当前已经发生的个人持续支出精确金额，且它低于账本中的 policy/context/legacy/last-known 估算：必须引用原 expenseCommitmentId，返回 expense_commitment_adjusted，并同时填写 previousCommitmentId=原账户 id、changeReason="estimate_superseded_by_exact_fact"；nextCommitment 只用本轮精确金额替换 monthlyAmountWan/grossMonthlyAmountWan，保留原责任 identity，factStatus 保持 needs_review，amountBasis="last_known"，并省略 confirmedMonthlyAmountWan/lastConfirmedAtAgeInMonths。不得使用自由文本 changeReason，不得 started 重复账户。
 - 若不能从本轮正文逐字证明当前金额、付款人和责任范围，就删除这项已完成支出断言或改写为尚在核对的计划，并省略 Proposal；不得复制旧账本金额冒充新确认。`
     : "";
+  const duplicateExpenseResponsibilityRetryRule = reasonCodes.includes("DUPLICATE_ACTIVE_EXPENSE_RESPONSIBILITY")
+    ? "- 当前账本已经存在同一责任 identity 的活跃 expenseCommitment。不得再次返回 expense_commitment_started；若本轮有可逐字验证的新金额或状态变化，必须引用原 expenseCommitmentId，以 expense_commitment_adjusted / expense_commitment_resumed / expense_commitment_ended 表达；没有变化则省略该 Proposal。"
+    : "";
   return `【财务接受门重生修正】
 - 上一个完整候选被拒绝，原因：${reasonCodes.join("、")}。
 - 必须重新生成整个节点，不能重复上一个财务 Proposal 错误。
@@ -328,6 +331,7 @@ function buildFinancialGateRetryPrompt(input: {
 - 职业变化必须同时包含 employmentTransition 和旧工资关闭/新工资开启；否则保留当前权威职业与收入，不要凭空改写。
 ${careerIncomeTransitionRetryRule}
 ${expenseLifecycleRetryRule}
+${duplicateExpenseResponsibilityRetryRule}
 - 若拒绝原因包含 EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING，且正文已完成“父/母健康受限 + 你为其找/请康复师或理疗师 + 每周/固定上门”的持续照护安排：必须在 narrativeMeta.worldDeltas 返回一条 amount-free expense_responsibility（responsibilityKind="elder_care"、beneficiary="father"|"mother"|"parents"、owner="protagonist"、cadence="recurring_unknown"、sourceOutcomeId=本轮已选 outcome、evidence=逐字原句、confidence=0.8-1）。病情和服务若跨句，evidence 必须逐字包含病情句与服务句，不能只引用服务句。未知金额由系统建立 needs_review，绝不可编造金额；一次陪诊、高龄、父母自行支付、公司场地或计划不得返回该 delta。
 ${formatEmployedIncomeGateRetryRule(input.currentFinancialLedger, reasonCodes, input.currentEmploymentStatus)}`;
 }

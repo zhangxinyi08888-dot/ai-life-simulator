@@ -290,6 +290,20 @@ class FinancialNodeGateError extends AiClientError {
   }
 }
 
+/**
+ * A rejected Preview is model-candidate feedback, not a corrupt authoritative
+ * ledger. Keep the reducer invariant strict, but route a duplicate lifecycle
+ * start through the same bounded whole-candidate regeneration as every other
+ * financial acceptance-gate rejection.
+ */
+export function financialPreviewInvariantReasonCode(error: FinancialLedgerInvariantError): string {
+  if (error.code === "INVALID_LEDGER"
+    && /(?:active\s+)?支出责任不得重复|expense(?:_|\s*)commitment.*(?:重复|duplicate)|不得重复.*(?:started|账户)/iu.test(error.message)) {
+    return "DUPLICATE_ACTIVE_EXPENSE_RESPONSIBILITY";
+  }
+  return `FINANCIAL_PREVIEW_${error.code}`;
+}
+
 const FINANCIAL_GATE_DIAGNOSTIC_MAX_PROPOSALS = 20;
 const FINANCIAL_GATE_DIAGNOSTIC_MAX_ISSUES = 24;
 const FINANCIAL_GATE_DIAGNOSTIC_MAX_TEXT = 1400;
@@ -3894,11 +3908,55 @@ async function commitAuthoritativeFinancialProgress(input: {
     aggregateExpenseEstimateContext: expenseEstimateContext,
     liquidityPolicy: "auto_shortfall_debt"
   } as const;
+  const previewOrRejectInvalidCandidate = (
+    candidateTransaction: Parameters<typeof previewFinancialDomainTransaction>[0]
+  ): ReturnType<typeof previewFinancialDomainTransaction> => {
+    try {
+      return previewFinancialDomainTransaction(candidateTransaction);
+    } catch (error) {
+      if (!(error instanceof FinancialLedgerInvariantError)) throw error;
+      const reasonCode = financialPreviewInvariantReasonCode(error);
+      const relatedProposalIds = [...new Set(candidateTransaction.acceptedFinancialEvents
+        .map((event) => event.proposalId)
+        .filter((proposalId): proposalId is string => Boolean(proposalId)))];
+      const decision: FinancialNodeAcceptanceDecision = {
+        mode: "enforced",
+        disposition: "regenerate",
+        allowDomainCommit: false,
+        wouldBlock: true,
+        blockingReasonCodes: [reasonCode],
+        reasonCodes: [reasonCode],
+        relatedIssueIds: [],
+        relatedProposalIds,
+        requiredFactGroupCount: 1,
+        satisfiedFactGroupCount: 0,
+        criticalFactGroupCount: 1,
+        satisfiedCriticalFactGroupCount: 0,
+        unsatisfiedCriticalFactGroupCount: 1,
+        activeCareerIncomeCount: 0,
+        previewAgeAligned: false,
+        transactionId: input.transactionId,
+        regenerationCount: input.financialGateRegenerationCount,
+        authoritativeAgeBefore: input.periodStartAgeInMonths,
+        rejectionDiagnostic: buildFinancialGateRejectionDiagnostic({
+          node: input.node,
+          proposals: [...allCandidateProposals.values()],
+          acceptedProposalIds: finalAcceptedProposalIds,
+          rejectedProposalIds: finalRejectedIdSet,
+          issues: finalizedFinancialIssues,
+          requiredFactGroups: [],
+          provisionalCareerTransitions: acceptedCareerTransitions
+        })
+      };
+      input.onFinancialGateDecision?.(decision);
+      throw new FinancialNodeGateError(decision);
+    }
+  };
   // Narrative grounding depends on the closing ledger, while narrative contract
   // issues must describe the text the user actually sees. Trial the otherwise
   // pure transaction first, sanitize against that closing state, then rebuild
   // only the current node's narrative issues before the authoritative commit.
-  const previewCommitted = previewFinancialDomainTransaction(transactionInput);
+  const previewCommitted = previewOrRejectInvalidCandidate(transactionInput);
   // Shadow must use the same accepted V4 plan events and the same reducer as
   // enforced mode, but it must never add those events to `validated` or to the
   // authoritative transaction.  Preview operates on a deep-cloned write set,
@@ -3912,7 +3970,7 @@ async function commitAuthoritativeFinancialProgress(input: {
   ));
   const expenseLifecyclePlanPreview = input.expenseLifecycleMode === "off"
     ? undefined
-    : previewFinancialDomainTransaction({
+    : previewOrRejectInvalidCandidate({
         ...transactionInput,
         acceptedFinancialEvents: [
           ...transactionInput.acceptedFinancialEvents,
