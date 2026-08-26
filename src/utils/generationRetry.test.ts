@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isFinancialGateGenerationError, runWithInvalidAiResponseRetry } from "./generationRetry";
+import {
+  isFinancialGateGenerationError,
+  NEXT_NODE_FINANCIAL_GATE_ATTEMPTS,
+  runWithInvalidAiResponseRetry
+} from "./generationRetry";
 
 test("malformed structured output is retried once before becoming visible", async () => {
   let attempts = 0;
@@ -148,6 +152,32 @@ test("a recovered financial-gate retry never reaches the caller-visible pause bo
 
   assert.equal(await generateNodeAtCallerBoundary(), "committed-after-internal-recovery");
   assert.equal(attempts, 3);
+  assert.equal(visiblePauseErrors.length, 0);
+});
+
+test("the next-node budget accepts a fourth full candidate before any visible pause", async () => {
+  let fullCandidates = 0;
+  const visiblePauseErrors: unknown[] = [];
+  const result = await runWithInvalidAiResponseRetry(async (outerAttempt) => {
+    const candidatesThisAttempt = outerAttempt === 1 ? 2 : 1;
+    for (let index = 0; index < candidatesThisAttempt; index += 1) {
+      fullCandidates += 1;
+      if (fullCandidates === 4) return "committed-fourth-candidate";
+    }
+    const error = Object.assign(new Error("financial gate rejected candidates"), {
+      code: "AI_RESPONSE_INVALID",
+      retryScope: "financial_gate"
+    });
+    if (outerAttempt === NEXT_NODE_FINANCIAL_GATE_ATTEMPTS) visiblePauseErrors.push(error);
+    throw error;
+  }, {
+    maxAttempts: 1,
+    maxFinancialGateAttempts: NEXT_NODE_FINANCIAL_GATE_ATTEMPTS,
+    isFinancialGateError: isFinancialGateGenerationError
+  });
+
+  assert.equal(result, "committed-fourth-candidate");
+  assert.equal(fullCandidates, 4);
   assert.equal(visiblePauseErrors.length, 0);
 });
 

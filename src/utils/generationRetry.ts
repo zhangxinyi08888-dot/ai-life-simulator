@@ -30,6 +30,13 @@ export interface GenerationRetryOptions {
 }
 
 /**
+ * The service spends two full candidates inside the first next-node attempt.
+ * Two caller-level financial recoveries add one reason-guided candidate each,
+ * keeping the total bounded at four before a pause can become visible.
+ */
+export const NEXT_NODE_FINANCIAL_GATE_ATTEMPTS = 3;
+
+/**
  * Retries malformed/incomplete structured output and one transient network
  * failure before either becomes a user-visible pause. A rejected financial
  * Preview is different: it has not mutated the authoritative node, so the

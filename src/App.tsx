@@ -19,7 +19,11 @@ import { generateFinalOutcome } from "./services/finalOutcome/finalOutcomeServic
 import { createHistoryItemFromNode, restoreHistoryNodeAtIndex } from "./utils/historyRestore";
 import { mergeStreamedNodePreview, type StreamedNodePreview } from "./utils/streamingJsonPreview";
 import { buildNarrativeRevealFrames } from "./utils/narrativeReveal";
-import { isFinancialGateGenerationError, runWithInvalidAiResponseRetry } from "./utils/generationRetry";
+import {
+  isFinancialGateGenerationError,
+  NEXT_NODE_FINANCIAL_GATE_ATTEMPTS,
+  runWithInvalidAiResponseRetry
+} from "./utils/generationRetry";
 import { resolveDevTestStateImportText } from "./utils/testStateImport";
 import type { FinancialNodeAcceptanceDecision } from "./domain/finance";
 import { resolveFinancialNodeGateMode } from "./config/financialGatePolicy";
@@ -450,8 +454,8 @@ export default function App() {
     nextGenerationAbortRef.current = abortController;
     // The service owns the first two complete candidates and one proposal
     // patch. A rejected financial Preview is still uncommitted, so reserve one
-    // final full candidate for the caller boundary. It receives the exact
-    // blocking reason and cannot multiply into another two-candidate loop.
+    // two final full candidates for the caller boundary. Each receives the
+    // exact blocking reason and cannot multiply into another two-candidate loop.
     const primaryGenerationBudget = createNodeGenerationBudget();
     let financialGateRetryReasonCodes: string[] | undefined;
 
@@ -519,7 +523,7 @@ export default function App() {
         }
       }, {
         maxAttempts: 1,
-        maxFinancialGateAttempts: 2,
+        maxFinancialGateAttempts: NEXT_NODE_FINANCIAL_GATE_ATTEMPTS,
         isFinancialGateError: isFinancialGateGenerationError
       });
 
