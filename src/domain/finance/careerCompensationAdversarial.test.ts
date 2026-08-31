@@ -396,6 +396,9 @@ test("CCA-07 long review windows emit each boundary once and survive JSON restor
   assert.deepEqual(proposals.map((proposal) => (
     (proposal.payload as { nextSource: IncomeSource }).nextSource.compensationEstimate?.reviewAtAgeInMonths
   )), [306, 318, 330]);
+  assert.deepEqual(proposals.map((proposal) => (
+    (proposal.payload as { nextSource: IncomeSource }).nextSource.compensationEstimate?.inputs.calendarYear
+  )), [2027, 2028, 2029]);
 
   const catchUp = completeDueCareerCompensationReviewProposals({
     proposals: [], currentLedger: ledger, currentCareerState: current,
@@ -403,6 +406,9 @@ test("CCA-07 long review windows emit each boundary once and survive JSON restor
     acceptedOutcomeId: "cca_outcome", narrativeText: narrative, calendarYear: 2028
   });
   assert.deepEqual(catchUp.map((proposal) => proposal.effectiveAtAgeInMonths), [310, 322]);
+  assert.deepEqual(catchUp.map((proposal) => (
+    (proposal.payload as { nextSource: IncomeSource }).nextSource.compensationEstimate?.inputs.calendarYear
+  )), [2028, 2029]);
   assert.equal(new Set(catchUp.map((proposal) => proposal.effectiveAtAgeInMonths)).size, catchUp.length);
 
   const validated = validate({

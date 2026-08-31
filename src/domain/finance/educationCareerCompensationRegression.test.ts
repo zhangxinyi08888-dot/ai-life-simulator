@@ -199,7 +199,15 @@ test("education regression replays freelance, bounded internship, graduation est
   assert.equal(supportAfterGraduation.activeUntilAgeInMonths, 264);
   const paidIncomeWan = Number((first.afterEmploymentStart.financialPeriodSummary!.incomeWan
     + first.afterFullTime.financialPeriodSummary!.incomeWan).toFixed(4));
-  assert.equal(paidIncomeWan, Number((fullTimeIncome.monthlyNetAmountWan! * 124).toFixed(4)));
+  const baselineMonthlyWan = fullTimeIncome.compensationEstimate!.baselineMonthlyNetAmountWan!;
+  let expectedPaidIncomeWan = 0;
+  for (let month = 264; month < 388; month += 1) {
+    const completedReviewCount = Math.max(0, Math.floor((month - 264) / 12));
+    const growthRate = Math.min(0.2, completedReviewCount * 0.04);
+    expectedPaidIncomeWan += Math.round(baselineMonthlyWan * (1 + growthRate) * 100) / 100;
+  }
+  assert.equal(paidIncomeWan, Number(expectedPaidIncomeWan.toFixed(4)));
+  assert.equal(fullTimeIncome.compensationEstimate?.cumulativeGrowthRate, 0.2);
   assert.equal(fullTimeIncome.compensationEstimate?.reviewAtAgeInMonths, 396);
   assert.equal(first.afterFullTime.financialLedger.debtAccounts.some((debt) => debt.origin === "system_auto_shortfall"), false);
   assert.deepEqual(first.afterFullTime.financialLedger, second.afterFullTime.financialLedger);

@@ -26,6 +26,8 @@ import {
   collectFinalFinancialNarrativeIssues
 } from "../../utils/finalFinancialNarrativeAuthority";
 import { getAuthoritativeFinalFinancialContext } from "../../utils/finalOutcomeFinancialContext";
+import { generateNextNodeWithEventOutcomes } from "./testEventOutcomeAdapter";
+import { createNodeGenerationBudget } from "./nodeGenerationBudget";
 
 const ROUTE_START = 276;
 const evidence: FinancialEvidence[] = [{
@@ -158,6 +160,150 @@ function activeCareerIncomeCount(ledger: FinancialLedger, month: number): number
     && (source.activeUntilAgeInMonths === undefined || source.activeUntilAgeInMonths > month)
   )).length;
 }
+
+test("stable employment narration reconciles a stale student state and catches salary up atomically", async () => {
+  const student = state({ id: "career_stale_student", status: "student", at: 240, occupation: "计算机专业学生" });
+  const career: CareerStateCollection = {
+    careerStates: [student],
+    currentCareerStateId: student.id,
+    careerRevision: 0
+  };
+  const ledger = initializeFinancialLedger({
+    id: "continuity_e2e",
+    asOfAgeInMonths: 276,
+    openingPosition: {
+      cashAccounts: [{
+        id: PRIMARY_CASH_ACCOUNT_ID,
+        type: "bank_deposit",
+        balanceWan: 0.2,
+        status: "active",
+        factStatus: "known",
+        evidence
+      }],
+      incomeSources: [{
+        id: "student_basic_family_support",
+        type: "family_support",
+        displayName: "家庭生活支持",
+        monthlyNetAmountWan: 0.2,
+        accrualPolicy: "monthly",
+        activeFromAgeInMonths: 240,
+        status: "active",
+        factStatus: "known",
+        evidence: [{
+          source: "accepted_history",
+          reasonCode: "STUDENT_BASIC_LIVING_FAMILY_COVERED",
+          confidence: 1
+        }]
+      }],
+      expenseCommitments: [{
+        id: "student_living",
+        type: "basic_living",
+        displayName: "学生生活费",
+        monthlyAmountWan: 0.2,
+        activeFromAgeInMonths: 240,
+        status: "active",
+        factStatus: "known",
+        evidence
+      }]
+    }
+  });
+  const currentWorld = world(career);
+  const attributes = { happiness: 61, intelligence: 79, wealth: 42, relation: 60, health: 62 };
+  const history: HistoryItem[] = [{
+    age: 22,
+    ageInMonths: 264,
+    stage: "毕业阶段",
+    title: "毕业后的方向",
+    description: "你完成了计算机专业课程，开始准备下一阶段。",
+    selectedChoice: "继续积累技术经验",
+    selectedChoiceId: "A",
+    selectedEventOutcomeId: "continue_technical_work",
+    attributes,
+    choices: [{
+      id: "A",
+      text: "继续积累技术经验",
+      impactSummary: "保持方向",
+      eventOutcomeId: "continue_technical_work"
+    }],
+    isEndingNode: false
+  }, {
+    age: 23,
+    ageInMonths: 276,
+    stage: "职业起步",
+    title: "技术工作的第一年",
+    description: "你继续在互联网公司做技术岗，白天写代码，晚上整理作品。",
+    selectedChoice: "继续当前工作",
+    selectedChoiceId: "A",
+    selectedEventOutcomeId: "continue_current_work",
+    attributes,
+    choices: [{
+      id: "A",
+      text: "继续当前工作",
+      impactSummary: "稳定积累",
+      eventOutcomeId: "continue_current_work"
+    }],
+    financialLedger: ledger,
+    financialLedgerMode: "authoritative",
+    worldStateSnapshot: currentWorld,
+    isEndingNode: false
+  }];
+  const node = await generateNextNodeWithEventOutcomes({
+    userData: {
+      birthday: "2000-01-01",
+      birthtime: "08:00",
+      gender: "男",
+      currentSituation: "互联网开发",
+      isReturnToPast: true,
+      targetAgeNode: "毕业",
+      regressionNodeKey: "career",
+      regressionAge: 22,
+      regressionSituation: "毕业后开始工作",
+      regressionChoices: "继续技术路线",
+      coreStoryFocus: "career",
+      milestones: []
+    },
+    answers: [{ id: 1, question: "当前方向？", answer: "互联网技术开发" }],
+    history,
+    currentAttributes: attributes,
+    selectedDecision: "继续当前工作",
+    nodeIndex: history.length,
+    simulationSeed: "career-continuity-e2e"
+  }, {
+    financialNodeGateMode: "enforced",
+    expenseLifecycleMode: "off",
+    generationBudget: createNodeGenerationBudget({ fullGenerationLimit: 1, modelPatchLimit: 0 }),
+    callAiJson: async () => ({
+      text: JSON.stringify({
+        age: 24,
+        stage: "职业积累",
+        title: "技术工作的延续",
+        description: "你继续在互联网公司做技术岗，白天负责功能开发和代码评审。\n\n这一年里，你承担了更完整的交付，晚上仍会整理动画作品。\n\n工作和个人方向都在稳定推进。",
+        choices: [
+          { id: "A", text: "继续积累工程经验", impactSummary: "稳定成长" },
+          { id: "B", text: "争取承担更复杂的项目", impactSummary: "扩大职责" },
+          { id: "C", text: "保留时间完善动画作品", impactSummary: "双线推进" }
+        ],
+        attributes,
+        financialEventProposals: [],
+        isEndingNode: false
+      })
+    })
+  });
+  assert.equal(node.worldStateSnapshot?.currentEmploymentStatus, "employed");
+  const reconciledCareer = node.worldStateSnapshot?.careerStates?.find((item) => (
+    item.id === node.worldStateSnapshot?.currentCareerStateId
+  ));
+  assert.equal(reconciledCareer?.effectiveFromAgeInMonths, 264);
+  assert.equal(activeCareerIncomeCount(node.financialLedger!, node.ageInMonths!), 1);
+  assert.equal(node.financialLedger?.incomeSources.find((source) => source.id === "student_basic_family_support")?.status, "ended");
+  assert.ok(
+    (node.financialPeriodSummary?.incomeWan || 0) > Number(node.financialLedger?.incomeSources.find((source) => (
+      source.status === "active" && source.linkedCareerStateId === reconciledCareer?.id
+    ))?.monthlyNetAmountWan || 0),
+    "historical salary catch-up must enter the accepted transaction"
+  );
+  assert.equal(node.financialLedger?.debtAccounts.some((debt) => debt.origin === "system_auto_shortfall"), false);
+});
 
 function opening(): Snapshot {
   const student = state({ id: "career_student", status: "student", at: ROUTE_START, occupation: "计算机专业学生" });

@@ -547,6 +547,47 @@ function isValidSystemCareerIncomeContinuationReview(input: {
   return JSON.stringify(nextComparable) === JSON.stringify(currentComparable);
 }
 
+function explicitMonthlySalaryWanFromEvidence(text: string): number | undefined {
+  const monthlyWan = text.match(/(?:税后)?月薪(?:约为|约|达到|为|稳定在)?\s*(\d+(?:\.\d+)?)\s*万/u)?.[1];
+  if (monthlyWan) return Number(monthlyWan);
+  const monthlyYuan = text.match(/(?:税后)?月薪(?:约为|约|达到|为|稳定在)?\s*(\d+(?:\.\d+)?)\s*元/u)?.[1];
+  if (monthlyYuan) return Number(monthlyYuan) / 10_000;
+  const annualWan = text.match(/(?:税后)?年薪(?:约为|约|达到|为|稳定在)?\s*(\d+(?:\.\d+)?)\s*万/u)?.[1];
+  return annualWan ? Number(annualWan) / 12 : undefined;
+}
+
+function isValidSystemCareerContinuityReconciliation(input: {
+  proposal: FinancialEventProposal;
+  narrativeText: string;
+}): boolean {
+  const { proposal } = input;
+  if (proposal.systemGenerated !== "career_continuity_reconciliation"
+    || proposal.kind !== "income_source_started"
+    || proposal.financialScope !== "personal"
+    || !proposal.sourceOutcomeId
+    || !input.narrativeText.includes(proposal.evidence.trim())
+    || !/(?:你|本人|主角)[^。！？]{0,32}(?:继续|一直|仍(?:然)?|长期)[^。！？]{0,32}(?:公司|企业|机构|团队|工作室|规划院)[^。！？]{0,32}(?:工作|任职|做|担任|负责|写代码|开发)/u.test(proposal.evidence)) return false;
+  const source = proposal.payload as Record<string, any>;
+  const historicalEvidence = Array.isArray(source.evidence) ? source.evidence : [];
+  if (source.type !== "salary"
+    || source.status !== "active"
+    || source.accrualPolicy !== "monthly"
+    || typeof source.linkedCareerStateId !== "string"
+    || !Number.isInteger(source.activeFromAgeInMonths)
+    || source.activeFromAgeInMonths > proposal.effectiveAtAgeInMonths
+    || historicalEvidence.length !== 1
+    || historicalEvidence[0]?.source !== "accepted_history"
+    || historicalEvidence[0]?.sourceEventId !== proposal.sourceOutcomeId
+    || historicalEvidence[0]?.reasonCode !== "CAREER_CONTINUITY_RECONCILIATION"
+    || typeof historicalEvidence[0]?.excerpt !== "string") return false;
+  if (source.factStatus === "estimated") return hasValidPolicyCompensationAuthority(source);
+  if (source.factStatus !== "known" || source.compensationEstimate !== undefined) return false;
+  const explicitMonthlyWan = explicitMonthlySalaryWanFromEvidence(historicalEvidence[0].excerpt);
+  return Number.isFinite(explicitMonthlyWan)
+    && Number.isFinite(source.monthlyNetAmountWan)
+    && Math.abs(Number(source.monthlyNetAmountWan) - Number(explicitMonthlyWan)) < 0.000001;
+}
+
 const V4_EXPENSE_CHANGE_REASONS = new Set([
   "residence_ended", "shared_responsibility_changed", "explicit_amount_reduced", "estimate_superseded_by_exact_fact", "dependent_independent",
   "care_responsibility_transferred", "care_recipient_deceased", "treatment_completed", "insurance_cancelled",
@@ -829,7 +870,7 @@ function isValidSystemContextualCareUplift(input: {
 
 function acceptedEvent(
   proposal: FinancialEventProposal,
-  evidenceReason: EvidenceMatchReason | "SYSTEM_CAREER_CONTINUATION_REVIEW",
+  evidenceReason: EvidenceMatchReason | "SYSTEM_CAREER_CONTINUATION_REVIEW" | "SYSTEM_CAREER_CONTINUITY_RECONCILIATION",
   expenseConfirmation?: ExpenseConfirmationValidationResult
 ): AcceptedFinancialEvent {
   const payload = proposal.confidence < 0.8
@@ -844,13 +885,18 @@ function acceptedEvent(
       purchase.linkedDebtDrawEventId = `accepted_${linkedId}`;
     }
   }
+  const continuityEvidence = proposal.systemGenerated === "career_continuity_reconciliation"
+    && proposal.kind === "income_source_started"
+    && Array.isArray((payload as Record<string, any>).evidence)
+    ? structuredClone((payload as Record<string, any>).evidence)
+    : undefined;
   const event = {
     id: `accepted_${proposal.id}`,
     proposalId: proposal.id,
     kind: proposal.kind,
     effectiveAtAgeInMonths: proposal.effectiveAtAgeInMonths,
     payload: payload as FinancialEventPayloadMap[FinancialEventKind],
-    evidence: [{
+    evidence: continuityEvidence || [{
       source: proposal.systemGenerated === "expense_lifecycle_review" ? "system_policy" : "accepted_simulation_outcome",
       sourceEventId: proposal.systemGenerated === "expense_lifecycle_review" ? undefined : proposal.sourceOutcomeId,
       excerpt: proposal.evidence.trim(),
@@ -1633,6 +1679,7 @@ export function validateFinancialProposals(input: {
       || isSystemWorldDeltaReconciliation;
     const isSystemContextualCareUplift = proposal.systemGenerated === "expense_contextual_care_uplift";
     const isSystemCareerContinuation = proposal.systemGenerated === "career_income_continuation_review";
+    const isSystemCareerContinuityReconciliation = proposal.systemGenerated === "career_continuity_reconciliation";
     const isAnySystemReconciliation = isSystemReconciliation || isSystemContextualCareUplift;
     const proposedExpenseResponsibilityKind = proposal.kind === "expense_commitment_adjusted"
       ? String((payload.nextCommitment as Record<string, unknown> | undefined)?.responsibilityKind || "")
@@ -1647,7 +1694,8 @@ export function validateFinancialProposals(input: {
       }));
       continue;
     }
-    if (proposal.systemGenerated !== undefined && !isSystemReview && !isAnySystemReconciliation && !isSystemCareerContinuation) {
+    if (proposal.systemGenerated !== undefined && !isSystemReview && !isAnySystemReconciliation
+      && !isSystemCareerContinuation && !isSystemCareerContinuityReconciliation) {
       issues.push(proposalIssue({
         proposal,
         code: "EXPENSE_SCHEMA_FIELD_MISMATCH",
@@ -1666,6 +1714,18 @@ export function validateFinancialProposals(input: {
         proposal,
         code: "CAREER_INCOME_CONFLICT",
         summary: "系统职业延续复核只能更新同一收入来源的工作确认时间，不能改写金额、身份或职业归属",
+        ageInMonths: proposal.effectiveAtAgeInMonths
+      }));
+      continue;
+    }
+    if (isSystemCareerContinuityReconciliation && !isValidSystemCareerContinuityReconciliation({
+      proposal,
+      narrativeText: input.narrativeText
+    })) {
+      issues.push(proposalIssue({
+        proposal,
+        code: "CAREER_INCOME_CONFLICT",
+        summary: "系统职业连续性修复必须同时具备当前持续就业正文、已接受历史证据和唯一的权威工资来源",
         ageInMonths: proposal.effectiveAtAgeInMonths
       }));
       continue;
@@ -1709,6 +1769,12 @@ export function validateFinancialProposals(input: {
     }
     const evidenceMatch = isSystemReview
       ? { matched: true as const, reasonCode: "SYSTEM_POLICY_REVIEW" as const }
+      : isSystemCareerContinuityReconciliation
+        ? {
+            matched: true as const,
+            reasonCode: "SYSTEM_CAREER_CONTINUITY_RECONCILIATION" as const,
+            excerpt: proposal.evidence
+          }
       : isSystemWorldDeltaReconciliation
         ? { matched: true as const, reasonCode: "ACCEPTED_WORLD_DELTA" as const }
         : matchFinancialEvidence({ proposal, narrativeText: input.narrativeText });
@@ -1804,7 +1870,8 @@ export function validateFinancialProposals(input: {
       });
       if ((!personalCareerIncomeEvidenceIsExplicit(payload.type, proposal.evidence)
           && !matchesAuthoritativeRelativeSalary
-          && !hasValidPolicyCompensationAuthority(payload))
+          && !hasValidPolicyCompensationAuthority(payload)
+          && !isSystemCareerContinuityReconciliation)
         || (requiresCompletedBusinessIncomeReceipt && !hasMatchingPersonalBusinessIncomeAmount({ type: payload.type, source: payload, evidence: proposal.evidence }))) {
         issues.push(proposalIssue({ proposal, code: "BUSINESS_PERSONAL_BOUNDARY_CONFLICT", summary: "公司合同额、营业收入或不匹配金额不能证明主角已经按该金额和频率领取个人工资、提款或分红", ageInMonths: proposal.effectiveAtAgeInMonths }));
         continue;
@@ -1883,7 +1950,15 @@ export function validateFinancialProposals(input: {
       }));
       continue;
     }
-    acceptedEvents.push(acceptedEvent(proposal, isSystemCareerContinuation ? "SYSTEM_CAREER_CONTINUATION_REVIEW" : evidenceMatch.reasonCode, expenseConfirmation));
+    acceptedEvents.push(acceptedEvent(
+      proposal,
+      isSystemCareerContinuation
+        ? "SYSTEM_CAREER_CONTINUATION_REVIEW"
+        : isSystemCareerContinuityReconciliation
+          ? "SYSTEM_CAREER_CONTINUITY_RECONCILIATION"
+          : evidenceMatch.reasonCode,
+      expenseConfirmation
+    ));
     acceptedProposals.push(proposal);
     if (expenseMutation) replaceExpenseAmountSourceOwner({
       owners: expenseAmountSourceOwners,

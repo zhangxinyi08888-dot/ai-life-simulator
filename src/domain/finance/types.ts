@@ -133,6 +133,10 @@ export interface CareerCompensationEstimate {
   confidence: number;
   effectiveAtAgeInMonths: number;
   reviewAtAgeInMonths: number;
+  /** Stable entry/rebaseline amount used by deterministic annual reviews. */
+  baselineMonthlyNetAmountWan?: number;
+  /** Policy growth applied since the latest entry/rebaseline, capped at 20%. */
+  cumulativeGrowthRate?: number;
   evidence: string;
 }
 
@@ -617,6 +621,12 @@ export interface FinancialEventProposal {
      * turning "still working" prose into a newly known salary.
      */
     | "career_income_continuation_review"
+    /**
+     * Repairs a stale non-working CareerState from already accepted history.
+     * The validator requires current continuity text plus a historical
+     * employment excerpt, and accepts exactly one linked salary source.
+     */
+    | "career_continuity_reconciliation"
     /**
      * A responsibility projection from an already accepted structured
      * WorldState delta. This is deliberately distinct from prose-derived

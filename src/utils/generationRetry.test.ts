@@ -155,14 +155,13 @@ test("a recovered financial-gate retry never reaches the caller-visible pause bo
   assert.equal(visiblePauseErrors.length, 0);
 });
 
-test("the next-node budget accepts a fourth full candidate before any visible pause", async () => {
+test("the next-node caller does not extend the service beyond two full candidates", async () => {
   let fullCandidates = 0;
   const visiblePauseErrors: unknown[] = [];
-  const result = await runWithInvalidAiResponseRetry(async (outerAttempt) => {
-    const candidatesThisAttempt = outerAttempt === 1 ? 2 : 1;
+  await assert.rejects(runWithInvalidAiResponseRetry(async (outerAttempt) => {
+    const candidatesThisAttempt = 2;
     for (let index = 0; index < candidatesThisAttempt; index += 1) {
       fullCandidates += 1;
-      if (fullCandidates === 4) return "committed-fourth-candidate";
     }
     const error = Object.assign(new Error("financial gate rejected candidates"), {
       code: "AI_RESPONSE_INVALID",
@@ -174,11 +173,10 @@ test("the next-node budget accepts a fourth full candidate before any visible pa
     maxAttempts: 1,
     maxFinancialGateAttempts: NEXT_NODE_FINANCIAL_GATE_ATTEMPTS,
     isFinancialGateError: isFinancialGateGenerationError
-  });
+  }), /financial gate rejected candidates/);
 
-  assert.equal(result, "committed-fourth-candidate");
-  assert.equal(fullCandidates, 4);
-  assert.equal(visiblePauseErrors.length, 0);
+  assert.equal(fullCandidates, 2);
+  assert.equal(visiblePauseErrors.length, 1);
 });
 
 test("financial gate recovery remains bounded when every preview is rejected", async () => {

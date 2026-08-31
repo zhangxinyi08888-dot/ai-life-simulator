@@ -98,6 +98,8 @@ import {
   requiresHardLateLifeCareerIncomeResolution,
   completeCareerCompensationProposals,
   completeDueCareerCompensationReviewProposals,
+  buildCareerContinuityReconciliation,
+  buildCareerContinuityCatchUpEvent,
   completeCareerIncomeReplacementProposals,
   buildMortalityFinancialClosure,
   reconcileCareerIncomeAtomicity,
@@ -2909,6 +2911,7 @@ function hasNewBaselineDownwardBlock(input: {
 }
 
 async function commitAuthoritativeFinancialProgress(input: {
+  history: HistoryItem[];
   node: SimulationNode;
   rawNode: any;
   previousState: FinancialState;
@@ -3093,6 +3096,30 @@ async function commitAuthoritativeFinancialProgress(input: {
     .map((transition) => transition.nextCareerState.id));
   acceptedCareerTransitions = studentEngagement.transitions;
   nextCareerIds = acceptedCareerTransitions.map((transition) => transition.nextCareerState.id);
+  const careerContinuityReconciliation = !input.node.isEndingNode
+    && input.periodEndAgeInMonths < 80 * 12
+    && acceptedCareerTransitions.length === 0
+    && !studentEngagement.reclassified
+    ? buildCareerContinuityReconciliation({
+        history: input.history,
+        narrativeText: input.node.description,
+        currentCareerState: currentCareer,
+        periodStartAgeInMonths: input.periodStartAgeInMonths,
+        acceptedOutcomeId: input.acceptedOutcomeId,
+        transactionId: input.transactionId
+      })
+    : undefined;
+  if (careerContinuityReconciliation) {
+    acceptedCareerTransitions = [careerContinuityReconciliation.transition];
+    nextCareerIds = [careerContinuityReconciliation.transition.nextCareerState.id];
+    for (const issue of careerValidationIssues) {
+      if (issue.id.startsWith(`career_transition_issue_${input.transactionId}_`)
+        || issue.id === `career_transition_misplaced_issue_${input.transactionId}`) {
+        issue.severity = "warning";
+        issue.summary = `已由职业连续性校正事务替代无效转换：${issue.summary}`;
+      }
+    }
+  }
   // A bare acceptance of an external offer is represented by the pending
   // offer state above.  It becomes a CareerState transition only after actual
   // entry is established in the accepted outcome and its salary is known.
@@ -3140,6 +3167,22 @@ async function commitAuthoritativeFinancialProgress(input: {
     narrativeText: input.node.description,
     currentStatus: currentCareer.employmentStatus
   });
+  // A model may attach an employmentTransition to a freelance engagement,
+  // interview, contract discussion, or other narrative that neither the
+  // accepted choice nor the completed prose makes authoritative. Dropping the
+  // rejected transition is safe in that case: CareerState and its active
+  // income remain unchanged, while the warning stays auditable. Treating this
+  // model-only schema error as critical would regenerate the entire chapter
+  // even though no accepted career fact is missing.
+  if (!careerTransitionRequired && acceptedCareerTransitions.length === 0) {
+    for (const issue of careerValidationIssues) {
+      if (issue.id.startsWith(`career_transition_issue_${input.transactionId}_`)
+        || issue.id === `career_transition_misplaced_issue_${input.transactionId}`) {
+        issue.severity = "warning";
+        issue.summary = `已忽略正文和用户选择均未要求的模型职业转换：${issue.summary}`;
+      }
+    }
+  }
   if (careerTransitionRequired && acceptedCareerTransitions.length === 0
     && careerValidationIssues.length === 0 && !studentEngagement.reclassified) {
     careerValidationIssues.push({
@@ -3212,6 +3255,9 @@ async function commitAuthoritativeFinancialProgress(input: {
     }),
     ...studentEngagement.proposals
   ];
+  if (careerContinuityReconciliation) {
+    normalizedFinancial.proposals.push(careerContinuityReconciliation.salaryProposal);
+  }
   normalizedFinancial.proposals = synthesizeMissingBusinessHoldingStartProposal({
     proposals: normalizedFinancial.proposals,
     narrativeText: input.node.description,
@@ -3631,8 +3677,28 @@ async function commitAuthoritativeFinancialProgress(input: {
     }).length > 0
   });
   acceptedCareerTransitions = atomicCareerIncome.acceptedCareerTransitions;
+  const continuitySalarySource = careerContinuityReconciliation
+    ? atomicCareerIncome.acceptedFinancialEvents.flatMap((event) => (
+        event.kind === "income_source_started"
+          && event.payload.linkedCareerStateId === careerContinuityReconciliation.transition.nextCareerState.id
+          ? [event.payload]
+          : []
+      ))[0]
+    : undefined;
+  const continuityCatchUpEvent = careerContinuityReconciliation && continuitySalarySource
+    ? buildCareerContinuityCatchUpEvent({
+        reconciliation: careerContinuityReconciliation,
+        ledger: initialLedger,
+        salarySource: continuitySalarySource,
+        periodStartAgeInMonths: input.periodStartAgeInMonths,
+        transactionId: input.transactionId
+      })
+    : undefined;
   validated = {
-    acceptedEvents: atomicCareerIncome.acceptedFinancialEvents,
+    acceptedEvents: [
+      ...atomicCareerIncome.acceptedFinancialEvents,
+      ...(continuityCatchUpEvent ? [continuityCatchUpEvent] : [])
+    ],
     issues: [...validated.issues, ...atomicCareerIncome.issues]
   };
   // The initial validation above is intentionally available to the repair
@@ -5139,12 +5205,17 @@ export function buildDeterministicRomanceRescheduleNode(
     `把${activity}限定为每周两个固定时段，另外留一个晚上处理学习、求职或健康安排`,
     `先完成${activity}手头的一项交付，再决定是否接受新的私人邀约`
   ];
-  const description = `这次联系停留在普通业务与日常交流上。你按原计划继续${activity}，没有因为一次联系增加新的私人承诺。`;
+  const descriptionParagraphs = [
+    `这一阶段，你仍把主要精力放在${activity}，按原来的节奏处理手头任务。`,
+    `你把需要推进的事项逐一排好顺序，在学习、工作和休息之间留出明确边界，没有因为临时变化打乱长期安排。`,
+    `新出现的联系暂时停留在普通业务与日常交流上。你没有提前增加私人承诺，生活继续沿着已经确认的方向展开。`
+  ];
+  const description = descriptionParagraphs.join("\n\n");
   return {
     ...node,
-    title: "一次尚未展开的联系",
+    title: "照常推进的一段时间",
     description,
-    descriptionParagraphs: [description],
+    descriptionParagraphs,
     choices: fallbackChoices.map((text, index) => ({
       id: String.fromCharCode(65 + index),
       text,
@@ -5728,7 +5799,7 @@ function pendingRomanceReschedule(history: HistoryItem[]): PendingRomanceResched
 
 function deferredRomanceEventIds(history: HistoryItem[]): string[] {
   const pending = pendingRomanceReschedule(history);
-  return pending && pending.nodesSinceFallback < 2 ? [pending.requestedEventId] : [];
+  return pending && pending.nodesSinceFallback < 3 ? [pending.requestedEventId] : [];
 }
 
 async function generateNextNodeAttempt(
@@ -5866,7 +5937,7 @@ async function generateNextNodeAttempt(
   const pendingRomance = pendingRomanceReschedule(selectionHistory);
   const romanceRescheduleDue = Boolean(
     pendingRomance
-    && pendingRomance.nodesSinceFallback >= 2
+    && pendingRomance.nodesSinceFallback >= 3
     && dispatchFlags.enableRomanceFormationEvents
     && !deps.romanceFallbackContext
   );
@@ -6878,6 +6949,7 @@ async function generateNextNodeAttempt(
     deps.onGenerationStage?.("finalizing");
     const endingTransactionId = stableHash({ namespace: "ending-transaction", simulationSeed, branchFingerprint, targetAgeInMonths: timelineAdvance.targetAgeInMonths });
     const authoritativeFinance = await commitAuthoritativeFinancialProgress({
+      history: input.history,
       node: endingNode,
       rawNode: rawEnding,
       previousState: currentFinancialState,
@@ -7223,6 +7295,7 @@ async function generateNextNodeAttempt(
   });
   deps.onGenerationStage?.("finalizing");
   const authoritativeFinance = await commitAuthoritativeFinancialProgress({
+    history: input.history,
     node,
     rawNode: latestRawNode,
     previousState: currentFinancialState,

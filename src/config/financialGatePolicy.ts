@@ -13,7 +13,10 @@ export const DEFAULT_FINANCIAL_NODE_GATE_MODE: FinancialNodeGateMode = resolveFi
   process.env.TARO_APP_FINANCIAL_NODE_GATE_MODE
 );
 
-export const FINANCIAL_GATE_MAX_REGENERATIONS = 2;
+// One complete retry is the final fallback after deterministic and bounded
+// Proposal repair. A financial mismatch must not rewrite the same chapter
+// three or four times before it becomes visible to the user.
+export const FINANCIAL_GATE_MAX_REGENERATIONS = 1;
 
 /**
  * The expense reconciler has its own rollout switch.  The generic financial

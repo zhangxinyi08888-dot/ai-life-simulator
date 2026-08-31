@@ -14,6 +14,8 @@ export const CAREER_COMPENSATION_POLICY_ID = "career_compensation_cn_v1" as cons
 export const CAREER_COMPENSATION_POLICY_VERSION = 1 as const;
 export const CAREER_COMPENSATION_REFERENCE_YEAR = 2026;
 const REVIEW_INTERVAL_MONTHS = 12;
+export const CAREER_COMPENSATION_ANNUAL_GROWTH_RATE = 0.04;
+export const CAREER_COMPENSATION_MAX_CUMULATIVE_GROWTH_RATE = 0.2;
 
 interface CompensationBand {
   min: number;
@@ -158,7 +160,32 @@ export function resolveCareerCompensationEstimate(input: {
     confidence,
     effectiveAtAgeInMonths: input.effectiveAtAgeInMonths,
     reviewAtAgeInMonths: input.effectiveAtAgeInMonths + REVIEW_INTERVAL_MONTHS,
+    baselineMonthlyNetAmountWan: round((min + max) / 2),
+    cumulativeGrowthRate: 0,
     evidence: input.narrativeText?.trim() || input.careerState.occupation || input.careerState.employmentStatus
+  };
+}
+
+export function advanceCareerCompensationEstimate(input: {
+  previous: CareerCompensationEstimate;
+  currentPolicyEstimate: CareerCompensationEstimate;
+}): CareerCompensationEstimate {
+  const baseline = input.previous.baselineMonthlyNetAmountWan
+    ?? input.previous.monthlyNetAmountWan;
+  const cumulativeGrowthRate = Math.min(
+    CAREER_COMPENSATION_MAX_CUMULATIVE_GROWTH_RATE,
+    round((input.previous.cumulativeGrowthRate ?? 0) + CAREER_COMPENSATION_ANNUAL_GROWTH_RATE)
+  );
+  const monthlyNetAmountWan = round(baseline * (1 + cumulativeGrowthRate));
+  return {
+    ...input.currentPolicyEstimate,
+    monthlyNetAmountWan,
+    monthlyNetRangeWan: [
+      Math.min(input.currentPolicyEstimate.monthlyNetRangeWan[0], monthlyNetAmountWan),
+      Math.max(input.currentPolicyEstimate.monthlyNetRangeWan[1], monthlyNetAmountWan)
+    ],
+    baselineMonthlyNetAmountWan: baseline,
+    cumulativeGrowthRate
   };
 }
 
@@ -272,17 +299,25 @@ export function completeDueCareerCompensationReviewProposals(input: {
       source.compensationEstimate.reviewAtAgeInMonths,
       input.periodStartAgeInMonths
     );
+    let reviewedSource = structuredClone(source);
+    const periodStartCalendarYear = input.calendarYear
+      ?? source.compensationEstimate.inputs.calendarYear
+        + Math.floor((input.periodStartAgeInMonths - source.compensationEstimate.effectiveAtAgeInMonths) / 12);
     while (reviewMonth <= input.periodEndAgeInMonths) {
       const effectiveMonth = reviewMonth;
-      const estimate = resolveCareerCompensationEstimate({
+      const policyEstimate = resolveCareerCompensationEstimate({
         careerState: input.currentCareerState,
         narrativeText: input.narrativeText,
         effectiveAtAgeInMonths: effectiveMonth,
-        calendarYear: (input.calendarYear ?? source.compensationEstimate.inputs.calendarYear)
-          + Math.floor((effectiveMonth - source.compensationEstimate.effectiveAtAgeInMonths) / 12)
+        calendarYear: periodStartCalendarYear
+          + Math.floor((effectiveMonth - input.periodStartAgeInMonths) / 12)
+      });
+      const estimate = advanceCareerCompensationEstimate({
+        previous: reviewedSource.compensationEstimate!,
+        currentPolicyEstimate: policyEstimate
       });
       const nextSource: IncomeSource = {
-        ...structuredClone(source),
+        ...structuredClone(reviewedSource),
         monthlyNetAmountWan: estimate.monthlyNetAmountWan,
         factStatus: "estimated",
         accrualReviewStatus: "normal",
@@ -299,6 +334,7 @@ export function completeDueCareerCompensationReviewProposals(input: {
         evidence: input.narrativeText.trim(),
         confidence: estimate.confidence
       });
+      reviewedSource = nextSource;
       reviewMonth = estimate.reviewAtAgeInMonths;
     }
   }

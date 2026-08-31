@@ -252,6 +252,9 @@ assert.deepEqual(romanceRescheduleRegression.choices.map((choice) => choice.text
   "把接校外网页设计单并积累项目经验限定为每周两个固定时段，另外留一个晚上处理学习、求职或健康安排",
   "先完成接校外网页设计单并积累项目经验手头的一项交付，再决定是否接受新的私人邀约"
 ]);
+assert.equal(romanceRescheduleRegression.title, "照常推进的一段时间");
+assert.equal(romanceRescheduleRegression.descriptionParagraphs?.length, 3);
+assert.doesNotMatch(romanceRescheduleRegression.description, /一次尚未展开的联系/u);
 assert.match(romanceRescheduleRegression.description, /接校外网页设计单并积累项目经验/);
 assert.doesNotMatch(romanceRescheduleRegression.choices.map((choice) => choice.text).join("\n"), /保持当前工作与生活节奏|重新安排时间和责任|最紧迫的现实任务/u);
 
@@ -2519,9 +2522,9 @@ await assert.rejects(
     return true;
   }
 );
-assert.equal(enforcedAiCalls, 6, "three bounded full-node attempts plus one proposal repair per attempt");
-assert.deepEqual(enforcedGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
-assert.deepEqual(enforcedGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.equal(enforcedAiCalls, 4, "two bounded full-node attempts plus one proposal repair per attempt");
+assert.deepEqual(enforcedGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
+assert.deepEqual(enforcedGateDecisions.map((item) => item.regenerationCount), [0, 1]);
 assert.deepEqual(history, enforcedHistorySnapshot, "a rejected preview never advances History or mutates its financial snapshots");
 
 // An unsupported new personal-income claim is safely removed from the final
@@ -3681,15 +3684,15 @@ await assert.rejects(
   }),
   /财务节点接受门拒绝候选/
 );
-assert.equal(expenseGateAiCalls, 6, "each of three attempts performs one full-node generation and one bounded proposal repair; rejected narrative rollback is deterministic");
-assert.deepEqual(expenseGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
-assert.deepEqual(expenseGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.equal(expenseGateAiCalls, 4, "each of two attempts performs one full-node generation and one bounded proposal repair; rejected narrative rollback is deterministic");
+assert.deepEqual(expenseGateDecisions.map((item) => item.mode), ["enforced", "enforced"]);
+assert.deepEqual(expenseGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
 assert.ok(expenseGateDecisions.every((item) => item.allowDomainCommit === false));
 assert.ok(
   expenseGateDecisions.every((item) => item.reasonCodes.includes("REJECTED_COMPLETED_EXPENSE_LIFECYCLE")),
   `expected the enforced gate to retain the expense lifecycle reason: ${JSON.stringify(expenseGateDecisions)}`
 );
-assert.deepEqual(expenseGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(expenseGateDecisions.map((item) => item.regenerationCount), [0, 1]);
 assert.deepEqual(expenseGateHistory, expenseGateHistoryBefore, "rejected EXPENSE preview must not write History");
 assert.deepEqual(expenseGateHistory[0]!.financialLedger, expenseGateLedgerBefore, "rejected EXPENSE preview must not write the ledger");
 assert.deepEqual(expenseGateHistory[0]!.worldStateSnapshot, expenseGateWorldBefore, "rejected EXPENSE preview must not write WorldState");
@@ -3788,11 +3791,11 @@ await assert.rejects(
 );
 assert.equal(
   collectiveExpenseAiCalls,
-  6,
-  "collective ownership rejection must exhaust three full-node attempts and their proposal repairs without inventing a completion rollback"
+  4,
+  "collective ownership rejection must exhaust two full-node attempts and their proposal repairs without inventing a completion rollback"
 );
-assert.deepEqual(collectiveExpenseGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
-assert.deepEqual(collectiveExpenseGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.deepEqual(collectiveExpenseGateDecisions.map((item) => item.mode), ["enforced", "enforced"]);
+assert.deepEqual(collectiveExpenseGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
 assert.ok(collectiveExpenseGateDecisions.every((item) => item.allowDomainCommit === false));
 assert.ok(
   collectiveExpenseGateDecisions.every((item) => item.reasonCodes.includes("REJECTED_COMPLETED_EXPENSE_LIFECYCLE")),
@@ -3898,9 +3901,9 @@ await assert.rejects(
   }),
   /财务节点接受门拒绝候选/
 );
-assert.ok(jointCaregiverAiCalls >= 3, "the material shared-care omission must exhaust bounded generation attempts");
-assert.deepEqual(jointCaregiverGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
-assert.deepEqual(jointCaregiverGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.ok(jointCaregiverAiCalls >= 2, "the material shared-care omission must exhaust both bounded generation attempts");
+assert.deepEqual(jointCaregiverGateDecisions.map((item) => item.mode), ["enforced", "enforced"]);
+assert.deepEqual(jointCaregiverGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
 assert.ok(jointCaregiverGateDecisions.every((item) => item.allowDomainCommit === false));
 assert.ok(jointCaregiverGateDecisions.every((item) => item.reasonCodes.includes("UNSATISFIED_EXPENSE_LIFECYCLE")));
 assert.deepEqual(jointCaregiverHistory, jointCaregiverHistoryBefore, "unallocated material caregiver cost must not write History");
@@ -3975,19 +3978,19 @@ await assert.rejects(
   }),
   /财务节点接受门拒绝候选/
 );
-assert.equal(missingCareDeltaAiCalls, 3, "the missing structured care fact must use only bounded full-node regeneration");
+assert.equal(missingCareDeltaAiCalls, 2, "the missing structured care fact must use only two bounded full-node attempts");
 // The ordinary financial gate remains in shadow mode for this focused
 // regression, so each attempt records a dry-run shadow decision before the
 // final expense-authority gate emits its enforced rejection. Only the latter
 // may decide whether the Preview commits.
 const missingCareDeltaEnforcedDecisions = missingCareDeltaGateDecisions.filter((item) => item.mode === "enforced");
-assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
 assert.ok(missingCareDeltaEnforcedDecisions.every((item) => item.allowDomainCommit === false));
 assert.ok(missingCareDeltaEnforcedDecisions.every((item) => item.reasonCodes.includes("EXPENSE_RESPONSIBILITY_NARRATIVE_DELTA_MISSING")));
-assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
-assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.requiredFactGroupCount), [2, 2, 2]);
-assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.criticalFactGroupCount), [2, 2, 2]);
-assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.unsatisfiedCriticalFactGroupCount), [2, 2, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.regenerationCount), [0, 1]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.requiredFactGroupCount), [2, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.criticalFactGroupCount), [2, 2]);
+assert.deepEqual(missingCareDeltaEnforcedDecisions.map((item) => item.unsatisfiedCriticalFactGroupCount), [2, 2]);
 assert.deepEqual(missingCareDeltaHistory, missingCareDeltaHistoryBefore, "missing care delta must not write History");
 assert.deepEqual(missingCareDeltaHistory[0]!.financialLedger, missingCareDeltaLedgerBefore, "missing care delta must not write the ledger");
 assert.deepEqual(missingCareDeltaHistory[0]!.worldStateSnapshot, missingCareDeltaWorldBefore, "missing care delta must not write WorldState");
@@ -4243,15 +4246,15 @@ await assert.rejects(
     return true;
   }
 );
-assert.equal(personalMedicalOutlayAiCalls, 6, "each of three bounded attempts repairs the missing one-off event once before the gate rejects it");
-assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
-assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.equal(personalMedicalOutlayAiCalls, 4, "each of two bounded attempts repairs the missing one-off event once before the gate rejects it");
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.mode), ["enforced", "enforced"]);
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
 assert.ok(personalMedicalOutlayGateDecisions.every((item) => item.allowDomainCommit === false));
 assert.ok(
   personalMedicalOutlayGateDecisions.every((item) => item.reasonCodes.includes("UNSATISFIED_LARGE_PERSONAL_CASHFLOW")),
   `expected the personal-outlay coverage issue to stay a critical financial fact: ${JSON.stringify(personalMedicalOutlayGateDecisions)}`
 );
-assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(personalMedicalOutlayGateDecisions.map((item) => item.regenerationCount), [0, 1]);
 assert.deepEqual(personalMedicalOutlayHistory, personalMedicalOutlayHistoryBefore, "unmodeled completed medical outlay must not write History");
 assert.deepEqual(personalMedicalOutlayHistory[0]!.financialLedger, personalMedicalOutlayLedgerBefore, "unmodeled completed medical outlay must not write the ledger");
 assert.deepEqual(personalMedicalOutlayHistory[0]!.worldStateSnapshot, personalMedicalOutlayWorldBefore, "unmodeled completed medical outlay must not write WorldState");
@@ -4350,15 +4353,15 @@ await assert.rejects(
     return true;
   }
 );
-assert.equal(historicalMedicalOutlayAiCalls, 6, "a rejected pre-period one-off performs one full-node generation and one proposal repair per bounded attempt; narrative rollback stays deterministic");
-assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.mode), ["enforced", "enforced", "enforced"]);
-assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate", "regenerate"]);
+assert.equal(historicalMedicalOutlayAiCalls, 4, "a rejected pre-period one-off performs one full-node generation and one proposal repair per bounded attempt; narrative rollback stays deterministic");
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.mode), ["enforced", "enforced"]);
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.disposition), ["regenerate", "regenerate"]);
 assert.ok(historicalMedicalOutlayGateDecisions.every((item) => item.allowDomainCommit === false));
 assert.ok(
   historicalMedicalOutlayGateDecisions.every((item) => item.reasonCodes.includes("REJECTED_COMPLETED_LARGE_PERSONAL_CASHFLOW")),
   `a rejected period-end one-off must remain a critical cash-flow fact: ${JSON.stringify(historicalMedicalOutlayGateDecisions)}`
 );
-assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.regenerationCount), [0, 1, 2]);
+assert.deepEqual(historicalMedicalOutlayGateDecisions.map((item) => item.regenerationCount), [0, 1]);
 assert.deepEqual(historicalMedicalOutlayHistory, historicalMedicalOutlayHistoryBefore, "a rejected historical outlay correction must not write History");
 assert.deepEqual(historicalMedicalOutlayHistory[0]!.financialLedger, historicalMedicalOutlayLedgerBefore, "a rejected historical outlay correction must not write the ledger");
 assert.deepEqual(historicalMedicalOutlayHistory[0]!.worldStateSnapshot, historicalMedicalOutlayWorldBefore, "a rejected historical outlay correction must not write WorldState");
@@ -6001,7 +6004,7 @@ const deferredOnceNode = await generateNextNode({
 assert.notEqual(deferredOnceNode.eventMeta?.eventId, "romance_new_connection", "the owed event must not return immediately");
 assert.notEqual(deferredOnceNode.eventMeta?.romanceRescheduleFulfilled, true);
 
-const deferredOrdinaryNodes: HistoryItem[] = [1, 2].map((offset) => ({
+const deferredOrdinaryNodes: HistoryItem[] = [1, 2, 3].map((offset) => ({
   age: 37 + offset,
   ageInMonths: (37 + offset) * 12,
   stage: "外派生活",
@@ -6028,7 +6031,7 @@ const fulfilledRomanceNode = await generateNextNode({
   history: [completedFallbackNode, ...deferredOrdinaryNodes],
   currentAttributes: attributes,
   selectedDecision: "保持当前节奏",
-  nodeIndex: 3,
+  nodeIndex: 4,
   simulationSeed: "relationship-option-a-reschedule"
 }, {
   ...relationshipCompatibilityFinancialDeps,
@@ -6069,7 +6072,7 @@ const fulfilledRomanceNode = await generateNextNode({
 assert.equal(fulfilledRomanceCalls, 1);
 assert.equal(fulfilledRomanceNode.eventMeta?.eventId, "romance_new_connection");
 assert.equal(fulfilledRomanceNode.eventMeta?.romanceRescheduleFulfilled, true);
-assert.equal(fulfilledRomanceNode.eventMeta?.romanceRescheduleDelayNodes, 2);
+assert.equal(fulfilledRomanceNode.eventMeta?.romanceRescheduleDelayNodes, 3);
 assert.equal(fulfilledRomanceNode.eventMeta?.selectionKind, "unmixed");
 assert.equal(fulfilledRomanceNode.narrativeMeta?.relationshipProposals?.length, 2);
 assert.equal(fulfilledRomanceNode.worldStateSnapshot?.relationships.length || 0, 0, "rescheduled rendering still waits for the user's outcome");

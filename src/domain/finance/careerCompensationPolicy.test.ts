@@ -201,6 +201,12 @@ test("a due estimated salary is reviewed at each policy boundary without changin
   assert.deepEqual(reviewed.map((proposal) => proposal.effectiveAtAgeInMonths), [312, 324, 336]);
   assert.equal((reviewed[2].payload as any).nextSource.compensationEstimate.reviewAtAgeInMonths, 348);
   assert.equal((reviewed[2].payload as any).nextSource.linkedCareerStateId, state.id);
+  const amounts = reviewed.map((proposal) => (proposal.payload as any).nextSource.monthlyNetAmountWan);
+  assert.deepEqual(amounts, [
+    Math.round(estimate.monthlyNetAmountWan * 1.04 * 100) / 100,
+    Math.round(estimate.monthlyNetAmountWan * 1.08 * 100) / 100,
+    Math.round(estimate.monthlyNetAmountWan * 1.12 * 100) / 100
+  ]);
 });
 
 test("bounded student internship is an engagement, retains student CareerState, and has an exact end month", () => {
