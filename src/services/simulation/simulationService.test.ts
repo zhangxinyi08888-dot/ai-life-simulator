@@ -991,10 +991,11 @@ assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.id, "op
 assert.equal(mortgageStarted.startNode.financialLedger?.debtAccounts[0]?.repaymentPolicy.monthlyPaymentWan, 1.3);
 assert.equal(mortgageStarted.startNode.financialLedger?.assetAccounts.some((account) => account.type === "property"), true);
 // The model's opening annualCoreExpenseWan=18 still has no authority. The
-// accepted salary selects the bounded aggregate prior, recorded as a separate
-// needs-review residual rather than inventing housing or healthcare facts.
-assert.equal(mortgageStarted.startNode.financialState?.annualCoreExpenseWan, 16.2);
-assert.equal(mortgageStarted.startNode.financialState?.annualDisposableIncomeWan, 16.7);
+// accepted salary selects the diminishing income-aware ordinary-living total,
+// recorded as a separate needs-review residual rather than inventing housing
+// or healthcare facts. Mortgage interest remains outside core expense.
+assert.equal(mortgageStarted.startNode.financialState?.annualCoreExpenseWan, 27.2076);
+assert.equal(mortgageStarted.startNode.financialState?.annualDisposableIncomeWan, 5.6924);
 
 const openingNarrativeAuthorityStarted = await startSimulation({
   ...userData,
@@ -1201,6 +1202,10 @@ assert.match(callerProvidedGateReasonPrompt, /UNSATISFIED_CAREER_INCOME_TRANSITI
 // its retry prompt must tell the model exactly how to make the existing source
 // authoritative rather than silently carrying it forward or stalling forever.
 const legacyIncomeRetryLedger = structuredClone(nextNode.financialLedger!);
+// Keep this fixture focused on legacy-income confirmation. A temporary cash
+// buffer prevents the independent explicit-funding gate from becoming the
+// retry subject while the salary is deliberately quarantined.
+for (const account of legacyIncomeRetryLedger.cashAccounts) account.balanceWan = Math.max(account.balanceWan, 10);
 const legacyIncomeRetryWorld = structuredClone(nextNode.worldStateSnapshot!);
 const legacyIncomeRetryCareerId = legacyIncomeRetryWorld.currentCareerStateId!;
 const legacyIncomeRetryCareer = legacyIncomeRetryWorld.careerStates.find((state) => state.id === legacyIncomeRetryCareerId)!;
@@ -5159,6 +5164,9 @@ const postResolutionHistory: HistoryItem[] = [
     selectedChoice: "继续走向下一段人生"
   }
 ];
+for (const account of postResolutionHistory.at(-1)?.financialLedger?.cashAccounts || []) {
+  account.balanceWan = Math.max(account.balanceWan, 1000);
+}
 const postResolutionNode = await generateNextNode({
   userData,
   answers,
@@ -5205,6 +5213,18 @@ function genericArcHistory(phaseId: "growth" | "operation", length: number): His
     description: "她仍在处理这次事业机会带来的现金流和长期方向压力。",
     selectedChoice: `处理事业机会 ${index + 1}`,
     attributes,
+    financialState: {
+      ...structuredClone(nextNode.financialState!),
+      asOfAgeInMonths: 36 * 12,
+      cashWan: 1000,
+      totalDebtWan: 0,
+      netWorthWan: 1000,
+      annualAfterTaxIncomeWan: 0,
+      annualDisposableIncomeWan: 0,
+      annualCoreExpenseWan: 0,
+      employmentStatus: "not_working",
+      incomeStability: "unstable"
+    },
     choices: [{ id: "A", text: `处理事业机会 ${index + 1}`, impactSummary: "继续评估" }],
     isEndingNode: false,
     eventMeta: {

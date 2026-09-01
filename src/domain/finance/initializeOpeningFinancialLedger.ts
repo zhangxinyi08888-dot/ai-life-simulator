@@ -336,6 +336,9 @@ function buildOpeningExpenseCommitments(input: {
     }));
   }
   const componentTotal = roundWan(componentCommitments.reduce((sum, commitment) => sum + commitment.monthlyAmountWan, 0));
+  const ordinaryLivingComponentTotal = roundWan(componentCommitments
+    .filter((commitment) => commitment.responsibilityKind === "primary_residence")
+    .reduce((sum, commitment) => sum + commitment.monthlyAmountWan, 0));
   const explicitComponentTotal = roundWan(componentFacts
     .filter((fact) => fact.factStatus === "known" && fact.monthlyAmountWan !== undefined)
     .reduce((sum, fact) => sum + (fact.monthlyAmountWan || 0), 0));
@@ -428,12 +431,12 @@ function buildOpeningExpenseCommitments(input: {
     0,
     (aggregateEstimate?.targetMonthlyCoreExpenseWan || 0)
       - (basic?.monthlyAmountWan || 0)
-      - componentTotal
+      - ordinaryLivingComponentTotal
   ));
   const unclassified: OpeningExpenseCommitment | undefined = aggregateEstimate && residualWan > 0 ? {
     id: `opening_unclassified_core_consumption_${input.state.asOfAgeInMonths}`,
     type: "other",
-    displayName: "未分类核心生活支出估算（待确认）",
+    displayName: "日常生活总支出估算（含住房，待确认）",
     monthlyAmountWan: residualWan,
     activeFromAgeInMonths: input.state.asOfAgeInMonths,
     status: "active",
@@ -442,7 +445,7 @@ function buildOpeningExpenseCommitments(input: {
     evidence: [{
       source: "system_policy",
       reasonCode: "EXPENSE_UNCLASSIFIED_CORE_CONSUMPTION",
-      excerpt: "Opening 缺少可安全拆分的持续支出分项；仅建立未分类余额，不推断住房、医疗或家庭责任",
+      excerpt: "Opening 按收入与居住上下文建立日常生活总额；房租计入总额，医疗、教育与家庭责任在总额外单独计提",
       confidence: 1,
       financialScope: "personal"
     }],

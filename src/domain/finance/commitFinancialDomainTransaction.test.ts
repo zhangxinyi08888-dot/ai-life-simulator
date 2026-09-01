@@ -246,12 +246,12 @@ test("an explicit aggregate context adds an accruing residual while Preview leav
   const previewBasic = preview.financialLedger.expenseCommitments.find((item) => item.responsibilityKind === "adult_basic_living");
   const previewResidual = preview.financialLedger.expenseCommitments.find((item) => item.responsibilityKind === "unclassified_core_consumption");
   assert.equal(previewBasic?.monthlyAmountWan, 0.35);
-  assert.equal(previewResidual?.monthlyAmountWan, 0.55);
-  assert.equal(preview.derivedFinancialState.state.annualizedCoreExpenseWan, 10.8);
+  assert.equal(previewResidual?.monthlyAmountWan, 1.194);
+  assert.equal(preview.derivedFinancialState.state.annualizedCoreExpenseWan, 18.528);
 
   const committed = commitFinancialDomainTransaction(input);
   assert.equal(committed.financialLedger.expenseCommitments.filter((item) => item.responsibilityKind === "unclassified_core_consumption").length, 1);
-  assert.equal(committed.derivedFinancialState.state.annualizedCoreExpenseWan, 10.8);
+  assert.equal(committed.derivedFinancialState.state.annualizedCoreExpenseWan, 18.528);
 });
 
 test("a residual created during a long period records its due review issue in the same committed node", () => {
@@ -355,8 +355,8 @@ test("the unclassified residual carries forward without narrative and never dupl
   });
   const residuals = second.financialLedger.expenseCommitments.filter((item) => item.status === "active" && item.responsibilityKind === "unclassified_core_consumption");
   assert.equal(residuals.length, 1);
-  assert.equal(residuals[0].monthlyAmountWan, 0.55);
-  assert.equal(second.derivedFinancialState.state.annualizedCoreExpenseWan, 10.8);
+  assert.equal(residuals[0].monthlyAmountWan, 1.194);
+  assert.equal(second.derivedFinancialState.state.annualizedCoreExpenseWan, 18.528);
 });
 
 test("the adult basic-living floor does not rewrite a V4 legacy aggregate", () => {

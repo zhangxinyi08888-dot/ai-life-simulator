@@ -93,10 +93,11 @@ test("O-01 initializes distinct nonzero review commitments for an unpriced rent 
   ));
   assert.equal(unclassified?.factStatus, "needs_review");
   assert.equal(unclassified?.amountBasis, "contextual_estimate");
-  assert.equal(unclassified?.monthlyAmountWan, 0.28);
-  assert.equal(result.ledger.expenseCommitments
+  assert.equal(unclassified?.monthlyAmountWan, 1.154);
+  assert.ok(Math.abs(result.ledger.expenseCommitments
     .filter((item) => item.status === "active")
-    .reduce((sum, item) => sum + item.monthlyAmountWan, 0), 1.1);
+    .reduce((sum, item) => sum + item.monthlyAmountWan, 0) - 1.974) < 0.0001,
+  "日常生活总额应为 1.854 万/月，父母医疗 0.12 万/月在其外单独计提");
 });
 
 test("O-02 only accrues the protagonist half of a shared rent", () => {
@@ -221,10 +222,10 @@ test("O-04 ignores a model aggregate state but adds a separately auditable conte
   const basic = active.find((item) => item.responsibilityKey === "adult_basic_living:protagonist");
   const residual = active.find((item) => item.responsibilityKey === "unclassified_core_consumption:protagonist");
   assert.equal(basic?.monthlyAmountWan, 0.35);
-  assert.equal(residual?.monthlyAmountWan, 0.75);
+  assert.equal(residual?.monthlyAmountWan, 1.504);
   assert.equal(residual?.factStatus, "needs_review");
   assert.equal(residual?.amountBasis, "contextual_estimate");
-  assert.equal(active.reduce((sum, item) => sum + item.monthlyAmountWan, 0), 1.1);
+  assert.ok(Math.abs(active.reduce((sum, item) => sum + item.monthlyAmountWan, 0) - 1.854) < 0.0001);
   assert.notEqual(active.reduce((sum, item) => sum + item.monthlyAmountWan, 0), 1.5, "model annualCoreExpense total is still not opening authority");
 });
 

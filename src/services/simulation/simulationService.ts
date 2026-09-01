@@ -79,6 +79,7 @@ import {
   deriveFinancialState,
   deriveConservativeWealthBasis,
   migrateFinancialLedgerV2ToV3,
+  retireSystemAutoShortfallDebt,
   preflightFinancialLedgerV3ToV4,
   isFinancialLedgerV4,
   prepareOpeningFinancialAuthority,
@@ -3199,8 +3200,8 @@ async function commitAuthoritativeFinancialProgress(input: {
   // at the simulation boundary; never rewrite the historical snapshot in place.
   const migratedCurrentLedger = input.currentLedger
     ? isFinancialLedgerV4(input.currentLedger)
-      ? structuredClone(input.currentLedger)
-      : migrateFinancialLedgerV2ToV3(input.currentLedger as unknown as FinancialLedgerInput)
+      ? retireSystemAutoShortfallDebt(structuredClone(input.currentLedger))
+      : retireSystemAutoShortfallDebt(migrateFinancialLedgerV2ToV3(input.currentLedger as unknown as FinancialLedgerInput))
     : undefined;
   const compatibleInitialLedger = migratedCurrentLedger?.asOfAgeInMonths === input.periodStartAgeInMonths
     ? migratedCurrentLedger
@@ -3972,7 +3973,7 @@ async function commitAuthoritativeFinancialProgress(input: {
       cityCostBand: expenseEstimateContext.cityCostBand
     },
     aggregateExpenseEstimateContext: expenseEstimateContext,
-    liquidityPolicy: "auto_shortfall_debt"
+    liquidityPolicy: "require_explicit"
   } as const;
   const previewOrRejectInvalidCandidate = (
     candidateTransaction: Parameters<typeof previewFinancialDomainTransaction>[0]
@@ -5819,8 +5820,8 @@ async function generateNextNodeAttempt(
   // remains byte-for-byte unchanged until a new node is committed.
   const currentFinancialLedger = lastNode?.financialLedger
     ? isFinancialLedgerV4(lastNode.financialLedger)
-      ? structuredClone(lastNode.financialLedger)
-      : migrateFinancialLedgerV2ToV3(lastNode.financialLedger as unknown as FinancialLedgerInput)
+      ? retireSystemAutoShortfallDebt(structuredClone(lastNode.financialLedger))
+      : retireSystemAutoShortfallDebt(migrateFinancialLedgerV2ToV3(lastNode.financialLedger as unknown as FinancialLedgerInput))
     : undefined;
   const nodeIndex = input.nodeIndex ?? input.history.length;
   const dispatchFlags = relationshipDispatchFeatureFlags(deps.relationshipDispatchFeatureFlags);

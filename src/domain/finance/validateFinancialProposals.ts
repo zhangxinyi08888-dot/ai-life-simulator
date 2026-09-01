@@ -989,39 +989,6 @@ function acceptedEvent(
   return event;
 }
 
-/**
- * Automatic liquidity is an exception for an expense that the narrative says
- * has already happened and that cannot reasonably be cancelled.  The model
- * cannot opt into this path: the marker is added only after ordinary evidence
- * matching and the first explicit-funding trial have both run.
- *
- * Keep this deliberately conservative. Generic consumption and future intent
- * are repairable proposals, not system-authorised borrowing.
- */
-function isIncurredEssentialOneOffExpense(
-  proposal: FinancialEventProposal,
-  narrativeText: string
-): boolean {
-  if (proposal.kind !== "one_off_expense_paid") return false;
-  const evidence = proposal.evidence.trim();
-  if (!evidence || !matchFinancialEvidence({ proposal, narrativeText }).matched) return false;
-
-  const isAttemptOrFuture = /(?:尝试|试图|打算|计划|准备|考虑|申请|协商|报价|预算|尚未|还未|未能|没有|取消|可退|attempt|plan|intend|consider|apply|negotiate|not yet|cancel)/iu.test(evidence);
-  if (isAttemptOrFuture) return false;
-  const isCompleted = /(?:已经|已(?:经)?(?:支付|缴纳|结清|发生|产生|接受|完成)|支付了|缴纳了|花费了|住院|急诊|手术|治疗|抢救|丧葬|paid|incurred|completed|underwent|hospitali[sz]ed)/iu.test(evidence);
-  const isEssential = /(?:必要|必需|无法撤回|不可撤回|医疗|医药|治疗|住院|急诊|手术|抢救|护理|丧葬|基本住房|房租|学费|教育|保险|抚养|赡养|essential|necessary|unavoidable|medical|hospital|surgery|funeral|tuition|insurance|dependent care)/iu.test(evidence);
-  return isCompleted && isEssential;
-}
-
-function markSystemShortfallAllowed(event: AcceptedFinancialEvent): AcceptedFinancialEvent {
-  return {
-    ...event,
-    // This field is intentionally absent from Proposal. It is validator-owned.
-    liquidityTreatment: "allow_system_shortfall",
-    acceptedByReasonCodes: [...event.acceptedByReasonCodes, "INCURRED_ESSENTIAL_EXPENSE"]
-  } as AcceptedFinancialEvent;
-}
-
 function dependentProposalIds(proposal: FinancialEventProposal): string[] {
   const payload = proposal.payload as Record<string, unknown> | undefined;
   if (proposal.kind === "asset_purchased" && typeof payload?.linkedDebtDrawEventId === "string") {
@@ -2014,36 +1981,15 @@ export function validateFinancialProposals(input: {
         periodStartAgeInMonths: input.periodStartAgeInMonths,
         periodEndAgeInMonths: input.periodEndAgeInMonths,
         events: [...acceptedAfterTrial, ...groupEvents],
-        // Background recurring accrual may use the auditable system shortfall,
-        // while the reducer still requires proposal-created event-boundary
-        // gaps to carry validator-owned liquidity authority.
+        // This is a mutation-free proposal trial. Background accrual must not
+        // reject an otherwise valid career/expense fact before the final
+        // production preview applies require_explicit and rolls back the node.
+        // Proposal events still cannot opt into system shortfall because no
+        // validator-owned allow_system_shortfall marker is added here.
         liquidityPolicy: "auto_shortfall_debt"
       });
       acceptedAfterTrial.push(...groupEvents);
     } catch (error) {
-      const missingFunding = error instanceof FinancialLedgerInvariantError
-        && (error.code === "MISSING_FUNDING_SOURCE" || error.code === "UNRESOLVED_FUNDING_GAP");
-      const mayUseSystemShortfall = missingFunding
-        && group.length > 0
-        && group.every((proposal) => isIncurredEssentialOneOffExpense(proposal, input.narrativeText));
-      if (mayUseSystemShortfall) {
-        const markedEvents = groupEvents.map(markSystemShortfallAllowed);
-        try {
-          reduceFinancialLedger({
-            ledger: input.currentLedger,
-            transactionId: `validation_essential_${input.simulationTransactionId}_${acceptedAfterTrial.length}`,
-            expectedLedgerRevision: input.currentLedger.revision,
-            periodStartAgeInMonths: input.periodStartAgeInMonths,
-            periodEndAgeInMonths: input.periodEndAgeInMonths,
-            events: [...acceptedAfterTrial, ...markedEvents],
-            liquidityPolicy: "auto_shortfall_debt"
-          });
-          acceptedAfterTrial.push(...markedEvents);
-          continue;
-        } catch (secondTrialError) {
-          error = secondTrialError;
-        }
-      }
       if (!(error instanceof FinancialLedgerInvariantError)) throw error;
       const code = error instanceof FinancialLedgerInvariantError
         && (error.code === "MISSING_FUNDING_SOURCE" || error.code === "UNRESOLVED_FUNDING_GAP")

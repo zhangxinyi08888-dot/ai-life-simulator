@@ -113,6 +113,22 @@ function historyAt(age: number, arc?: PressureArcState): HistoryItem[] {
     selectedChoice: "继续创业",
     choices: [{ id: "A", text: "继续创业", impactSummary: "继续经营", temporalHint: { lifeIntensity: "high_tension", durationMonths: [6, 12], requiresFollowUp: true, reason: "创业" } }],
     attributes,
+    financialState: {
+      currencyUnit: "CNY_WAN_REAL",
+      asOfAgeInMonths: age * 12,
+      cashWan: 1000,
+      investmentAssetsWan: 0,
+      propertyMarketValueWan: 0,
+      businessAndOtherAssetsWan: 0,
+      totalDebtWan: 0,
+      netWorthWan: 1000,
+      annualAfterTaxIncomeWan: 0,
+      annualDisposableIncomeWan: 0,
+      annualCoreExpenseWan: 0,
+      employmentStatus: "not_working",
+      incomeStability: "unstable",
+      isEstimated: true
+    },
     isEndingNode: false,
     worldStateSnapshot
   }];
@@ -239,7 +255,7 @@ const stableOperation = await generateNextNode({
 }, {
   ...incompleteFinancialFixtureDeps,
   callAiJson: async (prompt) => {
-    capturedPrompt = prompt;
+    if (prompt.includes("phase=")) capturedPrompt = prompt;
     return { text: JSON.stringify(rawNode()) };
   }
 });

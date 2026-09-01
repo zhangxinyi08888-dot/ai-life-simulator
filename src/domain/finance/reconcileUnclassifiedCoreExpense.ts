@@ -44,9 +44,10 @@ function isAggregateFallbackEligible(commitments: ExpenseCommitmentV4[]): boolea
   ));
 }
 
-function activeTypedMonthly(commitments: ExpenseCommitmentV4[]): number {
+function activeOrdinaryLivingComponentsMonthly(commitments: ExpenseCommitmentV4[]): number {
   return roundWan(commitments
-    .filter((item) => item.status === "active" && !isUnclassified(item) && item.responsibilityKind !== "legacy_aggregate")
+    .filter((item) => item.status === "active"
+      && (item.responsibilityKind === "adult_basic_living" || item.responsibilityKind === "primary_residence"))
     .reduce((sum, item) => sum + item.monthlyAmountWan, 0));
 }
 
@@ -123,7 +124,9 @@ export interface ReconcileUnclassifiedCoreExpenseInput {
 }
 
 /**
- * Returns deterministic internal events.  The same function runs inside
+ * Returns deterministic internal events. Typed rent/basic-living facts stay
+ * auditable, while this policy-managed residual makes their combined accrual
+ * equal one ordinary-living total (housing included). The same function runs inside
  * Preview and Commit, so a rejected node never mutates the authoritative
  * ledger.  Newly accepted typed components consume the residual at the same
  * event boundary, preventing double accrual without inventing category facts.
@@ -135,17 +138,6 @@ export function reconcileUnclassifiedCoreExpense(
   const existing = input.ledger.expenseCommitments.find((item) => item.status === "active" && isUnclassified(item));
   if (!existing && !isAggregateFallbackEligible(input.ledger.expenseCommitments)) return [];
   const projectedIncomeSources = structuredClone(input.ledger.incomeSources);
-  for (const event of input.acceptedFinancialEvents
-    .filter((candidate) => candidate.effectiveAtAgeInMonths === input.periodStartAgeInMonths)
-    .sort((left, right) => left.id.localeCompare(right.id))) {
-    applyIncomeEvent(projectedIncomeSources, event);
-  }
-  const estimate = estimateUnclassifiedCoreConsumption({
-    ageInMonths: input.periodStartAgeInMonths,
-    ...input.estimateContext,
-    annualRecurringPersonalIncomeWan: roundWan(projectedIncomeSources.reduce((sum, source) => sum + annualIncome(source), 0))
-  });
-  if (!estimate) return [];
 
   const projected = structuredClone(input.ledger.expenseCommitments);
   const acceptedExpenseEvents = input.acceptedFinancialEvents
@@ -158,18 +150,23 @@ export function reconcileUnclassifiedCoreExpense(
     ? `${UNCLASSIFIED_CORE_EXPENSE_ID}_${input.periodStartAgeInMonths}`
     : UNCLASSIFIED_CORE_EXPENSE_ID;
 
-  const emit = (ageInMonths: number, desired: number, reason: "context" | "reallocation") => {
+  const estimateAt = (ageInMonths: number) => estimateUnclassifiedCoreConsumption({
+    ageInMonths,
+    ...input.estimateContext,
+    annualRecurringPersonalIncomeWan: roundWan(projectedIncomeSources.reduce((sum, source) => sum + annualIncome(source), 0))
+  });
+  const emit = (ageInMonths: number, desired: number, reason: "context" | "reallocation", estimate: NonNullable<ReturnType<typeof estimateAt>>) => {
     const nextAmount = roundWan(Math.max(0, desired));
     if (!currentCommitment && nextAmount <= 0) return;
     const suffix = `${ageInMonths}_${events.length}`;
     if (!currentCommitment) {
-      const evidence = policyEvidence(`分类事实不足；按 ${estimate.policyId}@${estimate.policyVersion} 建立未分类核心支出余额 ${nextAmount} 万/月`);
+      const evidence = policyEvidence(`按 ${estimate.policyId}@${estimate.policyVersion} 建立日常生活总支出（含住房）政策余额 ${nextAmount} 万/月`);
       currentCommitment = {
         id: nextCommitmentId,
         responsibilityKey: UNCLASSIFIED_CORE_EXPENSE_KEY,
         responsibilityKind: "unclassified_core_consumption",
         type: "other",
-        displayName: "未分类核心生活支出估算",
+        displayName: "日常生活总支出估算（含住房）",
         monthlyAmountWan: nextAmount,
         plausibleMonthlyAmountRangeWan: estimate.plausibleRangeWan,
         amountBasis: "contextual_estimate",
@@ -196,7 +193,7 @@ export function reconcileUnclassifiedCoreExpense(
     const evidence = policyEvidence(
       reason === "reallocation"
         ? `新分类责任已接受；未分类余额从 ${residual} 万/月原子重分配为 ${nextAmount} 万/月`
-        : `上下文估计提高；未分类余额从 ${residual} 万/月调整为 ${nextAmount} 万/月`,
+        : `收入或生活上下文变化；日常生活政策余额从 ${residual} 万/月调整为 ${nextAmount} 万/月`,
       reason === "reallocation"
         ? "EXPENSE_UNCLASSIFIED_RESIDUAL_REALLOCATION"
         : "EXPENSE_UNCLASSIFIED_CORE_CONSUMPTION"
@@ -239,26 +236,27 @@ export function reconcileUnclassifiedCoreExpense(
     residual = nextAmount;
   };
 
-  const typedBeforeStartBoundary = activeTypedMonthly(projected);
-  const startBoundaryEvents = acceptedExpenseEvents.filter((event) => event.effectiveAtAgeInMonths === input.periodStartAgeInMonths);
-  for (const event of startBoundaryEvents) applyExpenseEvent(projected, event);
-  const typedAfterStartBoundary = activeTypedMonthly(projected);
-  const initialGap = roundWan(Math.max(0, estimate.targetMonthlyCoreExpenseWan - typedAfterStartBoundary));
-  const acceptedStartIncrease = roundWan(Math.max(0, typedAfterStartBoundary - typedBeforeStartBoundary));
-  const carriedResidual = roundWan(Math.max(0, residual - acceptedStartIncrease));
-  emit(input.periodStartAgeInMonths, Math.max(carriedResidual, initialGap), acceptedStartIncrease > 0 ? "reallocation" : "context");
-
-  const laterBoundaries = [...new Set(acceptedExpenseEvents
-    .map((event) => event.effectiveAtAgeInMonths)
-    .filter((age) => age > input.periodStartAgeInMonths && age <= input.periodEndAgeInMonths))];
-  for (const boundary of laterBoundaries) {
-    const before = activeTypedMonthly(projected);
+  const relevantIncomeEvents = input.acceptedFinancialEvents
+    .filter((event) => event.kind.startsWith("income_source_"))
+    .sort((left, right) => left.effectiveAtAgeInMonths - right.effectiveAtAgeInMonths || left.id.localeCompare(right.id));
+  const boundaries = [...new Set([
+    input.periodStartAgeInMonths,
+    ...acceptedExpenseEvents.map((event) => event.effectiveAtAgeInMonths),
+    ...relevantIncomeEvents.map((event) => event.effectiveAtAgeInMonths)
+  ].filter((age) => age >= input.periodStartAgeInMonths && age <= input.periodEndAgeInMonths))].sort((a, b) => a - b);
+  for (const boundary of boundaries) {
+    for (const event of relevantIncomeEvents.filter((candidate) => candidate.effectiveAtAgeInMonths === boundary)) {
+      applyIncomeEvent(projectedIncomeSources, event);
+    }
+    const before = activeOrdinaryLivingComponentsMonthly(projected);
     for (const event of acceptedExpenseEvents.filter((candidate) => candidate.effectiveAtAgeInMonths === boundary)) {
       applyExpenseEvent(projected, event);
     }
-    const after = activeTypedMonthly(projected);
-    const acceptedIncrease = roundWan(Math.max(0, after - before));
-    if (acceptedIncrease > 0 && residual > 0) emit(boundary, Math.max(0, residual - acceptedIncrease), "reallocation");
+    const after = activeOrdinaryLivingComponentsMonthly(projected);
+    const estimate = estimateAt(boundary);
+    if (!estimate) continue;
+    const desiredResidual = roundWan(Math.max(0, estimate.targetMonthlyCoreExpenseWan - after));
+    emit(boundary, desiredResidual, after > before ? "reallocation" : "context", estimate);
   }
   return events;
 }

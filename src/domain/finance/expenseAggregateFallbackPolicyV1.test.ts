@@ -2,14 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { estimateUnclassifiedCoreConsumption } from "./expenseAggregateFallbackPolicyV1";
 
-test("aggregate fallback uses a bounded income band rather than a target expense ratio", () => {
-  const medium = estimateUnclassifiedCoreConsumption({ ageInMonths: 30 * 12, employmentStatus: "employed", annualRecurringPersonalIncomeWan: 24 });
-  const high = estimateUnclassifiedCoreConsumption({ ageInMonths: 30 * 12, employmentStatus: "employed", annualRecurringPersonalIncomeWan: 240 });
-  assert.ok(medium && high);
-  assert.equal(medium.targetMonthlyCoreExpenseWan, 0.9);
-  assert.equal(high.targetMonthlyCoreExpenseWan, 1.6);
-  assert.ok(high.targetMonthlyCoreExpenseWan < medium.targetMonthlyCoreExpenseWan * 10, "tenfold income must not create tenfold expense");
-  assert.ok(medium.reasonCodes.includes("EXPENSE_INCOME_BAND_PRIOR_APPLIED"));
+test("deterministic path A keeps ordinary living increasing across 0.8, 1.5 and 3 万/月 while its ratio diminishes", () => {
+  const estimates = [0.8, 1.5, 3].map((monthlyIncomeWan) => estimateUnclassifiedCoreConsumption({
+    ageInMonths: 30 * 12,
+    employmentStatus: "employed",
+    annualRecurringPersonalIncomeWan: monthlyIncomeWan * 12
+  }));
+  assert.ok(estimates.every(Boolean));
+  const targets = estimates.map((item) => item!.targetMonthlyCoreExpenseWan);
+  assert.deepEqual(targets, [0.68, 1.184, 2.164]);
+  assert.ok(targets[0] < targets[1] && targets[1] < targets[2]);
+  const ratios = targets.map((target, index) => target / [0.8, 1.5, 3][index]);
+  assert.ok(ratios[0] > ratios[1] && ratios[1] > ratios[2]);
+  assert.ok(estimates[2]!.reasonCodes.includes("EXPENSE_INCOME_AWARE_LIFESTYLE_APPLIED"));
 });
 
 test("accepted student family/provided housing suppresses the income prior", () => {
@@ -23,8 +28,19 @@ test("accepted student family/provided housing suppresses the income prior", () 
     });
     assert.ok(estimate);
     assert.equal(estimate.targetMonthlyCoreExpenseWan, 0.15);
-    assert.equal(estimate.reasonCodes.includes("EXPENSE_INCOME_BAND_PRIOR_APPLIED"), false);
+    assert.equal(estimate.reasonCodes.includes("EXPENSE_INCOME_AWARE_LIFESTYLE_APPLIED"), false);
   }
+});
+
+test("low income ordinary living is capped below monthly income", () => {
+  const estimate = estimateUnclassifiedCoreConsumption({
+    ageInMonths: 30 * 12,
+    employmentStatus: "employed",
+    annualRecurringPersonalIncomeWan: 4.8
+  });
+  assert.ok(estimate);
+  assert.equal(estimate.targetMonthlyCoreExpenseWan, 0.38);
+  assert.ok(estimate.reasonCodes.includes("EXPENSE_ORDINARY_LIVING_AFFORDABILITY_CAP_APPLIED"));
 });
 
 test("household size remains review context and never fabricates a payer amount", () => {

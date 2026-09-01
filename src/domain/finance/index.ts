@@ -8,6 +8,7 @@ export * from "./deriveFinancialState";
 export * from "./debtHealth";
 export * from "./migrateLegacyFinancialState";
 export * from "./migrateFinancialLedgerV2ToV3";
+export * from "./retireSystemAutoShortfall";
 export * from "./mortalityFinancialClosure";
 export * from "./lateLifeEmploymentClosure";
 export * from "./lateLifeCareerIncomePolicy";
